@@ -2961,13 +2961,18 @@ fn test_validate_rejects_bad_component_values() {
         ),
         (
             r#"{ "component": "nav_agent", "radius": 0.0, "speed_mps": 1.0 }"#,
-            "radius and speed_mps must be finite and positive",
+            "must be finite and positive",
             "zero nav radius",
         ),
         (
             r#"{ "component": "nav_agent", "radius": 0.5, "speed_mps": 0.0 }"#,
-            "radius and speed_mps must be finite and positive",
+            "must be finite and positive",
             "zero nav speed",
+        ),
+        (
+            r#"{ "component": "ai", "behavior": "prey" }"#,
+            "authors an `ai` component without a `nav_agent` body",
+            "an ai needs a body",
         ),
     ];
     for (component, expected, label) in cases {
@@ -4244,4 +4249,114 @@ fn every_checked_in_level_parses_and_validates_against_the_final_schema() {
         checked >= 20,
         "expected every checked-in level, found {checked}"
     );
+}
+
+/// An edit that only changes an AI behavior reuses the previous package's
+/// prepared world; a geometry edit does not.
+#[test]
+fn an_ai_only_edit_reuses_the_prepared_lighting() {
+    let dir = std::env::temp_dir().join(format!("places-nav-reuse-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).expect("create the reuse scratch directory");
+    let source = dir.join("reuse_level.json");
+    let level_json = |ai_speed: f32, room_width: f32| {
+        format!(
+            r#"{{
+                "format_version": 3, "id": "nav_reuse", "name": "Reuse",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": {room_width}, "depth": 6.0, "height": 3.0 }} ],
+                "props": [ {{ "id": "actor", "model": "rat", "x": 2.0, "z": 2.0,
+                              "components": [
+                                {{ "component": "nav_agent", "radius": 0.1, "height": 0.16,
+                                   "speed_mps": 0.2, "step_height": 0.2, "max_slope": 2.6667 }},
+                                {{ "component": "ai", "behavior": "idler", "walk_speed": {ai_speed} }}
+                              ] }} ]
+            }}"#
+        )
+    };
+    let out = source.with_extension("placesmap");
+    let request = |force: bool| crate::compiler::BuildRequest {
+        source: source.clone(),
+        out: out.clone(),
+        asset_root: std::path::PathBuf::from("assets"),
+        variants: vec![crate::quality::LightmapQuality::Off],
+        workers: 1,
+        force,
+        capture_probes: false,
+    };
+
+    fs::write(&source, level_json(1.0, 8.0)).expect("write the base level");
+    let first = crate::compiler::build(&request(true)).expect("the base package builds");
+    assert!(first.rebuilt);
+    let first_manifest = crate::compiler::inspect(&out).expect("inspect the base package");
+    let first_variant = first_manifest
+        .variant("off")
+        .expect("the base variant exists")
+        .clone();
+
+    // AI-only edit: the stage fingerprint is unchanged, so the prepared
+    // lighting/geometry blob names are reused.
+    fs::write(&source, level_json(1.7, 8.0)).expect("write the AI-edited level");
+    let second = crate::compiler::build(&request(false)).expect("the AI edit rebuilds");
+    assert!(
+        second.rebuilt,
+        "the package is rewritten with new semantics"
+    );
+    assert!(
+        second
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("reused prepared geometry")),
+        "the AI edit reports lighting reuse: {:?}",
+        second.warnings
+    );
+    let second_manifest = crate::compiler::inspect(&out).expect("inspect the edited package");
+    let second_variant = second_manifest
+        .variant("off")
+        .expect("the edited variant exists");
+    assert_eq!(
+        first_variant.entries.lighting, second_variant.entries.lighting,
+        "the baked lighting record is reused byte-for-byte"
+    );
+    assert_eq!(
+        first_variant.entries.mesh, second_variant.entries.mesh,
+        "the prepared geometry is reused"
+    );
+    assert_eq!(
+        first_variant.entries.navigation, second_variant.entries.navigation,
+        "an AI speed edit does not change the navigation record"
+    );
+    assert_ne!(
+        first_manifest.compiler_fingerprint, second_manifest.compiler_fingerprint,
+        "the package identity still tracks the source"
+    );
+    assert_eq!(
+        first_manifest.lighting_fingerprint, second_manifest.lighting_fingerprint,
+        "the stage fingerprint is unchanged by an AI-only edit"
+    );
+
+    // Geometry edit: the stage fingerprint changes and nothing is reused.
+    fs::write(&source, level_json(1.7, 9.0)).expect("write the geometry-edited level");
+    let third = crate::compiler::build(&request(false)).expect("the geometry edit rebuilds");
+    assert!(
+        !third
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("reused prepared geometry")),
+        "a geometry edit prepares everything again: {:?}",
+        third.warnings
+    );
+    let third_manifest = crate::compiler::inspect(&out).expect("inspect the rebuilt package");
+    let third_variant = third_manifest
+        .variant("off")
+        .expect("the rebuilt variant exists");
+    assert_ne!(
+        first_manifest.lighting_fingerprint, third_manifest.lighting_fingerprint,
+        "the stage fingerprint tracks the geometry"
+    );
+    assert_ne!(
+        second_variant.entries.lighting, third_variant.entries.lighting,
+        "a geometry edit produces a new lighting record"
+    );
+    let _ = fs::remove_dir_all(&dir);
 }

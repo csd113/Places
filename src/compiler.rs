@@ -134,6 +134,12 @@ pub struct VariantStats {
     pub probe_points: usize,
     /// Static wall boxes.
     pub wall_boxes: usize,
+    /// Walkable navigation cells for the reference class.
+    #[serde(default)]
+    pub navigation_cells: usize,
+    /// Connected navigation regions for the reference class.
+    #[serde(default)]
+    pub navigation_regions: usize,
     /// A recorded lightmap failure, if the variant fell back to vertex light.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lightmap_failure: Option<String>,
@@ -223,6 +229,11 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
 
     let dependencies = collect_dependencies(&level, &catalog, &request.asset_root, &mut warnings)?;
     let fingerprint = fingerprint(&source_hash, &request.variants, &dependencies);
+    // Stage fingerprint: everything the illumination/geometry/collision/probe
+    // preparation reads, with the navigation and AI components removed. An
+    // encounter or AI tuning edit therefore matches the previous package's
+    // stage key and only the semantics and navigation records are rebuilt.
+    let lighting_fingerprint = lighting_fingerprint(&level, &request.variants, &dependencies)?;
 
     if !request.force
         && request.out.exists()
@@ -255,29 +266,77 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     let mut variant_stats = Vec::with_capacity(request.variants.len());
     let mut cache = crate::lighting::lightmap::LightmapCache::memory_only();
     let cancelled = std::sync::atomic::AtomicBool::new(false);
-    let mut capture = if request.capture_probes {
-        Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
-    } else {
+    // Navigation is variant-independent: bake and insert it once, then let
+    // every variant reference the same content-addressed blob.
+    let (navigation_bytes, navigation_report) =
+        bake_navigation(&level, request.workers, &mut warnings)?;
+    let navigation_name = insert_blob(&mut blobs, navigation_bytes, ".navigation", "navigation");
+    // Reuse the previous package's prepared geometry, lighting, probes and
+    // collision when the lighting stage fingerprint matches: an AI-only edit
+    // must not rebake illumination.
+    let reused = if request.force {
         None
+    } else {
+        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &mut warnings)
     };
-    for quality in &request.variants {
-        let (mut variant, stats) = build_variant(
-            &level,
-            &catalog,
-            &mut assets,
-            &materials,
-            *quality,
-            &mut cache,
-            &cancelled,
-            &mut blobs,
-            &mut warnings,
-        )?;
-        if let Some(capture) = capture.as_mut() {
-            variant.entries.probes = capture
-                .capture_variant(&level, &catalog, &assets, *quality, &variant, &mut blobs)?;
+    if let Some((reused_variants, reused_blobs)) = reused {
+        for (name, (bytes, role)) in reused_blobs {
+            blobs.entry(name).or_insert((bytes, role));
         }
-        variants.push(variant);
-        variant_stats.push(stats);
+        for mut variant in reused_variants {
+            variant.entries.navigation.clone_from(&navigation_name);
+            variant_stats.push(VariantStats {
+                lightmap_quality: variant.lightmap_quality.clone(),
+                mesh_ranges: 0,
+                mesh_vertices: 0,
+                prop_batches: 0,
+                lightmap_pages: 0,
+                lightmap_charts: 0,
+                irradiance_probes: 0,
+                probe_points: 0,
+                wall_boxes: 0,
+                navigation_cells: navigation_report
+                    .walkable_cells
+                    .first()
+                    .copied()
+                    .unwrap_or(0),
+                navigation_regions: navigation_report
+                    .regions
+                    .first()
+                    .copied()
+                    .and_then(|regions| usize::try_from(regions).ok())
+                    .unwrap_or(0),
+                lightmap_failure: variant.lightmap_failure.clone(),
+            });
+            variants.push(variant);
+        }
+    } else {
+        let mut capture = if request.capture_probes {
+            Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
+        } else {
+            None
+        };
+        for quality in &request.variants {
+            let (mut variant, stats) = build_variant(
+                &level,
+                &catalog,
+                &mut assets,
+                &materials,
+                *quality,
+                &mut cache,
+                &cancelled,
+                &mut blobs,
+                &mut warnings,
+                &navigation_name,
+                &navigation_report,
+            )?;
+            if let Some(capture) = capture.as_mut() {
+                variant.entries.probes = capture
+                    .capture_variant(&level, &catalog, &assets, *quality, &variant, &mut blobs)?;
+            }
+            variants.push(variant);
+            variant_stats.push(stats);
+        }
     }
 
     let mut entries: Vec<PendingEntry> = Vec::with_capacity(blobs.len().saturating_add(2));
@@ -285,7 +344,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     for (name, (bytes, role)) in &blobs {
         package_entries.push(PackageEntry {
             name: name.clone(),
-            role: (*role).to_string(),
+            role: role.clone(),
             bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
             sha256: sha256_hex(bytes),
         });
@@ -310,6 +369,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         "props".to_string(),
         "lighting".to_string(),
         "collision".to_string(),
+        "navigation".to_string(),
     ];
     if variants
         .iter()
@@ -336,6 +396,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         author: level.author.clone(),
         created_by: COMPILER_NAME.to_string(),
         compiler_fingerprint: fingerprint.clone(),
+        lighting_fingerprint: Some(lighting_fingerprint.clone()),
         required_capabilities: required,
         dependencies,
         entries: package_entries,
@@ -825,6 +886,11 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
         crate::package::MAX_COLLISION_BYTES,
     )?;
     let _ = crate::package::collision::read_collision(&collision_bytes)?;
+    let navigation_bytes = reader.read_blob(
+        &variant.entries.navigation,
+        crate::package::MAX_NAVIGATION_BYTES,
+    )?;
+    let _ = crate::package::navigation::read_navigation(&navigation_bytes)?;
     if let (Some(pages), Some(meta)) = (&variant.entries.lightmaps, &variant.entries.lightmaps_meta)
     {
         let page_bytes = reader.read_blob(pages, crate::package::MAX_ENTRY_BYTES)?;
@@ -886,7 +952,7 @@ fn check_dependencies(manifest: &Manifest, warnings: &mut Vec<String>) {
 }
 
 /// `(blob name, (bytes, role))` for one variant's prepared records.
-type BlobMap = BTreeMap<String, (Vec<u8>, &'static str)>;
+type BlobMap = BTreeMap<String, (Vec<u8>, String)>;
 
 #[allow(clippy::too_many_arguments)] // one cohesive variant build
 #[allow(clippy::too_many_lines)] // one cohesive variant build
@@ -900,6 +966,8 @@ fn build_variant(
     cancelled: &std::sync::atomic::AtomicBool,
     blobs: &mut BlobMap,
     warnings: &mut Vec<String>,
+    navigation_name: &str,
+    navigation_report: &crate::nav::NavBakeReport,
 ) -> Result<(Variant, VariantStats), String> {
     let options = LightmapBuildOptions::for_lightmaps(quality);
     // The bake derives prop occlusion boxes from the same request's model
@@ -1045,6 +1113,17 @@ fn build_variant(
         irradiance_probes: build.probes.as_ref().map_or(0, |field| field.probes.len()),
         probe_points: routing.probe_points.len(),
         wall_boxes: compiled_collision.walls.len(),
+        navigation_cells: navigation_report
+            .walkable_cells
+            .first()
+            .copied()
+            .unwrap_or(0),
+        navigation_regions: navigation_report
+            .regions
+            .first()
+            .copied()
+            .and_then(|regions| usize::try_from(regions).ok())
+            .unwrap_or(0),
         lightmap_failure,
     };
     let variant = Variant {
@@ -1060,6 +1139,7 @@ fn build_variant(
             props: props_name,
             lighting: lighting_name,
             collision: collision_name,
+            navigation: navigation_name.to_string(),
             lightmaps: lightmaps_name,
             lightmaps_meta: lightmaps_meta_name,
             irradiance: irradiance_name,
@@ -1069,9 +1149,16 @@ fn build_variant(
     Ok((variant, stats))
 }
 
-fn insert_blob(blobs: &mut BlobMap, bytes: Vec<u8>, suffix: &str, role: &'static str) -> String {
+fn insert_blob(
+    blobs: &mut BlobMap,
+    bytes: Vec<u8>,
+    suffix: &str,
+    role: impl Into<String>,
+) -> String {
     let name = blob_name(&bytes, suffix);
-    blobs.entry(name.clone()).or_insert((bytes, role));
+    blobs
+        .entry(name.clone())
+        .or_insert_with(|| (bytes, role.into()));
     name
 }
 
@@ -1143,6 +1230,352 @@ const fn dependency_kind_name(kind: DependencyKind) -> &'static str {
     }
 }
 
+/// Bakes one level's navigation grid and reports placement problems.
+///
+/// Classes are the reference humanoid plus every distinct `nav_agent` body the
+/// level authors (props and spawn templates); `nav_obstacle` components add
+/// explicit boxes. A `nav_agent`-carrying entity or spawn point that has no
+/// navigable cell for its class is reported as a build warning naming it,
+/// because an actor that cannot navigate is an authoring defect, not a load
+/// failure of an otherwise valid map.
+#[allow(clippy::too_many_lines)] // one cohesive offline bake plus its diagnostics
+pub(crate) fn bake_navigation(
+    level: &LevelDef,
+    workers: usize,
+    warnings: &mut Vec<String>,
+) -> Result<(Vec<u8>, crate::nav::NavBakeReport), String> {
+    use crate::level::ComponentDef;
+    let collision = CollisionWorld::from_level(level);
+    let doors = crate::door::Doors::from_level(level);
+    let surfaces = crate::level::LevelSurfaces::new(level);
+    let mut classes = vec![crate::nav::reference_class()];
+    let register_profile = |classes: &mut Vec<crate::package::navigation::NavClass>,
+                            class: crate::package::navigation::NavClass|
+     -> Result<(), String> {
+        if classes.iter().any(|existing| existing.matches(&class)) {
+            return Ok(());
+        }
+        if classes.len() >= crate::package::MAX_NAV_CLASSES {
+            return Err(format!(
+                "level authors more than {} distinct nav_agent bodies; the navigation record \
+                 supports at most that many baked classes",
+                crate::package::MAX_NAV_CLASSES
+            ));
+        }
+        classes.push(class);
+        Ok(())
+    };
+    let profile_class = |component: &ComponentDef| -> Option<crate::package::navigation::NavClass> {
+        if let ComponentDef::NavAgent {
+            radius,
+            height,
+            step_height,
+            max_slope,
+            ..
+        } = component
+        {
+            return crate::package::navigation::NavClass::new(
+                *radius,
+                *height,
+                *step_height,
+                *max_slope,
+            );
+        }
+        None
+    };
+    let profile_of = |component: &ComponentDef| -> Option<crate::nav::NavAgentProfile> {
+        if let ComponentDef::NavAgent {
+            radius,
+            height,
+            step_height,
+            max_slope,
+            ..
+        } = component
+        {
+            return Some(crate::nav::NavAgentProfile {
+                radius: *radius,
+                height: *height,
+                step_height: *step_height,
+                max_slope: *max_slope,
+                can_open_doors: false,
+            });
+        }
+        None
+    };
+    for prop in &level.props {
+        for component in &prop.components {
+            if let Some(class) = profile_class(component) {
+                register_profile(&mut classes, class)?;
+            }
+        }
+    }
+    for template in &level.spawn_templates {
+        for component in &template.components {
+            if let Some(class) = profile_class(component) {
+                register_profile(&mut classes, class)?;
+            }
+        }
+    }
+    let mut obstacles: Vec<crate::collision::WallAabb> = Vec::new();
+    for prop in &level.props {
+        for component in &prop.components {
+            let ComponentDef::NavObstacle { size, affects_nav } = component else {
+                continue;
+            };
+            if !*affects_nav {
+                continue;
+            }
+            let size = size.unwrap_or_else(|| prop.resolved_size(crate::level::PROP_FALLBACK_SIZE));
+            let (half_x, half_z) = crate::interact::rotated_half_extents(
+                size[0] * 0.5,
+                size[2] * 0.5,
+                prop.rotation_degrees,
+            );
+            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
+            obstacles.push(crate::collision::WallAabb::with_y(
+                prop.x - half_x,
+                base_y,
+                prop.z - half_z,
+                half_x * 2.0,
+                size[1],
+                half_z * 2.0,
+            ));
+        }
+    }
+    let input = crate::nav::NavBakeInput {
+        level,
+        walls: &collision.walls,
+        floor: &collision.floor,
+        ceiling: &collision.ceiling,
+        doors: &doors,
+        classes: &classes,
+        obstacles: &obstacles,
+        walk_proxies: &[],
+    };
+    let options = crate::nav::NavBakeOptions {
+        cell_m: crate::nav::DEFAULT_NAV_CELL_M,
+        workers,
+    };
+    let (grid, report) = crate::nav::bake(&input, &options)?;
+    if report.walkable_cells.first().copied().unwrap_or(0) == 0 {
+        warnings.push(format!("{} navigation baked no walkable cells", level.id));
+    }
+    // Placement diagnostics: every actor body and spawn point must have a
+    // navigable cell, or the encounter that uses it can never move.
+    if let Ok(mesh) = crate::nav::NavMesh::from_record(grid.clone()) {
+        let no_doors = crate::nav::NoDoors;
+        let check = |what: &str, profile: &crate::nav::NavAgentProfile, position: glam::Vec3| {
+            let mut warnings = Vec::new();
+            let Some(class) = mesh.class_index(&profile.class()) else {
+                warnings.push(format!(
+                    "{} navigation has no baked class for {what}",
+                    level.id
+                ));
+                return warnings;
+            };
+            if mesh
+                .nearest(class, position, 2.0, 2.0, &no_doors, profile.can_open_doors)
+                .is_none()
+            {
+                warnings.push(format!(
+                    "{} navigation: {what} at ({:.2}, {:.2}) has no navigable placement",
+                    level.id, position.x, position.z
+                ));
+            }
+            warnings
+        };
+        let ids = level.prop_instance_ids();
+        for (index, prop) in level.props.iter().enumerate() {
+            let Some(profile) = prop.components.iter().find_map(&profile_of) else {
+                continue;
+            };
+            let id = ids.get(index).map_or(prop.model.as_str(), String::as_str);
+            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
+            warnings.extend(check(
+                &format!("`{id}`"),
+                &profile,
+                glam::Vec3::new(prop.x, base_y, prop.z),
+            ));
+        }
+        for point in &level.spawn_points {
+            let Some(template) = level
+                .spawn_templates
+                .iter()
+                .find(|template| template.id == point.template)
+            else {
+                continue;
+            };
+            let Some(profile) = template.components.iter().find_map(&profile_of) else {
+                continue;
+            };
+            let base_y = point
+                .y
+                .filter(|y| y.is_finite())
+                .unwrap_or_else(|| surfaces.floor_y_at(point.x, point.z).unwrap_or(0.0));
+            warnings.extend(check(
+                &format!("spawn point `{}`", point.id),
+                &profile,
+                glam::Vec3::new(point.x, base_y, point.z),
+            ));
+        }
+    }
+    let bytes = crate::package::navigation::write_navigation(&grid)?;
+    Ok((bytes, report))
+}
+
+/// The illumination/geometry stage fingerprint.
+///
+/// It folds everything the prepared static world depends on — the level with
+/// the navigation and AI components removed, the dependency identities, the
+/// record versions, the lighting model and the transport solver, and the
+/// requested variants — so an edit that only changes an AI behavior or a
+/// navigation body keeps the same key and the previous package's prepared
+/// geometry, lightmaps, probes and collision can be reused.
+///
+/// # Errors
+///
+/// Returns an error when the stripped level cannot be serialized.
+fn lighting_fingerprint(
+    level: &LevelDef,
+    variants: &[LightmapQuality],
+    dependencies: &[PackageDependency],
+) -> Result<String, String> {
+    use std::fmt::Write as _;
+    let mut stripped = level.clone();
+    strip_navigation_components(&mut stripped);
+    let bytes = crate::canonical_json::canonical_json_bytes(&stripped)
+        .map_err(|error| format!("could not serialize the lighting stage input: {error}"))?;
+    let mut canonical = String::with_capacity(1024);
+    canonical.push_str(COMPILER_NAME);
+    canonical.push('\n');
+    let _ = writeln!(canonical, "format {FORMAT_VERSION}");
+    let _ = writeln!(
+        canonical,
+        "level_format {}",
+        crate::level::LEVEL_FORMAT_VERSION
+    );
+    let _ = writeln!(canonical, "stage lighting navigations_excluded");
+    let _ = writeln!(
+        canonical,
+        "records mesh {} props {} collision {} lighting {} probes {} lightmaps {}",
+        crate::package::mesh::MESH_RECORD_VERSION,
+        crate::package::props::PROPS_RECORD_VERSION,
+        crate::package::collision::COLLISION_RECORD_VERSION,
+        crate::package::lighting::LIGHTING_RECORD_VERSION,
+        crate::package::world::PROBE_POSITIONS_VERSION,
+        crate::package::lightmaps::LIGHTMAPS_RECORD_VERSION,
+    );
+    let _ = writeln!(
+        canonical,
+        "solver {} model {}",
+        crate::lighting::transport::solver_fingerprint(),
+        crate::lighting::model_fingerprint()
+    );
+    for quality in variants {
+        let _ = writeln!(canonical, "variant {}", quality.name());
+    }
+    for dependency in dependencies {
+        let _ = writeln!(
+            canonical,
+            "dep {} {} {} {}",
+            dependency_kind_name(dependency.kind),
+            dependency.path,
+            dependency.sha256,
+            dependency.bytes
+        );
+    }
+    let _ = writeln!(
+        canonical,
+        "prepared {}",
+        crate::package::hash::sha256_hex(&bytes)
+    );
+    Ok(crate::package::hash::sha256_hex(canonical.as_bytes()))
+}
+
+/// Removes every navigation/AI component from a level copy.
+fn strip_navigation_components(level: &mut LevelDef) {
+    use crate::level::ComponentDef;
+    let strip = |components: &mut Vec<ComponentDef>| {
+        components.retain(|component| {
+            !matches!(
+                component,
+                ComponentDef::Ai(_)
+                    | ComponentDef::NavAgent { .. }
+                    | ComponentDef::NavObstacle { .. }
+            )
+        });
+    };
+    for prop in &mut level.props {
+        strip(&mut prop.components);
+    }
+    for door in &mut level.doors {
+        strip(&mut door.components);
+    }
+    for template in &mut level.spawn_templates {
+        strip(&mut template.components);
+    }
+}
+
+/// Tries to reuse a previous package's prepared world for the current lighting
+/// stage fingerprint.
+///
+/// Returns the previous variants (with their entry names) and every blob the
+/// new archive still needs when the stage key matches and every declared entry
+/// verifies; `None` when there is no previous package, the key differs, or the
+/// archive cannot be trusted, in which case the caller prepares everything.
+fn reuse_prepared_lighting(
+    out: &Path,
+    lighting_fingerprint: &str,
+    warnings: &mut Vec<String>,
+) -> Option<(Vec<Variant>, BlobMap)> {
+    if !out.exists() {
+        return None;
+    }
+    let file = std::fs::File::open(out).ok()?;
+    let mut reader = crate::package::PackageReader::new(std::io::BufReader::new(file)).ok()?;
+    let names = reader.names().to_vec();
+    let manifest_bytes = reader
+        .read_entry("manifest.json", crate::package::MAX_MANIFEST_BYTES)
+        .ok()?;
+    let manifest = Manifest::from_json(&manifest_bytes, &names).ok()?;
+    if manifest.lighting_fingerprint.as_deref() != Some(lighting_fingerprint) {
+        return None;
+    }
+    let mut blobs: BlobMap = BTreeMap::new();
+    for entry in &manifest.entries {
+        if entry.name == "semantics.json" {
+            continue;
+        }
+        let bytes = reader
+            .read_entry(&entry.name, crate::package::MAX_ENTRY_BYTES)
+            .ok()?;
+        if crate::package::hash::sha256_hex(&bytes) != entry.sha256 {
+            return None;
+        }
+        blobs.insert(entry.name.clone(), (bytes, entry.role.clone()));
+    }
+    // Every variant must still name the mandatory records and every named
+    // entry must resolve in the reused blob set.
+    for variant in &manifest.variants {
+        for name in [
+            &variant.entries.mesh,
+            &variant.entries.props,
+            &variant.entries.lighting,
+            &variant.entries.collision,
+        ] {
+            if !blobs.contains_key(name) {
+                return None;
+            }
+        }
+    }
+    warnings.push(format!(
+        "reused prepared geometry, lighting, probes and collision from {} (lighting stage fingerprint \
+         unchanged; only the semantics and navigation records were rebuilt)",
+        out.display()
+    ));
+    Some((manifest.variants, blobs))
+}
+
 fn fingerprint(
     source_sha256: &str,
     variants: &[LightmapQuality],
@@ -1164,12 +1597,13 @@ fn fingerprint(
     let _ = writeln!(canonical, "source {source_sha256}");
     let _ = writeln!(
         canonical,
-        "records mesh {} props {} collision {} lighting {} probes {}",
+        "records mesh {} props {} collision {} lighting {} probes {} navigation {}",
         crate::package::mesh::MESH_RECORD_VERSION,
         crate::package::props::PROPS_RECORD_VERSION,
         crate::package::collision::COLLISION_RECORD_VERSION,
         crate::package::lighting::LIGHTING_RECORD_VERSION,
         crate::package::world::PROBE_POSITIONS_VERSION,
+        crate::package::navigation::NAVIGATION_RECORD_VERSION,
     );
     // The prepared data is a function of the lighting model and the transport
     // solver as well as of the source. Folding both revisions in means a

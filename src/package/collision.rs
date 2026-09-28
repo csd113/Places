@@ -299,7 +299,7 @@ mod tests {
     fn from_compiled_matches_from_level() {
         let level = test_level();
         let statics = compiled_collision(&level);
-        let rebuilt = CollisionWorld::from_compiled(&level, statics);
+        let rebuilt = CollisionWorld::from_compiled(&level, statics, None);
         let from_level = CollisionWorld::from_level(&level);
         // `CollisionWorld` no longer derives `PartialEq`: its `EntityWorld`
         // owns live runtime state. Compare every static sampler plus the entity

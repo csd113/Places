@@ -466,21 +466,40 @@ pub struct WaterVolumeCtl {
     pub enabled: bool,
 }
 
-/// Movement metadata for the navigation upgrade.
+/// The physical body an entity navigates with.
 ///
-/// Metadata only: this release does not generate a navmesh or pathfind, and
-/// nothing in this module reads these components.
+/// The AI runtime selects the baked agent class that matches this profile
+/// exactly; the same class drives the bake's clearance test, so a cell marked
+/// walkable is traversable by exactly this body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NavAgent {
     /// Body radius in metres.
     pub radius: f32,
     /// Preferred speed in m/s.
     pub speed_mps: f32,
+    /// Body height in metres.
+    pub height: f32,
+    /// Largest surface rise the body walks up, in metres.
+    pub step_height: f32,
+    /// Largest walkable rise per metre of run.
+    pub max_slope: f32,
 }
 
-/// Navigation obstacle metadata for the navigation upgrade.
-///
-/// Metadata only, like [`NavAgent`].
+impl NavAgent {
+    /// The navigation profile this body selects.
+    #[must_use]
+    pub const fn profile(&self, can_open_doors: bool) -> crate::nav::NavAgentProfile {
+        crate::nav::NavAgentProfile {
+            radius: self.radius,
+            height: self.height,
+            step_height: self.step_height,
+            max_slope: self.max_slope,
+            can_open_doors,
+        }
+    }
+}
+
+/// An explicit navigation obstacle box read by the offline bake.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NavObstacle {
     /// `[width, height, depth]` in metres.
@@ -522,10 +541,12 @@ pub struct ComponentTables {
     pub steam: ComponentTable<Steam>,
     /// Water volume controls.
     pub water: ComponentTable<WaterVolumeCtl>,
-    /// Navigation agent metadata (not yet consumed).
+    /// Navigation agent bodies.
     pub nav_agents: ComponentTable<NavAgent>,
-    /// Navigation obstacle metadata (not yet consumed).
+    /// Explicit navigation obstacles.
     pub nav_obstacles: ComponentTable<NavObstacle>,
+    /// AI behavior definitions.
+    pub ais: ComponentTable<crate::ai::AiDef>,
 }
 
 impl ComponentTables {
@@ -550,6 +571,7 @@ impl ComponentTables {
             water: ComponentTable::new(),
             nav_agents: ComponentTable::new(),
             nav_obstacles: ComponentTable::new(),
+            ais: ComponentTable::new(),
         }
     }
 
@@ -572,6 +594,7 @@ impl ComponentTables {
         self.water.clear();
         self.nav_agents.clear();
         self.nav_obstacles.clear();
+        self.ais.clear();
     }
 
     /// Total entries across every table, for the diagnostics summary.
@@ -595,6 +618,7 @@ impl ComponentTables {
             + self.water.len()
             + self.nav_agents.len()
             + self.nav_obstacles.len()
+            + self.ais.len()
     }
 
     /// True when no table holds an entry.
@@ -622,6 +646,7 @@ impl ComponentTables {
         self.water.remove(handle);
         self.nav_agents.remove(handle);
         self.nav_obstacles.remove(handle);
+        self.ais.remove(handle);
     }
 }
 

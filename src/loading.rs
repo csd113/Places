@@ -416,6 +416,9 @@ impl PackageKey {
 struct PreparedRecords {
     build: Arc<LevelBuild>,
     collision: CompiledCollision,
+    /// The decoded baked navigation grid; the runtime mesh is built from it
+    /// once per install.
+    navigation: crate::package::navigation::NavGrid,
     probes: ProbeCaptures,
     retained_bytes: usize,
 }
@@ -424,6 +427,7 @@ impl PreparedRecords {
     fn retained_bytes(
         build: &LevelBuild,
         collision: &CompiledCollision,
+        navigation: &crate::package::navigation::NavGrid,
         probes: &ProbeCaptures,
     ) -> usize {
         let collision_bytes = collision
@@ -443,9 +447,13 @@ impl PreparedRecords {
                 })
             })
             .fold(0_usize, usize::saturating_add);
+        // The grid's fixed runs are eight bytes per cell plus the per-class
+        // masks; a good enough resident estimate for the cache budget.
+        let navigation_bytes = navigation.cell_count().saturating_mul(8);
         build
             .retained_bytes()
             .saturating_add(collision_bytes)
+            .saturating_add(navigation_bytes)
             .saturating_add(probe_bytes)
     }
 }
@@ -617,11 +625,16 @@ fn prepare_world(
             lightmap_failure: None,
             lightmap_millis: 0.0,
         });
-        let retained_bytes =
-            PreparedRecords::retained_bytes(&build, &variant.collision, &variant.probes);
+        let retained_bytes = PreparedRecords::retained_bytes(
+            &build,
+            &variant.collision,
+            &variant.navigation,
+            &variant.probes,
+        );
         let records = Arc::new(PreparedRecords {
             build,
             collision: variant.collision,
+            navigation: variant.navigation,
             probes: variant.probes,
             retained_bytes,
         });
@@ -635,7 +648,13 @@ fn prepare_world(
     if !control.checkpoint(Phase::Collision) {
         return Ok(None);
     }
-    let collision = CollisionWorld::from_compiled(&loaded.level, records.collision.clone());
+    // A malformed navigation record fails the load: there is no runtime
+    // bake or repair path, and a world without navigation would silently
+    // disable every AI behavior.
+    let navigation = crate::nav::NavMesh::from_record(records.navigation.clone())
+        .map_err(|error| format!("navigation record: {error}"))?;
+    let collision =
+        CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation));
     if !control.checkpoint(Phase::Characters) {
         return Ok(None);
     }
@@ -835,6 +854,7 @@ mod tests {
             entry("blobs/bb.props", "props", 'b'),
             entry("blobs/cc.lighting", "lighting", 'c'),
             entry("blobs/dd.collision", "collision", 'd'),
+            entry("blobs/ee.navigation", "navigation", 'f'),
             entry("semantics.json", "semantics", 'e'),
         ];
         let manifest = Manifest {
@@ -844,11 +864,13 @@ mod tests {
             author: String::new(),
             created_by: "identity-test".to_string(),
             compiler_fingerprint: fingerprint.to_string(),
+            lighting_fingerprint: Some(fingerprint.to_string()),
             required_capabilities: vec![
                 "geometry".to_string(),
                 "props".to_string(),
                 "lighting".to_string(),
                 "collision".to_string(),
+                "navigation".to_string(),
             ],
             dependencies: Vec::new(),
             entries: entries.clone(),
@@ -861,6 +883,7 @@ mod tests {
                     props: "blobs/bb.props".to_string(),
                     lighting: "blobs/cc.lighting".to_string(),
                     collision: "blobs/dd.collision".to_string(),
+                    navigation: "blobs/ee.navigation".to_string(),
                     lightmaps: None,
                     lightmaps_meta: None,
                     irradiance: None,

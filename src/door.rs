@@ -295,6 +295,9 @@ const REVERSE_GUARD_SECONDS: f32 = 0.4;
 /// search.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Doors {
+    /// Bumped whenever a leaf's phase or lock changes, so navigation can
+    /// invalidate a cached route without comparing every door.
+    version: u64,
     runtimes: Vec<DoorRuntime>,
     by_id: HashMap<String, usize>,
 }
@@ -313,7 +316,22 @@ impl Doors {
             .enumerate()
             .map(|(index, door)| (door.def.id.clone(), index))
             .collect();
-        Self { runtimes, by_id }
+        Self {
+            version: 0,
+            runtimes,
+            by_id,
+        }
+    }
+
+    /// The door-state version, bumped whenever a phase or lock changes.
+    #[must_use]
+    pub const fn version(&self) -> u64 {
+        self.version
+    }
+
+    /// Bumps the version (any observable state change).
+    const fn bump(&mut self) {
+        self.version = self.version.wrapping_add(1);
     }
 
     /// Every door, in authored order.
@@ -363,16 +381,26 @@ impl Doors {
     /// `false` exactly like an already-open door, so callers that need the
     /// distinction use [`Self::index_of`].
     pub fn request_open(&mut self, id: &str) -> bool {
-        self.index_of(id)
+        let changed = self
+            .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(DoorRuntime::request_open)
+            .is_some_and(DoorRuntime::request_open);
+        if changed {
+            self.bump();
+        }
+        changed
     }
 
     /// Requests the closed end of the door called `id`.
     pub fn request_close(&mut self, id: &str) -> bool {
-        self.index_of(id)
+        let changed = self
+            .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(DoorRuntime::request_close)
+            .is_some_and(DoorRuntime::request_close);
+        if changed {
+            self.bump();
+        }
+        changed
     }
 
     /// Whether the door called `id` is locked, if it exists.
@@ -386,17 +414,27 @@ impl Doors {
     /// Locks or unlocks the door called `id`. Returns whether the state
     /// changed; an unknown id returns false.
     pub fn set_locked(&mut self, id: &str, locked: bool) -> bool {
-        self.index_of(id)
+        let changed = self
+            .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(|door| door.set_locked(locked))
+            .is_some_and(|door| door.set_locked(locked));
+        if changed {
+            self.bump();
+        }
+        changed
     }
 
     /// Flips the door called `id` between its ends. Returns whether a phase
     /// change was requested.
     pub fn toggle(&mut self, id: &str) -> bool {
-        self.index_of(id)
+        let changed = self
+            .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(DoorRuntime::toggle)
+            .is_some_and(DoorRuntime::toggle);
+        if changed {
+            self.bump();
+        }
+        changed
     }
 
     /// Resets every leaf to its authored start state (a `reset_to_start`).
@@ -404,6 +442,7 @@ impl Doors {
         for door in &mut self.runtimes {
             door.reset();
         }
+        self.bump();
     }
 
     /// Advances every moving leaf, returning how many moved this step.
@@ -413,11 +452,19 @@ impl Doors {
         mut blocked: impl FnMut(usize, &DoorCollider) -> bool,
     ) -> usize {
         let mut moved = 0usize;
+        let mut ended = false;
         for (index, door) in self.runtimes.iter_mut().enumerate() {
+            let before = door.phase();
             let step = door.advance(delta, |candidate| blocked(index, candidate));
             if step.moved {
                 moved = moved.saturating_add(1);
             }
+            if door.phase() != before {
+                ended = true;
+            }
+        }
+        if ended {
+            self.bump();
         }
         moved
     }

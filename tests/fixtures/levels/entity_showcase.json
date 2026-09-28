@@ -81,6 +81,14 @@
         {
           "component": "interactable",
           "prompt": "Toggle name"
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.1,
+          "height": 0.16,
+          "speed_mps": 0.198,
+          "step_height": 0.2,
+          "max_slope": 2.6667
         }
       ],
       "bindings": [
@@ -111,6 +119,14 @@
         {
           "component": "interactable",
           "prompt": "Toggle name"
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.1,
+          "height": 0.16,
+          "speed_mps": 0.198,
+          "step_height": 0.2,
+          "max_slope": 2.6667
         }
       ],
       "bindings": [

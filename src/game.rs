@@ -264,6 +264,12 @@ pub struct CollisionWorld {
     pub ladders: Ladders,
     /// Every authored entity and the runtime that drives it.
     pub world: EntityWorld,
+    /// The baked navigation mesh, when the source package carries one.
+    ///
+    /// `from_level` leaves this `None`: the player never derives navigation
+    /// from geometry; the offline compiler bakes it and the loader installs
+    /// the decoded record.
+    pub navigation: Option<crate::nav::NavMesh>,
 }
 
 impl CollisionWorld {
@@ -277,7 +283,17 @@ impl CollisionWorld {
             ceiling: WalkableCeiling::from_level(level),
             ladders: Ladders::from_level(level),
             world: EntityWorld::from_level(level),
+            navigation: None,
         }
+    }
+
+    /// [`Self::from_level`] plus a navigation mesh, for tests and tools that
+    /// bake directly from a level source.
+    #[must_use]
+    pub fn from_level_with_navigation(level: &LevelDef, navigation: crate::nav::NavMesh) -> Self {
+        let mut world = Self::from_level(level);
+        world.navigation = Some(navigation);
+        world
     }
 
     /// Builds the collision world from a compiled static record plus the
@@ -286,6 +302,7 @@ impl CollisionWorld {
     pub fn from_compiled(
         level: &LevelDef,
         statics: crate::package::collision::CompiledCollision,
+        navigation: Option<crate::nav::NavMesh>,
     ) -> Self {
         Self {
             walls: statics.walls,
@@ -294,6 +311,7 @@ impl CollisionWorld {
             ceiling: statics.ceiling,
             ladders: statics.ladders,
             world: EntityWorld::from_level(level),
+            navigation,
         }
     }
 }
@@ -386,6 +404,9 @@ pub struct Game {
     /// Private with [`Game::world`] so no caller can replace it without the
     /// player-side state being re-seeded.
     world: EntityWorld,
+    /// The installed baked navigation mesh, queried by the AI runtime. This
+    /// is uploaded from the package; the player never builds or repairs it.
+    navigation: Option<crate::nav::NavMesh>,
     /// Vertical speed in m/s, positive upward. Zero while grounded.
     pub vertical_velocity: f32,
     /// True while the player stands on the walkable floor or a solid prop top.
@@ -507,6 +528,7 @@ impl Game {
             water: world.water,
             ladders: world.ladders,
             world: world.world,
+            navigation: world.navigation,
             vertical_velocity: 0.0,
             grounded,
             locomotion: LocomotionSnapshot::default(),
@@ -539,6 +561,12 @@ impl Game {
     #[must_use]
     pub const fn world(&self) -> &EntityWorld {
         &self.world
+    }
+
+    /// The installed baked navigation mesh, when the package carries one.
+    #[must_use]
+    pub const fn navigation(&self) -> Option<&crate::nav::NavMesh> {
+        self.navigation.as_ref()
     }
 
     /// The level's entity runtime, mutably.
@@ -602,6 +630,7 @@ impl Game {
         self.ceiling = world.ceiling;
         self.ladders = world.ladders;
         self.world = world.world;
+        self.navigation = world.navigation;
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.reset_count = 0;
@@ -719,6 +748,7 @@ impl Game {
             walls: &self.walls,
             index: &self.collision_index,
             floor: &self.floor,
+            nav: self.navigation.as_ref(),
         };
         self.world.update_volumes(ctx.feet_from, ctx.feet);
         let tick = self.world.tick(&ctx);
@@ -1367,6 +1397,7 @@ impl Game {
             feet,
             eye: self.player_position,
             body_height: self.body_height(),
+            nav: self.navigation.as_ref(),
             walls: &self.walls,
             index: &self.collision_index,
             floor: &self.floor,

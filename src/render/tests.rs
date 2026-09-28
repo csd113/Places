@@ -7100,12 +7100,13 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
     );
 }
 
-/// The shipped demo level places exactly one skinned prop, and the character
-/// path claims its model without touching the rest of the prop field.
+/// The shipped demo level places its skinned props, and the character path
+/// claims each model without touching the rest of the prop field.
 ///
-/// The demo places four animatable props: the skinned Spooner-Man and three
-/// rigid (skinless) wall switches. Each is claimed once, by its own model, and
-/// the skinned one is the only character running the locomotion driver.
+/// The demo places six animatable props: two skinned Spooner-Men (the pool
+/// route actor and the home encounter predator) and four rigid (skinless) wall
+/// switches. A model with any unclaimed placement stays in the static batch;
+/// here every placement of every one of those models is claimed.
 #[test]
 fn the_places_demo_level_places_its_animated_props_once() {
     let content = std::fs::read_to_string("assets/levels/places_demo.json")
@@ -7115,7 +7116,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
     let mut assets = shipped_assets();
     let lighting = LevelLighting::bake(&level);
     let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 4, "the demo places four animatable props");
+    assert_eq!(scene.len(), 6, "the demo places six animatable props");
     let mut ids: Vec<&str> = scene
         .characters()
         .iter()
@@ -7127,8 +7128,10 @@ fn the_places_demo_level_places_its_animated_props_once() {
         [
             "hall_switch",
             "kitchen_switch",
+            "rat_release_switch",
             "sauna_switch",
-            "spooner_man"
+            "spooner_man",
+            "spooner_man_home"
         ]
     );
     let skinned: Vec<&Character> = scene
@@ -7136,17 +7139,19 @@ fn the_places_demo_level_places_its_animated_props_once() {
         .iter()
         .filter(|character| character.asset().model.is_skinned())
         .collect();
-    assert_eq!(skinned.len(), 1, "one skinned character");
+    assert_eq!(skinned.len(), 2, "two skinned characters");
     assert!(
-        !skinned[0].animator().is_rigid(),
-        "the skinned character runs the locomotion driver"
+        skinned
+            .iter()
+            .all(|character| !character.animator().is_rigid()),
+        "the skinned characters run the locomotion driver"
     );
     let rigid: Vec<&Character> = scene
         .characters()
         .iter()
         .filter(|character| character.animator().is_rigid())
         .collect();
-    assert_eq!(rigid.len(), 3, "three rigid animated props");
+    assert_eq!(rigid.len(), 4, "four rigid animated props");
     let mut rigid_ids: Vec<Option<&str>> = rigid
         .iter()
         .map(|character| character.instance_id())
@@ -7157,6 +7162,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
         [
             Some("hall_switch"),
             Some("kitchen_switch"),
+            Some("rat_release_switch"),
             Some("sauna_switch")
         ]
     );

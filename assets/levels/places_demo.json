@@ -2561,6 +2561,14 @@
         {
           "component": "interactable",
           "prompt": "Toggle name"
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.2,
+          "height": 0.45,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2.6667
         }
       ],
       "bindings": [
@@ -2569,6 +2577,80 @@
           "actions": [
             {
               "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spooner_man_home",
+      "display_name": "Spooner-Man",
+      "model": "spooner-man",
+      "x": 62.5,
+      "y": 0.0,
+      "z": 8.0,
+      "rotation_degrees": 250.0,
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "comment": "The home Spooner-Man. He is a cat: his navigation body is 0.2 m radius and 0.45 m tall, not human-sized. His ordinary AI is an idle predator; when the rat spawns he hears it, pursues it through the baked navigation mesh, and catches it, which starts the pounce/consume sequence below.",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": false
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.2,
+          "height": 0.45,
+          "speed_mps": 1.9,
+          "step_height": 0.3,
+          "max_slope": 2.6667
+        },
+        {
+          "component": "ai",
+          "behavior": "predator",
+          "role": "predator",
+          "reacts_to": [
+            "prey_rat"
+          ],
+          "walk_speed": 0.55,
+          "run_speed": 2.2,
+          "sight_range": 10.0,
+          "sight_fov_degrees": 220.0,
+          "hearing_range": 9.0,
+          "flee_distance": 5.0,
+          "pursue_distance": 20.0,
+          "catch_radius": 0.5,
+          "catch_height": 0.7,
+          "wander_radius": 2.0,
+          "idle_seconds": 2.0,
+          "can_open_doors": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        },
+        {
+          "on": "caught",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "caught_prey"
             }
           ]
         }
@@ -2874,6 +2956,52 @@
           ]
         }
       ]
+    },
+    {
+      "id": "rat_release_switch",
+      "display_name": "Rat Release Switch",
+      "model": "home:wall_switch",
+      "x": 61.9,
+      "y": 1.2,
+      "z": 3.2,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Release rat",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "spawn_entity",
+              "point": "home_rat_spawn_point",
+              "group": "home_rat_encounter",
+              "name": "encounter_rat"
+            }
+          ]
+        }
+      ],
+      "comment": "The home encounter switch: a wall switch beside the hall door on the living-room face. Pressing it spawns one rat through the ordinary spawn-group lifecycle; a second press while a rat is alive is refused by the group, and the group releases when the rat despawns."
     },
     {
       "id": "sauna_switch",
@@ -4094,6 +4222,135 @@
         }
       ],
       "comment": "Runs on sauna_door: the door owns the phase state the steps below write, and emit publishes the warm cue for any listener."
+    },
+    {
+      "id": "caught_prey",
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "pounce",
+            "loop": false
+          }
+        },
+        {
+          "step": "wait_animation",
+          "clip": "pounce",
+          "timeout": 2.5
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "sit_down",
+            "loop": false
+          }
+        },
+        {
+          "step": "wait_animation",
+          "clip": "sit_down",
+          "timeout": 3.0
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "sit_idle",
+            "loop": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 2.0
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "despawn_entity",
+            "target": "home_rat_encounter"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "stand_up",
+            "loop": false
+          }
+        },
+        {
+          "step": "wait_animation",
+          "clip": "stand_up",
+          "timeout": 3.0
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "idle",
+            "loop": true
+          }
+        },
+        {
+          "step": "stop"
+        }
+      ],
+      "comment": "Runs on spooner_man_home when the generic `caught` event fires: the pounce clip, a seated consume presentation on the authored sit clips (the rig has no dedicated eat clip), then the rat despawns at the authored completion point and Spooner-Man returns to his idle pose. The caught rat is frozen for the whole presentation by the AI runtime."
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "home_rat",
+      "model": "rat",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.1,
+          "height": 0.16,
+          "speed_mps": 1.35,
+          "step_height": 0.2,
+          "max_slope": 2.6667
+        },
+        {
+          "component": "ai",
+          "behavior": "prey",
+          "role": "prey_rat",
+          "reacts_to": [
+            "predator"
+          ],
+          "walk_speed": 0.7,
+          "run_speed": 1.75,
+          "sight_range": 8.0,
+          "sight_fov_degrees": 250.0,
+          "hearing_range": 9.0,
+          "flee_distance": 6.0,
+          "pursue_distance": 12.0,
+          "catch_radius": 0.4,
+          "catch_height": 0.4,
+          "wander_radius": 2.0,
+          "idle_seconds": 0.8,
+          "can_open_doors": false
+        }
+      ],
+      "comment": "The rat: a small navigation body (0.1 m radius, 0.16 m tall) with prey behavior that flees any agent tagged `predator`. It spawns through the ordinary spawn lifecycle and moves through the baked navigation mesh; nothing in the engine names it."
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "home_rat_spawn_point",
+      "x": 54.0,
+      "z": 10.5,
+      "yaw_degrees": 90.0,
+      "template": "home_rat",
+      "group": "home_rat_encounter"
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "home_rat_encounter",
+      "at_most_one_active": true
     }
   ]
 }

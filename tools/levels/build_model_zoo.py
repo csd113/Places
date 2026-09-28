@@ -85,6 +85,12 @@ TABLE_TOP = {
 }
 WATER_DISPLAY = {"core:rubber_duck"}
 ROUTED = {"rat", "spooner-man"}
+# `(radius, height, speed_mps, step_height)` per routed model: the real body
+# each actor moves with, shared by its route and by the AI that may drive it.
+ROUTE_BODIES = {
+    "rat": (0.1, 0.16, 0.198, 0.2),
+    "spooner-man": (0.2, 0.45, 0.32, 0.3),
+}
 POSED = {"mannequin", "skeleton"}
 # Level-primitive companions: the prop is a visual, the behaviour lives in a
 # `ladders[]` volume (the ladder) or in the guardrail primitive. They are still
@@ -658,6 +664,21 @@ class Layout:
             }
         if interaction is not False:
             components, bindings = interaction_v3(interaction)
+            # A routed actor carries its navigation body with it: the same
+            # component the AI and the offline bake select an agent class by,
+            # so a scripted route and an AI agree on the actor's footprint.
+            body = ROUTE_BODIES.get(entry["id"])
+            if body is not None:
+                components.append(
+                    {
+                        "component": "nav_agent",
+                        "radius": body[0],
+                        "height": body[1],
+                        "speed_mps": body[2],
+                        "step_height": body[3],
+                        "max_slope": 2.6667,
+                    }
+                )
             placement["components"] = components
             placement["bindings"] = bindings
         placement.update(fields)

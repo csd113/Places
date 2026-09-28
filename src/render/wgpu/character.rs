@@ -60,13 +60,24 @@ struct CharacterSubmeshGpu {
     index_count: u32,
 }
 
+/// Which neutral-scene character a GPU entry belongs to.
+///
+/// A placed character is addressed by its stable index in
+/// [`CharacterScene::characters`]; a runtime-spawned actor by its instance id,
+/// because the runtime list is not index-stable.
+enum CharacterKey {
+    Placed(usize),
+    Runtime(String),
+}
+
 /// One live character's GPU state.
 struct CharacterGpu {
     /// Slot into [`WgpuCharacters::meshes`].
     mesh: usize,
-    /// Slot into the scene's character list. `upload` may skip a character
-    /// whose mesh cannot be uploaded, so this is not always a 1:1 identity.
-    scene_slot: usize,
+    /// The neutral-scene character this entry draws. `upload` may skip a
+    /// character whose mesh cannot be uploaded, so the GPU list is not always
+    /// a 1:1 copy of the scene's.
+    key: CharacterKey,
     /// This character's mutable, CPU-skinned vertex buffer.
     vertex_buffer: wgpu::Buffer,
     /// This character's environment binding: placement matrix only.
@@ -139,9 +150,11 @@ impl WgpuCharacters {
     /// Uploads every character of one scene, building the shared meshes,
     /// per-character vertex buffers and environments.
     ///
-    /// Called after the level's static resources and probes exist, once per
-    /// level install or graphics change. An empty scene produces an empty
-    /// value.
+    /// Placed characters and runtime-spawned actors upload through the same
+    /// path; only the key each entry resolves through differs. Called after the
+    /// level's static resources and probes exist, once per level install, per
+    /// graphics change and whenever a runtime spawn or despawn changes the
+    /// scene. An empty scene produces an empty value.
     #[must_use]
     pub fn upload(ctx: &mut CharacterUploadContext<'_>, scene: &CharacterScene) -> Self {
         let mut value = Self::default();
@@ -152,12 +165,23 @@ impl WgpuCharacters {
         let widest = scene
             .characters()
             .iter()
+            .chain(scene.runtime_characters().iter())
             .map(|character| character.asset().model.vertices.len())
             .max()
             .unwrap_or(0);
         value.scratch.reserve(widest);
         let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
-        for (scene_slot, character) in scene.characters().iter().enumerate() {
+        let entries = scene
+            .characters()
+            .iter()
+            .enumerate()
+            .map(|(slot, character)| (CharacterKey::Placed(slot), character))
+            .chain(scene.runtime_characters().iter().filter_map(|character| {
+                character
+                    .instance_id()
+                    .map(|id| (CharacterKey::Runtime(id.to_string()), character))
+            }));
+        for (key, character) in entries {
             let model_path = character.asset().model_path.clone();
             let mesh_index = if let Some(index) = mesh_index_by_path.get(&model_path).copied() {
                 index
@@ -200,7 +224,7 @@ impl WgpuCharacters {
                 .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&value.scratch));
             value.characters.push(CharacterGpu {
                 mesh: mesh_index,
-                scene_slot,
+                key,
                 vertex_buffer,
                 environment,
                 uploaded_revision: character.animator().revision(),
@@ -384,10 +408,12 @@ impl WgpuCharacters {
     /// and rewrites the environment matrix of every character whose route
     /// moved it.
     ///
-    /// `environment` is the level's current template (the lightmap selection,
-    /// the fog constants and no active mirror); a moved character installs its
-    /// placement matrix on top. Called once per frame; a still character with a
-    /// settled pose writes nothing.
+    /// Placed characters and runtime-spawned actors sync through the same
+    /// path, each entry resolved through its key. `environment` is the level's
+    /// current template (the lightmap selection, the fog constants and no
+    /// active mirror); a moved character installs its placement matrix on top.
+    /// Called once per frame; a still character with a settled pose writes
+    /// nothing.
     pub fn sync(
         &mut self,
         queue: &wgpu::Queue,
@@ -396,7 +422,11 @@ impl WgpuCharacters {
     ) -> usize {
         let mut uploaded = 0usize;
         for gpu in &mut self.characters {
-            let Some(character) = scene.characters().get(gpu.scene_slot) else {
+            let character = match &gpu.key {
+                CharacterKey::Placed(slot) => scene.characters().get(*slot),
+                CharacterKey::Runtime(instance_id) => scene.runtime_character(instance_id),
+            };
+            let Some(character) = character else {
                 continue;
             };
             if character.transform() != gpu.uploaded_transform {

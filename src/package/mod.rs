@@ -17,6 +17,7 @@
 //! blobs/<sha256>.probe.ktx2        one prepared reflection probe cubemap (KTX2 cube, RGBA8)
 //! blobs/<sha256>.probes.json        probe positions and face size for one payload
 //! blobs/<sha256>.collision          compile-time static collision record, binary
+//! blobs/<sha256>.navigation         compile-time baked navigation grid, binary
 //! blobs/<sha256>.png                embedded texture pixels (community packages)
 //! ```
 //!
@@ -55,6 +56,7 @@ pub mod lighting;
 pub mod lightmaps;
 pub mod manifest;
 pub mod mesh;
+pub mod navigation;
 pub mod props;
 pub mod world;
 
@@ -156,6 +158,18 @@ pub const MAX_COLLISION_BYTES: u64 = 128 * 1024 * 1024;
 
 /// Largest accepted number of collision boxes in one record.
 pub const MAX_COLLISION_BOXES: usize = 1 << 22;
+
+/// Largest accepted serialized navigation record, in bytes.
+pub const MAX_NAVIGATION_BYTES: u64 = 128 * 1024 * 1024;
+
+/// Largest accepted navigation grid cell count.
+pub const MAX_NAV_CELLS: usize = 1 << 21;
+
+/// Largest accepted baked agent class count in one navigation record.
+pub const MAX_NAV_CLASSES: usize = 8;
+
+/// Largest accepted door portal count in one navigation record.
+pub const MAX_NAV_PORTALS: usize = 256;
 
 /// A package open/read error: the archive could not be opened at all.
 #[derive(Debug)]

@@ -29,7 +29,7 @@ use crate::package::mesh::read_mesh;
 use crate::package::props::read_props;
 use crate::package::{
     MAX_BINARY_BYTES, MAX_COLLISION_BYTES, MAX_ENTRY_BYTES, MAX_LIGHTING_BYTES,
-    MAX_MATERIALS_BYTES, MAX_SEMANTICS_BYTES, PackageReader,
+    MAX_MATERIALS_BYTES, MAX_NAVIGATION_BYTES, MAX_SEMANTICS_BYTES, PackageReader,
 };
 use crate::quality::LightmapQuality;
 use crate::render::{LevelMesh, PropMeshBatch};
@@ -63,6 +63,8 @@ pub struct LoadedVariant {
     pub irradiance: Option<Arc<crate::lighting::probes::ProbeField>>,
     /// Compiled static collision.
     pub collision: CompiledCollision,
+    /// The baked navigation grid this variant was compiled with.
+    pub navigation: crate::package::navigation::NavGrid,
     /// Prepared reflection probe captures, keyed by face size.
     pub probes: ProbeCaptures,
 }
@@ -348,6 +350,8 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let lighting = read_lighting(&lighting_bytes)?;
     let collision_bytes = reader.read_blob(&variant.entries.collision, MAX_COLLISION_BYTES)?;
     let collision = read_collision(&collision_bytes)?;
+    let navigation_bytes = reader.read_blob(&variant.entries.navigation, MAX_NAVIGATION_BYTES)?;
+    let navigation = crate::package::navigation::read_navigation(&navigation_bytes)?;
     let lightmaps = match (&variant.entries.lightmaps, &variant.entries.lightmaps_meta) {
         (Some(pages), Some(meta)) => {
             let page_bytes = reader.read_blob(pages, MAX_ENTRY_BYTES)?;
@@ -372,6 +376,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         lightmaps,
         irradiance,
         collision,
+        navigation,
         probes,
     })
 }

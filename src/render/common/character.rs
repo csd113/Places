@@ -959,11 +959,21 @@ impl Character {
     }
 }
 
-/// Every character a level spawns, plus the model paths the static prop draw
-/// path must suppress.
+/// Every character a level spawns, plus the runtime-spawned actors and the
+/// model paths the static prop draw path must suppress.
 #[derive(Default)]
 pub struct CharacterScene {
     characters: Vec<Character>,
+    /// Runtime-spawned actors, keyed by instance id. They live in their own
+    /// list so a placed character keeps its stable index whatever runtime
+    /// actors come and go: the GPU side keys its entries by
+    /// `Placed(index)`/`Runtime(instance id)`, never by a shared list slot.
+    runtime: Vec<Character>,
+    /// Bumped on every successful runtime spawn and every despawn that removed
+    /// something, and zero until the first runtime spawn. The renderer compares
+    /// it against the generation its GPU side was built from, so a change is
+    /// visible on the frame it happens.
+    runtime_generation: u64,
     claimed_models: Vec<String>,
 }
 
@@ -974,22 +984,64 @@ impl CharacterScene {
         Self::default()
     }
 
-    /// Number of live characters.
+    /// Number of live characters: every placed character plus every
+    /// runtime-spawned actor.
     #[must_use]
     pub const fn len(&self) -> usize {
-        self.characters.len()
+        self.characters.len().saturating_add(self.runtime.len())
     }
 
     /// True when no character is live.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.characters.is_empty()
+        self.characters.is_empty() && self.runtime.is_empty()
     }
 
     /// The live characters, in placement order.
+    ///
+    /// Runtime-spawned actors are not part of this list; they are addressed by
+    /// their instance id ([`Self::runtime_character`]), so a placed character's
+    /// index is stable whatever runtime actors come and go.
     #[must_use]
     pub fn characters(&self) -> &[Character] {
         &self.characters
+    }
+
+    /// The number of runtime-spawned characters currently live.
+    #[must_use]
+    pub const fn runtime_len(&self) -> usize {
+        self.runtime.len()
+    }
+
+    /// Monotonic counter bumped on every runtime spawn/despawn.
+    #[must_use]
+    pub const fn runtime_generation(&self) -> u64 {
+        self.runtime_generation
+    }
+
+    /// The live runtime character with this instance id, if any.
+    #[must_use]
+    pub fn runtime_character(&self, instance_id: &str) -> Option<&Character> {
+        self.runtime
+            .iter()
+            .find(|character| character.instance_id.as_deref() == Some(instance_id))
+    }
+
+    /// The live runtime character with this instance id, if any (mutable).
+    pub fn runtime_character_mut(&mut self, instance_id: &str) -> Option<&mut Character> {
+        self.runtime
+            .iter_mut()
+            .find(|character| character.instance_id.as_deref() == Some(instance_id))
+    }
+
+    /// The live runtime-spawned characters, in spawn order.
+    ///
+    /// This is the enumeration the GPU side walks when it builds its keyed
+    /// entries; placed characters keep [`Self::characters`] and their stable
+    /// indices.
+    #[must_use]
+    pub(crate) fn runtime_characters(&self) -> &[Character] {
+        &self.runtime
     }
 
     /// Every placement of this model path is a character, so the static prop
@@ -1134,16 +1186,158 @@ impl CharacterScene {
             .collect();
         Self {
             characters,
+            runtime: Vec::new(),
+            runtime_generation: 0,
             claimed_models,
         }
+    }
+
+    /// Spawns one runtime character from a catalogue model id.
+    ///
+    /// Resolves the model through `catalog`/`assets` exactly like
+    /// [`Self::spawn_characters_with_field`], accepting either a catalogue
+    /// registry id or a raw model path, and requires an animatable model
+    /// (`PropsModel::is_animatable` plus [`CharacterAnimator::new`]). The
+    /// per-vertex albedo is sampled once, at the placement transform, from
+    /// `lighting`/`irradiance`, exactly like a placed character's. Refuses when
+    /// the model cannot resolve, is not animatable, the position or scale are
+    /// not finite/positive, or the placed + runtime character budget
+    /// ([`MAX_CHARACTERS`]) is full. A live runtime character with the same
+    /// instance id is replaced in place, which is a change like any other.
+    ///
+    /// # Errors
+    ///
+    /// Returns the reason the spawn was refused. A refused spawn leaves the
+    /// scene untouched.
+    #[allow(clippy::too_many_arguments)] // one frozen spawn seam: model, placement and lighting inputs
+    pub fn spawn_runtime_character(
+        &mut self,
+        level: &crate::level::LevelDef,
+        catalog: &crate::loader::PropCatalog,
+        assets: &mut PropAssets,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        instance_id: &str,
+        model: &str,
+        position: Vec3,
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> Result<(), String> {
+        let instance_id = instance_id.trim();
+        if instance_id.is_empty() {
+            return Err("a runtime character needs a non-empty instance id".to_string());
+        }
+        if !position.is_finite() || !yaw_degrees.is_finite() || !scale.is_finite() || scale <= 0.0 {
+            return Err(format!(
+                "the runtime character `{instance_id}` has a non-finite position or yaw, \
+                 or a non-positive scale"
+            ));
+        }
+        let replaced = self
+            .runtime
+            .iter()
+            .position(|character| character.instance_id.as_deref() == Some(instance_id));
+        if replaced.is_none() && self.len() >= MAX_CHARACTERS {
+            return Err(format!(
+                "the character budget ({MAX_CHARACTERS}) is full; the runtime character \
+                 `{instance_id}` was not spawned"
+            ));
+        }
+        // The catalogue maps a registry id to its model path; a string the
+        // catalogue does not know is tried as a model path directly, exactly
+        // like the dynamic runtime spawn and the placed character path.
+        let entry = catalog.get(model);
+        let path = entry
+            .model
+            .filter(|path| !path.is_empty())
+            .unwrap_or_else(|| model.to_string());
+        let asset = match assets.resolve(&path) {
+            Ok(asset) => asset,
+            Err(error) => {
+                assets.report_failure(&path, &error);
+                return Err(format!(
+                    "the runtime model `{path}` did not resolve: {error}"
+                ));
+            }
+        };
+        if !asset.model.is_animatable() {
+            return Err(format!(
+                "the runtime model `{path}` carries no skin or animation; it cannot be posed"
+            ));
+        }
+        let Some(animator) = CharacterAnimator::new(&asset.model) else {
+            return Err(format!("the runtime model `{path}` has no poseable rig"));
+        };
+        let base_y = LevelSurfaces::new(level)
+            .floor_y_at(position.x, position.z)
+            .unwrap_or(0.0);
+        let transform = runtime_instance_matrix(position, base_y, yaw_degrees, scale);
+        let albedo = sample_albedo(&asset, &transform, lighting, irradiance);
+        let world_bounds = character_bounds(&asset, &transform);
+        let character = Character {
+            asset,
+            transform,
+            animator,
+            albedo,
+            world_bounds,
+            instance_id: Some(instance_id.to_string()),
+            scale,
+        };
+        match replaced {
+            Some(index) => {
+                if let Some(slot) = self.runtime.get_mut(index) {
+                    *slot = character;
+                }
+            }
+            None => self.runtime.push(character),
+        }
+        self.runtime_generation = self.runtime_generation.wrapping_add(1);
+        Ok(())
+    }
+
+    /// Removes a runtime character; true when one was removed.
+    pub fn despawn_runtime_character(&mut self, instance_id: &str) -> bool {
+        let Some(index) = self
+            .runtime
+            .iter()
+            .position(|character| character.instance_id.as_deref() == Some(instance_id))
+        else {
+            return false;
+        };
+        self.runtime.remove(index);
+        self.runtime_generation = self.runtime_generation.wrapping_add(1);
+        true
+    }
+
+    /// Sets a live runtime character's placement (position + yaw in degrees);
+    /// true when one exists. The animator keeps playing.
+    ///
+    /// A non-finite position or yaw is refused without moving the character, so
+    /// a malformed frame cannot poison its culling bounds.
+    pub fn set_runtime_character_transform(
+        &mut self,
+        instance_id: &str,
+        position: Vec3,
+        yaw_degrees: f32,
+    ) -> bool {
+        if !position.is_finite() || !yaw_degrees.is_finite() {
+            return false;
+        }
+        let Some(character) = self.runtime_character_mut(instance_id) else {
+            return false;
+        };
+        character.set_pose(position, yaw_degrees.to_radians());
+        true
     }
 
     /// Advances every character's pose by `delta_seconds`.
     ///
     /// A character addressed by an [`EntityFrame`] follows that frame: the
-    /// route's live transform (when it moved) and its pose cue. Characters
-    /// with no frame keep following the player's locomotion snapshot, so a
-    /// level that authors no routes behaves exactly as before.
+    /// route's live transform (when it moved) and its pose cue. A placed
+    /// character with no frame keeps following the player's locomotion
+    /// snapshot, so a level that authors no routes behaves exactly as before. A
+    /// runtime character with no frame holds its current pose: it was spawned
+    /// by gameplay and has no placed locomotion to inherit.
     pub fn update(
         &mut self,
         delta_seconds: f32,
@@ -1153,34 +1347,58 @@ impl CharacterScene {
         let mut moved = 0usize;
         let mut finished: Vec<String> = Vec::new();
         for character in &mut self.characters {
-            let frame = character
-                .instance_id
-                .as_deref()
-                .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
-            let changed = match frame {
-                Some(frame) => {
-                    if let Some((position, yaw)) = frame.transform
-                        && !transforms_agree(character.transform, position, character.scale, yaw)
-                    {
-                        character.set_pose(position, yaw);
-                    }
-                    character.animator.update_cued(delta_seconds, &frame.cue)
-                }
-                // A rigid prop has no locomotion state to drive: until an
-                // action cues it, it holds the bind pose it was spawned in.
-                None if character.animator.is_rigid() => false,
-                None => character.animator.update(delta_seconds, snapshot),
-            };
+            if Self::advance_character(character, delta_seconds, snapshot, frames, true) {
+                moved = moved.saturating_add(1);
+            }
             if character.animator.take_cue_finished()
                 && let Some(instance_id) = character.instance_id.clone()
             {
                 finished.push(instance_id);
             }
-            if changed {
+        }
+        for character in &mut self.runtime {
+            if Self::advance_character(character, delta_seconds, snapshot, frames, false) {
                 moved = moved.saturating_add(1);
+            }
+            if character.animator.take_cue_finished()
+                && let Some(instance_id) = character.instance_id.clone()
+            {
+                finished.push(instance_id);
             }
         }
         CharacterUpdate { moved, finished }
+    }
+
+    /// Advances one character against this frame's handoff.
+    ///
+    /// `follow_locomotion` is true for a placed character: with no frame it
+    /// follows the player's locomotion snapshot. A runtime character passes
+    /// false and holds its current pose instead.
+    fn advance_character(
+        character: &mut Character,
+        delta_seconds: f32,
+        snapshot: LocomotionSnapshot,
+        frames: &[EntityFrame],
+        follow_locomotion: bool,
+    ) -> bool {
+        let frame = character
+            .instance_id
+            .as_deref()
+            .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
+        match frame {
+            Some(frame) => {
+                if let Some((position, yaw)) = frame.transform
+                    && !transforms_agree(character.transform, position, character.scale, yaw)
+                {
+                    character.set_pose(position, yaw);
+                }
+                character.animator.update_cued(delta_seconds, &frame.cue)
+            }
+            // A rigid prop has no locomotion state to drive: until an action
+            // cues it, it holds the bind pose it was spawned in.
+            None if !follow_locomotion || character.animator.is_rigid() => false,
+            None => character.animator.update(delta_seconds, snapshot),
+        }
     }
 }
 
@@ -1208,6 +1426,24 @@ fn placement_is_finite(prop: &crate::level::PropDef) -> bool {
         && prop.rotation_degrees.is_finite()
         && prop.scale.is_finite()
         && prop.scale > 0.0
+}
+
+/// The placement matrix of a runtime character.
+///
+/// `position` is a world position — the value an [`EntityFrame`] carries and
+/// [`Character::set_pose`] consumes — and `base_y` is the walkable floor the
+/// level places under it. The composition is the one
+/// [`prop_instance_matrix`] uses for a placed prop (translate, rotate about Y,
+/// scale uniformly), with the prop's floor offset already folded into
+/// `position.y`: a runtime actor resolves to the same matrix a placed prop at
+/// the same world point would, and never jumps when its first frame arrives.
+#[allow(clippy::arithmetic_side_effects)] // f32 placement arithmetic: finite inputs
+fn runtime_instance_matrix(position: Vec3, base_y: f32, yaw_degrees: f32, scale: f32) -> Mat4 {
+    let offset = position.y - base_y;
+    let translation = Vec3::new(position.x, base_y + offset, position.z);
+    Mat4::from_translation(translation)
+        .mul_mat4(&Mat4::from_rotation_y(yaw_degrees.to_radians()))
+        .mul_mat4(&Mat4::from_scale(Vec3::splat(scale)))
 }
 
 /// Samples each bind-pose vertex's albedo times baked light in world space.
@@ -3035,5 +3271,454 @@ mod tests {
             speed_mps: WALK_REFERENCE_SPEED_MPS,
         });
         assert!((rate - 1.0).abs() < 1e-5, "walk reference: {rate}");
+    }
+
+    // ------------------------------------------------- runtime characters
+
+    /// A one-room level placing one shipped `rat`: a catalogue id whose model
+    /// is a real skinned, animated GLB, the shape gameplay spawns from a
+    /// switch.
+    fn level_with_a_placed_rat() -> crate::level::LevelDef {
+        crate::level::LevelDef::from_json(
+            r#"{
+                "format_version": 3,
+                "id": "runtime_character_test",
+                "name": "Runtime Character Test",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [ { "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
+                "props": [ { "id": "placed_rat", "model": "rat", "x": 1.0, "z": 1.0 } ]
+            }"#,
+        )
+        .expect("the runtime character test level parses")
+    }
+
+    /// The level, shipped catalogue, asset cache and bake the runtime spawn
+    /// tests resolve through, the same fixtures the placed tests use.
+    fn runtime_fixtures() -> (
+        crate::level::LevelDef,
+        crate::loader::PropCatalog,
+        PropAssets,
+        LevelLighting,
+    ) {
+        let level = level_with_a_placed_rat();
+        let catalog = crate::loader::PropCatalog::load_default();
+        assert!(
+            catalog.contains("rat"),
+            "the shipped catalogue must list the rat entity"
+        );
+        let assets = PropAssets::load_default();
+        assert!(
+            assets.root().is_some(),
+            "assets/ must exist for these tests"
+        );
+        let lighting = LevelLighting::bake(&level);
+        (level, catalog, assets, lighting)
+    }
+
+    /// A runtime character spawns from a catalogue model, stands at its world
+    /// placement, is lit per vertex and animates through the ordinary frame
+    /// handoff.
+    #[test]
+    fn a_runtime_character_spawns_from_a_catalogue_model_and_animates() {
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let model_path = catalog
+            .get("rat")
+            .model
+            .expect("the shipped catalogue maps rat to a model");
+        let mut scene = CharacterScene::new();
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                Vec3::new(1.5, 0.25, -2.0),
+                90.0,
+                0.5,
+            )
+            .expect("the shipped rat is an animatable catalogue model");
+        assert_eq!(scene.runtime_len(), 1);
+        assert_eq!(scene.len(), 1, "a runtime actor is a live character");
+        assert!(!scene.is_empty());
+        assert_eq!(scene.runtime_generation(), 1);
+        assert_eq!(scene.runtime_characters().len(), 1);
+        let character = scene.runtime_character("rat#1").expect("live");
+        assert_eq!(character.instance_id(), Some("rat#1"));
+        assert_eq!(character.asset().model_path, model_path);
+        assert_eq!(
+            character.albedo().len(),
+            character.asset().model.vertices.len(),
+            "the runtime albedo is sampled per vertex, exactly like a placed one"
+        );
+        let placement = character.transform().transform_point3(Vec3::ZERO);
+        assert!(
+            (placement - Vec3::new(1.5, 0.25, -2.0)).length() < 1e-4,
+            "the runtime character stands at its world placement: {placement:?}"
+        );
+        let (scale, _, _) = character.transform().to_scale_rotation_translation();
+        assert!(
+            (scale - Vec3::splat(0.5)).length() < 1e-4,
+            "uniform placement scale: {scale:?}"
+        );
+        assert!(!character.world_bounds().is_empty());
+        assert!(scene.runtime_character_mut("rat#1").is_some());
+        assert!(scene.runtime_character_mut("ghost").is_none());
+        assert!(scene.runtime_character("ghost").is_none());
+
+        // A frame drives transform and cue exactly like a placed character.
+        let frame = EntityFrame {
+            instance_id: "rat#1".to_string(),
+            transform: Some((Vec3::new(2.0, 0.5, -1.0), std::f32::consts::FRAC_PI_2)),
+            cue: PoseCue::Walk { speed_mps: 0.2 },
+        };
+        let update = scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            std::slice::from_ref(&frame),
+        );
+        assert_eq!(update.moved, 1, "the runtime actor moved");
+        let character = scene.runtime_character("rat#1").expect("live");
+        let followed = character.transform().transform_point3(Vec3::ZERO);
+        assert!(
+            (followed - Vec3::new(2.0, 0.5, -1.0)).length() < 1e-4,
+            "the frame's live transform drives the runtime actor: {followed:?}"
+        );
+        assert!(
+            character.animator().has_pose_cue(),
+            "the frame's cue is playing"
+        );
+        let revision = character.animator().revision();
+
+        // With no frame it holds its pose: the player's locomotion snapshot
+        // must not drag a runtime actor into walking.
+        let idle = scene.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 3.0), &[]);
+        assert_eq!(idle.moved, 0, "no frame means no runtime pose change");
+        assert_eq!(
+            scene
+                .runtime_character("rat#1")
+                .expect("live")
+                .animator()
+                .revision(),
+            revision,
+            "the snapshot never advances a runtime actor"
+        );
+    }
+
+    /// An unknown model, a model with nothing to pose, a malformed placement
+    /// and a full budget are all refused without touching the scene.
+    #[test]
+    fn a_runtime_spawn_refuses_unusable_models_and_placements() {
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let mut scene = CharacterScene::new();
+        let unknown = scene.spawn_runtime_character(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            None,
+            "ghost",
+            "core:not_a_shipped_prop",
+            Vec3::ZERO,
+            0.0,
+            1.0,
+        );
+        assert!(
+            unknown.is_err(),
+            "an unresolvable model is refused: {unknown:?}"
+        );
+        let static_prop = scene.spawn_runtime_character(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            None,
+            "crate",
+            "core:crate",
+            Vec3::ZERO,
+            0.0,
+            1.0,
+        );
+        assert!(
+            static_prop.is_err(),
+            "a model with no skin or clips cannot be posed: {static_prop:?}"
+        );
+        let malformed = scene.spawn_runtime_character(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            None,
+            "rat#bad",
+            "rat",
+            Vec3::new(f32::NAN, 0.0, 0.0),
+            0.0,
+            1.0,
+        );
+        assert!(malformed.is_err(), "a non-finite position is refused");
+        let flat = scene.spawn_runtime_character(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            None,
+            "rat#flat",
+            "rat",
+            Vec3::ZERO,
+            0.0,
+            0.0,
+        );
+        assert!(flat.is_err(), "a non-positive scale is refused");
+        assert_eq!(scene.runtime_len(), 0);
+        assert_eq!(
+            scene.runtime_generation(),
+            0,
+            "a refused spawn is not a change"
+        );
+        assert!(scene.is_empty());
+    }
+
+    /// A live runtime actor can be moved without restarting its animation, and
+    /// despawned; only real changes bump the generation.
+    #[test]
+    fn runtime_characters_move_despawn_and_bump_the_generation() {
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let mut scene = CharacterScene::new();
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                Vec3::new(0.5, 0.1, 0.5),
+                0.0,
+                0.2,
+            )
+            .expect("the rat spawns");
+        assert_eq!(scene.runtime_generation(), 1);
+        let revision = scene
+            .runtime_character("rat#1")
+            .expect("live")
+            .animator()
+            .revision();
+        assert!(scene.set_runtime_character_transform("rat#1", Vec3::new(3.0, 0.6, 4.0), 45.0));
+        let character = scene.runtime_character("rat#1").expect("live");
+        let placement = character.transform().transform_point3(Vec3::ZERO);
+        assert!(
+            (placement - Vec3::new(3.0, 0.6, 4.0)).length() < 1e-4,
+            "the live placement moved: {placement:?}"
+        );
+        assert_eq!(
+            character.animator().revision(),
+            revision,
+            "moving must not restart the animation"
+        );
+        assert!(!scene.set_runtime_character_transform("ghost", Vec3::ZERO, 0.0));
+        assert!(!scene.set_runtime_character_transform(
+            "rat#1",
+            Vec3::new(f32::INFINITY, 0.0, 0.0),
+            0.0
+        ));
+        assert!(scene.despawn_runtime_character("rat#1"));
+        assert_eq!(scene.runtime_len(), 0);
+        assert_eq!(scene.runtime_generation(), 2);
+        assert!(!scene.despawn_runtime_character("rat#1"));
+        assert_eq!(
+            scene.runtime_generation(),
+            2,
+            "a failed despawn is not a change"
+        );
+        assert!(scene.is_empty());
+    }
+
+    /// A live runtime instance id is replaced in place by a fresh actor.
+    #[test]
+    fn a_runtime_spawn_replaces_a_live_instance_id() {
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let mut scene = CharacterScene::new();
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                Vec3::new(0.5, 0.1, 0.5),
+                0.0,
+                0.2,
+            )
+            .expect("the first spawn");
+        assert_eq!(scene.runtime_generation(), 1);
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                Vec3::new(-1.0, 0.3, 2.0),
+                90.0,
+                0.4,
+            )
+            .expect("the replacement spawn");
+        assert_eq!(scene.runtime_len(), 1, "a live id is replaced, not stacked");
+        assert_eq!(scene.len(), 1);
+        assert_eq!(scene.runtime_generation(), 2, "a replacement is one change");
+        let character = scene.runtime_character("rat#1").expect("live");
+        let placement = character.transform().transform_point3(Vec3::ZERO);
+        assert!(
+            (placement - Vec3::new(-1.0, 0.3, 2.0)).length() < 1e-4,
+            "the replacement carries its own placement: {placement:?}"
+        );
+        let (scale, _, _) = character.transform().to_scale_rotation_translation();
+        assert!((scale - Vec3::splat(0.4)).length() < 1e-4, "{scale:?}");
+    }
+
+    /// The placed + runtime character budget is one shared [`MAX_CHARACTERS`]
+    /// cap: a full scene refuses new actors, a replacement still fits, and a
+    /// despawn frees its slot.
+    #[test]
+    fn the_character_budget_is_shared_across_placed_and_runtime() {
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+        assert_eq!(scene.len(), 1, "the fixture places one rat");
+        assert_eq!(scene.runtime_len(), 0);
+        for index in 0..MAX_CHARACTERS - 1 {
+            scene
+                .spawn_runtime_character(
+                    &level,
+                    &catalog,
+                    &mut assets,
+                    &lighting,
+                    None,
+                    &format!("rat#{index}"),
+                    "rat",
+                    Vec3::new(0.1, 0.0, 0.0),
+                    0.0,
+                    0.1,
+                )
+                .expect("within the shared budget");
+        }
+        assert_eq!(scene.len(), MAX_CHARACTERS);
+        assert_eq!(scene.runtime_len(), MAX_CHARACTERS - 1);
+        let refused = scene.spawn_runtime_character(
+            &level,
+            &catalog,
+            &mut assets,
+            &lighting,
+            None,
+            "rat#overflow",
+            "rat",
+            Vec3::ZERO,
+            0.0,
+            0.1,
+        );
+        assert!(refused.is_err(), "the shared budget is full: {refused:?}");
+        assert_eq!(scene.len(), MAX_CHARACTERS);
+        // A live id is replaced rather than admitted, so it fits at the cap.
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#0",
+                "rat",
+                Vec3::new(1.0, 0.0, 1.0),
+                0.0,
+                0.1,
+            )
+            .expect("a replacement fits at the cap");
+        assert_eq!(scene.len(), MAX_CHARACTERS);
+        // A despawn frees its slot for a new actor.
+        assert!(scene.despawn_runtime_character("rat#0"));
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#fresh",
+                "rat",
+                Vec3::new(2.0, 0.0, 2.0),
+                0.0,
+                0.1,
+            )
+            .expect("the freed slot admits a new actor");
+        assert_eq!(scene.len(), MAX_CHARACTERS);
+        assert_eq!(scene.runtime_len(), MAX_CHARACTERS - 1);
+    }
+
+    /// A runtime placement is a world position: spawned where a placed prop
+    /// resolves, the runtime actor composes the same matrix the placed
+    /// character path produced, raised floor and all.
+    #[test]
+    fn a_runtime_placement_matches_the_placed_prop_composition() {
+        let level = crate::level::LevelDef::from_json(
+            r#"{
+                "format_version": 3,
+                "id": "runtime_floor_test",
+                "name": "Runtime Floor Test",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [ { "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0,
+                             "floor_y": 2.0, "height": 3.5 } ],
+                "props": [ { "id": "placed_rat", "model": "rat", "x": 1.0, "y": 1.0, "z": 2.0,
+                             "rotation_degrees": 30.0, "scale": 0.5 } ]
+            }"#,
+        )
+        .expect("the raised-floor level parses");
+        let catalog = crate::loader::PropCatalog::load_default();
+        let mut assets = PropAssets::load_default();
+        let lighting = LevelLighting::bake(&level);
+        let placed_scene =
+            CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+        assert_eq!(placed_scene.len(), 1);
+        let placed = placed_scene.characters()[0].transform();
+        let placed_origin = placed.transform_point3(Vec3::ZERO);
+        assert!(
+            (placed_origin - Vec3::new(1.0, 3.0, 2.0)).length() < 1e-4,
+            "a placed prop measures y against the raised floor: {placed_origin:?}"
+        );
+        let mut runtime = CharacterScene::new();
+        runtime
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                placed_origin,
+                30.0,
+                0.5,
+            )
+            .expect("the runtime actor spawns at the placed world point");
+        let runtime_matrix = runtime
+            .runtime_character("rat#1")
+            .expect("live")
+            .transform();
+        for (runtime_column, placed_column) in runtime_matrix
+            .to_cols_array()
+            .iter()
+            .zip(placed.to_cols_array().iter())
+        {
+            assert!(
+                (runtime_column - placed_column).abs() < 1e-4,
+                "the runtime placement is the placed composition: \
+                 {runtime_matrix:?} vs {placed:?}"
+            );
+        }
     }
 }

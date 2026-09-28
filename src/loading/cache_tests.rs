@@ -28,11 +28,13 @@ fn empty_records() -> Arc<PreparedRecords> {
         water: collision.water.clone(),
         ladders: collision.ladders,
     };
+    let navigation = crate::package::navigation::NavGrid::default();
     let retained_bytes =
-        PreparedRecords::retained_bytes(&build, &compiled, &ProbeCaptures::default());
+        PreparedRecords::retained_bytes(&build, &compiled, &navigation, &ProbeCaptures::default());
     Arc::new(PreparedRecords {
         build: Arc::new(build),
         collision: compiled,
+        navigation,
         probes: ProbeCaptures::default(),
         retained_bytes,
     })

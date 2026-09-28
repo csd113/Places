@@ -364,9 +364,12 @@ impl Renderer {
     ///
     /// `locomotion` is the player's state for this frame; each character's
     /// blend weights and phase follow it unless `frames` addresses that
-    /// character by instance id (a route's live transform and pose cue). The
-    /// caller owns the frame list ([`crate::game::Game::entity_frames`]).
-    /// Returns how many characters moved (and were therefore re-skinned).
+    /// character by instance id (a route's live transform and pose cue); a
+    /// runtime-spawned actor is driven by its frame alone and holds its pose
+    /// without one. The caller owns the frame list
+    /// ([`crate::game::Game::entity_frames`]). Returns how many characters
+    /// moved (and were therefore re-skinned). A runtime spawn or despawn since
+    /// the last call rebuilds the character GPU state before it syncs.
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
@@ -375,6 +378,61 @@ impl Renderer {
     ) -> crate::render::CharacterUpdate {
         self.renderer
             .update_characters(delta_seconds, locomotion, frames)
+    }
+
+    /// Spawns an animatable runtime actor through the character path.
+    ///
+    /// `model` is a catalogue registry id (such as `rat`) or a direct model
+    /// path, resolved exactly like [`Self::spawn_runtime_model`]. The actor is
+    /// lit by the installed level's baked lighting and irradiance field and
+    /// animates through the ordinary clip path, driven by an [`EntityFrame`]
+    /// addressed to `instance_id`. Spawning a live instance id replaces that
+    /// actor. The actor becomes visible on the next [`Self::update_characters`]
+    /// sync.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the model cannot be animated (the caller falls back
+    /// to the dynamic path) or the scene refused the placement: no installed
+    /// level or lighting, a non-finite position or a non-positive scale, or a
+    /// full character budget.
+    pub fn spawn_runtime_character(
+        &mut self,
+        instance_id: &str,
+        model: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> Result<(), String> {
+        self.renderer
+            .spawn_runtime_character(instance_id, model, position, yaw_degrees, scale)
+    }
+
+    /// Removes a runtime actor; true when one existed.
+    ///
+    /// The GPU side is rebuilt by the next [`Self::update_characters`].
+    pub fn despawn_runtime_character(&mut self, instance_id: &str) -> bool {
+        self.renderer.despawn_runtime_character(instance_id)
+    }
+
+    /// Moves a live runtime actor; true when one existed.
+    ///
+    /// The actor keeps its model, scale and playback; the write reaches the
+    /// GPU through the next [`Self::update_characters`] sync.
+    pub fn set_runtime_character_transform(
+        &mut self,
+        instance_id: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+    ) -> bool {
+        self.renderer
+            .set_runtime_character_transform(instance_id, position, yaw_degrees)
+    }
+
+    /// True when a runtime actor with this id is live.
+    #[must_use]
+    pub fn has_runtime_character(&self, instance_id: &str) -> bool {
+        self.renderer.has_runtime_character(instance_id)
     }
 
     /// The number of live animated characters in the current level.
@@ -387,6 +445,11 @@ impl Renderer {
     #[must_use]
     pub const fn character_scene(&self) -> &CharacterScene {
         self.renderer.character_scene()
+    }
+
+    /// Mutable access to the current character scene (gameplay and tests).
+    pub const fn character_scene_mut(&mut self) -> &mut CharacterScene {
+        self.renderer.character_scene_mut()
     }
 
     /// The current dynamic scene, for the developer log.

@@ -2291,7 +2291,8 @@ fn validate_components<'a>(
             | ComponentDef::Steam { .. }
             | ComponentDef::Water { .. }
             | ComponentDef::NavAgent { .. }
-            | ComponentDef::NavObstacle { .. }) => {
+            | ComponentDef::NavObstacle { .. }
+            | ComponentDef::Ai(_)) => {
                 let kind = other.kind();
                 if !singles.insert(kind) {
                     return Err(format!(
@@ -2302,6 +2303,18 @@ fn validate_components<'a>(
             }
         }
         validate_component_value(context, i, component, facts)?;
+    }
+    let has_ai = components
+        .iter()
+        .any(|component| matches!(component, ComponentDef::Ai(_)));
+    let has_body = components
+        .iter()
+        .any(|component| matches!(component, ComponentDef::NavAgent { .. }));
+    if has_ai && !has_body {
+        return Err(format!(
+            "{context} authors an `ai` component without a `nav_agent` body; an agent needs \
+             the physical profile its baked navigation class is selected by"
+        ));
     }
     facts.state_names = state_names;
     Ok(())
@@ -2445,13 +2458,34 @@ fn validate_component_value<'a>(
                 ));
             }
         }
-        ComponentDef::NavAgent { radius, speed_mps } => {
-            let valid =
-                radius.is_finite() && *radius > 0.0 && speed_mps.is_finite() && *speed_mps > 0.0;
+        ComponentDef::NavAgent {
+            radius,
+            speed_mps,
+            height,
+            step_height,
+            max_slope,
+        } => {
+            let valid = radius.is_finite()
+                && *radius > 0.0
+                && speed_mps.is_finite()
+                && *speed_mps > 0.0
+                && height.is_finite()
+                && *height > 0.0
+                && step_height.is_finite()
+                && *step_height > 0.0
+                && max_slope.is_finite()
+                && *max_slope > 0.0;
             if !valid {
                 return Err(format!(
-                    "{context} `nav_agent` component {i} radius and speed_mps must be \
-                     finite and positive"
+                    "{context} `nav_agent` component {i} radius, speed_mps, height, \
+                     step_height and max_slope must be finite and positive"
+                ));
+            }
+        }
+        ComponentDef::Ai(def) => {
+            if !def.is_valid() {
+                return Err(format!(
+                    "{context} `ai` component {i} has an invalid behavior, speed, range or tag"
                 ));
             }
         }
@@ -3912,6 +3946,7 @@ fn validate_float_fields(
 /// entity can climb, and no wall may block the body anywhere along it. A
 /// `solid: true` prop is refused because its own collision box would block
 /// its first step.
+#[allow(clippy::too_many_lines)] // one cohesive route validation pass
 fn validate_routes(level: &LevelDef) -> Result<(), String> {
     if u64::try_from(level.routes.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ROUTES {
         return Err(format!(
@@ -3968,12 +4003,50 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                  would block every step. Make the entity non-solid."
             ));
         }
+        if prop
+            .components
+            .iter()
+            .any(|component| matches!(component, ComponentDef::Ai(_)))
+        {
+            return Err(format!(
+                "Entity route `{id}` drives an entity that also authors an `ai` component; \
+                 one entity has one locomotion owner: keep the route or the AI, not both"
+            ));
+        }
         let size = prop.resolved_size(crate::level::PROP_FALLBACK_SIZE);
-        // Validation uses the *wider* axis, clamped to the same minimum the
-        // runtime disc uses, so an elongated body can never overlap a wall the
-        // runtime disc would miss and a tiny prop's floor still fits.
-        let radius = (size[0].max(size[2]) * 0.5).max(crate::entity::ENTITY_MIN_RADIUS_M);
-        let body_height = size[1].max(0.05);
+        // The authored `nav_agent` body (when present) is validated exactly as
+        // the mover uses it; otherwise validation uses the *wider* axis,
+        // clamped to the same minimum the runtime disc uses, so an elongated
+        // body can never overlap a wall the runtime disc would miss.
+        let (radius, body_height, step_height) = prop
+            .components
+            .iter()
+            .find_map(|component| match component {
+                ComponentDef::NavAgent {
+                    radius,
+                    height,
+                    step_height,
+                    ..
+                } => Some((*radius, *height, *step_height)),
+                ComponentDef::Interactable { .. }
+                | ComponentDef::Animation { .. }
+                | ComponentDef::Audio { .. }
+                | ComponentDef::Light { .. }
+                | ComponentDef::Material { .. }
+                | ComponentDef::State { .. }
+                | ComponentDef::Lifetime { .. }
+                | ComponentDef::Steam { .. }
+                | ComponentDef::Water { .. }
+                | ComponentDef::NavObstacle { .. }
+                | ComponentDef::Ai(_) => None,
+            })
+            .unwrap_or_else(|| {
+                (
+                    (size[0].max(size[2]) * 0.5).max(crate::entity::ENTITY_MIN_RADIUS_M),
+                    size[1].max(0.05),
+                    crate::entity::ENTITY_STEP_HEIGHT_M,
+                )
+            });
         let position = Vec3::new(
             prop.x,
             surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y,
@@ -3985,6 +4058,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
             position,
             radius,
             body_height,
+            step_height,
             &walls,
             &collision_index,
             &floor,
@@ -4002,6 +4076,7 @@ fn validate_route_steps(
     start: Vec3,
     radius: f32,
     body_height: f32,
+    step_height: f32,
     walls: &[crate::collision::WallAabb],
     collision_index: &crate::collision_index::CollisionIndex,
     floor: &crate::level::WalkableFloor,
@@ -4037,6 +4112,7 @@ fn validate_route_steps(
                     (*x, *z),
                     radius,
                     body_height,
+                    step_height,
                 )?;
                 position = Vec3::new(*x, waypoint_y, *z);
             }
@@ -4092,6 +4168,7 @@ fn route_path_is_clear(
     to: (f32, f32),
     radius: f32,
     body_height: f32,
+    step_height: f32,
 ) -> Result<(), String> {
     const SAMPLE_M: f32 = 0.02;
     let start = glam::Vec2::new(from.x, from.z);
@@ -4115,15 +4192,11 @@ fn route_path_is_clear(
                 point.x, point.y
             ));
         };
-        if (floor_y - previous_y).abs()
-            > crate::entity::ENTITY_STEP_HEIGHT_M + crate::collision::STEP_EPS
-        {
+        if (floor_y - previous_y).abs() > step_height + crate::collision::STEP_EPS {
             return Err(format!(
-                "{context} (`move_to`) steps more than {:.2} m at ({:.2}, {:.2}); \
+                "{context} (`move_to`) steps more than {step_height:.2} m at ({:.2}, {:.2}); \
                  the entity cannot climb it",
-                crate::entity::ENTITY_STEP_HEIGHT_M,
-                point.x,
-                point.y
+                point.x, point.y
             ));
         }
         let mut blocked = false;

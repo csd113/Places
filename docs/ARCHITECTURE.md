@@ -99,7 +99,9 @@ where the bytes live:
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
 | `src/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
 | `src/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
-| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer and spawn record), level packs, material resolution |
+| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), level packs, material resolution |
+| `src/nav/` | Navigation: the offline bake (`bake.rs`, compiler-only) and the runtime mesh (`query.rs`: nearest/path/segment queries over the baked grid, door portals, region statistics). `mod.rs` owns the agent profile and the live door-state trait |
+| `src/ai/` | The shared AI framework: typed `AiDef` behaviors, `AiWorld` (state machine, staggered sight from real collision and hearing from gameplay stimuli, navigation-assisted flee/pursue/catch) and the locomotion/animation bridge (`movement.rs`, `perception.rs`) |
 | `src/loading.rs` | Serialized package decode (one bounded worker), cancellation, immutable decoded-variant cache |
 | `src/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
 | `src/compiler.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
@@ -172,8 +174,8 @@ lives in `src/entities/`:
 - **Components are typed capabilities, not a script bag.** A prop, door,
   fixture, volume, timer, spawn point or spawned instance carries
   `interactable`, `animation`, `audio`, `light`, `material`, `state`,
-  `lifetime`, `steam`, `water`, `nav_agent` or `nav_obstacle` components plus
-  its `transform`, `renderable` and `collider` where they apply. Storage is one
+  `lifetime`, `steam`, `water`, `nav_agent`, `nav_obstacle` or `ai` components
+  plus its `transform`, `renderable` and `collider` where they apply. Storage is one
   sparse table per component kind (`src/entities/components.rs`), iterated by
   kind and never scanned per frame in full; a static prop's geometry, collider
   and bake stay compiled into the prepared world, and only runtime entities
@@ -222,8 +224,21 @@ lives in `src/entities/`:
 - **Doors** (`src/door.rs`) keep the phase machine, the obstruction policy and
   the collider derived from the live angle; a door's `locked` state is on the
   runtime, `open`/`close`/`toggle`/`lock`/`unlock` drive it, and
-  `EntityWorld::door_blockers()` publishes the id, passability and collider for
-  the navigation upgrade without rebaking anything.
+  `EntityWorld::door_blockers()` publishes the id, passability and collider.
+  Navigation reads the same state through door **portals** in the baked mesh, so
+  a closed door blocks a route and opening it invalidates cached paths without
+  ever rebaking the mesh.
+- **Navigation and AI** (`src/nav/`, `src/ai/`) are one shared system. The
+  compiler bakes one cell mesh per map: a class per distinct `nav_agent` body
+  (clearance, headroom, step and slope evaluated at bake time), connected region
+  labels, and a portal per door leaf. `EntityWorld` owns the `AiWorld`; on each
+  tick it perceives (staggered sight against real collision and live leaves,
+  hearing against the bounded stimulus queue), decides from authored tags
+  (`role`/`reacts_to`), moves through the same collision and floor rules the
+  player uses, and emits transform updates, `ai_state`/`caught` events, door
+  requests and its own movement noise. A catch freezes the prey once and leaves
+  the pounce/consume presentation to the ordinary sequence system. The player
+  only decodes and queries the baked mesh.
 - **Routes and animation** are unchanged in behaviour: `entity::PoseCue` is
   still the one pose vocabulary, `play_animation`/`toggle_animation` set a
   per-instance override that wins over the route's own cue, and a one-shot cue

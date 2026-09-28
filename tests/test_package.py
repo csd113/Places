@@ -221,7 +221,7 @@ class ShippedLevelTests(unittest.TestCase):
                 # The player never compiles: each package must carry the
                 # prepared payloads for every declared variant.
                 for variant in manifest["variants"]:
-                    for role in ("mesh", "props", "lighting", "collision"):
+                    for role in ("mesh", "props", "lighting", "collision", "navigation"):
                         self.assertIn(variant["entries"][role], names, f"{stem} {role}")
                     if variant["lightmap_quality"] != "off":
                         self.assertIn(variant["entries"]["lightmaps"], names, stem)

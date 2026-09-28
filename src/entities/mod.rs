@@ -33,6 +33,7 @@ pub mod timers;
 
 use glam::Vec3;
 
+use crate::ai::{AiDef, AiOutcome, AiStimulus, AiTarget, AiTickContext, AiWorld};
 use crate::collision::{
     DoorCollider, WallAabb, resolve_player_collision_for_body_indexed, segment_overlaps_aabb,
 };
@@ -52,6 +53,7 @@ use crate::level::{
     LevelSurfaces, PROP_FALLBACK_SIZE, WalkableCeiling, WalkableFloor, WaterVolumes,
 };
 use crate::logging;
+use crate::nav::NavMesh;
 
 use components::{
     Animation, AudioEmitter, Collider, ComponentTables, Interactable as InteractableComponent,
@@ -95,6 +97,8 @@ pub struct WorldContext<'a> {
     pub index: &'a CollisionIndex,
     /// The walkable floor sampler.
     pub floor: &'a WalkableFloor,
+    /// The baked navigation mesh, when the installed package carries one.
+    pub nav: Option<&'a NavMesh>,
 }
 
 /// One renderer/audio command produced by the world.
@@ -117,6 +121,9 @@ pub enum WorldCommand {
     DespawnDynamic {
         /// The entity's runtime render key.
         entity: u64,
+        /// The runtime instance id, so the frame loop can also release a
+        /// runtime character the key belonged to.
+        instance_id: String,
     },
     /// Move an existing runtime dynamic object.
     SetDynamicTransform {
@@ -320,6 +327,12 @@ pub struct EntityWorld {
     floor: WalkableFloor,
     ceiling: WalkableCeiling,
     animated_emissions: Vec<AnimatedEmissionDef>,
+    /// The shared AI runtime of this world.
+    ai: AiWorld,
+    /// Bounded gameplay stimuli the AI can hear.
+    stimuli: std::collections::VecDeque<AiStimulus>,
+    /// Simulation seconds since the world was resolved.
+    sim_time: f32,
 }
 
 impl std::fmt::Debug for EntityWorld {
@@ -383,6 +396,9 @@ impl EntityWorld {
             floor: WalkableFloor::default(),
             ceiling: WalkableCeiling::default(),
             animated_emissions: Vec::new(),
+            ai: AiWorld::new(),
+            stimuli: std::collections::VecDeque::new(),
+            sim_time: 0.0,
         }
     }
 
@@ -414,6 +430,9 @@ impl EntityWorld {
         self.spawns_this_tick = 0;
         self.authored_lights.clear();
         self.authored_states.clear();
+        self.ai.clear();
+        self.stimuli.clear();
+        self.sim_time = 0.0;
         self.water = WaterVolumes::from_level(level);
         self.ladders = Ladders::from_level(level);
         self.floor = WalkableFloor::from_level(level);
@@ -437,6 +456,7 @@ impl EntityWorld {
         self.resolve_water(level);
         self.resolve_timers(level);
         self.resolve_spawn_points(level, &surfaces);
+        self.resolve_ai();
         self.resolve_routes(level);
         self.authored_states = self
             .components
@@ -493,6 +513,10 @@ impl EntityWorld {
         self.reset_bindings();
         self.animation_overrides.clear();
         self.events.clear();
+        self.stimuli.clear();
+        self.sim_time = 0.0;
+        self.ai.reset();
+        self.ai.release_caught();
         let live: Vec<EntityHandle> = self.live_spawns.clone();
         for handle in live {
             let _ = self.despawn_handle(handle);
@@ -786,6 +810,73 @@ impl EntityWorld {
         }
     }
 
+    /// Registers every authored AI agent from the resolved component tables.
+    fn resolve_ai(&mut self) {
+        let agents = self.ai_candidates();
+        for handle in agents {
+            let Some(def) = self.components.ais.get(handle).cloned() else {
+                continue;
+            };
+            let Some(id) = self.id_of(handle).map(str::to_string) else {
+                continue;
+            };
+            self.register_agent(handle, &id, def, false);
+        }
+    }
+
+    /// Registers one runtime-spawned entity's AI agent, when its template
+    /// carries both an `ai` definition and a navigation body.
+    fn register_spawned_ai(&mut self, handle: EntityHandle, instance_id: &str) {
+        let Some(def) = self.components.ais.get(handle).cloned() else {
+            return;
+        };
+        self.register_agent(handle, instance_id, def, true);
+    }
+
+    /// Registers one agent from its resolved components.
+    fn register_agent(
+        &mut self,
+        handle: EntityHandle,
+        instance_id: &str,
+        def: AiDef,
+        spawned: bool,
+    ) {
+        let Some(transform) = self.components.transforms.get(handle).copied() else {
+            return;
+        };
+        let profile = self.components.nav_agents.get(handle).map_or_else(
+            || {
+                warn_once(
+                    "ai-without-nav-agent",
+                    format!(
+                        "[entities] `{instance_id}` authors an `ai` component without a \
+                         `nav_agent`; the reference humanoid body is used"
+                    ),
+                );
+                crate::nav::NavAgentProfile::reference()
+            },
+            |agent| agent.profile(def.can_open_doors),
+        );
+        self.ai.register(
+            handle,
+            instance_id,
+            def,
+            profile,
+            transform.position,
+            transform.yaw_degrees,
+            spawned,
+        );
+    }
+
+    /// Every entity carrying an authored AI definition, in table order.
+    fn ai_candidates(&self) -> Vec<EntityHandle> {
+        self.components
+            .ais
+            .iter()
+            .map(|(handle, _)| handle)
+            .collect()
+    }
+
     fn resolve_routes(&mut self, level: &LevelDef) {
         self.routes = EntityRoutes::from_level(level);
         self.route_states = self
@@ -947,14 +1038,26 @@ impl EntityWorld {
                         .water
                         .insert(handle, WaterVolumeCtl { enabled: *enabled });
                 }
-                ComponentDef::NavAgent { radius, speed_mps } => {
+                ComponentDef::NavAgent {
+                    radius,
+                    speed_mps,
+                    height,
+                    step_height,
+                    max_slope,
+                } => {
                     self.components.nav_agents.insert(
                         handle,
                         NavAgent {
                             radius: *radius,
                             speed_mps: *speed_mps,
+                            height: *height,
+                            step_height: *step_height,
+                            max_slope: *max_slope,
                         },
                     );
+                }
+                ComponentDef::Ai(def) => {
+                    self.components.ais.insert(handle, def.clone());
                 }
                 ComponentDef::NavObstacle { size, affects_nav } => {
                     let size = size.unwrap_or_else(|| {
@@ -1505,6 +1608,12 @@ impl EntityWorld {
         let index = target?;
         let id = self.interactables.get(index)?.id.clone();
         let handle = self.handle_of(&id)?;
+        let position = self
+            .components
+            .transforms
+            .get(handle)
+            .map_or(Vec3::ZERO, |transform| transform.position);
+        self.note_stimulus(position, 8.0, "interact", Some(handle));
         self.emit(EventKind::Interact, handle, "", Some(handle));
         let mut tick = WorldTick::default();
         self.pump_events(&mut tick);
@@ -3015,6 +3124,13 @@ impl EntityWorld {
             Some(handle),
             depth.saturating_add(1),
         );
+        self.register_spawned_ai(handle, &runtime_name);
+        self.note_stimulus(
+            Vec3::new(authored_point.x, base_y, authored_point.z),
+            7.0,
+            "spawn",
+            Some(handle),
+        );
         Ok(handle)
     }
 
@@ -3055,8 +3171,10 @@ impl EntityWorld {
             return false;
         }
         if let Some(key) = self.dynamic_key(handle) {
-            self.commands
-                .push(WorldCommand::DespawnDynamic { entity: key });
+            self.commands.push(WorldCommand::DespawnDynamic {
+                entity: key,
+                instance_id: id.clone().unwrap_or_default(),
+            });
         }
         self.sequence_runs.retain(|run| run.owner != handle);
         self.moves.retain(|goal| goal.entity != handle);
@@ -3064,6 +3182,7 @@ impl EntityWorld {
             .retain(|(candidate, _)| *candidate != handle);
         self.live_spawns.retain(|candidate| *candidate != handle);
         self.spawn_groups.release(handle);
+        self.ai.remove(handle);
         if let Some(id) = id {
             self.names.remove(&id);
         }
@@ -3081,6 +3200,23 @@ impl EntityWorld {
             .map(|(_, key)| *key)
     }
 
+    /// The entity a runtime render key belongs to, if it is still alive.
+    #[must_use]
+    pub fn handle_for_dynamic_key(&self, key: u64) -> Option<EntityHandle> {
+        let handle = self
+            .dynamic_keys
+            .iter()
+            .find(|(_, candidate)| *candidate == key)
+            .map(|(handle, _)| *handle)?;
+        self.store.contains(handle).then_some(handle)
+    }
+
+    /// The authored or runtime id of an entity, when it is alive.
+    #[must_use]
+    pub fn instance_id_of(&self, handle: EntityHandle) -> Option<&str> {
+        self.id_of(handle)
+    }
+
     /// A stable non-zero key for a non-dynamic entity (audio emitters).
     fn stable_key(&self, handle: EntityHandle) -> Option<u64> {
         self.store.contains(handle).then(|| {
@@ -3094,9 +3230,11 @@ impl EntityWorld {
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
         let mut tick = WorldTick::default();
         self.spawns_this_tick = 0;
+        self.sim_time += ctx.delta_seconds;
         self.tick_bindings(ctx.delta_seconds);
         self.tick_timers(ctx.delta_seconds, &mut tick);
         self.tick_sequences(ctx, &mut tick);
+        self.tick_ai(ctx, &mut tick);
         self.tick_moves(ctx, &mut tick);
         self.tick_lifetimes(ctx.delta_seconds, &mut tick);
         self.pump_events(&mut tick);
@@ -3107,6 +3245,164 @@ impl EntityWorld {
             self.rebuild_entity_frames();
         }
         tick
+    }
+
+    /// Advances the shared AI runtime: perception, decisions, locomotion,
+    /// catch detection and the stimuli and commands the tick produced.
+    fn tick_ai(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
+        self.age_stimuli(ctx.delta_seconds);
+        if self.ai.is_empty() {
+            return;
+        }
+        let targets: Vec<AiTarget> = self
+            .ai
+            .agents()
+            .iter()
+            .map(|agent| AiTarget {
+                handle: agent.handle,
+                instance_id: agent.instance_id.clone(),
+                role: agent.role.clone(),
+                behavior: agent.def.behavior,
+                position: agent.position,
+                radius: agent.profile.radius,
+                height: agent.profile.height,
+                caught: agent.caught,
+            })
+            .collect();
+        let scripted: Vec<EntityHandle> = self.sequence_runs.iter().map(|run| run.owner).collect();
+        let stimuli: Vec<AiStimulus> = self.stimuli.iter().cloned().collect();
+        let ai_ctx = AiTickContext {
+            delta: ctx.delta_seconds,
+            sim_time: self.sim_time,
+            nav: ctx.nav,
+            doors: &self.doors,
+            door_version: self.doors.version(),
+            walls: ctx.walls,
+            index: ctx.index,
+            floor: ctx.floor,
+            leaves: &self.door_colliders,
+            targets: &targets,
+            stimuli: &stimuli,
+            scripted: &scripted,
+        };
+        let mut outcome = AiOutcome::default();
+        self.ai.tick(&ai_ctx, &mut outcome);
+        for (handle, position, yaw_degrees, spawned) in outcome.moved {
+            if let Some(transform) = self.components.transforms.get_mut(handle) {
+                transform.position = position;
+                transform.yaw_degrees = yaw_degrees;
+            }
+            if spawned && let Some(key) = self.dynamic_key(handle) {
+                self.commands.push(WorldCommand::SetDynamicTransform {
+                    entity: key,
+                    position,
+                    yaw_degrees,
+                });
+            }
+            tick.frames_dirty = true;
+        }
+        for (kind, subject, key, actor) in outcome.events {
+            self.emit_depth(kind, subject, &key, actor, 0);
+        }
+        for (door_id, _agent) in outcome.door_requests {
+            if let Some(index) = self.doors.index_of(&door_id)
+                && let Some(door) = self.doors.get(index)
+            {
+                self.note_stimulus(
+                    Vec3::new(door.def.x, door.base_y(), door.def.z),
+                    5.0,
+                    "door",
+                    self.handle_of(&door_id),
+                );
+            }
+            let _ = self.doors.request_open(&door_id);
+        }
+        for stimulus in outcome.stimuli {
+            self.push_stimulus(stimulus);
+        }
+        tick.events_processed = tick
+            .events_processed
+            .saturating_add(outcome.transitions.min(MAX_EVENTS_PER_TICK));
+    }
+
+    /// Ages every queued stimulus and drops the stale ones.
+    fn age_stimuli(&mut self, delta: f32) {
+        for stimulus in &mut self.stimuli {
+            stimulus.age += delta;
+        }
+        while self
+            .stimuli
+            .front()
+            .is_some_and(|stimulus| !stimulus.is_fresh(0.0))
+        {
+            let _ = self.stimuli.pop_front();
+        }
+        while self.stimuli.len() > crate::ai::perception::MAX_STIMULI {
+            let _ = self.stimuli.pop_front();
+        }
+    }
+
+    /// Publishes one gameplay stimulus for AI hearing.
+    pub fn push_stimulus(&mut self, stimulus: AiStimulus) {
+        if !stimulus.position.is_finite()
+            || !stimulus.radius.is_finite()
+            || stimulus.radius <= 0.0
+            || !stimulus.loudness.is_finite()
+            || stimulus.loudness <= 0.0
+        {
+            return;
+        }
+        while self.stimuli.len() >= crate::ai::perception::MAX_STIMULI {
+            let _ = self.stimuli.pop_front();
+        }
+        self.stimuli.push_back(stimulus);
+    }
+
+    /// Convenience publisher for a stimulus at a position.
+    pub fn note_stimulus(
+        &mut self,
+        position: Vec3,
+        radius: f32,
+        category: &str,
+        source: Option<EntityHandle>,
+    ) {
+        self.push_stimulus(AiStimulus {
+            position,
+            radius,
+            loudness: 1.0,
+            category: category.to_string(),
+            source,
+            age: 0.0,
+        });
+    }
+
+    /// The shared AI runtime.
+    #[must_use]
+    pub const fn ai(&self) -> &AiWorld {
+        &self.ai
+    }
+
+    /// The shared AI runtime, mutable (tests and scripted encounters).
+    pub const fn ai_mut(&mut self) -> &mut AiWorld {
+        &mut self.ai
+    }
+
+    /// Every live stimulus.
+    #[must_use]
+    pub fn stimuli(&self) -> Vec<AiStimulus> {
+        self.stimuli.iter().cloned().collect()
+    }
+
+    /// Simulation seconds since the world was resolved.
+    #[must_use]
+    pub const fn sim_time(&self) -> f32 {
+        self.sim_time
+    }
+
+    /// How many authored sequences are running right now.
+    #[must_use]
+    pub const fn active_sequences(&self) -> usize {
+        self.sequence_runs.len()
     }
 
     /// Folds every event-queue refusal since the last report into the tick,
@@ -3227,10 +3523,19 @@ impl EntityWorld {
             return;
         };
         let clip = if clip.trim().is_empty() {
+            // The renderer reports completion by instance id, not clip name.
+            // The authoritative name is the entity's `animation` component
+            // when it has one, otherwise the cue the entity runtime cued last
+            // (`play_animation`), so a sequence can wait for a named clip.
             self.components
                 .animations
                 .get(handle)
                 .map(|animation| animation.clip.clone())
+                .or_else(|| {
+                    self.animation_override(instance_id)
+                        .and_then(PoseCue::clip_name)
+                        .map(str::to_string)
+                })
                 .unwrap_or_default()
         } else {
             clip.to_string()
@@ -3307,7 +3612,37 @@ impl EntityWorld {
     /// `play_animation`/`toggle_animation` still reach it.
     pub fn rebuild_entity_frames(&mut self) {
         self.entity_frames.clear();
+        // AI agents own their locomotion: their frame carries the live
+        // transform and the state-driven pose, and wins over a route with the
+        // same id (validation rejects authoring both).
+        for agent in self.ai.agents() {
+            // A scripted performance (a sequence's `play_animation`) owns the
+            // pose while the agent is frozen in a catch or scripted state;
+            // once ordinary locomotion resumes, the state-driven gait wins so
+            // a finished one-shot cannot pin the agent in a held pose.
+            let cue = if agent.frozen() {
+                self.animation_override(&agent.instance_id)
+                    .cloned()
+                    .unwrap_or_else(|| agent.cue())
+            } else {
+                agent.cue()
+            };
+            self.entity_frames.push(EntityFrame {
+                instance_id: agent.instance_id.clone(),
+                transform: Some((agent.position, agent.yaw_degrees)),
+                cue,
+            });
+        }
+        let ai_owned: Vec<&str> = self
+            .ai
+            .agents()
+            .iter()
+            .map(|agent| agent.instance_id.as_str())
+            .collect();
         for (index, route) in self.routes.routes().iter().enumerate() {
+            if ai_owned.contains(&route.instance_id.as_str()) {
+                continue;
+            }
             let Some(state) = self.route_states.get(index) else {
                 continue;
             };
@@ -3329,6 +3664,9 @@ impl EntityWorld {
             .collect();
         for (instance_id, cue) in &self.animation_overrides {
             if routed.iter().any(|id| id == instance_id) {
+                continue;
+            }
+            if ai_owned.contains(&instance_id.as_str()) {
                 continue;
             }
             // The renderer matches frames to the characters it claimed; a
@@ -3570,6 +3908,7 @@ mod tests {
             walls: &walls,
             index: &index,
             floor: &floor,
+            nav: None,
         };
         world.tick(&ctx)
     }

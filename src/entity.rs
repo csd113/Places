@@ -118,6 +118,12 @@ pub struct EntityRoute {
     pub radius: f32,
     /// Collision body height in metres.
     pub body_height: f32,
+    /// Largest surface rise the body walks up, in metres.
+    ///
+    /// An authored `nav_agent` body supplies it, so a route and the AI that
+    /// drives the same actor share one movement limit; without one the
+    /// historical [`ENTITY_STEP_HEIGHT_M`] applies.
+    pub step_height: f32,
 }
 
 /// Every route a level declares, resolved against its placed props.
@@ -171,7 +177,38 @@ impl EntityRoutes {
             // validation checks the whole authored path against the wider
             // extent clamped to the same minimum, so the runtime disc never
             // allows a wall overlap the map did not already clear.
-            let radius = (size[0].min(size[2]) * 0.5).clamp(ENTITY_MIN_RADIUS_M, 0.5);
+            // The movement body is the authored `nav_agent` when the actor
+            // has one, so a route and the AI share one profile; otherwise the
+            // historical size-derived disc applies.
+            let body = prop
+                .components
+                .iter()
+                .find_map(|component| match component {
+                    crate::level::ComponentDef::NavAgent {
+                        radius,
+                        height,
+                        step_height,
+                        ..
+                    } => Some((*radius, *height, *step_height)),
+                    crate::level::ComponentDef::Interactable { .. }
+                    | crate::level::ComponentDef::Animation { .. }
+                    | crate::level::ComponentDef::Audio { .. }
+                    | crate::level::ComponentDef::Light { .. }
+                    | crate::level::ComponentDef::Material { .. }
+                    | crate::level::ComponentDef::State { .. }
+                    | crate::level::ComponentDef::Lifetime { .. }
+                    | crate::level::ComponentDef::Steam { .. }
+                    | crate::level::ComponentDef::Water { .. }
+                    | crate::level::ComponentDef::NavObstacle { .. }
+                    | crate::level::ComponentDef::Ai(_) => None,
+                });
+            let (radius, body_height, step_height) = body.unwrap_or_else(|| {
+                (
+                    (size[0].min(size[2]) * 0.5).clamp(ENTITY_MIN_RADIUS_M, 0.5),
+                    size[1].clamp(0.1, 2.0),
+                    ENTITY_STEP_HEIGHT_M,
+                )
+            });
             routes.push(EntityRoute {
                 instance_id: id.to_string(),
                 looped: def.looped,
@@ -179,7 +216,8 @@ impl EntityRoutes {
                 spawn_position: Vec3::new(prop.x, base_y, prop.z),
                 spawn_yaw_degrees: prop.rotation_degrees,
                 radius,
-                body_height: size[1].clamp(0.1, 2.0),
+                body_height,
+                step_height,
             });
         }
         Self { routes }
@@ -334,7 +372,7 @@ impl EntityRoute {
                     return;
                 };
                 if (floor_y - state.position.y).abs()
-                    > ENTITY_STEP_HEIGHT_M + crate::collision::STEP_EPS
+                    > self.step_height + crate::collision::STEP_EPS
                 {
                     self.block(state, "the path steps further than the entity can climb");
                     return;

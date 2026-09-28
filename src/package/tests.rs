@@ -609,6 +609,7 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
         "blobs/aa.props".to_string(),
         "blobs/aa.lighting".to_string(),
         "blobs/aa.collision".to_string(),
+        "blobs/aa.navigation".to_string(),
         "semantics.json".to_string(),
     ];
     entries.sort();
@@ -619,6 +620,7 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
         author: String::new(),
         created_by: "test".to_string(),
         compiler_fingerprint: "0".repeat(64),
+        lighting_fingerprint: Some("0".repeat(64)),
         required_capabilities: vec!["geometry".to_string()],
         dependencies: Vec::new(),
         entries: vec![
@@ -626,6 +628,7 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
             role_entry("blobs/aa.props", "props"),
             role_entry("blobs/aa.lighting", "lighting"),
             role_entry("blobs/aa.collision", "collision"),
+            role_entry("blobs/aa.navigation", "navigation"),
             super::PackageEntry {
                 name: "semantics.json".to_string(),
                 role: "semantics".to_string(),
@@ -643,6 +646,7 @@ fn manifests_reject_wrong_versions_capabilities_and_shapes() {
                 props: "blobs/aa.props".to_string(),
                 lighting: "blobs/aa.lighting".to_string(),
                 collision: "blobs/aa.collision".to_string(),
+                navigation: "blobs/aa.navigation".to_string(),
                 lightmaps: None,
                 lightmaps_meta: None,
                 probes: Vec::new(),

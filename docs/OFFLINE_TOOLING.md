@@ -104,6 +104,38 @@ to 12; `PLACES_TOOL_WORKERS` is the environment fallback and the flag wins).
 `--workers 1` is the serial reference path and is tested to produce identical
 values to the parallel path.
 
+## Navigation the compiler prepares
+
+`places-compile build` also bakes the navigation mesh
+(`src/nav/bake.rs`) and stores it as one `blobs/<sha>.navigation` record per
+package. The bake rasterises the level's own walkable surfaces (rooms, floor
+regions, ramps, stairs) against the same collision boxes the player collides
+with, producing:
+
+* one **agent class** per distinct `nav_agent` body in the level (plus the
+  reference humanoid), each with a walkable bitmask and connected-region
+  labels; clearance, headroom, step and slope are evaluated at bake time;
+* per-cell surface height, headroom and door-portal membership;
+* one portal per authored door leaf, so a closed or locked door blocks a route
+  and an open one passes without any rebake.
+
+Independent row tiles are baked in parallel with a private collision index per
+worker (at most the shared worker budget); the merge is in row order, so a
+parallel bake is byte-identical to `--workers 1` (covered by
+`nav::tests::parallel_and_serial_bakes_are_identical`). The bake also warns at
+build time, naming any `nav_agent` entity or spawn point with no navigable
+cell; the command output lists those warnings.
+
+The runtime never bakes. It decodes, validates and queries the record; a
+missing or malformed record fails the player load by name.
+
+Illumination is a separate stage: the manifest records a
+`lighting_fingerprint` over the level's geometry, materials and lights with
+every navigation/AI component removed. An edit that only changes an encounter
+or an AI behavior keeps that key and the compiler reuses the previous package's
+prepared geometry, lightmaps, probes and collision, rebuilding only the
+semantic and navigation records (`loader::tests::an_ai_only_edit_reuses_the_prepared_lighting`).
+
 ## Complete first-party inventory
 
 A = CPU work partitioned at the listed consumer; B = already parallel; C = I/O or

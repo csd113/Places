@@ -1,8 +1,9 @@
 //! Unit tests for the game state, movement and collision.
 
-// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
-// the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used)]
+// Test code: unwrap/expect, indexing, loose casts, panics and permissive
+// arithmetic are idiomatic in tests; the production lints stay enforced
+// everywhere else in the crate.
+#![allow(clippy::expect_used, clippy::panic, clippy::unreachable)]
 
 use std::fmt::Write as _;
 
@@ -6139,4 +6140,310 @@ fn the_demo_sauna_chain_runs_end_to_end() {
         .get(lamp)
         .is_some_and(|light| light.enabled);
     assert!(!enabled, "the warm cue switched the sauna lamp off");
+}
+
+// ---- Job 05: baked navigation and the home encounter -----------------------
+
+/// Bakes the real Demo with the compiler's own navigation entry point and
+/// loads it through the package record codec, exactly as a package install
+/// does. Returns the mesh plus the bake warnings.
+fn demo_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) {
+    let mut warnings = Vec::new();
+    let (bytes, report) = crate::compiler::bake_navigation(level, 1, &mut warnings)
+        .expect("the demo navigation bakes");
+    assert!(
+        warnings.is_empty(),
+        "the demo has no navigation placement warnings: {warnings:?}"
+    );
+    assert!(
+        report.walkable_cells.first().copied().unwrap_or(0) > 1000,
+        "the demo bakes a real mesh"
+    );
+    assert_eq!(report.portals, 3, "the demo's three doors are portal links");
+    let bytes = crate::package::navigation::write_navigation(
+        &crate::package::navigation::read_navigation(&bytes).expect("the record decodes"),
+    )
+    .expect("the record re-encodes");
+    let grid = crate::package::navigation::read_navigation(&bytes).expect("the record decodes");
+    let mesh = crate::nav::NavMesh::from_record(grid).expect("the mesh validates");
+    (mesh, warnings)
+}
+
+/// The real Demo with its real baked navigation installed.
+fn demo_game_with_navigation(delta: f32) -> Game {
+    let level = demo_level();
+    let (mesh, _) = demo_navigation(&level);
+    let mut game = Game::new(
+        spawn_position(&level),
+        level.spawn.yaw_degrees.to_radians(),
+        CollisionWorld::from_level_with_navigation(&level, mesh),
+    );
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = delta;
+    game
+}
+
+/// Presses an authored interactable by id, through the ordinary dispatch.
+fn press(game: &mut Game, id: &str) -> DispatchReport {
+    let index = game
+        .interactables()
+        .index_of(id)
+        .unwrap_or_else(|| panic!("`{id}` is interactable"));
+    game.world_mut()
+        .dispatch_interaction(Some(index))
+        .unwrap_or_else(|| panic!("`{id}` dispatch"))
+}
+
+/// Live AI agents named `instance_id`.
+fn agents_named(game: &Game, instance_id: &str) -> usize {
+    game.entities()
+        .ai()
+        .agents()
+        .iter()
+        .filter(|agent| agent.instance_id == instance_id)
+        .count()
+}
+
+/// Advances fixed frames while checking that both actors stay on walkable
+/// navigation and outside every static box.
+fn advance_checked(game: &mut Game, frames: usize, actors: &[&str]) {
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    for _ in 0..frames {
+        game.update_player_movement(&mut input, &settings);
+        for actor in actors {
+            let Some(agent) = game.entities().ai().agent(actor) else {
+                continue;
+            };
+            let position = agent.position;
+            for wall in game.walls() {
+                let inside = position.x > wall.min_x - 1.0e-3
+                    && position.x < wall.max_x + 1.0e-3
+                    && position.z > wall.min_z - 1.0e-3
+                    && position.z < wall.max_z + 1.0e-3
+                    && wall.blocks_body(position.y, agent.profile.height);
+                assert!(
+                    !inside,
+                    "`{actor}` at {position:?} is inside {wall:?} in {:?}",
+                    agent.state
+                );
+            }
+            // The agent must remain on a baked cell for its own class.
+            let Some(mesh) = game.navigation() else {
+                panic!("the demo game has navigation");
+            };
+            let Some(class) = mesh.class_index(&agent.profile.class()) else {
+                panic!("`{actor}` has a baked class");
+            };
+            let Some(point) = mesh.nearest(
+                class,
+                position,
+                0.75,
+                1.0,
+                game.doors(),
+                agent.profile.can_open_doors,
+            ) else {
+                panic!("`{actor}` at {position:?} left the baked mesh");
+            };
+            assert!(
+                point.position.distance(position) < 0.75,
+                "`{actor}` is not on baked navigation"
+            );
+        }
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // one end-to-end encounter, in order
+fn demo_home_encounter_repeats_end_to_end() {
+    const DELTA: f32 = 1.0 / 60.0;
+    let mut game = demo_game_with_navigation(DELTA);
+    let rat = "encounter_rat";
+    let cat = "spooner_man_home";
+    assert_eq!(agents_named(&game, cat), 1, "the home cat exists");
+    assert_eq!(agents_named(&game, rat), 0, "no rat before the switch");
+
+    // 1. The authored switch spawns exactly one rat; a same-frame second press
+    //    and a press while the rat is alive are both refused by the group.
+    let report = press(&mut game, "rat_release_switch");
+    assert_eq!(report.spawned, 1, "the switch spawns one rat");
+    assert_eq!(agents_named(&game, rat), 1);
+    let _ = press(&mut game, "rat_release_switch");
+    assert_eq!(agents_named(&game, rat), 1, "the group admits one rat");
+    game.entities_mut().take_commands();
+
+    // 2. The rat flees and the cat pursues, both through the baked mesh.
+    advance_checked(&mut game, 180, &[rat, cat]);
+    let (rat_state, rat_goal, rat_complete) = {
+        let agent = game.entities().ai().agent(rat).expect("rat");
+        (agent.state, agent.path_goal, agent.path.complete)
+    };
+    let cat_state = game.entities().ai().agent(cat).expect("cat").state;
+    assert!(
+        matches!(rat_state, crate::ai::AiState::Flee { .. }),
+        "the rat flees, got {rat_state:?}"
+    );
+    assert!(
+        matches!(cat_state, crate::ai::AiState::Pursue { .. }),
+        "the cat pursues, got {cat_state:?}"
+    );
+    assert!(
+        rat_goal.is_some() && rat_complete,
+        "the rat's flee destination is a real navigated route"
+    );
+
+    // 3. The cat catches within a generous bounded simulation period.
+    let mut caught_at = None;
+    for frame in 0..(60 * 90) {
+        advance_checked(&mut game, 1, &[rat, cat]);
+        if game
+            .entities()
+            .ai()
+            .agent(rat)
+            .is_some_and(|agent| agent.caught)
+        {
+            caught_at = Some(frame);
+            break;
+        }
+    }
+    assert!(
+        caught_at.is_some(),
+        "the cat must catch the rat; rat at {:?} in {:?}, cat at {:?} in {:?}",
+        game.entities().ai().agent(rat).map(|a| a.position),
+        game.entities().ai().agent(rat).map(|a| a.state),
+        game.entities().ai().agent(cat).map(|a| a.position),
+        game.entities().ai().agent(cat).map(|a| a.state),
+    );
+    let cat_agent = game.entities().ai().agent(cat).expect("cat");
+    assert!(
+        matches!(cat_agent.state, crate::ai::AiState::Catch { .. }),
+        "the catch state owns the presentation, got {:?}",
+        cat_agent.state
+    );
+
+    // 4. The authored pounce/consume sequence despawns the rat at its end and
+    //    returns the cat to ordinary AI; the switch works again.
+    let mut despawned = false;
+    for _ in 0..(60 * 30) {
+        advance_checked(&mut game, 1, &[cat]);
+        if game.entities().handle_of(rat).is_none() {
+            despawned = true;
+            break;
+        }
+    }
+    assert!(despawned, "the catch presentation despawns the rat");
+    assert_eq!(agents_named(&game, rat), 0, "no stale rat agent");
+    // The presentation keeps running for its authored consume/stand-up steps;
+    // the cat must return to ordinary AI when the sequence ends.
+    let mut released = false;
+    for _ in 0..(60 * 20) {
+        advance_checked(&mut game, 1, &[cat]);
+        let state = game.entities().ai().agent(cat).expect("cat").state;
+        if !matches!(state, crate::ai::AiState::Catch { .. }) {
+            released = true;
+            break;
+        }
+    }
+    assert!(
+        released,
+        "the cat returns to ordinary AI after the presentation"
+    );
+
+    // 5. The predator returns to its post, then a second activation repeats
+    //    the whole encounter.
+    let home = game.entities().ai().agent(cat).expect("cat").home;
+    let mut returned = false;
+    for _ in 0..(60 * 90) {
+        advance_checked(&mut game, 1, &[cat]);
+        let agent = game.entities().ai().agent(cat).expect("cat");
+        if agent.position.distance(home) < 2.0 && matches!(agent.state, crate::ai::AiState::Idle) {
+            returned = true;
+            break;
+        }
+    }
+    assert!(returned, "the predator walks back to its post");
+    let report = press(&mut game, "rat_release_switch");
+    assert_eq!(report.spawned, 1, "the released group spawns again");
+    assert_eq!(agents_named(&game, rat), 1, "a fresh rat");
+    let mut chased = false;
+    for _ in 0..(60 * 30) {
+        advance_checked(&mut game, 1, &[rat, cat]);
+        let rat_state = game.entities().ai().agent(rat).expect("rat").state;
+        let cat_state = game.entities().ai().agent(cat).expect("cat").state;
+        if matches!(rat_state, crate::ai::AiState::Flee { .. })
+            && matches!(cat_state, crate::ai::AiState::Pursue { .. })
+        {
+            chased = true;
+            break;
+        }
+    }
+    assert!(
+        chased,
+        "the second activation repeats the flee/pursuit: rat {:?}, cat {:?}",
+        game.entities().ai().agent(rat).map(|a| a.state),
+        game.entities().ai().agent(cat).map(|a| a.state),
+    );
+}
+
+#[test]
+fn demo_home_encounter_survives_external_despawn_and_absence() {
+    const DELTA: f32 = 1.0 / 60.0;
+    let mut game = demo_game_with_navigation(DELTA);
+    let rat = "encounter_rat";
+    let cat = "spooner_man_home";
+    let report = press(&mut game, "rat_release_switch");
+    assert_eq!(report.spawned, 1);
+    game.entities_mut().take_commands();
+    advance_checked(&mut game, 120, &[rat, cat]);
+    assert!(game.entities().handle_of(rat).is_some());
+
+    // An external despawn releases the group and the AI cleanly.
+    let report = game.dispatch_actions(
+        &[ActionDef::DespawnEntity {
+            target: "home_rat_encounter".to_string(),
+        }],
+        None,
+    );
+    assert_eq!(report.despawned, 1, "the group's rat despawns");
+    assert!(game.entities().handle_of(rat).is_none());
+    assert_eq!(agents_named(&game, rat), 0, "the AI released the rat");
+    advance_checked(&mut game, 240, &[cat]);
+    let cat_agent = game.entities().ai().agent(cat).expect("cat");
+    assert!(
+        !matches!(
+            cat_agent.state,
+            crate::ai::AiState::Pursue { .. } | crate::ai::AiState::Catch { .. }
+        ),
+        "the cat releases a despawned target, got {:?}",
+        cat_agent.state
+    );
+
+    // The switch is reusable after the failure.
+    let report = press(&mut game, "rat_release_switch");
+    assert_eq!(report.spawned, 1, "the switch re-arms after a despawn");
+    assert_eq!(agents_named(&game, rat), 1);
+
+    // Without navigation the AI cannot move but never panics: a package with
+    // no mesh cannot be installed (the record is mandatory), so the honest
+    // check is that the level resolves without an AI crash.
+    let level = demo_level();
+    let world = CollisionWorld::from_level(&level);
+    assert!(world.navigation.is_none(), "from_level never bakes");
+    let mut world = world.world;
+    let walls = level.collision_aabbs();
+    let index = crate::collision_index::CollisionIndex::build(&walls);
+    let floor = crate::level::WalkableFloor::from_level(&level);
+    let ctx = WorldContext {
+        delta_seconds: DELTA,
+        feet_from: Vec3::ZERO,
+        feet: Vec3::ZERO,
+        eye: Vec3::Y,
+        body_height: 1.8,
+        walls: &walls,
+        index: &index,
+        floor: &floor,
+        nav: None,
+    };
+    let tick = world.tick(&ctx);
+    assert_eq!(tick.events_dropped, 0, "a meshless world still ticks");
 }

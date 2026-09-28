@@ -28,6 +28,7 @@ blobs/<sha256>.mesh               static geometry (binary record)
 blobs/<sha256>.props              transformed static prop batches (binary record)
 blobs/<sha256>.lighting           baked LevelLighting (binary record)
 blobs/<sha256>.collision          static collision primitives (binary record)
+blobs/<sha256>.navigation         baked cell navigation mesh (binary record)
 blobs/<sha256>.lightmaps.ktx2     lightmap atlas pages (KTX2 2D array, RGBA16F, layer pairs)
 blobs/<sha256>.lightmaps.json     atlas chart/stat/config record
 blobs/<sha256>.probe.ktx2         one reflection probe cube (KTX2 cube, RGBA8, roughness mips)
@@ -89,8 +90,8 @@ never triggers procedural geometry generation.
 
 * `required_capabilities` names what a runtime must understand. The current
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
-  `irradiance-probes`, `probes-rgba8` and `collision`. A package requiring
-  anything else is rejected by name.
+  `irradiance-probes`, `probes-rgba8`, `collision` and `navigation`. A package
+  requiring anything else is rejected by name.
 * `dependencies` records the content identity of every model and texture a
   package reads from the installed asset bundle (`kind: "model"`/`"texture"`,
   root-relative path) or embeds itself (`kind: "embedded"`). A package whose
@@ -111,6 +112,14 @@ never triggers procedural geometry generation.
   to offline preparation code that is not one of those identities (for example
   the reflection-probe routing) still requires an explicit `--force` rebuild so
   stale captures are never reused.
+* `lighting_fingerprint` is the **stage** identity of the illumination,
+  geometry, collision and probe preparation: the same inputs as
+  `compiler_fingerprint` but with every `ai`, `nav_agent` and `nav_obstacle`
+  component removed. When it matches the package being replaced, the compiler
+  reuses that package's prepared blobs and rebuilds only `semantics.json` and
+  the navigation record, so tuning an encounter or an AI behavior never
+  rebakes illumination. An absent field (an older package) simply prepares
+  everything.
 
 ## 3. Quality variants
 
@@ -229,6 +238,47 @@ player loads the record's typed component/binding/action data into the entity
 runtime and instantiates only the dynamic state each object needs; the prebuilt
 `CollisionIndex` grid is rebuilt from the decoded wall boxes at start.
 
+### 4.5 Baked navigation — `blobs/<sha>.navigation`
+
+```text
+magic "PLNV" | version u16 = 1
+cell_m          f32
+origin_x, origin_z   f32 x 2
+cells_x, cells_z     u32 x 2
+class_count     u32, then per class:
+  radius, height, step_height, max_slope   f32 x 4
+portal_count    u32, then per portal:
+  door id (u32 length + UTF-8, <= 256)
+cells_x * cells_z cells, row-major:
+  y             f32   (walking-surface height)
+  flags         u8    (bit 0: a surface exists; bit 1: continuous slope)
+  headroom_cm   u16   (u16::MAX = no overhead found)
+  portal        u16   (u16::MAX = not a door-portal cell)
+per class:
+  walkable      u32 byte length + ceil(cells/8) bits (bit i = cell i)
+  region        u32 count + u16 x cells (u16::MAX = no region)
+```
+
+The mesh is a uniform cell grid over the level's floor footprint with a
+**per-class clearance mask**, baked offline from the same walkable surfaces the
+movement controller follows and the same collision boxes players collide with.
+A class is one physical body (`radius`, `height`, `step_height`, `max_slope`):
+the reference humanoid plus every distinct `nav_agent` body the level authors.
+A cell marked walkable for a class is physically traversable by exactly that
+body: clearance, headroom and step/slope are all evaluated at bake time, and a
+neighbour connects within one step or along a continuous slope within the
+class bound. Staircases connect through the slope rule; a ledge or floor rim
+never does.
+
+Door leaves are dynamic and are never baked as static obstacles. The cells a
+leaf sweeps between its closed and open poses are recorded as that door's
+portal; the runtime blocks them while the door is closed or locked and
+re-evaluates them when it opens. Opening a door never rebuilds the mesh, and a
+locked door is never crossed. The record is portable and explicit: bounds,
+grid dimensions, class bodies, per-cell surface/headroom/portal data, class
+masks and region labels are all validated before use. A malformed record fails
+the load by name; there is no runtime bake and no repair path.
+
 ## 5. Lightmap pages — KTX2
 
 `blobs/<sha>.lightmaps.json` holds the chart record:
@@ -339,6 +389,7 @@ handful of interpolated loads.
 | prop submeshes per batch | 4096 |
 | lighting record | 256 MiB |
 | collision record | 128 MiB / 4 194 304 boxes |
+| navigation record | 128 MiB / 2 097 152 cells / 8 classes / 256 portals |
 | lightmap page edge | 4096 texels, 64 pages |
 | probe face edge | 256 texels, 32 probes |
 

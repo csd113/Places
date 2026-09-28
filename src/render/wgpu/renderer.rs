@@ -515,6 +515,12 @@ pub struct WgpuRenderer {
     /// level clears the neutral dynamic scene; a quality rebuild of the same
     /// level keeps it, so its objects survive a quality change.
     level_id: Option<String>,
+    /// The installed level definition, retained for the runtime spawn seams.
+    /// A runtime character is spawned by instance id alone (see
+    /// [`Self::spawn_runtime_character`]), so the renderer keeps the level the
+    /// placement's walkable floor is resolved from; the caller never has to
+    /// mirror the level into the call.
+    installed_level: Option<crate::level::LevelDef>,
     /// The GPU side of the dynamic scene: one mesh per model, one environment
     /// per object. Built when the demo spawns, dropped with the level.
     world_dynamic: Option<WgpuDynamic>,
@@ -531,12 +537,18 @@ pub struct WgpuRenderer {
     /// The effect billboard pipeline for the offscreen scene format.
     effects_scene_pipeline: Option<EffectsPipeline>,
     /// The neutral character scene: every placed skinned prop, its animator
-    /// and its baked per-vertex albedo. Rebuilt on level install and graphics
-    /// changes; advanced by `update_characters`.
+    /// and its baked per-vertex albedo, plus the gameplay's runtime-spawned
+    /// actors. Rebuilt on level install and graphics changes; advanced by
+    /// `update_characters`.
     characters: CharacterScene,
     /// The GPU side of the character scene: shared index buffers, one mutable
     /// skinned vertex buffer per character and one environment per character.
     world_characters: Option<WgpuCharacters>,
+    /// The `CharacterScene::runtime_generation` the GPU side was last built
+    /// from. A runtime spawn or despawn bumps the scene's generation;
+    /// `update_characters` rebuilds `world_characters` when this differs, so
+    /// the change is visible on the frame it happens.
+    character_runtime_generation: u64,
     /// The level's CPU bake, kept for the dynamic objects' light probes. The
     /// static path needs it only while building; a moving object samples it as
     /// it moves.
@@ -826,9 +838,11 @@ impl WgpuRenderer {
             switchable_lights: Vec::new(),
             lightmap_cpu: None,
             level_id: None,
+            installed_level: None,
             world_dynamic: None,
             characters: CharacterScene::new(),
             world_characters: None,
+            character_runtime_generation: 0,
             dynamic_lighting: None,
             dynamic_field: None,
             last_frame: None,
@@ -1553,8 +1567,10 @@ impl WgpuRenderer {
     /// The neutral scene evaluates the blend weights, gait phase and clip
     /// crossfade; the GPU side re-skins only the characters whose pose
     /// revision changed and writes their vertex buffers and live transforms.
-    /// A still character writes nothing. Returns how many characters moved
-    /// this pass.
+    /// A still character writes nothing. A runtime spawn or despawn since the
+    /// last pass bumps the scene's runtime generation, and the GPU side is
+    /// rebuilt before it syncs, so the change is visible on the same frame.
+    /// Returns how many characters moved this pass.
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
@@ -1562,11 +1578,107 @@ impl WgpuRenderer {
         frames: &[EntityFrame],
     ) -> crate::render::CharacterUpdate {
         let update = self.characters.update(delta_seconds, locomotion, frames);
+        let generation = self.characters.runtime_generation();
+        if generation != self.character_runtime_generation {
+            self.character_runtime_generation = generation;
+            self.upload_characters_gpu();
+        }
         let environment = self.level_environment();
         if let Some(characters) = self.world_characters.as_mut() {
             characters.sync(&self.queue, &self.characters, environment);
         }
         update
+    }
+
+    /// Spawns an animatable runtime actor through the character path.
+    ///
+    /// The actor resolves its model exactly like [`Self::spawn_runtime_model`]
+    /// (a catalogue registry id or a direct model path), is lit by the
+    /// installed level's baked lighting and irradiance field, and animates
+    /// through the ordinary character/clip path: an [`EntityFrame`] addressed
+    /// to `instance_id` drives its transform and pose cue. Spawning a live
+    /// instance id replaces that actor. The GPU side is rebuilt by the next
+    /// [`Self::update_characters`], which is where a frame loop already syncs
+    /// characters.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the model cannot be animated (the caller falls back
+    /// to the dynamic path) or the scene refused the placement for another
+    /// reason: no installed level or lighting, a non-finite position or a
+    /// non-positive scale, or a full character budget.
+    pub fn spawn_runtime_character(
+        &mut self,
+        instance_id: &str,
+        model: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> Result<(), String> {
+        if self.check_device_lost() {
+            return Err("the GPU device is lost; no runtime character was spawned".to_string());
+        }
+        let Some(level) = self.installed_level.as_ref() else {
+            return Err("no level is installed; a runtime character has no placement".to_string());
+        };
+        let Some(lighting) = self.dynamic_lighting.as_ref() else {
+            return Err(
+                "the installed level has no baked lighting; the runtime character cannot be lit"
+                    .to_string(),
+            );
+        };
+        // The catalogue maps a registry id to its model path; a string the
+        // catalogue does not know is tried as a model path directly, exactly
+        // like `spawn_runtime_model`.
+        let entry = self.prop_catalog.get(model);
+        let path = entry.model.filter(|path| !path.is_empty());
+        let path = path.as_deref().unwrap_or(model);
+        self.characters.spawn_runtime_character(
+            level,
+            &self.prop_catalog,
+            &mut self.prop_assets,
+            lighting,
+            self.dynamic_field.as_deref(),
+            instance_id,
+            path,
+            glam::Vec3::from(position),
+            yaw_degrees,
+            scale,
+        )
+    }
+
+    /// Removes a runtime actor; true when one existed.
+    ///
+    /// The GPU side is rebuilt by the next [`Self::update_characters`].
+    pub fn despawn_runtime_character(&mut self, instance_id: &str) -> bool {
+        if self.check_device_lost() {
+            return false;
+        }
+        self.characters.despawn_runtime_character(instance_id)
+    }
+
+    /// Moves a live runtime actor; true when one existed.
+    ///
+    /// The actor keeps its model, scale and playback; the write lands in the
+    /// neutral scene and reaches the GPU through the next
+    /// [`Self::update_characters`] sync.
+    pub fn set_runtime_character_transform(
+        &mut self,
+        instance_id: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+    ) -> bool {
+        self.characters.set_runtime_character_transform(
+            instance_id,
+            glam::Vec3::from(position),
+            yaw_degrees,
+        )
+    }
+
+    /// True when a runtime actor with this id is live.
+    #[must_use]
+    pub fn has_runtime_character(&self, instance_id: &str) -> bool {
+        self.characters.runtime_character(instance_id).is_some()
     }
 
     /// The number of live characters in the current level.
@@ -1579,6 +1691,11 @@ impl WgpuRenderer {
     #[must_use]
     pub const fn character_scene(&self) -> &CharacterScene {
         &self.characters
+    }
+
+    /// Mutable access to the neutral character scene (gameplay and tests).
+    pub const fn character_scene_mut(&mut self) -> &mut CharacterScene {
+        &mut self.characters
     }
 
     /// Uploads the current neutral character scene's GPU resources.
@@ -2161,6 +2278,11 @@ impl WgpuRenderer {
             self.effects.clear_all();
             self.world_effects = None;
             self.level_id = Some(loaded.level.id.clone());
+            // The runtime spawn seams are keyed by instance id and name no
+            // level, so the installed definition is retained for them: a
+            // runtime placement resolves its walkable floor exactly like a
+            // placed prop's.
+            self.installed_level = Some(loaded.level.clone());
             // The door models need the resolved material table, which is only
             // in scope here; they are kept for `spawn_doors`, which re-runs
             // whenever the neutral scene is wiped (a demo respawn).

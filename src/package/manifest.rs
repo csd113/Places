@@ -13,7 +13,7 @@ use super::{FORMAT_VERSION, MAX_DEPENDENCIES, MAX_VARIANTS};
 ///
 /// A package that requires a capability outside this list is rejected by name:
 /// the player must never guess at a payload it does not understand.
-pub const KNOWN_CAPABILITIES: [&str; 7] = [
+pub const KNOWN_CAPABILITIES: [&str; 8] = [
     "geometry",
     "props",
     "lighting",
@@ -21,6 +21,7 @@ pub const KNOWN_CAPABILITIES: [&str; 7] = [
     "irradiance-probes",
     "probes-rgba8",
     "collision",
+    "navigation",
 ];
 
 /// One archive entry as the manifest describes it.
@@ -101,6 +102,8 @@ pub struct VariantEntries {
     pub lighting: String,
     /// Static collision blob.
     pub collision: String,
+    /// Baked navigation grid blob.
+    pub navigation: String,
     /// Prepared lightmap page array (absent for the vertex-lit variant).
     #[serde(default)]
     pub lightmaps: Option<String>,
@@ -153,6 +156,15 @@ pub struct Manifest {
     /// package for a fingerprint mismatch.
     #[serde(default)]
     pub compiler_fingerprint: String,
+    /// Developer **stage** fingerprint of the illumination/geometry inputs.
+    ///
+    /// It excludes the navigation and AI components, so an encounter or AI
+    /// tuning edit keeps the same lighting fingerprint and the compiler reuses
+    /// the previous package's prepared geometry, lightmaps, probes and
+    /// collision instead of rebaking illumination. `None` on a package built
+    /// before the field existed (an explicit `--force` rebuild writes it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lighting_fingerprint: Option<String>,
     /// Capabilities the runtime must understand to interpret this package.
     #[serde(default)]
     pub required_capabilities: Vec<String>,
@@ -280,6 +292,7 @@ impl Manifest {
                 ("props", &entries.props),
                 ("lighting", &entries.lighting),
                 ("collision", &entries.collision),
+                ("navigation", &entries.navigation),
             ] {
                 self.validate_variant_entry(role, name)?;
             }

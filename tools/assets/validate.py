@@ -121,6 +121,7 @@ COMPONENT_TAGS = (
     "water",
     "nav_agent",
     "nav_obstacle",
+    "ai",
 )
 EVENT_KINDS = (
     "interact",
@@ -1112,6 +1113,8 @@ def _entity_facts(kind: str) -> Dict:
         "has_light": False,
         "has_material": False,
         "has_audio": False,
+        "has_nav_agent": False,
+        "has_ai": False,
         "state_names": set(),
         "material_variants": [],
     }
@@ -1213,10 +1216,65 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
             if not is_finite_number(seconds) or seconds <= 0.0:
                 errors.append(f"{entry} seconds must be a finite positive number")
         elif tag == "nav_agent":
-            for key in ("radius", "speed_mps"):
+            facts["has_nav_agent"] = True
+            for key in ("radius", "speed_mps", "height", "step_height", "max_slope"):
                 value = component.get(key)
+                if value is None and key in ("height", "step_height", "max_slope"):
+                    # The runtime defaults these three to the reference body.
+                    continue
                 if not is_finite_number(value) or value <= 0.0:
                     errors.append(f"{entry} {key} must be a finite positive number")
+        elif tag == "ai":
+            facts["has_ai"] = True
+            behavior = component.get("behavior", "idler")
+            if behavior not in (
+                "idler",
+                "wanderer",
+                "prey",
+                "predator",
+                "follower",
+            ):
+                errors.append(f"{entry} behavior '{behavior}' is not a known behavior")
+            role = component.get("role")
+            if role is not None and (
+                not isinstance(role, str) or not role.strip() or len(role) > 64
+            ):
+                errors.append(f"{entry} role must be a non-blank tag of at most 64 characters")
+            reacts_to = component.get("reacts_to", [])
+            if not isinstance(reacts_to, list) or not all(
+                isinstance(tag, str) and tag.strip() and len(tag) <= 64 for tag in reacts_to
+            ):
+                errors.append(f"{entry} reacts_to must be a list of non-blank tags")
+            for key, minimum in (
+                ("walk_speed", 0.0),
+                ("run_speed", 0.0),
+                ("sight_range", 0.0),
+                ("hearing_range", 0.0),
+                ("flee_distance", 0.0),
+                ("pursue_distance", 0.0),
+                ("wander_radius", 0.0),
+                ("idle_seconds", 0.0),
+            ):
+                value = component.get(key)
+                if value is None:
+                    continue
+                if not is_finite_number(value) or value < minimum:
+                    errors.append(f"{entry} {key} must be a finite number >= {minimum}")
+                if key in ("walk_speed", "run_speed") and value == 0.0:
+                    errors.append(f"{entry} {key} must be positive")
+            fov = component.get("sight_fov_degrees")
+            if fov is not None and (
+                not is_finite_number(fov) or fov < 0.0 or fov > 360.0
+            ):
+                errors.append(f"{entry} sight_fov_degrees must be between 0 and 360")
+            for key in ("catch_radius", "catch_height"):
+                value = component.get(key)
+                if value is not None and (not is_finite_number(value) or value <= 0.0):
+                    errors.append(f"{entry} {key} must be a finite positive number")
+            if "can_open_doors" in component and not isinstance(
+                component["can_open_doors"], bool
+            ):
+                errors.append(f"{entry} can_open_doors must be a boolean")
         elif tag == "nav_obstacle":
             size = component.get("size")
             if size is not None and (
@@ -1228,6 +1286,14 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
         elif tag in ("steam", "water") and "enabled" in component:
             if not isinstance(component["enabled"], bool):
                 errors.append(f"{entry} enabled must be a boolean")
+
+
+def _validate_ai_body(context: str, facts: Dict, errors: List[str]) -> None:
+    """Mirrors the loader: an `ai` entity must author a navigation body."""
+    if facts.get("has_ai") and not facts.get("has_nav_agent"):
+        errors.append(
+            f"{context} authors an `ai` component without a `nav_agent` body"
+        )
 
 
 def _validate_instance_id(
@@ -1278,6 +1344,7 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         ):
             errors.append(f"{context} display_name must not be blank when specified")
         _validate_components(context, prop.get("components"), facts, errors)
+        _validate_ai_body(context, facts, errors)
         entities[ident] = facts
 
     for index, fixture in enumerate(level.get("ceiling_lights") or []):
@@ -1363,6 +1430,7 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         facts = _entity_facts("spawn template")
         facts["is_spawn_template"] = True
         _validate_components(context, template.get("components"), facts, errors)
+        _validate_ai_body(context, facts, errors)
         templates[ident] = facts
 
     group_seen: Dict[str, str] = {}

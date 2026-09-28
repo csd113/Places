@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). The v3 revision (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json`, the native captures under `target/agent-work/places-map-first-2026-09-27/runs/05/20260927T-j05-captures3/` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 revision (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -137,6 +137,7 @@ Authoritative paths:
 | Stable per-instance ids, typed components, event bindings, map-authored interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
 | Trigger volumes (`volumes[]`): enter/exit semantics, swept fast-fall crossings, cooldowns, `once`, typed action batches | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
 | Timers, sequences, spawn templates/points/groups (including at-most-one-active) | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
+| Baked navigation (`nav_agent` bodies, per-class clearance, stairs/slopes, door portals), runtime path queries and the shared AI framework (`ai`: idle/wander/follow/flee/investigate/pursue/catch, sight and hearing, catch -> sequence) | Implemented (see [§33](#33-navigation-and-ai)); the player loads the compiler's bake and never builds one. |
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented as a typed emitter state on an entity with an `audio` component; no audio device backend exists in this tree, so a playback request is reported once instead of playing. No shipped map authors one. |
 | Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
@@ -151,7 +152,8 @@ Authoritative paths:
 | Per-room ceiling tile frame (`ceiling_tile_origin`, `ceiling_tile_rotation_degrees`) for offset/rotated ceiling patterns and decal snapping | Implemented |
 | Decal grid snapping (`decals[].align: "ceiling_grid"`) onto the ceiling's own panel module | Implemented |
 | Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§32](#31-the-map-geometry-checker)) |
-| Ceiling/floor openings; traversal between stacked storeys | Not implemented |
+| Ceiling/floor openings; traversal between stacked storeys | Not implemented (a stair or ramp between floors is; overlapping walkable surfaces at one `(x, z)` are not) |
+| Runtime navmesh editing, off-mesh links, jumping/climbing agents, swimming agents, dynamic obstacle avoidance beyond door leaves | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
 | `wall_lights` level array; per-room wall material | Not implemented (wall fixtures live in `ceiling_lights` with `"mount": "wall"`; prop-owned lights live in `props[].lights`) |
@@ -3967,8 +3969,9 @@ Components never carry actions — the bindings do that.
 | `lifetime` | `seconds` (`> 0`) | The entity removes itself after that many simulation seconds. |
 | `steam` | `enabled` (`true`) | The entity is a presentation-only steam emitter. |
 | `water` | `enabled` (`true`) | The entity is a water volume controller. |
-| `nav_agent` | `radius`, `speed_mps` | Navigation metadata for the planned navigation upgrade; no pathfinding yet. |
-| `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | Navigation metadata; no pathfinding yet. |
+| `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
+| `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
+| `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges and catch fields | The entity runs the shared AI behavior (`idler`/`wanderer`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
 
 A component the engine cannot honour is a named load error. Unknown component
 tags are rejected at parse time.
@@ -4873,6 +4876,180 @@ Both are generated (with `--check`) and both must pass
 contracts in the test suite.
 
 ---
+
+## 33. Navigation and AI
+
+**The player never bakes navigation.** Every installed package carries a baked
+navigation mesh (`.navigation`), produced offline by `places-compile` from the
+level's own walkable surfaces and its compiled collision. A package without the
+record is refused by name, and a malformed record fails the load; there is no
+runtime bake, repair or fallback.
+
+### 33.1 What the bake derives
+
+* **Walkable surface.** The same `WalkableFloor` the movement controller
+  follows, so ramps and stair pitch are sampled exactly as a player walks them.
+  Off-room cells and deep water (a `swimming` volume whose surface is more than
+  one step above the floor) are not walkable.
+* **Bodies and classes.** The bake writes one **agent class** per distinct
+  `nav_agent` body in the map, plus the reference humanoid
+  (`radius 0.30`, `height 1.8`, `step_height 0.4`). A cell marked walkable for a
+  class is physically traversable by exactly that body: the class's disc does
+  not touch a blocking box in its body band, its head fits under the ceiling
+  and any overhead, and its step/slope limits connect it to its neighbours.
+  At most 8 distinct bodies per map; a ninth is a compile error.
+* **Obstacles.** Walls, architecture and solid props come from the compiled
+  collision boxes, so a solid prop blocks navigation exactly when it blocks a
+  player. A `nav_obstacle` component with `affects_nav: true` adds an explicit
+  box (rotated footprints are covered conservatively), and the compiler's
+  `NavWalkProxy` input can add walkable surfaces for future collision proxies.
+* **Stairs and slopes.** A neighbour connects when the surface rises at most
+  `step_height`, or when both cells lie on one continuous slope and the rise
+  per metre is at most `max_slope` (default `2.6667`, the worst authored stair
+  pitch `MAX_STAIR_RISER_M / MIN_STAIR_TREAD_M`; ramps are bounded lower). A
+  cliff between two flat cells never connects.
+* **Doors are portals, not walls.** The cells a leaf sweeps are recorded as
+  that door's portal. A closed or locked door blocks them for a route; an open
+  door passes; an agent whose `ai` sets `can_open_doors: true` plans through an
+  unlocked closed door and asks for it on approach. Opening a door never
+  rebuilds the mesh.
+* **Connectivity.** Walkable cells are labelled with connected region ids per
+  class. Nearest-point queries never cross a region boundary (so nothing snaps
+  through a wall, a locked door or a floor), and flee scoring prefers larger
+  regions to avoid blind dead ends.
+
+### 33.2 `nav_agent` — the physical body
+
+```json
+{ "component": "nav_agent", "radius": 0.2, "height": 0.45, "speed_mps": 1.9,
+  "step_height": 0.3, "max_slope": 2.6667 }
+```
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `radius` | required | body disc radius in metres; the baked clearance test |
+| `speed_mps` | required | preferred speed for non-AI movement metadata |
+| `height` | `1.8` | standing body height; headroom and the blocking band |
+| `step_height` | `0.4` | largest surface rise walked without a route |
+| `max_slope` | `2.6667` | largest walkable rise per metre of run |
+
+`radius`, `speed_mps`, `height`, `step_height` and `max_slope` must all be
+finite and positive. An entity that authors `ai` **must** also author a
+`nav_agent`: an agent whose body has no baked class can never move.
+
+### 33.3 `ai` — the behavior
+
+```json
+{ "component": "ai", "behavior": "predator", "role": "predator",
+  "reacts_to": ["prey_rat"], "walk_speed": 0.55, "run_speed": 1.9,
+  "sight_range": 10.0, "sight_fov_degrees": 220.0, "hearing_range": 9.0,
+  "pursue_distance": 20.0, "catch_radius": 0.5, "catch_height": 0.7,
+  "can_open_doors": true }
+```
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `behavior` | `idler` | `idler`, `wanderer`, `prey`, `predator` or `follower` |
+| `role` | — | tag this agent advertises (`prey_rat`, `predator`, …) |
+| `reacts_to` | `[]` | role tags this agent reacts to |
+| `walk_speed` | `1.0` | ordinary walking speed, m/s |
+| `run_speed` | `2.0` | flee/pursue speed, m/s |
+| `sight_range` | `8.0` | metres; `0` disables sight |
+| `sight_fov_degrees` | `200` | full horizontal field of view (`0..=360`) |
+| `hearing_range` | `6.0` | metres; `0` disables hearing |
+| `flee_distance` | `5.0` | preferred separation a fleeing agent seeks |
+| `pursue_distance` | `12.0` | a predator gives up beyond this range |
+| `catch_radius` | `0.45` | reach added to the target's radius, in metres |
+| `catch_height` | `0.8` | largest vertical separation a catch accepts |
+| `wander_radius` | `4.0` | wander destinations stay inside this radius |
+| `idle_seconds` | `2.5` | hold time between wander destinations |
+| `can_open_doors` | `false` | may open an unlocked door on its route |
+
+Behavior is data, never a model or map name: a `prey` flees every agent whose
+`role` appears in its `reacts_to`; a `predator` pursues and catches such an
+agent; a `follower` keeps one in sight; a `wanderer` picks navigable
+destinations around its post; an `idler` stands and reacts.
+
+Perception is evaluated on a staggered interval per agent (0.2 s), never as a
+global per-frame scan. Sight tests range, FOV, vertical separation and a real
+collision ray against walls and live door leaves. Hearing reads **gameplay
+stimuli** — movement noise (released by any agent above 0.55 m/s), door
+open/close, switch interaction, spawns and sound actions — each with position,
+radius, loudness, category and source, so a predator can hear a rat it cannot
+see and the rat can hear the cat running behind it.
+
+### 33.4 States, catching and animation
+
+The state machine is `idle`, `wander`, `follow`, `flee`, `investigate`,
+`pursue`, `catch`, `scripted` and `caught`. `ai_state` events are emitted on
+every transition (key = the state name) and `caught` fires **once** when a
+predator genuinely reaches a live, visible target on its own floor — never
+through a wall or across a floor. A catch freezes the target; the map's
+`on: "caught"` binding typically starts a sequence on the predator for the
+pounce/consume presentation.
+
+Locomotion maps to the ordinary pose vocabulary: idle, walk/run (scaled by
+actual speed), so the same clip set placed characters already use. While an
+agent runs a sequence the AI yields locomotion (`scripted`); while it is
+catching or caught, a `play_animation` override owns the pose. Once ordinary
+locomotion resumes, the state-driven gait wins again so a finished one-shot
+cannot pin an agent in a held pose.
+
+### 33.5 The home encounter (the worked example)
+
+`assets/levels/places_demo.json` authors the complete encounter with ordinary
+data only:
+
+* `rat_release_switch` is a `home:wall_switch` beside the hall door whose
+  `interact` binding runs `toggle_animation` and
+  `spawn_entity { point, group, name }`;
+* the group `home_rat_encounter` is `at_most_one_active`, so repeated presses
+  while a rat is alive are refused and the group releases when the rat
+  despawns;
+* template `home_rat` is a 0.1 m radius, 0.16 m tall `nav_agent` with
+  `behavior: "prey"` that reacts to `predator`;
+* `spooner_man_home` is a cat-sized `nav_agent` (0.2 m radius, 0.45 m tall,
+  `run_speed 2.2` against the rat's `1.75`) with `behavior: "predator"` and
+  `can_open_doors: true`; the speed difference plus the real topology makes the
+  chase end in a catch in roughly ten seconds of simulated time;
+* his `on: "caught"` binding starts the `caught_prey` sequence: `play_animation
+  pounce` → `wait_animation` → `sit_down`/`sit_idle` consume presentation
+  (the rig has no dedicated eat clip, so the authored sit clips carry it) →
+  `despawn_entity` on the **spawn group** at the authored completion point →
+  `stand_up` → idle.
+
+Nothing in the engine names the rat, the cat or the map: the switch, the
+template, the group, the tags and the sequence are all ordinary data.
+
+### 33.6 Debugging navigation and AI
+
+* `NavMesh::debug_ascii(class, doors)` renders the live walkable grid, region
+  membership, portal cells and blocked portals as text, from the same cells
+  the queries use.
+* `EntityWorld::ai()` exposes every agent's state, current path, flee
+  destination, pursuit target, contact and speed. `EntityWorld::stimuli()`
+  lists the live hearing stimuli.
+* `PLACES_NAV_DEBUG=<dir>` writes the live mesh as `navmesh-class<N>.txt`
+  (with the blocking portal cells marked) and `ai-state.txt`, refreshed every
+  half second: per agent the state, position, speed, path goal, waypoint count,
+  door requests, contact and catch radius, plus the framed stimulus, active
+  sequence and aimed-interactable summary. `PLACES_VERBOSE=1` prints the AI
+  summaries the frame loop reports (unplaced agents, refused spawns, door
+  requests).
+
+### 33.7 Interfaces Job 06 extends
+
+* Stair/ramp walkability is one rule: `nav::neighbour_rule` (step or
+  continuous slope) plus the movement invariant
+  `NAV_MOVE_SUBSTEP_M * NAV_MAX_SLOPE <= step_height`, pinned by a test. A
+  staircase that validates in the loader bakes and walks; if a future
+  collision proxy is added, feed it through `NavBakeInput::walk_proxies` or
+  `NavBakeInput::obstacles` rather than a second format.
+* `nav_agent` and `ai` are the only actor components; do not add per-model
+  navigation or animation special cases.
+* The compiler reports a build warning naming any `nav_agent` entity or spawn
+  point with no navigable cell, so a stair or passage that silently breaks an
+  actor's clearance is visible at build time.
 
 ## Known Implementation Caveats
 

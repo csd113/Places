@@ -1,3 +1,4 @@
+pub mod ai;
 #[cfg(test)]
 mod architecture_audit;
 pub mod assets;
@@ -34,6 +35,7 @@ pub mod loader;
 mod loading;
 pub mod logging;
 pub mod materials;
+pub mod nav;
 pub mod package;
 pub mod perf;
 pub mod props;
@@ -532,6 +534,24 @@ fn capture_frame_from_env() -> u64 {
         .unwrap_or(1)
 }
 
+/// The `PLACES_INTERACT` developer overrides: authored instance ids whose
+/// interaction is dispatched once each, on the first Playing frame of a
+/// committed world. It exists so a capture run can drive a switch without
+/// input scripting; ordinary play never sets it.
+fn interact_overrides_from_env() -> Vec<String> {
+    std::env::var("PLACES_INTERACT")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// The parsed `PLACES_SPAWN` override, if set.
 fn spawn_override_from_env() -> Option<[f32; 4]> {
     std::env::var("PLACES_SPAWN")
@@ -738,6 +758,15 @@ struct FrameLoop<'a> {
     /// [`Self::refresh_graphics_status_hint`], so it is cleared only when it is
     /// still the message on screen.
     graphics_hint: Option<String>,
+    /// `PLACES_NAV_DEBUG`'s directory, when set: a developer dump of the live
+    /// navigation mesh and AI state is written there, from the real runtime
+    /// data. Unset means no work at all.
+    nav_debug_dir: Option<PathBuf>,
+    /// Frames since the last AI state dump.
+    nav_debug_age: u64,
+    /// `PLACES_INTERACT`'s instance ids, dispatched one by one on the first
+    /// Playing frame after a world commit. Empty in ordinary play.
+    dev_interactions: Vec<String>,
 }
 
 impl FrameLoop<'_> {
@@ -812,6 +841,7 @@ impl FrameLoop<'_> {
     }
 
     /// One complete frame: input, simulation, render, present, telemetry.
+    #[allow(clippy::too_many_lines)] // one cohesive frame: input, update, draw
     fn frame(&mut self) {
         // A fatal GPU condition must stop the process through the normal
         // shutdown path instead of issuing more work on a lost device.
@@ -904,6 +934,7 @@ impl FrameLoop<'_> {
         if interact_pressed && self.window_focused {
             self.dispatch_interaction();
         }
+        self.dispatch_dev_interactions();
         // Door leaves follow the gameplay state: the drawn slab and the
         // physical collider read the same angle, so a door can never stop the
         // player where it is not drawn.
@@ -939,9 +970,36 @@ impl FrameLoop<'_> {
                 .entities_mut()
                 .notify_animation_complete(instance_id, "");
         }
+        self.write_nav_debug(false);
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Dispatches the `PLACES_INTERACT` ids once each, on the first Playing
+    /// frame after a world commit. Developer diagnostic; empty by default.
+    fn dispatch_dev_interactions(&mut self) {
+        if self.dev_interactions.is_empty()
+            || self.game.app_state() != AppState::Playing
+            || self.startup != StartupPhase::Ready
+        {
+            return;
+        }
+        for id in std::mem::take(&mut self.dev_interactions) {
+            let Some(index) = self.game.interactables().index_of(&id) else {
+                crate::logging::warn_once(
+                    format!("interact-override:{id}"),
+                    format!("PLACES_INTERACT: `{id}` is not interactable in this level"),
+                );
+                continue;
+            };
+            if let Some(report) = self.game.world_mut().dispatch_interaction(Some(index)) {
+                crate::logging::info(format_args!(
+                    "PLACES_INTERACT: `{id}` ran {} action(s), spawned {}, unsupported {}",
+                    report.actions_run, report.spawned, report.unsupported
+                ));
+            }
+        }
     }
 
     /// Runs the current interaction and reports what it did.
@@ -980,6 +1038,7 @@ impl FrameLoop<'_> {
     /// stable runtime key, and this is the one place they become renderer
     /// calls. A failed spawn is counted in the world and reported once per
     /// model here, never retried in a loop.
+    #[allow(clippy::too_many_lines)] // one command dispatcher, one arm per command
     fn apply_world_commands(&mut self) {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
@@ -991,13 +1050,42 @@ impl FrameLoop<'_> {
                     yaw_degrees,
                     scale,
                 } => {
-                    if !self.renderer.spawn_runtime_model(
-                        entity,
-                        &model,
-                        position.to_array(),
-                        yaw_degrees,
-                        scale,
-                    ) {
+                    // A model with a rig renders through the character path so
+                    // it animates; anything else stays a dynamic object. Both
+                    // lanes key off the same entity lifecycle.
+                    let instance_id = self
+                        .game
+                        .entities()
+                        .handle_for_dynamic_key(entity)
+                        .and_then(|handle| self.game.entities().instance_id_of(handle))
+                        .map(str::to_string);
+                    let mut spawned_character = false;
+                    if let Some(instance_id) = instance_id.as_deref() {
+                        match self.renderer.spawn_runtime_character(
+                            instance_id,
+                            &model,
+                            position.to_array(),
+                            yaw_degrees,
+                            scale,
+                        ) {
+                            Ok(()) => spawned_character = true,
+                            Err(reason) => {
+                                crate::logging::info(format_args!(
+                                    "[characters] `{model}` spawns through the dynamic path: \
+                                     {reason}"
+                                ));
+                            }
+                        }
+                    }
+                    if !spawned_character
+                        && !self.renderer.spawn_runtime_model(
+                            entity,
+                            &model,
+                            position.to_array(),
+                            yaw_degrees,
+                            scale,
+                        )
+                    {
                         self.game.entities_mut().note_spawn_failure();
                         crate::logging::warn_once(
                             format!("runtime-spawn:{model}"),
@@ -1008,8 +1096,14 @@ impl FrameLoop<'_> {
                         );
                     }
                 }
-                crate::entities::WorldCommand::DespawnDynamic { entity } => {
+                crate::entities::WorldCommand::DespawnDynamic {
+                    entity,
+                    instance_id,
+                } => {
                     self.renderer.despawn_runtime_model(entity);
+                    if !instance_id.is_empty() {
+                        self.renderer.despawn_runtime_character(&instance_id);
+                    }
                 }
                 crate::entities::WorldCommand::SetDynamicTransform {
                     entity,
@@ -1018,6 +1112,18 @@ impl FrameLoop<'_> {
                 } => {
                     self.renderer
                         .set_runtime_transform(entity, position.to_array(), yaw_degrees);
+                    if let Some(instance_id) = self
+                        .game
+                        .entities()
+                        .handle_for_dynamic_key(entity)
+                        .and_then(|handle| self.game.entities().instance_id_of(handle))
+                    {
+                        self.renderer.set_runtime_character_transform(
+                            instance_id,
+                            position.to_array(),
+                            yaw_degrees,
+                        );
+                    }
                 }
                 crate::entities::WorldCommand::SetDynamicEmission { entity, scale } => {
                     self.renderer.set_runtime_emission(entity, scale);
@@ -2210,6 +2316,58 @@ impl FrameLoop<'_> {
         }
         self.trace_world("world_committed");
         self.trace.record("ready", id, "");
+        self.write_nav_debug(true);
+    }
+
+    /// Writes the developer navigation/AI inspection files when
+    /// `PLACES_NAV_DEBUG` names a directory.
+    ///
+    /// The dump is generated from the live [`crate::nav::NavMesh`] and
+    /// [`crate::ai::AiWorld`] the game is querying, not from a separate model,
+    /// so it shows exactly the cells, regions, portals, paths, goals, contacts
+    /// and catch radii the AI acts on. `force` writes the mesh once per world
+    /// install; the AI state is refreshed periodically.
+    fn write_nav_debug(&mut self, force: bool) {
+        const AI_DUMP_INTERVAL_FRAMES: u64 = 30;
+        let Some(dir) = self.nav_debug_dir.clone() else {
+            return;
+        };
+        self.nav_debug_age = self.nav_debug_age.saturating_add(1);
+        if !force && self.nav_debug_age < AI_DUMP_INTERVAL_FRAMES {
+            return;
+        }
+        self.nav_debug_age = 0;
+        if std::fs::create_dir_all(&dir).is_err() {
+            self.nav_debug_dir = None;
+            return;
+        }
+        if force && let Some(mesh) = self.game.navigation() {
+            for class in 0..mesh.grid().classes.len() {
+                let text = mesh.debug_ascii(class, self.game.doors());
+                let path = dir.join(format!("navmesh-class{class}.txt"));
+                if std::fs::write(&path, text).is_err() {
+                    self.nav_debug_dir = None;
+                    return;
+                }
+            }
+        }
+        let aimed = self
+            .game
+            .interaction_target()
+            .and_then(|index| self.game.interactables().get(index))
+            .map_or_else(|| "-".to_string(), |item| item.id.clone());
+        let mut report = format!(
+            "frame={} sim_time={:.2} stimuli={} sequences={} aimed={}\n",
+            self.game.frame_count(),
+            self.game.entities().sim_time(),
+            self.game.entities().stimuli().len(),
+            self.game.entities().active_sequences(),
+            aimed,
+        );
+        report.push_str(&self.game.entities().ai().debug_report());
+        if std::fs::write(dir.join("ai-state.txt"), report).is_err() {
+            self.nav_debug_dir = None;
+        }
     }
 
     /// Imports packs waiting in the import folders and refreshes the level list.
@@ -2706,6 +2864,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         actions,
         applied_graphics_settings,
         graphics_hint: None,
+        nav_debug_dir: std::env::var_os("PLACES_NAV_DEBUG").map(PathBuf::from),
+        nav_debug_age: 0,
+        dev_interactions: interact_overrides_from_env(),
     };
     frame_loop.start(initial_entry, direct);
 

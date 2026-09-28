@@ -1187,14 +1187,23 @@ pub enum ComponentDef {
         #[serde(default = "default_true")]
         enabled: bool,
     },
-    /// Navigation agent metadata for the navigation upgrade.
+    /// Navigation agent metadata: the body this entity navigates with.
     NavAgent {
         /// Body radius in metres.
         radius: f32,
         /// Preferred speed in m/s.
         speed_mps: f32,
+        /// Body height in metres; defaults to the player's standing height.
+        #[serde(default = "default_nav_height")]
+        height: f32,
+        /// Largest surface rise the body walks up, in metres.
+        #[serde(default = "default_nav_step_height")]
+        step_height: f32,
+        /// Largest walkable rise per metre of run.
+        #[serde(default = "default_nav_max_slope")]
+        max_slope: f32,
     },
-    /// Navigation obstacle metadata for the navigation upgrade.
+    /// Navigation obstacle metadata: an explicit obstacle box for the bake.
     NavObstacle {
         /// `[width, height, depth]`; defaults to the entity's resolved size.
         #[serde(default)]
@@ -1203,10 +1212,24 @@ pub enum ComponentDef {
         #[serde(default = "default_true")]
         affects_nav: bool,
     },
+    /// The entity runs a shared AI behavior.
+    Ai(crate::ai::AiDef),
 }
 
 const fn default_animation_speed() -> f32 {
     1.0
+}
+
+const fn default_nav_height() -> f32 {
+    crate::collision::PLAYER_HEIGHT
+}
+
+const fn default_nav_step_height() -> f32 {
+    crate::collision::PLAYER_STEP_HEIGHT
+}
+
+const fn default_nav_max_slope() -> f32 {
+    crate::nav::NAV_MAX_SLOPE
 }
 
 const fn default_audio_gain() -> f32 {
@@ -1300,6 +1323,7 @@ impl ComponentDef {
             Self::Water { .. } => "water",
             Self::NavAgent { .. } => "nav_agent",
             Self::NavObstacle { .. } => "nav_obstacle",
+            Self::Ai(_) => "ai",
         }
     }
 }
