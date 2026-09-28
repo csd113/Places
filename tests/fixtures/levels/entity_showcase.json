@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "entity_showcase",
   "name": "Entity Showcase",
   "author": "Places",
@@ -77,14 +77,22 @@
         0.7
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "rat_b",
@@ -99,14 +107,22 @@
         0.7
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "mannequin_pose",
@@ -121,15 +137,29 @@
         0.31
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Stand",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stand"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "chair",
@@ -157,15 +187,29 @@
         0.32
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Stand up",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stand up"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "skeleton_floor",
@@ -180,15 +224,29 @@
         0.32
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Stand up",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Stand up"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand"
+            }
+          ]
+        }
+      ]
     }
   ],
   "routes": [

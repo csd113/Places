@@ -120,7 +120,7 @@ fn lighting_level(architecture: &str) -> LevelDef {
     };
     parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "lighting_arch",
             "name": "Lighting Arch",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -189,7 +189,7 @@ fn test_archway_openings_transmit_light() {
     // arch and another crosses the solid pier.
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "arch_light",
             "name": "Arch Light",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -224,7 +224,7 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
     let extent = grid as f32 * 7.0 + 2.0;
     let mut json = String::from(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "arch_stress",
             "name": "Architecture Stress",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -500,7 +500,7 @@ fn test_guardrails_work_at_every_orientation() {
     for angle in [0.0f32, 30.0, 45.0, 90.0, 135.0, 180.0, 270.0, 359.0] {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "rail_angle",
                 "name": "Rail Angle",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -558,7 +558,7 @@ fn test_rotated_trim_keeps_its_length_and_plane() {
     for angle in [0.0f32, 30.0, 90.0, 135.0, 270.0] {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "trim_angle",
                 "name": "Trim Angle",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -660,7 +660,7 @@ fn test_archway_openings_stay_clear_for_every_configuration() {
     {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "arch_case",
                 "name": "Arch Case",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -730,7 +730,7 @@ fn test_cased_archway_never_shares_a_plane_with_its_wall() {
     for wall_depth in [0.10f32, 0.3, 0.6] {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "cased_arch",
                 "name": "Cased Arch",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -796,7 +796,7 @@ fn test_cased_archway_never_shares_a_plane_with_its_wall() {
 fn test_column_default_height_resolves_the_local_ceiling_and_region_floor() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "column_ceiling",
             "name": "Column Ceiling",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -871,7 +871,7 @@ fn test_column_default_height_resolves_the_local_ceiling_and_region_floor() {
 fn test_half_wall_caps_and_end_materials() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "half_wall_caps",
             "name": "Half Wall Caps",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -926,7 +926,7 @@ fn test_half_wall_caps_and_end_materials() {
 fn test_guardrail_follows_a_stair_flight_as_a_handrail() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "handrail",
             "name": "Handrail",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -1041,7 +1041,7 @@ fn test_every_material_bearing_field_is_discovered() {
     const SENTINEL: &str = "sentinel:material";
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "all_materials",
             "name": "All Materials",
             "spawn": {{ "x": 1.0, "z": 1.0, "yaw_degrees": 0.0 }},
@@ -1192,7 +1192,7 @@ fn sentinel_keys(value: &serde_json::Value) -> Vec<String> {
 #[test]
 fn test_architecture_geometry_sweep_is_structurally_sound() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "geometry_sweep",
         "name": "Geometry Sweep",
         "spawn": { "x": 0.5, "z": 0.5 },
@@ -1377,7 +1377,7 @@ fn test_architecture_validation_boundaries() {
     let base = |arrays: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "boundary",
                 "name": "Boundary",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1482,7 +1482,7 @@ fn test_architecture_overlap_rules() {
     let base = |arrays: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "overlap",
                 "name": "Overlap",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1539,7 +1539,7 @@ fn test_walking_surfaces_may_not_span_rooms_with_different_floors() {
     let level = |arrays: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "cross_room",
                 "name": "Cross Room",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1641,7 +1641,7 @@ fn test_rotated_guardrail_posts_keep_a_real_uv_axis() {
 fn test_architecture_uvs_stay_at_world_scale() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "uv_scale",
             "name": "UV Scale",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1722,7 +1722,7 @@ fn test_every_home_baseboard_stands_proud_of_its_wall() {
 #[test]
 fn test_loader_rejects_baseboards_and_thresholds_buried_in_walls() {
     let buried_board = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "buried_board",
         "name": "Buried Board",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1746,7 +1746,7 @@ fn test_loader_rejects_baseboards_and_thresholds_buried_in_walls() {
     crate::loader::validate_level(&level).expect("a board on the wall face is accepted");
 
     let buried_threshold = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "buried_threshold",
         "name": "Buried Threshold",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1774,7 +1774,7 @@ fn test_loader_rejects_baseboards_and_thresholds_buried_in_walls() {
 fn test_room_floor_grid_is_continuous_around_cell_boundaries() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "grid_probe",
             "name": "Grid Probe",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1829,7 +1829,7 @@ fn test_room_floor_grid_is_continuous_around_cell_boundaries() {
 fn test_walkable_floor_matches_surface_atlas_around_ramp_and_region_edges() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "walk_probe",
             "name": "Walk Probe",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1906,7 +1906,7 @@ fn test_walkable_floor_matches_surface_atlas_around_ramp_and_region_edges() {
 fn ramp_level(ramp: &RampDef) -> LevelDef {
     let mut level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "ramp_sweep",
             "name": "Ramp Sweep",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -1921,7 +1921,7 @@ fn ramp_level(ramp: &RampDef) -> LevelDef {
 fn stair_level(stair: &StairDef) -> LevelDef {
     let mut level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "stair_sweep",
             "name": "Stair Sweep",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -2100,7 +2100,7 @@ fn test_loader_and_controller_agree_on_the_walkable_riser_limit() {
     }
     // Just above the loader's tolerance: rejected, not accepted-but-unusable.
     let too_tall = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "too_tall",
         "name": "Too Tall",
         "spawn": { "x": 0.5, "z": 0.5 },
@@ -2135,7 +2135,7 @@ fn test_arriving_at_a_platform_is_not_walled_off_by_its_rim() {
     ] {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "arrival",
                 "name": "Arrival",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -2197,7 +2197,7 @@ fn test_ramp_side_skirt_gradient_follows_height_not_run() {
     for (name, x, z, width, depth, offset_y, rise) in cases {
         let level = parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "ramp_skirt_shading",
                 "name": "Ramp Skirt Shading",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2353,7 +2353,7 @@ fn test_archway_soffit_shading_follows_the_segment_slope() {
     for (rise, curved) in [(0.0f32, false), (0.2, true), (0.8, true)] {
         let level = parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "arch_soffit_shading",
                 "name": "Arch Soffit Shading",
                 "spawn": {{ "x": -2.0, "z": 0.0 }},
@@ -2535,7 +2535,7 @@ fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
     const HEIGHT: f32 = 2.0;
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "arc_uv",
             "name": "Arc Uv",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -2681,7 +2681,7 @@ fn test_pillar_body_normals_are_smooth_radial_and_seamless() {
     const SEGMENTS: u32 = 24;
     let level = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "pillar_normals",
             "name": "Pillar Normals",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2807,7 +2807,7 @@ fn test_arc_wall_faces_have_smooth_radial_normals() {
     const SEGMENTS: u32 = 24;
     let level = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "arc_normals",
             "name": "Arc Normals",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2884,7 +2884,7 @@ fn test_arc_end_caps_face_outward_for_both_sweep_signs() {
     ] {
         let level = parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "arc_ends_{sweep}",
                 "name": "Arc Ends",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -3009,7 +3009,7 @@ fn test_the_demo_stair_handrails_follow_the_nosing_line() {
 fn test_z_axis_and_floating_box_caps_face_out_of_their_solid() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "z_caps",
             "name": "Z Caps",
             "spawn": { "x": 0.5, "z": 0.5 },

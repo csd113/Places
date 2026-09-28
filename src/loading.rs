@@ -1,18 +1,24 @@
-//! One bounded CPU preparation worker; SDL and GPU installation remain owned by the frame loop.
-use std::fmt::Write;
+//! One bounded CPU worker that decodes compiled map packages; SDL and GPU
+//! installation remain owned by the frame loop.
+//!
+//! The player performs no static preparation. A request names a package and a
+//! lightmap quality; the worker resolves the level's texture *pixels* through
+//! the installed content bundle, decodes the package's prepared records
+//! (geometry, prop batches, baked lighting, lightmap atlas, collision, probe
+//! captures) and hands the frame loop a world it can install. Geometry
+//! emission, the lighting bake, chart planning, atlas filling, probe capture
+//! and static collision derivation all happen offline in `places-compile`.
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread::JoinHandle;
 
 use crate::game::CollisionWorld;
-use crate::lighting::lightmap::LightmapCache;
-use crate::loader::{LevelEntry, LevelManager, LoadedLevel};
+use crate::loader::{LevelEntry, LevelManager, LevelSourceType, LoadedLevel};
+use crate::package::collision::CompiledCollision;
+use crate::package::world::{ProbeCaptures, load_variant, load_variant_bytes};
 use crate::props::PropAssets;
 use crate::quality::LightmapQuality;
-use crate::render::{
-    CharacterScene, LevelBuild, LightmapBuildOptions, LightmapFillOutcome,
-    fill_lightmaps_cancellable, prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
-};
+use crate::render::{CharacterScene, LevelBuild};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -39,57 +45,108 @@ impl Phase {
     }
 }
 
-/// Retained definitions avoid disk access and preserve imported-pack assets on a graphics change.
+/// Content identity of one compiled package captured when its request value
+/// was created.
+///
+/// This is the package's own compiled manifest digest (the same
+/// `package_identity` the preparation worker keys its cache on): it covers the
+/// declared dependencies and the compiler fingerprint, so a rebuilt file with
+/// the same path, size and timestamp still gets a different identity. A value
+/// that could not be captured is never coalesced.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SourceIdentity {
+    /// The package was inspected and hashed at request time.
+    Known(String),
+    /// The package could not be inspected; no outstanding preparation may be
+    /// reused for it.
+    Unknown,
+}
+
+impl SourceIdentity {
+    fn capture(entry: &LevelEntry) -> Self {
+        crate::package::world::package_identity(entry).map_or(Self::Unknown, Self::Known)
+    }
+}
+
+/// True when two captured identities are both known and equal.
+fn identities_match(left: &SourceIdentity, right: &SourceIdentity) -> bool {
+    match (left, right) {
+        (SourceIdentity::Known(left), SourceIdentity::Known(right)) => left == right,
+        _ => false,
+    }
+}
+
+/// What the frame loop asks the worker to prepare.
 #[derive(Clone)]
 pub enum Source {
+    /// The default level: the bundled demo package (or the embedded copy).
     Default,
-    Entry(LevelEntry),
-    Retained(Box<LoadedLevel>),
+    /// One discovered package, with the content identity captured when this
+    /// request value was created.
+    Entry(LevelEntry, SourceIdentity),
+    /// A world whose definition and materials must be reused (graphics-only
+    /// changes, e.g. a lightmap quality switch). The package is re-read from
+    /// its recorded location; the embedded fallback reads its embedded bytes.
+    Retained(Box<LoadedLevel>, SourceIdentity),
 }
 impl Source {
+    /// A discovered-package request that snapshots the package identity now.
+    #[must_use]
+    pub fn entry(entry: LevelEntry) -> Self {
+        let identity = SourceIdentity::capture(&entry);
+        Self::Entry(entry, identity)
+    }
+
+    /// A retained-world request that snapshots the package identity now.
+    #[must_use]
+    pub fn retained(loaded: LoadedLevel) -> Self {
+        let identity = SourceIdentity::capture(&loaded.entry);
+        Self::Retained(Box::new(loaded), identity)
+    }
+
     pub fn level_id(&self) -> &str {
         match self {
             Self::Default => crate::loader::DEMO_LEVEL_ID,
-            Self::Entry(entry) => &entry.id,
-            Self::Retained(loaded) => &loaded.level.id,
+            Self::Entry(entry, _) => &entry.id,
+            Self::Retained(loaded, _) => &loaded.level.id,
         }
     }
 
     /// True when both requests name the same world content.
     ///
-    /// This deliberately requires more than a matching level name: an `Entry`
-    /// also compares the discovered file identity (including its size and
-    /// modification time when it exists on disk), and a `Retained` world
-    /// compares the serialised definition, so an edited level can never reuse
-    /// preparation started for its previous content.
+    /// The comparison uses the content identities captured independently when
+    /// each value was created, never a fresh stat of the two paths: a request
+    /// created after an in-place edit carries a different identity and must
+    /// supersede the outstanding preparation instead of promoting it. A
+    /// different path, changed entry metadata, or a request after completion
+    /// does not establish the defect, and an identity that could not be
+    /// captured never coalesces.
+    ///
+    /// This coalesces in-flight requests only; retained-build reuse is the
+    /// worker cache's decision.
     #[must_use]
     pub fn same_preparation(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Default, Self::Default) => true,
-            (Self::Entry(a), Self::Entry(b)) => {
-                a == b && entry_file_identity(a) == entry_file_identity(b)
+            (Self::Entry(a, a_identity), Self::Entry(b, b_identity)) => {
+                a == b && identities_match(a_identity, b_identity)
             }
-            (Self::Retained(a), Self::Retained(b)) => {
-                a.entry == b.entry
-                    && serde_json::to_vec(&a.level).ok() == serde_json::to_vec(&b.level).ok()
+            (Self::Retained(a, a_identity), Self::Retained(b, b_identity)) => {
+                a.entry == b.entry && identities_match(a_identity, b_identity)
             }
             _ => false,
         }
     }
 }
 
-/// `(len, modified)` of a discovered level file, or `None` for embedded and
-/// missing paths whose definition cannot change on disk between requests.
-fn entry_file_identity(entry: &LevelEntry) -> Option<(u64, std::time::SystemTime)> {
-    let metadata = std::fs::metadata(&entry.path).ok()?;
-    let modified = metadata.modified().ok()?;
-    Some((metadata.len(), modified))
-}
+/// One decoded package variant plus the level it belongs to.
 pub struct Request {
     pub source: Source,
     pub lightmaps: LightmapQuality,
 }
-/// One internally compatible CPU world. The caller installs this only while its generation is current.
+
+/// One internally compatible decoded world. The caller installs this only while
+/// its generation is current.
 pub struct PreparedWorld {
     pub preparation_millis: f64,
     pub cache_hit: bool,
@@ -99,6 +156,7 @@ pub struct PreparedWorld {
     pub characters: CharacterScene,
     pub assets: PropAssets,
     pub lightmaps: LightmapQuality,
+    pub probes: ProbeCaptures,
 }
 
 #[derive(Clone)]
@@ -337,52 +395,58 @@ impl<I, O> Drop for Worker<I, O> {
     }
 }
 
-/// The key stores exact dependency bytes; file times and hash collisions cannot
-/// make a changed GLB reuse old prepared geometry. Pixels for world sheets live
-/// in `LoadedLevel` and are uploaded independently using their content identity.
-#[derive(Clone, PartialEq)]
-struct BuildKey {
-    definition: Vec<u8>,
-    materials: String,
-    catalog: String,
-    root: Option<std::path::PathBuf>,
-    models: Vec<(String, crate::props::ModelInput)>,
+/// Identity of one decoded package variant: the package file's SHA-256 and the
+/// lightmap quality. Two packages with identical bytes decode identically.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PackageKey {
+    package_sha256: String,
     quality: LightmapQuality,
 }
-impl BuildKey {
-    fn for_request(
-        loaded: &LoadedLevel,
-        catalog: &crate::loader::PropCatalog,
-        assets: &mut PropAssets,
-        quality: LightmapQuality,
-    ) -> Result<Self, String> {
-        let entries: Vec<_> = loaded
-            .level
-            .props
-            .iter()
-            .map(|prop| catalog.get(&prop.model))
-            .collect();
-        let mut paths: Vec<_> = entries
-            .iter()
-            .filter_map(|entry| entry.model.clone())
-            .collect();
-        paths.sort();
-        paths.dedup();
-        let models = assets.refresh_inputs(&paths);
-        let mut materials = String::new();
-        for entry in loaded.materials.entries() {
-            let mut logical = entry.clone();
-            logical.image = None;
-            write!(materials, "{logical:?}").map_err(|error| error.to_string())?;
-        }
+
+impl PackageKey {
+    fn for_entry(entry: &LevelEntry, quality: LightmapQuality) -> Result<Self, String> {
         Ok(Self {
-            definition: serde_json::to_vec(&loaded.level).map_err(|error| error.to_string())?,
-            materials,
-            catalog: format!("{entries:?}"),
-            root: assets.root().map(std::path::Path::to_path_buf),
-            models,
+            package_sha256: crate::package::world::package_identity(entry)?,
             quality,
         })
+    }
+}
+
+/// One decoded package variant retained by the worker cache.
+struct PreparedRecords {
+    build: Arc<LevelBuild>,
+    collision: CompiledCollision,
+    probes: ProbeCaptures,
+    retained_bytes: usize,
+}
+
+impl PreparedRecords {
+    fn retained_bytes(
+        build: &LevelBuild,
+        collision: &CompiledCollision,
+        probes: &ProbeCaptures,
+    ) -> usize {
+        let collision_bytes = collision
+            .walls
+            .len()
+            .saturating_mul(std::mem::size_of::<crate::collision::WallAabb>());
+        let probe_bytes = [&probes.medium, &probes.full]
+            .into_iter()
+            .flatten()
+            .map(|capture| {
+                capture.chains.iter().fold(0_usize, |sum, chain| {
+                    chain.iter().fold(sum, |sum, faces| {
+                        faces
+                            .iter()
+                            .fold(sum, |sum, face| sum.saturating_add(face.len()))
+                    })
+                })
+            })
+            .fold(0_usize, usize::saturating_add);
+        build
+            .retained_bytes()
+            .saturating_add(collision_bytes)
+            .saturating_add(probe_bytes)
     }
 }
 
@@ -390,47 +454,34 @@ impl BuildKey {
 /// world remains valid. Oversized worlds are prepared normally but not retained.
 #[derive(Default)]
 struct BuildCache {
-    entries: std::collections::VecDeque<(BuildKey, Arc<LevelBuild>, usize)>,
+    entries: std::collections::VecDeque<(PackageKey, Arc<PreparedRecords>, usize)>,
 }
 impl BuildCache {
-    fn get(&mut self, key: &BuildKey) -> Option<Arc<LevelBuild>> {
+    fn get(&mut self, key: &PackageKey) -> Option<Arc<PreparedRecords>> {
         let position = self
             .entries
             .iter()
             .position(|(stored, _, _)| stored == key)?;
         let entry = self.entries.remove(position)?;
-        let build = Arc::clone(&entry.1);
+        let records = Arc::clone(&entry.1);
         self.entries.push_back(entry);
-        Some(build)
+        Some(records)
     }
-    fn insert(&mut self, key: BuildKey, build: Arc<LevelBuild>) {
-        self.insert_with_limits(key, build, 3, 192 * 1024 * 1024);
+
+    fn insert(&mut self, key: PackageKey, records: Arc<PreparedRecords>) {
+        self.insert_with_limits(key, records, 3, 192 * 1024 * 1024);
     }
 
     fn insert_with_limits(
         &mut self,
-        key: BuildKey,
-        build: Arc<LevelBuild>,
+        key: PackageKey,
+        records: Arc<PreparedRecords>,
         max_entries: usize,
         max_bytes: usize,
     ) {
-        let bytes = build
-            .retained_bytes()
-            .saturating_add(key.definition.capacity())
-            .saturating_add(key.materials.capacity())
-            .saturating_add(key.catalog.capacity())
-            .saturating_add(
-                key.models
-                    .iter()
-                    .map(|(path, input)| {
-                        path.capacity().saturating_add(
-                            input
-                                .as_ref()
-                                .map_or_else(String::capacity, |bytes| bytes.len()),
-                        )
-                    })
-                    .sum::<usize>(),
-            );
+        let bytes = records
+            .retained_bytes
+            .saturating_add(key.package_sha256.capacity());
         if max_entries == 0 || bytes > max_bytes {
             return;
         }
@@ -443,63 +494,8 @@ impl BuildCache {
         {
             self.entries.pop_front();
         }
-        self.entries.push_back((key, build, bytes));
+        self.entries.push_back((key, records, bytes));
     }
-}
-
-fn prepare_build(
-    loaded: &LoadedLevel,
-    assets: &mut PropAssets,
-    cache: &mut LightmapCache,
-    quality: LightmapQuality,
-    control: &Control,
-) -> Option<LevelBuild> {
-    crate::lighting::set_preparation_assets(loaded.catalog.as_ref().clone(), assets.clone());
-    let prepared = prepare_level_geometry_with_lightmaps(
-        &loaded.level,
-        loaded.catalog.as_ref(),
-        assets,
-        &loaded.materials,
-        LightmapBuildOptions::for_lightmaps(quality),
-        Some(cache),
-    );
-    let mut build = prepared.build;
-    if !control.checkpoint(Phase::Lightmaps) {
-        return None;
-    }
-    if let Some(fill) = prepared.fill {
-        match fill_lightmaps_cancellable(&fill, &control.cancelled) {
-            LightmapFillOutcome::Filled(atlas) => {
-                let atlas = Arc::new(atlas);
-                if !control.checkpoint(Phase::Lightmaps) {
-                    return None;
-                }
-                cache.insert(&fill.content_key, Arc::clone(&atlas));
-                crate::render::dump_lightmaps_for_level(&loaded.level, &atlas);
-                build.lightmap_millis = atlas.stats.bake_millis;
-                build.lightmaps = Some(atlas);
-                build.lightmap_failure = None;
-            }
-            LightmapFillOutcome::Failed(failure) => {
-                build.lightmap_failure = Some(failure);
-                build.lightmaps = None;
-                let began = std::time::Instant::now();
-                build.mesh = rebuild_vertex_lit_level(
-                    &loaded.level,
-                    loaded.catalog.as_ref(),
-                    assets,
-                    &loaded.materials,
-                    &build.lighting,
-                );
-                build.timings.surfaces_millis = began
-                    .elapsed()
-                    .as_secs_f64()
-                    .mul_add(1000.0, build.timings.surfaces_millis);
-            }
-            LightmapFillOutcome::Cancelled => return None,
-        }
-    }
-    Some(build)
 }
 
 fn test_delay() -> Result<u64, String> {
@@ -522,17 +518,148 @@ pub struct Loader {
 }
 
 fn remember_build(
-    identities: &mut std::collections::VecDeque<(BuildKey, std::sync::Weak<LevelBuild>)>,
-    key: BuildKey,
-    build: &Arc<LevelBuild>,
+    identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
+    key: PackageKey,
+    records: &Arc<PreparedRecords>,
 ) {
     // Weak identities keep an oversized displayed world reusable after a
     // different preparation is cancelled, without retaining its geometry.
-    identities.retain(|(previous, build)| previous != &key && build.strong_count() != 0);
+    identities.retain(|(previous, records)| previous != &key && records.strong_count() != 0);
     while identities.len() >= 8 {
         identities.pop_front();
     }
-    identities.push_back((key, Arc::downgrade(build)));
+    identities.push_back((key, Arc::downgrade(records)));
+}
+
+/// Decodes one request into an installable world, reusing the worker cache.
+#[allow(clippy::too_many_lines)] // one cohesive decode-to-world pipeline
+fn prepare_world(
+    manager: &mut LevelManager,
+    request: Request,
+    control: &Control,
+    assets: &mut PropAssets,
+    builds: &mut BuildCache,
+    identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
+    delay: u64,
+) -> Result<Option<PreparedWorld>, String> {
+    let started = std::time::Instant::now();
+    if !control.checkpoint(Phase::Reading) {
+        return Ok(None);
+    }
+    let delay_started = std::time::Instant::now();
+    while delay_started.elapsed() < std::time::Duration::from_millis(delay) {
+        if control.cancelled.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let loaded = match request.source {
+        Source::Default => {
+            manager.refresh_catalog();
+            manager.load_default()?
+        }
+        Source::Entry(entry, _) => {
+            manager.refresh_catalog();
+            manager.load_level(&entry)?
+        }
+        Source::Retained(loaded, _) => *loaded,
+    };
+    // The injected delay runs on both sides of the read so a test script can
+    // coordinate an in-place package edit *after* the worker has read the
+    // original bytes; that is the in-flight content-change race the request
+    // identity guards. The delay is inert unless PLACES_BENCH=1. The Geometry
+    // checkpoint is published between the two halves, so the trace's phase
+    // mark is what proves the bytes were consumed.
+    if !control.checkpoint(Phase::Geometry) {
+        return Ok(None);
+    }
+    let delay_started = std::time::Instant::now();
+    while delay_started.elapsed() < std::time::Duration::from_millis(delay) {
+        if control.cancelled.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let key = PackageKey::for_entry(&loaded.entry, request.lightmaps)?;
+    identities.retain(|(_, records)| records.strong_count() != 0);
+    let reusable = builds.get(&key).or_else(|| {
+        identities
+            .iter()
+            .find_map(|(previous, records)| (previous == &key).then(|| records.upgrade()).flatten())
+    });
+    let cache_hit = reusable.is_some();
+    let records = if let Some(records) = reusable {
+        crate::logging::info(format_args!(
+            "[loading] compiled-cache hit level={} variant={}",
+            loaded.level.id,
+            request.lightmaps.name()
+        ));
+        records
+    } else {
+        crate::logging::info(format_args!(
+            "[loading] compiled-cache miss level={} variant={}",
+            loaded.level.id,
+            request.lightmaps.name()
+        ));
+        let variant = load_entry_variant(&loaded.entry, request.lightmaps, assets)?;
+        crate::package::world::validate_probe_captures(
+            &variant.mesh,
+            &loaded.materials,
+            &variant.probes,
+        )?;
+        let build = Arc::new(LevelBuild {
+            mesh: variant.mesh,
+            batches: variant.props,
+            lighting: variant.lighting,
+            timings: crate::render::BuildTimings::default(),
+            lightmaps: variant.lightmaps,
+            probes: variant.irradiance,
+            lightmap_failure: None,
+            lightmap_millis: 0.0,
+        });
+        let retained_bytes =
+            PreparedRecords::retained_bytes(&build, &variant.collision, &variant.probes);
+        let records = Arc::new(PreparedRecords {
+            build,
+            collision: variant.collision,
+            probes: variant.probes,
+            retained_bytes,
+        });
+        if control.cancelled.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
+        builds.insert(key.clone(), Arc::clone(&records));
+        records
+    };
+    remember_build(identities, key, &records);
+    if !control.checkpoint(Phase::Collision) {
+        return Ok(None);
+    }
+    let collision = CollisionWorld::from_compiled(&loaded.level, records.collision.clone());
+    if !control.checkpoint(Phase::Characters) {
+        return Ok(None);
+    }
+    let characters = CharacterScene::spawn_characters_with_field(
+        &loaded.level,
+        loaded.catalog.as_ref(),
+        assets,
+        &records.build.lighting,
+        records.build.probes.as_deref(),
+    );
+    if !control.checkpoint(Phase::Ready) {
+        return Ok(None);
+    }
+    Ok(Some(PreparedWorld {
+        preparation_millis: started.elapsed().as_secs_f64() * 1000.0,
+        cache_hit,
+        loaded,
+        build: Arc::clone(&records.build),
+        collision,
+        characters,
+        assets: assets.clone(),
+        lightmaps: request.lightmaps,
+        probes: records.probes.clone(),
+    }))
 }
 
 impl Loader {
@@ -540,102 +667,24 @@ impl Loader {
     pub fn new(mut manager: LevelManager) -> Result<Self, String> {
         let delay = test_delay()?;
         let mut assets = PropAssets::load_default();
-        let mut cache = LightmapCache::with_disk();
         let mut builds = BuildCache::default();
         // The renderer owns the active world even when it is too large for the
         // LRU. A weak reference permits texture-only refits without retaining
         // another oversized world after it is no longer displayed.
-        let mut identities: std::collections::VecDeque<(BuildKey, std::sync::Weak<LevelBuild>)> =
-            std::collections::VecDeque::new();
+        let mut identities: std::collections::VecDeque<(
+            PackageKey,
+            std::sync::Weak<PreparedRecords>,
+        )> = std::collections::VecDeque::new();
         let worker = Worker::spawn(move |request: Request, control| {
-            let started = std::time::Instant::now();
-            if !control.checkpoint(Phase::Reading) {
-                return Ok(None);
-            }
-            let delay_started = std::time::Instant::now();
-            while delay_started.elapsed() < std::time::Duration::from_millis(delay) {
-                if control.cancelled.load(Ordering::Relaxed) {
-                    return Ok(None);
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-            let loaded = match request.source {
-                Source::Default => {
-                    manager.refresh_catalog();
-                    manager.load_default()?
-                }
-                Source::Entry(entry) => {
-                    manager.refresh_catalog();
-                    manager.load_level(&entry)?
-                }
-                Source::Retained(loaded) => *loaded,
-            };
-            if !control.checkpoint(Phase::Geometry) {
-                return Ok(None);
-            }
-            let key = BuildKey::for_request(
-                &loaded,
-                loaded.catalog.as_ref(),
+            prepare_world(
+                &mut manager,
+                request,
+                control,
                 &mut assets,
-                request.lightmaps,
-            )?;
-            identities.retain(|(_, build)| build.strong_count() != 0);
-            let reusable = builds.get(&key).or_else(|| {
-                identities.iter().find_map(|(previous, build)| {
-                    (previous == &key).then(|| build.upgrade()).flatten()
-                })
-            });
-            let cache_hit = reusable.is_some();
-            let build = if let Some(build) = reusable {
-                crate::logging::info(format_args!(
-                    "[loading] prepared-cache hit level={}",
-                    loaded.level.id
-                ));
-                build
-            } else {
-                crate::logging::info(format_args!(
-                    "[loading] prepared-cache miss level={}",
-                    loaded.level.id
-                ));
-                let Some(build) =
-                    prepare_build(&loaded, &mut assets, &mut cache, request.lightmaps, control)
-                else {
-                    return Ok(None);
-                };
-                let build = Arc::new(build);
-                if control.cancelled.load(Ordering::Relaxed) {
-                    return Ok(None);
-                }
-                builds.insert(key.clone(), Arc::clone(&build));
-                build
-            };
-            remember_build(&mut identities, key, &build);
-            if !control.checkpoint(Phase::Collision) {
-                return Ok(None);
-            }
-            let collision = CollisionWorld::from_level(&loaded.level);
-            if !control.checkpoint(Phase::Characters) {
-                return Ok(None);
-            }
-            let characters = CharacterScene::spawn_characters(
-                &loaded.level,
-                loaded.catalog.as_ref(),
-                &mut assets,
-                &build.lighting,
-            );
-            if !control.checkpoint(Phase::Ready) {
-                return Ok(None);
-            }
-            Ok(Some(PreparedWorld {
-                preparation_millis: started.elapsed().as_secs_f64() * 1000.0,
-                cache_hit,
-                loaded,
-                build,
-                collision,
-                characters,
-                assets: assets.clone(),
-                lightmaps: request.lightmaps,
-            }))
+                &mut builds,
+                &mut identities,
+                delay,
+            )
         })?;
         Ok(Self { worker })
     }
@@ -662,131 +711,238 @@ impl Loader {
     }
 }
 
+/// Decodes one package variant, resolving the embedded fallback's bytes when
+/// the entry is the embedded demo.
+fn load_entry_variant(
+    entry: &LevelEntry,
+    quality: LightmapQuality,
+    assets: &mut PropAssets,
+) -> Result<crate::package::world::LoadedVariant, String> {
+    match entry.source_type {
+        LevelSourceType::Embedded => {
+            let opened = crate::package::world::open_bytes(crate::loader::embedded_demo_package())?;
+            load_variant_bytes(
+                crate::loader::embedded_demo_package(),
+                &opened.manifest,
+                quality,
+                assets,
+            )
+        }
+        LevelSourceType::Bundled | LevelSourceType::Installed => {
+            let opened = crate::package::world::open(&entry.path)?;
+            load_variant(&entry.path, &opened.manifest, quality, assets)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Tests use expect to report a broken synchronization contract.
     #![allow(clippy::expect_used)]
     use super::*;
 
-    /// Exact content identity prevents an edited level with the same id from
-    /// reusing stale geometry, for both the active build and the LRU cache.
+    /// Exact content identity prevents a replaced package with the same id from
+    /// reusing stale records, for both the active records and the LRU cache.
     #[test]
-    fn a_retained_build_only_matches_the_same_level_content() {
-        let level = crate::level::LevelDef::from_json(
-            r#"{
-                "format_version": 2, "id": "build_identity", "name": "Build Identity",
-                "spawn": { "x": 0.0, "z": 0.0 },
-                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
-                "ceiling_lights": [
-                    { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
-                ]
-            }"#,
-        )
-        .expect("identity fixture parses");
-        let loaded = LoadedLevel {
-            materials: crate::render::logical_materials(&level),
-            catalog: Arc::new(crate::loader::PropCatalog::builtin()),
-            entry: crate::loader::LevelEntry {
-                id: level.id.clone(),
-                name: level.name.clone(),
-                author: String::new(),
-                source_type: crate::loader::LevelSourceType::Embedded,
-                path: std::path::PathBuf::new(),
-            },
-            level,
-            light_sheets: Vec::new(),
+    fn a_package_key_changes_with_the_package_bytes() {
+        let key = |hash: &str| PackageKey {
+            package_sha256: hash.to_string(),
+            quality: LightmapQuality::Full,
         };
-        let mut assets = PropAssets::default();
-        let mut key_for = |loaded: &LoadedLevel| {
-            BuildKey::for_request(loaded, &loaded.catalog, &mut assets, LightmapQuality::Full)
-                .expect("identity serializes")
-        };
-        let original = key_for(&loaded);
-        assert!(
-            original == key_for(&loaded.clone()),
-            "identical content reuses the build"
-        );
-        let mut edited = loaded.clone();
-        edited.level.ceiling_lights.first_mut().expect("fixture").x += 0.25;
-        assert!(
-            original != key_for(&edited),
-            "a moved fixture invalidates the same id"
-        );
-        let mut renamed = loaded.clone();
-        renamed.level.id = "other_level".to_string();
-        assert!(original != key_for(&renamed), "a different id cannot match");
+        let original = key("aaaa");
+        assert!(original == key("aaaa"), "identical bytes reuse the build");
+        assert!(original != key("bbbb"), "different bytes cannot match");
         assert!(
             BuildCache::default().get(&original).is_none(),
             "no retained build never matches"
         );
     }
 
-    /// Coalescing reuses an outstanding request only for identical content.
+    /// Coalescing reuses an outstanding request only for identical captured
+    /// content.
     #[test]
-    fn same_preparation_compares_content_not_only_the_level_name() {
+    fn same_preparation_compares_captured_content_not_only_the_level_name() {
         let entry = |id: &str, path: &str| LevelEntry {
             id: id.to_string(),
             name: "Same Name".to_string(),
             author: "Author".to_string(),
-            source_type: crate::loader::LevelSourceType::CustomJson,
+            source_type: LevelSourceType::Installed,
             path: std::path::PathBuf::from(path),
         };
-        let source = Source::Entry(entry("same_name", "/levels/a.json"));
-        assert!(
-            source.same_preparation(&Source::Entry(entry("same_name", "/levels/a.json"))),
-            "an identical entry reuses its preparation"
+        let known = |value: &str| SourceIdentity::Known(value.to_string());
+        let source = Source::Entry(
+            entry("same_name", "/levels/a.placesmap"),
+            known("content-1"),
         );
         assert!(
-            !source.same_preparation(&Source::Entry(entry("same_name", "/levels/b.json"))),
+            source.same_preparation(&Source::Entry(
+                entry("same_name", "/levels/a.placesmap"),
+                known("content-1"),
+            )),
+            "an identical entry and content reuse their preparation"
+        );
+        assert!(
+            !source.same_preparation(&Source::Entry(
+                entry("same_name", "/levels/a.placesmap"),
+                known("content-2"),
+            )),
+            "the same path with changed content must supersede, not coalesce"
+        );
+        assert!(
+            !source.same_preparation(&Source::Entry(
+                entry("same_name", "/levels/b.placesmap"),
+                known("content-1"),
+            )),
             "a different file with the same level id is different content"
         );
         assert!(
-            !source.same_preparation(&Source::Entry(entry("other_level", "/levels/a.json"))),
+            !source.same_preparation(&Source::Entry(
+                entry("other_level", "/levels/a.placesmap"),
+                known("content-1"),
+            )),
             "a different level id is different content"
+        );
+        assert!(
+            !Source::Entry(
+                entry("same_name", "/levels/a.placesmap"),
+                SourceIdentity::Unknown
+            )
+            .same_preparation(&Source::Entry(
+                entry("same_name", "/levels/a.placesmap"),
+                SourceIdentity::Unknown,
+            )),
+            "an uninspectable package is never reused"
         );
         assert!(!source.same_preparation(&Source::Default));
         assert!(Source::Default.same_preparation(&Source::Default));
     }
 
-    /// A retained world's serialised definition decides reuse; an edit that
-    /// keeps the id cannot silently answer the new request with the old build.
-    #[test]
-    fn retained_sources_only_match_identical_definitions() {
-        let level = crate::level::LevelDef::from_json(
-            r#"{
-                "format_version": 2, "id": "retained_identity", "name": "Retained Identity",
-                "spawn": { "x": 0.0, "z": 0.0 },
-                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
-                "ceiling_lights": [
-                    { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
-                ]
-            }"#,
-        )
-        .expect("identity fixture parses");
-        let loaded = LoadedLevel {
-            materials: crate::render::logical_materials(&level),
-            catalog: Arc::new(crate::loader::PropCatalog::builtin()),
-            entry: crate::loader::LevelEntry {
-                id: level.id.clone(),
-                name: level.name.clone(),
-                author: String::new(),
-                source_type: crate::loader::LevelSourceType::CustomJson,
-                path: std::path::PathBuf::new(),
-            },
-            level,
-            light_sheets: Vec::new(),
+    /// One structurally valid package whose manifest differs only by
+    /// `compiler_fingerprint`; used to prove identity capture reads content.
+    /// Entries are written uncompressed so two equal-length manifests also
+    /// produce two equal-length files.
+    fn write_identity_package(path: &std::path::Path, fingerprint: &str) {
+        use crate::package::manifest::{Manifest, Variant, VariantEntries};
+        use std::io::Write as _;
+        let entry = |name: &str, role: &str, hash: char| crate::package::PackageEntry {
+            name: name.to_string(),
+            role: role.to_string(),
+            bytes: 1,
+            sha256: hash.to_string().repeat(64),
         };
-        let source = Source::Retained(Box::new(loaded.clone()));
+        let entries = vec![
+            entry("blobs/aa.mesh", "mesh", 'a'),
+            entry("blobs/bb.props", "props", 'b'),
+            entry("blobs/cc.lighting", "lighting", 'c'),
+            entry("blobs/dd.collision", "collision", 'd'),
+            entry("semantics.json", "semantics", 'e'),
+        ];
+        let manifest = Manifest {
+            package_format: crate::package::FORMAT_VERSION,
+            id: "identity_fixture".to_string(),
+            name: "Identity Fixture".to_string(),
+            author: String::new(),
+            created_by: "identity-test".to_string(),
+            compiler_fingerprint: fingerprint.to_string(),
+            required_capabilities: vec![
+                "geometry".to_string(),
+                "props".to_string(),
+                "lighting".to_string(),
+                "collision".to_string(),
+            ],
+            dependencies: Vec::new(),
+            entries: entries.clone(),
+            variants: vec![Variant {
+                lightmap_quality: "off".to_string(),
+                quality_profile: "low".to_string(),
+                lightmap_failure: None,
+                entries: VariantEntries {
+                    mesh: "blobs/aa.mesh".to_string(),
+                    props: "blobs/bb.props".to_string(),
+                    lighting: "blobs/cc.lighting".to_string(),
+                    collision: "blobs/dd.collision".to_string(),
+                    lightmaps: None,
+                    lightmaps_meta: None,
+                    irradiance: None,
+                    probes: Vec::new(),
+                },
+            }],
+        };
+        let mut archive: Vec<(String, Vec<u8>)> = entries
+            .iter()
+            .map(|entry| (entry.name.clone(), vec![0_u8]))
+            .collect();
+        archive.push((
+            "manifest.json".to_string(),
+            manifest.to_json().expect("manifest serializes"),
+        ));
+        let file = std::fs::File::create(path).expect("create test package");
+        let mut writer = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .last_modified_time(zip::DateTime::default())
+            .unix_permissions(0o644);
+        for (name, bytes) in archive {
+            writer.start_file(name, options).expect("start entry");
+            writer.write_all(&bytes).expect("write entry");
+        }
+        writer.finish().expect("finish test package");
+    }
+
+    /// AUD-005: an in-place edit between the worker read and a re-request is a
+    /// different preparation. The two fixture files have the same path, the
+    /// same size and the same preserved timestamp; only their manifest content
+    /// differs, which is exactly what a metadata comparison misses.
+    #[test]
+    fn source_identity_changes_when_a_package_is_replaced_in_place() {
+        let dir = std::env::temp_dir().join(format!(
+            "places-source-identity-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos())
+        ));
+        std::fs::create_dir_all(&dir).expect("scratch directory");
+        let path = dir.join("identity_fixture.placesmap");
+        write_identity_package(&path, "fingerprint-one");
+        let entry = LevelEntry {
+            id: "identity_fixture".to_string(),
+            name: "Identity Fixture".to_string(),
+            author: String::new(),
+            source_type: LevelSourceType::Installed,
+            path: path.clone(),
+        };
+        let before = Source::entry(entry.clone());
         assert!(
-            source.same_preparation(&Source::Retained(Box::new(loaded.clone()))),
-            "an identical retained world reuses its preparation"
+            before.same_preparation(&Source::entry(entry.clone())),
+            "the unchanged package coalesces"
         );
-        let mut edited = loaded;
-        edited.level.ceiling_lights.first_mut().expect("fixture").x += 0.25;
+        let metadata = std::fs::metadata(&path).expect("metadata");
+        let size_before = metadata.len();
+        let modified = metadata.modified().expect("mtime");
+
+        write_identity_package(&path, "fingerprint-two");
+        // Preserve the timestamp: content is then the only difference a
+        // metadata-based reuse check could not see.
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .expect("open for mtime restore")
+            .set_modified(modified)
+            .expect("restore mtime");
+        let after_metadata = std::fs::metadata(&path).expect("metadata");
+        assert_eq!(
+            size_before,
+            after_metadata.len(),
+            "the negative control must not be detected by size alone"
+        );
+
+        let after = Source::entry(entry);
         assert!(
-            !source.same_preparation(&Source::Retained(Box::new(edited))),
-            "an edited retained world is different content"
+            !before.same_preparation(&after),
+            "changed package content must supersede the outstanding preparation"
         );
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     // The gate deliberately ignores cancellation to emulate a completion racing a newer request.
@@ -885,7 +1041,7 @@ mod tests {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
         let mut worker = Worker::spawn(|value: u32, _: &Control| {
             if value == 0 {
-                Err("invalid level".to_string())
+                Err("invalid package".to_string())
             } else {
                 Ok(Some(value))
             }
@@ -902,7 +1058,7 @@ mod tests {
             );
             std::thread::yield_now();
         };
-        assert_eq!(outcome, Err("invalid level".to_string()));
+        assert_eq!(outcome, Err("invalid package".to_string()));
         worker.request(1).expect("retry");
         let (_, outcome) = loop {
             if let Some(done) = worker.poll() {

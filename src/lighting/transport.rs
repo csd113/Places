@@ -1,0 +1,2506 @@
+//! Offline HDR static light transport for the prepared lightmaps.
+//!
+//! This module is the compiler's transport solver. It replaces the historical
+//! display-space pool/blend heuristic for the *prepared* lightmap path with a
+//! real visibility-tested solve in linear HDR:
+//!
+//! 1. **Direct illumination.** Every light source is sampled on its authored
+//!    shape (point, rectangle or line) with a fixed tap pattern, each tap
+//!    shadow-tested against the static triangle set. The visible fraction of the
+//!    emitter is the soft shadow term, so an extended panel produces a
+//!    penumbra instead of a hard edge.
+//! 2. **Diffuse bounces.** The lit texels are resampled into virtual point
+//!    lights (area-weighted radiosity samples); every receiver gathers the
+//!    nearby VPLs through an XZ grid, each gather visibility-tested. One or two
+//!    gathers are supported, giving colored indirect illumination.
+//! 3. **Directional encoding.** Every contribution is stored as a first-order
+//!    lobe: `irradiance += 0.5 w`, `direction += 0.5 w * omega`, where `omega`
+//!    points from the receiver toward the light. The shader reconstructs
+//!    `light(n) = max(0, irradiance + dot(direction, n))`, which is exact at
+//!    the lobe's peak (`n = omega`), dark for a receiver facing away, and
+//!    mean-exact over the sphere, so tiled and curved surfaces react to their
+//!    real normals instead of receiving one isotropic value.
+//!
+//! Units and normalization
+//! ------------------------
+//! Values are linear HDR "display light": the same scale the historical bake
+//! produced for a white surface (`LOCAL_LIGHT_STRENGTH * intensity *
+//! height_factor * shape * visibility`), extended above 1.0 by real transport.
+//! The authored falloff curve and range are kept as the game's calibrated
+//! fixture response; direct light is not divided by distance squared, which
+//! would replace the shipped pool shape. Bounce uses the physical
+//! patch-to-patch form factor with an explicit calibration constant
+//! ([`BOUNCE_GAIN`]) so the indirect term is bounded and testable.
+//!
+//! Determinism and parallelism
+//! ---------------------------
+//! Every receiver's value is a pure function of its index and the immutable
+//! scene, so a parallel solve and a serial solve produce identical values (the
+//! tests compare them under a tight tolerance). Work is partitioned by output
+//! index with scoped threads; there is no global lock, no shared accumulator
+//! and no per-worker allocation of the scene. A cancellation flag is polled
+//! between chunks.
+//!
+//! What is still runtime
+//! ---------------------
+//! Nothing in this module runs in the player. The player decodes the solved
+//! pages and samples them; the probe field the renderer interpolates for moving
+//! objects is solved here too, offline.
+
+// The transport solver is a numeric kernel: it evaluates fixed-size
+// three-vectors with explicit `f32` arithmetic (so serial and parallel runs
+// are bit-identical), converts bounded lattice indices after enforcing their
+// caps, and indexes arrays by constants. Those are exactly the shapes the
+// cast/float/index lints flag, so they are allowed here as a unit; no other
+// module inherits them.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::collapsible_if,
+    clippy::derive_partial_eq_without_eq,
+    clippy::doc_markdown,
+    clippy::imprecise_flops,
+    clippy::indexing_slicing,
+    clippy::missing_const_for_fn,
+    clippy::missing_fields_in_debug,
+    clippy::needless_range_loop,
+    clippy::question_mark,
+    clippy::redundant_locals,
+    clippy::single_match_else,
+    clippy::suboptimal_flops,
+    clippy::too_long_first_doc_paragraph,
+    clippy::too_many_arguments,
+    clippy::unnecessary_wraps,
+    clippy::while_let_loop
+)]
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel};
+use crate::lighting::probes::ProbeField;
+use crate::lighting::{LightFalloff, LightShape};
+
+/// Distance a shadow ray starts away from its surface, in metres.
+///
+/// The same nudge the historical face bake used, so a texel generated on a
+/// solid boundary is tested in the air the face opens into. It is the single
+/// calibrated constant shared with the vertex-lit bake.
+pub const SURFACE_OFFSET_M: f32 = super::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
+
+/// Shortest accepted ray hit distance, in metres.
+///
+/// A hit this close is the origin surface's own triangle or a coincident
+/// neighbour; treating it as "clear" is what lets a texel see a light that a
+/// coincident quad would otherwise self-occlude.
+pub const RAY_EPS_M: f32 = 1.0e-3;
+
+/// Largest number of triangles a transport scene may contain.
+///
+/// The level format's own vertex budget keeps real content far below this; the
+/// bound exists so a malformed asset cannot make the BVH build allocate
+/// unbounded memory.
+pub const MAX_TRANSPORT_TRIANGLES: usize = 4_194_304;
+
+/// Triangles per BVH leaf.
+const BVH_LEAF_TRIANGLES: usize = 4;
+
+/// Depth cap of the BVH recursion, so a pathological triangle soup cannot
+/// recurse without bound.
+const BVH_MAX_DEPTH: u32 = 40;
+
+/// Calibration of the bounce estimator.
+///
+/// The bounce pass integrates the diffuse transfer unbiassed (uniform
+/// hemisphere ray sampling with the sample's own solid-angle weight), so the
+/// physical value is `1`. The constant exists as the single documented knob a
+/// recalibration of the authored direct strength would use together; it is not
+/// an ambient floor and never adds light where no ray found a surface.
+pub const BOUNCE_GAIN: f32 = 1.0;
+
+/// Most bounce rays one receiver traces per bounce pass.
+pub const MAX_BOUNCE_RAYS: usize = 256;
+
+/// Bounce rays one receiver traces when the caller does not choose a budget.
+pub const DEFAULT_BOUNCE_RAYS: usize = 48;
+
+/// Edge length of one bounce-cache cell, in metres.
+///
+/// A bounce ray reads the previous pass's solved light at its hit point from a
+/// coarse 3D grid; smaller cells sharpen the indirect transfer and cost memory,
+/// bounded by [`MAX_CACHE_CELLS`] per axis.
+const CACHE_CELL_M: f32 = 0.75;
+
+/// Cap on bounce-cache cells per axis.
+const MAX_CACHE_CELLS: usize = 96;
+
+/// HDR values at or below this pass through the display tone map unchanged, so
+/// the calibrated look of the shipped light levels is preserved exactly and
+/// only genuine highlights compress. The shader uses the same value.
+pub const SOFT_KNEE: f32 = 0.8;
+
+/// The display conversion the renderer applies to reconstructed HDR light.
+///
+/// Below [`SOFT_KNEE`] the value passes through; above it a C1-continuous
+/// exponential shoulder compresses toward 1.0:
+/// `knee + (1 - knee) * (1 - exp(-(x - knee) / (1 - knee)))`.
+/// The knee's derivative is 1 on both sides, so a lit surface at the knee is
+/// unchanged by the conversion.
+#[must_use]
+pub fn soft_clip(color: [f32; 3]) -> [f32; 3] {
+    let mut out = [0.0_f32; 3];
+    for channel in 0..3 {
+        let value = color.get(channel).copied().unwrap_or(0.0);
+        out[channel] = soft_clip_channel(value);
+    }
+    out
+}
+
+/// One channel of [`soft_clip`], as a scalar.
+#[must_use]
+pub fn soft_clip_channel(value: f32) -> f32 {
+    if !value.is_finite() {
+        return 0.0;
+    }
+    if value <= SOFT_KNEE {
+        return value.max(0.0);
+    }
+    let overflow = value - SOFT_KNEE;
+    let shoulder = 1.0 - SOFT_KNEE;
+    SOFT_KNEE + shoulder * (1.0 - (-(overflow / shoulder)).exp())
+}
+
+/// Revision of the transport solver's maths and constants.
+///
+/// The lightmap content key includes [`solver_fingerprint`], so changing the
+/// solver's equations or calibration invalidates every cached atlas instead of
+/// silently reusing pages the previous solver produced.
+#[must_use]
+pub fn solver_fingerprint() -> u64 {
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut hash = FNV_OFFSET;
+    for bits in [
+        SOLVER_REVISION,
+        u64::from(SOFT_KNEE.to_bits()),
+        u64::from(BOUNCE_GAIN.to_bits()),
+        u64::from(MAX_BOUNCE_RAYS as u32),
+        u64::from(CACHE_CELL_M.to_bits()),
+        u64::from(MAX_CACHE_CELLS as u32),
+        u64::from(SURFACE_OFFSET_M.to_bits()),
+        u64::from(RAY_EPS_M.to_bits()),
+    ] {
+        for byte in bits.to_le_bytes() {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+    }
+    hash
+}
+
+/// Bumped whenever the transport equations, bounce sampling or filtering
+/// change in a way that alters solved values.
+pub const SOLVER_REVISION: u64 = 1;
+
+/// Largest worker count the solver will start.
+pub const MAX_TRANSPORT_WORKERS: usize = 12;
+
+/// One triangle of the transport scene, in world space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransportTriangle {
+    /// First corner.
+    pub p0: [f32; 3],
+    /// Second corner.
+    pub p1: [f32; 3],
+    /// Third corner.
+    pub p2: [f32; 3],
+    /// Geometric normal, normalized and pointing away from the solid.
+    pub normal: [f32; 3],
+    /// Diffuse albedo in `0..=1`, already multiplied by the texture's average
+    /// colour.
+    pub albedo: [f32; 3],
+}
+
+impl TransportTriangle {
+    /// Builds a triangle, rejecting a degenerate or non-finite one.
+    #[must_use]
+    pub fn new(p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], albedo: [f32; 3]) -> Option<Self> {
+        if !p0
+            .iter()
+            .chain(p1.iter())
+            .chain(p2.iter())
+            .all(|v| v.is_finite())
+        {
+            return None;
+        }
+        let e1 = sub(p1, p0);
+        let e2 = sub(p2, p0);
+        let cross = cross3(e1, e2);
+        let area = length(cross);
+        if !area.is_finite() || area <= 1.0e-12 {
+            return None;
+        }
+        let normal = scale(cross, 1.0 / area);
+        let albedo = [
+            albedo[0].clamp(0.0, 1.0),
+            albedo[1].clamp(0.0, 1.0),
+            albedo[2].clamp(0.0, 1.0),
+        ];
+        Some(Self {
+            p0,
+            p1,
+            p2,
+            normal,
+            albedo,
+        })
+    }
+
+    /// Two-sided area, in square metres.
+    #[must_use]
+    pub fn area(&self) -> f32 {
+        0.5 * length(cross3(sub(self.p1, self.p0), sub(self.p2, self.p0)))
+    }
+}
+
+/// The emitting shape of one transport light, in world space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EmitterShape {
+    /// A single point.
+    Point,
+    /// A rectangle: `u` and `v` are the world-space half-extent vectors.
+    Rect {
+        /// Half-extent along one panel axis.
+        u: [f32; 3],
+        /// Half-extent along the other panel axis.
+        v: [f32; 3],
+    },
+    /// A straight tube: `direction` is the unit axis, `half_length` its half
+    /// extent.
+    Line {
+        /// Unit direction of the tube.
+        direction: [f32; 3],
+        /// Half the tube length, in metres.
+        half_length: f32,
+    },
+}
+
+impl EmitterShape {
+    /// The largest distance from the centre to any point of the shape.
+    #[must_use]
+    pub fn bounding_radius(&self) -> f32 {
+        match *self {
+            Self::Point => 0.0,
+            Self::Rect { u, v } => length(add(u, v)).max(length(sub(u, v))),
+            Self::Line { half_length, .. } => half_length.max(0.0),
+        }
+    }
+
+    /// The shape's sample points, stratified over its extent.
+    ///
+    /// `taps` is clamped to `1..=3` per axis. A point yields one sample; a
+    /// rectangle a `taps x taps` grid; a line `taps` points along its axis.
+    #[must_use]
+    pub fn samples(&self, taps: u8) -> Vec<[f32; 3]> {
+        let taps = usize::from(taps.clamp(1, 3));
+        match *self {
+            Self::Point => vec![[0.0; 3]],
+            Self::Rect { u, v } => {
+                let mut out = Vec::with_capacity(taps.saturating_mul(taps));
+                for i in 0..taps {
+                    for j in 0..taps {
+                        let a = tap_offset(i, taps);
+                        let b = tap_offset(j, taps);
+                        out.push(add(scale(u, a), scale(v, b)));
+                    }
+                }
+                out
+            }
+            Self::Line {
+                direction,
+                half_length,
+            } => {
+                let mut out = Vec::with_capacity(taps);
+                for i in 0..taps {
+                    let a = tap_offset(i, taps);
+                    out.push(scale(direction, half_length * a));
+                }
+                out
+            }
+        }
+    }
+}
+
+/// Offset of tap `index` of `count`, in `-1..=1`.
+fn tap_offset(index: usize, count: usize) -> f32 {
+    if count <= 1 {
+        return 0.0;
+    }
+    let last = f32::from(u16::try_from(count.saturating_sub(1)).unwrap_or(u16::MAX)).max(1.0);
+    let index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    index.mul_add(2.0 / last, -1.0)
+}
+
+/// One resolved light in the transport scene.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransportEmitter {
+    /// World-space centre of the emitting shape.
+    pub position: [f32; 3],
+    /// The shape itself.
+    pub shape: EmitterShape,
+    /// Emitted colour, each channel in `0..=1`.
+    pub color: [f32; 3],
+    /// Authored intensity.
+    pub intensity: f32,
+    /// Distance at which the contribution reaches zero, in metres.
+    pub range: f32,
+    /// The authored falloff curve.
+    pub falloff: LightFalloff,
+    /// Ceiling-height correction of the owning room.
+    pub height_factor: f32,
+    /// True when this is a ceiling-mounted fixture: its reach is measured
+    /// horizontally from the emitting shape (the historical directional pool),
+    /// so a tall chamber's floor stays lit, and the receiver's own normal
+    /// supplies the incidence falloff through the directional reconstruction.
+    pub directional: bool,
+    /// `Some(light_index)` when this emitter is a switchable fixture: its
+    /// contribution is solved separately so a runtime switch can select it.
+    pub switchable: Option<usize>,
+}
+
+impl TransportEmitter {
+    /// Builds the transport emitter for one baked light.
+    ///
+    /// `switchable` is the light's index when its fixture is a switchable one,
+    /// so the solver can split its contribution into its own layer set.
+    #[must_use]
+    pub fn from_baked(light: &crate::lighting::BakedLight, switchable: Option<usize>) -> Self {
+        let source = light.source;
+        let (half_w, half_d) = source.half_extents();
+        let shape = match source.shape {
+            LightShape::Point => EmitterShape::Point,
+            LightShape::Rect { .. } => EmitterShape::Rect {
+                u: [half_w, 0.0, 0.0],
+                v: [0.0, 0.0, half_d],
+            },
+            LightShape::Line { .. } => {
+                // The tube's local X axis after the same yaw rule the fixture
+                // geometry uses: a turned fixture swaps its extents, which for a
+                // tube means the axis runs along Z.
+                let turned = crate::lighting::fixture_is_turned(source.rotation_degrees);
+                let direction = if turned {
+                    [0.0, 0.0, 1.0]
+                } else {
+                    [1.0, 0.0, 0.0]
+                };
+                let half_length = if turned { half_d } else { half_w };
+                EmitterShape::Line {
+                    direction,
+                    half_length,
+                }
+            }
+        };
+        Self {
+            position: source.position,
+            shape,
+            color: [
+                source.color.r.clamp(0.0, 1.0),
+                source.color.g.clamp(0.0, 1.0),
+                source.color.b.clamp(0.0, 1.0),
+            ],
+            intensity: if source.intensity.is_finite() {
+                source.intensity.max(0.0)
+            } else {
+                0.0
+            },
+            range: if source.range.is_finite() {
+                source.range.max(1.0e-3)
+            } else {
+                1.0
+            },
+            falloff: source.falloff,
+            height_factor: if light.height_factor.is_finite() {
+                light.height_factor.max(0.0)
+            } else {
+                1.0
+            },
+            directional: light.directional,
+            switchable,
+        }
+    }
+
+    /// The horizontal half-extents of the emitting shape in world X/Z.
+    fn horizontal_extents(&self) -> (f32, f32) {
+        match self.shape {
+            EmitterShape::Point => (0.0, 0.0),
+            EmitterShape::Rect { u, v } => (u[0].abs() + v[0].abs(), u[2].abs() + v[2].abs()),
+            EmitterShape::Line {
+                direction,
+                half_length,
+            } => (
+                direction[0].abs() * half_length,
+                direction[2].abs() * half_length,
+            ),
+        }
+    }
+
+    /// Distance from `point` to the emitter's horizontal footprint, in metres.
+    fn horizontal_distance(&self, point: [f32; 3]) -> f32 {
+        let (half_w, half_d) = self.horizontal_extents();
+        let dx = ((point[0] - self.position[0]).abs() - half_w).max(0.0);
+        let dz = ((point[2] - self.position[2]).abs() - half_d).max(0.0);
+        (dx * dx + dz * dz).sqrt()
+    }
+
+    /// True when this emitter can reach `point` at all.
+    fn reaches(&self, point: [f32; 3]) -> bool {
+        if self.directional {
+            return self.horizontal_distance(point) <= self.range + self.shape.bounding_radius();
+        }
+        let d = sub(point, self.position);
+        let reach = self.range + self.shape.bounding_radius();
+        dot(d, d) <= reach * reach
+    }
+
+    /// The contribution of this emitter at `point` with unit albedo, plus the
+    /// mean direction toward it.
+    ///
+    /// `scene` supplies the shadow tests; `taps` is the per-axis emitter tap
+    /// count. Returns `(weight, direction)` where both are zero when nothing is
+    /// visible.
+    #[must_use]
+    pub fn direct(
+        &self,
+        scene: &TransportScene,
+        point: [f32; 3],
+        taps: u8,
+    ) -> ([f32; 3], [f32; 3]) {
+        if !self.intensity.is_finite() || self.intensity <= 0.0 {
+            return ([0.0; 3], [0.0; 3]);
+        }
+        if !self.reaches(point) {
+            return ([0.0; 3], [0.0; 3]);
+        }
+        let samples = self.shape.samples(taps);
+        let total = samples.len().max(1);
+        let mut visible = 0usize;
+        let mut direction = [0.0_f32; 3];
+        let mut centre_direction = [0.0_f32; 3];
+        let mut first = true;
+        for offset in samples {
+            let sample = add(self.position, offset);
+            if scene.occluded(point, sample) {
+                continue;
+            }
+            visible = visible.saturating_add(1);
+            let to_light = sub(sample, point);
+            let distance = length(to_light);
+            if distance > 1.0e-6 {
+                let unit = scale(to_light, 1.0 / distance);
+                direction = add(direction, unit);
+                if first {
+                    centre_direction = unit;
+                    first = false;
+                }
+            }
+        }
+        if visible == 0 {
+            return ([0.0; 3], [0.0; 3]);
+        }
+        // The shape term uses the emitter's own reach convention on the
+        // authored falloff curve; the visible tap fraction is the soft shadow.
+        let falloff_distance = if self.directional {
+            self.horizontal_distance(point)
+        } else {
+            length(sub(self.position, point))
+        };
+        let shape = self.falloff.factor(falloff_distance / self.range);
+        if !shape.is_finite() || shape <= 0.0 {
+            return ([0.0; 3], [0.0; 3]);
+        }
+        let visible_fraction = f32::from(u16::try_from(visible).unwrap_or(u16::MAX))
+            / f32::from(u16::try_from(total).unwrap_or(u16::MAX));
+        let strength = crate::lighting::LOCAL_LIGHT_STRENGTH
+            * self.intensity
+            * self.height_factor
+            * shape
+            * visible_fraction;
+        if !strength.is_finite() || strength <= 0.0 {
+            return ([0.0; 3], [0.0; 3]);
+        }
+        let weight = [
+            self.color[0] * strength,
+            self.color[1] * strength,
+            self.color[2] * strength,
+        ];
+        let average = normalize_or(direction, centre_direction);
+        (weight, average)
+    }
+}
+
+/// A decoded lightmap receiver: one atlas texel with its world position and
+/// orientation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransportReceiver {
+    /// World-space position of the texel, already offset off its surface.
+    pub position: [f32; 3],
+    /// Surface normal at the texel.
+    pub normal: [f32; 3],
+    /// Diffuse albedo at the texel.
+    pub albedo: [f32; 3],
+    /// World-space area the texel covers, in square metres.
+    pub area: f32,
+    /// Index of the scene triangle the texel belongs to, or `u32::MAX` when
+    /// no triangle was close enough. The bounce cache uses it to read a hit
+    /// surface's own light instead of a co-planar surface across a wall.
+    pub surface: u32,
+}
+
+/// One solved chart: the receiver set plus its HDR texels.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolvedChart {
+    /// The receivers, row-major like the chart.
+    pub receivers: Vec<TransportReceiver>,
+    /// The solved texels, row-major like the chart.
+    pub texels: Vec<LightmapTexel>,
+}
+
+/// The complete transport result of one variant.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TransportSolution {
+    /// The always-on solve, one entry per chart in plan order.
+    pub charts: Vec<SolvedChart>,
+    /// One entry per switchable light, in the order the caller supplied: the
+    /// light index and its own contribution per chart.
+    pub switchable: Vec<(usize, Vec<SolvedChart>)>,
+    /// Direct rays cast.
+    pub direct_rays: usize,
+    /// Bounce rays cast.
+    pub bounce_rays: usize,
+    /// Occupied cells in the last bounce pass's cache.
+    pub cache_cells: usize,
+}
+
+/// One solve: the chart result plus the optional probe field.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TransportSolve {
+    /// The per-chart solved texels.
+    pub solution: TransportSolution,
+    /// The prepared irradiance field for moving objects, when requested. Probe
+    /// rooms are unassigned (`-1`) until the compiler labels them.
+    pub probes: Option<ProbeField>,
+}
+
+/// Solver budget and quality selection.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SolveOptions {
+    /// Emitter taps per axis, clamped to `1..=3`.
+    pub taps_per_axis: u8,
+    /// Diffuse bounce gathers, clamped to `0..=3`.
+    pub bounces: u8,
+    /// Bounce rays one receiver traces per bounce pass, clamped to
+    /// `1..=MAX_BOUNCE_RAYS`.
+    pub gather_samples: usize,
+    /// Worker threads; `1` selects the serial reference path.
+    pub workers: usize,
+}
+
+impl Default for SolveOptions {
+    fn default() -> Self {
+        Self {
+            taps_per_axis: 2,
+            bounces: 1,
+            gather_samples: 32,
+            workers: 1,
+        }
+    }
+}
+
+/// The static triangle set, its BVH and the lights, ready to solve against.
+///
+/// Built once per package variant by the compiler and then queried from every
+/// worker; nothing in it changes during a solve.
+pub struct TransportScene {
+    triangles: Vec<TransportTriangle>,
+    order: Vec<u32>,
+    nodes: Vec<BvhNode>,
+    emitters: Vec<TransportEmitter>,
+}
+
+impl std::fmt::Debug for TransportScene {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TransportScene")
+            .field("triangles", &self.triangles.len())
+            .field("nodes", &self.nodes.len())
+            .field("emitters", &self.emitters.len())
+            .finish()
+    }
+}
+
+/// One BVH node: a bounds box and either a leaf range or a child index.
+#[derive(Clone, Copy, Debug)]
+struct BvhNode {
+    min: [f32; 3],
+    max: [f32; 3],
+    /// First entry of this node's range in [`TransportScene::order`].
+    first: u32,
+    /// Leaf triangle count; `0` for an interior node.
+    count: u32,
+    /// Right child index for an interior node.
+    right: u32,
+}
+
+impl TransportScene {
+    /// Builds the scene and its acceleration structure.
+    ///
+    /// Triangles whose corners are non-finite or degenerate are skipped; the
+    /// caller counts them for the build report. Returns `None` when the triangle
+    /// count exceeds [`MAX_TRANSPORT_TRIANGLES`].
+    #[must_use]
+    pub fn new(triangles: Vec<TransportTriangle>, emitters: Vec<TransportEmitter>) -> Option<Self> {
+        if triangles.len() > MAX_TRANSPORT_TRIANGLES {
+            return None;
+        }
+        let count = triangles.len();
+        let mut order: Vec<u32> = (0..count)
+            .map(|index| u32::try_from(index).unwrap_or(u32::MAX))
+            .collect();
+        let centroids: Vec<[f32; 3]> = triangles
+            .iter()
+            .map(|triangle| scale(add(add(triangle.p0, triangle.p1), triangle.p2), 1.0 / 3.0))
+            .collect();
+        let mut nodes: Vec<BvhNode> = Vec::with_capacity(count.saturating_mul(2).max(1));
+        if count > 0 {
+            build_node(&triangles, &centroids, &mut order, &mut nodes, 0, count, 0);
+        }
+        Some(Self {
+            triangles,
+            order,
+            nodes,
+            emitters,
+        })
+    }
+
+    /// Number of triangles in the scene.
+    #[must_use]
+    pub fn triangle_count(&self) -> usize {
+        self.triangles.len()
+    }
+
+    /// Number of emitters in the scene.
+    #[must_use]
+    pub fn emitter_count(&self) -> usize {
+        self.emitters.len()
+    }
+
+    /// The emitters.
+    #[must_use]
+    pub fn emitters(&self) -> &[TransportEmitter] {
+        &self.emitters
+    }
+
+    /// True when the straight segment `a -> b` crosses any triangle.
+    ///
+    /// Endpoints within [`RAY_EPS_M`] of a hit are treated as clear, so a
+    /// surface does not shadow itself.
+    #[must_use]
+    pub fn occluded(&self, a: [f32; 3], b: [f32; 3]) -> bool {
+        let direction = sub(b, a);
+        let distance = length(direction);
+        if !distance.is_finite() || distance <= RAY_EPS_M {
+            return false;
+        }
+        let unit = scale(direction, 1.0 / distance);
+        let max_t = distance - RAY_EPS_M;
+        if max_t <= 0.0 {
+            return false;
+        }
+        self.any_hit(a, unit, max_t)
+    }
+
+    /// Any triangle hit along `origin + t * direction` for `t` in
+    /// `(RAY_EPS_M, max_t)`.
+    fn any_hit(&self, origin: [f32; 3], direction: [f32; 3], max_t: f32) -> bool {
+        if self.nodes.is_empty() {
+            return false;
+        }
+        let inv = [
+            safe_inverse(direction[0]),
+            safe_inverse(direction[1]),
+            safe_inverse(direction[2]),
+        ];
+        let mut stack: [u32; 64] = [0; 64];
+        let mut depth = 0_usize;
+        let Some(first) = self.nodes.first() else {
+            return false;
+        };
+        if !slab_hit(first, origin, inv, max_t) {
+            return false;
+        }
+        let mut node_index = 0_u32;
+        loop {
+            let Some(node) = self
+                .nodes
+                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
+            else {
+                break;
+            };
+            if node.count > 0 {
+                let start = usize::try_from(node.first).unwrap_or(usize::MAX);
+                let end = start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
+                for entry in start..end {
+                    let Some(index) = self.order.get(entry) else {
+                        continue;
+                    };
+                    let Some(triangle) = self
+                        .triangles
+                        .get(usize::try_from(*index).unwrap_or(usize::MAX))
+                    else {
+                        continue;
+                    };
+                    if let Some(t) = ray_triangle(origin, direction, triangle)
+                        && t > RAY_EPS_M
+                        && t < max_t
+                    {
+                        return true;
+                    }
+                }
+            } else {
+                let left = node.first;
+                let right = node.right;
+                let left_hit = self
+                    .nodes
+                    .get(usize::try_from(left).unwrap_or(usize::MAX))
+                    .is_some_and(|child| slab_hit(child, origin, inv, max_t));
+                let right_hit = self
+                    .nodes
+                    .get(usize::try_from(right).unwrap_or(usize::MAX))
+                    .is_some_and(|child| slab_hit(child, origin, inv, max_t));
+                if left_hit && right_hit {
+                    if depth >= stack.len() {
+                        // The stack is sized for the depth cap; falling back to
+                        // a full scan keeps a deepest-level miss correct rather
+                        // than silently unshadowed.
+                        return self.linear_any_hit(origin, direction, max_t);
+                    }
+                    if let Some(slot) = stack.get_mut(depth) {
+                        *slot = right;
+                    }
+                    depth = depth.saturating_add(1);
+                    node_index = left;
+                    continue;
+                }
+                if left_hit {
+                    node_index = left;
+                    continue;
+                }
+                if right_hit {
+                    node_index = right;
+                    continue;
+                }
+            }
+            if depth == 0 {
+                break;
+            }
+            depth = depth.saturating_sub(1);
+            node_index = stack.get(depth).copied().unwrap_or(0);
+        }
+        false
+    }
+
+    /// The nearest triangle hit along `origin + t * direction`, with its
+    /// distance and index.
+    ///
+    /// Used by the bounce pass, which needs both the hit surface's albedo and
+    /// the world point where the cache is read. Traversal visits the nearer
+    /// child first and prunes a node whose entry is already past the best hit.
+    #[must_use]
+    pub fn intersect(&self, origin: [f32; 3], direction: [f32; 3]) -> Option<(f32, usize)> {
+        if self.nodes.is_empty() {
+            return None;
+        }
+        let inv = [
+            safe_inverse(direction[0]),
+            safe_inverse(direction[1]),
+            safe_inverse(direction[2]),
+        ];
+        let mut best: Option<(f32, usize)> = None;
+        let mut stack: [u32; 64] = [0; 64];
+        let mut depth = 0_usize;
+        let mut node_index = 0_u32;
+        loop {
+            let Some(node) = self
+                .nodes
+                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
+            else {
+                break;
+            };
+            let limit = best.map_or(f32::INFINITY, |(distance, _)| distance);
+            if !slab_hit(node, origin, inv, limit) {
+                // fall through to the pop below
+            } else if node.count > 0 {
+                let start = usize::try_from(node.first).unwrap_or(usize::MAX);
+                let end = start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
+                for entry in start..end {
+                    let Some(index) = self.order.get(entry) else {
+                        continue;
+                    };
+                    let Some(triangle) = self
+                        .triangles
+                        .get(usize::try_from(*index).unwrap_or(usize::MAX))
+                    else {
+                        continue;
+                    };
+                    if let Some(t) = ray_triangle(origin, direction, triangle)
+                        && t > RAY_EPS_M
+                        && best.is_none_or(|(distance, _)| t < distance)
+                    {
+                        best = Some((t, usize::try_from(*index).unwrap_or(usize::MAX)));
+                    }
+                }
+            } else {
+                // Visit the nearer child first so the best hit prunes sooner.
+                let left = node.first;
+                let right = node.right;
+                let left_entry = self
+                    .nodes
+                    .get(usize::try_from(left).unwrap_or(usize::MAX))
+                    .and_then(|child| slab_entry(child, origin, inv, limit));
+                let right_entry = self
+                    .nodes
+                    .get(usize::try_from(right).unwrap_or(usize::MAX))
+                    .and_then(|child| slab_entry(child, origin, inv, limit));
+                match (left_entry, right_entry) {
+                    (Some(left_t), Some(right_t)) => {
+                        let (near, far, far_t) = if left_t <= right_t {
+                            (left, right, right_t)
+                        } else {
+                            (right, left, left_t)
+                        };
+                        if depth >= stack.len() {
+                            break;
+                        }
+                        if let Some(slot) = stack.get_mut(depth) {
+                            *slot = far;
+                        }
+                        depth = depth.saturating_add(1);
+                        let _ = far_t;
+                        node_index = near;
+                        continue;
+                    }
+                    (Some(_), None) => {
+                        node_index = left;
+                        continue;
+                    }
+                    (None, Some(_)) => {
+                        node_index = right;
+                        continue;
+                    }
+                    (None, None) => {}
+                }
+            }
+            if depth == 0 {
+                break;
+            }
+            depth = depth.saturating_sub(1);
+            node_index = stack.get(depth).copied().unwrap_or(0);
+        }
+        best
+    }
+
+    /// Fallback full scan used only when the traversal stack saturates.
+    fn linear_any_hit(&self, origin: [f32; 3], direction: [f32; 3], max_t: f32) -> bool {
+        self.triangles.iter().any(|triangle| {
+            ray_triangle(origin, direction, triangle).is_some_and(|t| t > RAY_EPS_M && t < max_t)
+        })
+    }
+
+    /// The nearest triangle's albedo and index within `radius` metres.
+    ///
+    /// Used at scene-build time to attach receiver albedo and surface identity
+    /// to lightmap texels, which sit on (or one bias step off) their own
+    /// surface. The search is BVH-accelerated and prunes by the point-to-box
+    /// distance, so it is logarithmic in the triangle count rather than a full
+    /// scan.
+    #[must_use]
+    pub fn surface_sample(&self, point: [f32; 3], radius: f32) -> Option<([f32; 3], usize)> {
+        if self.nodes.is_empty() || !point.iter().all(|value| value.is_finite()) {
+            return None;
+        }
+        let radius_sq = if radius.is_finite() && radius > 0.0 {
+            radius * radius
+        } else {
+            0.0
+        };
+        let mut best: Option<(f32, usize, [f32; 3])> = None;
+        let mut stack: [u32; 64] = [0; 64];
+        let mut depth = 0_usize;
+        let mut node_index = 0_u32;
+        loop {
+            let Some(node) = self
+                .nodes
+                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
+            else {
+                break;
+            };
+            if point_box_distance_squared(point, node.min, node.max) <= radius_sq {
+                if node.count > 0 {
+                    let start = usize::try_from(node.first).unwrap_or(usize::MAX);
+                    let end =
+                        start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
+                    for entry in start..end {
+                        let Some(index) = self.order.get(entry) else {
+                            continue;
+                        };
+                        let Some(triangle) = self
+                            .triangles
+                            .get(usize::try_from(*index).unwrap_or(usize::MAX))
+                        else {
+                            continue;
+                        };
+                        let triangle_index = usize::try_from(*index).unwrap_or(usize::MAX);
+                        let distance = point_triangle_distance(point, triangle);
+                        if distance.is_finite()
+                            && distance <= radius
+                            && best.is_none_or(|(current, _, _)| distance < current)
+                        {
+                            best = Some((distance, triangle_index, triangle.albedo));
+                        }
+                    }
+                } else {
+                    let left = node.first;
+                    let right = node.right;
+                    if depth >= stack.len() {
+                        break;
+                    }
+                    if let Some(slot) = stack.get_mut(depth) {
+                        *slot = right;
+                    }
+                    depth = depth.saturating_add(1);
+                    node_index = left;
+                    continue;
+                }
+            }
+            if depth == 0 {
+                break;
+            }
+            depth = depth.saturating_sub(1);
+            node_index = stack.get(depth).copied().unwrap_or(0);
+        }
+        best.map(|(_, index, albedo)| (albedo, index))
+    }
+
+    /// Convenience wrapper returning only the nearest triangle's albedo.
+    #[must_use]
+    pub fn surface_albedo(
+        &self,
+        point: [f32; 3],
+        _normal: [f32; 3],
+        radius: f32,
+    ) -> Option<[f32; 3]> {
+        self.surface_sample(point, radius).map(|(albedo, _)| albedo)
+    }
+
+    /// Solves one variant's chart set.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LightmapFailure::InvalidConfig`] for a zero worker count,
+    /// [`LightmapFailure::FillNonFinite`] when a chart's texel count is not
+    /// exactly the plan's, and never returns a partial result.
+    pub fn solve(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        options: SolveOptions,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<TransportSolution, LightmapFailure> {
+        Ok(self
+            .solve_with_probes(charts, options, cancel, false)?
+            .solution)
+    }
+
+    /// [`Self::solve`], also preparing the irradiance field when `bake_probes`
+    /// is set.
+    ///
+    /// The probes are solved from the same base pass that produced the chart
+    /// atlas, so the field and the lightmaps can never describe different
+    /// worlds.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::solve`].
+    pub fn solve_with_probes(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        options: SolveOptions,
+        cancel: Option<&AtomicBool>,
+        bake_probes: bool,
+    ) -> Result<TransportSolve, LightmapFailure> {
+        if options.workers == 0 {
+            return Err(LightmapFailure::InvalidConfig);
+        }
+        let workers = options.workers.clamp(1, MAX_TRANSPORT_WORKERS);
+        let taps = options.taps_per_axis.clamp(1, 3);
+        let bounces = options.bounces.min(3);
+        let bounce_samples = options.gather_samples.clamp(1, MAX_BOUNCE_RAYS);
+        let base_emitters: Vec<usize> = self
+            .emitters
+            .iter()
+            .enumerate()
+            .filter(|(_, emitter)| emitter.switchable.is_none() && emitter.intensity > 0.0)
+            .map(|(index, _)| index)
+            .collect();
+        let switchable_emitters: Vec<(usize, usize)> = self
+            .emitters
+            .iter()
+            .enumerate()
+            .filter_map(|(index, emitter)| emitter.switchable.map(|light| (light, index)))
+            .collect();
+        let mut direct_rays = 0usize;
+        let mut bounce_rays = 0usize;
+        let mut cache_cells = 0usize;
+        let mut probes: Option<ProbeField> = None;
+        let base = self.solve_pass(
+            charts,
+            &base_emitters,
+            taps,
+            bounces,
+            bounce_samples,
+            workers,
+            cancel,
+            &mut direct_rays,
+            &mut bounce_rays,
+            &mut cache_cells,
+            if bake_probes { Some(&mut probes) } else { None },
+        )?;
+        let mut switchable = Vec::with_capacity(switchable_emitters.len());
+        for (light_index, emitter) in &switchable_emitters {
+            let solved = self.solve_pass(
+                charts,
+                std::slice::from_ref(emitter),
+                taps,
+                bounces,
+                bounce_samples,
+                workers,
+                cancel,
+                &mut direct_rays,
+                &mut bounce_rays,
+                &mut cache_cells,
+                None,
+            )?;
+            switchable.push((*light_index, solved));
+        }
+        Ok(TransportSolve {
+            solution: TransportSolution {
+                charts: base,
+                switchable,
+                direct_rays,
+                bounce_rays,
+                cache_cells,
+            },
+            probes,
+        })
+    }
+
+    /// One solve over a fixed emitter subset.
+    #[allow(clippy::too_many_arguments)] // internal pass driver; the arguments are the pass's whole budget
+    fn solve_pass(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        emitters: &[usize],
+        taps: u8,
+        bounces: u8,
+        bounce_samples: usize,
+        workers: usize,
+        cancel: Option<&AtomicBool>,
+        direct_rays: &mut usize,
+        bounce_rays: &mut usize,
+        cache_cells: &mut usize,
+        probes: Option<&mut Option<ProbeField>>,
+    ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        let receivers = self.receivers(charts)?;
+        let count = receivers.len();
+        let mut accumulators: Vec<Accumulator> = vec![Accumulator::default(); count];
+        let direct = self.direct_pass(&receivers, emitters, taps, workers, cancel)?;
+        for (slot, value) in accumulators.iter_mut().zip(direct) {
+            *slot = value;
+        }
+        *direct_rays = direct_rays.saturating_add(
+            count
+                .saturating_mul(emitters.len())
+                .saturating_mul(usize::from(taps.max(1))),
+        );
+        if bounces > 0 && !emitters.is_empty() {
+            let mut bounce_count = 0usize;
+            for pass_index in 0..bounces {
+                // Each pass traces uniform-hemisphere rays against the previous
+                // pass's solved light, so one pass is one diffuse bounce and
+                // two passes are two. The estimator is unbiased: a cosine
+                // response is not baked into the ray density, so summing every
+                // traced sample with its own solid-angle weight cannot lose the
+                // energy a truncated point-light list lost.
+                let cache = RadianceCache::build(&receivers);
+                *cache_cells = cache.occupied_cells();
+                let gained = self.bounce_pass(
+                    &receivers,
+                    &accumulators,
+                    &cache,
+                    bounce_samples,
+                    pass_index,
+                    workers,
+                    cancel,
+                )?;
+                bounce_count = bounce_count
+                    .saturating_add(count.saturating_mul(bounce_samples.clamp(1, MAX_BOUNCE_RAYS)));
+                for (slot, gained) in accumulators.iter_mut().zip(gained) {
+                    for channel in 0..3 {
+                        if let (Some(slot), Some(value)) = (
+                            slot.irradiance.get_mut(channel),
+                            gained.irradiance.get(channel),
+                        ) {
+                            *slot += value;
+                        }
+                        if let (Some(slot), Some(source)) =
+                            (slot.moment.get_mut(channel), gained.moment.get(channel))
+                        {
+                            for axis in 0..3 {
+                                if let (Some(component), Some(value)) =
+                                    (slot.get_mut(axis), source.get(axis))
+                                {
+                                    *component += value;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            *bounce_rays = bounce_rays.saturating_add(bounce_count);
+        }
+        if let Some(probes) = probes {
+            *probes = Some(bake_probe_field(
+                self,
+                &receivers,
+                &accumulators,
+                taps,
+                workers,
+                cancel,
+            )?);
+        }
+        // Controlled filtering: a chart-space luma-guided 3x3 pass on the
+        // accumulated values removes the per-texel gather noise a point VPL
+        // set leaves without blurring across a change in received light.
+        let filtered = filter_accumulators(charts, &receivers, &accumulators);
+        let mut out = Vec::with_capacity(charts.len());
+        let mut offset = 0usize;
+        for (_, chart) in charts {
+            let texels = usize::try_from(chart.width)
+                .unwrap_or(0)
+                .saturating_mul(usize::try_from(chart.height).unwrap_or(0));
+            let end = offset.saturating_add(texels);
+            let mut receivers_out = Vec::with_capacity(texels);
+            let mut texels_out = Vec::with_capacity(texels);
+            for index in offset..end {
+                let Some(receiver) = receivers.get(index) else {
+                    return Err(LightmapFailure::FillSize);
+                };
+                let Some(value) = filtered.get(index) else {
+                    return Err(LightmapFailure::FillSize);
+                };
+                receivers_out.push(*receiver);
+                texels_out.push(*value);
+            }
+            if texels_out.len() != texels {
+                return Err(LightmapFailure::FillSize);
+            }
+            out.push(SolvedChart {
+                receivers: receivers_out,
+                texels: texels_out,
+            });
+            offset = end;
+        }
+        if offset != count {
+            return Err(LightmapFailure::FillSize);
+        }
+        Ok(out)
+    }
+
+    /// The receiver list for every chart texel, with albedo resolved from the
+    /// scene.
+    fn receivers(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+    ) -> Result<Vec<TransportReceiver>, LightmapFailure> {
+        let mut out = Vec::new();
+        for (patch, chart) in charts {
+            let width = usize::try_from(chart.width).unwrap_or(0);
+            let height = usize::try_from(chart.height).unwrap_or(0);
+            out.reserve(width.saturating_mul(height));
+            if width == 0 || height == 0 {
+                continue;
+            }
+            let normal = patch_normal(patch);
+            let (u_metres, v_metres) = patch.extent_m();
+            let texel_area = (u_metres * v_metres)
+                / (f32::from(u16::try_from(width).unwrap_or(u16::MAX))
+                    * f32::from(u16::try_from(height).unwrap_or(u16::MAX)));
+            for j in 0..height {
+                let v = texel_axis(j, height);
+                for i in 0..width {
+                    let u = texel_axis(i, width);
+                    let point = patch.point_at(u, v);
+                    let position = [
+                        normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
+                        normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
+                        normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
+                    ];
+                    let sampled = self.surface_sample(position, 0.2);
+                    let albedo = sampled.map_or([0.55, 0.55, 0.55], |(albedo, _)| albedo);
+                    let surface = sampled.map_or(u32::MAX, |(_, index)| {
+                        u32::try_from(index).unwrap_or(u32::MAX)
+                    });
+                    out.push(TransportReceiver {
+                        position,
+                        normal,
+                        albedo,
+                        area: if texel_area.is_finite() && texel_area > 0.0 {
+                            texel_area
+                        } else {
+                            1.0e-4
+                        },
+                        surface,
+                    });
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Direct illumination for every receiver.
+    fn direct_pass(
+        &self,
+        receivers: &[TransportReceiver],
+        emitters: &[usize],
+        taps: u8,
+        workers: usize,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<Vec<Accumulator>, LightmapFailure> {
+        parallel_map(receivers.len(), workers, cancel, |index| {
+            let Some(receiver) = receivers.get(index) else {
+                return Accumulator::default();
+            };
+            let mut accumulator = Accumulator::default();
+            for emitter_index in emitters {
+                let Some(emitter) = self.emitters.get(*emitter_index) else {
+                    continue;
+                };
+                let (weight, direction) = emitter.direct(self, receiver.position, taps);
+                accumulate_lobe(&mut accumulator, weight, direction);
+            }
+            accumulator
+        })
+    }
+
+    /// One bounce pass: uniform-hemisphere ray samples against the cache.
+    ///
+    /// Every receiver traces the same number of rays with a per-receiver,
+    /// per-pass deterministic sequence, so a serial and a parallel solve trace
+    /// identical rays. A ray that escapes the scene contributes nothing (an
+    /// interior has no sky), and a ray that hits a surface contributes that
+    /// surface's solved outgoing radiance times its albedo, weighted by the
+    /// sample's solid angle.
+    fn bounce_pass(
+        &self,
+        receivers: &[TransportReceiver],
+        current: &[Accumulator],
+        cache: &RadianceCache,
+        samples: usize,
+        pass_index: u8,
+        workers: usize,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<Vec<Accumulator>, LightmapFailure> {
+        let count = samples.clamp(1, MAX_BOUNCE_RAYS);
+        let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+        parallel_map(receivers.len(), workers, cancel, |index| {
+            let Some(receiver) = receivers.get(index) else {
+                return Accumulator::default();
+            };
+            let mut accumulator = Accumulator::default();
+            let mut state = ray_seed(index, pass_index);
+            for _ in 0..count {
+                let (u1, u2) = next_pair(&mut state);
+                let direction = hemisphere_sample(receiver.normal, u1, u2);
+                let origin = add(receiver.position, scale(receiver.normal, RAY_EPS_M));
+                let Some((distance, triangle_index)) = self.intersect(origin, direction) else {
+                    continue;
+                };
+                let hit = add(origin, scale(direction, distance));
+                let Some(triangle) = self.triangles.get(triangle_index) else {
+                    continue;
+                };
+                // The lookup is keyed by the triangle the ray actually hit,
+                // so a co-planar surface across a wall can never answer it.
+                let cached = cache.sample_surface(hit, triangle_index, receivers, current);
+                let radiance = compress(&cached).light_at(triangle.normal);
+                // The sampled incoming radiance, scaled by the sample's solid
+                // angle (uniform hemisphere sampling covers 2*pi over `count`
+                // samples) and multiplied by the hit surface's albedo. The
+                // receiver's own albedo is deliberately absent: the shader
+                // multiplies the stored light by the receiver's base colour
+                // exactly once.
+                let weight = [
+                    triangle.albedo[0] * radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
+                    triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
+                    triangle.albedo[2] * radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
+                ];
+                accumulate_lobe(&mut accumulator, weight, direction);
+            }
+            accumulator
+        })
+    }
+    /// Reconstructs the light a receiver sees at one normal, in HDR units.
+    #[must_use]
+    pub fn intensity_at(
+        &self,
+        position: [f32; 3],
+        normal: [f32; 3],
+        options: SolveOptions,
+    ) -> LightmapTexel {
+        let receiver = TransportReceiver {
+            position,
+            normal,
+            albedo: [0.0; 3],
+            area: 0.0,
+            surface: u32::MAX,
+        };
+        let taps = options.taps_per_axis.clamp(1, 3);
+        let mut accumulator = Accumulator::default();
+        for emitter in &self.emitters {
+            if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
+                continue;
+            }
+            let (weight, direction) = emitter.direct(self, receiver.position, taps);
+            accumulate_lobe(&mut accumulator, weight, direction);
+        }
+        let _ = normal;
+        compress(&accumulator)
+    }
+}
+
+/// One receiver's accumulated lobe before the shader reconstruction.
+///
+/// The solver accumulates the exact first-order field: a mean `irradiance`
+/// per channel and, per channel, a direction-weighted moment
+/// `sum 0.5 * w_c * omega`. The compact stored form is derived from this by
+/// [`compress`], so the moment is only an intermediate, never a lossy
+/// container.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Accumulator {
+    irradiance: [f32; 3],
+    /// `moment[channel][axis]` = `sum 0.5 * w_channel * omega_axis`.
+    moment: [[f32; 3]; 3],
+}
+
+/// Adds one contribution to the accumulated field with the 0.5 mean split the
+/// stored reconstruction inverts.
+fn accumulate_lobe(accumulator: &mut Accumulator, weight: [f32; 3], direction: [f32; 3]) {
+    for channel in 0..3 {
+        let Some(w) = weight.get(channel) else {
+            continue;
+        };
+        if !w.is_finite() || *w <= 0.0 {
+            continue;
+        }
+        if let Some(slot) = accumulator.irradiance.get_mut(channel) {
+            *slot += 0.5 * w;
+        }
+        let Some(moment) = accumulator.moment.get_mut(channel) else {
+            continue;
+        };
+        for axis in 0..3 {
+            if let (Some(slot), Some(component)) = (moment.get_mut(axis), direction.get(axis)) {
+                *slot += 0.5 * w * component;
+            }
+        }
+    }
+}
+
+/// Compresses an accumulated field into the stored dominant-direction form.
+///
+/// The dominant axis is the principal axis of `P = sum_c m_c m_c^T` (the
+/// direction that best explains the accumulated moment), found by power
+/// iteration seeded with `sum_c m_c`. Each channel's amplitude is its moment
+/// projected onto that axis; a field with no dominant direction (opposing
+/// lights of equal strength) cancels to a zero seed and a zero amplitude, so
+/// the reconstruction falls back to the mean alone.
+fn compress(accumulator: &Accumulator) -> LightmapTexel {
+    let mut seed = [0.0_f32; 3];
+    for channel in 0..3 {
+        if let Some(moment) = accumulator.moment.get(channel) {
+            for axis in 0..3 {
+                if let Some(value) = moment.get(axis) {
+                    if let Some(slot) = seed.get_mut(axis) {
+                        *slot += value;
+                    }
+                }
+            }
+        }
+    }
+    let mut direction = normalize_or(seed, [0.0, 0.0, 1.0]);
+    if length(seed) > 1.0e-6 {
+        for _ in 0..3 {
+            let mut next = [0.0_f32; 3];
+            for channel in 0..3 {
+                let Some(moment) = accumulator.moment.get(channel) else {
+                    continue;
+                };
+                let projection = dot(*moment, direction);
+                for axis in 0..3 {
+                    if let (Some(slot), Some(value)) = (next.get_mut(axis), moment.get(axis)) {
+                        *slot += projection * value;
+                    }
+                }
+            }
+            direction = normalize_or(next, direction);
+        }
+    }
+    let mut amplitude = [0.0_f32; 3];
+    for channel in 0..3 {
+        if let Some(moment) = accumulator.moment.get(channel) {
+            amplitude[channel] = dot(*moment, direction).max(0.0);
+        }
+    }
+    LightmapTexel {
+        irradiance: accumulator.irradiance,
+        direction: amplitude,
+        axis: crate::lighting::lightmap::oct_encode(direction),
+    }
+    .normalized()
+}
+
+/// The light an accumulated field reconstructs at `normal`.
+fn reconstruct(accumulator: &Accumulator, normal: [f32; 3]) -> [f32; 3] {
+    compress(accumulator).light_at(normal)
+}
+
+/// Per-channel luminance weights used only for thresholds and filtering.
+const LUMA: [f32; 3] = [0.2126, 0.7152, 0.0722];
+
+fn channel_luminance(color: [f32; 3]) -> f32 {
+    color[0] * LUMA[0] + color[1] * LUMA[1] + color[2] * LUMA[2]
+}
+
+/// Bakes the prepared irradiance field a moving object samples at runtime.
+///
+/// Every probe cell inside a room gets the same direct emitters the lightmap
+/// solve used plus one ray-traced diffuse gather against the solved static
+/// surfaces, so the field carries the room's real brightness, colour and
+/// dominant direction. Probes outside every room, and probes the compiler
+/// labels afterwards as inside a wall, stay invalid and are never sampled.
+///
+/// # Errors
+///
+/// Returns [`LightmapFailure::InvalidConfig`] for an empty or unaddressable
+/// receiver set and propagates cancellation as a fill failure.
+#[allow(clippy::too_many_arguments)] // one bake, every input explicit
+fn bake_probe_field(
+    scene: &TransportScene,
+    receivers: &[TransportReceiver],
+    values: &[Accumulator],
+    taps: u8,
+    workers: usize,
+    cancel: Option<&AtomicBool>,
+) -> Result<ProbeField, LightmapFailure> {
+    let mut min = [f32::INFINITY; 3];
+    let mut max = [f32::NEG_INFINITY; 3];
+    for receiver in receivers {
+        for axis in 0..3 {
+            if let (Some(value), Some(low), Some(high)) = (
+                receiver.position.get(axis),
+                min.get_mut(axis),
+                max.get_mut(axis),
+            ) {
+                *low = low.min(*value);
+                *high = high.max(*value);
+            }
+        }
+    }
+    if !min[0].is_finite() || !min.iter().all(|value| value.is_finite()) {
+        return Err(LightmapFailure::InvalidConfig);
+    }
+    let mut dims = [1usize; 3];
+    for axis in 0..3 {
+        let extent = (max[axis] - min[axis]).max(0.0);
+        let requested = (extent / crate::lighting::probes::PROBE_SPACING_M)
+            .ceil()
+            .max(1.0);
+        let cap =
+            f32::from(u16::try_from(crate::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u16::MAX))
+                .max(1.0);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // `capped` is finite and at most MAX_PROBE_CELLS, so the cast is exact.
+        let count = requested.min(cap) as usize;
+        dims[axis] = count.max(1);
+    }
+    let mut cell = crate::lighting::probes::PROBE_SPACING_M;
+    for axis in 0..3 {
+        let extent = (max[axis] - min[axis]).max(0.0);
+        cell = cell.max(extent / f32::from(u16::try_from(dims[axis].max(1)).unwrap_or(1)));
+    }
+    if !cell.is_finite() || cell <= 0.0 {
+        cell = crate::lighting::probes::PROBE_SPACING_M;
+    }
+    let count = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
+    if count == 0 || count > crate::lighting::probes::MAX_PROBES {
+        return Err(LightmapFailure::InvalidConfig);
+    }
+    let cache = RadianceCache::build(receivers);
+    let rays = PROBE_BAKE_RAYS;
+    let inverse_rays = 1.0 / f32::from(u16::try_from(rays).unwrap_or(u16::MAX));
+    let probes = parallel_map(count, workers, cancel, |index| {
+        let (x, y, z) = lattice_from_index(index, dims);
+        let position = [
+            min[0] + (x as f32 + 0.5) * cell,
+            min[1] + (y as f32 + 0.5) * cell,
+            min[2] + (z as f32 + 0.5) * cell,
+        ];
+        let mut accumulator = Accumulator::default();
+        for emitter in &scene.emitters {
+            if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
+                continue;
+            }
+            let (weight, direction) = emitter.direct(scene, position, taps);
+            accumulate_lobe(&mut accumulator, weight, direction);
+        }
+        let mut state = ray_seed(index ^ 0x5EED_5EED, 0xA5);
+        for _ in 0..rays {
+            let (u1, u2) = next_pair(&mut state);
+            let direction = uniform_sphere_sample(u1, u2);
+            let Some((distance, triangle_index)) = scene.intersect(position, direction) else {
+                continue;
+            };
+            let Some(triangle) = scene.triangles.get(triangle_index) else {
+                continue;
+            };
+            let hit = add(position, scale(direction, distance));
+            let cached = cache.sample_surface(hit, triangle_index, receivers, values);
+            let radiance = compress(&cached).light_at(triangle.normal);
+            let weight = [
+                triangle.albedo[0] * radiance[0] * 2.0 * inverse_rays,
+                triangle.albedo[1] * radiance[1] * 2.0 * inverse_rays,
+                triangle.albedo[2] * radiance[2] * 2.0 * inverse_rays,
+            ];
+            accumulate_lobe(&mut accumulator, weight, direction);
+        }
+        let texel = compress(&accumulator);
+        crate::lighting::probes::ProbeSample {
+            irradiance: texel.irradiance,
+            direction: texel.direction,
+            axis: texel.axis,
+            room: -1,
+        }
+    })?;
+    Ok(ProbeField {
+        min,
+        cell_m: cell,
+        dims: [
+            u32::try_from(dims[0]).unwrap_or(u32::MAX),
+            u32::try_from(dims[1]).unwrap_or(u32::MAX),
+            u32::try_from(dims[2]).unwrap_or(u32::MAX),
+        ],
+        probes,
+    })
+}
+
+/// Bounce rays one probe traces; a probe is an air point, so its gather is
+/// cheaper than a texel's and the field is filtered by interpolation instead.
+pub const PROBE_BAKE_RAYS: usize = 24;
+
+/// The lattice coordinates of a flat probe index.
+fn lattice_from_index(index: usize, dims: [usize; 3]) -> (usize, usize, usize) {
+    let x = index % dims[0].max(1);
+    let y = (index / dims[0].max(1)) % dims[1].max(1);
+    let z = index / dims[0].max(1) / dims[1].max(1);
+    (x, y, z)
+}
+
+/// A uniform sample on the unit sphere.
+fn uniform_sphere_sample(u1: f32, u2: f32) -> [f32; 3] {
+    let z = 1.0 - 2.0 * u1.clamp(0.0, 1.0);
+    let radius = (1.0 - z * z).max(0.0).sqrt();
+    let phi = 2.0 * std::f32::consts::PI * u2;
+    let (sin_phi, cos_phi) = phi.sin_cos();
+    [radius * cos_phi, radius * sin_phi, z]
+}
+
+/// A chart-space luma-guided filter over the accumulated values.
+///
+/// Every chart is planar, so the filter only has to guard against a
+/// discontinuity in the solved values themselves, which is what a doorway into
+/// a dark room or a hard shadow boundary looks like. A texel only mixes with a
+/// neighbour whose luminance is close to its own, so the filter removes gather
+/// noise without crossing a real lighting edge.
+fn filter_accumulators(
+    charts: &[(LightmapPatch, Chart)],
+    receivers: &[TransportReceiver],
+    values: &[Accumulator],
+) -> Vec<LightmapTexel> {
+    let count = values.len();
+    let mut out: Vec<LightmapTexel> = vec![LightmapTexel::ZERO; count];
+    let mut offset = 0usize;
+    for (_, chart) in charts {
+        let width = usize::try_from(chart.width).unwrap_or(0);
+        let height = usize::try_from(chart.height).unwrap_or(0);
+        let texels = width.saturating_mul(height);
+        if width == 0 || height == 0 {
+            continue;
+        }
+        for j in 0..height {
+            for i in 0..width {
+                let index = offset
+                    .saturating_add(j.saturating_mul(width))
+                    .saturating_add(i);
+                let Some(center) = values.get(index) else {
+                    continue;
+                };
+                let Some(receiver) = receivers.get(index) else {
+                    continue;
+                };
+                let center_light = reconstruct(center, receiver.normal);
+                let center_luma = channel_luminance(center_light);
+                let mut total_weight = 1.0_f32;
+                let mut a = center.irradiance;
+                let mut b = center.moment;
+                for (di, dj) in [(-1_i32, 0_i32), (1, 0), (0, -1), (0, 1)] {
+                    let Some(ni) = i.checked_add_signed(di as isize) else {
+                        continue;
+                    };
+                    let Some(nj) = j.checked_add_signed(dj as isize) else {
+                        continue;
+                    };
+                    if ni >= width || nj >= height {
+                        continue;
+                    }
+                    let neighbour = offset
+                        .saturating_add(nj.saturating_mul(width))
+                        .saturating_add(ni);
+                    let Some(source) = values.get(neighbour) else {
+                        continue;
+                    };
+                    let Some(source_receiver) = receivers.get(neighbour) else {
+                        continue;
+                    };
+                    let source_light = reconstruct(source, source_receiver.normal);
+                    let diff = (channel_luminance(source_light) - center_luma).abs();
+                    let weight = 1.0 / (1.0 + 8.0 * diff);
+                    if weight <= 1.0e-4 {
+                        continue;
+                    }
+                    total_weight += weight;
+                    for channel in 0..3 {
+                        if let (Some(slot), Some(value)) =
+                            (a.get_mut(channel), source.irradiance.get(channel))
+                        {
+                            *slot += weight * value;
+                        }
+                        if let (Some(slot), Some(source_moment)) =
+                            (b.get_mut(channel), source.moment.get(channel))
+                        {
+                            for axis in 0..3 {
+                                if let (Some(component), Some(value)) =
+                                    (slot.get_mut(axis), source_moment.get(axis))
+                                {
+                                    *component += weight * value;
+                                }
+                            }
+                        }
+                    }
+                }
+                let inverse = 1.0 / total_weight;
+                for channel in 0..3 {
+                    if let Some(slot) = a.get_mut(channel) {
+                        *slot *= inverse;
+                    }
+                    if let Some(moment) = b.get_mut(channel) {
+                        for axis in 0..3 {
+                            if let Some(slot) = moment.get_mut(axis) {
+                                *slot *= inverse;
+                            }
+                        }
+                    }
+                }
+                if let Some(slot) = out.get_mut(index) {
+                    *slot = compress(&Accumulator {
+                        irradiance: a,
+                        moment: b,
+                    });
+                }
+            }
+        }
+        offset = offset.saturating_add(texels);
+    }
+    out
+}
+
+/// The previous pass's solved light on a coarse 3D grid.
+///
+/// A bounce ray reads this cache at its hit point, which is what turns one
+/// bounce pass into a full diffuse gather without a receiver-to-receiver
+/// quadratic loop. Each cell stores the receiver nearest its centre, and a
+/// lookup only accepts representatives on the hit surface's own side: a cell
+/// that straddles a wall therefore cannot migrate a lit room's light through
+/// the solid, and a hit whose neighbourhood holds no receiver on its side reads
+/// zero instead of a neighbour's light.
+struct RadianceCache {
+    min: [f32; 3],
+    cell: f32,
+    dims: [usize; 3],
+    /// One representative receiver per cell, chosen nearest the cell centre.
+    cells: Vec<Option<usize>>,
+}
+
+impl RadianceCache {
+    fn build(receivers: &[TransportReceiver]) -> Self {
+        let mut min = [f32::INFINITY; 3];
+        let mut max = [f32::NEG_INFINITY; 3];
+        for receiver in receivers {
+            for axis in 0..3 {
+                if let (Some(value), Some(low), Some(high)) = (
+                    receiver.position.get(axis),
+                    min.get_mut(axis),
+                    max.get_mut(axis),
+                ) {
+                    *low = low.min(*value);
+                    *high = high.max(*value);
+                }
+            }
+        }
+        if !min[0].is_finite() {
+            return Self {
+                min: [0.0; 3],
+                cell: CACHE_CELL_M,
+                dims: [0, 0, 0],
+                cells: Vec::new(),
+            };
+        }
+        let extent = [
+            (max[0] - min[0]).max(0.0),
+            (max[1] - min[1]).max(0.0),
+            (max[2] - min[2]).max(0.0),
+        ];
+        let mut dims = [1usize; 3];
+        let mut cell = CACHE_CELL_M;
+        for axis in 0..3 {
+            let requested = (extent[axis] / CACHE_CELL_M).ceil().max(1.0);
+            let cap = f32::from(u16::try_from(MAX_CACHE_CELLS).unwrap_or(u16::MAX)).max(1.0);
+            let capped = requested.min(cap);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            // Bounded by MAX_CACHE_CELLS (96), so the cast is exact.
+            let count = capped as usize;
+            dims[axis] = count.max(1);
+            // The cell size is the largest one that keeps every receiver
+            // inside the grid, so the cache is both bounded and complete.
+            cell = cell.max(extent[axis] / f32::from(u16::try_from(count.max(1)).unwrap_or(1)));
+        }
+        let cell = if cell.is_finite() && cell > 1.0e-4 {
+            cell
+        } else {
+            CACHE_CELL_M
+        };
+        let total = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
+        let mut cells: Vec<Option<usize>> = vec![None; total];
+        let mut best_distance: Vec<f32> = vec![f32::INFINITY; total];
+        for (index, receiver) in receivers.iter().enumerate() {
+            let Some(cell_index) = cache_cell(receiver.position, min, cell, dims) else {
+                continue;
+            };
+            let centre = cell_centre(cell_index, min, cell, dims);
+            let distance = (receiver.position[0] - centre[0]).powi(2)
+                + (receiver.position[1] - centre[1]).powi(2)
+                + (receiver.position[2] - centre[2]).powi(2);
+            if let (Some(slot), Some(limit)) =
+                (cells.get_mut(cell_index), best_distance.get_mut(cell_index))
+                && distance < *limit
+            {
+                *slot = Some(index);
+                *limit = distance;
+            }
+        }
+        Self {
+            min,
+            cell,
+            dims,
+            cells,
+        }
+    }
+
+    /// Number of cells that hold a representative receiver.
+    fn occupied_cells(&self) -> usize {
+        self.cells.iter().filter(|cell| cell.is_some()).count()
+    }
+
+    /// Interpolated cached light at `point`, restricted to representatives on
+    /// `normal`'s side of the surface.
+    fn sample_surface(
+        &self,
+        point: [f32; 3],
+        surface: usize,
+        receivers: &[TransportReceiver],
+        values: &[Accumulator],
+    ) -> Accumulator {
+        if self.cells.is_empty() || !point.iter().all(|value| value.is_finite()) {
+            return Accumulator::default();
+        }
+        let coords = [
+            (point[0] - self.min[0]) / self.cell - 0.5,
+            (point[1] - self.min[1]) / self.cell - 0.5,
+            (point[2] - self.min[2]) / self.cell - 0.5,
+        ];
+        let base = [coords[0].floor(), coords[1].floor(), coords[2].floor()];
+        let frac = [
+            (coords[0] - base[0]).clamp(0.0, 1.0),
+            (coords[1] - base[1]).clamp(0.0, 1.0),
+            (coords[2] - base[2]).clamp(0.0, 1.0),
+        ];
+        let mut total = Accumulator::default();
+        let mut weight_sum = 0.0_f32;
+        for dz in 0..2 {
+            for dy in 0..2 {
+                for dx in 0..2 {
+                    let weight = (if dx == 0 { 1.0 - frac[0] } else { frac[0] })
+                        * (if dy == 0 { 1.0 - frac[1] } else { frac[1] })
+                        * (if dz == 0 { 1.0 - frac[2] } else { frac[2] });
+                    if weight <= 0.0 {
+                        continue;
+                    }
+                    let cell = [
+                        base[0] + dx as f32,
+                        base[1] + dy as f32,
+                        base[2] + dz as f32,
+                    ];
+                    let Some(index) = lattice_cell(cell, self.dims) else {
+                        continue;
+                    };
+                    let Some(Some(receiver)) = self.cells.get(index) else {
+                        continue;
+                    };
+                    let (Some(receiver), Some(value)) =
+                        (receivers.get(*receiver), values.get(*receiver))
+                    else {
+                        continue;
+                    };
+                    // The hit surface's own receivers only: a co-planar surface
+                    // across a wall is a different triangle and must never
+                    // contribute, however close its cell is.
+                    if usize::try_from(receiver.surface).unwrap_or(usize::MAX) != surface {
+                        continue;
+                    }
+                    weight_sum += weight;
+                    add_scaled(&mut total, value, weight);
+                }
+            }
+        }
+        if weight_sum <= 0.0 {
+            // No interpolatable representative: fall back to the nearest
+            // representative on the correct side within a bounded
+            // neighbourhood, then to zero.
+            let mut best: Option<(f32, Accumulator)> = None;
+            for dz in -2_isize..=2 {
+                for dy in -2_isize..=2 {
+                    for dx in -2_isize..=2 {
+                        let cell = [
+                            base[0] + dx as f32,
+                            base[1] + dy as f32,
+                            base[2] + dz as f32,
+                        ];
+                        let Some(index) = lattice_cell(cell, self.dims) else {
+                            continue;
+                        };
+                        let Some(Some(receiver)) = self.cells.get(index) else {
+                            continue;
+                        };
+                        let (Some(receiver), Some(value)) =
+                            (receivers.get(*receiver), values.get(*receiver))
+                        else {
+                            continue;
+                        };
+                        // The bounded fallback only reads the hit surface's own
+                        // receivers: a nearby face of a different surface is
+                        // exactly the co-planar-across-a-wall case the cache
+                        // must never migrate light through.
+                        if usize::try_from(receiver.surface).unwrap_or(usize::MAX) != surface {
+                            continue;
+                        }
+                        let distance = dx.abs() + dy.abs() + dz.abs();
+                        let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
+                        if best.is_none_or(|(current, _)| distance < current) {
+                            best = Some((distance, *value));
+                        }
+                    }
+                }
+            }
+            return best.map_or_else(Accumulator::default, |(_, value)| value);
+        }
+        let inverse = 1.0 / weight_sum;
+        for channel in 0..3 {
+            if let Some(slot) = total.irradiance.get_mut(channel) {
+                *slot *= inverse;
+            }
+            if let Some(moment) = total.moment.get_mut(channel) {
+                for axis in 0..3 {
+                    if let Some(slot) = moment.get_mut(axis) {
+                        *slot *= inverse;
+                    }
+                }
+            }
+        }
+        total
+    }
+}
+
+/// Adds one accumulator scaled by `weight` into `total`.
+fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
+    for channel in 0..3 {
+        if let (Some(slot), Some(source)) = (
+            total.irradiance.get_mut(channel),
+            value.irradiance.get(channel),
+        ) {
+            *slot += weight * source;
+        }
+        if let (Some(slot), Some(source)) =
+            (total.moment.get_mut(channel), value.moment.get(channel))
+        {
+            for axis in 0..3 {
+                if let (Some(component), Some(source)) = (slot.get_mut(axis), source.get(axis)) {
+                    *component += weight * source;
+                }
+            }
+        }
+    }
+}
+
+/// The world-space centre of one lattice cell.
+fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32; 3] {
+    let mut remaining = index;
+    let mut lattice = [0usize; 3];
+    for axis in (0..3).rev() {
+        let size = dims.get(axis).copied().unwrap_or(1).max(1);
+        if let Some(slot) = lattice.get_mut(axis) {
+            *slot = remaining % size;
+        }
+        remaining /= size;
+    }
+    [
+        min[0] + (lattice[0] as f32 + 0.5) * cell,
+        min[1] + (lattice[1] as f32 + 0.5) * cell,
+        min[2] + (lattice[2] as f32 + 0.5) * cell,
+    ]
+}
+
+/// The flat grid index of a world position, or `None` when outside the grid.
+fn cache_cell(position: [f32; 3], min: [f32; 3], cell: f32, dims: [usize; 3]) -> Option<usize> {
+    let lattice = [
+        (position[0] - min[0]) / cell,
+        (position[1] - min[1]) / cell,
+        (position[2] - min[2]) / cell,
+    ];
+    lattice_cell(lattice, dims)
+}
+
+/// The flat grid index of a lattice cell, or `None` when outside the grid.
+fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
+    let mut index = 0usize;
+    for axis in 0..3 {
+        let value = lattice.get(axis).copied().unwrap_or(-1.0);
+        if !value.is_finite() || value < 0.0 {
+            return None;
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // The value is finite and non-negative; the range check against `dims`
+        // rejects anything that would truncate past the grid.
+        let cell = value as usize;
+        if cell >= dims.get(axis).copied().unwrap_or(0) {
+            return None;
+        }
+        index = index
+            .checked_mul(dims.get(axis).copied().unwrap_or(1))
+            .and_then(|base| base.checked_add(cell))?;
+    }
+    Some(index)
+}
+
+/// A per-receiver, per-pass deterministic ray sequence seed.
+fn ray_seed(receiver: usize, pass: u8) -> u64 {
+    (receiver as u64)
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(u64::from(pass).wrapping_mul(0xD1B5_4A32_D192_ED03))
+        | 1
+}
+
+/// The next two canonical random fractions of a SplitMix64 sequence.
+fn next_pair(state: &mut u64) -> (f32, f32) {
+    let first = next_unit(state);
+    let second = next_unit(state);
+    (first, second)
+}
+
+/// One `0..1` value from a SplitMix64 sequence.
+fn next_unit(state: &mut u64) -> f32 {
+    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    // The top 24 bits are uniform enough for a ray direction, and 2^24 is
+    // exactly representable in f32.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    // The shift keeps the value inside 24 bits by construction.
+    let value = ((z >> 40) as u32) as f32 / 16_777_216.0;
+    value.min(1.0)
+}
+
+/// A uniform sample on the hemisphere around `normal`.
+///
+/// The Duff et al. branchless orthonormal basis keeps the sampling frame
+/// continuous across the normal's sign changes, so a chart boundary cannot
+/// produce a visible seam from the ray directions alone.
+fn hemisphere_sample(normal: [f32; 3], u1: f32, u2: f32) -> [f32; 3] {
+    let sign = if normal[2] >= 0.0 { 1.0 } else { -1.0 };
+    let a = -1.0 / (sign + normal[2]);
+    let b = normal[0] * normal[1] * a;
+    let t1 = [
+        1.0 + sign * normal[0] * normal[0] * a,
+        sign * b,
+        -sign * normal[0],
+    ];
+    let t2 = [b, sign + normal[1] * normal[1] * a, -normal[1]];
+    let phi = 2.0 * std::f32::consts::PI * u1;
+    let cos_theta = u2.clamp(0.0, 1.0);
+    let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
+    let (sin_phi, cos_phi) = phi.sin_cos();
+    let x = sin_theta * cos_phi;
+    let y = sin_theta * sin_phi;
+    [
+        t1[0] * x + t2[0] * y + normal[0] * cos_theta,
+        t1[1] * x + t2[1] * y + normal[1] * cos_theta,
+        t1[2] * x + t2[2] * y + normal[2] * cos_theta,
+    ]
+}
+/// Builds one BVH node over `order[start..end]` and returns its index.
+fn build_node(
+    triangles: &[TransportTriangle],
+    centroids: &[[f32; 3]],
+    order: &mut [u32],
+    nodes: &mut Vec<BvhNode>,
+    start: usize,
+    end: usize,
+    depth: u32,
+) -> u32 {
+    let node_index = u32::try_from(nodes.len()).unwrap_or(u32::MAX);
+    nodes.push(BvhNode {
+        min: [0.0; 3],
+        max: [0.0; 3],
+        first: u32::try_from(start).unwrap_or(0),
+        count: 0,
+        right: 0,
+    });
+    let mut min = [f32::INFINITY; 3];
+    let mut max = [f32::NEG_INFINITY; 3];
+    let mut centroid_min = [f32::INFINITY; 3];
+    let mut centroid_max = [f32::NEG_INFINITY; 3];
+    for entry in start..end {
+        let Some(index) = order.get(entry).copied() else {
+            continue;
+        };
+        let Some(triangle) = triangles.get(usize::try_from(index).unwrap_or(usize::MAX)) else {
+            continue;
+        };
+        for point in [triangle.p0, triangle.p1, triangle.p2] {
+            for axis in 0..3 {
+                if let Some(slot) = min.get_mut(axis) {
+                    *slot = slot.min(point[axis]);
+                }
+                if let Some(slot) = max.get_mut(axis) {
+                    *slot = slot.max(point[axis]);
+                }
+            }
+        }
+        if let Some(centroid) = centroids.get(usize::try_from(index).unwrap_or(usize::MAX)) {
+            for axis in 0..3 {
+                if let Some(slot) = centroid_min.get_mut(axis) {
+                    *slot = slot.min(centroid[axis]);
+                }
+                if let Some(slot) = centroid_max.get_mut(axis) {
+                    *slot = slot.max(centroid[axis]);
+                }
+            }
+        }
+    }
+    if let Some(node) = nodes.get_mut(usize::try_from(node_index).unwrap_or(usize::MAX)) {
+        node.min = min;
+        node.max = max;
+    }
+    let count = end.saturating_sub(start);
+    if count <= BVH_LEAF_TRIANGLES || depth >= BVH_MAX_DEPTH {
+        if let Some(node) = nodes.get_mut(usize::try_from(node_index).unwrap_or(usize::MAX)) {
+            node.count = u32::try_from(count).unwrap_or(u32::MAX);
+        }
+        return node_index;
+    }
+    let extent = sub(centroid_max, centroid_min);
+    let axis = if extent[0] >= extent[1] && extent[0] >= extent[2] {
+        0
+    } else if extent[1] >= extent[2] {
+        1
+    } else {
+        2
+    };
+    let mid = start.saturating_add(count / 2);
+    if let Some(slice) = order.get_mut(start..end) {
+        slice.select_nth_unstable_by(mid.saturating_sub(start), |a, b| {
+            let ca = centroids
+                .get(usize::try_from(*a).unwrap_or(usize::MAX))
+                .map_or(0.0, |value| value[axis]);
+            let cb = centroids
+                .get(usize::try_from(*b).unwrap_or(usize::MAX))
+                .map_or(0.0, |value| value[axis]);
+            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+    let left = build_node(
+        triangles,
+        centroids,
+        order,
+        nodes,
+        start,
+        mid,
+        depth.saturating_add(1),
+    );
+    let right = build_node(
+        triangles,
+        centroids,
+        order,
+        nodes,
+        mid,
+        end,
+        depth.saturating_add(1),
+    );
+    if let Some(node) = nodes.get_mut(usize::try_from(node_index).unwrap_or(usize::MAX)) {
+        node.first = left;
+        node.right = right;
+        node.count = 0;
+    }
+    node_index
+}
+
+/// True when the ray can reach the node's box within `max_t`.
+fn slab_hit(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> bool {
+    slab_entry(node, origin, inverse, max_t).is_some()
+}
+
+/// The entry distance of the ray into the node's box, when it hits within
+/// `max_t`.
+fn slab_entry(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> Option<f32> {
+    let mut t_min = 0.0_f32;
+    let mut t_max = max_t;
+    for axis in 0..3 {
+        let Some(o) = origin.get(axis) else {
+            return None;
+        };
+        let Some(inv) = inverse.get(axis) else {
+            return None;
+        };
+        let Some(min) = node.min.get(axis) else {
+            return None;
+        };
+        let Some(max) = node.max.get(axis) else {
+            return None;
+        };
+        let mut near = (min - o) * inv;
+        let mut far = (max - o) * inv;
+        if near > far {
+            std::mem::swap(&mut near, &mut far);
+        }
+        t_min = t_min.max(near);
+        t_max = t_max.min(far);
+        if t_min > t_max {
+            return None;
+        }
+    }
+    Some(t_min.max(0.0))
+}
+
+/// Squared distance from a point to an axis-aligned box (zero inside it).
+fn point_box_distance_squared(point: [f32; 3], min: [f32; 3], max: [f32; 3]) -> f32 {
+    let mut sum = 0.0_f32;
+    for axis in 0..3 {
+        let Some(value) = point.get(axis) else {
+            return f32::INFINITY;
+        };
+        let (Some(lower), Some(upper)) = (min.get(axis), max.get(axis)) else {
+            return f32::INFINITY;
+        };
+        let delta = if value < lower {
+            lower - value
+        } else if value > upper {
+            value - upper
+        } else {
+            0.0
+        };
+        sum += delta * delta;
+    }
+    sum
+}
+
+/// Möller-Trumbore intersection, double-sided.
+fn ray_triangle(
+    origin: [f32; 3],
+    direction: [f32; 3],
+    triangle: &TransportTriangle,
+) -> Option<f32> {
+    let e1 = sub(triangle.p1, triangle.p0);
+    let e2 = sub(triangle.p2, triangle.p0);
+    let pvec = cross3(direction, e2);
+    let det = dot(e1, pvec);
+    if det.abs() <= 1.0e-12 {
+        return None;
+    }
+    let inverse = 1.0 / det;
+    let tvec = sub(origin, triangle.p0);
+    let u = dot(tvec, pvec) * inverse;
+    if !(0.0..=1.0).contains(&u) {
+        return None;
+    }
+    let qvec = cross3(tvec, e1);
+    let v = dot(direction, qvec) * inverse;
+    if v < 0.0 || u + v > 1.0 {
+        return None;
+    }
+    let t = dot(e2, qvec) * inverse;
+    if t.is_finite() { Some(t) } else { None }
+}
+
+/// Squared distance from a point to a triangle (Ericson, Real-Time Collision
+/// Detection §5.1.5).
+fn point_triangle_distance(point: [f32; 3], triangle: &TransportTriangle) -> f32 {
+    let ab = sub(triangle.p1, triangle.p0);
+    let ac = sub(triangle.p2, triangle.p0);
+    let ap = sub(point, triangle.p0);
+    let d1 = dot(ab, ap);
+    let d2 = dot(ac, ap);
+    if d1 <= 0.0 && d2 <= 0.0 {
+        return length(ap);
+    }
+    let bp = sub(point, triangle.p1);
+    let d3 = dot(ab, bp);
+    let d4 = dot(ac, bp);
+    if d3 >= 0.0 && d4 <= d3 {
+        return length(bp);
+    }
+    let vc = d1.mul_add(d4, -(d3 * d2));
+    if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+        let denominator = d1 - d3;
+        let v = if denominator.abs() > 1.0e-12 {
+            d1 / denominator
+        } else {
+            0.0
+        };
+        return length(sub(point, add(triangle.p0, scale(ab, v))));
+    }
+    let cp = sub(point, triangle.p2);
+    let d5 = dot(ab, cp);
+    let d6 = dot(ac, cp);
+    if d6 >= 0.0 && d5 <= d6 {
+        return length(cp);
+    }
+    let vb = d5.mul_add(d2, -(d1 * d6));
+    if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+        let denominator = d2 - d6;
+        let w = if denominator.abs() > 1.0e-12 {
+            d2 / denominator
+        } else {
+            0.0
+        };
+        return length(sub(point, add(triangle.p0, scale(ac, w))));
+    }
+    let va = d3.mul_add(d6, -(d5 * d4));
+    if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+        let denominator = (d4 - d3) + (d5 - d6);
+        let w = if denominator.abs() > 1.0e-12 {
+            (d4 - d3) / denominator
+        } else {
+            0.0
+        };
+        return length(sub(
+            point,
+            add(triangle.p1, scale(sub(triangle.p2, triangle.p1), w)),
+        ));
+    }
+    let denominator = va + vb + vc;
+    if denominator.abs() <= 1.0e-12 {
+        return length(ap);
+    }
+    let v = vb / denominator;
+    let w = vc / denominator;
+    let closest = add(triangle.p0, add(scale(ab, v), scale(ac, w)));
+    length(sub(point, closest))
+}
+
+/// The patch's outward normal, the same winding rule the historical face bake
+/// used (`u = p0 -> p1`, `v = p0 -> p3`).
+#[must_use]
+pub fn patch_normal(patch: &LightmapPatch) -> [f32; 3] {
+    let cross = cross3(patch.u_axis, patch.v_axis);
+    let len = length(cross);
+    if len.is_finite() && len > 1.0e-9 {
+        scale(cross, 1.0 / len)
+    } else {
+        [0.0, 1.0, 0.0]
+    }
+}
+
+/// Local coordinate of texel `index` along one axis of `count` texels,
+/// spanning the patch inclusively exactly like the historical fill.
+#[must_use]
+pub fn texel_axis(index: usize, count: usize) -> f32 {
+    let count = u16::try_from(count).unwrap_or(u16::MAX);
+    if count <= 1 {
+        return 0.5;
+    }
+    let index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    let last = f32::from(count.saturating_sub(1));
+    (index / last).clamp(0.0, 1.0)
+}
+
+/// Runs `task` over `0..count` on up to `workers` scoped threads, preserving
+/// index order in the returned vector.
+///
+/// Every index is written by exactly one thread into its own slot, so the
+/// result is bit-identical to a serial run. `task` must be pure.
+fn parallel_map<T: Send>(
+    count: usize,
+    workers: usize,
+    cancel: Option<&AtomicBool>,
+    task: impl Fn(usize) -> T + Sync,
+) -> Result<Vec<T>, LightmapFailure> {
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+    if workers <= 1 || count == 1 {
+        let mut out = Vec::with_capacity(count);
+        for index in 0..count {
+            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                return Err(LightmapFailure::FillSize);
+            }
+            out.push(task(index));
+        }
+        return Ok(out);
+    }
+    let chunk = count.div_ceil(workers.max(1));
+    let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
+    let mut cancelled = false;
+    std::thread::scope(|scope| {
+        let mut handles = Vec::new();
+        for (chunk_index, slice) in slots.chunks_mut(chunk).enumerate() {
+            let start = chunk_index.saturating_mul(chunk);
+            let task = &task;
+            let cancel = cancel;
+            let handle = std::thread::Builder::new()
+                .name(format!("transport-solve-{chunk_index}"))
+                .spawn_scoped(scope, move || {
+                    for (offset, slot) in slice.iter_mut().enumerate() {
+                        if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                            return;
+                        }
+                        *slot = Some(task(start.saturating_add(offset)));
+                    }
+                });
+            match handle {
+                Ok(handle) => handles.push(handle),
+                Err(_) => {
+                    cancelled = true;
+                    break;
+                }
+            }
+        }
+        for handle in handles {
+            let _ = handle.join();
+        }
+    });
+    if cancelled {
+        // Spawning failed after some threads ran; the serial path is the
+        // documented fallback and can never leave holes.
+        let mut out = Vec::with_capacity(count);
+        for index in 0..count {
+            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                return Err(LightmapFailure::FillSize);
+            }
+            out.push(task(index));
+        }
+        return Ok(out);
+    }
+    let mut out = Vec::with_capacity(count);
+    for slot in slots {
+        match slot {
+            Some(value) => out.push(value),
+            None => {
+                if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                    return Err(LightmapFailure::FillSize);
+                }
+                return Err(LightmapFailure::FillSize);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn add(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+fn sub(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+fn scale(v: [f32; 3], factor: f32) -> [f32; 3] {
+    [v[0] * factor, v[1] * factor, v[2] * factor]
+}
+
+fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[2].mul_add(b[2], a[1].mul_add(b[1], a[0] * b[0]))
+}
+
+fn cross3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [
+        a[1].mul_add(b[2], -(a[2] * b[1])),
+        a[2].mul_add(b[0], -(a[0] * b[2])),
+        a[0].mul_add(b[1], -(a[1] * b[0])),
+    ]
+}
+
+fn length(v: [f32; 3]) -> f32 {
+    dot(v, v).sqrt()
+}
+
+fn normalize_or(v: [f32; 3], fallback: [f32; 3]) -> [f32; 3] {
+    let len = length(v);
+    if len.is_finite() && len > 1.0e-6 {
+        scale(v, 1.0 / len)
+    } else {
+        fallback
+    }
+}
+
+fn safe_inverse(value: f32) -> f32 {
+    if value.abs() <= 1.0e-20 {
+        if value.is_sign_negative() {
+            -1.0e20
+        } else {
+            1.0e20
+        }
+    } else {
+        1.0 / value
+    }
+}
+
+#[cfg(test)]
+mod tests;

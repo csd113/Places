@@ -166,3 +166,74 @@ fn engine_modules_do_not_import_a_renderer_backend() {
         "backends are reached only through render::Renderer; found in: {offenders:?}"
     );
 }
+
+/// The player never performs static preparation.
+///
+/// The compiler (`src/compiler.rs`, the `places-compile` binary) owns geometry
+/// emission, the lighting bake, chart planning, atlas fill, probe capture and
+/// collision derivation. The player's files must not name any of those
+/// operations, and must not reach into the compiler module at all: a player
+/// process cannot compile a map, even by accident or through a future
+/// refactor. Tests and audits may still exercise the preparation code directly.
+#[test]
+fn the_player_never_invokes_static_preparation() {
+    const PLAYER_FILES: [&str; 5] = [
+        "src/lib.rs",
+        "src/loading.rs",
+        "src/loader.rs",
+        "src/package/world.rs",
+        "src/main.rs",
+    ];
+    const FORBIDDEN: [&str; 14] = [
+        "bake_reflection_probes",
+        "capture_reflection_probes",
+        "reprepare_reflection_probes",
+        "fill_lightmaps",
+        "prepare_level_geometry_with_lightmaps",
+        "build_level_geometry",
+        "LevelLighting::bake",
+        "crate::compiler",
+        "compiler::build",
+        "prepare_level",
+        "rebuild_vertex_lit_level",
+        "set_fill_workers",
+        "dump_lightmaps_for_level",
+        "bake_with",
+    ];
+    let mut offenders = Vec::new();
+    for (rel, text) in all_sources() {
+        if !PLAYER_FILES.contains(&rel.as_str()) {
+            continue;
+        }
+        for line in text.lines() {
+            let trimmed = line.trim_start();
+            // Comments and the shared helper's own definition (the compiler
+            // calls it in-crate) are not player calls.
+            if trimmed.starts_with("//") || is_fn_definition(trimmed) {
+                continue;
+            }
+            for needle in FORBIDDEN {
+                if line.contains(needle) {
+                    offenders.push(format!("{rel}: {trimmed}"));
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "the player must decode compiled packages, never prepare them; found: {offenders:?}"
+    );
+}
+
+/// True for a line that declares a function rather than calling one.
+fn is_fn_definition(trimmed: &str) -> bool {
+    [
+        "fn ",
+        "pub fn ",
+        "pub(crate) fn ",
+        "pub(super) fn ",
+        "const fn ",
+    ]
+    .iter()
+    .any(|prefix| trimmed.starts_with(prefix))
+}

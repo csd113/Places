@@ -71,7 +71,7 @@ def parse_logs(text: str) -> dict[str, object]:
     # Only a matching dependency check BEFORE this commit belongs to it.
     # A later cancelled preparation must not relabel the resident world's hit.
     prefix = text[:commits[-1].start()] if commits else text
-    cache = re.findall(r"^\[loading\] prepared-cache (hit|miss) level=(.+)$", prefix, re.MULTILINE)
+    cache = re.findall(r"^\[loading\] compiled-cache (hit|miss) level=(.+)$", prefix, re.MULTILINE)
     cache = [record for record in cache if level_id is None or record[1] == level_id]
     if commits:
         text = text[commits[-1].start():]

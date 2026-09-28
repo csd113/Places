@@ -5,7 +5,7 @@
 //! a material table, with the lighting baked exactly once per level load.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::geometry::build_level_geometry_mesh_with_lightmaps;
 use super::props::{PropMeshBatch, resolve_prop_instances};
@@ -16,9 +16,11 @@ use super::{
 use crate::lighting::BakeConfig;
 use crate::lighting::lightmap::{
     Chart, LevelLightmaps, LightmapAtlas, LightmapCache, LightmapConfig, LightmapFailure,
-    LightmapMode, LightmapPatch, LightmapPlan, LightmapStats, content_key_with_extra, fill_chart,
-    fill_chart_cancellable, write_page_png,
+    LightmapMode, LightmapPatch, LightmapPlan, LightmapStats, LightmapTexel, SwitchableLightmaps,
+    content_key_with_extra, write_page_png,
 };
+use crate::lighting::probes::ProbeField;
+use crate::lighting::transport::{MAX_TRANSPORT_WORKERS, SolveOptions};
 
 /// Builds the level mesh with real prop geometry where possible, plus one
 /// batched draw per distinct prop model.
@@ -91,6 +93,8 @@ pub struct LightmapBuildOptions {
     pub profile: crate::quality::QualityProfile,
     /// The shadow bake to run: taps and prop-occlusion cell.
     pub bake: BakeConfig,
+    /// Transport budget: emitter taps, diffuse bounces and gather samples.
+    pub solve: SolveOptions,
 }
 
 impl LightmapBuildOptions {
@@ -107,6 +111,15 @@ impl LightmapBuildOptions {
             config: level.lightmap_config(),
             profile: level.profile(),
             bake: level.bake_config(),
+            solve: match mode {
+                LightmapMode::On => solve_options_for_profile(level.profile()),
+                LightmapMode::Off => SolveOptions {
+                    taps_per_axis: 1,
+                    bounces: 0,
+                    gather_samples: 1,
+                    workers: 1,
+                },
+            },
         }
     }
 
@@ -122,6 +135,7 @@ impl LightmapBuildOptions {
             config: LightmapConfig::for_profile(profile),
             profile,
             bake: profile.bake_config(),
+            solve: solve_options_for_profile(profile),
         }
     }
 
@@ -168,7 +182,57 @@ impl LightmapBuildOptions {
             config,
             profile: lightmaps.profile(),
             bake,
+            solve: solve_options_for_lightmaps(lightmaps),
         }
+    }
+}
+
+/// The transport budget one lightmap quality selects.
+///
+/// `Off` never solves; `Medium` runs one diffuse bounce with a coarse emitter
+/// tap pattern; `Full` runs two with the full pattern. The two prepared
+/// qualities therefore ship genuinely different transport data, not the same
+/// solve at a different resolution.
+#[must_use]
+pub const fn solve_options_for_lightmaps(quality: crate::quality::LightmapQuality) -> SolveOptions {
+    match quality {
+        crate::quality::LightmapQuality::Off => SolveOptions {
+            taps_per_axis: 1,
+            bounces: 0,
+            gather_samples: 1,
+            workers: 1,
+        },
+        crate::quality::LightmapQuality::Medium => SolveOptions {
+            taps_per_axis: 2,
+            bounces: 1,
+            gather_samples: 32,
+            workers: 1,
+        },
+        crate::quality::LightmapQuality::Full => SolveOptions {
+            taps_per_axis: 3,
+            bounces: 2,
+            gather_samples: 64,
+            workers: 1,
+        },
+    }
+}
+
+/// The transport budget one quality profile selects (audits and tests).
+#[must_use]
+pub const fn solve_options_for_profile(profile: crate::quality::QualityProfile) -> SolveOptions {
+    match profile {
+        crate::quality::QualityProfile::Low => SolveOptions {
+            taps_per_axis: 1,
+            bounces: 0,
+            gather_samples: 1,
+            workers: 1,
+        },
+        crate::quality::QualityProfile::Full => SolveOptions {
+            taps_per_axis: 2,
+            bounces: 1,
+            gather_samples: 32,
+            workers: 1,
+        },
     }
 }
 
@@ -185,6 +249,9 @@ pub struct LevelBuild {
     pub lighting: LevelLighting,
     pub timings: BuildTimings,
     pub lightmaps: Option<Arc<LevelLightmaps>>,
+    /// The prepared irradiance field moving objects sample, when this build
+    /// produced one.
+    pub probes: Option<Arc<crate::lighting::probes::ProbeField>>,
     /// Why an `On` build fell back to vertex colours, if it did.
     pub lightmap_failure: Option<LightmapFailure>,
     /// Wall-clock cost of filling and packing the atlas, in milliseconds.
@@ -229,9 +296,16 @@ impl LevelBuild {
                 .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
                 .saturating_add(allocation_bytes(&atlas.pages))
                 .saturating_add(allocation_bytes(&atlas.charts))
+                .saturating_add(allocation_bytes(&atlas.switchable))
                 .saturating_add(atlas.cache_key.capacity());
             for page in &atlas.pages {
-                bytes = bytes.saturating_add(page.rgb.capacity());
+                bytes = bytes.saturating_add(allocation_bytes(&page.texels));
+            }
+            for contribution in &atlas.switchable {
+                bytes = bytes.saturating_add(allocation_bytes(&contribution.pages));
+                for page in &contribution.pages {
+                    bytes = bytes.saturating_add(allocation_bytes(&page.texels));
+                }
             }
         }
         bytes
@@ -296,15 +370,15 @@ pub struct PreparedLightmapBuild {
 
 /// A pure, `Send`-safe description of one lightmap fill.
 ///
-/// It carries everything [`fill_chart`] reads and nothing else: the baked
-/// lighting (shared, immutable), the atlas configuration, the plan's charts
-/// and page count, and the deterministic content key the result must be cached
-/// under. The loader executes the request on its preparation worker while
-/// the renderer keeps drawing the resident world.
+/// It carries everything the transport solve reads and nothing else: the
+/// prebuilt static scene and its acceleration structure, the atlas
+/// configuration, the plan's charts and page count, the switchable lights whose
+/// contributions need their own layer sets, the solve budget, and the
+/// deterministic content key the result must be cached under. The loader
+/// executes the request on its preparation worker while the renderer keeps
+/// drawing the resident world.
 #[derive(Clone, Debug)]
 pub struct LightmapFillRequest {
-    /// The baked lighting every texel samples.
-    pub lighting: Arc<LevelLighting>,
     /// Density, page budget and padding the plan packed against.
     pub config: LightmapConfig,
     /// Every chart of the finished plan, paired with its patch, in plan order.
@@ -313,14 +387,38 @@ pub struct LightmapFillRequest {
     pub page_count: usize,
     /// Deterministic content key of the inputs this fill describes.
     pub content_key: String,
+    /// The static scene and light sources the solve evaluates.
+    pub transport: Arc<crate::lighting::transport::TransportScene>,
+    /// Tap counts, bounce count and sample budget.
+    pub options: crate::lighting::transport::SolveOptions,
+    /// Bake the irradiance field moving objects sample at runtime.
+    pub probe_bake: bool,
+}
+
+/// One finished fill: the atlas and the prepared moving-object field.
+#[derive(Debug)]
+pub struct LightmapFillProduct {
+    /// The assembled HDR atlas.
+    pub lightmaps: LevelLightmaps,
+    /// The prepared irradiance field, when the request asked for one. Probe
+    /// rooms are unassigned until the compiler labels them.
+    pub probes: Option<ProbeField>,
+}
+
+impl LightmapFillProduct {
+    /// The atlas alone, for callers that do not need the field.
+    #[must_use]
+    pub fn into_lightmaps(self) -> LevelLightmaps {
+        self.lightmaps
+    }
 }
 
 /// What one lightmap fill produced.
 #[derive(Debug)]
 pub enum LightmapFillOutcome {
-    /// The atlas was filled; its pages are byte-identical to an inline bake of
-    /// the same request.
-    Filled(LevelLightmaps),
+    /// The atlas was filled; its pages are identical to an inline bake of the
+    /// same request, and the prepared probe field is included when asked for.
+    Filled(Box<LightmapFillProduct>),
     /// The fill failed (`FillSize`, `FillNonFinite`, `Layout`, ...); the caller
     /// must keep the historical vertex-lit fallback.
     Failed(LightmapFailure),
@@ -339,17 +437,31 @@ pub enum LightmapFillOutcome {
 /// Returns the named [`LightmapFailure`] when a chart's texels are not exactly
 /// what the plan described; the caller must rebuild the vertex-lit level.
 pub fn fill_lightmaps(request: &LightmapFillRequest) -> Result<LevelLightmaps, LightmapFailure> {
+    Ok(fill_lightmaps_full(request)?.into_lightmaps())
+}
+
+/// [`fill_lightmaps`] returning the prepared probe field as well.
+///
+/// # Errors
+///
+/// Returns the named [`LightmapFailure`] when a chart's texels are not exactly
+/// what the plan described; the caller must rebuild the vertex-lit level.
+pub fn fill_lightmaps_full(
+    request: &LightmapFillRequest,
+) -> Result<LightmapFillProduct, LightmapFailure> {
     bake_request(request, None)
 }
 
-/// The worker's body: [`fill_lightmaps`] with a cancellation check between
-/// charts, reported as [`LightmapFillOutcome::Cancelled`] when the flag was set.
+/// The worker's body: [`fill_lightmaps`] with cancellation polled by the
+/// solver, reported as [`LightmapFillOutcome::Cancelled`] when the flag was set.
 pub fn fill_lightmaps_cancellable(
     request: &LightmapFillRequest,
     cancel: &AtomicBool,
 ) -> LightmapFillOutcome {
     match bake_request_with_workers(request, Some(cancel), runtime_fill_workers()) {
-        Ok(lightmaps) if !cancel.load(Ordering::Relaxed) => LightmapFillOutcome::Filled(lightmaps),
+        Ok(lightmaps) if !cancel.load(Ordering::Relaxed) => {
+            LightmapFillOutcome::Filled(Box::new(lightmaps))
+        }
         Ok(_) => LightmapFillOutcome::Cancelled,
         Err(_) if cancel.load(Ordering::Relaxed) => LightmapFillOutcome::Cancelled,
         Err(failure) => LightmapFillOutcome::Failed(failure),
@@ -358,15 +470,32 @@ pub fn fill_lightmaps_cancellable(
 
 /// The shared fill body, optionally cancellation-aware.
 ///
-/// A cancelled chart returns an empty texel run, which the atlas builder
-/// reports as [`LightmapFailure::FillSize`]; the worker checks the flag
-/// afterwards and reports cancellation instead, so the failure kind is never
-/// mistaken for a real bake failure.
+/// Cancellation is polled inside the transport solve; a cancelled solve stops
+/// early and reports a fill failure, which the worker maps to `Cancelled` by
+/// re-checking the flag after the fact, so a cancellation is never mistaken for
+/// a real bake failure.
 fn bake_request(
     request: &LightmapFillRequest,
     cancel: Option<&AtomicBool>,
-) -> Result<LevelLightmaps, LightmapFailure> {
+) -> Result<LightmapFillProduct, LightmapFailure> {
     bake_request_with_workers(request, cancel, 1)
+}
+
+/// Process-wide atlas-fill worker override, set once by the offline compiler
+/// from its `--workers` allocation.
+///
+/// `0` means "derive from available parallelism". The value is clamped to the
+/// transport solve's own 1..=[`MAX_TRANSPORT_WORKERS`] bound, and `1` selects
+/// the serial reference path.
+static FILL_WORKERS: AtomicUsize = AtomicUsize::new(0);
+
+/// Overrides the atlas-fill worker count for this process.
+///
+/// The offline compiler calls this with its `--workers` value so a tool run
+/// honours the shared CPU allocation; `1` forces the serial reference path.
+/// Values above the transport solve's bound are clamped.
+pub fn set_fill_workers(workers: usize) {
+    FILL_WORKERS.store(workers.clamp(1, MAX_TRANSPORT_WORKERS), Ordering::Relaxed);
 }
 
 /// Ordinary tests and inline bakes remain serial. The runtime loader owns the
@@ -375,15 +504,30 @@ fn runtime_fill_workers() -> usize {
     if cfg!(test) {
         return 1;
     }
-    let available = std::thread::available_parallelism()
-        .map_or(1, |count| count.get().saturating_sub(1).clamp(1, 3));
+    let override_workers = FILL_WORKERS.load(Ordering::Relaxed);
+    if override_workers > 0 {
+        return override_workers;
+    }
+    if let Ok(value) = std::env::var("PLACES_TOOL_WORKERS")
+        && let Ok(requested @ 1..=MAX_TRANSPORT_WORKERS) = value.parse::<usize>()
+    {
+        return requested;
+    }
+    let available = std::thread::available_parallelism().map_or(1, |count| {
+        count
+            .get()
+            .saturating_sub(1)
+            .clamp(1, MAX_TRANSPORT_WORKERS)
+    });
     if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
         && let Ok(value) = std::env::var("PLACES_LIGHTMAP_WORKERS")
     {
-        if let Ok(requested @ 1..=3) = value.parse::<usize>() {
+        if let Ok(requested @ 1..=MAX_TRANSPORT_WORKERS) = value.parse::<usize>() {
             return requested.min(available);
         }
-        crate::logging::warn("PLACES_LIGHTMAP_WORKERS must be 1, 2 or 3; using available workers");
+        crate::logging::warn(
+            "PLACES_LIGHTMAP_WORKERS must be a worker count from 1 to 12; using available workers",
+        );
     }
     available
 }
@@ -392,18 +536,52 @@ fn bake_request_with_workers(
     request: &LightmapFillRequest,
     cancel: Option<&AtomicBool>,
     workers: usize,
-) -> Result<LevelLightmaps, LightmapFailure> {
+) -> Result<LightmapFillProduct, LightmapFailure> {
     let started = std::time::Instant::now();
-    crate::logging::info(format_args!(
-        "[lightmaps] fill workers={} charts={}",
-        workers.clamp(1, 3).min(request.charts.len().max(1)),
-        request.charts.len()
-    ));
-    let atlas = if let Some(cancel) = cancel.filter(|_| workers > 1 && request.charts.len() > 1) {
-        bake_atlas_parallel(request, cancel, workers)?
-    } else {
-        bake_atlas_serial(request, cancel)?
+    let options = crate::lighting::transport::SolveOptions {
+        workers,
+        ..request.options
     };
+    crate::logging::info(format_args!(
+        "[lightmaps] transport workers={} charts={} bounces={} taps={}",
+        options.workers.clamp(1, MAX_TRANSPORT_WORKERS),
+        request.charts.len(),
+        options.bounces,
+        options.taps_per_axis
+    ));
+    // Every chart is validated before the solver walks it: an out-of-page or
+    // absurdly large rectangle is a named failure, never a huge allocation.
+    LightmapAtlas::validate_layout(&request.config, request.page_count, &request.charts)?;
+    let solve = request.transport.solve_with_probes(
+        &request.charts,
+        options,
+        cancel,
+        request.probe_bake,
+    )?;
+    let solution = solve.solution;
+    let base: Vec<Vec<LightmapTexel>> = solution
+        .charts
+        .iter()
+        .map(|chart| chart.texels.clone())
+        .collect();
+    let atlas =
+        LightmapAtlas::assemble(&request.config, request.page_count, &request.charts, &base)?;
+    let mut switchable = Vec::with_capacity(solution.switchable.len());
+    for (light_index, charts) in &solution.switchable {
+        let texels: Vec<Vec<LightmapTexel>> =
+            charts.iter().map(|chart| chart.texels.clone()).collect();
+        let pages = LightmapAtlas::assemble(
+            &request.config,
+            request.page_count,
+            &request.charts,
+            &texels,
+        )?
+        .into_pages();
+        switchable.push(SwitchableLightmaps {
+            light_index: *light_index,
+            pages,
+        });
+    }
     let mut texels = 0usize;
     for (_, chart) in &request.charts {
         let width = usize::try_from(chart.width).unwrap_or(0);
@@ -419,129 +597,17 @@ fn bake_request_with_workers(
         bake_millis: elapsed_millis(started),
         cache_hit: false,
     };
-    Ok(LevelLightmaps {
-        pages: atlas.into_pages(),
-        charts: request.charts.clone(),
-        stats,
-        cache_key: request.content_key.clone(),
-        padding: request.config.padding,
-    })
-}
-
-/// Fills and packs in chart order; the parallel consumer uses this same atlas
-/// writer so texel encoding, gutter writes and overlap order cannot differ.
-fn bake_atlas_serial(
-    request: &LightmapFillRequest,
-    cancel: Option<&AtomicBool>,
-) -> Result<LightmapAtlas, LightmapFailure> {
-    LightmapAtlas::bake(
-        &request.config,
-        request.page_count,
-        &request.charts,
-        |patch, chart| {
-            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
-                Vec::new()
-            } else {
-                cancel.map_or_else(
-                    || fill_chart(&request.lighting, patch, chart),
-                    |flag| fill_chart_cancellable(&request.lighting, patch, chart, flag),
-                )
-            }
+    Ok(LightmapFillProduct {
+        lightmaps: LevelLightmaps {
+            pages: atlas.into_pages(),
+            charts: request.charts.clone(),
+            stats,
+            cache_key: request.content_key.clone(),
+            padding: request.config.padding,
+            switchable,
         },
-    )
-}
-
-/// At most three producers, each with one queued chart and one in progress.
-/// Fixed strides let the consumer receive in source order without a growing
-/// reorder buffer. At 1024 squared texels, six RGB-float chart buffers require
-/// at most 72 MiB beyond the atlas and the consumer's current chart.
-/// Dropping every receiver before joining unblocks all senders
-/// on cancellation, validation failure or partial thread-spawn failure.
-fn bake_atlas_parallel(
-    request: &LightmapFillRequest,
-    cancel: &AtomicBool,
-    workers: usize,
-) -> Result<LightmapAtlas, LightmapFailure> {
-    if cancel.load(Ordering::Relaxed) {
-        return Err(LightmapFailure::FillSize);
-    }
-    LightmapAtlas::validate_layout(&request.config, request.page_count, &request.charts)?;
-    let workers = workers.clamp(1, 3).min(request.charts.len());
-    if workers <= 1 {
-        return bake_atlas_serial(request, Some(cancel));
-    }
-    let result = std::thread::scope(|scope| {
-        let mut receivers = Vec::with_capacity(workers);
-        let mut handles = Vec::with_capacity(workers);
-        for worker in 0..workers {
-            let (sender, receiver) = std::sync::mpsc::sync_channel(1);
-            let spawned = std::thread::Builder::new()
-                .name(format!("lightmap-chart-{worker}"))
-                .spawn_scoped(scope, move || {
-                    for (patch, chart) in request.charts.iter().skip(worker).step_by(workers) {
-                        if cancel.load(Ordering::Relaxed) {
-                            break;
-                        }
-                        let colors =
-                            fill_chart_cancellable(&request.lighting, patch, chart, cancel);
-                        if cancel.load(Ordering::Relaxed) || sender.send(colors).is_err() {
-                            break;
-                        }
-                    }
-                });
-            match spawned {
-                Ok(handle) => {
-                    handles.push(handle);
-                    receivers.push(receiver);
-                }
-                Err(error) => {
-                    crate::logging::warn(format!(
-                        "[lightmaps] chart worker unavailable: {error}; using serial fill"
-                    ));
-                    drop(receiver);
-                    drop(receivers);
-                    join_fill_workers(handles);
-                    return None;
-                }
-            }
-        }
-        let mut next = 0_usize;
-        let atlas = LightmapAtlas::bake(
-            &request.config,
-            request.page_count,
-            &request.charts,
-            |_, _| {
-                if cancel.load(Ordering::Relaxed) {
-                    return Vec::new();
-                }
-                let slot = next.checked_rem(workers).unwrap_or(0);
-                next = next.saturating_add(1);
-                receivers
-                    .get(slot)
-                    .and_then(|receiver| receiver.recv().ok())
-                    .unwrap_or_default()
-            },
-        );
-        drop(receivers);
-        if join_fill_workers(handles) {
-            Some(atlas)
-        } else {
-            // A worker that panicked cannot supply a complete chart.
-            Some(Err(LightmapFailure::FillSize))
-        }
-    });
-    result.unwrap_or_else(|| bake_atlas_serial(request, Some(cancel)))
-}
-
-fn join_fill_workers(handles: Vec<std::thread::ScopedJoinHandle<'_, ()>>) -> bool {
-    let mut complete = true;
-    for handle in handles {
-        if handle.join().is_err() {
-            crate::logging::warn("[lightmaps] chart worker panicked; rejecting incomplete fill");
-            complete = false;
-        }
-    }
-    complete
+        probes: solve.probes,
+    })
 }
 
 /// [`build_level_geometry_timed_with_lightmaps`] up to, but not including, the
@@ -553,6 +619,7 @@ fn join_fill_workers(handles: Vec<std::thread::ScopedJoinHandle<'_, ()>>) -> boo
 /// already activated in the returned build, so the caller never starts a
 /// worker for an atlas it already has.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one cohesive prepare-and-decide pass
 pub fn prepare_level_geometry_with_lightmaps(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -600,6 +667,7 @@ pub fn prepare_level_geometry_with_lightmaps(
             surfaces_millis,
         },
         lightmaps: None,
+        probes: None,
         lightmap_failure: None,
         lightmap_millis: 0.0,
     };
@@ -626,24 +694,56 @@ pub fn prepare_level_geometry_with_lightmaps(
             // the light-model constants the equation evaluates with, so a prop
             // model, a light, a shadow-quality constant or a lighting-model
             // recalibration invalidates the cached atlas while a texture-only
-            // edit does not. See [`LevelLighting::occlusion_fingerprint`] and
-            // [`crate::lighting::model_fingerprint`].
-            let mut extra: Vec<u8> = Vec::with_capacity(21);
+            // edit does not. The transport solver's own revision also enters the
+            // key through its fingerprint, so a solver change invalidates every
+            // cached atlas without invalidating an unchanged source.
+            let mut extra: Vec<u8> = Vec::with_capacity(32);
             extra.extend_from_slice(&build.lighting.occlusion_fingerprint().to_le_bytes());
             extra.push(bake.sampling.taps_per_axis);
             extra.extend_from_slice(&bake.prop_occlusion_cell_m.to_bits().to_le_bytes());
             extra.extend_from_slice(&crate::lighting::model_fingerprint().to_le_bytes());
+            extra
+                .extend_from_slice(&crate::lighting::transport::solver_fingerprint().to_le_bytes());
+            extra.push(options.solve.taps_per_axis);
+            extra.push(options.solve.bounces);
+            extra.extend_from_slice(
+                &u32::try_from(options.solve.gather_samples)
+                    .unwrap_or(u32::MAX)
+                    .to_le_bytes(),
+            );
             let key = content_key_with_extra(level, &options.config, options.profile, &extra);
             if let Some(cached) = cache.and_then(|cache| cache.get(&key)) {
                 build.lightmaps = Some(cached);
             } else {
-                fill = Some(LightmapFillRequest {
-                    lighting: Arc::new(build.lighting.clone()),
-                    config: options.config,
-                    charts: plan.charts().to_vec(),
-                    page_count: plan.page_count(),
-                    content_key: key,
-                });
+                match super::light_transport::build_transport_scene(
+                    level,
+                    &build.mesh,
+                    &build.batches,
+                    materials,
+                    &build.lighting,
+                ) {
+                    Some((transport, scene_stats)) => {
+                        crate::logging::info(format_args!(
+                            "[lightmaps] transport scene triangles={} ({} skipped) emitters={} ({} switchable)",
+                            scene_stats.triangles,
+                            scene_stats.skipped_triangles,
+                            scene_stats.emitters,
+                            scene_stats.switchable_emitters
+                        ));
+                        fill = Some(LightmapFillRequest {
+                            config: options.config,
+                            charts: plan.charts().to_vec(),
+                            page_count: plan.page_count(),
+                            content_key: key,
+                            transport: Arc::new(transport),
+                            options: options.solve,
+                            probe_bake: true,
+                        });
+                    }
+                    None => {
+                        build.lightmap_failure = Some(LightmapFailure::TransportScene);
+                    }
+                }
             }
         }
     }
@@ -917,7 +1017,7 @@ mod tests {
     fn tiny_level() -> LevelDef {
         LevelDef::from_json(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "async_fill_test",
                 "name": "Async Fill Test",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -966,9 +1066,14 @@ mod tests {
                 .join()
                 .expect("the cancellable fill thread completed")
         });
-        let LightmapFillOutcome::Filled(worker_atlas) = outcome else {
+        let LightmapFillOutcome::Filled(worker_product) = outcome else {
             panic!("the worker fill produced {outcome:?}");
         };
+        let worker_atlas = worker_product.lightmaps;
+        assert!(
+            worker_product.probes.is_some(),
+            "the worker fill must prepare the moving-object field"
+        );
 
         let mut inline_assets = crate::props::PropAssets::default();
         let inline = build_level_geometry_timed_with_lightmaps(
@@ -1155,11 +1260,11 @@ mod tests {
     }
 
     #[test]
-    fn bounded_chart_workers_match_serial_atlas_and_handle_cancellation() {
+    fn transport_workers_match_serial_and_handle_cancellation() {
         let mut level = tiny_level();
         level.walls =
             serde_json::from_str(r#"[{"x":1.0,"z":1.0,"width":4.0,"depth":0.2,"height":2.0}]"#)
-                .expect("vertical faces exercise all three chart producers");
+                .expect("vertical faces exercise the transport scene");
         let materials = build_materials(&level);
         let mut assets = crate::props::PropAssets::default();
         let prepared = prepare_level_geometry_with_lightmaps(
@@ -1172,36 +1277,61 @@ mod tests {
         );
         let request = prepared.fill.expect("uncached tiny plan");
         assert!(request.charts.len() > 3);
-        let serial = fill_lightmaps(&request).expect("serial fill");
-        let (patch, chart) = request.charts.first().expect("chart");
-        assert_eq!(
-            fill_chart_cancellable(&request.lighting, patch, chart, &AtomicBool::new(false)),
-            fill_chart(&request.lighting, patch, chart)
-        );
         assert!(
-            fill_chart_cancellable(&request.lighting, patch, chart, &AtomicBool::new(true))
-                .is_empty()
+            request.transport.triangle_count() > 0,
+            "the transport scene must see the level's triangles"
         );
-        for workers in [2, 3] {
+        let serial = fill_lightmaps_full(&request).expect("serial fill");
+        let serial_atlas = &serial.lightmaps;
+        assert!(
+            serial.probes.is_some(),
+            "the solve prepares the moving-object field"
+        );
+        for workers in [2_usize, 3, 4, 8] {
             let parallel =
                 super::bake_request_with_workers(&request, Some(&AtomicBool::new(false)), workers)
                     .expect("parallel fill");
-            assert_eq!(parallel.pages, serial.pages);
-            assert_eq!(parallel.charts, serial.charts);
-            assert_eq!(parallel.cache_key, serial.cache_key);
-            assert_eq!(parallel.stats.texels, serial.stats.texels);
-            assert_eq!(parallel.stats.page_texels, serial.stats.page_texels);
             assert_eq!(
-                super::bake_atlas_parallel(&request, &AtomicBool::new(true), workers).err(),
-                Some(LightmapFailure::FillSize)
+                parallel.lightmaps.pages, serial_atlas.pages,
+                "workers={workers}"
+            );
+            assert_eq!(
+                parallel.lightmaps.charts, serial_atlas.charts,
+                "workers={workers}"
+            );
+            assert_eq!(
+                parallel.lightmaps.switchable, serial_atlas.switchable,
+                "workers={workers}"
+            );
+            assert_eq!(parallel.lightmaps.cache_key, serial_atlas.cache_key);
+            assert_eq!(
+                parallel.probes, serial.probes,
+                "the probe field must not depend on the worker count"
             );
         }
-        assert_invalid_parallel_layouts(request);
+        let cancel = AtomicBool::new(true);
+        assert_eq!(
+            super::bake_request_with_workers(&request, Some(&cancel), 4).err(),
+            Some(LightmapFailure::FillSize)
+        );
     }
 
-    fn assert_invalid_parallel_layouts(mut invalid: LightmapFillRequest) {
-        // Every layout is rejected before any producer starts, including a
-        // huge chart that would request an unsafe allocation if filled first.
+    /// Invalid chart layouts and configurations are rejected before the solver
+    /// walks them, so a malformed plan can never request an unsafe allocation.
+    #[test]
+    fn invalid_chart_layouts_are_rejected_by_the_fill() {
+        let level = tiny_level();
+        let materials = build_materials(&level);
+        let mut assets = crate::props::PropAssets::default();
+        let prepared = prepare_level_geometry_with_lightmaps(
+            &level,
+            &crate::loader::PropCatalog::builtin(),
+            &mut assets,
+            &materials,
+            LightmapBuildOptions::for_lightmaps(LightmapQuality::Full),
+            None,
+        );
+        let mut invalid = prepared.fill.expect("uncached tiny plan");
         let original = invalid.charts.first().expect("chart").1;
         for (width, height, page) in [
             (u32::MAX, original.height, original.page),
@@ -1222,19 +1352,19 @@ mod tests {
                 Err(LightmapFailure::Layout)
             );
             assert_eq!(
-                super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+                fill_lightmaps(&invalid).err(),
                 Some(LightmapFailure::Layout)
             );
         }
         invalid.charts.first_mut().expect("chart").1 = original;
         invalid.config.page_edge = 0;
         assert_eq!(
-            super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+            fill_lightmaps(&invalid).err(),
             Some(LightmapFailure::InvalidConfig)
         );
         invalid.config.page_edge = u32::MAX;
         assert_eq!(
-            super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+            fill_lightmaps(&invalid).err(),
             Some(LightmapFailure::InvalidConfig)
         );
     }

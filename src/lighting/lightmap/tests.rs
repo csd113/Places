@@ -1,4 +1,4 @@
-//! Unit tests for the lightmap plan, packer and atlas.
+//! Unit tests for the lightmap plan, packer, cache and atlas.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are
 // idiomatic in tests; the production lints stay enforced everywhere else.
@@ -221,7 +221,7 @@ fn the_packer_uses_best_short_side_fit() {
         page_edge: 32,
         max_pages: 1,
         padding: 0,
-        bytes_per_texel: 3,
+        bytes_per_texel: 16,
     };
     let mut allocator = ChartAllocator::new(config);
     let tall = allocator.allocate(&patch(8.0, 16.0)).expect("tall chart");
@@ -344,7 +344,10 @@ fn chart_texels_match_the_density_and_are_profile_specific() {
     assert_eq!(full.max_chart_span_m(), low.max_chart_span_m());
 }
 
-use super::{LIGHTMAP_FORMAT_VERSION, LightmapAtlas, LightmapFailure, LightmapPlan, content_key};
+use super::{
+    LIGHTMAP_FORMAT_VERSION, LightmapAtlas, LightmapFailure, LightmapPlan, LightmapTexel,
+    content_key, content_key_with_extra, page_png_bytes, read_page_texel,
+};
 
 #[test]
 fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
@@ -443,85 +446,446 @@ fn plan_reports_page_overflow() {
 }
 
 #[test]
-fn atlas_dilates_each_charts_border_into_its_own_gutter() {
+fn plan_stamps_a_folded_triangle_without_a_phantom_corner() {
+    // A triangle emitted in the quad form repeats its last corner. The quad's
+    // `(1, 1)` corner does not exist for it: `p2` lies on the v = 1 edge, so
+    // stamping it with u = 1 would stretch the chart across a corner the
+    // triangle never reaches.
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let mut plan = LightmapPlan::new(config);
+    let mut vertices = vec![crate::render::Vertex::UNLIT; 6];
+    let p0 = [0.0, 0.0, 0.0];
+    let p1 = [4.0, 0.0, 0.0];
+    let p2 = [0.0, 0.0, 3.0];
+    assert!(plan.stamp_emitted(&mut vertices, 0, PatchKind::Floor, [p0, p1, p2, p2], None));
+    assert!(!plan.failed(), "a folded triangle is a valid patch");
+    assert_eq!(plan.chart_count(), 1);
+    let (_, chart) = plan.charts()[0];
+    let edge = config.page_edge;
+    let expected = [
+        chart.uv_at(edge, 0.0, 0.0),
+        chart.uv_at(edge, 1.0, 0.0),
+        chart.uv_at(edge, 0.0, 1.0),
+        chart.uv_at(edge, 0.0, 0.0),
+        chart.uv_at(edge, 0.0, 1.0),
+        chart.uv_at(edge, 0.0, 1.0),
+    ];
+    for (index, want) in expected.into_iter().enumerate() {
+        assert_eq!(vertices[index].lightmap, want, "vertex {index}");
+    }
+    assert_ne!(
+        vertices[2].lightmap,
+        chart.uv_at(edge, 1.0, 1.0),
+        "the repeated corner must not become the quad's (1, 1)"
+    );
+    for vertex in &vertices {
+        assert!(vertex.is_lightmapped());
+        assert_eq!(usize::from(vertex.lightmap_page), usize::from(chart.page));
+    }
+}
+
+/// Assembles two charts of distinct per-texel values and proves the whole write
+/// contract: exact HDR texel values at the chart's data offset, row-major along
+/// `v`, and a gutter dilated from the chart's own nearest border texel.
+#[test]
+fn assemble_writes_charts_at_their_offsets_and_dilates_their_own_gutters() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let mut allocator = ChartAllocator::new(config);
     let chart_a = allocator.allocate(&patch(2.0, 2.0)).expect("chart a");
     let chart_b = allocator.allocate(&patch(2.0, 2.0)).expect("chart b");
     let charts = [(patch(2.0, 2.0), chart_a), (patch(2.0, 2.0), chart_b)];
-    let atlas = LightmapAtlas::bake(&config, allocator.page_count(), &charts, |_, chart| {
-        if chart.x == chart_a.x && chart.y == chart_a.y {
-            vec![[0.25, 0.25, 0.25]; (chart.width * chart.height) as usize]
-        } else {
-            vec![[0.75, 0.75, 0.75]; (chart.width * chart.height) as usize]
-        }
-    })
-    .expect("atlas bakes");
+    // Distinct values per chart and per texel, so a write at the wrong offset,
+    // in the wrong order, or a gutter that sampled the neighbour cannot pass.
+    let values = |seed: f32, chart: &Chart| -> Vec<LightmapTexel> {
+        let width = usize::try_from(chart.width).expect("chart width");
+        (0..width * usize::try_from(chart.height).expect("chart height"))
+            .map(|index| {
+                let i = index % width;
+                let j = index / width;
+                LightmapTexel {
+                    irradiance: [
+                        (i as f32).mul_add(0.01, seed),
+                        (j as f32).mul_add(0.02, seed),
+                        seed,
+                    ],
+                    direction: [seed * 0.5, seed * 0.25, i as f32 * 0.001],
+                    axis: [0.25, 0.75],
+                }
+            })
+            .collect()
+    };
+    let runs = [values(0.25, &chart_a), values(0.75, &chart_b)];
+    let atlas = LightmapAtlas::assemble(&config, allocator.page_count(), &charts, &runs)
+        .expect("atlas assembles");
+    assert_eq!(atlas.page_count(), 1, "both charts share the one page");
     let page = &atlas.pages()[0];
+    assert!(page.is_consistent());
+    assert_eq!(read_page_texel(page, page.width, 0), None, "x is a bound");
+    assert_eq!(read_page_texel(page, 0, page.height), None, "y is a bound");
+
     let padding = config.padding;
-    for chart in [chart_a, chart_b] {
-        let expected = if chart == chart_a { 64u8 } else { 191u8 };
-        // A texel diagonally outside the chart's top-left corner must carry the
-        // chart's own edge colour, not the neighbour's and not zero.
-        let gutter_x = chart.x - padding;
-        let gutter_y = chart.y - padding;
-        let offset = ((gutter_y * page.width + gutter_x) * 3) as usize;
-        let gutter = &page.rgb[offset..offset + 3];
-        assert!(
-            gutter.iter().all(|byte| *byte == expected),
-            "chart gutter must dilate its own edge, got {gutter:?}"
-        );
-        // Never a sample across a neighbour: the chart's data rectangle is
-        // untouched by the other chart's fill.
-        let data_offset = ((chart.y * page.width + chart.x) * 3) as usize;
-        let data = &page.rgb[data_offset..data_offset + 3];
-        assert!(data.iter().all(|byte| *byte == expected));
+    let mut written = vec![false; usize::try_from(page.width * page.height).expect("page texels")];
+    for ((_, chart), data) in charts.iter().zip(&runs) {
+        let width = usize::try_from(chart.width).expect("width");
+        let height = usize::try_from(chart.height).expect("height");
+        for j in 0..height {
+            for i in 0..width {
+                let value = read_page_texel(page, chart.x + i as u32, chart.y + j as u32)
+                    .expect("a data texel is inside the page");
+                assert_eq!(value, data[j * width + i], "chart texel ({i}, {j})");
+                written[(chart.y as usize + j) * page.width as usize + chart.x as usize + i] = true;
+            }
+        }
+        // Every outer-rectangle texel that is not data must be the chart's own
+        // nearest border texel, never a sample across the reserved gutter.
+        for y in chart.y - padding..chart.y + chart.height + padding {
+            for x in chart.x - padding..chart.x + chart.width + padding {
+                let source_x = x.clamp(chart.x, chart.x + chart.width - 1);
+                let source_y = y.clamp(chart.y, chart.y + chart.height - 1);
+                let expected =
+                    data[(source_y - chart.y) as usize * width + (source_x - chart.x) as usize];
+                let value = read_page_texel(page, x, y).expect("an outer texel is inside the page");
+                assert_eq!(value, expected, "gutter texel ({x}, {y})");
+                written[y as usize * page.width as usize + x as usize] = true;
+            }
+        }
+    }
+    // No texel outside both reserved outer rectangles was ever touched.
+    for y in 0..page.height {
+        for x in 0..page.width {
+            if !written[y as usize * page.width as usize + x as usize] {
+                assert_eq!(
+                    read_page_texel(page, x, y),
+                    Some(LightmapTexel::ZERO),
+                    "unwritten texel ({x}, {y})"
+                );
+            }
+        }
     }
 }
 
 #[test]
-fn atlas_rejects_a_fill_of_the_wrong_size_or_with_non_finite_values() {
+fn assemble_rejects_wrong_length_and_non_finite_texel_runs() {
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let mut allocator = ChartAllocator::new(config);
+    let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
+    let charts = [(patch(1.0, 1.0), chart)];
+    let expected = (chart.width * chart.height) as usize;
+    assert!(expected > 1, "the fixture chart has more than one texel");
+
+    // `charts` and `texels` are parallel: one run per chart, in plan order.
+    assert_eq!(
+        LightmapAtlas::assemble(&config, allocator.page_count(), &charts, &[]),
+        Err(LightmapFailure::FillSize)
+    );
+    // A short or a long run is a fill that does not describe the chart.
+    assert_eq!(
+        LightmapAtlas::assemble(
+            &config,
+            allocator.page_count(),
+            &charts,
+            &[vec![LightmapTexel::ZERO; expected - 1]]
+        ),
+        Err(LightmapFailure::FillSize)
+    );
+    assert_eq!(
+        LightmapAtlas::assemble(
+            &config,
+            allocator.page_count(),
+            &charts,
+            &[vec![LightmapTexel::ZERO; expected + 1]]
+        ),
+        Err(LightmapFailure::FillSize)
+    );
+    // A non-finite channel anywhere in the run is a named failure, not a page.
+    let mut nan = vec![LightmapTexel::ZERO; expected];
+    nan[expected / 2].direction[1] = f32::NAN;
+    assert_eq!(
+        LightmapAtlas::assemble(&config, allocator.page_count(), &charts, &[nan]),
+        Err(LightmapFailure::FillNonFinite)
+    );
+    let mut infinite = vec![LightmapTexel::ZERO; expected];
+    infinite[0].irradiance[2] = f32::INFINITY;
+    assert_eq!(
+        LightmapAtlas::assemble(&config, allocator.page_count(), &charts, &[infinite]),
+        Err(LightmapFailure::FillNonFinite)
+    );
+    // The positive control keeps the rejection list honest.
+    assert!(
+        LightmapAtlas::assemble(
+            &config,
+            allocator.page_count(),
+            &charts,
+            &[vec![LightmapTexel::ZERO; expected]]
+        )
+        .is_ok(),
+        "an exact, finite run assembles"
+    );
+}
+
+#[test]
+fn layout_validation_rejects_overflow_and_out_of_page_charts() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let mut allocator = ChartAllocator::new(config);
     let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
     let charts = [(patch(1.0, 1.0), chart)];
     assert_eq!(
-        LightmapAtlas::bake(&config, allocator.page_count(), &charts, |_, _| Vec::new()),
-        Err(LightmapFailure::FillSize)
+        LightmapAtlas::validate_layout(&config, allocator.page_count(), &charts),
+        Ok(())
     );
+    // More pages than the budget is an overflow, not a layout bug.
     assert_eq!(
-        LightmapAtlas::bake(&config, allocator.page_count(), &charts, |_, chart| {
-            vec![[f32::NAN, 0.0, 0.0]; (chart.width * chart.height) as usize]
-        }),
-        Err(LightmapFailure::FillNonFinite)
+        LightmapAtlas::validate_layout(&config, config.max_pages + 1, &charts),
+        Err(LightmapFailure::PageOverflow)
+    );
+    // A chart that names a page the plan does not have.
+    assert_eq!(
+        LightmapAtlas::validate_layout(&config, 1, &[(charts[0].0, Chart { page: 1, ..chart })]),
+        Err(LightmapFailure::Layout)
+    );
+    // A zero-sized data rectangle has no texels to write.
+    assert_eq!(
+        LightmapAtlas::validate_layout(&config, 1, &[(charts[0].0, Chart { width: 0, ..chart })]),
+        Err(LightmapFailure::Layout)
+    );
+    // A data rectangle that runs past the page edge cannot be written.
+    assert_eq!(
+        LightmapAtlas::validate_layout(
+            &config,
+            1,
+            &[(
+                charts[0].0,
+                Chart {
+                    x: config.page_edge,
+                    ..chart
+                }
+            )]
+        ),
+        Err(LightmapFailure::Layout)
+    );
+    // A config that cannot describe a page at all is rejected up front.
+    let no_pages = LightmapConfig {
+        page_edge: 0,
+        ..config
+    };
+    assert_eq!(
+        LightmapAtlas::validate_layout(&no_pages, 0, &[]),
+        Err(LightmapFailure::InvalidConfig)
     );
 }
 
 #[test]
-fn a_page_encodes_as_a_decodable_png() {
+fn a_page_encodes_as_a_tone_mapped_decodable_png() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Low);
-    let mut allocator = ChartAllocator::new(config);
-    let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
-    let charts = [(patch(1.0, 1.0), chart)];
-    let atlas = LightmapAtlas::bake(&config, allocator.page_count(), &charts, |_, chart| {
-        vec![[0.0, 1.0, 0.5]; (chart.width * chart.height) as usize]
-    })
-    .expect("atlas bakes");
+    let chart = Chart {
+        page: 0,
+        x: config.padding,
+        y: config.padding,
+        width: 2,
+        height: 1,
+    };
+    let dim = LightmapTexel {
+        irradiance: [0.25; 3],
+        direction: [0.0; 3],
+
+        axis: [0.5, 0.5],
+    };
+    let bright = LightmapTexel {
+        irradiance: [1.0; 3],
+        direction: [0.0; 3],
+
+        axis: [0.5, 0.5],
+    };
+    let atlas = LightmapAtlas::assemble(
+        &config,
+        1,
+        &[(patch(1.0, 1.0), chart)],
+        &[vec![dim, bright]],
+    )
+    .expect("atlas assembles");
     let page = &atlas.pages()[0];
-    let bytes = super::page_png_bytes(page).expect("page encodes");
+    let bytes = page_png_bytes(page).expect("page encodes");
     let decoded = crate::materials::decode_png(&bytes).expect("page decodes");
     assert_eq!(decoded.width, page.width);
     assert_eq!(decoded.height, page.height);
-    // The top-left texel of the page is chart data or its dilated gutter, both
-    // the same colour here; alpha is always 255.
-    assert_eq!(decoded.rgba.get(3), Some(&255));
+    // The PNG is a developer preview in display space: every channel passes
+    // through the same soft knee the shader uses, not the raw HDR value.
+    let byte = |value: f32| {
+        let display = crate::lighting::transport::soft_clip_channel(value);
+        (display.clamp(0.0, 1.0).mul_add(255.0, 0.5)) as u8
+    };
+    let pixel = |x: u32, y: u32| -> [u8; 4] {
+        let offset = ((y * page.width + x) * 4) as usize;
+        decoded.rgba[offset..offset + 4]
+            .try_into()
+            .expect("one RGBA pixel")
+    };
+    // The two data texels tone-map to different preview bytes.
+    assert_eq!(
+        pixel(chart.x, chart.y),
+        [byte(0.25), byte(0.25), byte(0.25), 255]
+    );
+    assert_eq!(
+        pixel(chart.x + 1, chart.y),
+        [byte(1.0), byte(1.0), byte(1.0), 255]
+    );
+    assert_ne!(pixel(chart.x, chart.y), pixel(chart.x + 1, chart.y));
+    // The gutter copies keep the border texel's bytes; untouched page texels
+    // tone-map black with an opaque alpha.
+    assert_eq!(
+        pixel(chart.x - 1, chart.y),
+        [byte(0.25), byte(0.25), byte(0.25), 255]
+    );
+    assert_eq!(
+        pixel(chart.x + 2, chart.y),
+        [byte(1.0), byte(1.0), byte(1.0), 255]
+    );
+    assert_eq!(pixel(page.width - 1, page.height - 1), [0, 0, 0, 255]);
+}
+
+/// One solved chart's receiver grid must be the full patch texel grid, row-major
+/// along `v` with `u` the fast axis, and every position exactly the world point
+/// `texel_axis` names (already offset off the surface).
+fn assert_chart_receivers(
+    solved: &crate::lighting::transport::SolvedChart,
+    patch: &LightmapPatch,
+    chart: &Chart,
+    shared_shape: (usize, usize),
+) {
+    use crate::lighting::transport::{SURFACE_OFFSET_M, patch_normal, texel_axis};
+    let width = usize::try_from(chart.width).expect("chart width");
+    let height = usize::try_from(chart.height).expect("chart height");
+    assert_eq!((width, height), shared_shape);
+    assert_eq!(solved.receivers.len(), width * height);
+    assert_eq!(solved.texels.len(), width * height);
+    let normal = patch_normal(patch);
+    for j in 0..height {
+        for i in 0..width {
+            // Row-major along `v`: `j` is the slow axis, `i` the fast one.
+            let receiver = solved.receivers[j * width + i];
+            assert_eq!(receiver.normal, normal);
+            let point = patch.point_at(texel_axis(i, width), texel_axis(j, height));
+            let expected = [
+                normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
+                normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
+                normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
+            ];
+            assert_eq!(receiver.position, expected, "receiver ({i}, {j})");
+        }
+    }
+}
+
+/// The transport receiver walk must span each chart's patch inclusively and
+/// row-major along `v`, exactly like the historical fill: two charts that share
+/// a geometric edge then evaluate the *same world points* along it, which is
+/// what keeps a shared edge seamless before the atlas even exists.
+#[test]
+fn transport_receivers_span_each_patch_and_meet_on_a_shared_edge() {
+    use crate::lighting::transport::{
+        SURFACE_OFFSET_M, SolveOptions, TransportScene, patch_normal, texel_axis,
+    };
+    // Two coplanar 2 x 2 m floor patches sharing the x = 2 edge; one chart each.
+    let patch_a = LightmapPatch {
+        origin: [0.0, 0.0, 0.0],
+        u_axis: [2.0, 0.0, 0.0],
+        v_axis: [0.0, 0.0, 2.0],
+        room: None,
+        kind: PatchKind::Floor,
+    };
+    let patch_b = LightmapPatch {
+        origin: [2.0, 0.0, 0.0],
+        ..patch_a
+    };
+    let charts = [
+        (
+            patch_a,
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 3,
+            },
+        ),
+        (
+            patch_b,
+            Chart {
+                page: 0,
+                x: 4,
+                y: 0,
+                width: 4,
+                height: 3,
+            },
+        ),
+    ];
+    // The receivers come from the charts, so an empty static scene and no
+    // emitters still exercise the receiver walk.
+    let scene = TransportScene::new(Vec::new(), Vec::new()).expect("an empty scene is valid");
+    let solution = scene
+        .solve(
+            &charts,
+            SolveOptions {
+                taps_per_axis: 1,
+                bounces: 0,
+                gather_samples: 1,
+                workers: 1,
+            },
+            None,
+        )
+        .expect("the receiver walk solves");
+    assert_eq!(solution.charts.len(), charts.len());
+    let width = usize::try_from(charts[0].1.width).expect("width");
+    let height = usize::try_from(charts[0].1.height).expect("height");
+    assert_eq!(texel_axis(0, width), 0.0, "the first texel is the 0 edge");
+    assert_eq!(
+        texel_axis(width - 1, width),
+        1.0,
+        "the last texel is the 1 edge"
+    );
+    assert_eq!(
+        texel_axis(0, 1),
+        0.5,
+        "a single-texel axis samples the middle"
+    );
+    for (index, (patch, chart)) in charts.iter().enumerate() {
+        assert_chart_receivers(&solution.charts[index], patch, chart, (width, height));
+    }
+    // The four chart corners sit exactly on the patch's geometric corners.
+    let a = &solution.charts[0].receivers;
+    let b = &solution.charts[1].receivers;
+    let shifted = |point: [f32; 3]| {
+        let normal = patch_normal(&patch_a);
+        [
+            normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
+            normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
+            normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
+        ]
+    };
+    assert_eq!(a[0].position, shifted(patch_a.point_at(0.0, 0.0)));
+    assert_eq!(
+        a[(height - 1) * width].position,
+        shifted(patch_a.point_at(0.0, 1.0))
+    );
+    assert_eq!(b[width - 1].position, shifted(patch_b.point_at(1.0, 0.0)));
+    assert_eq!(
+        b[width * height - 1].position,
+        shifted(patch_b.point_at(1.0, 1.0))
+    );
+    // The shared edge evaluates at one world point on both sides.
+    for j in 0..height {
+        assert_eq!(
+            a[j * width + (width - 1)].position,
+            b[j * width].position,
+            "row {j} of the shared x = 2 edge"
+        );
+    }
 }
 
 #[test]
 fn content_key_is_stable_and_changes_with_the_inputs() {
     let level = crate::level::LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "key",
             "name": "Key",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -558,9 +922,126 @@ fn content_key_is_stable_and_changes_with_the_inputs() {
         content_key(&level, &low, crate::quality::QualityProfile::Low)
     );
     assert!(!key.is_empty());
+
+    // Every config field the atlas layout depends on is part of the key, so a
+    // retune can never resolve to pages an older configuration produced.
+    for mutated in [
+        LightmapConfig {
+            texels_per_metre: config.texels_per_metre + 0.5,
+            ..config
+        },
+        LightmapConfig {
+            page_edge: config.page_edge * 2,
+            ..config
+        },
+        LightmapConfig {
+            max_pages: config.max_pages + 1,
+            ..config
+        },
+        LightmapConfig {
+            padding: config.padding + 1,
+            ..config
+        },
+        LightmapConfig {
+            bytes_per_texel: config.bytes_per_texel + 1,
+            ..config
+        },
+    ] {
+        assert_ne!(
+            key,
+            content_key(&level, &mutated, crate::quality::QualityProfile::Full),
+            "a config change must mint a new key: {mutated:?}"
+        );
+    }
+
+    // The renderer's key folds the solver and occluder fingerprints in as
+    // extra bytes; identical extras keep the key, a changed byte does not.
+    let extra = [7u8; 16];
+    assert_eq!(
+        content_key_with_extra(
+            &level,
+            &config,
+            crate::quality::QualityProfile::Full,
+            &extra
+        ),
+        content_key_with_extra(
+            &level,
+            &config,
+            crate::quality::QualityProfile::Full,
+            &extra
+        )
+    );
+    let mut changed = extra;
+    changed[15] ^= 1;
+    assert_ne!(
+        content_key_with_extra(
+            &level,
+            &config,
+            crate::quality::QualityProfile::Full,
+            &extra
+        ),
+        content_key_with_extra(
+            &level,
+            &config,
+            crate::quality::QualityProfile::Full,
+            &changed
+        )
+    );
 }
 
-use super::{LevelLightmaps, LightmapCache, LightmapPage, LightmapStats};
+/// The level definition's map fields are hashed through the canonical JSON
+/// writer, so two level files that differ only in the authored key order of
+/// their objects must mint the same key. A direct serialisation would depend on
+/// `HashMap` iteration order and could silently evict a valid entry.
+#[test]
+fn content_key_is_canonical_over_reordered_json_fields() {
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let first = crate::level::LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "canonical_key",
+            "name": "Canonical Key",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "width": 8.0, "x": 0.0, "depth": 6.0, "z": 0.0, "height": 3.0 }],
+            "walls": [
+                { "x": 3.0, "z": 0.0, "width": 0.2, "depth": 6.0, "height": 3.0,
+                  "faces": { "west": "core:wall_brick", "east": "core:wall_panel" } }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0 }
+            ]
+        }"#,
+    )
+    .expect("the first level parses");
+    let second = crate::level::LevelDef::from_json(
+        r#"{
+            "id": "canonical_key",
+            "format_version": 3,
+            "name": "Canonical Key",
+            "spawn": { "z": 0.0, "x": 0.0 },
+            "rooms": [{ "z": 0.0, "height": 3.0, "depth": 6.0, "x": 0.0, "width": 8.0 }],
+            "walls": [
+                { "width": 0.2, "depth": 6.0, "height": 3.0, "z": 0.0, "x": 3.0,
+                  "faces": { "east": "core:wall_panel", "west": "core:wall_brick" } }
+            ],
+            "ceiling_lights": [
+                { "z": 3.0, "x": 4.0, "fixture": "core:fluorescent_panel_01" }
+            ]
+        }"#,
+    )
+    .expect("the second level parses");
+    assert_eq!(
+        crate::canonical_json::canonical_json_bytes(&first).expect("the first level serialises"),
+        crate::canonical_json::canonical_json_bytes(&second).expect("the second level serialises"),
+        "canonical JSON must not depend on the authored key order"
+    );
+    assert_eq!(
+        content_key(&first, &config, crate::quality::QualityProfile::Full),
+        content_key(&second, &config, crate::quality::QualityProfile::Full)
+    );
+}
+
+use super::{LevelLightmaps, LightmapCache, LightmapPage, LightmapStats, SwitchableLightmaps};
 
 #[test]
 fn memory_cache_returns_the_same_allocation_and_clears() {
@@ -571,6 +1052,7 @@ fn memory_cache_returns_the_same_allocation_and_clears() {
         stats: LightmapStats::default(),
         cache_key: "key".to_string(),
         padding: 2,
+        switchable: Vec::new(),
     });
     assert!(cache.get("key").is_none());
     cache.insert("key", std::sync::Arc::clone(&lightmaps));
@@ -583,50 +1065,110 @@ fn memory_cache_returns_the_same_allocation_and_clears() {
     assert!(cache.get("key").is_none());
 }
 
+/// The cache key is the atlas's identity: an entry whose recorded `cache_key` is
+/// not the key it is stored under must never be served (a stale or renamed atlas
+/// would otherwise light the level with another configuration's pages), and an
+/// unsafe key must never enter the store at all.
 #[test]
-fn disk_cache_round_trips_a_page_set() {
-    let root = std::path::PathBuf::from("target/agent-work/lightmap-cache-test");
-    let _ = std::fs::remove_dir_all(&root);
-    let chart = Chart {
-        page: 0,
-        x: 0,
-        y: 0,
-        width: 4,
-        height: 4,
-    };
-    let lightmaps = LevelLightmaps {
-        pages: vec![LightmapPage {
-            width: 4,
-            height: 4,
-            rgb: vec![7; 4 * 4 * 3],
-        }],
-        charts: vec![(patch(1.0, 1.0), chart)],
-        stats: LightmapStats::default(),
-        cache_key: "v1-test-key".to_string(),
-        padding: 1,
-    };
-    super::cache::disk_store(&root, &lightmaps.cache_key, &lightmaps);
-    let loaded = super::cache::disk_load(&root, &lightmaps.cache_key).expect("disk round trip");
-    assert_eq!(loaded.pages, lightmaps.pages);
-    assert_eq!(loaded.charts, lightmaps.charts);
-    assert_eq!(loaded.stats.charts, 1);
-    assert_eq!(loaded.stats.texels, 16);
-    assert!(loaded.stats.cache_hit);
-    let _ = std::fs::remove_dir_all(&root);
+fn memory_cache_rejects_a_key_mismatch_and_unsafe_keys() {
+    let mut cache = LightmapCache::memory_only();
+    let atlas = std::sync::Arc::new(cache_fixture("right", 0.5));
+    cache.insert("wrong", std::sync::Arc::clone(&atlas));
+    assert!(cache.get("wrong").is_none(), "a mismatched key is a miss");
+    assert!(cache.get("right").is_none(), "and nothing was stored");
+    assert!(cache.is_empty());
+
+    let long = "x".repeat(129);
+    let unsafe_keys = ["", "../escape", "with space", "non_ascii_é", long.as_str()];
+    for key in unsafe_keys {
+        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 0.25)));
+        assert!(
+            cache.get(key).is_none(),
+            "unsafe key {key:?} must not store"
+        );
+    }
+    assert!(cache.is_empty());
+
+    cache.insert("right", std::sync::Arc::clone(&atlas));
+    assert!(std::sync::Arc::ptr_eq(
+        &cache.get("right").expect("the matching key stores"),
+        &atlas
+    ));
 }
 
-/// The format version is bumped whenever the atlas layout, texel encoding or
-/// key inputs change; version 6 is the four-page array format that must not
-/// read a version-5 two-page atlas. Pinned so a future layout change has to
-/// bump it deliberately.
+/// The uploaded array layers are the base page pairs followed by one pair per
+/// switchable contribution; `irradiance_layer` must name exactly those even
+/// layers, densely, so the shader's offset arithmetic and the package writer can
+/// never disagree about which layer holds which plane.
+#[test]
+fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
+    let page = |value: f32| LightmapPage {
+        width: 2,
+        height: 2,
+        texels: vec![
+            LightmapTexel {
+                irradiance: [value; 3],
+                direction: [0.0; 3],
+
+                axis: [0.5, 0.5],
+            };
+            4
+        ],
+    };
+    for (pages, switchable) in [(1usize, 0usize), (1, 2), (3, 0), (3, 2), (4, 3)] {
+        let lightmaps = LevelLightmaps {
+            pages: (0..pages).map(|_| page(0.5)).collect(),
+            charts: Vec::new(),
+            stats: LightmapStats::default(),
+            cache_key: "layout".to_string(),
+            padding: 1,
+            switchable: (0..switchable)
+                .map(|light_index| SwitchableLightmaps {
+                    light_index,
+                    pages: (0..pages).map(|_| page(0.25)).collect(),
+                })
+                .collect(),
+        };
+        assert_eq!(
+            lightmaps.layer_count(),
+            pages * 2 * (switchable + 1),
+            "{pages} page(s), {switchable} switchable group(s)"
+        );
+        let mut seen = vec![false; lightmaps.layer_count()];
+        for group in 0..=switchable {
+            for page_index in 0..pages {
+                let switchable_index = (group > 0).then(|| group - 1);
+                let layer = lightmaps.irradiance_layer(switchable_index, page_index);
+                assert_eq!(layer, group * pages * 2 + page_index * 2);
+                assert_eq!(layer % 2, 0, "irradiance is the even layer of the pair");
+                assert!(layer < lightmaps.layer_count());
+                assert!(!seen[layer], "layer {layer} is claimed twice");
+                seen[layer] = true;
+            }
+        }
+        assert!(
+            seen.iter()
+                .enumerate()
+                .all(|(layer, claimed)| *claimed == (layer % 2 == 0)),
+            "every even layer is exactly one resident irradiance plane, and the odd \
+             layers stay the direction planes: {seen:?}"
+        );
+    }
+}
+
+/// The format version is bumped whenever the atlas layout, texel encoding or key
+/// inputs change; version 12 is the offline HDR transport solve (an irradiance
+/// term plus a directional moment per texel, and prepared switchable layer
+/// groups). Pinned so a future layout change has to bump it deliberately, and
+/// part of every key so a pre-12 atlas can never be reused.
 #[test]
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 11);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 12);
     let level = crate::level::LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "version_key",
             "name": "Version Key",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -640,60 +1182,10 @@ fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
         key.starts_with(&format!("v{LIGHTMAP_FORMAT_VERSION}-")),
         "{key}"
     );
-    // An older-version directory is a different path: the new key can never
-    // resolve to it even for byte-identical level content and configuration.
+    // An older-version key is a different string: the new key can never equal
+    // one minted under an older format even for byte-identical level content
+    // and configuration.
     assert!(!key.starts_with(&format!("v{}-", LIGHTMAP_FORMAT_VERSION - 1)));
-}
-
-/// A cached atlas whose recorded version is not the current one is rejected:
-/// the directory name scheme already hides old entries, and this is the second
-/// gate that keeps a stray copy (a rename, a restored backup) from being read
-/// as the new format.
-#[test]
-fn disk_load_rejects_a_mismatched_format_version() {
-    let root = std::path::PathBuf::from("target/agent-work/lightmap-version-test");
-    let _ = std::fs::remove_dir_all(&root);
-    let chart = Chart {
-        page: 0,
-        x: 0,
-        y: 0,
-        width: 4,
-        height: 4,
-    };
-    let key = format!("v{LIGHTMAP_FORMAT_VERSION}-version-test");
-    let lightmaps = LevelLightmaps {
-        pages: vec![LightmapPage {
-            width: 4,
-            height: 4,
-            rgb: vec![9; 4 * 4 * 3],
-        }],
-        charts: vec![(patch(1.0, 1.0), chart)],
-        stats: LightmapStats::default(),
-        cache_key: key.clone(),
-        padding: 2,
-    };
-    super::cache::disk_store(&root, &key, &lightmaps);
-    assert!(
-        super::cache::disk_load(&root, &key).is_some(),
-        "the current-version entry loads"
-    );
-    let envelope_path = root.join(format!("{key}.lmc"));
-    let original = std::fs::read(&envelope_path).expect("envelope is written");
-    let mut obsolete = original.clone();
-    // Storage framing and semantic lighting version are separate fields.
-    obsolete[12..16].copy_from_slice(&(LIGHTMAP_FORMAT_VERSION - 1).to_le_bytes());
-    assert_ne!(
-        original, obsolete,
-        "the envelope records the current version"
-    );
-    std::fs::write(&envelope_path, obsolete).expect("old version is written");
-    assert!(
-        super::cache::disk_load(&root, &key).is_none(),
-        "an older semantic version must be rejected as a miss"
-    );
-    std::fs::write(&envelope_path, original).expect("current version is restored");
-    assert!(super::cache::disk_load(&root, &key).is_some());
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -811,7 +1303,7 @@ fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
 }
 
 /// A synthetic two-storey tower whose two 55 x 55 m floors plus their ceilings
-/// need more than the historical two-page budget but fit the shipped four. It
+/// need more than the historical two-page budget but fit the shipped eight. It
 /// pins the capacity contract on a clean checkout, where the drop-in Pit is not
 /// present.
 fn large_tower_level() -> crate::level::LevelDef {
@@ -841,7 +1333,7 @@ fn large_tower_level_with_storeys(storeys: u32) -> crate::level::LevelDef {
     }
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "large_tower",
             "name": "Large Tower",
             "spawn": {{ "x": 9.0, "z": 9.0 }},
@@ -871,8 +1363,7 @@ fn build_with_config(
         crate::render::LightmapBuildOptions {
             mode: LightmapMode::On,
             config,
-            profile,
-            bake: profile.bake_config(),
+            ..crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On)
         },
         None,
     )
@@ -937,44 +1428,7 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     );
     assert!(lightmaps.chart_count() > 0, "Full must chart the level");
     assert!(lightmaps.stats.texels > 0, "Full must fill real texels");
-
-    // Every architectural vertex samples a real layer; only invisible sub-texel
-    // slivers may stay vertex-lit, and the highest page byte is the last page.
-    let mut architectural = 0usize;
-    let mut lightmapped = 0usize;
-    let mut highest_page = 0usize;
-    for range in &build.mesh.ranges {
-        if !matches!(
-            range.key.kind,
-            crate::render::SurfaceKind::Floor
-                | crate::render::SurfaceKind::Ceiling
-                | crate::render::SurfaceKind::Wall
-        ) {
-            continue;
-        }
-        for vertex in &range.vertices {
-            architectural += 1;
-            if vertex.is_lightmapped() {
-                lightmapped += 1;
-                let page = usize::from(vertex.lightmap_page);
-                assert!(
-                    page < lightmaps.pages.len(),
-                    "the vertex page byte must address a resident layer"
-                );
-                highest_page = highest_page.max(page);
-            }
-        }
-    }
-    assert!(architectural > 0, "the tower emits architectural geometry");
-    assert!(
-        lightmapped * 100 >= architectural * 99,
-        "the atlas must cover the architecture: {lightmapped} of {architectural} vertices"
-    );
-    assert_eq!(
-        highest_page + 1,
-        lightmaps.pages.len(),
-        "every resident layer must be referenced by a stamped chart"
-    );
+    assert_architecture_is_lightmapped(&build, lightmaps);
 }
 
 /// The 2026 raise from four pages to eight: a third 55 m x 55 m storey must
@@ -1030,71 +1484,55 @@ fn the_three_storey_tower_needs_the_raised_page_budget() {
             config.max_pages
         );
 
-        assert_wall_texels_match_the_vertex_path(&level, real_maps, profile);
+        assert_architecture_is_lightmapped(&real, real_maps);
     }
 }
 
-/// Every wall texel must take the light the vertex path gives the same point of
-/// the same face. The historical loose containment resolved a boundary face to
-/// whichever overlapping room the tie-break preferred (191 of The Pit's 634
-/// wall charts baked at a neighbour's ambient while the vertex path lit them
-/// from their own room), which left the shaft walls near-black. Also requires
-/// that a non-trivial share of the level's wall texels is actually lit.
-fn assert_wall_texels_match_the_vertex_path(
-    level: &crate::level::LevelDef,
+/// Every architectural vertex of a lightmapped build must sample a resident
+/// page: only invisible sub-texel slivers may stay vertex-lit, and the highest
+/// page byte must be the last resident page, so an unpopulated layer can never
+/// ship. This replaces the historical wall-texel comparison against the
+/// display-space fill: the prepared HDR pages are the transport solve's own
+/// values (covered by `crate::lighting::transport::tests`), and the vertex-lit
+/// model they were once compared with is the `off` fallback.
+fn assert_architecture_is_lightmapped(
+    build: &crate::render::LevelBuild,
     lightmaps: &LevelLightmaps,
-    profile: QualityProfile,
 ) {
-    let lighting = crate::lighting::LevelLighting::bake_with(level, profile.bake_config());
-    let mut wall_texels = 0usize;
-    let mut lifted = 0usize;
-    for (patch, chart) in &lightmaps.charts {
-        if !matches!(patch.kind, PatchKind::Wall) {
+    let mut architectural = 0usize;
+    let mut lightmapped = 0usize;
+    let mut highest_page = 0usize;
+    for range in &build.mesh.ranges {
+        if !matches!(
+            range.key.kind,
+            crate::render::SurfaceKind::Floor
+                | crate::render::SurfaceKind::Ceiling
+                | crate::render::SurfaceKind::Wall
+        ) {
             continue;
         }
-        let bias = super::fill::face_normal_bias(patch);
-        let filled = super::fill_chart(&lighting, patch, chart);
-        let width = chart.width.max(1);
-        let height = chart.height.max(1);
-        for (index, value) in filled.iter().enumerate() {
-            let i = index % width as usize;
-            let j = index / width as usize;
-            let u = if width <= 1 {
-                0.5
-            } else {
-                i as f32 / (width - 1) as f32
-            };
-            let v = if height <= 1 {
-                0.5
-            } else {
-                j as f32 / (height - 1) as f32
-            };
-            let point = patch.point_at(u, v);
-            let point = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
-            let vertex = lighting.sample_face(patch.room, point[0], point[1], point[2]);
-            let expected = [
-                vertex.r.clamp(crate::lighting::AMBIENT_LEVEL, 1.0),
-                vertex.g.clamp(crate::lighting::AMBIENT_LEVEL, 1.0),
-                vertex.b.clamp(crate::lighting::AMBIENT_LEVEL, 1.0),
-            ];
-            for channel in 0..3 {
+        for vertex in &range.vertices {
+            architectural += 1;
+            if vertex.is_lightmapped() {
+                lightmapped += 1;
+                let page = usize::from(vertex.lightmap_page);
                 assert!(
-                    (value[channel] - expected[channel]).abs() < 1.0e-4,
-                    "wall texel {index} channel {channel}: atlas {} vs vertex path {}",
-                    value[channel],
-                    expected[channel]
+                    page < lightmaps.pages.len(),
+                    "the vertex page byte must address a resident layer"
                 );
-            }
-            wall_texels += 1;
-            if expected[0] > crate::lighting::AMBIENT_LEVEL + 0.15 {
-                lifted += 1;
+                highest_page = highest_page.max(page);
             }
         }
     }
-    assert!(wall_texels > 0, "the level must have wall charts");
+    assert!(architectural > 0, "the level emits architectural geometry");
     assert!(
-        lifted * 100 >= wall_texels * 5,
-        "the lit walls must be lit, not ambient: {lifted} of {wall_texels} texels"
+        lightmapped * 100 >= architectural * 99,
+        "the atlas must cover the architecture: {lightmapped} of {architectural} vertices"
+    );
+    assert_eq!(
+        highest_page + 1,
+        lightmaps.pages.len(),
+        "every resident layer must be referenced by a stamped chart"
     );
 }
 
@@ -1117,12 +1555,12 @@ fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
 /// The original two-page cap's failure mode: a level that adds an unrelated,
 /// distant room blows the atlas budget and the WHOLE level loses its lightmap,
 /// so a locally lit room's illumination changes even though nothing near it
-/// did. With the four-page budget the added room must not change the lit
-/// room's bake at all.
+/// did. With the shipped budget the added room must not change the lit room's
+/// bake at all.
 #[test]
 fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
     const LIT_ROOM: &str = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "capacity_lit",
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1134,7 +1572,7 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         ]
     }"#;
     const LIT_ROOM_WITH_DISTANT_ROOM: &str = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "capacity_lit",
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1194,7 +1632,7 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
     let level_with = |lights: &[String]| {
         crate::level::LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "light_order",
                 "name": "Light Order",
                 "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1372,12 +1810,18 @@ fn measure_demo_chart_statistics() {
     }
 }
 
-fn cache_fixture(key: &str, value: u8) -> LevelLightmaps {
+fn cache_fixture(key: &str, value: f32) -> LevelLightmaps {
+    let texel = LightmapTexel {
+        irradiance: [value; 3],
+        direction: [0.0; 3],
+
+        axis: [0.5, 0.5],
+    };
     LevelLightmaps {
         pages: vec![LightmapPage {
             width: 4,
             height: 4,
-            rgb: vec![value; 48],
+            texels: vec![texel; 16],
         }],
         charts: vec![(
             patch(1.0, 1.0),
@@ -1392,19 +1836,20 @@ fn cache_fixture(key: &str, value: u8) -> LevelLightmaps {
         stats: LightmapStats::default(),
         cache_key: key.to_string(),
         padding: 2,
+        switchable: Vec::new(),
     }
 }
 
 #[test]
 fn memory_cache_evicts_the_least_recently_used_entry_without_invalidating_owners() {
     let mut cache = LightmapCache::memory_only();
-    let first = std::sync::Arc::new(cache_fixture("first", 1));
+    let first = std::sync::Arc::new(cache_fixture("first", 1.0));
     cache.insert("first", std::sync::Arc::clone(&first));
     for key in ["second", "third", "fourth"] {
-        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 2)));
+        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 2.0)));
     }
     assert!(cache.get("first").is_some());
-    cache.insert("fifth", std::sync::Arc::new(cache_fixture("fifth", 5)));
+    cache.insert("fifth", std::sync::Arc::new(cache_fixture("fifth", 5.0)));
     assert_eq!(cache.len(), 4);
     assert!(cache.get("second").is_none());
     assert!(std::sync::Arc::ptr_eq(
@@ -1412,194 +1857,20 @@ fn memory_cache_evicts_the_least_recently_used_entry_without_invalidating_owners
         &cache.get("first").expect("recent entry")
     ));
     for key in ["sixth", "seventh", "eighth", "ninth"] {
-        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 3)));
+        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 3.0)));
     }
     assert!(cache.get("first").is_none());
     assert_eq!(
-        first.pages[0].rgb,
-        vec![1; 48],
+        first.pages[0].texels,
+        vec![
+            LightmapTexel {
+                irradiance: [1.0; 3],
+                direction: [0.0; 3],
+
+                axis: [0.5, 0.5],
+            };
+            16
+        ],
         "the active owner survives eviction"
     );
-}
-
-#[test]
-fn disk_cache_rejects_equal_length_corruption_and_rebuilds() {
-    let root = std::path::PathBuf::from("target/diagnostics/cache-corruption-test");
-    let _ = std::fs::remove_dir_all(&root);
-    let atlas = cache_fixture("corruption", 7);
-    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
-    let path = root.join("corruption.lmc");
-    let original = std::fs::read(&path).expect("stored envelope");
-    let mut damaged = original.clone();
-    *damaged.last_mut().expect("page byte") ^= 1;
-    std::fs::write(&path, &damaged).expect("same-sized corruption");
-    assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
-    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
-    assert_eq!(
-        super::cache::disk_load(&root, &atlas.cache_key)
-            .expect("rebuilt")
-            .pages,
-        atlas.pages
-    );
-    std::fs::write(&path, &original[..original.len() - 1]).expect("truncated envelope");
-    assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
-    let _ = std::fs::remove_dir_all(&root);
-}
-
-#[test]
-fn disk_cache_rejects_oversized_headers_and_wrong_keys_before_reading_payloads() {
-    let root = std::path::PathBuf::from("target/diagnostics/cache-bounds-test");
-    let _ = std::fs::remove_dir_all(&root);
-    let atlas = cache_fixture("bounded", 9);
-    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
-    let path = root.join("bounded.lmc");
-    let original = std::fs::read(&path).expect("stored envelope");
-    for range in [16..20, 20..24, 24..32] {
-        let mut oversized = original.clone();
-        oversized[range].fill(255);
-        std::fs::write(&path, oversized).expect("oversized declared length");
-        assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
-    }
-    std::fs::write(root.join("different.lmc"), &original).expect("renamed cache bytes");
-    assert!(super::cache::disk_load(&root, "different").is_none());
-    assert!(super::cache::disk_load(&root, "../bounded").is_none());
-    let _ = std::fs::remove_dir_all(&root);
-}
-
-#[test]
-fn disk_cache_ignores_interrupted_publication_and_preserves_the_previous_entry() {
-    let root = std::path::PathBuf::from("target/diagnostics/cache-interrupted-test");
-    let _ = std::fs::remove_dir_all(&root);
-    let atlas = cache_fixture("published", 2);
-    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
-    std::fs::write(root.join(".published.123-4.tmp"), b"unfinished").expect("interrupted writer");
-    std::fs::write(root.join(".missing.123-5.tmp"), b"unfinished").expect("unpublished entry");
-    assert_eq!(
-        super::cache::disk_load(&root, "published")
-            .expect("previous complete entry")
-            .pages,
-        atlas.pages
-    );
-    assert!(super::cache::disk_load(&root, "missing").is_none());
-    let mut invalid = atlas.clone();
-    invalid.pages[0].rgb.pop();
-    super::cache::disk_store(&root, "published", &invalid);
-    assert_eq!(
-        super::cache::disk_load(&root, "published")
-            .expect("invalid replacement refused")
-            .pages,
-        atlas.pages
-    );
-    invalid = atlas.clone();
-    invalid.charts[0].1.page = u16::MAX;
-    super::cache::disk_store(&root, "published", &invalid);
-    assert_eq!(
-        super::cache::disk_load(&root, "published")
-            .expect("invalid chart refused")
-            .pages,
-        atlas.pages
-    );
-    std::fs::create_dir_all(root.join("stale")).expect("stale directory");
-    std::fs::write(root.join("stale/meta.json"), b"{}").expect("stale metadata");
-    assert!(super::cache::disk_load(&root, "stale").is_none());
-    let _ = std::fs::remove_dir_all(&root);
-}
-
-#[test]
-fn disk_cache_failure_is_a_miss_and_does_not_break_the_memory_store() {
-    let root = std::path::PathBuf::from("target/diagnostics/cache-unavailable-test");
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("fixture directory");
-    let blocked = root.join("file-not-directory");
-    std::fs::write(&blocked, b"occupied").expect("blocked directory");
-    let atlas = std::sync::Arc::new(cache_fixture("valid", 1));
-    super::cache::disk_store(&blocked, "valid", &atlas);
-    assert!(super::cache::disk_load(&blocked, "valid").is_none());
-    let mut memory = LightmapCache::memory_only();
-    memory.insert("valid", std::sync::Arc::clone(&atlas));
-    assert!(std::sync::Arc::ptr_eq(
-        &memory.get("valid").expect("memory remains usable"),
-        &atlas
-    ));
-    assert_eq!(
-        std::fs::read(blocked).expect("existing file preserved"),
-        b"occupied"
-    );
-    let _ = std::fs::remove_dir_all(&root);
-}
-
-/// One room with one ceiling fixture at the given brightness, baked.
-fn refill_lighting(brightness: f32) -> crate::lighting::LevelLighting {
-    let level = crate::level::LevelDef::from_json(&format!(
-        r#"{{
-            "format_version": 2,
-            "id": "refill_light",
-            "name": "Refill Light",
-            "spawn": {{ "x": 5.0, "z": 5.0 }},
-            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
-            "ceiling_lights": [
-                {{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
-                   "brightness": {brightness} }}
-            ]
-        }}"#
-    ))
-    .expect("the refill test level parses");
-    crate::lighting::LevelLighting::bake(&level)
-}
-
-/// A one-chart atlas filled from `lighting`.
-fn refill_lightmaps(
-    config: &LightmapConfig,
-    lighting: &crate::lighting::LevelLighting,
-) -> (LevelLightmaps, Vec<(LightmapPatch, Chart)>) {
-    let mut allocator = ChartAllocator::new(*config);
-    let patch = patch(6.0, 6.0);
-    let chart = allocator.allocate(&patch).expect("one chart fits");
-    let charts = vec![(patch, chart)];
-    let atlas = LightmapAtlas::bake(config, allocator.page_count(), &charts, |patch, chart| {
-        super::fill_chart(lighting, patch, chart)
-    })
-    .expect("the atlas bakes");
-    (
-        LevelLightmaps {
-            pages: atlas.into_pages(),
-            charts: charts.clone(),
-            stats: LightmapStats::default(),
-            cache_key: "refill-test".to_string(),
-            padding: config.padding,
-        },
-        charts,
-    )
-}
-
-#[test]
-fn refilling_a_light_reproduces_a_full_bake_of_its_new_state() {
-    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let on = refill_lighting(1.0);
-    let off = refill_lighting(0.0);
-    let (mut lightmaps, _) = refill_lightmaps(&config, &on);
-    // The off-state bake is the reference the refill must reproduce exactly,
-    // gutter included.
-    let (reference, _) = refill_lightmaps(&config, &off);
-
-    let dirty = lightmaps.refill_light(&off, 0);
-    assert!(!dirty.is_empty(), "the fixture's chart must be re-filled");
-    assert_eq!(dirty, vec![0], "one chart lives on page zero");
-    assert_eq!(lightmaps.pages, reference.pages);
-
-    // Refilling again with the same state is idempotent and still marks the
-    // page (the caller re-uploads it only when it toggled).
-    let again = lightmaps.refill_light(&off, 0);
-    assert_eq!(again, vec![0]);
-    assert_eq!(lightmaps.pages, reference.pages);
-}
-
-#[test]
-fn refilling_an_unknown_light_touches_nothing() {
-    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let on = refill_lighting(1.0);
-    let (mut lightmaps, _) = refill_lightmaps(&config, &on);
-    let before = lightmaps.pages.clone();
-    assert!(lightmaps.refill_light(&on, 99).is_empty());
-    assert_eq!(lightmaps.pages, before);
 }

@@ -33,9 +33,11 @@ mod wgpu;
 pub(in crate::render) use common::WallUnit;
 pub(crate) use common::api::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
-    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level, set_fill_workers,
 };
 pub use common::camera::RenderCamera;
+pub use common::materials::MaterialRenderState;
+pub use common::reflections::routing_from_mesh;
 pub use common::stats::{LevelBuildStats, RenderStats};
 pub use common::view::{
     DrawableSize, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, reference_aspect_ratio,
@@ -53,9 +55,10 @@ pub use common::{
     LIGHTMAP_NONE, LevelBuild, LevelMesh, LevelMeshBatches, LevelMeshRange, LightmapBuildOptions,
     MATERIAL_NONE, MAX_ANIMATION_DEPTH, MAX_CHARACTERS, MAX_DYNAMIC_MESHES, MAX_DYNAMIC_OBJECTS,
     MAX_FLICKER_HZ, MAX_PULSE_HZ, MaterialIndex, MaterialSlot, PROBE_EPSILON_M, PropMeshBatch,
-    SWIM_HZ, SurfaceKey, SurfaceKind, SurfaceShine, Vertex, WALK_CYCLES_PER_METRE,
-    build_level_geometry, build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
-    build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
+    PropSubmeshBatch, SWIM_HZ, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
+    WALK_CYCLES_PER_METRE, build_level_geometry, build_level_geometry_timed,
+    build_level_geometry_timed_with_lightmaps, build_level_geometry_with_assets,
+    build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     character_vertex, decal_external_sheet_ids, decal_material_slot, decal_quad_points,
@@ -65,6 +68,7 @@ pub use common::{
 #[cfg(test)]
 pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};
 pub use facade::Renderer;
+pub use wgpu::reflections::{PROBE_FACE_SIZE_FULL, PROBE_FACE_SIZE_MEDIUM, ProbeFaceReadback};
 
 // The surface creation and ownership contract lives in `render::wgpu::surface`:
 // the raw-window-handle implementation reports the window's content view and

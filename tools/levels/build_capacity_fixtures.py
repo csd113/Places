@@ -78,6 +78,40 @@ def load_placeables() -> List[Dict]:
     return placeables
 
 
+def animation_component(actions: List[Dict]) -> Optional[Dict]:
+    """The `animation` component the v3 loader requires for an animation action."""
+    for action in actions:
+        tag = action.get("action")
+        if tag not in ("play_animation", "toggle_animation"):
+            continue
+        clip = action.get("clip")
+        if not isinstance(clip, str) or not clip.strip():
+            return None
+        return {
+            "component": "animation",
+            "clip": clip.strip(),
+            "looped": bool(action.get("loop", False)) if tag == "play_animation" else False,
+            "playing": False,
+        }
+    return None
+
+
+def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
+    """The format-v3 components/bindings for one interaction block."""
+    component: Dict = {"component": "interactable"}
+    prompt = interaction.get("prompt")
+    if prompt is not None:
+        component["prompt"] = prompt
+    reach = interaction.get("reach")
+    if reach is not None:
+        component["reach"] = reach
+    components = [component]
+    animation = animation_component(interaction["actions"])
+    if animation is not None:
+        components.append(animation)
+    return components, [{"on": "interact", "actions": interaction["actions"]}]
+
+
 # --------------------------------------------------------------------------
 # Sparse fixture
 # --------------------------------------------------------------------------
@@ -140,7 +174,7 @@ def build_sparse(rng: Rng) -> Dict:
     walls: List[Dict] = []
     props: List[Dict] = []
     lights: List[Dict] = []
-    triggers: List[Dict] = []
+    volumes: List[Dict] = []
     routes: List[Dict] = []
     decals: List[Dict] = []
     water: List[Dict] = []
@@ -179,6 +213,9 @@ def build_sparse(rng: Rng) -> Dict:
         )
 
         # A small prop cluster and one label interaction per quadrant.
+        components, bindings = interaction_v3(
+            {"prompt": "Toggle name", "actions": [{"action": "toggle_label"}]}
+        )
         props.append(
             {
                 "id": f"far_table_{index}",
@@ -188,10 +225,8 @@ def build_sparse(rng: Rng) -> Dict:
                 "z": cz + 4.0,
                 "size": [0.8, 0.74, 0.8],
                 "solid": True,
-                "interaction": {
-                    "prompt": "Toggle name",
-                    "actions": [{"action": "toggle_label"}],
-                },
+                "components": components,
+                "bindings": bindings,
             }
         )
         props.append(
@@ -284,20 +319,25 @@ def build_sparse(rng: Rng) -> Dict:
                 }
             )
         if index == 2:
-            triggers.append(
+            volumes.append(
                 {
                     "id": "far_trigger",
                     "x": cx - 2.0,
                     "z": cz - 2.0,
                     "width": 4.0,
                     "depth": 4.0,
-                    "actions": [{"action": "reset_to_start"}],
-                    "cooldown_seconds": 0.5,
+                    "bindings": [
+                        {
+                            "on": "enter_volume",
+                            "actions": [{"action": "reset_to_start"}],
+                            "cooldown_seconds": 0.5,
+                        }
+                    ],
                 }
             )
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": "capacity_sparse",
         "name": "Capacity: Sparse World (dev)",
         "author": "Places Team",
@@ -313,7 +353,7 @@ def build_sparse(rng: Rng) -> Dict:
         "props": props,
         "decals": decals,
         "water": water,
-        "area_triggers": triggers,
+        "volumes": volumes,
         "routes": routes,
         # Each island's doorway deliberately opens onto the void: this fixture
         # exists to prove that geometry, lighting, a trigger, a route and a
@@ -551,6 +591,18 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
         x = x0 + 9.0 + (index // len(corridors)) * 11.0
         z = corridor
         prop_id = f"dense_actor_{index}"
+        components, bindings = interaction_v3(
+            {
+                "prompt": "Animate",
+                "actions": [
+                    {
+                        "action": "play_animation",
+                        "clip": clip,
+                        "loop": clip in ("walk", "run", "idle"),
+                    }
+                ],
+            }
+        )
         props.append(
             {
                 "id": prop_id,
@@ -558,16 +610,8 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
                 "x": round(x, 3),
                 "z": round(z, 3),
                 "size": [0.7, 1.8, 0.7],
-                "interaction": {
-                    "prompt": "Animate",
-                    "actions": [
-                        {
-                            "action": "play_animation",
-                            "clip": clip,
-                            "loop": clip in ("walk", "run", "idle"),
-                        }
-                    ],
-                },
+                "components": components,
+                "bindings": bindings,
             }
         )
         animated_routes.append(
@@ -597,7 +641,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
         )
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": "capacity_dense",
         "name": "Capacity: Dense Content (dev)",
         "author": "Places Team",

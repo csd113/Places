@@ -15,5 +15,8 @@ cache/
 import/
 levels/*.json
 levels/*.zip
+# Compiled drop-in packages are local content; bundled packages live in
+# assets/levels/ and are tracked.
+levels/*.placesmap
 
 .pytest_cache/

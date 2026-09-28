@@ -152,6 +152,13 @@ impl EffectTexture {
 /// One resolved emitter: a plume footprint, its budget and its material slot.
 #[derive(Clone, Debug)]
 pub struct EffectEmitter {
+    /// The authored index of this emitter in the level's `effects` array.
+    ///
+    /// Emitters are sorted by material after resolution, so the authored index
+    /// is the stable handle a `steam` component uses to enable or disable one.
+    pub authored_index: usize,
+    /// False suppresses this emitter's billboards without removing it.
+    pub enabled: bool,
     /// World position of the plume base: the walkable floor under `(x, z)`
     /// plus the authored `y` offset.
     pub base: [f32; 3],
@@ -275,7 +282,7 @@ impl EffectScene {
         let surfaces = LevelSurfaces::new(level);
         let mut scene = Self::default();
         let mut remaining = MAX_EFFECT_PARTICLES_PER_LEVEL;
-        for def in &level.effects {
+        for (authored_index, def) in level.effects.iter().enumerate() {
             if scene.emitters.len() >= MAX_LEVEL_EFFECTS || remaining == 0 {
                 break;
             }
@@ -295,9 +302,11 @@ impl EffectScene {
                 ));
                 continue;
             };
-            let Some(emitter) = build_emitter(def, &surfaces, material, remaining) else {
+            let Some(mut emitter) = build_emitter(def, &surfaces, material, remaining) else {
                 continue;
             };
+            emitter.authored_index = authored_index;
+            emitter.enabled = def.enabled;
             remaining = remaining.saturating_sub(emitter.count);
             scene.emitters.push(emitter);
         }
@@ -329,6 +338,27 @@ impl EffectScene {
         &self.emitters
     }
 
+    /// Enables or disables the emitter authored at `authored_index`.
+    ///
+    /// Returns whether the state changed; an index no emitters carry (an
+    /// effect whose material failed to resolve) returns false. The next
+    /// [`Self::build_billboards`] pass simply omits a disabled emitter.
+    pub fn set_enabled(&mut self, authored_index: usize, enabled: bool) -> bool {
+        let Some(emitter) = self
+            .emitters
+            .iter_mut()
+            .find(|emitter| emitter.authored_index == authored_index)
+        else {
+            return false;
+        };
+        if emitter.enabled == enabled {
+            return false;
+        }
+        emitter.enabled = enabled;
+        self.rebuild_groups();
+        true
+    }
+
     /// The distinct effect materials, in first-reference order.
     #[must_use]
     pub fn textures(&self) -> &[EffectTexture] {
@@ -341,12 +371,15 @@ impl EffectScene {
         &self.groups
     }
 
-    /// Total live particles across every emitter.
+    /// Total live particles across every enabled emitter.
     #[must_use]
     pub fn particle_count(&self) -> usize {
-        self.emitters.iter().fold(0_usize, |total, emitter| {
-            total.saturating_add(emitter.count)
-        })
+        self.emitters
+            .iter()
+            .filter(|emitter| emitter.enabled)
+            .fold(0_usize, |total, emitter| {
+                total.saturating_add(emitter.count)
+            })
     }
 
     /// Total vertices one [`Self::build_billboards`] pass writes.
@@ -426,6 +459,9 @@ impl EffectScene {
         let camera = source_position(camera_position);
         let mut written = 0_usize;
         for emitter in &self.emitters {
+            if !emitter.enabled {
+                continue;
+            }
             for particle in 0..emitter.count {
                 let pose = particle_pose(emitter, self.clock, particle);
                 let (right, up) = billboard_basis(camera, pose.position);
@@ -458,7 +494,7 @@ impl EffectScene {
     fn rebuild_groups(&mut self) {
         self.groups.clear();
         for emitter in &self.emitters {
-            if emitter.count == 0 {
+            if !emitter.enabled || emitter.count == 0 {
                 continue;
             }
             match self.groups.last_mut() {
@@ -535,6 +571,8 @@ fn build_emitter(
     }
     let base_y = surfaces.floor_y_at(def.x, def.z).unwrap_or(0.0) + def.y;
     Some(EffectEmitter {
+        authored_index: 0,
+        enabled: true,
         base: [
             finite_or(def.x, 0.0),
             finite_or(base_y, 0.0),
@@ -714,7 +752,7 @@ mod tests {
 
     fn level_with_effects(effects: &[serde_json::Value]) -> LevelDef {
         let document = json!({
-            "format_version": 2,
+            "format_version": 3,
             "id": "effects_test",
             "name": "Effects Test",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1006,6 +1044,8 @@ mod tests {
     #[test]
     fn a_degenerate_emitter_never_produces_nan() {
         let emitter = EffectEmitter {
+            authored_index: 0,
+            enabled: true,
             base: [f32::NAN, f32::INFINITY, f32::NEG_INFINITY],
             width: f32::NAN,
             depth: -3.0,

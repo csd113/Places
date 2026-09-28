@@ -404,7 +404,14 @@ pub struct Bench {
     warmup_remaining: u64,
     limit_remaining: Option<u64>,
     recorded: u64,
+    /// Start instant of the previous loop iteration, advanced by
+    /// [`Bench::begin_frame`] on every frame — including frames whose samples
+    /// are excluded while a world prepares or a settings transition commits.
     last_begin: Option<Instant>,
+    /// Cadence of the loop iteration that just began: the gap between this
+    /// iteration's start and the previous iteration's start. Zero before the
+    /// first [`Bench::begin_frame`].
+    loop_ms: f32,
     frames: Vec<FrameRecord>,
     /// Swap interval actually in force, as reported by the presentation mode.
     reported_swap_interval: Option<i32>,
@@ -489,6 +496,7 @@ impl Bench {
             csv,
             recorded: 0,
             last_begin: None,
+            loop_ms: 0.0,
             frames: Vec::new(),
             reported_swap_interval: None,
             quality_cycle,
@@ -583,6 +591,25 @@ impl Bench {
         self.reported_swap_interval = Some(interval);
     }
 
+    /// Advances the loop cadence baseline at the top of one frame.
+    ///
+    /// Called for every loop iteration, sampled or not: while a world is
+    /// preparing or a settings transition commits, `record_frame` is skipped,
+    /// and without this the first steady-state sample afterwards would carry
+    /// the whole excluded interval as one cadence value. The stored
+    /// [`Self::loop_ms`] is the adjacent loop cadence, which is the honest
+    /// source for an FPS number. The excluded interval itself is reported
+    /// through the loading trace, not charged to a steady-state sample.
+    pub fn begin_frame(&mut self, begin: Instant) {
+        if !self.config.enabled {
+            return;
+        }
+        self.loop_ms = self.last_begin.map_or(0.0, |previous| {
+            millis(begin.saturating_duration_since(previous))
+        });
+        self.last_begin = Some(begin);
+    }
+
     /// Records one frame. `begin` must be the instant captured at the top of the
     /// loop iteration and `swap_done` the instant presentation returned.
     pub fn record_frame(
@@ -603,13 +630,12 @@ impl Bench {
         if self.frames.len() >= MAX_RECORDED_FRAMES {
             return;
         }
-        // The gap between consecutive frame starts is the real presentation
-        // cadence: the only honest source for an FPS number when a swap may or
-        // may not block.
-        let loop_ms = self.last_begin.map_or(0.0, |previous| {
-            millis(begin.saturating_duration_since(previous))
-        });
-        self.last_begin = Some(begin);
+        // The gap between adjacent loop starts, captured by `begin_frame`, is
+        // the real presentation cadence: the only honest source for an FPS
+        // number when a swap may or may not block. Excluded loading and
+        // transition frames still advance it, so their time never lands in a
+        // steady-state sample.
+        let loop_ms = self.loop_ms;
 
         if self.warmup_remaining > 0 {
             self.warmup_remaining = self.warmup_remaining.saturating_sub(1);

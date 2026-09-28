@@ -7,6 +7,7 @@ entity resource and the crate release metadata.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import struct
@@ -14,6 +15,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
+import zlib
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent.parent
@@ -21,6 +24,12 @@ PACKAGE = Path(__file__).resolve().parent.parent
 # The asset validator is the single source of catalog truth for tooling.
 sys.path.insert(0, str(PACKAGE / "tools" / "assets"))
 import validate  # noqa: E402
+
+# The prop painter's decoder is the repository's trusted PNG reader: it
+# unfilters scanlines (filter types 0..4) and returns RGBA bytes. Importing
+# `tex` resolves its own `from palette import shade` from this directory.
+sys.path.insert(0, str(PACKAGE / "tools" / "props"))
+import tex  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
@@ -85,7 +94,13 @@ def catalog_ids() -> set[str]:
 
 
 def level_files() -> list[Path]:
+    """Authoring sources for the bundled levels."""
     return sorted((PACKAGE / "assets" / "levels").glob("*.json"))
+
+
+def package_files() -> list[Path]:
+    """Compiled packages for the bundled levels; these are what players load."""
+    return sorted((PACKAGE / "assets" / "levels").glob("*.placesmap"))
 
 
 def fixture_files() -> list[Path]:
@@ -148,11 +163,11 @@ class ShippedLevelTests(unittest.TestCase):
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
         self.assertEqual(demo["name"], "Places Demo")
-        self.assertEqual(demo["format_version"], 2)
+        self.assertEqual(demo["format_version"], 3)
         zoo = shipped["model_zoo"]
         self.assertEqual(zoo["id"], "model_zoo")
         self.assertEqual(zoo["name"], "Model Zoo")
-        self.assertEqual(zoo["format_version"], 2)
+        self.assertEqual(zoo["format_version"], 3)
         # The zoo is generated tooling output, not hand-authored content: it
         # must record the generator's stable instance-id namespace.
         self.assertTrue(zoo["props"], "the zoo must display something")
@@ -162,6 +177,67 @@ class ShippedLevelTests(unittest.TestCase):
                 r"^zoo:[a-z0-9_.-]+:[a-z0-9_.-]+$",
                 "every zoo placement uses the generator's stable id scheme",
             )
+
+    def test_the_bundled_packages_are_present_valid_and_content_addressed(self):
+        packages = {path.stem: path for path in package_files()}
+        self.assertEqual(
+            set(packages),
+            {"places_demo", "model_zoo"},
+            "the bundled compiled packages are Places Demo and the Model Zoo",
+        )
+        for stem, path in packages.items():
+            with zipfile.ZipFile(path) as archive:
+                names = archive.namelist()
+                self.assertIn("manifest.json", names, f"{stem} has a manifest")
+                manifest = json.loads(archive.read("manifest.json"))
+                self.assertEqual(manifest["package_format"], 1, stem)
+                self.assertEqual(manifest["id"], stem, stem)
+                self.assertTrue(manifest["dependencies"], f"{stem} declares dependencies")
+                self.assertTrue(manifest["variants"], f"{stem} has variants")
+                variant_qualities = {v["lightmap_quality"] for v in manifest["variants"]}
+                self.assertEqual(
+                    variant_qualities, {"off", "medium", "full"}, stem
+                )
+                semantics = json.loads(archive.read("semantics.json"))
+                self.assertEqual(semantics["id"], stem, stem)
+                self.assertEqual(semantics["format_version"], 3, stem)
+                # Content addressing: every declared entry's SHA-256 matches its
+                # bytes, and every blob name embeds that same hash.
+                for entry in manifest["entries"]:
+                    data = archive.read(entry["name"])
+                    digest = hashlib.sha256(data).hexdigest()
+                    self.assertEqual(digest, entry["sha256"], entry["name"])
+                    self.assertEqual(len(data), entry["bytes"], entry["name"])
+                    if entry["name"].startswith("blobs/"):
+                        self.assertEqual(entry["name"].split("/", 1)[1].split(".", 1)[0], digest)
+                for entry_name in names:
+                    if entry_name == "manifest.json":
+                        continue
+                    self.assertIn(
+                        entry_name,
+                        {entry["name"] for entry in manifest["entries"]},
+                        f"{stem} declares every archive entry",
+                    )
+                # The player never compiles: each package must carry the
+                # prepared payloads for every declared variant.
+                for variant in manifest["variants"]:
+                    for role in ("mesh", "props", "lighting", "collision"):
+                        self.assertIn(variant["entries"][role], names, f"{stem} {role}")
+                    if variant["lightmap_quality"] != "off":
+                        self.assertIn(variant["entries"]["lightmaps"], names, stem)
+                    if "probes-rgba8" in manifest["required_capabilities"]:
+                        self.assertTrue(
+                            variant["entries"]["probes"], f"{stem} probe payload"
+                        )
+                    for payload in variant["entries"]["probes"]:
+                        self.assertEqual(payload["count"], len(payload["cubemaps"]), stem)
+                        for cubemap in payload["cubemaps"]:
+                            self.assertIn(cubemap, names, stem)
+                            self.assertEqual(
+                                int(cubemap.split("/", 1)[1].split(".", 1)[0], 16),
+                                int(hashlib.sha256(archive.read(cubemap)).hexdigest(), 16),
+                                cubemap,
+                            )
 
     def test_the_model_zoo_is_current_with_its_generator(self):
         # `--check` re-derives the level from the catalog and compares it
@@ -445,7 +521,7 @@ class AssetCatalogTests(unittest.TestCase):
         # A minimal level that uses every new field: a ceiling fixture switched
         # off, and rect/point/line prop lights with the documented defaults.
         level = {
-            "format_version": 2,
+            "format_version": 3,
             "id": "schema_probe",
             "name": "Schema Probe",
             "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -549,7 +625,7 @@ class AssetCatalogTests(unittest.TestCase):
             if enabled != "__missing__":
                 ceiling["enabled"] = enabled
             return {
-                "format_version": 2,
+                "format_version": 3,
                 "id": "light_probe",
                 "name": "Light Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -612,7 +688,7 @@ class AssetCatalogTests(unittest.TestCase):
             ceiling = {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0}
             ceiling.update(fields)
             return {
-                "format_version": 2,
+                "format_version": 3,
                 "id": "fixture_probe",
                 "name": "Fixture Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -646,7 +722,7 @@ class AssetCatalogTests(unittest.TestCase):
     def test_the_validator_checks_per_surface_shine(self):
         def level_with(**fields):
             level = {
-                "format_version": 2,
+                "format_version": 3,
                 "id": "shine_probe",
                 "name": "Shine Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -1006,6 +1082,139 @@ class HomeContentTests(unittest.TestCase):
         self.assertGreaterEqual(archway["height"], archway["opening_height"])
 
 
+def _png_chunk(tag: bytes, payload: bytes) -> bytes:
+    """One 8-bit PNG chunk with its length and CRC, built in memory."""
+    return (
+        struct.pack(">I", len(payload))
+        + tag
+        + payload
+        + struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF)
+    )
+
+
+def _filter_scanline(filter_type: int, raw: bytes, previous: bytes) -> bytes:
+    """Applies one PNG scanline filter, as an encoder would store it."""
+    bpp = 4  # 8-bit RGBA
+    filtered = bytearray(raw)
+    for index in range(len(raw)):
+        left = raw[index - bpp] if index >= bpp else 0
+        up = previous[index]
+        up_left = previous[index - bpp] if index >= bpp else 0
+        if filter_type == 0:
+            predictor = 0
+        elif filter_type == 1:
+            predictor = left
+        elif filter_type == 2:
+            predictor = up
+        elif filter_type == 3:
+            predictor = (left + up) // 2
+        elif filter_type == 4:
+            estimate = left + up - up_left
+            pa = abs(estimate - left)
+            pb = abs(estimate - up)
+            pc = abs(estimate - up_left)
+            predictor = left if (pa <= pb and pa <= pc) else (up if pb <= pc else up_left)
+        else:
+            raise ValueError(f"unknown PNG filter {filter_type}")
+        filtered[index] = (filtered[index] - predictor) & 0xFF
+    return bytes(filtered)
+
+
+def synthetic_png(width: int, height: int, rows: list[bytes], filters: list[int]) -> bytes:
+    """Builds an in-memory 8-bit RGBA PNG whose rows use the given filters.
+
+    The controls exist only as bytes: nothing is written to the repository.
+    """
+    if len(rows) != height or len(filters) != height:
+        raise ValueError("one filter per row is required")
+    if any(len(row) != width * 4 for row in rows):
+        raise ValueError("every row must contain width RGBA pixels")
+    stream = bytearray()
+    previous = bytes(width * 4)
+    for row, filter_type in zip(rows, filters):
+        stream.append(filter_type)
+        stream += _filter_scanline(filter_type, row, previous)
+        previous = row
+    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", zlib.compress(bytes(stream), 9))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def decompressed_scanlines(data: bytes) -> bytes:
+    """The zlib-decompressed IDAT stream: filter bytes followed by deltas."""
+    offset = 8
+    idat = bytearray()
+    while offset + 8 <= len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        tag = data[offset + 4 : offset + 8]
+        if tag == b"IDAT":
+            idat += data[offset + 8 : offset + 8 + length]
+        offset += 12 + length
+    return zlib.decompress(bytes(idat))
+
+
+def decoded_has_empty_alpha(data: bytes) -> bool:
+    """True when the unfiltered image has at least one alpha == 0 pixel."""
+    _width, _height, rgba = tex.decode_png(data)
+    return 0 in rgba[3::4]
+
+
+class PngTransparencyGateTests(unittest.TestCase):
+    """The cut-out check must unfilter scanlines, not trust raw IDAT deltas.
+
+    ``zlib.decompress`` yields filter bytes and per-filter deltas, not RGBA
+    pixels; the historical raw-index predicate read transparency out of those
+    deltas. The opaque Sub-filtered control below is the documented negative
+    control for that defect (AUD-008), and every control is bytes in memory.
+    """
+
+    @staticmethod
+    def raw_indexed_has_transparency(scanlines: bytes, width: int, height: int) -> bool:
+        """The historical defect: treat filtered scanline bytes as pixels."""
+        stride = width * 4
+        return any(
+            scanlines[row * (stride + 1) + 1 + column * 4 + 3] == 0
+            for row in range(height)
+            for column in range(width)
+        )
+
+    def test_an_opaque_sub_filtered_row_defeats_the_raw_index_predicate(self):
+        # Pixel (100,100,100,255) twice under Sub filtering: the first pixel is
+        # stored absolutely, the second as zero deltas, so the raw alpha bytes
+        # are (255, 0) although both decoded alphas are 255.
+        opaque = bytes([100, 100, 100, 255, 100, 100, 100, 255])
+        png = synthetic_png(2, 1, [opaque], [1])
+        scanlines = decompressed_scanlines(png)
+        self.assertEqual(scanlines, bytes([1, 100, 100, 100, 255, 0, 0, 0, 0]))
+        self.assertTrue(self.raw_indexed_has_transparency(scanlines, 2, 1))
+        self.assertFalse(decoded_has_empty_alpha(png))
+
+    def test_a_zero_alpha_pixel_reads_as_transparency_after_decoding(self):
+        transparent = bytes([10, 20, 30, 0, 40, 50, 60, 255])
+        png = synthetic_png(2, 1, [transparent], [1])
+        self.assertTrue(decoded_has_empty_alpha(png))
+
+    def test_the_decoder_unfilters_every_png_filter_type(self):
+        # One row per PNG filter type 0..4; the later rows make the decoder
+        # reconstruct real Sub/Up/Average/Paeth deltas through its unfiltering
+        # path rather than a stored copy of the pixels.
+        rows = [
+            bytes([1, 2, 3, 4, 5, 6, 7, 8]),
+            bytes([9, 10, 11, 12, 13, 14, 15, 16]),
+            bytes([17, 18, 19, 20, 21, 22, 23, 24]),
+            bytes([25, 26, 27, 28, 29, 30, 31, 32]),
+            bytes([33, 34, 35, 36, 37, 38, 39, 40]),
+        ]
+        png = synthetic_png(2, 5, rows, [0, 1, 2, 3, 4])
+        width, height, rgba = tex.decode_png(png)
+        self.assertEqual((width, height), (2, 5))
+        self.assertEqual(rgba, b"".join(rows))
+
+
 class PoolContentTests(unittest.TestCase):
     """The Pool theme is shipped content, not a reserved category."""
 
@@ -1091,24 +1300,12 @@ class PoolContentTests(unittest.TestCase):
         )
         # The sheet must be a cut-out: some pixel is fully transparent, so the
         # decal pass has a silhouette to discard instead of a floating plate.
-        import zlib
-
-        offset = 8
-        idat = b""
-        while offset < len(data):
-            length = struct.unpack(">I", data[offset : offset + 4])[0]
-            tag = data[offset + 4 : offset + 8]
-            if tag == b"IDAT":
-                idat += data[offset + 8 : offset + 8 + length]
-            offset += 12 + length
-        raw = zlib.decompress(idat)
-        stride = width * 4
-        transparent = any(
-            raw[row * (stride + 1) + 1 + column * 4 + 3] == 0
-            for row in range(height)
-            for column in range(width)
+        # Decode through the unfiltering reader: raw IDAT bytes are filter
+        # bytes and deltas, so indexing them directly accepted an opaque sheet.
+        self.assertTrue(
+            decoded_has_empty_alpha(data),
+            "the sign sheet has no transparent pixels",
         )
-        self.assertTrue(transparent, "the sign sheet has no transparent pixels")
 
     def test_the_pool_showcase_is_real_lowered_floor_geometry(self):
         level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")

@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "model_zoo",
   "name": "Model Zoo",
   "author": "Places",
@@ -854,14 +854,22 @@
         0.9
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-bed:floor",
@@ -875,14 +883,22 @@
         2.0
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-bookshelf:floor",
@@ -896,14 +912,22 @@
         0.35
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-cabinet:floor",
@@ -917,14 +941,22 @@
         0.45
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-cardboard_box:floor",
@@ -938,14 +970,22 @@
         0.5
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-chair:floor",
@@ -959,14 +999,22 @@
         0.5
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-couch:floor",
@@ -980,14 +1028,22 @@
         0.9
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-crate:floor",
@@ -1001,14 +1057,26 @@
         0.6
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "spawn_entity",
+              "point": "zoo_crate_spawn_point"
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-desk:floor",
@@ -1022,14 +1090,22 @@
         0.7
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-fridge:floor",
@@ -1043,14 +1119,22 @@
         0.7
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-lamp:floor",
@@ -1064,14 +1148,22 @@
         0.35
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-plant:floor",
@@ -1085,14 +1177,22 @@
         0.4
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_chair:floor",
@@ -1106,14 +1206,22 @@
         0.55
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_curtain_corner:floor",
@@ -1127,14 +1235,22 @@
         0.6
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_curtain_end:floor",
@@ -1148,14 +1264,22 @@
         0.22
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_curtain_straight:floor",
@@ -1169,14 +1293,22 @@
         0.22
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_guardrail_corner:floor",
@@ -1190,14 +1322,22 @@
         0.6
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_guardrail_end:floor",
@@ -1211,14 +1351,22 @@
         0.08
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_guardrail_straight:floor",
@@ -1232,14 +1380,22 @@
         0.08
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_ladder:floor",
@@ -1253,14 +1409,22 @@
         0.45
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-pool_table:floor",
@@ -1274,14 +1438,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-rug:floor",
@@ -1295,14 +1467,22 @@
         1.4
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-sink:floor",
@@ -1316,14 +1496,22 @@
         0.55
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-stop_sign:floor",
@@ -1337,14 +1525,22 @@
         0.06
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-stove:floor",
@@ -1358,14 +1554,22 @@
         0.6
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-table:floor",
@@ -1379,14 +1583,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-vending_machine:floor",
@@ -1400,14 +1612,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-washer_drum:floor",
@@ -1421,14 +1641,22 @@
         0.42
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-washing_machine:floor",
@@ -1442,14 +1670,22 @@
         0.6
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-water_cooler:floor",
@@ -1463,14 +1699,22 @@
         0.35
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:home-cabinet_base:floor",
@@ -1484,14 +1728,22 @@
         0.6
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:mannequin:pose",
@@ -1505,14 +1757,22 @@
         0.305
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:skeleton:pose",
@@ -1526,14 +1786,22 @@
         0.315
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:mannequin:stand",
@@ -1547,19 +1815,33 @@
         0.305
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:mannequin:arms-up",
@@ -1573,19 +1855,33 @@
         0.305
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_up",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_up",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_up",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:mannequin:arms-forward",
@@ -1599,19 +1895,33 @@
         0.305
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_forward",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_forward",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_forward",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:skeleton:stand",
@@ -1625,19 +1935,33 @@
         0.315
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:skeleton:floor-sit",
@@ -1651,19 +1975,33 @@
         0.315
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_floor",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_floor",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_floor",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:skeleton:chair-sit",
@@ -1677,19 +2015,33 @@
         0.315
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Pose",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_chair",
-            "loop": false
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Pose"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_chair",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_chair",
+              "loop": false
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 180.0
     },
     {
@@ -1704,14 +2056,22 @@
         0.613
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:spooner-man:route",
@@ -1725,14 +2085,22 @@
         0.626
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:rat:run",
@@ -1746,14 +2114,22 @@
         0.613
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:spooner-man:companion",
@@ -1767,14 +2143,22 @@
         0.626
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zoo:core-tv:wall",
@@ -1788,14 +2172,22 @@
         0.1
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0,
       "y": 1.3
     },
@@ -1811,14 +2203,22 @@
         0.33
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0,
       "y": 1.45
     },
@@ -1834,19 +2234,33 @@
         0.033
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Switch",
-        "reach": 1.6,
-        "actions": [
-          {
-            "action": "toggle_animation",
-            "clip": "toggle"
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Switch",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0,
       "y": 1.2
     },
@@ -1862,19 +2276,33 @@
         0.033
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Switch",
-        "reach": 1.6,
-        "actions": [
-          {
-            "action": "toggle_animation",
-            "clip": "toggle"
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Switch",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0,
       "y": 1.2
     },
@@ -1890,14 +2318,22 @@
         0.08
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 4.43,
       "lights": [
         {
@@ -1931,14 +2367,22 @@
         0.2
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 4.2,
       "lights": [
         {
@@ -1970,14 +2414,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0
     },
     {
@@ -1992,14 +2444,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0
     },
     {
@@ -2014,14 +2474,22 @@
         0.15
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2037,14 +2505,22 @@
         0.46
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2060,14 +2536,22 @@
         0.196
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2083,14 +2567,22 @@
         0.215
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2106,14 +2598,22 @@
         0.13
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2129,14 +2629,22 @@
         0.22
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2152,14 +2660,22 @@
         0.185
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "y": 0.75,
       "rotation_degrees": 0.0
     },
@@ -2196,14 +2712,22 @@
         0.45
       ],
       "solid": false,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 0.0
     },
     {
@@ -2218,14 +2742,22 @@
         0.5
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Show name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
       "rotation_degrees": 180.0
     }
   ],
@@ -2495,7 +3027,37 @@
       ]
     }
   ],
-  "area_triggers": [],
+  "volumes": [],
+  "spawn_templates": [
+    {
+      "id": "zoo_crate_spawn",
+      "model": "core:crate",
+      "scale": 0.5,
+      "lifetime_seconds": 20.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "phase",
+          "value": "spawned"
+        }
+      ]
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "zoo_crate_spawn_point",
+      "x": 12.0,
+      "z": 16.3,
+      "template": "zoo_crate_spawn",
+      "group": "zoo_spawn"
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "zoo_spawn",
+      "at_most_one_active": true
+    }
+  ],
   "geometry_intent": [
     {
       "check": "room-leak",

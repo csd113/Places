@@ -74,9 +74,11 @@ backend module that names it.
 | `src/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | backend |
 | `src/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | backend |
 | `src/render/wgpu/material.rs` | Material system: material uniform/layout, identity cache, normal-map and emission-mask resolution, per-draw material slots, per-frame reflection modes and animation scales | backend |
-| `src/render/wgpu/lightmap.rs` | Lightmap atlas: the neutral bake's RGB8 pages as raw `Rgba8Unorm` textures with the white fallback | backend |
+| `src/render/wgpu/lightmap.rs` | Lightmap atlas: prepared HDR page pairs as `Rgba16Float` layers (irradiance + dominant lobe) with the white fallback | backend |
 | `src/render/wgpu/environment.rs` | Group-3 environment: baked-light switch and scale, fog, atlas pages, probe cubemap(s) and planar image, per-probe bind groups and the capture fallbacks | backend |
-| `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
+| `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps with offline-prefiltered roughness chains (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
+| `src/render/common/probe_filter.rs` | Offline cone prefilter for captured cubemaps (level roughness `L / (levels - 1)`) | preparation |
+| `src/render/common/light_transport.rs` | Builds the transport scene from the prepared mesh, props and materials, and lists a level's switchable fixtures | preparation |
 | `src/render/wgpu/props.rs` | Props: neutral prop batches as GPU buffers, clamped model sheets and plain-opaque emission materials | backend |
 | `src/render/wgpu/dynamic.rs` | Dynamics: model-space meshes and per-object environments carrying `u_model` and the baked-light probe | backend |
 | `src/render/wgpu/effects.rs`, `effects.wgsl` | Ambient effects: pre-sized steam billboard buffers, one draw per distinct effect material, straight-alpha blending with depth writes off | backend |
@@ -95,24 +97,27 @@ where the bytes live:
 | Path | Purpose |
 |---|---|
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
-| `src/level.rs` | The level format, geometry rules, the walkable floor, water volumes, ladders, doors and effect emitters |
-| `src/loader.rs` | Level discovery, validation, level packs, material resolution |
-| `src/loading.rs` | Serialized CPU preparation, cancellation, immutable prepared-build cache |
-| `src/lighting/` | The CPU bake: partition areas, baselines, fixture pools, visibility |
+| `src/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
+| `src/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
+| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer and spawn record), level packs, material resolution |
+| `src/loading.rs` | Serialized package decode (one bounded worker), cancellation, immutable decoded-variant cache |
+| `src/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
+| `src/compiler.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
+| `src/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key) - compiler and audits only |
 | `src/materials/` | PNG decode, session texture cache, material and decal resolution |
 | `src/spatial/` | The spatial cell grid the batching and frustum culling share |
 | `src/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
 | `src/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
 | `src/zoo_audit.rs` | The test-only contracts for the generated Model Zoo and the capacity fixtures |
-| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming, doors, area triggers and the action dispatcher |
-| `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, current angle and collider pose, the id→index map action and interaction dispatch resolve against, and per-level reset/advance |
-| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), placed-instance bounds, door aim bounds and the world-anchored label/prompt emission |
+| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming and the world tick; the entity runtime owns the map's objects, events, sequences and spawns |
+| `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
+| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/environment/**`, `assets/core/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
-| `assets/levels/` | Shipped levels |
-| `levels/` | Drop-in level packs (`*.json`, `*.zip`), created on first run |
-| `cache/` | The content-keyed lightmap cache, created on demand |
+| `assets/levels/` | Shipped compiled map packages (`.placesmap`) and their authoring sources |
+| `levels/` | Drop-in compiled packages (`.placesmap`), created on first run |
+| `cache/` | Retired: no runtime lightmap cache exists; the compiler reuses whole packages by fingerprint |
 | `tools/` | Deterministic asset, texture, prop and level generators and validators, including `tools/levels/build_model_zoo.py` (the catalog-driven zoo generator) and `tools/levels/build_capacity_fixtures.py` |
 
 The bake lives in `src/lighting/`; the renderer never computes light. The
@@ -149,119 +154,92 @@ repository sources:
 
 None of these contains a GPU handle; none is constructed by the backend.
 
-### Interaction identity and action contracts
+### Entity identity, components, events and sequences
 
-The interaction layer is engine data plus one dispatcher; the renderer only
-receives text vertices.
+Every authored object is one entity with a stable authored id. The runtime half
+lives in `src/entities/`:
 
-- **Identity is per placed instance, never per model.** `LevelDef::prop_instance_ids`
-  resolves each prop's `id` (authored, else deterministic `<model-short>_<n>`);
-  fixtures, doors and triggers resolve their own ids into the same
-  per-level namespace (a duplicate across any of the four is a load error). All
-  run state is keyed by that instance id or by placed-instance index — never by
-  `model`, catalog id or filename. Two placements of one model are two
-  independent instances.
-- **`interact::Interactables`** is resolved once per level load from
-  `LevelDef` + `LevelSurfaces` + `Doors`: every prop with a non-empty
-  `interaction` (an aimable `Interactable { id, display_name, prompt, reach,
-  anchor, bounds, own_box, actions }`), every prop named as an explicit
-  `toggle_label` target (a label-only instance with empty `actions`, never
-  aimable), and every door whose `manual_interaction` is true (an aimable
-  instance carrying the leaf's live `door_index`, collider bounds and
-  phase-dependent prompt). The
-  target set and the aimable set therefore resolve identically at validation
-  time and at runtime.
-  `anchor`/`bounds` come from the same `PropDef::resolved_size` contract as
-  collision (the authored `size` or `[0.6, 0.9, 0.6]`, scaled); a door's
-  aim bound is republished from its live collider as the leaf swings.
-- **`Game` is the dispatcher.** `Game::interaction_target()` resolves the aimed
-  instance (stance-aware eye, per-instance reach, collision-world occlusion);
-  `Game::take_interact_press()` consumes the latched key edge;
-  `Game::dispatch_interaction()` runs the target's batch and returns a
-  `DispatchReport`; `Game::dispatch_actions(&[ActionDef], actor)` is the single
-  entry point both interactions and triggers call. `ActionDef` is the closed,
-  typed action set: `ToggleLabel { target }`, `ResetToStart`,
-  `PlayAnimation { target, clip, looped }`, `ToggleAnimation { target, clip }`,
-  `OpenDoor { target }`, `CloseDoor { target }`, `Toggle { target }`,
-  `PlayAudio { target, sound }`. Dispatch is
-  bounded (`MAX_ACTIONS_PER_SOURCE`) and a `ResetToStart` ends its batch.
-  Targets are validated at load: a duplicate id, an unknown target and an
-  action/target combination that is not supported (for example `open` on a light
-  fixture) are named errors, never silently ignored.
-- **`door::Doors`** owns one `DoorRuntime` per authored leaf: the phase
-  (`closed`/`opening`/`open`/`closing`), the current angle, the obstruction
-  policy (`stop` holds and resumes; `reverse` flips once per obstruction) and
-  the collider derived from the current pose. `Doors::request_open`/
-  `request_close`/`toggle` are what the action dispatcher calls; the angle and
-  the collider are read from the same runtime, and `reset_to_spawn` restores
-  every leaf to its authored `initial_state`.
-- **Effects** (`level::EffectDef`) are presentation-only emitters. The neutral
-  `render::common::effects::EffectScene` resolves one scene per level from
-  `effects[]` and the level's resolved material table (the same resolution a
-  door's sheet uses), evaluates every particle as a pure function of the
-  animation clock, and hands the backend a fixed, material-grouped billboard
-  list; `render::wgpu::effects` owns the pre-sized GPU buffers and the blended
-  pass. No collision, occlusion or bake term is derived from an effect.
-- **Label state** is a per-interactable `Vec<bool>` in `Game`
-  (`is_label_visible(index)`); it is cleared by a level load and preserved by
-  `reset_to_spawn`.
-- **`reset_to_start`** is `Game::reset_to_spawn`: authored spawn and yaw, level
-  pitch, zeroed velocity/accumulator, cleared water/ladder/stance state,
-  every door returned to its authored `initial_state`, held-key latches
-  suppressed until release, and every trigger re-seeded from the
-  new position.
-- **`AreaTriggers`** resolves the map's `area_triggers[]` into id'd boxes;
-  `Game::update_triggers(from_feet)` runs enter semantics with a swept segment,
-  cooldown, `once`, at most one batch per frame, and a pending flag so a later
-  trigger crossed in the same frame is deferred instead of lost.
+- **Identity is per placed instance, never per model.** `LevelDef` resolves
+  each prop's `id` (authored, else deterministic `<model-short>_<n>`), and
+  doors, fixtures, volumes, timers, spawn points and effects resolve their own
+  ids into the same per-level namespace (a duplicate across any of them is a
+  load error). `EntityWorld` binds every id to a generation-checked
+  `EntityHandle`; removing an entity or replacing the world invalidates the
+  old handle, so a queued event or a running sequence from an unloaded world
+  can never touch a coincidentally equal slot in a new one. All run state is
+  keyed by that id or handle — never by model, catalog id, filename or array
+  position.
+- **Components are typed capabilities, not a script bag.** A prop, door,
+  fixture, volume, timer, spawn point or spawned instance carries
+  `interactable`, `animation`, `audio`, `light`, `material`, `state`,
+  `lifetime`, `steam`, `water`, `nav_agent` or `nav_obstacle` components plus
+  its `transform`, `renderable` and `collider` where they apply. Storage is one
+  sparse table per component kind (`src/entities/components.rs`), iterated by
+  kind and never scanned per frame in full; a static prop's geometry, collider
+  and bake stay compiled into the prepared world, and only runtime entities
+  (doors, floating props, spawned instances, routed characters) own live
+  transforms.
+- **All event sources feed one pipeline.** `interact` (the Interact key on the
+  aimed entity), `enter_volume` / `exit_volume` (trigger-volume edges, swept so
+  a fast fall cannot miss a thin band), `timer`, `object_state` (only on a real
+  change), `sequence_complete`, `spawn`, `animation_complete`, and the
+  AI-state/catch events reserved for the navigation upgrade are queue records
+  carrying the world generation. The dispatcher pops them FIFO in bounded
+  waves, evaluates each binding's conditions, and runs its actions in authored
+  order. A full queue or an exhausted budget refuses work and reports once; a
+  self-referential chain is cut at `MAX_CHAIN_DEPTH` instead of recursing.
+- **Actions are a closed typed set.** `open`, `close`, `toggle`, `enable`,
+  `disable`, `set_light`, `lock`, `unlock`, `play_animation`,
+  `toggle_animation`, `play_sound`, `stop_sound`, `change_material`,
+  `move_object`, `set_state`, `toggle_label`, `start_sequence`,
+  `stop_sequence`, `start_timer`, `stop_timer`, `spawn_entity`,
+  `despawn_entity` and `reset_to_start`. An omitted target is the acting
+  entity; an explicit target must resolve on its own. A missing target, an
+  action the target cannot perform, and an unsupported combination are named
+  validation errors for shipped maps and counted, reported outcomes at runtime
+  — never silent no-ops.
+- **Lights.** `set_light`/`toggle` write the `Light` component and mark the
+  fixture dirty; the frame loop pushes dirty `(fixture index, enabled)` pairs
+  to `Renderer::apply_light_toggles`, which selects the prepared switchable
+  lightmap layers. Illumination follows the promised state for a switchable
+  fixture; every other light is static, and validation rejects a switchable
+  light anywhere but a fixture. There is no per-switch shader branch and no
+  runtime rebake.
+- **Sequences** (`src/entities/sequences.rs`) are authored resources: ordered
+  `action`, `wait`, `move`, `face`, `wait_animation`, `emit`, `set_state` and
+  `stop` steps that share the ordinary action pipeline. A sequence runs on one
+  entity (the controller); starting a second replaces the first, despawning
+  the owner or the map cancels it, `wait_animation` is bounded by its timeout,
+  and completion emits `sequence_complete` exactly once. Movement respects the
+  same collision world as the player and the authored entity routes.
+- **Spawns** (`src/entities/spawn.rs`) are typed prefabs: a template names a
+  model, a scale, an optional lifetime and the components and bindings the
+  instance is born with; a point says where it appears; a group with
+  `at_most_one_active` is the reusable encounter rule. Adding a member while
+  one lives is refused with a diagnostic, despawn (lifetime, action or reset)
+  releases the group, and a spawn becomes visible on the frame it is requested
+  because the frame loop drains the spawn commands before it draws.
+- **Doors** (`src/door.rs`) keep the phase machine, the obstruction policy and
+  the collider derived from the live angle; a door's `locked` state is on the
+  runtime, `open`/`close`/`toggle`/`lock`/`unlock` drive it, and
+  `EntityWorld::door_blockers()` publishes the id, passability and collider for
+  the navigation upgrade without rebaking anything.
+- **Routes and animation** are unchanged in behaviour: `entity::PoseCue` is
+  still the one pose vocabulary, `play_animation`/`toggle_animation` set a
+  per-instance override that wins over the route's own cue, and a one-shot cue
+  that completes is fed back from the renderer as `animation_complete`.
+- **Reset** (`reset_to_start`) re-seeds every runtime: authored spawn and yaw,
+  zeroed velocity, cleared water/ladder/stance state, every door to its
+  authored state, every route to its authored start, every timer, every spawn
+  group and every binding's `once`/cooldown state, every running sequence
+  stopped, every light restored to its authored state, every state bag
+  restored to its authored values, and every volume baseline from the new
+  position.
 - **Presentation** is `interact::append_world_labels(vertices, game, camera,
-  drawable)`: world anchors projected into the 480x272 reference space and drawn
-  with the existing `ui::draw_text`/`render_ui` pipeline. Labels respect
+  drawable)`: world anchors projected into the 480x272 reference space and
+  drawn with the existing `ui::draw_text`/`render_ui` pipeline. Labels respect
   occlusion through `collision::ray_aabb_entry`; there is no second text
   renderer.
-
-**Animation, routes and live anchors.** `play_animation` is
-implemented. The contract is:
-
-- **Cues.** `entity::PoseCue` is the one pose vocabulary: `Idle`,
-  `Walk { speed_mps }`, `Clip { name, once, paused }` and
-  `Scrub { name, target }`. It lives on the
-  gameplay side, and `render::common::character` re-exports it, so `game` and
-  `render` share it without a dependency cycle. `CharacterAnimator::update_cued`
-  crossfades cues from the current pose over `BLEND_TIME_CONSTANT_S`; a one-shot
-  cue holds its last key.
-- **Clip metadata.** A GLB may carry `asset.extras.places_entity_clips` with a
-  `clips` array (`name`, `loop`, `reference_speed_mps`, `kind`). The importer
-  applies it per clip (`PropAnimation::{looped, reference_speed_mps, kind}`).
-  `PoseCue::Walk` picks `run` when the rig has one and the requested speed is at
-  least 1.5× the walk clip's reference speed, then plays the chosen clip at
-  `speed / its_reference_speed`, so a route speed and the authored stride agree
-  and the feet do not slide. Missing metadata falls back to
-  `WALK_REFERENCE_SPEED_MPS` / `RUN_REFERENCE_SPEED_MPS`.
-- **Routes.** `level::EntityRouteDef` (`id`, `loop`, `steps[]` of
-  `move_to`/`face`/`wait`/`play`) resolves into `entity::EntityRoutes`
-  (`CollisionWorld::routes`, built by `CollisionWorld::from_level`).
-  `Game` owns the parallel `Vec<RouteState>`; `Game::update_entities` advances
-  every route in fixed 1/60 s substeps against the same `walls`/`floor` the
-  player uses, refusing steps taller than `ENTITY_STEP_HEIGHT_M` and stalling
-  (once-reported) on a wall or a void instead of tunnelling. `Game::entity_frames()`
-  publishes one `EntityFrame { instance_id, Option<(position, yaw)>, cue }` per
-  moving/addressed entity; `App` passes it to
-  `Renderer::update_characters(delta, locomotion, frames)` and
-  `CharacterScene::update` matches frames to characters by instance id. A
-  character with no frame keeps following the player's locomotion snapshot.
-- **Per-instance selection.** `Game::dispatch_actions` `PlayAnimation` sets a
-  per-instance override cue (one-shot by default, `loop: true` to cycle) that
-  wins over that route's own cue until another override or a reset replaces it.
-- **Live anchors.** `Game::sync_routed_interactables` republishes every routed
-  entity's `Interactable.anchor`/`bounds` from the authored rest values plus the
-  spawn-relative offset, so aiming and floating labels follow a moving entity
-  with no parallel identity and no accumulated drift.
-- **Reset.** `reset_to_spawn` re-seeds every route at its authored spawn and
-  clears overrides, so a reset is coherent for the whole level.
-
-`play_audio` parses but is rejected by level validation.
-`DispatchReport.unsupported` reports unsupported programmatic calls at runtime.
 
 `src/settings.rs` owns the persisted player configuration and the runtime
 settings model. Overall Quality (Low / Medium / High) is the preset for the
@@ -358,20 +336,28 @@ uses.
 ### Loading ownership
 
 The event loop creates the window and renderer before requesting the initial
-world. `loading::Loader` owns one serialized worker for level/asset reads,
-geometry and lighting preparation, atlas fill/cache I/O, collision and character
-setup. Requests carry generations; superseded work is cancelled cooperatively
-and cannot commit. The event loop polls completion without joining the worker
-and continues presenting the loading UI or previous world.
+world. `loading::Loader` owns one serialized worker that decodes compiled
+packages: it opens the package, resolves the level's texture pixels through the
+installed asset bundle, decodes the requested quality variant's records
+(geometry, props, baked lighting, lightmap atlas, collision, reflection probe
+captures), builds collision and character playback state, and hands the frame
+loop a world to install. It never emits geometry, bakes light, plans charts,
+fills an atlas, captures a probe or derives static collision: that is the
+offline compiler's work (`src/compiler.rs`, the `places-compile` binary).
 
-Prepared geometry is shared through `Arc<LevelBuild>`. A worker-owned LRU is
-bounded by entry count and retained-data bytes, with keys covering the level,
-logical materials, prop catalog/model inputs and effective lightmap quality.
-Collision and character playback state are created for each request. GPU work
-stays on the main thread: installation advances through upload phases, then
-commits the completed world. Cancellation discards pending installation and
-preserves the active world. A phase can still contain an indivisible expensive
-GPU operation; staging is not a hard per-frame latency guarantee.
+Requests carry generations; superseded work is cancelled cooperatively and
+cannot commit. The event loop polls completion without joining the worker and
+continues presenting the loading UI or previous world.
+
+Decoded geometry is shared through `Arc<LevelBuild>`. A worker-owned LRU is
+bounded by entry count and retained-data bytes, keyed by the package's content
+identity and the lightmap quality; probe captures and compiled collision travel
+with the decoded variant because they belong to the same prepared world. GPU
+work stays on the main thread: installation advances through upload phases, then
+commits the completed world. Packaged probe cubemaps are uploaded, not rendered.
+Cancellation discards pending installation and preserves the active world. A
+phase can still contain an indivisible expensive GPU operation; staging is not a
+hard per-frame latency guarantee.
 
 ### Documented, intentional coupling
 

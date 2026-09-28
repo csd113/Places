@@ -5,9 +5,9 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Field | Value |
 | --- | --- |
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
-| Level format version documented | `2` (`format_version` in every level JSON) |
+| Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). The v3 revision (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -58,11 +58,13 @@ Do not blindly copy mistakes from it either: every pattern here was re-verified 
 When any two sources disagree, resolve in this order:
 
 1. **Runtime implementation** — `src/level.rs` (level schema and geometry rules),
-   `src/loader.rs` (validation, discovery, packs), `src/game.rs` / `src/collision.rs`
-   (movement and collision), `src/door.rs` (door state and collision pose),
-   `src/render/` (meshes, decals, fixtures, props, doors,
-   reflections, post-processing), `src/lighting/` (bake and lightmaps),
-   `src/materials/` + `src/assets.rs` (catalog and materials),
+   `src/loader.rs` (validation and package discovery), `src/package/` +
+   `docs/PACKAGE_FORMAT.md` (the compiled world the player loads),
+   `src/compiler.rs` + `src/bin/places-compile.rs` (offline preparation),
+   `src/game.rs` / `src/collision.rs` (movement and collision), `src/door.rs`
+   (door state and collision pose), `src/render/` (meshes, decals, fixtures,
+   props, doors, reflections, post-processing), `src/lighting/` (bake and
+   lightmaps), `src/materials/` + `src/assets.rs` (catalog and materials),
    `src/quality.rs` + `src/settings.rs` (quality levels).
 2. **Validation and tests** — `src/loader/tests.rs`, `src/level/tests.rs`,
    `src/render/tests.rs`, `src/materials/tests.rs`, `src/assets/tests.rs`,
@@ -84,6 +86,8 @@ Authoritative paths:
 | --- | --- |
 | Level schema | `src/level.rs` |
 | Loader / validator | `src/loader.rs` |
+| Compiled package format | `docs/PACKAGE_FORMAT.md`, `src/package/` |
+| Offline compiler | `src/compiler.rs`, `src/bin/places-compile.rs` |
 | Collision / walkable floor | `src/collision.rs`, `src/game.rs` |
 | Door state / collision pose | `src/door.rs` |
 | Door geometry | `src/render/common/doors.rs` |
@@ -126,13 +130,15 @@ Authoritative paths:
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
-| Level `.zip` packs with `materials.json` and pack textures | Implemented |
-| Door leaves (`doors[]`): interior and sauna kinds, state machine, obstruction handling, manual interaction, externally controlled | Implemented (see [§30](#30-doors-switches-and-effects)) |
+| Compiled map packages (`.placesmap`) with prepared geometry, lightmaps, collision and reflection probes | Implemented (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
+| Door leaves (`doors[]`): interior and sauna kinds, state machine, obstruction handling, locked state, component/binding-driven interaction | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Water volumes (`water[]`): a translucent surface, wading, swimming and surface swimming | Implemented (see [Water volumes](#water-volumes-wading-swimming-and-surfacing)) |
 | Ladder volumes (`ladders[]`): walking into the face climbs without a key, with release, backing away, jump, obstruction and top-landing rules | Implemented (see [Ladders](#ladders)) |
-| Stable per-instance ids, map-authored object interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
-| Area trigger volumes (`area_triggers[]`): enter semantics, swept fast-fall crossings, cooldowns, `once`, typed action batches | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
-| Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; see §29. `play_audio` is rejected because audio is unsupported. |
+| Stable per-instance ids, typed components, event bindings, map-authored interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
+| Trigger volumes (`volumes[]`): enter/exit semantics, swept fast-fall crossings, cooldowns, `once`, typed action batches | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
+| Timers, sequences, spawn templates/points/groups (including at-most-one-active) | Implemented (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)) |
+| Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
+| Audio actions (`play_sound`, `stop_sound`) | Implemented as a typed emitter state on an entity with an `audio` component; no audio device backend exists in this tree, so a playback request is reported once instead of playing. No shipped map authors one. |
 | Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
@@ -192,10 +198,14 @@ steps 14–17.
     doorway thresholds owned once; no wall ends buried in other walls.
 16. **Validate assets.** Run the catalog, texture and prop checks
     ([Validation Workflow](#27-validation-workflow)).
-17. **Run tests and boot the level.** `cargo test --workspace --all-features`, then
-    `PLACES_LEVEL=<id> cargo run` and read the console. A level that fails validation
-    is reported as `[levels] skipping …` at discovery, so read the console even when
-    the level is meant to appear in the menu.
+17. **Compile the level.** `./target/release/places-compile build <source>.json`
+    (or `cargo run --release --bin places-compile -- build <source>.json`). The
+    compiler validates the source, prepares the static world and publishes the
+    `.placesmap` beside it. A failed build leaves any previous package untouched.
+    Then `cargo test --workspace --all-features`, and boot with
+    `PLACES_LEVEL=<id> cargo run`. A package that fails to open is reported as
+    `[levels] skipping …` at discovery, so read the console even when the level is
+    meant to appear in the menu.
 18. **Visual/render validation if available.** Screenshot with
     `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` and inspect: no holes, no
     flicker, no light leaks, no floating props.
@@ -274,7 +284,7 @@ skeleton and the per-field tables.
 
 ```jsonc
 {
-  "format_version": 2,                     // REQUIRED. Must be exactly 2.
+  "format_version": 3,                     // REQUIRED. Must be exactly 3.
   "id": "my_level",                        // REQUIRED. Non-empty; menu key.
   "name": "My Level",                      // REQUIRED. Non-empty; display name.
   "author": "",                            // optional, default "".
@@ -484,13 +494,25 @@ skeleton and the per-field tables.
       "scale": 1.0,                        // optional, default 1.0, must be > 0
       "size": [1.6, 0.75, 0.7],            // optional [w,h,d]; collision box, x scale
       "solid": true,                       // optional, default false
-      "interaction": {                     // optional; E in reach runs these actions once
-        "prompt": "Toggle name",           // optional; shown while aimed at
-        "reach": 2.5,                      // optional; 0..4.0 m, default 2.5
-        "actions": [                       // REQUIRED, 1..8 actions, in order
-          { "action": "toggle_label" }
-        ]
-      },
+      "components": [                      // optional typed capabilities; see §29
+        { "component": "interactable", "prompt": "Toggle name", "reach": 2.5 },
+        { "component": "state", "name": "phase", "value": "cold" },
+        { "component": "animation", "clip": "toggle", "looped": false, "playing": false },
+        { "component": "light", "enabled": true, "switchable": false, "emission_scale": 1.0 },
+        { "component": "material", "variants": [ { "name": "on", "emission_scale": 1.0 } ] }
+      ],
+      "bindings": [                        // optional event wiring; see §29
+        {
+          "on": "interact",                // closed event kind enum
+          "key": null,                     // optional event key filter
+          "when": [ { "check": "state", "target": "front_desk", "name": "phase", "equals": "cold" } ],
+          "once": false,                   // optional, default false
+          "cooldown_seconds": 0.0,         // optional, default 0.0; >= 0
+          "actions": [                     // REQUIRED, 1..8 actions, in order
+            { "action": "toggle_label" }
+          ]
+        }
+      ],
       "lights": [                          // optional, default []; max 8 per prop
         {
           "shape": "rect",                 // optional; default "point"
@@ -510,7 +532,7 @@ skeleton and the per-field tables.
 
   "doors": [                               // optional; interactive leaves, see §30
     {
-      "id": "hall_door",                   // REQUIRED; unique across props/lights/doors/triggers
+      "id": "hall_door",                   // REQUIRED; unique across props/lights/doors/volumes/timers/points
       "x": 60.3, "y": 0.0, "z": 3.0,       // hinge edge; y is above the walkable floor
       "rotation_degrees": 0.0,             // yaw of the closed leaf; 0 runs toward +X, 90 toward -Z
       "width": 1.4, "height": 2.1,         // REQUIRED; leaf size in metres
@@ -520,9 +542,13 @@ skeleton and the per-field tables.
       "open_speed_degrees": 120.0,         // optional; default 120, 0..720
       "close_speed_degrees": null,         // optional; default = open speed
       "initial_state": "closed",           // optional; "closed" (default) or "open"
-      "manual_interaction": true,          // optional; default true (false = externally controlled)
-      "prompt": "Hall door",               // optional; default "Open"/"Close" by phase
-      "reach": 2.5,                        // optional; >= 0, <= 4.0 m
+      "locked": false,                     // optional; default false (true refuses to open until unlocked)
+      "components": [                      // a manual door authors an interactable component
+        { "component": "interactable", "prompt": "Hall door" }
+      ],
+      "bindings": [                        // and its own `interact` binding
+        { "on": "interact", "actions": [ { "action": "toggle" } ] }
+      ],
       "obstruction": "stop",               // optional; "stop" (default) or "reverse"
       "kind": "interior",                  // optional; "interior" (default) or "sauna"
       "material": null, "frame_material": null, "handle_material": null  // optional overrides
@@ -540,23 +566,54 @@ skeleton and the per-field tables.
       "size": 0.34,                        // optional billboard size, default 0.35
       "drift": 0.16,                       // optional horizontal wander, default 0.0
       "lifetime_seconds": 3.2,             // optional, default 3.0, <= 60
-      "material": null                     // optional; default core:steam_01
+      "material": null,                    // optional; default core:steam_01
+      "enabled": true,                     // optional, default true
+      "bindings": []                       // optional; the emitter's own events
     }
   ],
 
-  "area_triggers": [                       // optional; enter volumes, run actions once
+  "volumes": [                             // optional; enter/exit trigger volumes, see §29
     {
       "id": "pit_hole_1",                  // optional; default trigger_<n> (1-based)
       "x": 9.6, "z": -26.2,                // optional; footprint MIN corner, default 0
       "width": 1.6, "depth": 1.6,          // REQUIRED, > 0
       "bottom_y": -3.2,                    // optional; default floor under the centre
       "top_y": -0.05,                      // optional; default bottom_y + 2.0
-      "actions": [                         // REQUIRED, 1..8 actions, in order
-        { "action": "reset_to_start" }
-      ],
-      "cooldown_seconds": 0.5,             // optional, default 0.0; >= 0
-      "once": false                        // optional, default false; reset re-arms it
+      "bindings": [                        // REQUIRED in practice, 1..16 bindings
+        { "on": "enter_volume", "once": false, "cooldown_seconds": 0.5,
+          "actions": [ { "action": "reset_to_start" } ] }
+      ]
     }
+  ],
+
+  "timers": [                              // optional; headless timer entities, see §29
+    { "id": "sauna_warmup_timer", "seconds": 1.5, "repeat": false, "autostart": false,
+      "bindings": [ { "on": "timer", "actions": [ { "action": "start_sequence",
+                       "sequence": "sauna_warmup", "target": "sauna_door" } ] } ] }
+  ],
+
+  "sequences": [                           // optional; ordered steps on one entity, see §29
+    { "id": "sauna_warmup", "looped": false, "steps": [
+        { "step": "wait", "seconds": 0.5 },
+        { "step": "set_state", "name": "phase", "value": "warm" },
+        { "step": "emit", "on": "timer", "key": "warm" }
+      ] }
+  ],
+
+  "spawn_templates": [                     // optional; typed prefabs, see §29
+    { "id": "crate_spawn", "model": "core:crate", "scale": 0.5,
+      "lifetime_seconds": 20.0,
+      "components": [ { "component": "state", "name": "phase", "value": "spawned" } ],
+      "bindings": [] }
+  ],
+
+  "spawn_points": [                        // optional; where a template appears
+    { "id": "crate_spawn_point", "x": 12.0, "z": 16.3, "yaw_degrees": 0.0,
+      "template": "crate_spawn", "group": "crate_group", "bindings": [] }
+  ],
+
+  "spawn_groups": [                        // optional; at-most-one-active bookkeeping
+    { "id": "crate_group", "at_most_one_active": true }
   ],
 
   "animated_emissions": [
@@ -591,11 +648,14 @@ loader or the renderer: opening `kind` (unknown names load), animated-emission
 `effect` (unknown names are a named validation error), and all logical asset ids.
 A misspelled enum is a parse error, not a silently ignored key.
 
-**Where levels live.** `assets/levels/*.json` ships with the game;
-`levels/*.json` and `levels/*.zip` are drop-in packs (under the writable state root,
-normally next to the asset root). Both appear in the Level Select menu.
+**Where levels live.** Players load compiled `.placesmap` packages only.
+`assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
+packages (under the writable state root, normally next to the asset root). Both appear
+in the Level Select menu. The `.json` sources beside the bundled packages are kept for
+authors and are never playable rows; a raw source dropped into `levels/` is reported as
+an authoring source with the compiler command, not as a level.
 `tests/fixtures/levels/` is for engine regression fixtures and is never packaged.
-A level file that fails to read, parse or validate is reported at discovery as
+A package that fails to open or validate is reported at discovery as
 `[levels] skipping {path}: {reason}`, so check the console rather than assuming it is
 absent. `PLACES_LEVEL=<id>` boots a specific level and prints validation errors
 verbatim.
@@ -628,9 +688,16 @@ literal.
 | Door width/height/thickness | each ≤ 12 m (`MAX_DOOR_DIMENSION_M`) | Loader rejection per door |
 | Effects (`effects[]`) | ≤ 64 (`MAX_LEVEL_EFFECTS`) | Loader rejection |
 | Effect particles (`count`) | 1–128 (`MAX_EFFECT_PARTICLES`) | Loader rejection per effect |
-| Area triggers | ≤ 1000 | Loader rejection |
-| Actions per interaction or trigger | ≤ 8 | Loader rejection |
-| Authored interaction reach | ≤ 4.0 m | Loader rejection |
+| Trigger volumes (`volumes`) | ≤ 1000 (`MAX_LEVEL_AREA_TRIGGERS`) | Loader rejection |
+| Bindings per entity | ≤ 16 (`MAX_BINDINGS_PER_ENTITY`) | Loader rejection |
+| Actions per event binding or sequence step | ≤ 8 (`MAX_ACTIONS_PER_SOURCE`) | Loader rejection |
+| Authored interactable `reach` | ≤ 4.0 m | Loader rejection |
+| Timers | one entity per entry; `seconds` > 0 | Loader rejection per timer |
+| Sequences (`sequences`) | ≤ 256 (`MAX_LEVEL_SEQUENCES`) | Loader rejection |
+| Steps per sequence | ≤ 64 (`MAX_SEQUENCE_STEPS`) | Loader rejection per sequence |
+| Spawn templates | ≤ 64 (`MAX_LEVEL_SPAWN_TEMPLATES`) | Loader rejection |
+| Spawn points | ≤ 256 (`MAX_LEVEL_SPAWN_POINTS`) | Loader rejection |
+| Spawn groups | ≤ 64 (`MAX_LEVEL_SPAWN_GROUPS`) | Loader rejection |
 | Ramps | ≤ 500 | Loader rejection |
 | Staircases | ≤ 500 | Loader rejection |
 | Half walls | ≤ 2000 | Loader rejection |
@@ -650,7 +717,9 @@ literal.
 | Estimated floor area | ≤ 16 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
 | Estimated generated vertices | ≤ 8 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
-| ZIP pack: entries / entry size / total uncompressed | ≤ 500 entries / ≤ 10 MB per entry / ≤ 50 MB total | Pack rejected while reading |
+| Package archive: entries / entry / aggregate | ≤ 512 entries / ≤ 256 MiB / ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
+| Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
+| Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 1024 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
 | Summed prop vertices (after instancing) | ≤ 6 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
 
@@ -676,7 +745,7 @@ the full measurements.
 
 | Field | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `format_version` | integer | **yes** | — | Must be `2`; anything else is rejected: `Unsupported level format_version: {v} (expected 2)`. |
+| `format_version` | integer | **yes** | — | Must be `3`; anything else is rejected: `Unsupported level format_version: {v} (expected 3)`. |
 | `id` | string | **yes** | — | Non-empty after trim. Not checked for uniqueness across files (see caveats). |
 | `name` | string | **yes** | — | Non-empty after trim. |
 | `author` | string | no | `""` | Display metadata only. |
@@ -688,7 +757,7 @@ Known-valid header (from Places Demo):
 
 ```json
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",
@@ -1956,38 +2025,19 @@ that authors them. Two consequences are still useful to a map author:
   level term, so every level can bloom. The default `Low` presents unfiltered
   only when Bloom is off.
 
-### Level packs: `materials.json`
+### Community packages
 
-A `.zip` pack may ship material definitions and textures. A pack material is named
-with a `pack:` id (e.g. `pack:lobby_wall`); a pack **cannot shadow a catalog id**, and
-a level references the pack id exactly like any other material id.
+Level packs (`.zip` with `materials.json`) are retired. A community map is
+compiled into a `.placesmap` package like any other: the package carries the
+prepared world and its dependency identities, and the player never reads
+authoring sources or pack textures. Pack material definitions (`pack:` ids) have
+no producer in the current workflow.
 
-`materials.json` accepts either a top-level object of definitions or one nested under
-`"materials"`. Each value is either a string (the texture path — the shorthand, which
-is emission-free and has no response/alpha fields) or an object:
-
-| Key | Meaning |
-| --- | --- |
-| `texture` | Pack-relative path or a logical catalog texture id. Required on the object form. |
-| `tile_metres`, `tint` | As in the catalog; malformed values are discarded and the default applies. |
-| `emissive`, `emissive_intensity`, `emissive_mask` | As in the catalog; the mask may be a pack path or a catalog texture id. |
-| `normal_texture`, `normal_strength` | As in the catalog; pack path or catalog texture id. |
-| `specular`, `specular_color`, `shine` | As in the catalog. |
-| `alpha_mode`, `opacity`, `alpha_cutoff` | As in the catalog. |
-| `reflection_mode`, `reflection_strength` | Accepted, but see the limitation below. |
-
-A texture path inside the pack is looked up tolerantly
-(`textures/<name>.png`, `<name>.png`, `textures/<name>`, `<name>`), so a pack may lay
-its files out either way. Unknown keys are ignored and malformed values fall back to
-defaults; malformed `materials.json` yields no definitions at all (the pack's
-`pack:` ids then fall back to the direct-name lookup).
-
-**Known limitation — reflection settings on pack artwork.** A pack material whose
-opaque `texture` is a **logical catalog texture id** keeps its
-`reflection_mode`/`reflection_strength`. A pack material that ships its **own PNG**
-applies emission, sheen and alpha but currently drops the reflection settings
-(`reflection_mode` has no effect). Plan reflective pack surfaces to reuse a catalog
-texture, or accept the sheen without a reflection.
+To ship custom artwork with a map, register it in `assets/catalog.json` like any
+other texture or prop. Self-contained community packages with embedded texture
+payloads are part of the package format
+(`kind: "embedded"` dependencies), but the current compiler builds maps against
+the installed asset bundle; see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md).
 
 ## 12. Textures
 
@@ -2561,7 +2611,23 @@ illumination of the room  <- the fixture's `brightness` and `color`, only while
 Nothing about a fixture family, a prop model or a *material* creates light. An
 emissive material never casts light; a fixture face never lights a room by itself.
 
-### The implemented lighting model
+### Prepared HDR lighting (medium and full atlases)
+
+When a map is compiled with lightmaps `medium` or `full`, its illumination is
+solved **offline** by the transport solver: direct emitter sampling with soft
+shadows, one or two real diffuse bounces, a directional per-texel encoding and
+a prepared irradiance field for moving objects. The stored values are linear
+HDR; authored colours and brightness still mean what they meant, and the
+surface albedo multiplies the result exactly once. A `switchable` fixture's
+contribution is prepared as its own selectable layer, so a toggle changes real
+illumination without a rebake. See `docs/RENDERER.md` §7.1 for the encoding and
+`docs/PACKAGE_FORMAT.md` §5–6.1 for the payloads.
+
+The vertex-lit model below is the exact contract of the `off` variant and of
+every fallback after a plan/fill failure; it remains fully supported and its
+examples still apply to a `Lightmaps: Off` map.
+
+### The implemented vertex-lit lighting model
 
 Every light is a generic engine-level source: a **shape** (point, rectangle, line), a
 world position, an RGB colour, an intensity, a **range**, a **falloff** curve and an
@@ -2843,9 +2909,9 @@ Fixture geometry is code. To add a family, touch each of these:
    `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
    `cargo test --workspace --all-features`.
 
-No catalog/renderer change is needed for a **pack** to restyle the panel family: a
-`.zip` level pack may reference `"fixture": "pack:<id>"` and ship its own PNG; `pack:`
-ids always resolve to the office-panel geometry.
+Restyling the panel family means adding a catalog fixture entry with its own PNG,
+exactly like the shipped families; `pack:` fixture ids belonged to the retired pack
+workflow.
 
 ---
 
@@ -2863,11 +2929,22 @@ Exact level syntax (all fields verified against `src/level.rs::PropDef`):
   "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
   "solid": true,                 // optional, default false. Only this flag creates collision.
-  "interaction": {               // optional. E in reach runs the actions once (see §29).
-    "prompt": "Toggle name",     // optional; shown while aimed at; default "Interact".
-    "reach": 2.5,                // optional; 0..4.0 m; default 2.5.
-    "actions": [{ "action": "toggle_label" }]  // REQUIRED, 1..8, in order.
-  },
+  "components": [                // optional typed capabilities (see §29).
+    { "component": "interactable",   // an E-aimable object.
+      "prompt": "Toggle name",       // optional; shown while aimed at; default "Interact".
+      "reach": 2.5,                  // optional; 0..4.0 m; default 2.5.
+      "enabled": true,               // optional; false starts it aimed-but-disabled.
+      "label": null },               // optional; display name a toggle_label may show.
+    { "component": "state", "name": "phase", "value": "cold" },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [                  // optional event wiring (see §29).
+    { "on": "interact",          // closed event-kind enum.
+      "when": [],                // optional conditions; all must hold.
+      "once": false,             // optional; default false.
+      "cooldown_seconds": 0.0,   // optional; default 0.0.
+      "actions": [{ "action": "toggle_label" }] }  // REQUIRED, 1..8, in order.
+  ],
   "lights": [],                  // optional 0..8 generic light sources, see section 21.
   "float": { ... }               // optional water-driven motion, see the field table.
 }
@@ -2876,12 +2953,13 @@ Exact level syntax (all fields verified against `src/level.rs::PropDef`):
 Semantics:
 
 * **`id` is a per-placement identity, not an asset id.** It names *this* placed
-  instance for interactions, action targets and duplicate validation, and has
+  instance for bindings, action targets and duplicate validation, and has
   nothing to do with `model`/catalog ids. Omitted, the deterministic default is
   `<model short name>_<n>` where `n` counts the placements of that short name that
-  do not author an id, in array order. Ids are unique across props, light
-  fixtures, doors and area triggers; a duplicate or malformed id is a named load
-  error. Never key
+  do not author an id, in array order. One **instance namespace** covers props,
+  doors, ceiling fixtures, trigger volumes, timers and spawn points; a duplicate
+  or malformed id is a named load error. Sequence, spawn-template and
+  spawn-group ids are separate resource namespaces. Never key
   external state on `model`: two copies of one model are two instances.
 * `display_name` is the floating label text a `toggle_label` action shows. It is
   map-authored; the model id is the fallback when omitted.
@@ -2982,7 +3060,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
 | `fixture` | string | **yes** | — | Fixture id from the catalog/registry. Unknown ids render and bake as the office panel with the untextured sheet. |
-| `id` | string | no | `<fixture short name>_<n>` | Stable instance id for `toggle` actions (see §30) and duplicate validation. |
+| `id` | string | no | `<fixture short name>_<n>` | Stable instance id for `set_light`/`toggle` actions (see §29) and duplicate validation. |
 | `x`, `z` | number | **yes** | — | World position. Must be finite. |
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
 | `brightness` | number | no | `1.0` | Must be finite and `≥ 0`; baking clamps to `8.0`. |
@@ -2993,7 +3071,7 @@ All fixtures — ceiling and wall — live in the level's `ceiling_lights` array
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
-| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: a `{"action":"toggle","target":"<id>"}` action may switch it on and off at runtime (see §30). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; toggling re-fills exactly the affected lightmap charts, and its visible face turns off with it. The runtime re-fill needs the Lightmaps quality (the default): with Lightmaps Off the level is baked into vertex colours, so the fixture's face still switches but its baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
+| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: `{ "action": "set_light", "target": "<id>", "on": false }` or `{ "action": "toggle", "target": "<id>" }` may switch it at runtime (see §29). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; each switch state is prepared as its own selectable lightmap layer, so toggling **selects a prepared layer** — a real change of the baked illumination with no runtime rebake — and the visible face turns off with it. Moving objects and characters do **not** receive a switchable fixture's light in any state: the prepared irradiance field is solved from non-switchable emitters only, so the toggle changes the static surfaces' prepared illumination and not a moving actor's lighting. A fixture that is **not** switchable is baked once and never changes: no action can move its illumination. Emission-only motion (`animated_emissions[]`) never changes illumination either; it animates the face's additive glow only. Layer selection needs the prepared lightmap variants (the default): with Lightmaps Off the level bakes into vertex colours, so the face still switches but the baked illumination cannot change until the level is reloaded. Leave it `false` unless a map action drives it. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
@@ -3641,17 +3719,19 @@ none of them is optional for a change that ships content.
 
 | Command | What it validates | Required for map authoring? |
 | --- | --- | --- |
-| `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; material texture/mask/normal references; shipped/drop-in/fixture levels reference declared ids; prop-light and fixture-pool shapes/fields; animated-emission schema; warns when a wall touches no room | **Yes** |
+| `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; material texture/mask/normal references; shipped/drop-in/fixture levels reference declared ids; entity instance ids; components; event bindings, conditions and actions; trigger volumes, timers, sequences and spawn definitions; prop-light and fixture-pool shapes/fields; animated-emission schema; warns when a wall touches no room | **Yes** |
 | `cargo test --workspace --all-features` | The whole Rust suite: level/loader/render/material/collision/lighting tests plus the audits (surface, lighting, isolation, parity, partition, vertical, leak) | **Yes** |
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
-| `PLACES_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
+| `./target/release/places-compile build <source>.json` | Compiles the edited source into its `.placesmap` (prepares geometry, lighting, atlas, collision and probe captures) | **Yes, after every map edit** |
+| `./target/release/places-compile validate <package>.placesmap` | Decodes every prepared record and re-hashes every entry and dependency | **Yes, before shipping** |
+| `PLACES_LEVEL=<id> cargo run` | Boots straight into the compiled level and prints validation errors verbatim | **Yes, once per map** |
 | `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`PLACES_CAPTURE_FRAME=n` waits for frame n first) | Useful |
 | `cargo run --release -- --check-geometry --level <path-or-id>` | The read-only map geometry checker: confirmed defects and heuristic warnings over the engine's own geometry and collision interpretation (§31) | Recommended for every map change |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
-| `PLACES_DUMP_LIGHTMAPS=1 PLACES_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
+| `PLACES_DUMP_LIGHTMAPS=1 ./target/release/places-compile build <source>.json` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` (the compiler owns the bake) | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
 | `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, current list | Useful |
 
@@ -3674,14 +3754,17 @@ dangling level reference.
   faces, opening `glass`, patches, decals, fixtures, props, door material defaults
   and overrides, effect materials, animated-emission
   materials), prop lights and fixture pool/emission fields, door and effect
-  field/limit checks, animated-emission schema,
+  field/limit checks, animated-emission schema, entity instance ids and typed
+  components, event bindings/conditions/actions with resolvable capability-fit
+  targets, trigger-volume/timer/sequence/spawn definitions,
   and a warning when a wall touches no room.
 
-Only the Rust loader enforces: format version, identity, spawn finiteness, room/
-wall/region/opening dimensions and bounds, floor-region containment and eave rule,
-prop/light/decal/door/effect schemas, a door's closed-leaf-versus-solid check,
-the geometry budgets, limits and caps, gable rules, decal
-surface rules, and the walkable/collision behaviour. Boot the level to prove those.
+Only the Rust loader enforces: format version, identity edge cases, spawn
+finiteness, room/wall/region/opening dimensions and bounds, floor-region
+containment and eave rule, prop/light/decal/door/effect schemas, a door's
+closed-leaf-versus-solid check, the geometry budgets, limits and caps, gable
+rules, decal surface rules, the zero-delay cycle search, and the
+walkable/collision behaviour. Boot the level to prove those.
 
 ### Environment switches
 
@@ -3782,12 +3865,13 @@ the error in full.
 
 - [ ] Every `doors[]` leaf sits at a hinge with a floor under it, and the wall it
       fills authors a matching `kind: door` opening (same offset/width/height).
-- [ ] Each door's id is unique across props, lights, doors and triggers; every
-      switch and trigger target resolves.
+- [ ] Each door's id is unique across props, lights, doors, volumes, timers and
+      spawn points; every binding's target resolves and the capability matches.
 - [ ] `open_direction`, `swing_degrees` and `obstruction` match the room: the leaf
       opens into the intended side and never rakes a wall or a static prop.
-- [ ] Door prompts, reach and `manual_interaction` match intent: an externally
-      controlled door is not also an interaction target.
+- [ ] A manual door carries an `interactable` component plus its own `interact`
+      binding; an externally controlled door carries neither and is driven only
+      by other entities' actions.
 - [ ] All glazing that should block the player authors `"solid": true`; a
       decorative pane that should stay walk-through is deliberate.
 - [ ] Switchable fixtures (`switchable: true`) are only the ones a map action
@@ -3821,89 +3905,344 @@ the error in full.
 
 ---
 
-## 29. Interactions, Labels, Area Triggers and Entity Routes
+## 29. Entities, Components, Bindings, Volumes, Timers, Sequences and Spawns
 
-The runtime provides one typed interaction layer for placed objects, one area-trigger
-primitive and one entity-route runtime. All three dispatch the same closed set of
-actions; none is a scripting engine. Identity, actions, routes and reset
-semantics are documented here; every field is verified against `src/level.rs`
-(`PropInteractionDef`, `ActionDef`, `AreaTriggerDef`, `EntityRouteDef`) and
-`src/interact.rs` / `src/entity.rs`.
+The runtime gives every placed record a stable identity, optional typed
+**components** that say what it can do, and **event bindings** that say what
+its events do. One closed action set is dispatched by that single mechanism:
+props, doors, fixtures, volumes, timers, spawn points and spawn templates all
+wire behaviour the same way, and none of it is a scripting engine. This
+section is the field-by-field contract; every name below is verified against
+`src/level.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
+`EventKindName`, `TriggerVolumeDef`) and `src/entities/`
+(`TimerDef`, `SequenceDef`, `Spawn*Def`).
 
-### Instance identity
+> **Format note.** This is the v3 contract. The v2 `interaction`,
+> `area_triggers` and `manual_interaction` keys are gone; a v2 source either
+> converts with `python3 tools/levels/convert_v3.py --all` or fails to parse
+> its behaviour. A binding's `actions` are the old interaction batch, a
+> volume's `bindings` are the old trigger batch, and a door's own press is an
+> `interact` binding with `{ "action": "toggle" }`.
 
-Every prop may author `id`; every light fixture and door accepts `id` too, and
-area triggers default one. Authored or default, ids must be well-formed
-(`[A-Za-z0-9:._-]`, no leading `:`) and unique across **props, fixtures, doors
-and area
-triggers** in one level. The deterministic default for a prop is
-`<model short name>_<n>`; for a fixture, `<fixture short name>_<n>`; for a trigger,
-`trigger_<n>` (1-based authored position); a door's `id` is required. Two copies
-of one model therefore get
-two ids (`plant_1`, `plant_2`) and independent state.
+### Identity and namespaces
+
+One **instance namespace** covers every addressable placed record: props,
+doors, ceiling fixtures, trigger volumes, timers and spawn points. An authored
+`id` wins; deterministic defaults are `<model short name>_<n>` for a prop,
+`<fixture short name>_<n>` for a fixture and `trigger_<n>` (1-based) for a
+volume, while a door, timer and spawn point always author their id. Ids must be
+well-formed (`[A-Za-z0-9:._-]`, no leading `:`), unique in that namespace, and
+are what a binding's `target`/`point`/`timer` names resolve against.
+
+**Sequences, spawn templates and spawn groups are separate resource
+namespaces**: they are addressed by resource name (`sequence`, `template`,
+`group`), so the same string may appear once in each kind. Duplicates within a
+kind are errors.
+
+Two copies of one model are two instances with independent state; never key
+external state on `model`.
+
+### Components
+
+A component is a reusable capability record. An entity that carries none is
+scenery: it cannot be aimed at, switched, animated or read by a condition.
+Components never carry actions — the bindings do that.
+
+```json
+"components": [
+  { "component": "interactable", "prompt": "Sauna switch", "reach": 1.6 },
+  { "component": "animation", "clip": "toggle", "looped": false, "playing": false },
+  { "component": "state", "name": "phase", "value": "cold" }
+]
+```
+
+| `component` | Fields (defaults) | What it grants |
+| --- | --- | --- |
+| `interactable` | `prompt?` (default `"Interact"`), `reach?` (default 2.5 m, `0 < reach ≤ 4.0`), `enabled` (`true`), `label?` | The entity is aimable with **E**; a press emits `interact`. `enabled: false` starts it aimed-but-silent until an `enable` action. `label` is the floating text a `toggle_label` may show. |
+| `animation` | `clip` (required, non-blank), `speed` (`1.0`), `looped` (`false`), `playing` (`false`) | The entity owns an animation state: `play_animation`, `toggle_animation` and `animation_complete` need it. `playing` starts the clip at load; the default rests on the authored pose. |
+| `audio` | `sound` (required), `gain` (`1.0`), `looped` (`false`), `enabled` (`true`), `playing` (`false`) | Typed emitter state: `play_sound`/`stop_sound` set `playing`/`looped`, `enable`/`disable` gate it, and the frame loop reports a requested sound once. **No audio device backend exists in this tree**, so nothing is audible; no shipped map authors one. |
+| `light` | `enabled` (`true`), `switchable` (`false`), `emission_scale` (`1.0`) | A prop's own static light state. **`switchable: true` is rejected on anything but a ceiling fixture**: only a fixture has prepared switchable lightmap layers, and a non-switchable light cannot be a `set_light`/`toggle` target either. |
+| `material` | `variants` (≥ 1 of `{ name, emission_scale }`), `current?` (default the first) | The entity selects one of several emission profiles at runtime with `change_material`. Only the emission profile can change; surface materials of baked geometry cannot. |
+| `state` | `name` (required), `value` (required: bool, integer, float or string) | A typed state slot a `set_state` may write and a `state` condition may read. Timers and volumes own their states implicitly. |
+| `lifetime` | `seconds` (`> 0`) | The entity removes itself after that many simulation seconds. |
+| `steam` | `enabled` (`true`) | The entity is a presentation-only steam emitter. |
+| `water` | `enabled` (`true`) | The entity is a water volume controller. |
+| `nav_agent` | `radius`, `speed_mps` | Navigation metadata for the planned navigation upgrade; no pathfinding yet. |
+| `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | Navigation metadata; no pathfinding yet. |
+
+A component the engine cannot honour is a named load error. Unknown component
+tags are rejected at parse time.
+
+### Event bindings
+
+A binding lives on the entity that **emits** the event, so wiring is local: a
+switch's press lists what the press does, a volume's entry lists what entering
+does. There is exactly one binding mechanism.
+
+```json
+"bindings": [
+  { "id": null,                  // optional; diagnostics and named references.
+    "on": "interact",            // REQUIRED; closed event-kind enum.
+    "key": null,                 // optional event-key filter (see below).
+    "when": [],                  // optional conditions; all must hold to run.
+    "once": false,               // run at most once per run; a reset re-arms it.
+    "cooldown_seconds": 0.0,     // seconds before it may run again; >= 0.
+    "actions": [ { "action": "toggle_label" } ] }  // REQUIRED, 1..8, in order.
+]
+```
+
+At most 16 bindings per entity. `key` narrows an event that carries one: a
+timer fires with its own id, a sequence with its id, an animation with its
+clip. `once` and `cooldown_seconds` are per binding, not per action.
+
+**Event kinds.** A binding must listen for an event its own entity can emit;
+the loader rejects a `timer` binding on a non-timer, an `interact` binding on
+an entity with no enabled `interactable`, and so on.
+
+| `on` | Fires when | Carrier |
+| --- | --- | --- |
+| `interact` | the player presses E on the entity (edge-latched, never auto-repeat) | any record with an enabled `interactable` component |
+| `enter_volume` | the player's feet enter the volume's band, or a fast fall sweeps through it | a `volumes[]` entry |
+| `exit_volume` | the player's feet leave the band | a `volumes[]` entry |
+| `timer` | a timer reaches zero | a `timers[]` entry (`key` = its id) |
+| `object_state` | one of the entity's states changes value | any entity with a `state` component |
+| `sequence_complete` | a sequence running on the entity completes (`key` = sequence id) | any entity |
+| `spawn` | the entity is spawned | a spawn template's instances |
+| `animation_complete` | a played clip reaches its end | an entity with an `animation` component |
+| `ai_state`, `caught` | reserved for the navigation/AI upgrade; they never fire today | — |
+
+**Conditions.** A binding with a `when` list runs only if every condition
+holds. A condition whose target does not resolve is a load error.
+
+| `check` | Fields | True when |
+| --- | --- | --- |
+| `state` | `target`, `name`, `equals` | the target's state matches `equals` exactly (same type and value) |
+| `enabled` / `disabled` | `target` | the target's capability state is on / off |
+| `locked` / `unlocked` | `target` | the target door is locked / unlocked |
+| `door_open` / `door_closed` | `target` | the target door is at its open / closed end |
+| `sequence_running` / `sequence_idle` | `target` | a sequence is running / not running on the target |
 
 ### Actions
 
-An interaction or trigger runs 1..8 actions in order. The accepted actions are:
+One binding or sequence step runs 1..8 actions in order; at most one action
+batch starts per frame, and `reset_to_start` ends its batch (later actions do
+not run). Every action is typed; an unknown tag is a parse error, an action
+whose target cannot do the thing is a named load error.
 
-| Action | Fields | Effect |
-| --- | --- | --- |
-| `toggle_label` | `target` (optional) | Show/hide the floating display name of the named prop instance (whether or not it has its own interaction). Omitted `target` means the acting prop itself. |
-| `reset_to_start` | — | Return the player to the level's authored spawn (see below). Also returns routed entities to their spawns, clears pose overrides and returns every door to its authored `initial_state`. Stops the rest of the batch. |
-| `play_animation` | `target`, `clip`, `loop` (optional) | Play `clip` on the named entity; omitted `target` means the acting prop. A one-shot (the default) holds its last pose; `loop: true` repeats it. The override wins over the entity's own route cue until another action or a reset replaces it. |
-| `toggle_animation` | `target` (optional), `clip` (required) | Ease the named clip of the target instance toward the opposite end of its timeline (`t = 0` to `t = duration`). Presses repeat: a second press mid-move reverses from the current pose rather than snapping or restarting. The full traverse takes 0.35 s whatever the clip's authored length, and every instance keeps its own target. |
-| `open` | `target` (required) | Drive the named door leaf toward its open end (no-op at or already moving toward open). |
-| `close` | `target` (required) | Drive the named door leaf toward its closed end. |
-| `toggle` | `target` (required) | Flip a door between its two ends mid-travel included, or flip a `switchable: true` light fixture between enabled and disabled. |
-| `play_audio` | `target`, `sound` | **Not implemented.** There is no audio subsystem; validation rejects it by name. |
+| Action | Fields | Legal target | Effect |
+| --- | --- | --- | --- |
+| `open` / `close` | `target?` (omitted = the actor) | a door | drive the leaf toward its open / closed end |
+| `toggle` | `target?` | a door **or** a switchable ceiling fixture (`ceiling_lights` with `"switchable": true`) | flip the door between its ends mid-travel, or flip the fixture's switch |
+| `set_light` | `target?`, `on` (required bool) | a switchable ceiling fixture | set the fixture explicitly on/off; the prepared lightmap layer follows |
+| `lock` / `unlock` | `target?` | a door | refuse/resume opening until unlocked |
+| `enable` / `disable` | `target?` | any entity | aiming, emission, animation and audio capability on/off (a disabled interactable emits no `interact`) |
+| `play_animation` | `target?`, `clip?` (non-blank when present), `loop?` | an entity with an `animation` component | play a clip; a one-shot holds its last pose, `loop: true` repeats |
+| `toggle_animation` | `target?`, `clip?` | an entity with an `animation` component | scrub the clip toward the opposite end of its timeline (a lever flip); a second press mid-move reverses |
+| `play_sound` / `stop_sound` | `target?`, `sound?`, `loop?` | an entity with an `audio` component | sets the emitter's `playing`/`looped` state and emits a playback command; this build has no audio device backend, so the command is reported once and nothing plays |
+| `change_material` | `target?`, `variant` (required) | a runtime instance of a spawn template with a `material` component (a baked static prop is rejected: its material is prepared geometry) | select a declared emission variant |
+| `move_object` | `target?`, `x`, `z` (required finite), `y?`, `speed?` | a runtime instance of a spawn template (a baked static prop or a door is rejected: drive a door with `open`/`close`/`toggle`) | move a runtime entity collision-respecting |
+| `steam` component + `enable`/`disable` | `target?` | an entity with a `steam` component | turns the authored emitter's billboards on or off through the renderer (a disabled emitter's level effect stays, it just stops drawing) |
+| water volume + `enable`/`disable` | `target?` | a water-volume entity (`water_<n>`) | removes the volume from the controller's water sampling: the baked surface still draws, the player walks or falls through |
+| `set_state` | `target?`, `name` (required), `value` (required bool/int/float/string) | the target must already author that state, or be a timer/volume (the runtime owns those states) | write a typed state |
+| `toggle_label` | `target?` | a placed **prop** (only a placed prop shows a label) | show/hide the instance's floating display name |
+| `start_sequence` | `sequence` (required, known id), `target?` (omitted = the actor) | the entity the sequence should run on | start/replace a sequence on the target |
+| `stop_sequence` | `target?` | any entity | stop the sequence running on the target |
+| `start_timer` | `target?`, `seconds?` (positive override), `repeat?` | a timer | arm the timer (a running timer restarts from a full period) |
+| `stop_timer` | `target?` | a timer | stop counting without changing its period |
+| `spawn_entity` | `template?`, `point?`, `group?`, `name?` | — (see below) | instantiate a template at a point |
+| `despawn_entity` | `target` (required) | an entity id, a spawn-template id or a spawn-group id | remove a live instance (or a whole group's member) |
+| `reset_to_start` | — | — | return the player to the authored spawn, re-arm triggers, clear pose/route overrides and return doors to `initial_state`; ends the batch |
 
-An unknown `action` tag is a JSON parse error. `toggle_label` targets must name a
-placed prop (labels exist only on placed objects; a targeted prop does not need
-an interaction of its own — it becomes a label-only target), and a missing or
-unknown target or a trigger with no `target` is a named validation error.
-`play_animation` follows the same target rule and additionally requires a
-non-blank `clip`. `open`/`close` require a door id; `toggle` requires a door id
-or a switchable fixture id, and any other target or an action/target mismatch is
-a named validation error. Dispatch is bounded: at most one trigger batch runs per
-frame, and a reset ends its batch (the remaining actions do not run).
+`spawn_entity` resolution: with a `point`, the point's own template is used
+unless `template` overrides it; a `template` alone has no world position and is
+rejected; with neither field the acting entity must itself be a spawn point.
+`group` overrides the point's group, and `name` gives the instance a runtime
+name later actions can address (default `<point>#<n>`).
 
-The door and effect authoring contract — every field, the required wall opening,
-and complete examples — is [§30](#30-doors-switches-and-effects).
+### Object interactions (E)
 
-### Object interactions
-
-E (interact) and C (crouch) can be rebound in Settings > Controls and persist in
-`settings.json`. C toggles a 0.9 m body with a 0.8 m eye height. Standing is
+E (interact) and C (crouch) can be rebound in Settings > Controls and persist
+in `settings.json`. C toggles a 0.9 m body with a 0.8 m eye height. Standing is
 blocked while the standing body would overlap an overhead obstacle.
 
-A prop with an `interaction` is aimable, and so is every door with
-`manual_interaction: true` (its prompt follows the leaf's phase unless the door
-authors its own):
+A record with an enabled `interactable` component is aimable — every prop that
+authors one, and every such door:
 
-* The player looks at it and presses **E** (rebindable in Settings > Controls).
-* Targeting uses the actual eye position (a crouched player aims from the crouched
-  eye), a per-instance `reach` (default 2.5 m, maximum 4.0 m) and the collision
-  world as occluders: no interaction through a wall or with an object hidden
-  behind a nearer solid.
+* The player looks at it and presses **E**.
+* Targeting uses the actual eye position (a crouched player aims from the
+  crouched eye), the component's `reach` (default 2.5 m, maximum 4.0 m) and
+  the collision world as occluders: no interaction through a wall or with an
+  object hidden behind a nearer solid.
 * One press is one interaction: the key edge is latched, so holding E never
   repeats; menus, pause and lost focus do not latch.
 * `toggle_label` shows or hides a floating display name above *that placed
-  instance only*. State is per instance, so the other copy of the same model is
-  untouched; reloading a level hides every label again, while `reset_to_start`
-  keeps them (a label is a view toggle, not movement state).
-* Labels are drawn with the existing UI text pipeline, projected from the object's
-  world anchor, clamped to the viewport and hidden when occlusion blocks the line
-  of sight. Entities such as `spooner-man` use the same path.
+  prop instance only* (doors have no label in v3). State is per instance, so
+  the other copy of the same model is untouched; reloading a level hides every
+  label again, while `reset_to_start` keeps them.
+* Labels are drawn with the existing UI text pipeline, projected from the
+  object's world anchor, clamped to the viewport and hidden when occlusion
+  blocks the line of sight.
 
-The aimable bound is the same contract as collision: the authored `size` (scaled)
-or the standard `[0.6, 0.9, 0.6]` prop box — never the catalogue size. Author
-`size` on an interactable whose rendered model is much taller or wider than that
-box (the demo's `spooner_man` authors `[0.7, 1.8, 0.7]`) so the crosshair covers
-the object, not just its feet.
+The aimable bound is the same contract as collision: the authored `size`
+(scaled) or the standard `[0.6, 0.9, 0.6]` prop box — never the catalogue
+size. Author `size` on an interactable whose rendered model is much taller or
+wider than that box (the demo's `spooner_man` authors `[0.7, 1.8, 0.7]`) so
+the crosshair covers the object, not just its feet.
 
-A routed entity's label anchor and aim bound follow it: the controller republishes
-them from the authored rest values plus the live offset every frame, so E and the
-floating name track a character that walks away.
+A routed entity's label anchor and aim bound follow it: the controller
+republishes them from the authored rest values plus the live offset every
+frame, so E and the floating name track a character that walks away.
+
+### Trigger volumes
+
+A volume is an axis-aligned box: a rectangular `(x, z)` footprint plus a
+vertical `bottom_y..top_y` band. The controller tests the player's feet
+against it every frame and emits `enter_volume` / `exit_volume` on the edges;
+the volume's own bindings decide what those events do.
+
+```jsonc
+{
+  "id": "pit_hole_1",              // optional; default trigger_<n>
+  "x": 9.6, "z": -26.2,            // optional; footprint MIN corner, default 0
+  "width": 1.6, "depth": 1.6,      // REQUIRED, > 0
+  "bottom_y": -3.2,                // optional; default the walkable floor under the centre
+  "top_y": -0.05,                  // optional; default bottom_y + 2.0
+  "bindings": [
+    { "on": "enter_volume", "once": false,
+      "cooldown_seconds": 0.5,     // carried by the binding, not the volume
+      "actions": [{ "action": "reset_to_start" }] }
+  ]
+}
+```
+
+Semantics:
+
+* **Enter, not overlap.** The volume fires on the first frame the player's
+  feet are inside the band, or when the frame's swept feet segment crosses it,
+  so a fast fall through a thin band still counts. Standing inside never
+  re-fires; leaving re-arms.
+* `cooldown_seconds` on the `enter_volume` binding bounds a re-entry; `once`
+  makes that binding fire at most once per run (a `reset_to_start` re-arms it).
+* `reset_to_start` returns the player to the authored spawn and facing, clears
+  velocity, stance, ladder and water state, and re-seeds every trigger from
+  the new position, so a teleport never activates the volumes between the old
+  and new positions and a spawn inside a volume never loops.
+* At most one volume batch starts per frame; if the frame crosses more than
+  one volume, the later entries are deferred to following frames.
+* The footprint must overlap a room; the resolved `top_y` must be above
+  `bottom_y`. Both are named load errors.
+
+Level 0: The Pit authors one `reset_to_start` volume inside each of the 15
+carpet holes (the recessed 1.6×1.6 `floor_regions` at `offset_y: -3.2`); the
+`top_y` sits 5 cm below the hall floor so standing on the carpet beside a hole
+never counts as an entry, and the bottom reaches the hole floor so any fall
+crosses the band:
+
+```json
+{ "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
+  "bottom_y": -3.2, "top_y": -0.05,
+  "bindings": [ { "on": "enter_volume", "cooldown_seconds": 0.5,
+                   "actions": [{ "action": "reset_to_start" }] } ] }
+```
+
+### Timers
+
+A timer is a **headless entity**: it has an id, a period and bindings, but no
+geometry and no world position. It fires `on: "timer"` bindings when it
+reaches zero; the event key is the timer's id.
+
+```json
+"timers": [
+  { "id": "sauna_warmup_timer", "seconds": 1.5, "repeat": false, "autostart": false,
+    "bindings": [
+      { "on": "timer",
+        "actions": [ { "action": "start_sequence", "sequence": "sauna_warmup",
+                       "target": "sauna_door" } ] }
+    ] }
+]
+```
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | string | **yes** | — | Instance id; unique in the instance namespace. |
+| `seconds` | number | **yes** | — | Finite, `> 0`. |
+| `repeat` | boolean | no | `false` | Re-arm after each fire instead of stopping. A long frame never burst-fires a repeating timer: the next fire is a full period later. |
+| `autostart` | boolean | no | `false` | Start counting at load (and on every reset) instead of waiting for `start_timer`. |
+| `bindings` | array | no | `[]` | Usually one `on: "timer"` binding. |
+
+`start_timer` may override the period and repeat flag for the current arm;
+`stop_timer` halts it; `reset_to_start` restores the authored values.
+
+### Sequences
+
+A sequence is an ordered list of steps the runtime executes **on one entity**.
+Starting a second sequence on an entity replaces the first; despawning the
+owner cancels it; completion emits `sequence_complete` with the sequence id as
+the key.
+
+```json
+"sequences": [
+  { "id": "sauna_warmup", "looped": false, "steps": [
+      { "step": "wait", "seconds": 0.5 },
+      { "step": "set_state", "name": "phase", "value": "warm" },
+      { "step": "emit", "on": "timer", "key": "warm" }
+    ] }
+]
+```
+
+| Step | Fields | Notes |
+| --- | --- | --- |
+| `action` | `action` (one ordinary action) | runs one action, then advances |
+| `wait` | `seconds` | simulation seconds, `0..600` |
+| `move` | `x`, `z`, `speed` (finite, `> 0`), `y?` | walks collision-respecting to a world position |
+| `face` | `yaw_degrees` | turns at the entity's turn rate |
+| `wait_animation` | `clip?`, `timeout` | waits for a clip (or any playing clip) with a `0..120` s timeout |
+| `emit` | `on` (event kind), `key?` | emits an event from the sequence's entity |
+| `set_state` | `name`, `value` | writes a state the owner already authors (or a timer/volume state) |
+| `stop` | — | ends the sequence here, as if it completed |
+
+A sequence runs only on entities an authored `start_sequence` names (directly
+or through another sequence). A step with an omitted target acts on that
+owner; the loader rejects a sequence that is never started on any entity.
+Zero-delay cycles (a chain that could recurse without consuming a
+wait/timer/animation) are rejected at load.
+
+### Spawn templates, points and groups
+
+Spawning is authored, never scripted: a template is a typed prefab, a point
+says where it appears, and a group enforces the encounter rule.
+
+```json
+"spawn_templates": [
+  { "id": "crate_spawn", "model": "core:crate", "scale": 0.5,
+    "lifetime_seconds": 20.0,
+    "components": [ { "component": "state", "name": "phase", "value": "spawned" } ],
+    "bindings": [] }
+],
+"spawn_points": [
+  { "id": "crate_spawn_point", "x": 12.0, "z": 16.3, "yaw_degrees": 0.0,
+    "template": "crate_spawn", "group": "crate_group", "bindings": [] }
+],
+"spawn_groups": [ { "id": "crate_group", "at_most_one_active": true } ]
+```
+
+| Record | Fields (defaults) |
+| --- | --- |
+| `spawn_templates[]` | `id` (required), `model` (required), `scale` (`1.0`), `lifetime_seconds?` (despawn after that many seconds; omitted lives until removed), `components` (`[]`), `bindings` (`[]`) |
+| `spawn_points[]` | `id` (required), `x`/`z` (default `0.0`), `y?` (default the walkable floor under the point), `yaw_degrees` (`0.0`), `template` (required, known id), `group?` (known id), `bindings` (`[]`) |
+| `spawn_groups[]` | `id` (required), `at_most_one_active` (`false`) |
+
+* The template's `components` are the components every instance is **born
+  with**; its `bindings` are the bindings a `spawn` event can fire on the new
+  instance.
+* A group with `at_most_one_active: true` refuses a second spawn while one
+  member is alive — the same group may be shared by several spawn points, which
+  is the encounter mechanism (several candidate spots, one live member). The
+  member's own despawn (lifetime expiry, `despawn_entity`, or a reset) releases
+  the group.
+* Spawn visibility is immediate: the runtime entity exists the same tick, and
+  its render command is drained before the frame draws. Despawn removes
+  collision and interaction participation immediately.
 
 ### Entity routes
 
@@ -3946,39 +4285,6 @@ Entity sizes, forward axis and stride speeds come from the asset's own README
 `tests/fixtures/levels/` demonstrate walk, run, pose selection and two
 independent instances.
 
-### Area triggers
-
-```jsonc
-{
-  "id": "pit_hole_1",              // optional; default trigger_<n>
-  "x": 9.6, "z": -26.2,            // optional; footprint MIN corner, default 0
-  "width": 1.6, "depth": 1.6,      // REQUIRED, > 0
-  "bottom_y": -3.2,                // optional; default the walkable floor under the centre
-  "top_y": -0.05,                  // optional; default bottom_y + 2.0
-  "actions": [{ "action": "reset_to_start" }],  // REQUIRED, 1..8
-  "cooldown_seconds": 0.5,         // optional, default 0.0; >= 0
-  "once": false                    // optional, default false
-}
-```
-
-Semantics:
-
-* **Enter, not overlap.** The trigger fires on the first frame the player's feet
-  are inside the volume, or when the frame's swept feet segment crosses it, so a
-  fast fall through a thin band still counts. Standing inside never re-fires;
-  leaving re-arms.
-* `cooldown_seconds` bounds a re-entry; `once` makes a trigger fire at most once
-  per run (a `reset_to_start` re-arms it).
-* `reset_to_start` returns the player to the authored spawn and facing, clears
-  velocity, stance, ladder and water state, and re-seeds every trigger from the
-  new position, so a teleport never activates the volumes between the old and new
-  positions and a spawn inside a volume never loops.
-* At most one trigger batch runs per frame; if the frame crosses more than one
-  volume, the later entries are deferred to following frames rather than run in
-  the same frame, so one reset can never chain into another volume immediately.
-* The footprint must overlap a room; the resolved `top_y` must be above
-  `bottom_y`. Both are named validation errors otherwise.
-
 ### Places Demo maintenance notes
 
 The Home loop uses four contiguous narrow room footprints, with 1.4 m clear
@@ -3995,71 +4301,144 @@ stops across the level. The existing reflection tests continue to exercise the s
 
 ### Places Demo examples
 
-The shipped demo authors real interactions; use them as the reference (all in
+The shipped demo authors real v3 entities; use them as the reference (all in
 `assets/levels/places_demo.json`):
 
 ```json
 { "id": "water_cooler", "display_name": "Water Cooler", "model": "core:water_cooler",
   "x": 0.6, "y": 0.0, "z": 0.6, "rotation_degrees": 90.0,
   "size": [0.35, 1.1, 0.35], "solid": true,
-  "interaction": { "prompt": "Toggle name",
-                   "actions": [{ "action": "toggle_label" }] } }
-```
-
-```json
-{ "id": "pool_chair_north", "display_name": "Pool Chair", "model": "core:pool_chair",
-  "x": 4.0, "y": 0.0, "z": 14.7, "rotation_degrees": 0.0,
-  "size": [0.52, 0.85, 0.55], "solid": true,
-  "interaction": { "prompt": "Toggle name",
-                   "actions": [{ "action": "toggle_label" }] } }
+  "components": [ { "component": "interactable", "prompt": "Toggle name" } ],
+  "bindings": [ { "on": "interact",
+                  "actions": [{ "action": "toggle_label" }] } ] }
 ```
 
 ```json
 { "id": "spooner_man", "display_name": "Spooner-Man", "model": "spooner-man",
   "x": 5.6, "y": 0.0, "z": 8.4, "rotation_degrees": 90.0,
   "size": [0.7, 1.8, 0.7],
-  "interaction": { "prompt": "Toggle name",
-                   "actions": [{ "action": "toggle_label" }] } }
+  "components": [ { "component": "interactable", "prompt": "Toggle name" } ],
+  "bindings": [ { "on": "interact",
+                  "actions": [{ "action": "toggle_label" }] } ] }
 ```
 
-
-A wall switch composes the lever with the instance-local label in one batch —
-the switch does not lose either behaviour:
+A wall switch composes the lever animation with the instance-local label in
+one binding — the switch does not lose either behaviour, and the `animation`
+component is what lets `toggle_animation` act on it:
 
 ```json
 { "id": "kitchen_switch", "display_name": "Kitchen Light Switch",
   "model": "home:wall_switch", "x": 58.3, "y": 1.2, "z": 8.47,
   "rotation_degrees": 270.0, "size": [0.18, 0.18, 0.1], "solid": false,
-  "interaction": { "prompt": "Switch", "reach": 1.6,
-                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
-                               { "action": "toggle_label" }] } }
+  "components": [
+    { "component": "interactable", "prompt": "Switch", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact",
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "toggle_label" }] }
+  ] }
 ```
 
 `reset_to_start` returns every toggle to its rest end (`t = 0`) rather than
 dropping it, so a reset switch does not keep the pose its last press left it
 in.
 
-`Level 0: The Pit` authors one `reset_to_start` trigger inside each of the 15
-carpet holes (the recessed 1.6x1.6 `floor_regions` at `offset_y: -3.2`):
+### Complete example: a switch that controls a light (and a door)
+
+The demo's `sauna_switch` drives a switchable fixture and the sauna leaf in one
+press. `toggle` on a light flips it between on and off; `set_light` with an
+explicit `"on"` is the deterministic alternative. The lever's animation works
+because the prop itself carries the `animation` component:
 
 ```json
-{ "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
-  "bottom_y": -3.2, "top_y": -0.05,
-  "actions": [{ "action": "reset_to_start" }], "cooldown_seconds": 0.5 }
+{ "id": "sauna_switch", "display_name": "Sauna Switch", "model": "home:wall_switch",
+  "x": 26.16, "y": 1.2, "z": 12.2, "rotation_degrees": 90.0,
+  "size": [0.18, 0.18, 0.1], "solid": false,
+  "components": [
+    { "component": "interactable", "prompt": "Sauna switch", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact",
+      "actions": [
+        { "action": "toggle_animation", "clip": "toggle" },
+        { "action": "toggle", "target": "sauna_light" },
+        { "action": "toggle", "target": "sauna_door" }
+      ] }
+  ] }
 ```
 
-The `top_y` sits 5 cm below the hall floor so standing on the carpet beside a
-hole never counts as an entry; the bottom reaches the hole floor so any fall
-crosses the band.
+```json
+{ "fixture": "core:fluorescent_panel_01", "id": "sauna_light",
+  "x": 31.0, "z": 13.0, "brightness": 0.9, "switchable": true }
+```
+
+The light toggles through its **prepared lightmap layer**: the switch selects
+the on or off lighting the compiler baked, so the room's illumination really
+changes; a fixture that is not `switchable` never changes illumination, and an
+`animated_emissions[]` flicker animates only the face's glow.
+
+### Complete example: trigger volume → timer → sequence
+
+One small volume, one headless timer and one sequence chain a state change and
+an emitted cue to the sauna threshold. The volume arms the timer once; the
+timer starts the sequence on the door; the sequence waits, writes the door's
+state and emits a keyed event:
+
+```json
+"volumes": [
+  { "id": "sauna_warmup_zone", "x": 26.5, "z": 12.7, "width": 1.2, "depth": 1.2,
+    "bindings": [
+      { "on": "enter_volume", "once": true,
+        "actions": [
+          { "action": "set_state", "target": "sauna_warmup_timer",
+            "name": "phase", "value": "armed" },
+          { "action": "start_timer", "target": "sauna_warmup_timer" }
+        ] }
+    ] }
+],
+"timers": [
+  { "id": "sauna_warmup_timer", "seconds": 1.5, "repeat": false,
+    "bindings": [
+      { "on": "timer",
+        "actions": [ { "action": "start_sequence", "sequence": "sauna_warmup",
+                       "target": "sauna_door" } ] }
+    ] }
+],
+"sequences": [
+  { "id": "sauna_warmup", "steps": [
+      { "step": "wait", "seconds": 0.5 },
+      { "step": "set_state", "name": "phase", "value": "warm" },
+      { "step": "emit", "on": "timer", "key": "warm" }
+    ] }
+]
+```
+
+The door must author the state the sequence writes, so `sauna_door` carries
+`{ "component": "state", "name": "phase", "value": "cold" }` beside its
+interactable component:
+
+```json
+{ "id": "sauna_door", "x": 26.08, "y": 0.0, "z": 12.5,
+  "rotation_degrees": 270.0, "width": 1.6, "height": 2.1, "thickness": 0.05,
+  "open_direction": "left", "swing_degrees": 95.0, "open_speed_degrees": 90.0,
+  "initial_state": "open", "kind": "sauna",
+  "components": [
+    { "component": "interactable", "prompt": "Sauna door" },
+    { "component": "state", "name": "phase", "value": "cold" }
+  ],
+  "bindings": [ { "on": "interact", "actions": [{ "action": "toggle" }] } ] }
+```
 
 ---
-
 ## 30. Doors, Switches and Effects
 
-A door is a single movable leaf with its own state machine, collision and action
-surface; `effects[]` adds presentation-only ambient emitters. Every field below is
-verified against `src/level.rs` (`DoorDef`, `EffectDef`, `ActionDef`),
-`src/loader.rs` (`validate_doors`, `validate_effects`, `validate_action_list`) and
+A door is a single movable leaf with its own state machine, collision and
+component/binding surface; `effects[]` adds presentation-only ambient emitters.
+Every field below is verified against `src/level.rs` (`DoorDef`, `EffectDef`),
+`src/loader.rs` (`validate_doors`, `validate_effects`, `validate_bindings`) and
 `src/door.rs`.
 
 ### Doors
@@ -4081,7 +4460,7 @@ over the void is a named error.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
-| `id` | string | **yes** | — | Stable entity id. Must be unique across props, light fixtures, doors and area triggers; a duplicate or malformed id is a load error. |
+| `id` | string | **yes** | — | Stable entity id. Must be unique across props, light fixtures, doors, trigger volumes, timers and spawn points; a duplicate or malformed id is a load error. |
 | `x`, `z` | number | **yes** | — | World X/Z of the hinge edge. The hinge must sit over a walkable floor. |
 | `y` | number | no | `0.0` | Leaf bottom above the walkable floor under the hinge. |
 | `rotation_degrees` | number | no | `0.0` | Yaw of the closed leaf: `0` runs toward `+X`, `90` toward `-Z`. |
@@ -4093,12 +4472,19 @@ over the void is a named error.
 | `open_speed_degrees` | number | no | `120.0` | Angular speed while opening, in degrees/second, `> 0`, `≤ 720`. |
 | `close_speed_degrees` | number | no | `open_speed_degrees` | Angular speed while closing. |
 | `initial_state` | `"closed"` \| `"open"` | no | `"closed"` | Start at angle 0 or at the full swing. |
-| `manual_interaction` | boolean | no | `true` | `false` marks an externally controlled door: it moves only when a map action drives it and is never an interaction target. |
-| `prompt` | string | no | `"Open"`/`"Close"` by phase | Interaction prompt shown while the leaf is the target. |
-| `reach` | number | no | `2.5` | Interaction reach in metres; `> 0`, `≤ 4.0`. |
+| `locked` | boolean | no | `false` | `true` starts the leaf locked: it refuses to open (and reports the refusal once) until an `unlock` action runs. |
+| `components` | array | no | `[]` | Typed components. A manually interactable door authors `{ "component": "interactable", "prompt": "…" }`; a door that only map actions drive carries neither component nor binding. |
+| `bindings` | array | no | `[]` | What the leaf's events do. A manual door authors `{ "on": "interact", "actions": [{ "action": "toggle" }] }`. |
 | `obstruction` | `"stop"` \| `"reverse"` | no | `"stop"` | What the sweep does when it meets the player or solid geometry. `stop` holds and resumes when clear; `reverse` flips direction once per obstruction (a 0.4 s guard stops chatter). |
 | `kind` | `"interior"` \| `"sauna"` | no | `"interior"` | Visual build (see below). |
 | `material`, `frame_material`, `handle_material` | string | no | kind defaults | Per-door material overrides for the leaf, the static frame and the handle. |
+
+A **manual** door is an `interactable` component plus an `interact` binding;
+its aim bound follows the live collider as the leaf swings, and its prompt is
+authored inside the component (`"Open"`/`"Close"` by phase when omitted). A
+door with neither is **externally controlled**: it moves only when an action
+drives it. In v3 a door has **no floating label**; `toggle_label` targets
+placed props only.
 
 Two kinds ship:
 
@@ -4117,34 +4503,38 @@ moving leaf is advanced. `reset_to_start` returns every door to its authored
 
 ### Wiring doors and lights
 
-Doors are driven by the same typed action set as props and triggers (§29). A
-door's own interaction (the default, with `manual_interaction: true`) toggles it
-on a press; any prop's `interaction.actions` or an `area_triggers[].actions`
-batch may also drive it:
+Doors are driven by the same typed action set as props and volumes (§29). A
+manual door's `interact` binding toggles it on a press; any prop's or volume's
+bindings may also drive it:
 
 | Action | Effect |
 | --- | --- |
-| `open` | Drive the target door to its open end. |
-| `close` | Drive the target door to its closed end. |
-| `toggle` | Flip a door between its ends, mid-travel included; on a `switchable` light fixture, flip it between enabled and disabled. |
+| `open` / `close` | Drive the target door to its open / closed end. |
+| `toggle` | Flip a door between its ends, mid-travel included; on a switchable ceiling fixture (`"switchable": true`), flip its switch. |
+| `set_light` | Set a switchable ceiling fixture explicitly with `"on": true`/`false`. |
+| `lock` / `unlock` | Refuse/resume opening until unlocked. |
 | `reset_to_start` | Return every door to its authored `initial_state` (and ends the batch). |
 
-A `ceiling_lights` entry with `"switchable": true` becomes a valid `toggle`
-target. Targets are validated at load: a duplicate id, an unknown target, or an
-action/target combination that is not supported (`open` on a light fixture, for
-example) is a named error. At most 8 actions run per source.
+A `ceiling_lights` entry with `"switchable": true` is a valid `set_light` or
+`toggle` target. Targets are validated at load: a duplicate id, an unknown
+target, or an action/target combination that is not supported (`open` on a
+light fixture, for example) is a named error. At most 8 actions run per
+binding or sequence step.
 
 ### Interactive door
 
 The demo's `hall_door` (Places Demo): a white interior leaf the player opens with
-`E`. Its wall authors a matching walk-through opening (a `passage` in the demo's
-own labelling):
+`E`, authored as an `interactable` component plus its own `interact` -> `toggle`
+binding. Its wall authors a matching walk-through opening (a `passage` in the
+demo's own labelling):
 
 ```json
 { "id": "hall_door", "x": 60.3, "y": 0.0, "z": 3.0,
   "rotation_degrees": 0.0, "width": 1.4, "height": 2.1, "thickness": 0.045,
   "open_direction": "left", "swing_degrees": 90.0, "open_speed_degrees": 130.0,
-  "initial_state": "closed", "manual_interaction": true, "prompt": "Hall door" }
+  "initial_state": "closed",
+  "components": [ { "component": "interactable", "prompt": "Hall door" } ],
+  "bindings": [ { "on": "interact", "actions": [{ "action": "toggle" }] } ] }
 ```
 
 ```json
@@ -4154,18 +4544,24 @@ own labelling):
 ### Multi-action switch (door + label + light)
 
 One press can compose several actions in order. The demo's `sauna_switch` plays
-the lever clip, toggles its switchable lamp and drives the sauna door in one
-batch; the corridor's `hall_switch` does the same for the hall door and its
-floating label:
+the lever clip, flips its switchable lamp and drives the sauna door in one
+binding; the corridor's `hall_switch` toggles the hall door the same way. Both
+carry the `animation` component that `toggle_animation` requires:
 
 ```json
 { "id": "sauna_switch", "display_name": "Sauna Switch",
   "model": "home:wall_switch", "x": 26.16, "y": 1.2, "z": 12.2,
   "rotation_degrees": 90.0, "size": [0.18, 0.18, 0.1], "solid": false,
-  "interaction": { "prompt": "Sauna switch", "reach": 1.6,
-                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
-                               { "action": "toggle", "target": "sauna_light" },
-                               { "action": "toggle", "target": "sauna_door" }] } }
+  "components": [
+    { "component": "interactable", "prompt": "Sauna switch", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact",
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "toggle", "target": "sauna_light" },
+                  { "action": "toggle", "target": "sauna_door" }] }
+  ] }
 ```
 
 ```json
@@ -4177,64 +4573,73 @@ floating label:
 { "id": "hall_switch", "display_name": "Hall Light Switch",
   "model": "home:wall_switch", "x": 60.3, "y": 1.2, "z": 3.2,
   "rotation_degrees": 180.0, "size": [0.18, 0.18, 0.1], "solid": false,
-  "interaction": { "prompt": "Hall switch", "reach": 1.6,
-                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
-                               { "action": "toggle", "target": "hall_door" },
-                               { "action": "toggle_label", "target": "hall_door" }] } }
+  "components": [
+    { "component": "interactable", "prompt": "Hall switch", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact",
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "toggle", "target": "hall_door" }] }
+  ] }
 ```
 
 ### Triggered door (externally controlled)
 
-`levels/level0_pit.json` authors the `pit_gate` leaf with
-`manual_interaction: false`, so it is never an interaction target, and drives it
-from two area triggers: one opens it as the player approaches, the other closes
-it once they are through.
+`levels/level0_pit.json` authors the `pit_gate` leaf with **no** interactable
+component or binding, so it is never an interaction target, and drives it from
+two volumes: one opens it as the player approaches, the other closes it once
+they are through.
 
 ```json
 { "id": "pit_gate", "x": 17.7, "y": 0.0, "z": -16.0,
   "rotation_degrees": 0.0, "width": 1.6, "height": 2.2, "thickness": 0.045,
   "open_direction": "left", "swing_degrees": 92.0, "open_speed_degrees": 110.0,
-  "initial_state": "closed", "manual_interaction": false }
+  "initial_state": "closed" }
 ```
 
 ```json
 { "id": "pit_gate_approach", "x": 17.0, "z": -14.8, "width": 3.0, "depth": 0.5,
   "bottom_y": 0.0, "top_y": 2.0,
-  "actions": [{ "action": "open", "target": "pit_gate" }],
-  "cooldown_seconds": 1.0 }
+  "bindings": [ { "on": "enter_volume", "cooldown_seconds": 1.0,
+                  "actions": [{ "action": "open", "target": "pit_gate" }] } ] }
 ```
 
 ```json
 { "id": "pit_gate_passed", "x": 17.0, "z": -16.6, "width": 3.0, "depth": 0.4,
   "bottom_y": 0.0, "top_y": 2.0,
-  "actions": [{ "action": "close", "target": "pit_gate" }],
-  "cooldown_seconds": 1.5 }
+  "bindings": [ { "on": "enter_volume", "cooldown_seconds": 1.5,
+                  "actions": [{ "action": "close", "target": "pit_gate" }] } ] }
 ```
 
 ### Externally controlled door (initially open)
 
-The demo's `study_door` starts open, only a map action moves it, and its
-`prompt` is omitted because it is never aimed at:
+The demo's `study_door` starts open, only a map action moves it, and it authors
+neither an interactable component nor a binding, so it is never aimed at:
 
 ```json
 { "id": "study_door", "x": 64.85, "y": 0.0, "z": 5.8,
   "rotation_degrees": 90.0, "width": 1.4, "height": 2.1, "thickness": 0.045,
   "open_direction": "right", "swing_degrees": 88.0,
-  "initial_state": "open", "manual_interaction": false }
+  "initial_state": "open" }
 ```
 
 ### Sauna door
 
 The demo's `sauna_door` authors `"kind": "sauna"`; the cedar/glass build and its
 default materials come from the kind, and the leaf still needs its matching wall
-opening:
+opening. It also carries the `phase` state the warmup sequence writes:
 
 ```json
 { "id": "sauna_door", "x": 26.08, "y": 0.0, "z": 12.5,
   "rotation_degrees": 270.0, "width": 1.6, "height": 2.1, "thickness": 0.05,
   "open_direction": "left", "swing_degrees": 95.0, "open_speed_degrees": 90.0,
-  "initial_state": "closed", "manual_interaction": true, "kind": "sauna",
-  "prompt": "Sauna door" }
+  "initial_state": "open", "kind": "sauna",
+  "components": [
+    { "component": "interactable", "prompt": "Sauna door" },
+    { "component": "state", "name": "phase", "value": "cold" }
+  ],
+  "bindings": [ { "on": "interact", "actions": [{ "action": "toggle" }] } ] }
 ```
 
 ### Effects: steam
@@ -4246,7 +4651,9 @@ above the walkable floor, `width`/`depth` are its footprint, `height` is the
 plume's rise, `count` is the particle budget, `size` the billboard size, `drift`
 the horizontal wander, `lifetime_seconds` how long one particle takes to cross
 the plume, and `material` the billboard's material (omitted means the engine's
-steam default, `core:steam_01`).
+steam default, `core:steam_01`). An effect also takes the generic `enabled`
+flag and its own `bindings` (for example an `on: "interact"` or timer-driven
+`enable`/`disable` pair), though no shipped level needs one yet.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
@@ -4261,6 +4668,8 @@ steam default, `core:steam_01`).
 | `drift` | number | no | `0.0` | Horizontal wander amplitude, `≥ 0`. |
 | `lifetime_seconds` | number | no | `3.0` | Seconds one particle takes to cross the plume, `> 0`, `≤ 60`. |
 | `material` | string | no | `core:steam_01` | Material id for the billboards. |
+| `enabled` | boolean | no | `true` | `false` starts the emitter off; `enable`/`disable` actions drive it. |
+| `bindings` | array | no | `[]` | The emitter's own event bindings. |
 
 Two steam emitters in the demo's sauna:
 
@@ -4396,7 +4805,7 @@ game and appears in Level Select as **Model Zoo**.
 * three concrete-mannequin poses (`pose_stand`, `pose_arms_up`,
   `pose_arms_forward`) and three skeleton poses (`pose_stand`, `pose_sit_floor`,
   `pose_sit_chair`), each held as its rest pose by a one-step route and
-  replayable through its own interaction;
+  replayable through its own `play_animation` binding;
 * a skeleton chair pose seated on a real `core:chair`, placed with the offset
   documented in `assets/entities/skeleton/README.md`;
 * a walking rat and a running rat on separate routes at their measured
@@ -4410,7 +4819,11 @@ game and appears in Level Select as **Model Zoo**.
   `core:table`, the CRT on its own media table, and the yellow duck floating in
   a contained basin with a real ladder volume;
 * two curved walls and two circular pillars in more than one material, and
-  ceiling vent decals snapped to the room's own panel grid.
+  ceiling vent decals snapped to the room's own panel grid;
+* the generic-spawn demonstration: the crate display's `interact` binding runs
+  `spawn_entity` for a half-scale `core:crate` template (20 s lifetime, a
+  `phase` state) at a floor spawn point in an `at_most_one_active` group, so a
+  second press while the crate is alive is refused with a diagnostic.
 
 ### Generating and checking it
 
@@ -4522,8 +4935,8 @@ authoring. They are not invitations to change the engine as part of an authoring
 19. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
-20. **Audio actions remain unsupported.** Validation rejects `play_audio` by name. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime.
-21. **An interaction's aimable bound uses the same size contract as collision.**
+20. **Audio has no device backend.** There is no audio subsystem in this tree: the `audio` component and `play_sound`/`stop_sound` are implemented as typed emitter state that the frame loop reports once, but nothing is audible, and `play_audio` no longer exists as a tag. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime, and their target must carry an `animation` component.
+21. **An interactable's aimable bound uses the same size contract as collision.**
     It is the level `size` (or `[0.6, 0.9, 0.6]`), scaled — never the catalog size.
     A small prop with no authored `size` is aimable as a standard box, so a map that
     needs a precise aim target authors `size`. A manually interactable door's aim
@@ -4592,23 +5005,26 @@ No decals on this ceiling; walls may omit `height` to follow the slope.
 2. Place the leaf by its **hinge** (see [§30](#30-doors-switches-and-effects)):
    `x`/`z` at the hinge jamb, `y` above the local walkable floor,
    `rotation_degrees` aiming the closed leaf (`0` = +X, `90` = −Z).
-3. Give it a unique `id`; author `prompt`/`reach` if the defaults do not fit.
+3. Give it a unique `id`; give it an `interactable` component (with
+   `prompt`/`reach` if the defaults do not fit) and its own `interact` binding.
 4. Check the swing clears the room: `open_direction` and `swing_degrees` decide
    which side the leaf moves to.
 
 ```json
 { "id": "office_door", "x": 2.0, "y": 0.0, "z": 0.15,
   "rotation_degrees": 0.0, "width": 0.9, "height": 2.1,
-  "open_direction": "left", "swing_degrees": 90.0, "prompt": "Office door" }
+  "open_direction": "left", "swing_degrees": 90.0,
+  "components": [ { "component": "interactable", "prompt": "Office door" } ],
+  "bindings": [ { "on": "interact", "actions": [{ "action": "toggle" }] } ] }
 ```
 
 ```json
 { "kind": "door", "offset": 1.55, "width": 0.9, "height": 2.1, "sill": 0.0 }
 ```
 
-For a sauna leaf, add `"kind": "sauna"`; for an externally controlled door, add
-`"manual_interaction": false` and drive it with `open`/`close`/`toggle` actions
-from a switch or an area trigger.
+For a sauna leaf, add `"kind": "sauna"`; for an externally controlled door,
+author no `interactable` component and no binding, and drive it with
+`open`/`close`/`toggle`/`lock` actions from a switch or a trigger volume.
 
 ## Add a window
 
@@ -4841,37 +5257,98 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
   "count": 20, "size": 0.34, "drift": 0.16, "lifetime_seconds": 3.2 }
 ```
 
-## Package a level as a `.zip` pack
+## Add a switch that controls a light
 
-1. Put `level.json` at the pack root (the file name is required).
-2. Optionally add `materials.json` and PNGs under `textures/`.
-3. Declare pack materials with `pack:` ids inside `materials.json`, then reference
-   those ids from `level.json`.
-4. Keep the pack within the limits: ≤ 500 entries, ≤ 10 MB per entry, ≤ 50 MB total
-   uncompressed. Safe extensions: `.exe`, `.sh`, `.bat`, `.so`, `.dylib`, `.dll`,
-   `.bin`, `.wasm` are skipped.
-5. Drop the `.zip` into `levels/` (or use the import flow) and boot it with
-   `PLACES_LEVEL=<id>`.
+1. Give the fixture a stable `id` and `switchable: true`; without that flag the
+   action is a load error and its illumination can never change.
+2. Give the switch prop an `interactable` component, and an `animation`
+   component when its model has a lever clip.
+3. Wire one `interact` binding: `toggle_animation` for the lever, then `toggle`
+   (or `set_light` with an explicit `"on"`) on the fixture.
 
 ```json
-{
-  "materials": {
-    "pack:lobby_wall": {
-      "texture": "textures/wall_lobby.png",
-      "tile_metres": 2.0,
-      "tint": [1.0, 0.98, 0.94]
-    },
-    "pack:sign_face": {
-      "texture": "textures/sign_face.png",
-      "tile_metres": 1.0,
-      "emissive": [1.0, 0.9, 0.6],
-      "emissive_intensity": 1.5,
-      "alpha_mode": "blend",
-      "opacity": 0.9
-    }
-  }
-}
+{ "id": "hall_switch", "model": "home:wall_switch", "x": 60.3, "y": 1.2, "z": 3.2,
+  "rotation_degrees": 180.0, "size": [0.18, 0.18, 0.1], "solid": false,
+  "components": [
+    { "component": "interactable", "prompt": "Hall switch", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact",
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "toggle", "target": "hall_light" }] }
+  ] }
 ```
+
+```json
+{ "fixture": "core:fluorescent_panel_01", "id": "hall_light",
+  "x": 61.0, "z": 3.2, "brightness": 0.6, "switchable": true }
+```
+
+## Add a trigger → timer → sequence chain
+
+1. Author a small `volumes[]` entry over the spot the player must cross; its
+   `enter_volume` binding is `once: true` when the chain must run a single time.
+2. The binding arms the timer: `set_state` (optional, so a `state` condition can
+   see the phase) then `start_timer`.
+3. Author the `timers[]` entry (headless: no geometry) whose `on: "timer"`
+   binding runs `start_sequence` on the entity the sequence should control.
+4. Author the `sequences[]` steps; give the sequence's owner a `state` component
+   with the name the sequence writes.
+5. Keep the chain short: one wait, one state write, one emission is a full,
+   readable example (see [§29](#29-entities-components-bindings-volumes-timers-sequences-and-spawns)).
+
+```json
+"volumes": [
+  { "id": "sauna_warmup_zone", "x": 26.5, "z": 12.7, "width": 1.2, "depth": 1.2,
+    "bindings": [
+      { "on": "enter_volume", "once": true,
+        "actions": [
+          { "action": "set_state", "target": "sauna_warmup_timer",
+            "name": "phase", "value": "armed" },
+          { "action": "start_timer", "target": "sauna_warmup_timer" }
+        ] }
+    ] }
+],
+"timers": [
+  { "id": "sauna_warmup_timer", "seconds": 1.5, "repeat": false,
+    "bindings": [
+      { "on": "timer",
+        "actions": [{ "action": "start_sequence",
+                      "sequence": "sauna_warmup", "target": "sauna_door" }] }
+    ] }
+],
+"sequences": [
+  { "id": "sauna_warmup", "steps": [
+      { "step": "wait", "seconds": 0.5 },
+      { "step": "set_state", "name": "phase", "value": "warm" },
+      { "step": "emit", "on": "timer", "key": "warm" }
+    ] }
+]
+```
+
+## Compile a level into a `.placesmap`
+
+1. Author the level JSON as described in this guide, then validate it with the
+   loader tests (`python3 -m unittest tests.test_package`) and
+   `cargo test --workspace --all-features`.
+2. Compile it:
+   `./target/release/places-compile build my_level.json`
+   The compiler runs the static preparation (lighting bake, geometry, lightmap
+   atlas, collision, reflection probe capture) and writes `my_level.placesmap`
+   beside the source. Use `--variants off,medium,full` to choose the packaged
+   lightmap qualities, `--workers N` to bound CPU use, and `--force` to rebuild
+   when the incremental check says the package is current.
+3. Verify the result: `./target/release/places-compile validate my_level.placesmap`
+   decodes every record and re-hashes every entry;
+   `./target/release/places-compile inspect my_level.placesmap` prints the
+   manifest and resource list.
+4. Drop the `.placesmap` into `levels/` (or use the in-game Import action) and
+   boot it with `PLACES_LEVEL=<id>`. Editing the source again leaves the package
+   stale; recompile rather than editing records by hand.
+
+`./target/release/places-compile build-collection levels/` compiles every source
+in a directory, reporting per-source failures without blocking the others.
 
 ## Add a new texture
 
@@ -5089,7 +5566,11 @@ when adding or changing:
 * level fields, collections, defaults, or validation limits;
 * geometry types (rooms, walls, profiles, patches, regions);
 * opening types or opening behavior, including `glass` and `solid`;
-* door kinds, door fields, door actions or switchable fixtures;
+* door kinds, door fields, door actions, switchable fixtures, or the
+  locked/externally-controlled contract;
+* component kinds or fields, event kinds, condition checks, action tags or
+  their legal targets;
+* trigger volume, timer, sequence or spawn fields and their limits;
 * effect kinds or effect fields;
 * texture kinds, formats, size rules or wrapping;
 * material properties or resolution behavior;

@@ -1,17 +1,18 @@
-//! Real baked static lightmaps for the static world geometry.
+//! Prepared HDR lightmaps for the static world geometry.
 //!
-//! The lightmap path adds one thing on top of the baked-vertex lighting model:
-//! the light that the vertex-colour path carries is instead baked into a texel
-//! atlas, and the fragment shader multiplies the surface texture by the atlas
-//! texel. Nothing about the *lighting model* changes — every texel is one
-//! [`crate::lighting::LevelLighting::sample_in_room`] call — only where the
-//! result is stored.
+//! The lightmap path stores the offline transport solve
+//! ([`crate::lighting::transport`]) per texel in a linear HDR atlas. Every texel
+//! carries two values: an *irradiance* term and a *directional* moment, which
+//! the fragment shader reconstructs as
+//! `light(n) = max(0, irradiance + dot(direction, n))`. The surface texture is
+//! multiplied by that reconstructed light exactly once; albedo never appears in
+//! the stored light.
 //!
 //! ```text
-//! mesh emitter                    atlas builder (bake time)
-//!    quad -> LightmapPatch      fill_chart() -> chart.width x chart.height RGB
+//! mesh emitter                     transport solver (bake time)
+//!    quad -> LightmapPatch      solve() -> chart.width x chart.height texels
 //!         -> Chart                 -> page texels + dilated gutter
-//!         -> Vertex::lightmap       -> one RGB8 texture per page
+//!         -> Vertex::lightmap       -> one RGBA16F layer pair per page
 //! ```
 //!
 //! The vertex-lit path stays alive as an exact fallback: a vertex whose
@@ -22,28 +23,222 @@
 //! Module layout
 //! -------------
 //! ```text
-//! mod.rs     the frozen types shared by the emitter, the fill pass and the renderer
-//! atlas.rs   the deterministic MAXRECTS packer, atlas pages and PNG debugging
+//! mod.rs     the frozen types shared by the emitter, the solver and the renderer
+//! atlas.rs   the deterministic MAXRECTS packer, HDR pages and PNG debugging
 //! plan.rs    the per-level plan built while the mesh is emitted
-//! fill.rs    the per-texel light evaluation, called by the atlas builder
 //! cache.rs   the deterministic content key and the level lightmap cache
 //! tests.rs   unit tests for the whole tree
 //! ```
 
 mod atlas;
 mod cache;
-pub(crate) mod fill;
 mod plan;
 
 #[cfg(test)]
-mod continuity;
-#[cfg(test)]
 mod tests;
 
-pub use atlas::{ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, write_page_png};
+pub use atlas::{
+    ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, read_page_texel, write_page_png,
+};
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
-pub use fill::{fill_chart, fill_chart_cancellable};
-pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats};
+pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats, SwitchableLightmaps};
+
+/// The two linear HDR values one lightmap texel stores.
+///
+/// `irradiance` is the isotropic term and `direction` the dominant lobe's
+/// per-channel amplitude, in the same linear HDR "display light" units the
+/// offline transport solver produces; `axis` is that lobe's incoming direction,
+/// octahedrally packed into two `0..=1` coordinates. The shader reconstructs
+/// `max(0, irradiance + direction * (2 * max(0, dot(n, decode(axis))) - 1))`:
+/// exact at the dominant light's direction, dark for a surface facing away,
+/// and mean-exact over the sphere (the directional factor integrates to zero),
+/// so a normal-mapped or curved surface sees a real directional response
+/// instead of one uniform value.
+///
+/// The per-channel amplitude keeps a colored room's bounce directional in the
+/// same proportions as its isotropic term, and a field with no dominant
+/// direction (two opposing lights, a fully diffuse room) has a zero amplitude
+/// and reconstructs to `irradiance` alone.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct LightmapTexel {
+    /// Isotropic irradiance term, linear HDR, never negative.
+    pub irradiance: [f32; 3],
+    /// Per-channel amplitude of the dominant directional lobe.
+    pub direction: [f32; 3],
+    /// Octahedral `(x, y)` coordinates in `0..=1` of the dominant direction.
+    pub axis: [f32; 2],
+}
+
+impl LightmapTexel {
+    /// A black texel.
+    pub const ZERO: Self = Self {
+        irradiance: [0.0; 3],
+        direction: [0.0; 3],
+        axis: [0.5, 0.5],
+    };
+
+    /// The texel with non-finite channels zeroed and negative values clamped.
+    #[must_use]
+    pub fn normalized(self) -> Self {
+        let mut out = Self::ZERO;
+        for (channel, slot) in out.irradiance.iter_mut().enumerate() {
+            let value = self.irradiance.get(channel).copied().unwrap_or(0.0);
+            *slot = if value.is_finite() {
+                value.max(0.0)
+            } else {
+                0.0
+            };
+        }
+        for (channel, slot) in out.direction.iter_mut().enumerate() {
+            let value = self.direction.get(channel).copied().unwrap_or(0.0);
+            *slot = if value.is_finite() {
+                value.max(0.0)
+            } else {
+                0.0
+            };
+        }
+        for (slot, value) in out.axis.iter_mut().zip(self.axis) {
+            *slot = if value.is_finite() {
+                value.clamp(0.0, 1.0)
+            } else {
+                0.5
+            };
+        }
+        out
+    }
+
+    /// The reconstructed light at `normal`, in linear HDR units.
+    #[must_use]
+    pub fn light_at(self, normal: [f32; 3]) -> [f32; 3] {
+        let direction = oct_decode(self.axis);
+        let cosine = normal[2].mul_add(
+            direction[2],
+            normal[1].mul_add(direction[1], normal[0] * direction[0]),
+        );
+        let lobe = cosine.max(0.0).mul_add(2.0, -1.0);
+        let mut out = [0.0_f32; 3];
+        for (channel, slot) in out.iter_mut().enumerate() {
+            let a = self.irradiance.get(channel).copied().unwrap_or(0.0);
+            let d = self.direction.get(channel).copied().unwrap_or(0.0);
+            let value = d.mul_add(lobe, a);
+            *slot = if value.is_finite() {
+                value.max(0.0)
+            } else {
+                0.0
+            };
+        }
+        out
+    }
+
+    /// Per-channel sum of two texels.
+    ///
+    /// Used to layer a switchable fixture's prepared contribution on top of
+    /// the base solve. Two dominant lobes cannot be summed in this compact
+    /// representation, so the result keeps the stronger lobe's axis and adds
+    /// the amplitudes; the same bounded approximation the solver makes when a
+    /// texel gathers several directions.
+    #[must_use]
+    pub fn plus(self, other: Self) -> Self {
+        let self_energy = self.direction.iter().map(|value| value.abs()).sum::<f32>();
+        let other_energy = other.direction.iter().map(|value| value.abs()).sum::<f32>();
+        let axis = if other_energy > self_energy {
+            other.axis
+        } else {
+            self.axis
+        };
+        Self {
+            irradiance: [
+                self.irradiance[0] + other.irradiance[0],
+                self.irradiance[1] + other.irradiance[1],
+                self.irradiance[2] + other.irradiance[2],
+            ],
+            direction: [
+                self.direction[0] + other.direction[0],
+                self.direction[1] + other.direction[1],
+                self.direction[2] + other.direction[2],
+            ],
+            axis,
+        }
+        .normalized()
+    }
+
+    /// True when every channel is finite.
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.irradiance.iter().all(|value| value.is_finite())
+            && self.direction.iter().all(|value| value.is_finite())
+            && self.axis.iter().all(|value| value.is_finite())
+    }
+}
+
+/// Packs a unit direction into two `0..=1` octahedral coordinates.
+///
+/// The standard octahedral map: the sphere is projected onto the octahedron
+/// `|x| + |y| + |z| = 1` and unfolded into the unit square. A zero or
+/// non-finite direction maps to the centre (the `+Z` pole), which is harmless
+/// because a zero amplitude ignores the axis entirely.
+#[must_use]
+pub fn oct_encode(direction: [f32; 3]) -> [f32; 2] {
+    if !direction.iter().all(|value| value.is_finite()) {
+        return [0.5, 0.5];
+    }
+    let norm = direction[0].abs() + direction[1].abs() + direction[2].abs();
+    if !norm.is_finite() || norm <= 1.0e-9 {
+        return [0.5, 0.5];
+    }
+    let mut x = direction[0] / norm;
+    let mut y = direction[1] / norm;
+    if direction[2] < 0.0 {
+        let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
+        let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
+        let old_x = x;
+        x = (1.0 - y.abs()) * sign_x;
+        y = (1.0 - old_x.abs()) * sign_y;
+    }
+    // `x` and `y` are in `-1..=1`; fold into `0..=1` for the half-float plane.
+    [x.midpoint(1.0), y.midpoint(1.0)]
+}
+
+/// Unpacks the two octahedral coordinates back to a unit direction.
+#[must_use]
+pub fn oct_decode(axis: [f32; 2]) -> [f32; 3] {
+    let x = if axis[0].is_finite() {
+        axis[0].clamp(0.0, 1.0).mul_add(2.0, -1.0)
+    } else {
+        0.0
+    };
+    let y = if axis[1].is_finite() {
+        axis[1].clamp(0.0, 1.0).mul_add(2.0, -1.0)
+    } else {
+        0.0
+    };
+    let z = 1.0 - x.abs() - y.abs();
+    let decoded = if z < 0.0 {
+        let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
+        let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
+        let old_x = x;
+        [(1.0 - y.abs()) * sign_x, (1.0 - old_x.abs()) * sign_y, z]
+    } else {
+        [x, y, z]
+    };
+    // Interpolated coordinates are not exactly on the unit sphere, so the
+    // decode normalises; a degenerate pair falls back to the +Z pole, which a
+    // zero amplitude ignores anyway.
+    let length = decoded[2]
+        .mul_add(
+            decoded[2],
+            decoded[1].mul_add(decoded[1], decoded[0] * decoded[0]),
+        )
+        .sqrt();
+    if !length.is_finite() || length <= 1.0e-9 {
+        return [0.0, 0.0, 1.0];
+    }
+    [
+        decoded[0] / length,
+        decoded[1] / length,
+        decoded[2] / length,
+    ]
+}
 
 /// Why a lightmap build did not produce a usable atlas.
 ///
@@ -64,6 +259,8 @@ pub enum LightmapFailure {
     FillNonFinite,
     /// The configured page/budget combination cannot describe an atlas.
     InvalidConfig,
+    /// The static scene exceeded the transport solver's triangle budget.
+    TransportScene,
     /// The renderer could not upload an atlas page.
     Upload,
 }
@@ -79,6 +276,7 @@ impl LightmapFailure {
             Self::FillSize => "fill size",
             Self::FillNonFinite => "non-finite fill",
             Self::InvalidConfig => "invalid config",
+            Self::TransportScene => "transport scene",
             Self::Upload => "page upload",
         }
     }
@@ -392,7 +590,9 @@ pub struct LightmapConfig {
     pub max_pages: usize,
     /// Gutter texels surrounding every chart, filled by dilation.
     pub padding: u32,
-    /// Bytes per atlas texel: 3 for the RGB8 pages the renderer uploads.
+    /// Bytes per atlas texel resident on the GPU: 16, i.e. two RGBA16F planes
+    /// (irradiance and direction). Kept as a config field so the content key
+    /// changes if the texel layout ever does.
     pub bytes_per_texel: u32,
 }
 
@@ -432,14 +632,14 @@ impl LightmapConfig {
                 page_edge: 1_024,
                 max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
                 padding: 2,
-                bytes_per_texel: 3,
+                bytes_per_texel: 16,
             },
             crate::quality::QualityProfile::Low => Self {
                 texels_per_metre: 9.0,
                 page_edge: 512,
                 max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
                 padding: 1,
-                bytes_per_texel: 3,
+                bytes_per_texel: 16,
             },
         }
     }

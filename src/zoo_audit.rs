@@ -121,19 +121,14 @@ fn the_zoo_contains_every_required_demonstration() {
         .props
         .iter()
         .filter(|prop| prop.model == "mannequin" || prop.model == "skeleton")
-        .filter_map(|prop| {
-            prop.interaction.as_ref().and_then(|interaction| {
-                interaction.actions.iter().find_map(|action| match action {
-                    crate::level::ActionDef::PlayAnimation { clip, .. } => clip.clone(),
-                    crate::level::ActionDef::ToggleLabel { .. }
-                    | crate::level::ActionDef::ResetToStart
-                    | crate::level::ActionDef::ToggleAnimation { .. }
-                    | crate::level::ActionDef::PlayAudio { .. }
-                    | crate::level::ActionDef::OpenDoor { .. }
-                    | crate::level::ActionDef::CloseDoor { .. }
-                    | crate::level::ActionDef::Toggle { .. } => None,
-                })
-            })
+        .flat_map(|prop| prop.bindings.iter())
+        .flat_map(|binding| binding.actions.iter())
+        .filter_map(|action| {
+            if let crate::level::ActionDef::PlayAnimation { clip, .. } = action {
+                clip.clone()
+            } else {
+                None
+            }
         })
         .collect();
     for required in [
@@ -209,8 +204,8 @@ fn the_zoo_contains_every_required_demonstration() {
         .props
         .iter()
         .filter(|prop| {
-            prop.interaction.as_ref().is_some_and(|interaction| {
-                interaction
+            prop.bindings.iter().any(|binding| {
+                binding
                     .actions
                     .iter()
                     .any(|action| matches!(action, crate::level::ActionDef::ToggleAnimation { .. }))
@@ -446,7 +441,7 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
     // at ±2 km; the controller must stand, walk and collide there.
     assert!(level.props.iter().any(|prop| prop.x.abs() > 1_900.0));
     assert!(!level.water.is_empty());
-    assert!(!level.area_triggers.is_empty());
+    assert!(!level.volumes.is_empty());
     assert!(!level.routes.is_empty());
     for room in level.room_iter() {
         let cx = room.x + room.width * 0.5;
@@ -464,7 +459,7 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
         );
     }
     // A rat walk far from the origin: the route must advance, not stall.
-    let routes = &world.routes;
+    let routes = world.world.routes();
     let route = routes
         .get("far_rat")
         .expect("the sparse fixture routes a rat");
@@ -485,11 +480,17 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
         (state.position - start).length()
     );
     assert!(!state.blocked, "the 2 km route must not stall: {state:?}");
-    // The reset trigger in the opposite quadrant must be reachable and bounded.
-    let trigger = &world.triggers;
+    // The reset volume in the opposite quadrant must be resolved and bounded.
+    let volumes = &world.world.components().volumes;
+    let far = volumes
+        .iter()
+        .find(|(handle, _)| world.world.id_of(*handle) == Some("far_trigger"))
+        .map(|(_, volume)| *volume)
+        .expect("the sparse fixture's reset volume is named far_trigger");
+    let mid_y = f32::midpoint(far.bottom_y, far.top_y);
     assert!(
-        !trigger.is_empty(),
-        "the sparse fixture authors a reset trigger"
+        far.contains(-2002.0, -2002.0, mid_y),
+        "the reset volume must cover its authored footprint: {far:?}"
     );
 }
 
@@ -531,7 +532,7 @@ fn the_raised_caps_accept_content_past_the_old_boundary() {
         ));
     }
     let json = format!(
-        r#"{{"format_version": 2, "id": "beyond_old_caps", "name": "Beyond Old Caps",
+        r#"{{"format_version": 3, "id": "beyond_old_caps", "name": "Beyond Old Caps",
             "spawn": {{"x": 1.0, "z": 1.0}},
             "rooms": [{}], "walls": [{}], "ceiling_lights": [{}], "props": [{}]}}"#,
         rooms.join(","),

@@ -278,6 +278,21 @@ impl SurfaceShine {
         f32::from(self.0) / 100.0
     }
 
+    /// Rebuilds a quantised shine from its stored whole-percent value.
+    ///
+    /// The compiled map package records the exact stored percent so a decoded
+    /// world batches identically to the world the compiler prepared.
+    #[must_use]
+    pub(crate) const fn from_percent(percent: u8) -> Self {
+        Self(percent)
+    }
+
+    /// The stored whole-percent value, for the compiled package codec.
+    #[must_use]
+    pub(crate) const fn percent(self) -> u8 {
+        self.0
+    }
+
     /// The shader-facing roughness, `1.0 - shine`.
     #[must_use]
     pub fn roughness(self) -> f32 {

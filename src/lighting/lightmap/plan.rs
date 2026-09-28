@@ -44,7 +44,7 @@ pub enum LightmapMode {
 }
 
 /// What one successful lightmap bake produced, in numbers.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LightmapStats {
     /// Charts baked (one per lightmapped quad).
     pub charts: usize,
@@ -63,7 +63,7 @@ pub struct LightmapStats {
 /// Everything a drawn level needs to sample its baked light.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LevelLightmaps {
-    /// One RGB8 page per atlas page, in page order.
+    /// One HDR page per atlas page, in page order.
     pub pages: Vec<LightmapPage>,
     /// Every chart, paired with the patch it covers, in plan order.
     pub charts: Vec<(LightmapPatch, Chart)>,
@@ -73,9 +73,26 @@ pub struct LevelLightmaps {
     pub cache_key: String,
     /// Gutter width around each chart's data rectangle, in atlas texels.
     ///
-    /// Kept so a runtime light switch can re-dilate exactly the charts it
-    /// rewrites; the page format itself does not store its padding.
+    /// Kept for diagnostics and the developer dump; the packaged page format
+    /// itself does not store its padding.
     pub padding: u32,
+    /// Prepared illumination contribution layers for switchable fixtures.
+    ///
+    /// Each entry carries one switchable light's own solve in the same chart
+    /// layout as [`Self::pages`]. The base pages exclude every switchable
+    /// light; the shader adds exactly the layers of the lights that are on, so
+    /// a runtime switch changes real illumination without a runtime bake. The
+    /// order is the light-index order the compiler recorded.
+    pub switchable: Vec<SwitchableLightmaps>,
+}
+
+/// One switchable light's prepared illumination contribution.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwitchableLightmaps {
+    /// Index into [`crate::lighting::LevelLighting::lights`].
+    pub light_index: usize,
+    /// The light's own contribution, one page per base page.
+    pub pages: Vec<LightmapPage>,
 }
 
 impl LevelLightmaps {
@@ -85,108 +102,30 @@ impl LevelLightmaps {
         self.charts.len()
     }
 
-    /// Re-fills every chart the light at `light_index` influences.
+    /// The layer index where `page`'s irradiance plane lives in the uploaded
+    /// array texture, for base illumination or switchable contribution
+    /// `switchable`.
     ///
-    /// `lighting` must already carry the light's new state. Only charts whose
-    /// patch lies within the light's fill reach are re-evaluated, so a switch
-    /// costs one light's worth of texels instead of a whole level bake. The
-    /// return value is the sorted, de-duplicated list of pages that changed;
-    /// the caller re-uploads exactly those.
-    ///
-    /// This is exact for a *switchable* fixture because such a fixture is
-    /// excluded from its room's baked baseline (see
-    /// [`crate::level::LightFixtureDef::switchable`]): only the fixture's own
-    /// pool and bounce-fill terms differ between its on and off states, and
-    /// those are confined to its reach. An unswitchable light has no runtime
-    /// state to change, so this returns no pages for one.
-    pub fn refill_light(
-        &mut self,
-        lighting: &crate::lighting::LevelLighting,
-        light_index: usize,
-    ) -> Vec<u16> {
-        let Some(light) = lighting.lights().get(light_index) else {
-            return Vec::new();
-        };
-        let centre = [light.x(), light.y(), light.z()];
-        if !centre.iter().all(|value| value.is_finite()) {
-            return Vec::new();
-        }
-        let reach = light.range().max(0.0).mul_add(
-            crate::lighting::FILL_RANGE_MULTIPLIER,
-            REFILL_REACH_MARGIN_M,
-        );
-        let mut dirty: Vec<u16> = Vec::new();
-        for (patch, chart) in &self.charts {
-            if !patch_within_reach(patch, centre, reach) {
-                continue;
-            }
-            let Some(page) = self.pages.get_mut(usize::from(chart.page)) else {
-                continue;
-            };
-            let colors = super::fill::fill_chart(lighting, patch, chart);
-            if page.rewrite_chart(chart, &colors, self.padding).is_ok()
-                && !dirty.contains(&chart.page)
-            {
-                dirty.push(chart.page);
-            }
-        }
-        dirty.sort_unstable();
-        dirty
+    /// Base pages occupy `2 * page` (irradiance) and `2 * page + 1`
+    /// (direction); each switchable contribution follows after all base
+    /// layers in the same pair layout. The shader computes the same offsets
+    /// from the uniform page and switchable counts.
+    #[must_use]
+    pub fn irradiance_layer(&self, switchable: Option<usize>, page: usize) -> usize {
+        let group = switchable.map_or(0, |index| index.saturating_add(1));
+        group
+            .saturating_mul(self.pages.len().saturating_mul(2))
+            .saturating_add(page.saturating_mul(2))
     }
-}
 
-/// Extra reach beyond a light's fill range, in metres: covers the height
-/// correction and the finite texel size of a chart that just touches the
-/// boundary.
-const REFILL_REACH_MARGIN_M: f32 = 0.5;
-
-/// True when a patch's world bounding box comes within `reach` of `centre`.
-///
-/// The test is conservative: a patch whose bounding box is inside the sphere is
-/// refilled even when its nearest texel lies outside, which can only add work,
-/// never leave a stale texel.
-fn patch_within_reach(patch: &LightmapPatch, centre: [f32; 3], reach: f32) -> bool {
-    let corners = [
-        patch.origin,
-        add(patch.origin, patch.u_axis),
-        add(patch.origin, patch.v_axis),
-        add(add(patch.origin, patch.u_axis), patch.v_axis),
-    ];
-    let mut min = [f32::INFINITY; 3];
-    let mut max = [f32::NEG_INFINITY; 3];
-    for corner in corners {
-        for (axis, value) in corner.into_iter().enumerate() {
-            if let Some(slot) = min.get_mut(axis) {
-                *slot = slot.min(value);
-            }
-            if let Some(slot) = max.get_mut(axis) {
-                *slot = slot.max(value);
-            }
-        }
+    /// Total array-layer count the uploaded texture needs.
+    #[must_use]
+    pub const fn layer_count(&self) -> usize {
+        self.pages
+            .len()
+            .saturating_mul(2)
+            .saturating_mul(self.switchable.len().saturating_add(1))
     }
-    let distance_sq = centre.iter().zip(min.iter().zip(max.iter())).fold(
-        0.0_f32,
-        |total, (centre, (min, max))| {
-            let delta = if centre < min {
-                min - centre
-            } else if centre > max {
-                centre - max
-            } else {
-                0.0
-            };
-            delta.mul_add(delta, total)
-        },
-    );
-    distance_sq <= reach * reach
-}
-
-/// Component-wise sum of two world points.
-fn add(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
-    let mut sum = [0.0_f32; 3];
-    for ((slot, a), b) in sum.iter_mut().zip(a).zip(b) {
-        *slot = a + b;
-    }
-    sum
 }
 
 /// The charts and pages accumulated while one level's geometry is emitted.

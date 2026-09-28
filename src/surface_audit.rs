@@ -371,7 +371,7 @@ fn adjacent_rooms(openings_json: &str, floors: &str, wall_material: &str) -> Lev
     };
     parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "adjacent_rooms",
             "name": "Adjacent Rooms",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -441,7 +441,7 @@ fn adjacent_rooms_with_different_floor_materials_do_not_overlap() {
     let floors = r#""material": "core:carpet_damp_01""#;
     let level = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "floor_materials",
             "name": "Floor Materials",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -618,7 +618,7 @@ impl DoorwayCase {
         };
         parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "doorway_case",
                 "name": "Doorway Case",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -902,7 +902,7 @@ fn a_sill_over_a_lower_floor_keeps_its_exposed_ledge() {
 fn a_chain_of_doorways_has_one_floor_owner_per_threshold() {
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "doorway_chain",
             "name": "Doorway Chain",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -944,7 +944,7 @@ fn z_axis_wall_caps_face_out_of_the_wall_solid() {
     // would also be culled away in a culling-enabled build.
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "z_caps",
             "name": "Z Caps",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1021,7 +1021,7 @@ fn coincident_walls_with_different_vertical_extents_emit_one_surface() {
     // The next room's wall continues the same plane at a different base and
     // height: the shared span must be emitted once, not twice.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "continued_wall",
         "name": "Continued Wall",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1058,7 +1058,7 @@ fn a_coalesced_groups_interior_step_emits_no_cap_pair() {
     // header's underside outside the overlap is still real and must remain.
     let level = parse(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "coalesced_step",
             "name": "Coalesced Step",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -1099,7 +1099,7 @@ fn a_wall_end_abutting_another_wall_emits_no_hidden_face() {
     // Wall A crosses wall B: A's end caps at the planes of B's faces are
     // buried inside B's volume and must not be emitted at B's depth.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "abutting_walls",
         "name": "Abutting Walls",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1137,7 +1137,7 @@ fn decals_are_offset_from_the_surface_they_mark_by_the_shared_bias() {
     // texture from punching through), small enough to still read as printed on
     // the surface rather than floating above it.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "decal_planes",
         "name": "Decal Planes",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1216,7 +1216,7 @@ fn intentionally_overlapping_rooms_still_emit_both_floors() {
     // overlaps" pass: two rooms a creator deliberately stacked on each other
     // keep both floors, exactly as authored.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "overlap_allowed",
         "name": "Overlap Allowed",
         "spawn": { "x": 1.0, "z": 1.0 },

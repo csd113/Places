@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "capacity_sparse",
   "name": "Capacity: Sparse World (dev)",
   "author": "Places Team",
@@ -504,14 +504,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "far_chair_0",
@@ -582,14 +590,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "far_chair_1",
@@ -628,14 +644,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "far_chair_2",
@@ -674,14 +698,22 @@
         0.8
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "far_chair_3",
@@ -754,19 +786,24 @@
       "swimming": false
     }
   ],
-  "area_triggers": [
+  "volumes": [
     {
       "id": "far_trigger",
       "x": -2002.0,
       "z": -2002.0,
       "width": 4.0,
       "depth": 4.0,
-      "actions": [
+      "bindings": [
         {
-          "action": "reset_to_start"
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ],
+          "cooldown_seconds": 0.5
         }
-      ],
-      "cooldown_seconds": 0.5
+      ]
     }
   ],
   "routes": [

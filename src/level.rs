@@ -2,7 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::collision::{PLAYER_STEP_HEIGHT, WallAabb};
+use crate::entities::components::StateValue;
+use crate::entities::sequences::SequenceDef;
+use crate::entities::spawn::{SpawnGroupDef, SpawnPointDef, SpawnTemplateDef};
+use crate::entities::timers::TimerDef;
 use crate::lighting::{DEFAULT_LIGHT_COLOR, LightColor};
+use crate::package::binary::{Reader, Writer};
+use crate::package::collision::{
+    MAX_COLLISION_LADDERS, MAX_COLLISION_WATER_MATERIAL_BYTES, MAX_COLLISION_WATER_VOLUMES,
+};
 
 /// Clear ceiling height of a room whose level JSON omits `height`, in metres.
 ///
@@ -586,37 +594,83 @@ impl LadderDef {
 /// One map-authored action the interaction dispatcher can perform.
 ///
 /// Actions are a closed, typed set — never an unrestricted script. They are
-/// authored inside a placed object's `interaction` or an area trigger's
-/// `actions` array and executed in order by the single
-/// [`crate::interact`]-side dispatcher. An unknown `action` tag is a JSON
-/// parse error, and an action that the engine does not implement yet is a
-/// named validation error, so a map can never load with a silently ignored
-/// effect.
+/// authored inside an event binding (`on: interact`, `on: enter_volume`, ...)
+/// or as a sequence step, and executed in order by the single dispatcher. An
+/// unknown `action` tag is a JSON parse error, and an action the engine cannot
+/// perform on its target is a named validation error, so a map can never load
+/// with a silently ignored effect.
+///
+/// A `target` names the entity the action acts on. Every target except
+/// `reset_to_start`, `spawn_entity` and `start_sequence` is `Option<String>`:
+/// omitted means the acting entity (the entity that emitted the event, or the
+/// entity a sequence runs on).
 ///
 /// ```json
-/// { "action": "toggle_label" }
-/// { "action": "toggle_label", "target": "spooner_man" }
-/// { "action": "reset_to_start" }
+/// { "action": "toggle" }
+/// { "action": "set_light", "target": "sauna_light", "on": false }
+/// { "action": "start_sequence", "sequence": "sauna_warmup" }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionDef {
-    /// Show or hide the floating display name of `target` (or of the acting
-    /// instance, for a placed object's own interaction).
-    ToggleLabel {
-        /// Instance id of the object whose label toggles. Omitted means the
-        /// instance that owns the interaction.
+    /// Drive a door or movable entity to its open end.
+    Open {
+        /// Entity id; omitted means the acting entity.
         #[serde(default)]
         target: Option<String>,
     },
-    /// Return the player to the level's authored spawn and re-arm triggers.
-    ResetToStart,
+    /// Drive a door or movable entity to its closed end.
+    Close {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Flip a door, light or any entity with a toggleable capability.
+    Toggle {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Enable an entity: aiming, emission, animation and audio all resume.
+    Enable {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Disable an entity without removing it.
+    Disable {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Set a light's illumination state explicitly.
+    ///
+    /// The fixture's switch state is the engine's one supported runtime light
+    /// control: the renderer selects the prepared switchable lightmap layers
+    /// for it. There is no per-switch shader branch and no runtime rebake.
+    SetLight {
+        /// Light fixture or prop light entity id; omitted means the actor.
+        #[serde(default)]
+        target: Option<String>,
+        /// True turns the light on.
+        on: bool,
+    },
+    /// Lock a door: it refuses to open until unlocked.
+    Lock {
+        /// Door entity id; omitted means the actor.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Unlock a door.
+    Unlock {
+        /// Door entity id; omitted means the actor.
+        #[serde(default)]
+        target: Option<String>,
+    },
     /// Play a named animation clip on a placed entity instance.
     ///
-    /// The target must be a placed prop/entity; omitted means the acting
-    /// instance. A pose/one-shot clip (the default) holds its last pose until
-    /// another action or a reset replaces it — a route step does **not** clear
-    /// an override; `loop` keeps it cycling.
+    /// A pose/one-shot clip (the default) holds its last pose until another
+    /// action or a reset replaces it; `loop` keeps it cycling.
     PlayAnimation {
         /// Instance id of the actor; omitted means the acting instance.
         #[serde(default)]
@@ -633,12 +687,6 @@ pub enum ActionDef {
     /// The clip is *scrubbed*, not played: the runtime eases its time toward
     /// one end at a constant rate, so pressing again mid-movement reverses
     /// from the current pose without snapping or restarting at an endpoint.
-    /// It is the map-authored way to drive a rigid prop animation — a wall
-    /// switch, a lever, a hatch — because it composes with other actions,
-    /// carries no global state, and one press moves exactly one instance.
-    ///
-    /// The target's clip must run from one rest position at `t = 0` to the
-    /// other at `t = duration`; the runtime flips between those two ends.
     ToggleAnimation {
         /// Instance id of the actor; omitted means the acting instance.
         #[serde(default)]
@@ -647,39 +695,126 @@ pub enum ActionDef {
         #[serde(default)]
         clip: Option<String>,
     },
-    /// Reserved for the audio route; rejected by validation until an audio
-    /// subsystem exists.
-    PlayAudio {
-        /// Instance id of the sound source; omitted means the acting instance.
+    /// Start a sound on an audio emitter.
+    PlaySound {
+        /// Entity id of the emitter; omitted means the acting entity.
         #[serde(default)]
         target: Option<String>,
-        /// Sound asset id the future audio system should play.
+        /// Sound asset id; omitted uses the emitter's authored sound.
         #[serde(default)]
         sound: Option<String>,
+        /// Loop until stopped.
+        #[serde(default, rename = "loop")]
+        looped: bool,
     },
-    /// Drive a door to its open end. Target must be a door entity id.
-    #[serde(rename = "open")]
-    OpenDoor {
-        /// Door entity id. Required: a door action without a target does not
-        /// identify which leaf to move.
-        target: String,
+    /// Stop a sound on an audio emitter.
+    StopSound {
+        /// Entity id of the emitter; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
     },
-    /// Drive a door to its closed end. Target must be a door entity id.
-    #[serde(rename = "close")]
-    CloseDoor {
-        /// Door entity id. Required.
-        target: String,
-    },
-    /// Flip a door between its open and closed ends, mid-travel included.
+    /// Select a named material variant on a runtime-visual entity.
     ///
-    /// The same tag also flips a light fixture between enabled and disabled:
-    /// the acting entity's `<entity>.toggle` semantic is the entity's own, so
-    /// one switch can drive a door and a light in one press without the
-    /// dispatcher knowing what either is.
-    Toggle {
-        /// Entity id of the door or light fixture to flip. Required.
+    /// The only per-object runtime material property this renderer supports is
+    /// the dynamic object's emission profile, so a material variant selects an
+    /// emitted-light response (a screen that turns off, a sign that lights up).
+    /// Swapping the surface material of baked static geometry is not
+    /// expressible at runtime and is rejected at compile time.
+    ChangeMaterial {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// Variant name declared by the entity's `material` component.
+        variant: String,
+    },
+    /// Move a runtime entity to a world position, collision-respecting.
+    MoveObject {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// Target world X.
+        x: f32,
+        /// Target world Y; omitted keeps the entity's current base height.
+        #[serde(default)]
+        y: Option<f32>,
+        /// Target world Z.
+        z: f32,
+        /// Movement speed in m/s; omitted uses the entity's configured speed.
+        #[serde(default)]
+        speed: Option<f32>,
+    },
+    /// Write a typed state value.
+    SetState {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// State name.
+        name: String,
+        /// New value.
+        value: StateValue,
+    },
+    /// Show or hide a placed instance's floating display name.
+    ToggleLabel {
+        /// Instance id; omitted means the acting instance.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Start a named sequence on an entity.
+    StartSequence {
+        /// Sequence id from the level's `sequences`.
+        sequence: String,
+        /// Entity the sequence controls; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Stop the sequence running on an entity.
+    StopSequence {
+        /// Entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Start or reconfigure a timer.
+    StartTimer {
+        /// Timer entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+        /// Period override in seconds.
+        #[serde(default)]
+        seconds: Option<f32>,
+        /// Repeat override.
+        #[serde(default)]
+        repeat: Option<bool>,
+    },
+    /// Stop a timer without changing its period.
+    StopTimer {
+        /// Timer entity id; omitted means the acting entity.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Spawn one typed template at a point, optionally under a group.
+    SpawnEntity {
+        /// Spawn template id; omitted uses the point's own template.
+        #[serde(default)]
+        template: Option<String>,
+        /// Spawn point id.
+        #[serde(default)]
+        point: Option<String>,
+        /// Spawn group id; omitted uses the point's authored group.
+        #[serde(default)]
+        group: Option<String>,
+        /// Runtime name for the spawned instance, so later actions can address
+        /// it. Omitted derives `<point>#<n>`; a name already live fails the
+        /// spawn with a diagnostic.
+        #[serde(default)]
+        name: Option<String>,
+    },
+    /// Despawn a runtime entity, a spawn group's live member, or a named spawn.
+    DespawnEntity {
+        /// Entity id, spawn group id or runtime name.
         target: String,
     },
+    /// Return the player to the level's authored spawn and re-arm triggers.
+    ResetToStart,
 }
 
 impl ActionDef {
@@ -687,78 +822,413 @@ impl ActionDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::ToggleLabel { .. } => "toggle_label",
-            Self::ResetToStart => "reset_to_start",
+            Self::Open { .. } => "open",
+            Self::Close { .. } => "close",
+            Self::Toggle { .. } => "toggle",
+            Self::Enable { .. } => "enable",
+            Self::Disable { .. } => "disable",
+            Self::SetLight { .. } => "set_light",
+            Self::Lock { .. } => "lock",
+            Self::Unlock { .. } => "unlock",
             Self::PlayAnimation { .. } => "play_animation",
             Self::ToggleAnimation { .. } => "toggle_animation",
-            Self::PlayAudio { .. } => "play_audio",
-            Self::OpenDoor { .. } => "open",
-            Self::CloseDoor { .. } => "close",
-            Self::Toggle { .. } => "toggle",
+            Self::PlaySound { .. } => "play_sound",
+            Self::StopSound { .. } => "stop_sound",
+            Self::ChangeMaterial { .. } => "change_material",
+            Self::MoveObject { .. } => "move_object",
+            Self::SetState { .. } => "set_state",
+            Self::ToggleLabel { .. } => "toggle_label",
+            Self::StartSequence { .. } => "start_sequence",
+            Self::StopSequence { .. } => "stop_sequence",
+            Self::StartTimer { .. } => "start_timer",
+            Self::StopTimer { .. } => "stop_timer",
+            Self::SpawnEntity { .. } => "spawn_entity",
+            Self::DespawnEntity { .. } => "despawn_entity",
+            Self::ResetToStart => "reset_to_start",
         }
     }
 
     /// The explicit target this action names, if any.
+    ///
+    /// `None` means the action acts on the acting entity; `Some` must resolve
+    /// on its own, exactly as validation promised.
     #[must_use]
     pub fn target(&self) -> Option<&str> {
         match self {
-            Self::ToggleLabel { target }
+            Self::Open { target }
+            | Self::Close { target }
+            | Self::Toggle { target }
+            | Self::Enable { target }
+            | Self::Disable { target }
+            | Self::SetLight { target, .. }
+            | Self::Lock { target }
+            | Self::Unlock { target }
             | Self::PlayAnimation { target, .. }
             | Self::ToggleAnimation { target, .. }
-            | Self::PlayAudio { target, .. } => target.as_deref(),
-            Self::OpenDoor { target } | Self::CloseDoor { target } | Self::Toggle { target } => {
-                Some(target.as_str())
-            }
-            Self::ResetToStart => None,
+            | Self::PlaySound { target, .. }
+            | Self::StopSound { target }
+            | Self::ChangeMaterial { target, .. }
+            | Self::MoveObject { target, .. }
+            | Self::SetState { target, .. }
+            | Self::ToggleLabel { target }
+            | Self::StopSequence { target }
+            | Self::StartTimer { target, .. }
+            | Self::StopTimer { target }
+            | Self::StartSequence { target, .. } => target.as_deref(),
+            Self::SpawnEntity { .. } | Self::DespawnEntity { .. } | Self::ResetToStart => None,
         }
     }
 }
 
-/// Largest number of actions one placed object or one area trigger may
-/// declare.
+/// One typed condition a binding checks before running its actions.
 ///
-/// A bound, not a tuning knob: composition is allowed, but one press can never
-/// fan out into unbounded work, and validation names the limit.
-pub const MAX_ACTIONS_PER_SOURCE: usize = 8;
-
-/// One placed object's map-authored interaction: the prompt shown when it is
-/// aimed at, an optional reach override, and the actions one press performs.
+/// A condition whose target does not exist evaluates false; the compiler
+/// rejects an unknown target first, so a shipped map never relies on it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PropInteractionDef {
-    /// Prompt line shown while the object is the current target. Defaults to
-    /// [`DEFAULT_INTERACTION_PROMPT`].
+#[serde(tag = "check", rename_all = "snake_case")]
+pub enum ConditionDef {
+    /// The named state equals `value` exactly (same variant and value).
+    State {
+        /// Entity id.
+        target: String,
+        /// State name.
+        name: String,
+        /// Required value.
+        equals: StateValue,
+    },
+    /// The target exists and is enabled.
+    Enabled {
+        /// Entity id.
+        target: String,
+    },
+    /// The target exists and is disabled.
+    Disabled {
+        /// Entity id.
+        target: String,
+    },
+    /// The target door is locked.
+    Locked {
+        /// Door entity id.
+        target: String,
+    },
+    /// The target door is unlocked.
+    Unlocked {
+        /// Door entity id.
+        target: String,
+    },
+    /// The target door is at its open end.
+    DoorOpen {
+        /// Door entity id.
+        target: String,
+    },
+    /// The target door is at its closed end.
+    DoorClosed {
+        /// Door entity id.
+        target: String,
+    },
+    /// A sequence is running on the target.
+    SequenceRunning {
+        /// Entity id.
+        target: String,
+    },
+    /// No sequence is running on the target.
+    SequenceIdle {
+        /// Entity id.
+        target: String,
+    },
+}
+
+impl ConditionDef {
+    /// The entity id this condition reads.
+    #[must_use]
+    pub fn target(&self) -> &str {
+        match self {
+            Self::State { target, .. }
+            | Self::Enabled { target }
+            | Self::Disabled { target }
+            | Self::Locked { target }
+            | Self::Unlocked { target }
+            | Self::DoorOpen { target }
+            | Self::DoorClosed { target }
+            | Self::SequenceRunning { target }
+            | Self::SequenceIdle { target } => target,
+        }
+    }
+
+    /// Stable diagnostic name of the check.
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::State { .. } => "state",
+            Self::Enabled { .. } => "enabled",
+            Self::Disabled { .. } => "disabled",
+            Self::Locked { .. } => "locked",
+            Self::Unlocked { .. } => "unlocked",
+            Self::DoorOpen { .. } => "door_open",
+            Self::DoorClosed { .. } => "door_closed",
+            Self::SequenceRunning { .. } => "sequence_running",
+            Self::SequenceIdle { .. } => "sequence_idle",
+        }
+    }
+}
+
+/// The authored name of one event kind.
+///
+/// The runtime [`crate::entities::events::EventKind`] is the same vocabulary
+/// without the authored spelling; `EventKind::parse` maps one to the other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKindName {
+    /// The player interacted with the entity.
+    Interact,
+    /// The player's feet entered the entity's trigger volume.
+    EnterVolume,
+    /// The player's feet left the entity's trigger volume.
+    ExitVolume,
+    /// A timer on the entity elapsed.
+    Timer,
+    /// One of the entity's typed states changed.
+    ObjectState,
+    /// A sequence on the entity completed or stopped.
+    SequenceComplete,
+    /// The entity was spawned.
+    Spawn,
+    /// An animation on the entity completed.
+    AnimationComplete,
+    /// Reserved for the navigation/AI upgrade.
+    AiState,
+    /// Reserved for the navigation/AI upgrade.
+    Caught,
+}
+
+impl EventKindName {
+    /// Stable lowercase name, matching the serialized spelling.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Interact => "interact",
+            Self::EnterVolume => "enter_volume",
+            Self::ExitVolume => "exit_volume",
+            Self::Timer => "timer",
+            Self::ObjectState => "object_state",
+            Self::SequenceComplete => "sequence_complete",
+            Self::Spawn => "spawn",
+            Self::AnimationComplete => "animation_complete",
+            Self::AiState => "ai_state",
+            Self::Caught => "caught",
+        }
+    }
+}
+
+/// One authored event binding: `on <event>` (matching `key`) `when <conditions>`
+/// run `<actions>`, at most `once` per run and no more often than
+/// `cooldown_seconds`.
+///
+/// Bindings live on the entity that emits the event, so a map's wiring is
+/// local: the switch's press lists what the press does, the volume's entry
+/// lists what entering does. There is exactly one binding mechanism.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EventBindingDef {
+    /// Optional binding id, for diagnostics and disarm-by-name.
     #[serde(default)]
-    pub prompt: Option<String>,
-    /// Interaction reach in metres. Defaults to
-    /// [`crate::interact::DEFAULT_INTERACTION_REACH_M`]; the loader caps it at
-    /// [`crate::interact::MAX_INTERACTION_REACH_M`].
+    pub id: Option<String>,
+    /// The event kind this binding listens for.
+    pub on: EventKindName,
+    /// Optional event key filter: a timer fires with its id, a sequence with
+    /// its id, an animation with its clip name. `None` accepts every key.
     #[serde(default)]
-    pub reach: Option<f32>,
-    /// The actions one press performs, in order.
+    pub key: Option<String>,
+    /// Every condition must hold for the binding to run.
+    #[serde(default)]
+    pub when: Vec<ConditionDef>,
+    /// Run at most once per run; a reset re-arms it.
+    #[serde(default)]
+    pub once: bool,
+    /// Seconds after a run before this binding may run again.
+    #[serde(default)]
+    pub cooldown_seconds: f32,
+    /// The actions one fire performs, in order.
     #[serde(default)]
     pub actions: Vec<ActionDef>,
 }
 
+/// Largest number of actions one event binding or one sequence step may
+/// declare.
+///
+/// A bound, not a tuning knob: composition is allowed, but one event can never
+/// fan out into unbounded work, and validation names the limit.
+pub const MAX_ACTIONS_PER_SOURCE: usize = 8;
+
+/// Largest number of bindings one entity may declare.
+pub const MAX_BINDINGS_PER_ENTITY: usize = 16;
+
 /// Prompt shown for an interaction that names none.
 pub const DEFAULT_INTERACTION_PROMPT: &str = "Interact";
 
-/// One authored area trigger.
+/// One named option of a `material` component.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MaterialVariantDef {
+    /// Variant name an action selects.
+    pub name: String,
+    /// Emission scale this variant selects; `0.0` makes the entity unlit.
+    #[serde(default = "default_material_emission")]
+    pub emission_scale: f32,
+}
+
+const fn default_material_emission() -> f32 {
+    1.0
+}
+
+/// One typed component an authored entity carries.
 ///
-/// The trigger volume is an axis-aligned box: a rectangular `(x, z)` footprint
-/// and a vertical `bottom_y..top_y` band. The controller tests the player's
-/// feet against it and, on the frame they first enter (including a swept
-/// crossing while falling fast), runs the actions once. Leaving the volume
-/// re-arms it; `cooldown_seconds` bounds how often it can fire and `once` makes
-/// it fire at most once per run.
+/// Components are the reusable capabilities the runtime provides: an
+/// `interactable` object can be aimed at, a `light` can be switched, a
+/// `state` bag can be read by conditions, and so on. A component never carries
+/// object-specific actions: the event bindings do that.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "component", rename_all = "snake_case")]
+pub enum ComponentDef {
+    /// The entity can be aimed at and interacted with.
+    Interactable {
+        /// Prompt shown while aimed at; defaults to
+        /// [`DEFAULT_INTERACTION_PROMPT`].
+        #[serde(default)]
+        prompt: Option<String>,
+        /// Reach in metres; defaults to
+        /// [`crate::interact::DEFAULT_INTERACTION_REACH_M`] and is capped at
+        /// [`crate::interact::MAX_INTERACTION_REACH_M`].
+        #[serde(default)]
+        reach: Option<f32>,
+        /// False starts the entity disabled: it is not aimable until an
+        /// `enable` action runs.
+        #[serde(default = "default_true")]
+        enabled: bool,
+        /// Display name a `toggle_label` action shows and hides.
+        #[serde(default)]
+        label: Option<String>,
+    },
+    /// The entity plays a named clip from its model's animation set.
+    Animation {
+        /// Clip name.
+        clip: String,
+        /// Playback rate multiplier; defaults to `1.0`.
+        #[serde(default = "default_animation_speed")]
+        speed: f32,
+        /// Loop the clip; defaults to false (hold the last pose).
+        #[serde(default)]
+        looped: bool,
+        /// Start playing immediately; defaults to false.
+        #[serde(default)]
+        playing: bool,
+    },
+    /// The entity emits a sound.
+    Audio {
+        /// Sound asset id.
+        sound: String,
+        /// Linear gain; defaults to `1.0`.
+        #[serde(default = "default_audio_gain")]
+        gain: f32,
+        /// Loop until stopped.
+        #[serde(default)]
+        looped: bool,
+        /// False starts muted.
+        #[serde(default = "default_true")]
+        enabled: bool,
+        /// Start playing immediately.
+        #[serde(default)]
+        playing: bool,
+    },
+    /// The entity is a light.
+    Light {
+        /// Initial illumination state; defaults to on.
+        #[serde(default = "default_true")]
+        enabled: bool,
+        /// Whether an action may switch it.
+        ///
+        /// Defaults to false: only a ceiling fixture has prepared switchable
+        /// lightmap layers, and validation rejects a switchable `light`
+        /// component on any other record.
+        #[serde(default)]
+        switchable: bool,
+        /// Emission scale of the visible face; defaults to `1.0`.
+        #[serde(default = "default_material_emission")]
+        emission_scale: f32,
+    },
+    /// The entity selects one of several emission profiles at runtime.
+    Material {
+        /// Every selectable variant; the first is the initial one when
+        /// `current` is omitted.
+        variants: Vec<MaterialVariantDef>,
+        /// Initially selected variant; defaults to the first variant.
+        #[serde(default)]
+        current: Option<String>,
+    },
+    /// One typed state value on the entity.
+    State {
+        /// State name.
+        name: String,
+        /// Initial value.
+        value: StateValue,
+    },
+    /// The entity removes itself after a bounded lifetime.
+    Lifetime {
+        /// Seconds until expiry; must be finite and positive.
+        seconds: f32,
+    },
+    /// The entity is a steam emitter.
+    Steam {
+        /// Initial emitter state; defaults to on.
+        #[serde(default = "default_true")]
+        enabled: bool,
+    },
+    /// The entity is a water volume.
+    Water {
+        /// Initial swimming state; defaults to on.
+        #[serde(default = "default_true")]
+        enabled: bool,
+    },
+    /// Navigation agent metadata for the navigation upgrade.
+    NavAgent {
+        /// Body radius in metres.
+        radius: f32,
+        /// Preferred speed in m/s.
+        speed_mps: f32,
+    },
+    /// Navigation obstacle metadata for the navigation upgrade.
+    NavObstacle {
+        /// `[width, height, depth]`; defaults to the entity's resolved size.
+        #[serde(default)]
+        size: Option<[f32; 3]>,
+        /// False marks a purely decorative obstacle.
+        #[serde(default = "default_true")]
+        affects_nav: bool,
+    },
+}
+
+const fn default_animation_speed() -> f32 {
+    1.0
+}
+
+const fn default_audio_gain() -> f32 {
+    1.0
+}
+
+/// One authored trigger volume.
+///
+/// The volume is an axis-aligned box: a rectangular `(x, z)` footprint and a
+/// vertical `bottom_y..top_y` band. The controller tests the player's feet
+/// against it every frame and emits `enter_volume` / `exit_volume` events on
+/// the edges; the volume's own bindings decide what those events do. Leaving
+/// the volume re-arms it.
 ///
 /// ```json
 /// { "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
 ///   "bottom_y": -3.2, "top_y": -0.05,
-///   "actions": [{ "action": "reset_to_start" }],
-///   "cooldown_seconds": 0.5 }
+///   "bindings": [{ "on": "enter_volume",
+///                  "actions": [{ "action": "reset_to_start" }] }] }
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AreaTriggerDef {
+pub struct TriggerVolumeDef {
     /// Stable instance id. Omitted means the deterministic default
     /// `trigger_<n>` with `n` the 1-based authored position.
     #[serde(default)]
@@ -777,18 +1247,12 @@ pub struct AreaTriggerDef {
     /// `bottom_y + DEFAULT_TRIGGER_HEIGHT_M`.
     #[serde(default)]
     pub top_y: Option<f32>,
-    /// The actions the trigger runs on entry, in order.
+    /// What the volume's occupancy edges do.
     #[serde(default)]
-    pub actions: Vec<ActionDef>,
-    /// Seconds after a fire before the trigger can fire again.
-    #[serde(default)]
-    pub cooldown_seconds: f32,
-    /// Fire at most once per run; a reset re-arms it.
-    #[serde(default)]
-    pub once: bool,
+    pub bindings: Vec<EventBindingDef>,
 }
 
-impl AreaTriggerDef {
+impl TriggerVolumeDef {
     /// Footprint as `(x0, x1, z0, z1)`, normalised.
     #[must_use]
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
@@ -819,6 +1283,26 @@ impl AreaTriggerDef {
 
 /// Default height of an area trigger whose `top_y` is omitted, in metres.
 pub const DEFAULT_TRIGGER_HEIGHT_M: f32 = 2.0;
+
+impl ComponentDef {
+    /// Stable diagnostic name of this component kind.
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::Interactable { .. } => "interactable",
+            Self::Animation { .. } => "animation",
+            Self::Audio { .. } => "audio",
+            Self::Light { .. } => "light",
+            Self::Material { .. } => "material",
+            Self::State { .. } => "state",
+            Self::Lifetime { .. } => "lifetime",
+            Self::Steam { .. } => "steam",
+            Self::Water { .. } => "water",
+            Self::NavAgent { .. } => "nav_agent",
+            Self::NavObstacle { .. } => "nav_obstacle",
+        }
+    }
+}
 
 /// Which way a door leaf swings about its hinge, seen from above with the
 /// closed leaf running from the hinge to the latch.
@@ -930,7 +1414,8 @@ pub const fn door_materials(kind: DoorKind) -> DoorMaterials {
 ///   "rotation_degrees": 0.0, "width": 0.9, "height": 2.1, "thickness": 0.045,
 ///   "open_direction": "left", "swing_degrees": 90.0,
 ///   "open_speed_degrees": 120.0, "initial_state": "closed",
-///   "manual_interaction": true }
+///   "components": [ { "component": "interactable" } ],
+///   "bindings": [ { "on": "interact", "actions": [ { "action": "toggle" } ] } ] }
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DoorDef {
@@ -968,18 +1453,18 @@ pub struct DoorDef {
     /// Authored starting state.
     #[serde(default)]
     pub initial_state: DoorStartState,
-    /// Whether the player can open/close this door by interacting with it.
-    ///
-    /// `false` marks an externally controlled door: it only moves when a map
-    /// action drives it, and it is not an interaction target.
-    #[serde(default = "default_true")]
-    pub manual_interaction: bool,
-    /// Prompt shown while the leaf is the interaction target.
+    /// True starts the leaf locked: it refuses to open (and reports the refusal
+    /// once) until an `unlock` action runs.
     #[serde(default)]
-    pub prompt: Option<String>,
-    /// Interaction reach in metres; the loader caps it like any interaction.
+    pub locked: bool,
+    /// Typed components this leaf carries. A manually interactable door authors
+    /// an `interactable` component and its own `on: "interact"` binding; an
+    /// externally controlled door carries neither.
     #[serde(default)]
-    pub reach: Option<f32>,
+    pub components: Vec<ComponentDef>,
+    /// What this leaf's events do.
+    #[serde(default)]
+    pub bindings: Vec<EventBindingDef>,
     /// What happens when the sweep is obstructed.
     #[serde(default)]
     pub obstruction: DoorObstruction,
@@ -1065,9 +1550,9 @@ impl Default for DoorDef {
             open_speed_degrees: default_door_speed_degrees(),
             close_speed_degrees: None,
             initial_state: DoorStartState::default(),
-            manual_interaction: true,
-            prompt: None,
-            reach: None,
+            locked: false,
+            components: Vec::new(),
+            bindings: Vec::new(),
             obstruction: DoorObstruction::default(),
             kind: DoorKind::default(),
             material: None,
@@ -1126,6 +1611,12 @@ pub struct EffectDef {
     /// material.
     #[serde(default)]
     pub material: Option<String>,
+    /// Initial emitter state; defaults to on.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// What this emitter's events do.
+    #[serde(default)]
+    pub bindings: Vec<EventBindingDef>,
 }
 
 const fn default_effect_footprint_m() -> f32 {
@@ -4354,6 +4845,9 @@ pub struct LightFixtureDef {
     /// never changes — the default, and the cheapest.
     #[serde(default)]
     pub switchable: bool,
+    /// What this fixture's events do.
+    #[serde(default)]
+    pub bindings: Vec<EventBindingDef>,
 }
 
 impl LightFixtureDef {
@@ -4615,10 +5109,14 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
-    /// Map-authored interaction: E in reach runs these actions on this instance.
-    /// Omitted means the prop is scenery and cannot be interacted with.
+    /// Typed components this instance carries — `interactable`, `animation`,
+    /// `light`, `state`, `audio`, and so on. Omitted means the prop is scenery
+    /// and carries no capabilities.
     #[serde(default)]
-    pub interaction: Option<PropInteractionDef>,
+    pub components: Vec<ComponentDef>,
+    /// What this instance's events do. See [`EventBindingDef`].
+    #[serde(default)]
+    pub bindings: Vec<EventBindingDef>,
     /// Generic light sources this object owns, positioned in its local frame.
     ///
     /// Zero by default: an object glows only through its material unless a
@@ -4740,7 +5238,7 @@ impl GeometryIntentDef {
 ///
 /// The engine is pre-release and there is exactly one current schema; a level
 /// whose `format_version` differs is rejected by name rather than migrated.
-pub const LEVEL_FORMAT_VERSION: u32 = 2;
+pub const LEVEL_FORMAT_VERSION: u32 = 3;
 
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4822,9 +5320,25 @@ pub struct LevelDef {
     /// Localized ambient effects (sauna steam and future emitters).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effects: Vec<EffectDef>,
-    /// Authored area triggers: entering the volume runs its actions once.
+    /// Authored trigger volumes: entering or leaving emits an event.
     #[serde(default)]
-    pub area_triggers: Vec<AreaTriggerDef>,
+    pub volumes: Vec<TriggerVolumeDef>,
+    /// Authored timers: one entity each, whose `on: "timer"` bindings run when
+    /// the timer fires.
+    #[serde(default)]
+    pub timers: Vec<TimerDef>,
+    /// Authored sequences: ordered steps an entity runs as one operation.
+    #[serde(default)]
+    pub sequences: Vec<SequenceDef>,
+    /// Authored spawn templates: typed prefabs an action can instantiate.
+    #[serde(default)]
+    pub spawn_templates: Vec<SpawnTemplateDef>,
+    /// Authored spawn points: where a template appears.
+    #[serde(default)]
+    pub spawn_points: Vec<SpawnPointDef>,
+    /// Authored spawn groups: at-most-one-active rules for spawn points.
+    #[serde(default)]
+    pub spawn_groups: Vec<SpawnGroupDef>,
     /// Authored movement/pose routes for placed entities, keyed by instance
     /// id.
     #[serde(default)]
@@ -5008,6 +5522,11 @@ pub const MAX_LEVEL_WATER_VOLUMES: u64 = 2000;
 /// do not draw geometry of their own (the visual ladder is a prop), so this is
 /// a generous authoring bound rather than a rendering budget.
 pub const MAX_LEVEL_LADDERS: u64 = 256;
+/// Hard ceiling on the number of timers a level may define.
+///
+/// Timers are advanced linearly every tick and each carries one small runtime
+/// record, so this is an authoring bound rather than a performance budget.
+pub const MAX_LEVEL_TIMERS: usize = 256;
 /// Hard ceiling on the number of area triggers a level may define.
 ///
 /// Triggers are sampled linearly by the controller (a swept box test per
@@ -5290,17 +5809,17 @@ impl LevelDef {
             .collect()
     }
 
-    /// Stable per-instance id for every area trigger, in array order.
+    /// Stable per-instance id for every trigger volume, in array order.
     ///
     /// An authored `id` wins; otherwise `trigger_<n>` with `n` the 1-based
     /// authored position.
     #[must_use]
-    pub fn area_trigger_instance_ids(&self) -> Vec<String> {
-        self.area_triggers
+    pub fn volume_instance_ids(&self) -> Vec<String> {
+        self.volumes
             .iter()
             .enumerate()
-            .map(|(index, trigger)| {
-                trigger
+            .map(|(index, volume)| {
+                volume
                     .id
                     .as_deref()
                     .map(str::trim)
@@ -5311,6 +5830,67 @@ impl LevelDef {
                     )
             })
             .collect()
+    }
+
+    /// Stable per-instance id for every water volume, in array order.
+    #[must_use]
+    pub fn water_instance_ids(&self) -> Vec<String> {
+        self.water
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("water_{}", index.saturating_add(1)))
+            .collect()
+    }
+
+    /// Stable id for every timer, in array order.
+    #[must_use]
+    pub fn timer_instance_ids(&self) -> Vec<String> {
+        self.timers
+            .iter()
+            .map(|timer| timer.id.trim().to_string())
+            .collect()
+    }
+
+    /// Stable id for every spawn point, in array order.
+    #[must_use]
+    pub fn spawn_point_instance_ids(&self) -> Vec<String> {
+        self.spawn_points
+            .iter()
+            .map(|point| point.id.trim().to_string())
+            .collect()
+    }
+
+    /// Every binding authored anywhere in the level, in a stable order:
+    /// props, doors, fixtures, volumes, effects, timers, spawn points and
+    /// spawn templates.
+    #[must_use]
+    pub fn all_bindings(&self) -> Vec<&[EventBindingDef]> {
+        let mut all: Vec<&[EventBindingDef]> = Vec::new();
+        for prop in &self.props {
+            all.push(&prop.bindings);
+        }
+        for door in &self.doors {
+            all.push(&door.bindings);
+        }
+        for fixture in &self.ceiling_lights {
+            all.push(&fixture.bindings);
+        }
+        for volume in &self.volumes {
+            all.push(&volume.bindings);
+        }
+        for effect in &self.effects {
+            all.push(&effect.bindings);
+        }
+        for timer in &self.timers {
+            all.push(&timer.bindings);
+        }
+        for point in &self.spawn_points {
+            all.push(&point.bindings);
+        }
+        for template in &self.spawn_templates {
+            all.push(&template.bindings);
+        }
+        all
     }
 
     /// Snaps grid-aligned fluorescent panels onto their ceiling material's
@@ -6774,6 +7354,251 @@ impl WalkableFloor {
         }
         None
     }
+
+    /// Encodes this floor model into a compiled collision record: the room
+    /// count, then each room's footprint, ramps, staircases and regions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the model holds more rooms than
+    /// [`crate::package::MAX_COLLISION_BOXES`], or a room holds more ramps,
+    /// stairs or regions than that same bound.
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        write_collision_count(
+            writer,
+            self.rooms.len(),
+            collision_box_limit(),
+            "walkable floor room count",
+        )?;
+        for room in &self.rooms {
+            write_walkable_room(writer, room)?;
+        }
+        Ok(())
+    }
+
+    /// Decodes a floor model from a compiled collision record.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the record is truncated, declares an
+    /// out-of-range count, or holds a non-finite or inverted value.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let room_count = reader.count(collision_box_limit(), "walkable floor room count")?;
+        let mut rooms = Vec::with_capacity(room_count.min(1024));
+        for _ in 0..room_count {
+            rooms.push(read_walkable_room(reader)?);
+        }
+        Ok(Self { rooms })
+    }
+}
+
+/// The collision-record entry bound as a `u64` reader limit.
+fn collision_box_limit() -> u64 {
+    u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX)
+}
+
+/// True when every value is finite.
+fn collision_values_finite(values: &[f32]) -> bool {
+    values.iter().all(|value| value.is_finite())
+}
+
+/// Writes one counted section header, rejecting counts over `limit`.
+fn write_collision_count(
+    writer: &mut Writer,
+    length: usize,
+    limit: u64,
+    what: &str,
+) -> Result<(), String> {
+    if u64::try_from(length).unwrap_or(u64::MAX) > limit {
+        return Err(format!("{what} {length} exceeds the limit {limit}"));
+    }
+    writer.u32(u32::try_from(length).map_err(|_| format!("{what} is too large"))?);
+    Ok(())
+}
+
+/// Encodes one walkable room: its footprint and floor, then its ramps,
+/// staircases and regions.
+fn write_walkable_room(writer: &mut Writer, room: &WalkableRoom) -> Result<(), String> {
+    writer.f32(room.x0);
+    writer.f32(room.x1);
+    writer.f32(room.z0);
+    writer.f32(room.z1);
+    writer.f32(room.floor_y);
+    write_collision_count(
+        writer,
+        room.ramps.len(),
+        collision_box_limit(),
+        "walkable ramp count",
+    )?;
+    for ramp in &room.ramps {
+        write_walkable_ramp(writer, ramp);
+    }
+    write_collision_count(
+        writer,
+        room.stairs.len(),
+        collision_box_limit(),
+        "walkable stair count",
+    )?;
+    for stair in &room.stairs {
+        write_walkable_stair(writer, stair);
+    }
+    write_collision_count(
+        writer,
+        room.regions.len(),
+        collision_box_limit(),
+        "walkable region count",
+    )?;
+    for region in &room.regions {
+        write_walkable_region(writer, region);
+    }
+    Ok(())
+}
+
+/// Decodes one walkable room.
+fn read_walkable_room(reader: &mut Reader<'_>) -> Result<WalkableRoom, String> {
+    let x0 = reader.f32()?;
+    let x1 = reader.f32()?;
+    let z0 = reader.f32()?;
+    let z1 = reader.f32()?;
+    let floor_y = reader.f32()?;
+    if !collision_values_finite(&[x0, x1, z0, z1, floor_y]) {
+        return Err("walkable room has a non-finite value".to_string());
+    }
+    if x0 > x1 || z0 > z1 {
+        return Err("walkable room bounds are inverted".to_string());
+    }
+    let ramp_count = reader.count(collision_box_limit(), "walkable ramp count")?;
+    let mut ramps = Vec::with_capacity(ramp_count.min(1024));
+    for _ in 0..ramp_count {
+        ramps.push(read_walkable_ramp(reader)?);
+    }
+    let stair_count = reader.count(collision_box_limit(), "walkable stair count")?;
+    let mut stairs = Vec::with_capacity(stair_count.min(1024));
+    for _ in 0..stair_count {
+        stairs.push(read_walkable_stair(reader)?);
+    }
+    let region_count = reader.count(collision_box_limit(), "walkable region count")?;
+    let mut regions = Vec::with_capacity(region_count.min(1024));
+    for _ in 0..region_count {
+        regions.push(read_walkable_region(reader)?);
+    }
+    Ok(WalkableRoom {
+        x0,
+        x1,
+        z0,
+        z1,
+        floor_y,
+        ramps,
+        stairs,
+        regions,
+    })
+}
+
+/// Encodes one ramp's detached surface and the floor plane it sits on.
+fn write_walkable_ramp(writer: &mut Writer, ramp: &WalkableRamp) {
+    writer.f32(ramp.surface.x);
+    writer.f32(ramp.surface.z);
+    writer.f32(ramp.surface.width);
+    writer.f32(ramp.surface.depth);
+    writer.f32(ramp.surface.offset_y);
+    writer.f32(ramp.surface.rise);
+    writer.f32(ramp.floor_y);
+}
+
+/// Decodes one walkable ramp, rejecting malformed surfaces.
+fn read_walkable_ramp(reader: &mut Reader<'_>) -> Result<WalkableRamp, String> {
+    let x = reader.f32()?;
+    let z = reader.f32()?;
+    let width = reader.f32()?;
+    let depth = reader.f32()?;
+    let offset_y = reader.f32()?;
+    let rise = reader.f32()?;
+    let floor_y = reader.f32()?;
+    if !collision_values_finite(&[x, z, width, depth, offset_y, rise, floor_y]) {
+        return Err("walkable ramp has a non-finite value".to_string());
+    }
+    if width == 0.0 || depth == 0.0 {
+        return Err("walkable ramp has a zero width or depth".to_string());
+    }
+    Ok(WalkableRamp {
+        surface: RampSurface {
+            x,
+            z,
+            width,
+            depth,
+            offset_y,
+            rise,
+        },
+        floor_y,
+    })
+}
+
+/// Encodes one staircase's detached surface and the floor plane it sits on.
+fn write_walkable_stair(writer: &mut Writer, stair: &WalkableStair) {
+    writer.f32(stair.surface.x);
+    writer.f32(stair.surface.z);
+    writer.f32(stair.surface.width);
+    writer.f32(stair.surface.depth);
+    writer.f32(stair.surface.offset_y);
+    writer.f32(stair.surface.rise);
+    writer.u32(stair.surface.steps);
+    writer.f32(stair.floor_y);
+}
+
+/// Decodes one walkable staircase, rejecting malformed surfaces.
+fn read_walkable_stair(reader: &mut Reader<'_>) -> Result<WalkableStair, String> {
+    let x = reader.f32()?;
+    let z = reader.f32()?;
+    let width = reader.f32()?;
+    let depth = reader.f32()?;
+    let offset_y = reader.f32()?;
+    let rise = reader.f32()?;
+    // `steps` is a `u32`, so a decoded count can never be negative.
+    let steps = reader.u32()?;
+    let floor_y = reader.f32()?;
+    if !collision_values_finite(&[x, z, width, depth, offset_y, rise, floor_y]) {
+        return Err("walkable stair has a non-finite value".to_string());
+    }
+    if width == 0.0 || depth == 0.0 {
+        return Err("walkable stair has a zero width or depth".to_string());
+    }
+    Ok(WalkableStair {
+        surface: StairSurface {
+            x,
+            z,
+            width,
+            depth,
+            offset_y,
+            rise,
+            steps,
+        },
+        floor_y,
+    })
+}
+
+/// Encodes one floor region.
+fn write_walkable_region(writer: &mut Writer, region: &WalkableRegion) {
+    writer.f32(region.x0);
+    writer.f32(region.x1);
+    writer.f32(region.z0);
+    writer.f32(region.z1);
+    writer.f32(region.y);
+}
+
+/// Decodes one floor region.
+fn read_walkable_region(reader: &mut Reader<'_>) -> Result<WalkableRegion, String> {
+    let x0 = reader.f32()?;
+    let x1 = reader.f32()?;
+    let z0 = reader.f32()?;
+    let z1 = reader.f32()?;
+    let y = reader.f32()?;
+    if !collision_values_finite(&[x0, x1, z0, z1, y]) {
+        return Err("walkable region has a non-finite value".to_string());
+    }
+    if x0 > x1 || z0 > z1 {
+        return Err("walkable region bounds are inverted".to_string());
+    }
+    Ok(WalkableRegion { x0, x1, z0, z1, y })
 }
 
 /// One room of the walkable ceiling model.
@@ -6859,6 +7684,113 @@ impl WalkableCeiling {
             .find(|room| room.contains(x, z))
             .map(|room| room.ceiling_y_at(x, z))
     }
+
+    /// Encodes this ceiling model into a compiled collision record: the room
+    /// count, then each room's footprint, eave and profile.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the model holds more rooms than
+    /// [`crate::package::MAX_COLLISION_BOXES`].
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        write_collision_count(
+            writer,
+            self.rooms.len(),
+            collision_box_limit(),
+            "walkable ceiling room count",
+        )?;
+        for room in &self.rooms {
+            write_ceiling_room(writer, room);
+        }
+        Ok(())
+    }
+
+    /// Decodes a ceiling model from a compiled collision record.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the record is truncated, declares an
+    /// out-of-range count, or holds a malformed room or profile.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let room_count = reader.count(collision_box_limit(), "walkable ceiling room count")?;
+        let mut rooms = Vec::with_capacity(room_count.min(1024));
+        for _ in 0..room_count {
+            rooms.push(read_ceiling_room(reader)?);
+        }
+        Ok(Self { rooms })
+    }
+}
+
+/// Profile byte code of a flat ceiling.
+const CEILING_PROFILE_FLAT: u8 = 0;
+
+/// Profile byte code of a gable ceiling.
+const CEILING_PROFILE_GABLE: u8 = 1;
+
+/// Ridge-axis byte code of a gable running along X.
+const CEILING_RIDGE_X: u8 = 0;
+
+/// Ridge-axis byte code of a gable running along Z.
+const CEILING_RIDGE_Z: u8 = 1;
+
+/// Encodes one walkable ceiling room: its footprint, eave and profile.
+fn write_ceiling_room(writer: &mut Writer, room: &WalkableCeilingRoom) {
+    let (x0, x1, z0, z1) = room.bounds;
+    writer.f32(x0);
+    writer.f32(x1);
+    writer.f32(z0);
+    writer.f32(z1);
+    writer.f32(room.floor_y);
+    writer.f32(room.height);
+    match room.profile {
+        CeilingProfileDef::Flat => writer.u8(CEILING_PROFILE_FLAT),
+        CeilingProfileDef::Gable { ridge, ridge_rise } => {
+            writer.u8(CEILING_PROFILE_GABLE);
+            writer.u8(match ridge {
+                WallAxis::X => CEILING_RIDGE_X,
+                WallAxis::Z => CEILING_RIDGE_Z,
+            });
+            writer.f32(ridge_rise);
+        }
+    }
+}
+
+/// Decodes one walkable ceiling room.
+fn read_ceiling_room(reader: &mut Reader<'_>) -> Result<WalkableCeilingRoom, String> {
+    let x0 = reader.f32()?;
+    let x1 = reader.f32()?;
+    let z0 = reader.f32()?;
+    let z1 = reader.f32()?;
+    let floor_y = reader.f32()?;
+    let height = reader.f32()?;
+    if !collision_values_finite(&[x0, x1, z0, z1, floor_y, height]) {
+        return Err("walkable ceiling room has a non-finite value".to_string());
+    }
+    if x0 > x1 || z0 > z1 {
+        return Err("walkable ceiling room bounds are inverted".to_string());
+    }
+    let profile = match reader.u8()? {
+        CEILING_PROFILE_FLAT => CeilingProfileDef::Flat,
+        CEILING_PROFILE_GABLE => {
+            let ridge = match reader.u8()? {
+                CEILING_RIDGE_X => WallAxis::X,
+                CEILING_RIDGE_Z => WallAxis::Z,
+                other => return Err(format!("unknown gable ridge axis code {other}")),
+            };
+            let ridge_rise = reader.f32()?;
+            if !ridge_rise.is_finite() {
+                return Err("walkable gable has a non-finite ridge rise".to_string());
+            }
+            CeilingProfileDef::Gable { ridge, ridge_rise }
+        }
+        other => return Err(format!("unknown ceiling profile code {other}")),
+    };
+    Ok(WalkableCeilingRoom {
+        bounds: (x0, x1, z0, z1),
+        floor_y,
+        height,
+        profile,
+    })
 }
 
 /// One water volume resolved against the level's floors: a footprint, a
@@ -6887,6 +7819,11 @@ pub struct WaterVolume {
     pub opacity: f32,
     /// Whether the controller swims in this volume.
     pub swimming: bool,
+    /// Whether the volume participates in the water sampling at all.
+    ///
+    /// A `disable` action clears this: the surface still draws (it is baked
+    /// geometry) but the controller walks or falls through the volume.
+    pub enabled: bool,
 }
 
 impl WaterVolume {
@@ -6999,9 +7936,26 @@ impl WaterVolumes {
                 material: def.material.clone(),
                 opacity: def.opacity(),
                 swimming: def.swimming,
+                enabled: true,
             });
         }
         Self { volumes }
+    }
+
+    /// Enables or disables the volume at `index`.
+    ///
+    /// Returns whether the state changed; an out-of-range index returns false.
+    /// A disabled volume is skipped by every query, so the controller treats
+    /// its footprint as dry.
+    pub fn set_enabled(&mut self, index: usize, enabled: bool) -> bool {
+        let Some(volume) = self.volumes.get_mut(index) else {
+            return false;
+        };
+        if volume.enabled == enabled {
+            return false;
+        }
+        volume.enabled = enabled;
+        true
     }
 
     /// True when the level defines no volumes.
@@ -7033,7 +7987,7 @@ impl WaterVolumes {
             return None;
         }
         for volume in self.volumes.iter().rev() {
-            if !volume.contains(x, z) || y > volume.surface_y {
+            if !volume.enabled || !volume.contains(x, z) || y > volume.surface_y {
                 continue;
             }
             return Some(WaterSample {
@@ -7051,7 +8005,7 @@ impl WaterVolumes {
     pub fn surface_y_at(&self, x: f32, z: f32) -> Option<f32> {
         self.volumes
             .iter()
-            .filter(|volume| volume.contains(x, z))
+            .filter(|volume| volume.enabled && volume.contains(x, z))
             .map(|volume| volume.surface_y)
             .reduce(f32::max)
     }
@@ -7067,13 +8021,116 @@ impl WaterVolumes {
         if !x.is_finite() || !z.is_finite() || !radius.is_finite() || radius < 0.0 {
             return false;
         }
-        self.volumes.iter().any(|volume| {
-            x - radius >= volume.x0
-                && x + radius <= volume.x1
-                && z - radius >= volume.z0
-                && z + radius <= volume.z1
-        })
+        self.volumes
+            .iter()
+            .filter(|volume| volume.enabled)
+            .any(|volume| {
+                x - radius >= volume.x0
+                    && x + radius <= volume.x1
+                    && z - radius >= volume.z0
+                    && z + radius <= volume.z1
+            })
     }
+
+    /// Encodes this volume set into a compiled collision record: the volume
+    /// count, then each volume's footprint, surface, bottom and contract.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the set holds more volumes than the format
+    /// admits or a material id is longer than the record bound.
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        write_collision_count(
+            writer,
+            self.volumes.len(),
+            MAX_COLLISION_WATER_VOLUMES,
+            "water volume count",
+        )?;
+        for volume in &self.volumes {
+            write_water_volume(writer, volume)?;
+        }
+        Ok(())
+    }
+
+    /// Decodes a volume set from a compiled collision record.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the record is truncated, declares an
+    /// out-of-range count, or holds a malformed volume.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let volume_count = reader.count(MAX_COLLISION_WATER_VOLUMES, "water volume count")?;
+        let mut volumes = Vec::with_capacity(volume_count.min(256));
+        for _ in 0..volume_count {
+            volumes.push(read_water_volume(reader)?);
+        }
+        Ok(Self { volumes })
+    }
+}
+
+/// Encodes one water volume: footprint, surface, bottom, contract and
+/// material.
+fn write_water_volume(writer: &mut Writer, volume: &WaterVolume) -> Result<(), String> {
+    writer.f32(volume.x0);
+    writer.f32(volume.x1);
+    writer.f32(volume.z0);
+    writer.f32(volume.z1);
+    writer.f32(volume.surface_y);
+    writer.f32(volume.bottom_y);
+    writer.f32(volume.opacity);
+    writer.bool(volume.swimming);
+    match volume.material.as_deref() {
+        None => writer.u8(0),
+        Some(material) => {
+            if u64::try_from(material.len()).unwrap_or(u64::MAX)
+                > MAX_COLLISION_WATER_MATERIAL_BYTES
+            {
+                return Err(format!(
+                    "water volume material id is {} bytes \
+                     (limit {MAX_COLLISION_WATER_MATERIAL_BYTES})",
+                    material.len()
+                ));
+            }
+            writer.u8(1);
+            writer.str(material)?;
+        }
+    }
+    Ok(())
+}
+
+/// Decodes one water volume.
+fn read_water_volume(reader: &mut Reader<'_>) -> Result<WaterVolume, String> {
+    let x0 = reader.f32()?;
+    let x1 = reader.f32()?;
+    let z0 = reader.f32()?;
+    let z1 = reader.f32()?;
+    let surface_y = reader.f32()?;
+    let bottom_y = reader.f32()?;
+    let opacity = reader.f32()?;
+    if !collision_values_finite(&[x0, x1, z0, z1, surface_y, bottom_y, opacity]) {
+        return Err("water volume has a non-finite value".to_string());
+    }
+    if x0 > x1 || z0 > z1 {
+        return Err("water volume bounds are inverted".to_string());
+    }
+    let swimming = reader.bool()?;
+    let material = match reader.u8()? {
+        0 => None,
+        1 => Some(reader.str(MAX_COLLISION_WATER_MATERIAL_BYTES)?),
+        other => return Err(format!("invalid water material marker {other}")),
+    };
+    Ok(WaterVolume {
+        x0,
+        x1,
+        z0,
+        z1,
+        surface_y,
+        bottom_y,
+        material,
+        opacity,
+        swimming,
+        enabled: true,
+    })
 }
 
 /// One ladder resolved against the level, ready for the controller.
@@ -7218,144 +8275,81 @@ impl Ladders {
             .iter()
             .position(|ladder| ladder.overlaps_disc(x, z, radius))
     }
-}
 
-/// One area trigger resolved against the level, ready for the controller.
-///
-/// The volume is an axis-aligned box. The controller tests the player's feet
-/// point against it each update and also tests the frame's swept feet segment,
-/// so a fast fall through a thin trigger band still counts as an entry.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AreaTrigger {
-    /// Resolved instance id (authored, or `trigger_<n>`).
-    pub id: String,
-    pub x0: f32,
-    pub x1: f32,
-    pub z0: f32,
-    pub z1: f32,
-    pub bottom_y: f32,
-    pub top_y: f32,
-    /// Actions run on entry, in order.
-    pub actions: Vec<ActionDef>,
-    pub cooldown_seconds: f32,
-    pub once: bool,
-}
-
-impl AreaTrigger {
-    /// True when the point `(x, z, y)` lies inside the volume.
-    #[must_use]
-    pub fn contains(&self, x: f32, z: f32, y: f32) -> bool {
-        x.is_finite()
-            && z.is_finite()
-            && y.is_finite()
-            && x >= self.x0
-            && x <= self.x1
-            && z >= self.z0
-            && z <= self.z1
-            && y >= self.bottom_y
-            && y <= self.top_y
-    }
-
-    /// The vertical band as a min/max pair, used by the swept test.
-    #[must_use]
-    pub const fn y_bounds(&self) -> (f32, f32) {
-        (self.bottom_y, self.top_y)
-    }
-}
-
-/// The level's area triggers, resolved once at load time.
-///
-/// Lookups are linear over the authored list, like water volumes and ladders;
-/// a level with no `area_triggers` array is empty and every query misses.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct AreaTriggers {
-    triggers: Vec<AreaTrigger>,
-}
-
-impl AreaTriggers {
-    /// An empty set: no trigger ever fires.
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            triggers: Vec::new(),
+    /// Encodes this ladder set into a compiled collision record: the count,
+    /// then each ladder's footprint, reach and facing.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the set holds more ladders than the format
+    /// admits.
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        write_collision_count(
+            writer,
+            self.ladders.len(),
+            MAX_COLLISION_LADDERS,
+            "ladder count",
+        )?;
+        for ladder in &self.ladders {
+            write_ladder(writer, ladder);
         }
+        Ok(())
     }
 
-    /// Resolves every authored trigger, assigning deterministic default ids and
-    /// vertical bounds. Malformed entries are skipped exactly like water
-    /// volumes and ladders; a loaded level has already been validated.
-    #[must_use]
-    pub fn from_level(level: &LevelDef) -> Self {
-        let mut triggers = Vec::with_capacity(level.area_triggers.len());
-        for (index, def) in level.area_triggers.iter().enumerate() {
-            let (x0, x1, z0, z1) = def.bounds();
-            if !x0.is_finite()
-                || !x1.is_finite()
-                || !z0.is_finite()
-                || !z1.is_finite()
-                || !def.width.is_finite()
-                || !def.depth.is_finite()
-                || def.width <= 0.0
-                || def.depth <= 0.0
-            {
-                continue;
-            }
-            let (bottom_y, top_y) = def.resolved_y_bounds(level);
-            if !bottom_y.is_finite() || !top_y.is_finite() || top_y <= bottom_y {
-                continue;
-            }
-            let cooldown = if def.cooldown_seconds.is_finite() {
-                def.cooldown_seconds.max(0.0)
-            } else {
-                0.0
-            };
-            triggers.push(AreaTrigger {
-                id: def
-                    .id
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|id| !id.is_empty())
-                    .map_or_else(
-                        || format!("trigger_{}", index.saturating_add(1)),
-                        str::to_string,
-                    ),
-                x0,
-                x1,
-                z0,
-                z1,
-                bottom_y,
-                top_y,
-                actions: def.actions.clone(),
-                cooldown_seconds: cooldown,
-                once: def.once,
-            });
+    /// Decodes a ladder set from a compiled collision record.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the record is truncated, declares an
+    /// out-of-range count, or holds a malformed ladder.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let count = reader.count(MAX_COLLISION_LADDERS, "ladder count")?;
+        let mut ladders = Vec::with_capacity(count.min(256));
+        for _ in 0..count {
+            ladders.push(read_ladder(reader)?);
         }
-        Self { triggers }
+        Ok(Self { ladders })
     }
+}
 
-    /// True when the level defines no triggers.
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        self.triggers.is_empty()
-    }
+/// Encodes one ladder volume.
+fn write_ladder(writer: &mut Writer, ladder: &Ladder) {
+    writer.f32(ladder.x0);
+    writer.f32(ladder.x1);
+    writer.f32(ladder.z0);
+    writer.f32(ladder.z1);
+    writer.f32(ladder.bottom_y);
+    writer.f32(ladder.top_y);
+    writer.f32(ladder.facing_x);
+    writer.f32(ladder.facing_z);
+}
 
-    /// Number of resolved triggers.
-    #[must_use]
-    pub const fn len(&self) -> usize {
-        self.triggers.len()
+/// Decodes one ladder volume.
+fn read_ladder(reader: &mut Reader<'_>) -> Result<Ladder, String> {
+    let x0 = reader.f32()?;
+    let x1 = reader.f32()?;
+    let z0 = reader.f32()?;
+    let z1 = reader.f32()?;
+    let bottom_y = reader.f32()?;
+    let top_y = reader.f32()?;
+    let facing_x = reader.f32()?;
+    let facing_z = reader.f32()?;
+    if !collision_values_finite(&[x0, x1, z0, z1, bottom_y, top_y, facing_x, facing_z]) {
+        return Err("ladder has a non-finite value".to_string());
     }
-
-    /// Every resolved trigger, in authored order.
-    #[must_use]
-    pub fn triggers(&self) -> &[AreaTrigger] {
-        &self.triggers
+    if x0 > x1 || z0 > z1 {
+        return Err("ladder bounds are inverted".to_string());
     }
-
-    /// The trigger at `index`, if it exists.
-    #[must_use]
-    pub fn get(&self, index: usize) -> Option<&AreaTrigger> {
-        self.triggers.get(index)
-    }
+    Ok(Ladder {
+        x0,
+        x1,
+        z0,
+        z1,
+        bottom_y,
+        top_y,
+        facing_x,
+        facing_z,
+    })
 }
 
 /// Inserts one extra cut position into a surface axis when it is strictly

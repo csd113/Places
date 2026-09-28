@@ -22,14 +22,13 @@ use std::sync::Arc;
 
 use glam::Mat4;
 
-use super::environment::{EnvironmentBindings, static_environment};
+use super::environment::EnvironmentBindings;
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
 use crate::quality::{QualityLevel, TextureClass};
-use crate::render::common::atmosphere::FogState;
 use crate::render::common::character::{Character, CharacterScene, character_vertex};
 use crate::spatial::Aabb;
 
@@ -110,18 +109,15 @@ pub struct WgpuCharacters {
     /// Shared sheet bound by a submesh whose material declares no texture, so
     /// an untextured primitive still draws instead of disappearing.
     fallback: Option<Arc<GpuTexture>>,
-    /// The level's environment constants with a neutral model matrix; a live
-    /// transform rewrites one character's uniform from this template. `None`
-    /// until a scene is uploaded.
-    environment_template: Option<EnvironmentUniform>,
     stats: CharacterGpuStats,
     /// Reused CPU skinning target; capacity covers the largest character.
     scratch: Vec<WorldVertex>,
 }
 
 /// The renderer state a character upload needs: the shared texture cache, the
-/// material and environment layouts, the level's lightmap atlas and the
-/// reflection views the environment binds.
+/// material and environment layouts, the level's lightmap atlas, the level's
+/// environment template (lightmap selection and fog) and the reflection views
+/// the environment binds.
 pub struct CharacterUploadContext<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
@@ -129,13 +125,14 @@ pub struct CharacterUploadContext<'a> {
     pub material_layout: &'a wgpu::BindGroupLayout,
     pub environment_layout: &'a wgpu::BindGroupLayout,
     pub lightmaps: &'a LightmapAtlas,
-    pub lightmap_enabled: bool,
+    /// The level environment every character's uniform starts from: unit light
+    /// scale, the resident lightmap selection and the fog constants.
+    pub environment: EnvironmentUniform,
     pub probes: &'a [&'a wgpu::TextureView],
     pub planar: &'a wgpu::TextureView,
     pub probe_fallback: &'a wgpu::TextureView,
     pub planar_fallback: &'a wgpu::TextureView,
     pub level: QualityLevel,
-    pub fog: FogState,
 }
 
 impl WgpuCharacters {
@@ -152,7 +149,6 @@ impl WgpuCharacters {
             return value;
         }
         value.fallback = Some(ctx.cache.fallback());
-        value.environment_template = Some(static_environment(ctx.lightmap_enabled, ctx.fog));
         let widest = scene
             .characters()
             .iter()
@@ -195,7 +191,7 @@ impl WgpuCharacters {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                static_environment(ctx.lightmap_enabled, ctx.fog)
+                ctx.environment
                     .with_model(character.transform())
                     .with_light_scale([1.0; 3]),
             );
@@ -388,19 +384,24 @@ impl WgpuCharacters {
     /// and rewrites the environment matrix of every character whose route
     /// moved it.
     ///
-    /// Called once per frame; a still character with a settled pose writes
-    /// nothing.
-    pub fn sync(&mut self, queue: &wgpu::Queue, scene: &CharacterScene) -> usize {
+    /// `environment` is the level's current template (the lightmap selection,
+    /// the fog constants and no active mirror); a moved character installs its
+    /// placement matrix on top. Called once per frame; a still character with a
+    /// settled pose writes nothing.
+    pub fn sync(
+        &mut self,
+        queue: &wgpu::Queue,
+        scene: &CharacterScene,
+        environment: EnvironmentUniform,
+    ) -> usize {
         let mut uploaded = 0usize;
         for gpu in &mut self.characters {
             let Some(character) = scene.characters().get(gpu.scene_slot) else {
                 continue;
             };
             if character.transform() != gpu.uploaded_transform {
-                if let Some(template) = self.environment_template {
-                    gpu.environment
-                        .update(queue, template.with_model(character.transform()));
-                }
+                gpu.environment
+                    .update(queue, environment.with_model(character.transform()));
                 gpu.uploaded_transform = character.transform();
                 gpu.world_bounds = character.world_bounds();
             }

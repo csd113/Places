@@ -2,16 +2,17 @@
 //!
 //! The environment is the frame/level state the world fragment stage reads
 //! besides the camera, the draw's base texture and its material: the baked-light
-//! switch and scale, the fog constants, the two lightmap atlas pages, the
-//! reflection probe cubemap and the planar mirror image, plus the active planar
-//! mirror's projection and plane. The reference stored every one of those as a
-//! separate program uniform or texture unit; they are grouped here because they
-//! change on the same events (level load, resize, planar capture) and are read
-//! together by every world draw.
+//! switch and scale, the prepared lightmap layer array's addressing, the fog
+//! constants, the reflection probe cubemap and the planar mirror image, plus
+//! the active planar mirror's projection and plane. The reference stored every
+//! one of those as a separate program uniform or texture unit; they are
+//! grouped here because they change on the same events (level load, resize,
+//! planar capture) and are read together by every world draw.
 //!
 //! Nothing here creates resources per frame. The uniform buffer is written
-//! per frame only when a planar capture is active (matrix and plane change);
-//! every texture and the bind group are level/size resources.
+//! per frame only when a planar capture is active (matrix and plane change) or
+//! a light switch changes the switchable mask; every texture and the bind
+//! group are level/size resources.
 
 use super::lightmap::LightmapAtlas;
 use super::texture::{SamplerPolicy, TextureCache};
@@ -226,6 +227,10 @@ impl EnvironmentBindings {
 
 /// The environment value for a static-world frame: unit light scale, the fog
 /// constants, no active mirror and the identity model.
+///
+/// The lightmap selection starts empty; a caller holding the resident pages
+/// installs it with [`EnvironmentUniform::with_lightmaps`], and the resident
+/// probe chain's top mip with [`EnvironmentUniform::with_probe_mips`].
 #[must_use]
 pub const fn static_environment(lightmap_enabled: bool, fog: FogState) -> EnvironmentUniform {
     EnvironmentUniform::new([1.0; 3], lightmap_enabled, fog)
@@ -247,6 +252,26 @@ mod tests {
         assert_eq!(environment.fog_density, fog.density);
         assert_eq!(environment.planar_plane, [0.0, 0.0, 1.0, 0.0]);
         assert_eq!(environment.model, glam::Mat4::IDENTITY.to_cols_array_2d());
+        // No resident pages until the caller installs them.
+        assert_eq!(environment.lightmap_page_count, 0);
+        assert_eq!(environment.lightmap_switchable, 0);
+    }
+
+    #[test]
+    fn a_lightmap_selection_reaches_the_uniform_bits() {
+        let environment = static_environment(true, FogState::SHIPPED).with_lightmaps(3, 2, 0b11);
+        assert_eq!(environment.lightmap_page_count, 3);
+        assert_eq!(environment.lightmap_switchable & 0xF, 2);
+        assert_eq!((environment.lightmap_switchable >> 8) & 0xF, 0b11);
+    }
+
+    #[test]
+    fn a_probe_chain_length_reaches_the_uniform_bits() {
+        let environment = static_environment(true, FogState::SHIPPED).with_probe_mips(6);
+        assert_eq!((environment.lightmap_switchable >> 16) & 0xF, 6);
+        assert_eq!(environment.lightmap_switchable & 0x0000_FFFF, 0);
+        let clamped = environment.with_probe_mips(0xFFFF_FFFF);
+        assert_eq!((clamped.lightmap_switchable >> 16) & 0xF, 0xF);
     }
 
     #[test]

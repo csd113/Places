@@ -26,6 +26,10 @@ pollster = "1.0"
 sdl3 = { version = "0.20", features = ["use-pkg-config", "raw-window-handle"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Package integrity: content-addressed blob names and dependency identities.
+# Pure Rust, no C toolchain and no runtime services; used by both the offline
+# compiler and the player's package reader.
+sha2 = "0.10"
 # wgpu renderer: device, surface, world geometry and every later pass. Only
 # the native desktop backend of each target is compiled: Metal on macOS,
 # Vulkan on Linux, Direct3D 12 on Windows. The GLES, WebGPU and WebGL backends

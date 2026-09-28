@@ -476,7 +476,7 @@ mod tests {
     fn level_with_route(route: &str) -> LevelDef {
         LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "entity_route_test",
                 "name": "Entity Route Test",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},

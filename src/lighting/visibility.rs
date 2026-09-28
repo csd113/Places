@@ -78,6 +78,7 @@
 //! order, and a query walks its range in index order.
 
 use crate::level::{LevelDef, LevelSurfaces, RoomDef, WallAxis, wall_solid_slices_profiled};
+use crate::package::binary::{Reader, Writer, finite3, finite4};
 
 /// Smallest clipped overlap, as a fraction of a segment's own length, that
 /// still counts as the segment entering an opaque box.
@@ -2134,6 +2135,310 @@ impl Visibility {
     pub fn occludes_anywhere(&self, from: [f32; 3], to: [f32; 3]) -> bool {
         self.occluders.blocks(from, to)
     }
+
+    /// Encodes the built visibility set for the compiled map package.
+    ///
+    /// The player never rebuilds occluders from level geometry: the bake's
+    /// solid derivation (including the prop-triangle grinding) is preparation,
+    /// so the exact built set travels in the package and every runtime light
+    /// sample and switch refill tests the same solids the compiler did.
+    pub(super) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        let walls = u32::try_from(self.occluders.walls.len())
+            .map_err(|_| "visibility has too many walls".to_string())?;
+        writer.u32(walls);
+        for blocker in &self.occluders.walls {
+            write_blocker(writer, blocker);
+        }
+        let horizontals = u32::try_from(self.occluders.horizontals.len())
+            .map_err(|_| "visibility has too many horizontals".to_string())?;
+        writer.u32(horizontals);
+        for horizontal in &self.occluders.horizontals {
+            match horizontal {
+                Horizontal::Slab(blocker) => {
+                    writer.u8(0);
+                    write_blocker(writer, blocker);
+                }
+                Horizontal::Floor(plane) => {
+                    writer.u8(1);
+                    writer.f32(plane.x0);
+                    writer.f32(plane.x1);
+                    writer.f32(plane.z0);
+                    writer.f32(plane.z1);
+                    writer.f32(plane.y);
+                }
+            }
+        }
+        let props = u32::try_from(self.occluders.props.len())
+            .map_err(|_| "visibility has too many prop boxes".to_string())?;
+        writer.u32(props);
+        for prop in &self.occluders.props {
+            writer.f32_3(prop.center);
+            writer.f32_3(prop.half);
+            writer.f32(prop.sin);
+            writer.f32(prop.cos);
+        }
+        write_point_grid(writer, &self.occluders.wall_grid)?;
+        write_u32_pairs(writer, &self.occluders.prop_ranges, "prop ranges")?;
+        let pool = u32::try_from(self.pool.len())
+            .map_err(|_| "visibility pool is too large".to_string())?;
+        writer.u32(pool);
+        for solid in &self.pool {
+            match solid.solid {
+                SolidIndex::Wall(index) => {
+                    writer.u8(0);
+                    writer.u32(index);
+                }
+                SolidIndex::Horizontal(index) => {
+                    writer.u8(1);
+                    writer.u32(index);
+                }
+                SolidIndex::Prop(index) => {
+                    writer.u8(2);
+                    writer.u32(index);
+                }
+            }
+            writer.f32(solid.near);
+            writer.f32_4(solid.bounds);
+        }
+        write_u32_pairs(writer, &self.ranges, "site ranges")?;
+        let sites = u32::try_from(self.sites.len())
+            .map_err(|_| "visibility has too many sites".to_string())?;
+        writer.u32(sites);
+        for (x, z) in &self.sites {
+            writer.f32(*x);
+            writer.f32(*z);
+        }
+        Ok(())
+    }
+
+    /// Decodes and validates a compiled visibility set.
+    #[allow(clippy::too_many_lines)] // one cohesive codec for the built occluder set
+    pub(super) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let wall_count = reader.count(
+            u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+            "wall count",
+        )?;
+        let mut walls = Vec::with_capacity(wall_count.min(4096));
+        for _ in 0..wall_count {
+            walls.push(read_blocker(reader)?);
+        }
+        let horizontal_count = reader.count(
+            u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+            "horizontal count",
+        )?;
+        let mut horizontals = Vec::with_capacity(horizontal_count.min(4096));
+        for _ in 0..horizontal_count {
+            horizontals.push(match reader.u8()? {
+                0 => Horizontal::Slab(read_blocker(reader)?),
+                1 => Horizontal::Floor(Plane {
+                    x0: read_finite(reader, "plane x0")?,
+                    x1: read_finite(reader, "plane x1")?,
+                    z0: read_finite(reader, "plane z0")?,
+                    z1: read_finite(reader, "plane z1")?,
+                    y: read_finite(reader, "plane y")?,
+                }),
+                other => return Err(format!("unknown horizontal kind {other}")),
+            });
+        }
+        let prop_count = reader.count(
+            u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+            "prop box count",
+        )?;
+        let mut props = Vec::with_capacity(prop_count.min(4096));
+        for _ in 0..prop_count {
+            let center = reader.f32_3()?;
+            let half = reader.f32_3()?;
+            let sin = reader.f32()?;
+            let cos = reader.f32()?;
+            if !finite3(center) || !finite3(half) || !sin.is_finite() || !cos.is_finite() {
+                return Err("prop occluder has a non-finite component".to_string());
+            }
+            if half.iter().any(|value| *value <= 0.0) {
+                return Err("prop occluder has a non-positive half extent".to_string());
+            }
+            props.push(OrientedBox {
+                center,
+                half,
+                sin,
+                cos,
+            });
+        }
+        let wall_grid = read_point_grid(reader)?;
+        let prop_ranges = read_u32_pairs(reader, "prop ranges")?;
+        if let Some(end) = prop_ranges.iter().map(|(_, end)| end).max()
+            && u64::from(*end) > u64::try_from(props.len()).unwrap_or(u64::MAX)
+        {
+            return Err("prop range reaches past the prop box list".to_string());
+        }
+        let pool_count = reader.count(
+            u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+            "pool count",
+        )?;
+        let mut pool = Vec::with_capacity(pool_count.min(16384));
+        for _ in 0..pool_count {
+            let solid = match reader.u8()? {
+                0 => SolidIndex::Wall(reader.u32()?),
+                1 => SolidIndex::Horizontal(reader.u32()?),
+                2 => SolidIndex::Prop(reader.u32()?),
+                other => return Err(format!("unknown solid kind {other}")),
+            };
+            let near = read_finite(reader, "solid distance")?;
+            let bounds = reader.f32_4()?;
+            if !finite4(bounds) {
+                return Err("solid bounds are non-finite".to_string());
+            }
+            let in_range = match solid {
+                SolidIndex::Wall(index) => {
+                    u64::from(index) < u64::try_from(walls.len()).unwrap_or(u64::MAX)
+                }
+                SolidIndex::Horizontal(index) => {
+                    u64::from(index) < u64::try_from(horizontals.len()).unwrap_or(u64::MAX)
+                }
+                SolidIndex::Prop(index) => {
+                    u64::from(index) < u64::try_from(props.len()).unwrap_or(u64::MAX)
+                }
+            };
+            if !in_range {
+                return Err("pooled solid index is out of range".to_string());
+            }
+            pool.push(SiteSolid {
+                solid,
+                near,
+                bounds,
+            });
+        }
+        let ranges = read_u32_pairs(reader, "site ranges")?;
+        for (start, end) in &ranges {
+            if start > end || u64::from(*end) > u64::try_from(pool.len()).unwrap_or(u64::MAX) {
+                return Err("site range is outside the pool".to_string());
+            }
+        }
+        let site_count = reader.count(1 << 24, "site count")?;
+        let mut sites = Vec::with_capacity(site_count.min(16384));
+        for _ in 0..site_count {
+            sites.push((
+                read_finite(reader, "site x")?,
+                read_finite(reader, "site z")?,
+            ));
+        }
+        Ok(Self {
+            occluders: Occluders {
+                walls,
+                horizontals,
+                props,
+                wall_grid,
+                prop_ranges,
+            },
+            pool,
+            ranges,
+            sites,
+        })
+    }
+}
+
+fn write_blocker(writer: &mut Writer, blocker: &Blocker) {
+    writer.f32_3(blocker.min);
+    writer.f32_3(blocker.max);
+}
+
+fn read_blocker(reader: &mut Reader<'_>) -> Result<Blocker, String> {
+    let min = reader.f32_3()?;
+    let max = reader.f32_3()?;
+    if !finite3(min) || !finite3(max) {
+        return Err("occluder has a non-finite bound".to_string());
+    }
+    if min.iter().zip(max.iter()).any(|(low, high)| low > high) {
+        return Err("occluder bounds are inverted".to_string());
+    }
+    Ok(Blocker { min, max })
+}
+
+fn write_point_grid(writer: &mut Writer, grid: &PointGrid) -> Result<(), String> {
+    let base = u32::try_from(grid.base).map_err(|_| "grid base is too large".to_string())?;
+    writer.u32(base);
+    writer.f32(grid.min_x);
+    writer.f32(grid.min_z);
+    writer.u32(grid.cells_x);
+    writer.u32(grid.cells_z);
+    writer.f32(grid.cell_m);
+    write_u32_pairs(writer, &grid.ranges, "grid ranges")?;
+    let items =
+        u32::try_from(grid.items.len()).map_err(|_| "grid has too many items".to_string())?;
+    writer.u32(items);
+    for item in &grid.items {
+        writer.u32(*item);
+    }
+    Ok(())
+}
+
+fn read_point_grid(reader: &mut Reader<'_>) -> Result<PointGrid, String> {
+    let base = usize::try_from(reader.u32()?).map_err(|_| "grid base is too large".to_string())?;
+    let min_x = read_finite(reader, "grid min x")?;
+    let min_z = read_finite(reader, "grid min z")?;
+    let cells_x = reader.u32()?;
+    let cells_z = reader.u32()?;
+    let cell_m = read_finite(reader, "grid cell")?;
+    if cell_m < 0.0 {
+        return Err("grid cell is negative".to_string());
+    }
+    let ranges = read_u32_pairs(reader, "grid ranges")?;
+    let item_count = reader.count(
+        u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+        "grid items",
+    )?;
+    let mut items = Vec::with_capacity(item_count.min(16384));
+    for _ in 0..item_count {
+        items.push(reader.u32()?);
+    }
+    let cell_count = u64::from(cells_x).saturating_mul(u64::from(cells_z));
+    if u64::try_from(ranges.len()).unwrap_or(u64::MAX) > cell_count.saturating_add(1) {
+        return Err("grid has more ranges than cells".to_string());
+    }
+    if let Some(end) = ranges.iter().map(|(_, end)| end).max()
+        && u64::from(*end) > u64::try_from(items.len()).unwrap_or(u64::MAX)
+    {
+        return Err("grid range reaches past its item list".to_string());
+    }
+    Ok(PointGrid {
+        base,
+        min_x,
+        min_z,
+        cells_x,
+        cells_z,
+        cell_m,
+        ranges,
+        items,
+    })
+}
+
+fn write_u32_pairs(writer: &mut Writer, pairs: &[(u32, u32)], what: &str) -> Result<(), String> {
+    let count = u32::try_from(pairs.len()).map_err(|_| format!("{what} list is too long"))?;
+    writer.u32(count);
+    for (start, end) in pairs {
+        writer.u32(*start);
+        writer.u32(*end);
+    }
+    Ok(())
+}
+
+fn read_u32_pairs(reader: &mut Reader<'_>, what: &str) -> Result<Vec<(u32, u32)>, String> {
+    let count = reader.count(
+        u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
+        what,
+    )?;
+    let mut pairs = Vec::with_capacity(count.min(16384));
+    for _ in 0..count {
+        pairs.push((reader.u32()?, reader.u32()?));
+    }
+    Ok(pairs)
+}
+
+fn read_finite(reader: &mut Reader<'_>, what: &str) -> Result<f32, String> {
+    let value = reader.f32()?;
+    if !value.is_finite() {
+        return Err(format!("{what} is non-finite"));
+    }
+    Ok(value)
 }
 
 /// Total order over pooled solids, so equal distances sort deterministically.
@@ -2186,7 +2491,7 @@ mod tests {
     fn split_room() -> LevelDef {
         level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "visibility",
                 "name": "Visibility",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -2204,7 +2509,7 @@ mod tests {
     fn stacked_rooms() -> LevelDef {
         level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "stacked",
                 "name": "Stacked",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2300,7 +2605,7 @@ mod tests {
         // piece on one side or the other; the old shrink left a slit exactly on
         // the seam.
         let json = r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "seam",
             "name": "Seam",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -2441,7 +2746,7 @@ mod tests {
         // that corner.
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "floor_contact",
                 "name": "Floor Contact",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2476,7 +2781,7 @@ mod tests {
         // must still light its own ceiling.
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "zero_gap",
                 "name": "Zero Gap",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2500,7 +2805,7 @@ mod tests {
     #[test]
     fn a_lowered_basin_is_not_sealed_from_its_room() {
         let json = r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "basin",
             "name": "Basin",
             "spawn": { "x": 3.0, "z": 3.0 },
@@ -2534,7 +2839,7 @@ mod tests {
     #[test]
     fn a_raised_platform_does_not_isolate_the_room_above_it() {
         let json = r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "platform",
             "name": "Platform",
             "spawn": { "x": 3.0, "z": 3.0 },
@@ -2573,7 +2878,7 @@ mod tests {
     #[test]
     fn a_gable_ceiling_body_sits_above_the_slope() {
         let json = r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -2719,7 +3024,7 @@ mod tests {
     fn penumbra_room() -> LevelDef {
         level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "penumbra",
                 "name": "Penumbra",
                 "spawn": { "x": 3.0, "z": 5.0 },
@@ -2985,7 +3290,7 @@ mod tests {
     fn a_threshold_height_step_shadows_only_its_own_footprint() {
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "trim_threshold",
                 "name": "Trim Threshold",
                 "spawn": { "x": 1.0, "z": 2.0 },
@@ -3029,7 +3334,7 @@ mod tests {
     fn a_baseboard_against_its_wall_does_not_shadow_the_open_floor() {
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "trim_baseboard",
                 "name": "Trim Baseboard",
                 "spawn": { "x": 3.0, "z": 1.0 },
@@ -3102,7 +3407,7 @@ mod tests {
     fn a_wall_shadow_starts_at_the_wall_base_and_only_brightens_outward() {
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "contact",
                 "name": "Contact",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -3153,7 +3458,7 @@ mod tests {
         // edge: inside the range, so the bake asks for it.
         let level = level(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "reach",
                 "name": "Reach",
                 "spawn": { "x": 2.0, "z": 10.0 },

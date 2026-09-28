@@ -90,6 +90,8 @@ pub struct DoorRuntime {
     phase: DoorPhase,
     /// True while the last advance was blocked.
     pub obstructed: bool,
+    /// True while the leaf refuses to open.
+    locked: bool,
     /// Seconds before a `reverse` obstruction may flip direction again, so a
     /// leaf oscillating against a body cannot chatter every frame.
     reverse_guard: f32,
@@ -113,6 +115,7 @@ impl DoorRuntime {
             angle,
             phase,
             obstructed: false,
+            locked: def.locked,
             reverse_guard: 0.0,
         }
     }
@@ -160,9 +163,27 @@ impl DoorRuntime {
         )
     }
 
+    /// True while the leaf refuses to open.
+    #[must_use]
+    pub const fn is_locked(&self) -> bool {
+        self.locked
+    }
+
+    /// Locks or unlocks the leaf. Returns whether the state changed.
+    pub const fn set_locked(&mut self, locked: bool) -> bool {
+        if self.locked == locked {
+            return false;
+        }
+        self.locked = locked;
+        true
+    }
+
     /// Requests the open end.
+    ///
+    /// A locked leaf refuses the request and stays where it is; the caller
+    /// reports the refusal once instead of silently ignoring it.
     pub const fn request_open(&mut self) -> bool {
-        if matches!(self.phase, DoorPhase::Opening | DoorPhase::Open) {
+        if self.locked || matches!(self.phase, DoorPhase::Opening | DoorPhase::Open) {
             return false;
         }
         self.phase = DoorPhase::Opening;
@@ -179,7 +200,13 @@ impl DoorRuntime {
     }
 
     /// Flips between the two ends, mid-travel included.
+    ///
+    /// A locked leaf refuses a toggle that would open it; closing an open
+    /// locked leaf is allowed, so a lock can never wedge a leaf mid-opening.
     pub const fn toggle(&mut self) -> bool {
+        if self.locked && matches!(self.phase, DoorPhase::Closed | DoorPhase::Closing) {
+            return false;
+        }
         self.phase = self.phase.toggled();
         true
     }
@@ -193,6 +220,7 @@ impl DoorRuntime {
         self.angle = angle;
         self.phase = phase;
         self.obstructed = false;
+        self.locked = self.def.locked;
         self.reverse_guard = 0.0;
     }
 
@@ -347,6 +375,30 @@ impl Doors {
             .is_some_and(DoorRuntime::request_close)
     }
 
+    /// Whether the door called `id` is locked, if it exists.
+    #[must_use]
+    pub fn is_locked(&self, id: &str) -> Option<bool> {
+        self.index_of(id)
+            .and_then(|index| self.runtimes.get(index))
+            .map(DoorRuntime::is_locked)
+    }
+
+    /// Locks or unlocks the door called `id`. Returns whether the state
+    /// changed; an unknown id returns false.
+    pub fn set_locked(&mut self, id: &str, locked: bool) -> bool {
+        self.index_of(id)
+            .and_then(|index| self.runtimes.get_mut(index))
+            .is_some_and(|door| door.set_locked(locked))
+    }
+
+    /// Flips the door called `id` between its ends. Returns whether a phase
+    /// change was requested.
+    pub fn toggle(&mut self, id: &str) -> bool {
+        self.index_of(id)
+            .and_then(|index| self.runtimes.get_mut(index))
+            .is_some_and(DoorRuntime::toggle)
+    }
+
     /// Resets every leaf to its authored start state (a `reset_to_start`).
     pub fn reset(&mut self) {
         for door in &mut self.runtimes {
@@ -402,7 +454,7 @@ mod tests {
     fn door_json(extra: &str) -> String {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "door_test",
                 "name": "Door Test",
                 "spawn": {{ "x": 2.0, "z": 5.0 }},

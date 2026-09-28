@@ -182,7 +182,7 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
             config.max_pages,
             crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES
         );
-        assert_eq!(config.bytes_per_texel, 3);
+        assert_eq!(config.bytes_per_texel, 16);
         assert_eq!(config.max_chart_span_m(), low.max_chart_span_m());
     }
 

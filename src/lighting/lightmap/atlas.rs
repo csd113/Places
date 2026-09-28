@@ -1,4 +1,4 @@
-//! The deterministic MAXRECTS atlas packer, atlas pages and PNG debugging.
+//! The deterministic MAXRECTS atlas packer, HDR atlas pages and PNG debugging.
 //!
 //! Packing is deliberately simple and reproducible: charts are placed in the
 //! order the mesh emitter produced them. Each chart is placed in the free
@@ -7,13 +7,13 @@
 //! to the lowest `y`, then the leftmost `x`, then the earliest page. A page is
 //! opened only when no open page has a free rectangle that fits. Nothing
 //! depends on hashing, sorting or floating-point order, so the same level
-//! always produces byte-identical pages and the same `Chart` rectangles.
+//! always produces identical pages and the same `Chart` rectangles.
 //!
 //! Why MAXRECTS rather than a bottom-left skyline: the chart set is a
 //! heterogeneous mix of small floor cells, wide room floors and long thin wall
 //! strips, and the skyline's one-dimensional top edge cannot use the vertical
 //! slack a tall chart leaves beside itself in both directions. Measured on
-//! `The Pit` at Full, the same 1,309-chart set needs five pages under the
+//! `The Pit` at Full, the same 1,309-chart set needed five pages under the
 //! skyline — one page over the four-page budget, which would cost the whole
 //! level its atlas — and exactly four under best-short-side fit (its packed
 //! outer demand is 88 % of four pages, so no three-page packing exists). Free
@@ -26,18 +26,71 @@
 //! texels are *dilated*: each copy the nearest texel of the chart's own border,
 //! so the bilinear filter can reach half a texel past the data rectangle without
 //! ever bleeding a neighbouring chart's texels into the sample.
+//!
+//! Every page texel is a [`LightmapTexel`]: two linear HDR values (an
+//! irradiance term and a directional moment), stored as `f32` in memory and
+//! encoded to half floats only by the package writer.
 
 use std::path::Path;
 
-use super::{Chart, LightmapConfig, LightmapFailure, LightmapPatch};
+use super::{Chart, LightmapConfig, LightmapFailure, LightmapPatch, LightmapTexel};
 
-/// One square atlas page of RGB8 texels, row-major from the top-left.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One square atlas page of linear HDR texels, row-major from the top-left.
+#[derive(Clone, Debug, PartialEq)]
 pub struct LightmapPage {
     pub width: u32,
     pub height: u32,
-    /// `width * height * 3` bytes, red first.
-    pub rgb: Vec<u8>,
+    /// `width * height` texels, row-major.
+    pub texels: Vec<LightmapTexel>,
+}
+
+impl LightmapPage {
+    /// An all-black page of `edge` texels.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LightmapFailure::InvalidConfig`] when the edge is zero or the
+    /// texel count cannot be addressed.
+    pub fn empty(edge: u32) -> Result<Self, LightmapFailure> {
+        let texels = texel_count_for_edge(edge)?;
+        Ok(Self {
+            width: edge,
+            height: edge,
+            texels: vec![LightmapTexel::ZERO; texels],
+        })
+    }
+
+    /// Reads one texel, or `None` when it lies outside the page.
+    #[must_use]
+    pub fn texel(&self, x: u32, y: u32) -> Option<LightmapTexel> {
+        self.texels.get(texel_offset(self, x, y)?).copied()
+    }
+
+    /// Writes one texel if it lies inside the page.
+    pub fn set_texel(&mut self, x: u32, y: u32, value: LightmapTexel) {
+        let Some(offset) = texel_offset(self, x, y) else {
+            return;
+        };
+        if let Some(slot) = self.texels.get_mut(offset) {
+            *slot = value.normalized();
+        }
+    }
+
+    /// True when the buffer holds exactly `width * height` texels.
+    #[must_use]
+    pub fn is_consistent(&self) -> bool {
+        texel_count_for_edge(self.width)
+            .is_ok_and(|expected| self.width == self.height && self.texels.len() == expected)
+    }
+}
+
+/// Reads one page texel by coordinate.
+///
+/// A free function so a caller holding a `&LightmapPage` can use it without
+/// naming the method; exported for the package round-trip tests.
+#[must_use]
+pub fn read_page_texel(page: &LightmapPage, x: u32, y: u32) -> Option<LightmapTexel> {
+    page.texel(x, y)
 }
 
 /// One free rectangle of a page, in outer-placement coordinates.
@@ -265,57 +318,19 @@ fn chart_at(page_index: usize, x: u32, y: u32, width: u32, height: u32, padding:
     }
 }
 
-/// A baked set of atlas pages: one RGB8 buffer per page, gutter-dilated.
+/// A prepared set of HDR atlas pages, gutter-dilated.
 ///
-/// Built once per level load, after the fill pass produced every chart's
-/// texels. The renderer uploads each page once; a runtime light switch rewrites
-/// a chart through [`LightmapPage::rewrite_chart`] and re-uploads that page.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Assembled once per variant, after the transport solver produced every
+/// chart's texels. The renderer uploads each page's irradiance and directional
+/// planes; nothing rewrites a page at runtime — a switchable fixture's
+/// illumination lives in its own prepared layer set instead.
+#[derive(Clone, Debug, PartialEq)]
 pub struct LightmapAtlas {
     pages: Vec<LightmapPage>,
 }
 
-impl LightmapPage {
-    /// Rewrites one chart's texels in place and re-dilates its gutter.
-    ///
-    /// `colors` must hold `chart.width * chart.height` RGB triples, row-major,
-    /// exactly like [`LightmapAtlas::bake`]'s fill. Used by the runtime light
-    /// switch: a switchable fixture's charts are re-filled with the light's new
-    /// state and written back without rebuilding the whole atlas.
-    /// # Errors
-    ///
-    /// Returns [`LightmapFailure::Layout`] when the chart does not fit the page
-    /// or its row/column arithmetic overflows, and
-    /// [`LightmapFailure::FillSize`] when `colors` has the wrong length.
-    pub fn rewrite_chart(
-        &mut self,
-        chart: &Chart,
-        colors: &[[f32; 3]],
-        padding: u32,
-    ) -> Result<(), LightmapFailure> {
-        if !chart_fits_page(chart, self) {
-            return Err(LightmapFailure::Layout);
-        }
-        let Some(expected) = chart_texel_count(chart) else {
-            return Err(LightmapFailure::Layout);
-        };
-        if colors.len() != expected {
-            return Err(LightmapFailure::FillSize);
-        }
-        if !colors
-            .iter()
-            .all(|color| color.iter().all(|value| value.is_finite()))
-        {
-            return Err(LightmapFailure::FillNonFinite);
-        }
-        write_chart(self, chart, colors)?;
-        dilate(self, chart, padding);
-        Ok(())
-    }
-}
-
 impl LightmapAtlas {
-    /// Checks layout before any parallel producer can allocate chart colors.
+    /// Checks layout before any parallel producer can allocate chart texels.
     /// This uses the serial writer's arithmetic and rectangle checks without
     /// allocating page pixels or invoking a fill callback.
     /// # Errors
@@ -329,7 +344,7 @@ impl LightmapAtlas {
         let page = LightmapPage {
             width: config.page_edge,
             height: config.page_edge,
-            rgb: Vec::new(),
+            texels: Vec::new(),
         };
         for (_, chart) in charts {
             if usize::from(chart.page) >= page_count
@@ -342,14 +357,12 @@ impl LightmapAtlas {
         Ok(())
     }
 
-    /// Fills every chart and dilates its gutter into a set of atlas pages.
+    /// Writes every chart's solved texels into its page and dilates the gutters.
     ///
-    /// `page_count` is the packer's page count. `fill` receives one patch and
-    /// its chart and must return `chart.width * chart.height` RGB triples,
-    /// row-major. Any deviation — a wrong count, a non-finite channel, a chart
-    /// that does not fit the page it was allocated on — is a named failure; the
-    /// caller rebuilds the level with [`super::LightmapMode::Off`] rather than
-    /// rendering a half-empty atlas.
+    /// `charts` and `texels` are parallel: `texels[chart_index]` holds exactly
+    /// `chart.width * chart.height` texels, row-major along `v` with `u` the
+    /// fast axis, which is the same order [`crate::lighting::transport`]
+    /// produced and the same order the shader reconstructs.
     ///
     /// # Errors
     ///
@@ -357,48 +370,43 @@ impl LightmapAtlas {
     /// `InvalidConfig`, `FillSize` or `FillNonFinite` — when the page set or a
     /// chart's texels are not exactly what the plan described. A caller must
     /// treat every one of them as "draw the vertex-lit level".
-    pub fn bake(
+    pub fn assemble(
         config: &LightmapConfig,
         page_count: usize,
         charts: &[(LightmapPatch, Chart)],
-        mut fill: impl FnMut(&LightmapPatch, &Chart) -> Vec<[f32; 3]>,
+        texels: &[Vec<LightmapTexel>],
     ) -> Result<Self, LightmapFailure> {
-        let buffer_len = validated_page_buffer_len(config, page_count)?;
-        let mut pages: Vec<LightmapPage> = (0..page_count)
-            .map(|_| LightmapPage {
-                width: config.page_edge,
-                height: config.page_edge,
-                rgb: vec![0; buffer_len],
-            })
-            .collect();
-
-        for (patch, chart) in charts {
+        if charts.len() != texels.len() {
+            return Err(LightmapFailure::FillSize);
+        }
+        validated_page_buffer_len(config, page_count)?;
+        let mut pages: Vec<LightmapPage> = Vec::with_capacity(page_count);
+        for _ in 0..page_count {
+            pages.push(LightmapPage::empty(config.page_edge)?);
+        }
+        for ((_, chart), chart_texels) in charts.iter().zip(texels) {
             let Some(page) = pages.get_mut(usize::from(chart.page)) else {
                 return Err(LightmapFailure::Layout);
             };
-            let Some(texels) = chart_texel_count(chart) else {
+            let Some(expected) = chart_texel_count(chart) else {
                 return Err(LightmapFailure::Layout);
             };
             if !chart_fits_page(chart, page) {
                 return Err(LightmapFailure::Layout);
             }
-            let colors = fill(patch, chart);
-            if colors.len() != texels {
+            if chart_texels.len() != expected {
                 return Err(LightmapFailure::FillSize);
             }
-            if !colors
-                .iter()
-                .all(|color| color.iter().all(|value| value.is_finite()))
-            {
+            if !chart_texels.iter().all(|texel| texel.is_finite()) {
                 return Err(LightmapFailure::FillNonFinite);
             }
-            write_chart(page, chart, &colors)?;
+            write_chart(page, chart, chart_texels)?;
             dilate(page, chart, config.padding);
         }
         Ok(Self { pages })
     }
 
-    /// The baked pages, in page order.
+    /// The assembled pages, in page order.
     #[must_use]
     pub fn pages(&self) -> &[LightmapPage] {
         &self.pages
@@ -417,6 +425,12 @@ impl LightmapAtlas {
     }
 }
 
+/// Largest page edge an atlas build may use, in texels.
+///
+/// Mirrors the package reader's bound: a config above it could never be
+/// packaged, so it is rejected before any page is allocated.
+const MAX_LIGHTMAP_PAGE_EDGE_SANITY: u32 = 4096;
+
 /// Shared configuration validation for preflight and serial atlas writing.
 fn validated_page_buffer_len(
     config: &LightmapConfig,
@@ -425,18 +439,26 @@ fn validated_page_buffer_len(
     if page_count > config.max_pages {
         return Err(LightmapFailure::PageOverflow);
     }
-    if config.page_edge == 0 || config.usable_edge() == 0 {
+    if config.page_edge == 0
+        || config.page_edge > MAX_LIGHTMAP_PAGE_EDGE_SANITY
+        || config.usable_edge() == 0
+    {
         return Err(LightmapFailure::InvalidConfig);
     }
-    page_buffer_len(config.page_edge)
+    // Both the texel count and its resident byte size must be addressable
+    // before any page is allocated; a malicious or mistaken config can never
+    // ask for an unrepresentable allocation.
+    let texels = texel_count_for_edge(config.page_edge)?;
+    texels
+        .checked_mul(usize::try_from(config.bytes_per_texel.max(1)).unwrap_or(usize::MAX))
+        .ok_or(LightmapFailure::InvalidConfig)?;
+    Ok(page_count)
 }
 
-/// Bytes one RGB8 page of `edge` texels occupies, when addressable.
-fn page_buffer_len(edge: u32) -> Result<usize, LightmapFailure> {
+/// Texels one square page of `edge` texels holds, when addressable.
+fn texel_count_for_edge(edge: u32) -> Result<usize, LightmapFailure> {
     let edge = usize::try_from(edge).map_err(|_| LightmapFailure::InvalidConfig)?;
-    edge.checked_mul(edge)
-        .and_then(|texels| texels.checked_mul(3))
-        .ok_or(LightmapFailure::InvalidConfig)
+    edge.checked_mul(edge).ok_or(LightmapFailure::InvalidConfig)
 }
 
 /// Texels one chart holds, or `None` for a zero-sized chart.
@@ -461,11 +483,11 @@ fn chart_fits_page(chart: &Chart, page: &LightmapPage) -> bool {
             .is_some_and(|bottom| bottom <= page.height)
 }
 
-/// Copies one chart's filled texels into its page.
+/// Copies one chart's solved texels into its page.
 fn write_chart(
     page: &mut LightmapPage,
     chart: &Chart,
-    colors: &[[f32; 3]],
+    texels: &[LightmapTexel],
 ) -> Result<(), LightmapFailure> {
     for row in 0..chart.height {
         let y = chart.y.checked_add(row).ok_or(LightmapFailure::Layout)?;
@@ -478,31 +500,14 @@ fn write_chart(
                     .ok_or(LightmapFailure::Layout)?,
             )
             .map_err(|_| LightmapFailure::Layout)?;
-            let color = colors
+            let value = texels
                 .get(index)
                 .copied()
                 .ok_or(LightmapFailure::FillSize)?;
-            set_texel(page, x, y, encode_light(color));
+            page.set_texel(x, y, value);
         }
     }
     Ok(())
-}
-
-/// Encodes one linear light colour as the RGB8 triple a page stores.
-fn encode_light(color: [f32; 3]) -> [u8; 3] {
-    color.map(encode_channel)
-}
-
-/// Encodes one clamped linear channel as a byte, rounding to nearest.
-fn encode_channel(value: f32) -> u8 {
-    if value.is_nan() {
-        return 0;
-    }
-    let clamped = value.clamp(0.0, 1.0);
-    // `clamped * 255 + 0.5` is in [0.5, 255.5], so the cast cannot leave u8.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let byte = clamped.mul_add(255.0, 0.5) as u8;
-    byte
 }
 
 /// Dilates a chart's border outwards into its own gutter.
@@ -530,52 +535,28 @@ fn dilate(page: &mut LightmapPage, chart: &Chart, padding: u32) {
             }
             let source_x = x.clamp(chart.x, right);
             let source_y = y.clamp(chart.y, bottom);
-            if let Some(color) = get_texel(page, source_x, source_y) {
-                set_texel(page, x, y, color);
+            if let Some(value) = page.texel(source_x, source_y) {
+                page.set_texel(x, y, value);
             }
         }
     }
 }
 
-/// Reads one RGB8 texel, or `None` when it lies outside the page.
-fn get_texel(page: &LightmapPage, x: u32, y: u32) -> Option<[u8; 3]> {
-    let offset = texel_offset(page, x, y)?;
-    Some([
-        *page.rgb.get(offset)?,
-        *page.rgb.get(offset.saturating_add(1))?,
-        *page.rgb.get(offset.saturating_add(2))?,
-    ])
-}
-
-/// Writes one RGB8 texel if it lies inside the page.
-fn set_texel(page: &mut LightmapPage, x: u32, y: u32, color: [u8; 3]) {
-    let Some(offset) = texel_offset(page, x, y) else {
-        return;
-    };
-    if let Some(slot) = page.rgb.get_mut(offset) {
-        *slot = color[0];
-    }
-    if let Some(slot) = page.rgb.get_mut(offset.saturating_add(1)) {
-        *slot = color[1];
-    }
-    if let Some(slot) = page.rgb.get_mut(offset.saturating_add(2)) {
-        *slot = color[2];
-    }
-}
-
-/// Byte offset of texel `(x, y)` in a page's row-major RGB8 buffer.
+/// Byte offset of texel `(x, y)` in a page's row-major buffer.
 fn texel_offset(page: &LightmapPage, x: u32, y: u32) -> Option<usize> {
     if x >= page.width || y >= page.height {
         return None;
     }
-    let stride = usize::try_from(page.width).ok()?.checked_mul(3)?;
+    let stride = usize::try_from(page.width).ok()?;
     let row = usize::try_from(y).ok()?.checked_mul(stride)?;
-    let column = usize::try_from(x).ok()?.checked_mul(3)?;
-    row.checked_add(column)
+    row.checked_add(usize::try_from(x).ok()?)
 }
 
-/// Encodes one page as PNG bytes (RGB expanded to RGBA), for the developer
-/// atlas dump and for tests.
+/// Encodes one page as PNG bytes, for the developer atlas dump and for tests.
+///
+/// The HDR values are tone mapped for the dump with the same soft knee the
+/// shader uses, evaluated on the isotropic term: this is a developer preview of
+/// the atlas, not the shipped light.
 ///
 /// # Errors
 ///
@@ -590,24 +571,43 @@ pub fn page_png_bytes(page: &LightmapPage) -> Result<Vec<u8>, String> {
                 .and_then(|height| width.checked_mul(height))
         })
         .ok_or_else(|| "atlas page is too large to address".to_string())?;
-    if texels.checked_mul(3) != Some(page.rgb.len()) {
+    if texels != page.texels.len() {
         return Err("atlas page buffer does not match its dimensions".to_string());
     }
     let mut rgba = vec![0u8; texels.saturating_mul(4)];
-    for (target, rgb) in rgba
+    for (target, texel) in rgba
         .as_chunks_mut::<4>()
         .0
         .iter_mut()
-        .zip(page.rgb.as_chunks::<3>().0)
+        .zip(page.texels.iter())
     {
-        let [r, g, b] = *rgb;
-        target.copy_from_slice(&[r, g, b, 255]);
+        let normal = [0.0_f32, 1.0, 0.0];
+        let light = texel.light_at(normal);
+        let display = crate::lighting::transport::soft_clip(light);
+        target.copy_from_slice(&[
+            encode_display(display[0]),
+            encode_display(display[1]),
+            encode_display(display[2]),
+            255,
+        ]);
     }
     crate::materials::encode_png(&crate::materials::RawImage::new(
         page.width,
         page.height,
         rgba,
     ))
+}
+
+/// Encodes one display-space channel as a byte, rounding to nearest.
+fn encode_display(value: f32) -> u8 {
+    if value.is_nan() {
+        return 0;
+    }
+    let clamped = value.clamp(0.0, 1.0);
+    // `clamped * 255 + 0.5` is in [0.5, 255.5], so the cast cannot leave u8.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let byte = clamped.mul_add(255.0, 0.5) as u8;
+    byte
 }
 
 /// Writes one page as a PNG under `path`, creating parent directories.

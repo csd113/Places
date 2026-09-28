@@ -30,7 +30,8 @@
 //! * the vertex-lit build stores the material factor multiplied by the baked
 //!   light in the vertex colour, so the uploaded colour carries every room
 //!   baseline, fixture pool, opening blend and static-occluder shadow the bake
-//!   produced; the lightmap-atlas build instead samples the atlas and leaves
+//!   produced; the lightmap-atlas build instead reconstructs the light from the
+//!   prepared HDR layer pairs at the material normal, tone-maps it and leaves
 //!   the vertex colour at the unlit material factor;
 //! * the camera uniform carries the world-space eye, the fragment stage
 //!   computes the reference's view-dependent sheen, and `lit + sheen` is
@@ -136,9 +137,9 @@ pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 /// coordinates, uploaded as `Unorm16x2` so the hardware expands them to
 /// `[0, 1]` exactly as `glVertexAttribPointer(..., GL_UNSIGNED_SHORT,
 /// normalized=true)` does, and `lightmap_page` is the plain page byte carried
-/// as a float (`0..=3` select the atlas array layer, `255` is `LIGHTMAP_NONE`)
-/// exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute reached the
-/// reference shader.
+/// as a float (`0..=254` select the prepared page pair, `255` is
+/// `LIGHTMAP_NONE`) exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute
+/// reached the reference shader.
 ///
 /// `#[repr(C)]` + `Pod` make the 64-byte stride explicit (the lightmap
 /// attributes and the model-space position/colour/handedness tail);
@@ -349,7 +350,8 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 }
 
 /// The frame/level environment uniform: the baked-light switch and scale, the
-/// fog constants and the active planar mirror's projection and plane.
+/// lightmap selection, the fog constants and the active planar mirror's
+/// projection and plane.
 ///
 /// WGSL layout, pinned by tests:
 ///
@@ -360,7 +362,8 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 /// offset  28  fog_density        f32
 /// offset  32  fog_reference_y    f32
 /// offset  36  fog_height_gain    f32
-/// offset  40  _padding           vec2<f32>     8 bytes
+/// offset  40  lightmap_page_count     u32      4 bytes
+/// offset  44  lightmap_switchable     u32      4 bytes
 /// offset  48  planar_matrix      mat4x4<f32>  64 bytes
 /// offset 112  planar_plane       vec4<f32>    16 bytes
 /// offset 128  model              mat4x4<f32>  64 bytes
@@ -369,8 +372,11 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
 /// `u_lightmap_enabled`, the four fog uniforms, `u_planar_matrix` and
-/// `u_planar_plane`; `model` is the dynamic path's per-object matrix. The
-/// struct is 192 bytes on the wire and in Rust (`ENVIRONMENT_UNIFORM_SIZE`).
+/// `u_planar_plane`; `model` is the dynamic path's per-object matrix, and the
+/// two lightmap words are the prepared HDR atlas's addressing — the pages in
+/// one layer group, the switchable groups' count and live on/off mask, and the
+/// resident probe chain's top mip level (`0..=7`, bits 16..=19). The struct is
+/// 192 bytes on the wire and in Rust (`ENVIRONMENT_UNIFORM_SIZE`).
 /// `#[repr(C, align(16))]` makes the Rust layout the WGSL uniform layout
 /// explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -388,8 +394,12 @@ pub struct EnvironmentUniform {
     pub fog_reference_y: f32,
     /// The reference's `u_fog_height_gain`.
     pub fog_height_gain: f32,
-    /// Explicit padding to the matrix alignment.
-    pub _padding: [f32; 2],
+    /// Pages per lightmap layer group: `LevelLightmaps::pages.len()`.
+    pub lightmap_page_count: u32,
+    /// Packed switchable state: bits 0..=3 the group count, bits 8..=11 the
+    /// enabled mask (bit `g` set when group `g` is on), bits 16..=19 the
+    /// resident probe chain's top mip level (`0` while probes have one level).
+    pub lightmap_switchable: u32,
     /// The reference's `u_planar_matrix`: the mirrored view-projection, or the
     /// identity when no plane is active.
     pub planar_matrix: [[f32; 4]; 4],
@@ -405,6 +415,9 @@ pub struct EnvironmentUniform {
 impl EnvironmentUniform {
     /// The static-world value: unit light scale, the atlas switch, the level's
     /// fog, no active mirror and the identity model.
+    ///
+    /// The lightmap selection starts empty; [`Self::with_lightmaps`] installs
+    /// the resident pages and switchable groups.
     #[must_use]
     pub const fn new(
         light_scale: [f32; 3],
@@ -418,11 +431,44 @@ impl EnvironmentUniform {
             fog_density: fog.density,
             fog_reference_y: fog.reference_y,
             fog_height_gain: fog.height_gain,
-            _padding: [0.0; 2],
+            lightmap_page_count: 0,
+            lightmap_switchable: 0,
             planar_matrix: Mat4::IDENTITY.to_cols_array_2d(),
             planar_plane: [0.0, 0.0, 1.0, 0.0],
             model: Mat4::IDENTITY.to_cols_array_2d(),
         }
+    }
+
+    /// The same environment with the resident lightmap selection installed.
+    ///
+    /// `page_count` is the pages in every layer group (base and switchable);
+    /// `switchable_count` and `switchable_mask` are packed into the one
+    /// switchable word at the four bits the shader reads, so a count beyond the
+    /// atlas's representable groups can never make the shader loop past the
+    /// layers it holds.
+    #[must_use]
+    pub const fn with_lightmaps(
+        mut self,
+        page_count: u32,
+        switchable_count: u32,
+        switchable_mask: u32,
+    ) -> Self {
+        self.lightmap_page_count = page_count;
+        self.lightmap_switchable = (switchable_count & 0x000F) | ((switchable_mask & 0x000F) << 8);
+        self
+    }
+
+    /// The same environment with the resident probe chain's top mip level
+    /// installed (bits 16..=19 of the switchable word).
+    ///
+    /// Zero is the live-capture case: the probes carry only level 0 and the
+    /// shader keeps its two-tap rough fallback. A packaged chain passes its
+    /// highest level, so `roughness * max_mip` selects a prefiltered level.
+    #[must_use]
+    pub const fn with_probe_mips(mut self, max_mip: u32) -> Self {
+        self.lightmap_switchable =
+            (self.lightmap_switchable & 0x0000_FFFF) | ((max_mip & 0x000F) << 16);
+        self
     }
 
     /// The same environment with one frame's active planar mirror installed.
@@ -486,9 +532,10 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 },
                 count: None,
             },
-            // One `texture_2d_array` of `LIGHTMAP_ATLAS_MAX_PAGES` layers: the
-            // vertex's page byte selects the layer. Binding 2 is intentionally
-            // absent (the second page texture used to live there).
+            // One `texture_2d_array` of layer pairs: the vertex's page byte and
+            // the uniform's group counts select the pair. Binding 2 is
+            // intentionally absent (the second page texture used to live
+            // there).
             texture(1, wgpu::TextureViewDimension::D2Array),
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
@@ -635,6 +682,12 @@ pub struct WorldDraw {
     /// material identity: two surfaces sharing a material with different shine
     /// resolve to different GPU materials.
     pub shine: Option<SurfaceShine>,
+    /// Index of the renderer-neutral mesh range this draw came from.
+    ///
+    /// Keeps the range's reflection-plane identity available at material
+    /// resolution, so one material used on two planes never collapses to a
+    /// single GPU material state.
+    pub range: usize,
     /// The material-defined pass this range draws in.
     pub pass: BatchPass,
 }
@@ -682,7 +735,7 @@ pub fn pack_world_ranges(
 ) -> (MeshPacker, Vec<WorldDraw>) {
     let mut packer = MeshPacker::default();
     let mut draws: Vec<WorldDraw> = Vec::new();
-    for range in &mesh.ranges {
+    for (range_index, range) in mesh.ranges.iter().enumerate() {
         if !is_world_range(range) {
             continue;
         }
@@ -697,6 +750,7 @@ pub fn pack_world_ranges(
                 kind: range.key.kind,
                 material: range.key.material,
                 shine: range.key.shine,
+                range: range_index,
                 pass,
             });
         }
@@ -2879,6 +2933,7 @@ mod tests {
             kind,
             material,
             shine: None,
+            range: 0,
             pass: BatchPass::Opaque,
         }
     }
@@ -2897,6 +2952,7 @@ mod tests {
             kind: SurfaceKind::Wall,
             material: 0,
             shine: None,
+            range: 0,
             pass: BatchPass::Translucent,
         }
     }
@@ -3173,8 +3229,13 @@ mod tests {
         );
         // The reflection sampling is the reference's: one probe cubemap sample
         // and one planar projection, both under the material's reflect mode.
-        assert!(WORLD_SHADER_SRC.contains("textureSample(probe_map, reflection_sampler"));
+        // The probe read selects the packaged chain's roughness level, with
+        // the two-tap fallback kept for a one-level live capture.
+        assert!(WORLD_SHADER_SRC.contains("textureSampleLevel(probe_map, reflection_sampler"));
         assert!(WORLD_SHADER_SRC.contains("textureSample(planar_map, reflection_sampler"));
+        assert!(WORLD_SHADER_SRC.contains("(environment.lightmap_switchable >> 16u) & 0xFu"));
+        assert!(WORLD_SHADER_SRC.contains("clamp(material.roughness * probe_max_mip"));
+        assert!(WORLD_SHADER_SRC.contains("if (probe_max_mip < 0.5 && material.roughness > 0.15)"));
         assert!(
             WORLD_SHADER_SRC
                 .contains("environment.planar_matrix * vec4<f32>(in.world_position, 1.0)")
@@ -3432,14 +3493,25 @@ mod tests {
         // byte is not `LIGHTMAP_NONE`; otherwise the factor is exactly one and
         // the bake's light is already in the vertex colour.
         assert!(
-            WORLD_SHADER_SRC.contains("fn surface_light(in: VsOut) -> vec3<f32>"),
-            "the vertex-lit light seam must survive as the lightmap-atlas sample"
+            WORLD_SHADER_SRC
+                .contains("fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32>"),
+            "the light seam must take the prepared material normal"
         );
         for needle in [
             "environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page))",
-            "let layer = u32(in.lightmap_page + 0.5);",
-            "textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer)",
-            "return light * environment.light_scale;",
+            "let page = u32(in.lightmap_page + 0.5);",
+            "let pages = environment.lightmap_page_count;",
+            "fn decode_octahedral(axis: vec2<f32>) -> vec3<f32>",
+            "let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer);",
+            "let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u);",
+            "let axis = decode_octahedral(vec2<f32>(irradiance.a, direction.a));",
+            "let lobe = 2.0 * max(0.0, dot(normal, axis)) - 1.0;",
+            "max(vec3<f32>(0.0), irradiance.rgb + direction.rgb * lobe)",
+            "environment.lightmap_switchable & 0xFu",
+            "(environment.lightmap_switchable >> 8u) & 0xFu",
+            "pages * 2u * (group + 1u) + page * 2u",
+            "return soft_clip(hdr) * environment.light_scale;",
+            "return vec3<f32>(1.0) * environment.light_scale;",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
@@ -3462,7 +3534,7 @@ mod tests {
         assert!(!WORLD_SHADER_SRC.contains("texture_depth_2d"));
         assert!(!WORLD_SHADER_SRC.contains("comparison"));
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(7)"));
-        // The environment declares the page array and its sampler at the
+        // The environment declares the pair array and its sampler at the
         // frozen bindings: the page array at 1, the sampler at 3, and no
         // second page binding.
         assert!(WORLD_SHADER_SRC.contains("var lightmap_pages: texture_2d_array<f32>"));
@@ -3470,6 +3542,42 @@ mod tests {
         assert!(!WORLD_SHADER_SRC.contains("var lightmap0"));
         assert!(!WORLD_SHADER_SRC.contains("var lightmap1"));
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(2)"));
+    }
+
+    /// The CPU mirror of the shader's tone map, checked against the transport
+    /// implementation the bake calibrates with.
+    #[test]
+    fn the_soft_clip_matches_the_transport_tone_map() {
+        for needle in [
+            "fn soft_clip_channel(x: f32) -> f32",
+            "fn soft_clip(color: vec3<f32>) -> vec3<f32>",
+            "if (x <= 0.8)",
+            "0.8 + shoulder * (1.0 - exp(-(x - 0.8) / shoulder))",
+        ] {
+            assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
+        }
+        // Below the knee the value passes through; above it the exponential
+        // shoulder compresses towards one, C1-continuous at the knee.
+        let knee = crate::lighting::transport::soft_clip_channel(0.8);
+        assert!((knee - 0.8).abs() < 1.0e-6);
+        for value in [0.0_f32, 0.25, 0.5, 0.8, 1.0, 2.0, 16.0] {
+            let expected = crate::lighting::transport::soft_clip_channel(value);
+            let mirrored = soft_clip_channel(value);
+            assert!(
+                (mirrored - expected).abs() < 1.0e-6,
+                "soft clip at {value}: shader mirror {mirrored}, transport {expected}"
+            );
+            assert!(mirrored <= 1.0, "the shoulder compresses towards one");
+        }
+        assert!(soft_clip_channel(2.0) < 1.0);
+        // The shader's knee is the transport constant it mirrors.
+        assert!(
+            WORLD_SHADER_SRC.contains(&format!(
+                "if (x <= {})",
+                crate::lighting::transport::SOFT_KNEE
+            )),
+            "the shader knee must be the transport knee"
+        );
     }
 
     #[test]
@@ -3492,94 +3600,291 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, fog_height_gain),
             36
         );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, lightmap_page_count),
+            40
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, lightmap_switchable),
+            44
+        );
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, planar_matrix), 48);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, planar_plane), 112);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, model), 128);
-        // The WGSL struct declares the same field order.
+        // The two lightmap words occupy the bytes the padding used to: the
+        // struct is still 192 bytes and the matrix offsets are unchanged.
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, planar_matrix),
+            std::mem::offset_of!(EnvironmentUniform, lightmap_switchable) + 4
+        );
+        // The builder packs the four-bit count and mask.
+        let environment = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_lightmaps(3, 2, 0b01);
+        assert_eq!(environment.lightmap_page_count, 3);
+        assert_eq!(environment.lightmap_switchable & 0xF, 2);
+        assert_eq!((environment.lightmap_switchable >> 8) & 0xF, 0b01);
+        let clamped = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_lightmaps(3, 0xFFFF_FFFF, 0xFFFF_FFFF);
+        assert_eq!(clamped.lightmap_switchable, 0x0000_0F0F);
+        // The probe mip bits live in the same word without disturbing the
+        // lightmap fields: bits 16..=19, clamped to four bits.
+        let with_probes = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_lightmaps(3, 2, 0b01)
+        .with_probe_mips(6);
+        assert_eq!(with_probes.lightmap_switchable & 0xF, 2);
+        assert_eq!((with_probes.lightmap_switchable >> 8) & 0xF, 0b01);
+        assert_eq!((with_probes.lightmap_switchable >> 16) & 0xF, 6);
+        let clamped_probes = with_probes.with_probe_mips(0xFFFF_FFFF);
+        assert_eq!((clamped_probes.lightmap_switchable >> 16) & 0xF, 0xF);
+        assert_eq!(
+            clamped_probes.lightmap_switchable & 0x0000_FFFF,
+            0x0000_0102
+        );
+        // The WGSL struct declares the same field order and the same pack.
         assert!(WORLD_SHADER_SRC.contains("light_scale: vec3<f32>"));
         assert!(WORLD_SHADER_SRC.contains("lightmap_enabled: f32"));
+        assert!(WORLD_SHADER_SRC.contains("lightmap_page_count: u32"));
+        assert!(WORLD_SHADER_SRC.contains("lightmap_switchable: u32"));
+        assert!(WORLD_SHADER_SRC.contains("bits 16..=19"));
+        assert!(!WORLD_SHADER_SRC.contains("_padding: vec2<f32>"));
         assert!(WORLD_SHADER_SRC.contains("planar_matrix: mat4x4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("planar_plane: vec4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("model: mat4x4<f32>"));
     }
 
-    /// A CPU mirror of the shader's `surface_light`, for the layer/addressing
-    /// contract. `pages` is the array's layer list; an index outside it is not
-    /// producible by a successful plan, so the mirror keeps the unit factor
-    /// (never an undefined sample).
+    /// The CPU mirror of the shader's `soft_clip` tone map, for the light-seam
+    /// tests. The transport's own implementation is the numeric reference.
+    fn soft_clip_channel(value: f32) -> f32 {
+        if value <= 0.8 {
+            return value.max(0.0);
+        }
+        let shoulder = 0.2;
+        0.8 + shoulder * (1.0 - (-(value - 0.8) / shoulder).exp())
+    }
+
+    /// The CPU mirror of the shader's octahedral decode.
+    fn decode_octahedral(axis: [f32; 2]) -> [f32; 3] {
+        let x = axis[0].clamp(0.0, 1.0) * 2.0 - 1.0;
+        let y = axis[1].clamp(0.0, 1.0) * 2.0 - 1.0;
+        let z = 1.0 - x.abs() - y.abs();
+        if z < 0.0 {
+            let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
+            let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
+            return [(1.0 - y.abs()) * sign_x, (1.0 - x.abs()) * sign_y, z];
+        }
+        [x, y, z]
+    }
+
+    /// The CPU mirror of the shader's `decode_lightmap` over the layer array:
+    /// the irradiance plane at `layer` with the octahedral x in its alpha, the
+    /// dominant-lobe plane after it with the octahedral y in its alpha, and
+    /// `max(0, irradiance + direction * (2 * max(0, n . axis) - 1))`. `layers`
+    /// is the array's flat per-layer sample list, exactly as the texture holds
+    /// it.
+    fn decode_lightmap(layer: usize, normal: [f32; 3], layers: &[[f32; 4]]) -> [f32; 3] {
+        let irradiance = layers.get(layer).copied().unwrap_or([0.0; 4]);
+        let direction = layers
+            .get(layer.saturating_add(1))
+            .copied()
+            .unwrap_or([0.0; 4]);
+        let axis = decode_octahedral([irradiance[3], direction[3]]);
+        let cosine = normal[0] * axis[0] + normal[1] * axis[1] + normal[2] * axis[2];
+        let lobe = 2.0 * cosine.max(0.0) - 1.0;
+        std::array::from_fn(|channel| (irradiance[channel] + direction[channel] * lobe).max(0.0))
+    }
+
+    /// A CPU mirror of the shader's `surface_light`, for the layer/addressing,
+    /// reconstruction and switchable-mask contract.
+    ///
+    /// `layers` is the array's flat per-layer sample list in upload order; an
+    /// index outside it is not producible by a successful plan, so the mirror
+    /// decodes a black plane (never an undefined sample).
+    #[allow(clippy::too_many_arguments)] // one shader seam, every uniform explicit
     fn surface_light_mirror(
         enabled: bool,
         page: f32,
-        pages: &[[f32; 3]],
+        page_count: usize,
+        switchable_count: u32,
+        switchable_mask: u32,
+        normal: [f32; 3],
+        layers: &[[f32; 4]],
         scale: [f32; 3],
     ) -> [f32; 3] {
         let on = if enabled { 1.0 } else { 0.0 } * if page >= 254.5 { 0.0 } else { 1.0 };
-        let mut light = [1.0; 3];
-        if on > 0.5 {
-            let layer = page + 0.5;
-            // Test mirror of the shader's `u32(in.lightmap_page + 0.5)`: the
-            // page byte is finite and checked non-negative, and the test only
-            // feeds page bytes in [0, 4), so the truncating cast is exact.
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let index = if layer.is_finite() && layer >= 0.0 {
-                layer as usize
-            } else {
-                usize::MAX
-            };
-            if let Some(sampled) = pages.get(index) {
-                light = *sampled;
+        if on <= 0.5 {
+            return scale;
+        }
+        // Test mirror of the shader's `u32(in.lightmap_page + 0.5)`: the page
+        // byte is finite and checked non-negative, and the test only feeds page
+        // bytes in [0, 4), so the truncating cast is exact.
+        let page_byte = page + 0.5;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let page_index = if page_byte.is_finite() && page_byte >= 0.0 {
+            page_byte as usize
+        } else {
+            usize::MAX
+        };
+        let mut hdr = decode_lightmap(page_index * 2, normal, layers);
+        let count = switchable_count & 0xF;
+        let mask = switchable_mask & 0xF;
+        for group in 0..count {
+            if mask & (1u32 << group) != 0 {
+                let layer = page_count
+                    .saturating_mul(2)
+                    .saturating_mul(usize::try_from(group).unwrap_or(0).saturating_add(1))
+                    .saturating_add(page_index.saturating_mul(2));
+                let contribution = decode_lightmap(layer, normal, layers);
+                hdr = std::array::from_fn(|channel| hdr[channel] + contribution[channel]);
             }
         }
-        for channel in 0..3 {
-            light[channel] *= scale[channel];
-        }
-        light
+        let clipped = hdr.map(soft_clip_channel);
+        std::array::from_fn(|channel| clipped[channel] * scale[channel])
     }
 
     #[test]
-    fn the_light_seam_selects_pages_and_falls_back_like_the_reference() {
-        let pages = [
-            [0.25, 0.5, 0.75],
-            [0.1, 0.2, 0.3],
-            [0.4, 0.4, 0.4],
-            [0.9, 0.8, 0.7],
+    fn the_light_seam_reconstructs_and_selects_groups_like_the_reference() {
+        // The exact layer layout `LevelLightmaps::irradiance_layer` produces
+        // for two pages and two switchable groups: each page is an irradiance
+        // plane then a dominant-lobe plane, base pages first (irradiance at 0
+        // and 2), group 0's page planes at 4/6, group 1's at 8/10. The alpha
+        // channels carry the octahedral axis, `[0.5, 0.5]` for the +Z pole
+        // (which a zero amplitude ignores) and `[0.5, 1.0]` for +Y.
+        let no_axis = 0.5;
+        let layers: Vec<[f32; 4]> = vec![
+            // Base page 0: irradiance, dominant lobe.
+            [0.1, 0.1, 0.1, no_axis],
+            [0.0, 0.0, 0.0, no_axis],
+            // Base page 1: a +Y dominant lobe.
+            [0.2, 0.2, 0.2, 0.5],
+            [0.0, 0.3, 0.0, 1.0],
+            // Group 0, page 0 then page 1.
+            [0.05, 0.05, 0.05, no_axis],
+            [0.0, 0.0, 0.0, no_axis],
+            [0.06, 0.06, 0.06, no_axis],
+            [0.0, 0.0, 0.0, no_axis],
+            // Group 1, page 0 then page 1.
+            [0.02, 0.02, 0.02, no_axis],
+            [0.0, 0.0, 0.0, no_axis],
+            [0.03, 0.03, 0.03, no_axis],
+            [0.0, 0.0, 0.0, no_axis],
         ];
         let unit = [1.0; 3];
-        // Every stamped page byte selects its own array layer.
-        for (page, expected) in pages.iter().enumerate() {
-            let page_byte = f32::from(u8::try_from(page).unwrap_or(u8::MAX));
-            assert_eq!(
-                surface_light_mirror(true, page_byte, &pages, unit),
-                *expected,
-                "layer {page} must sample its own page"
-            );
-        }
+        let up = [0.0, 1.0, 0.0];
+        let down = [0.0, -1.0, 0.0];
+        let close = |actual: [f32; 3], expected: [f32; 3]| {
+            for channel in 0..3 {
+                assert!(
+                    (actual[channel] - expected[channel]).abs() < 1.0e-6,
+                    "{actual:?} vs {expected:?}"
+                );
+            }
+        };
+
+        // Every stamped page byte addresses its own pair within the base group,
+        // and the reconstruction reads the direction moment at the material
+        // normal, per channel: base page 1 is
+        // `max(0, 0.2 + 0.3 * n_y)` on the green channel only.
+        close(
+            surface_light_mirror(true, 0.0, 2, 0, 0, up, &layers, unit),
+            [0.1; 3],
+        );
+        close(
+            surface_light_mirror(true, 1.0, 2, 0, 0, up, &layers, unit),
+            [0.2, 0.5, 0.2],
+        );
+        // A surface facing away from the dominant direction clamps at zero,
+        // not at a negative draw.
+        close(
+            surface_light_mirror(true, 1.0, 2, 0, 0, down, &layers, unit),
+            [0.2, 0.0, 0.2],
+        );
+        // The base group alone stays the reference: it holds every switchable
+        // fixture's contribution out.
+        close(
+            surface_light_mirror(true, 0.0, 2, 2, 0b00, up, &layers, unit),
+            [0.1; 3],
+        );
+        // Bit `g` of the mask adds exactly group `g` in page order.
+        close(
+            surface_light_mirror(true, 0.0, 2, 2, 0b01, up, &layers, unit),
+            [0.15; 3],
+        );
+        close(
+            surface_light_mirror(true, 0.0, 2, 2, 0b10, up, &layers, unit),
+            [0.12; 3],
+        );
+        close(
+            surface_light_mirror(true, 0.0, 2, 2, 0b11, up, &layers, unit),
+            [0.17; 3],
+        );
+        close(
+            surface_light_mirror(true, 1.0, 2, 2, 0b01, up, &layers, unit),
+            [0.26, 0.56, 0.26],
+        );
+        // A count of one means group 1 does not exist: its mask bit is read but
+        // the loop never reaches it.
+        close(
+            surface_light_mirror(true, 0.0, 2, 1, 0b10, up, &layers, unit),
+            [0.1; 3],
+        );
         // `LIGHTMAP_NONE` (and anything >= 254.5) keeps the vertex-lit unit
-        // factor, which is what makes the historical path exact.
-        assert_eq!(surface_light_mirror(true, 255.0, &pages, unit), unit);
-        // The global switch closes the atlas for every vertex.
-        assert_eq!(surface_light_mirror(false, 0.0, &pages, unit), unit);
-        assert_eq!(surface_light_mirror(false, 255.0, &pages, unit), unit);
+        // factor, which is what makes the historical path exact; the global
+        // switch closes the atlas for every vertex.
+        assert_eq!(
+            surface_light_mirror(true, 255.0, 2, 2, 0b11, up, &layers, unit),
+            unit
+        );
+        assert_eq!(
+            surface_light_mirror(false, 0.0, 2, 2, 0b11, up, &layers, unit),
+            unit
+        );
+        assert_eq!(
+            surface_light_mirror(false, 255.0, 2, 2, 0b11, up, &layers, unit),
+            unit
+        );
         // The per-object scale multiplies whichever path was taken.
-        assert_eq!(
-            surface_light_mirror(true, 0.0, &pages, [0.5; 3]),
-            [0.125, 0.25, 0.375]
+        close(
+            surface_light_mirror(true, 0.0, 2, 0, 0, up, &layers, [0.5; 3]),
+            [0.05; 3],
+        );
+        close(
+            surface_light_mirror(true, 1.0, 2, 0, 0, up, &layers, [2.0; 3]),
+            [0.4, 1.0, 0.4],
+        );
+        close(
+            surface_light_mirror(true, 0.0, 2, 0, 0, up, &layers, [2.0; 3]),
+            [0.2; 3],
         );
         assert_eq!(
-            surface_light_mirror(true, 1.0, &pages, [2.0; 3]),
-            [0.2, 0.4, 0.6]
-        );
-        assert_eq!(
-            surface_light_mirror(true, 255.0, &pages, [2.0; 3]),
+            surface_light_mirror(true, 255.0, 2, 0, 0, up, &layers, [2.0; 3]),
             [2.0; 3]
         );
+
+        // The display tone map compresses a genuine highlight below one, and
+        // the mirror is the transport implementation's numeric response.
+        let bright: Vec<[f32; 4]> = vec![[2.0, 2.0, 2.0, 0.5], [0.0, 0.0, 0.0, 0.5]];
+        let expected = crate::lighting::transport::soft_clip([2.0; 3]);
+        let actual = surface_light_mirror(true, 0.0, 1, 0, 0, up, &bright, unit);
+        close(actual, expected);
+        assert!(actual[0] > 0.8 && actual[0] < 1.0, "{actual:?}");
+
         // The shader source contains the exact expressions the mirror encodes.
         assert!(WORLD_SHADER_SRC.contains("step(254.5, in.lightmap_page)"));
-        assert!(WORLD_SHADER_SRC.contains("let layer = u32(in.lightmap_page + 0.5);"));
-        assert!(
-            WORLD_SHADER_SRC
-                .contains("textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer)")
-        );
+        assert!(WORLD_SHADER_SRC.contains("let page = u32(in.lightmap_page + 0.5);"));
+        assert!(WORLD_SHADER_SRC.contains("pages * 2u * (group + 1u) + page * 2u"));
+        assert!(WORLD_SHADER_SRC.contains("soft_clip(hdr)"));
     }
 
     #[test]

@@ -327,7 +327,7 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
     let level = |size: f32| {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "big",
                 "name": "Big",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -707,7 +707,7 @@ fn level_with_wall_and_lights(
 ) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "geometry_test",
             "name": "Geometry Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -727,7 +727,7 @@ fn level_with_wall_and_lights(
 fn lit_room_level(width: f32, depth: f32, height: f32, lights_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "lit_room",
             "name": "Lit Room",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -794,7 +794,7 @@ fn xz_bounds(vertices: &[Vertex]) -> (f32, f32, f32, f32) {
 fn material_ids_resolve_to_their_own_keys_tiling_and_tint() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "material_keys",
             "name": "Material Keys",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -844,7 +844,7 @@ fn material_ids_resolve_to_their_own_keys_tiling_and_tint() {
 fn room_material_overrides_pick_the_damaged_sheets_for_that_room_only() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "damaged_rooms",
             "name": "Damaged Rooms",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -889,7 +889,7 @@ fn room_material_overrides_pick_the_damaged_sheets_for_that_room_only() {
 fn a_floor_patch_keeps_its_exact_edges_without_a_second_slab() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "patchy",
             "name": "Patchy",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -941,7 +941,7 @@ fn a_floor_patch_keeps_its_exact_edges_without_a_second_slab() {
 fn wall_material_and_face_overrides_apply_only_to_the_faces_they_name() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "stained_walls",
             "name": "Stained Walls",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -1006,7 +1006,7 @@ fn two_cluster_level(props_per_cluster: usize) -> LevelDef {
     }
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "two_clusters",
             "name": "Two Clusters",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1389,7 +1389,7 @@ fn negative_and_extreme_level_coordinates_still_batch_and_cull() {
     // cells but still inside the 100 m far plane, plus a near room. Cell
     // keys are therefore negative and the grid spans a wide extent.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "extreme",
         "name": "Extreme",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1429,7 +1429,7 @@ fn overlapping_rooms_and_sunken_props_keep_every_cell_cullable() {
     // the floor between them. Neither is corrected: the geometry stays where
     // the level puts it, and every range still carries usable bounds.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "overlap",
         "name": "Overlap",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1677,7 +1677,6 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
         PropDef {
             id: None,
             display_name: None,
-            interaction: None,
             model: "core:crate".into(),
             x: 10.0,
             y: 0.0,
@@ -1686,13 +1685,14 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            components: Vec::new(),
+            bindings: Vec::new(),
             lights: Vec::new(),
             float: None,
         },
         PropDef {
             id: None,
             display_name: None,
-            interaction: None,
             model: "core:crate".into(),
             x: 1.0,
             y: 0.0,
@@ -1701,6 +1701,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            components: Vec::new(),
+            bindings: Vec::new(),
             lights: Vec::new(),
             float: None,
         },
@@ -1744,7 +1746,6 @@ fn vertically_offset_props_sample_their_true_world_position() {
     let base = PropDef {
         id: None,
         display_name: None,
-        interaction: None,
         model: "core:crate".into(),
         x: 10.0,
         y: 0.0,
@@ -1753,6 +1754,8 @@ fn vertically_offset_props_sample_their_true_world_position() {
         scale: 1.0,
         size: Some([1.0, 1.0, 1.0]),
         solid: false,
+        components: Vec::new(),
+        bindings: Vec::new(),
         lights: Vec::new(),
         float: None,
     };
@@ -2011,7 +2014,7 @@ fn test_geometry_without_openings_contains_floor_ceiling_and_wall_batches() {
 #[test]
 fn test_z_axis_wall_geometry_runs_along_z() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "z_wall",
         "name": "Z Wall",
         "spawn": { "x": 5.0, "z": 5.0 },
@@ -2091,7 +2094,7 @@ fn test_props_with_invalid_extents_are_skipped() {
 fn test_prop_catalog_supplies_size_and_colour() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
-            "format_version": 2,
+            "format_version": 3,
             "assets": [{
                 "id": "core:test_prop", "display_name": "Test Prop",
                 "asset_class": "core", "asset_type": "prop", "category": "Decorative",
@@ -2462,7 +2465,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
 fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
-            "format_version": 2,
+            "format_version": 3,
             "assets": [{
                 "id": "core:broken", "display_name": "Broken",
                 "asset_class": "core", "asset_type": "prop", "category": "Other",
@@ -2490,7 +2493,7 @@ fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
 fn level_with_decals(decals_json: &str, walls_json: &str, lights_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "decal_test",
             "name": "Decal Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -2976,7 +2979,7 @@ fn decal_planes(vertices: &[Vertex]) -> Vec<([f32; 3], f32)> {
 fn six_surface_room(decals_json: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "six_surface_decals",
             "name": "Six Surface Decals",
             "spawn": {{ "x": 3.0, "z": 3.0 }},
@@ -3114,7 +3117,7 @@ fn rotated_decals_keep_the_full_normal_offset() {
 fn decals_tucked_into_a_corner_keep_their_offsets() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "corner_decals",
             "name": "Corner Decals",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -3188,7 +3191,7 @@ fn coincident_wall_level(
     };
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "coincident",
             "name": "Coincident",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -3349,7 +3352,7 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
 fn an_empty_material_id_emits_a_bare_key_not_an_arbitrary_material() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "empty_materials",
             "name": "Empty Materials",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -3387,7 +3390,7 @@ fn y_bounds(vertices: &[Vertex]) -> (f32, f32) {
 fn test_elevated_room_shifts_floor_and_ceiling_together() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "elevated",
             "name": "Elevated",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -3415,7 +3418,7 @@ fn test_elevated_room_shifts_floor_and_ceiling_together() {
 fn fixture_family_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "fixture_families",
             "name": "Fixture Families",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -3782,7 +3785,7 @@ fn the_round_diffuser_ring_has_no_uv_seam() {
 fn test_recessed_region_emits_a_lowered_slab_and_real_transition_faces() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "recess",
             "name": "Recess",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -3835,7 +3838,7 @@ fn test_shallow_region_transition_faces_still_render() {
     // deliberately does not make it solid.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "step",
             "name": "Step",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -3859,7 +3862,7 @@ fn test_shallow_region_transition_faces_still_render() {
 fn test_gable_ceiling_is_real_sloped_geometry() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -3910,7 +3913,7 @@ fn test_gable_ceiling_is_real_sloped_geometry() {
 fn test_gable_end_wall_follows_the_sloped_ceiling() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable_walls",
             "name": "Gable Walls",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -4042,7 +4045,7 @@ fn test_walls_follow_the_local_ceiling_when_their_origin_is_not_at_zero() {
     // room in the level.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "offset_walls",
             "name": "Offset Walls",
             "spawn": { "x": 25.0, "z": 5.0 },
@@ -4083,7 +4086,7 @@ fn test_walls_follow_the_local_ceiling_when_their_origin_is_not_at_zero() {
 fn test_horizontal_decals_follow_the_real_surface_height() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "elevated_decals",
             "name": "Elevated Decals",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -4114,7 +4117,7 @@ fn test_horizontal_decals_follow_the_real_surface_height() {
 fn test_props_stand_on_the_local_walkable_floor() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "elevated_props",
             "name": "Elevated Props",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -4373,7 +4376,7 @@ fn multi_material_scene() -> (
 
     let catalog = crate::loader::PropCatalog::from_json_str(&format!(
         r##"{{
-            "format_version": 2,
+            "format_version": 3,
             "assets": [{{
                 "id": "core:test_multimat", "display_name": "Test Multimat",
                 "asset_class": "core", "asset_type": "prop", "category": "Decorative",
@@ -4465,7 +4468,7 @@ fn a_second_instance_of_a_multi_material_prop_still_batches() {
 
 use crate::lighting::lightmap::{
     LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode,
-    PatchKind,
+    LightmapTexel, PatchKind,
 };
 use crate::loader::PropCatalog;
 use crate::props::PropAssets;
@@ -4538,7 +4541,7 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
     for page in &lightmaps.pages {
         assert_eq!(page.width, 1024);
         assert_eq!(page.height, 1024);
-        assert_eq!(page.rgb.len(), 1024 * 1024 * 3);
+        assert_eq!(page.texels.len(), 1024 * 1024);
     }
 
     let mut surface_vertices = 0usize;
@@ -4710,10 +4713,10 @@ fn a_second_bake_of_the_same_level_is_bit_identical() {
     assert_eq!(first_lightmaps.charts, second_lightmaps.charts);
     assert_eq!(first.mesh.all_vertices(), second.mesh.all_vertices());
     assert!(
-        first_lightmaps
-            .pages
+        first_lightmaps.pages.iter().any(|page| page
+            .texels
             .iter()
-            .any(|page| page.rgb.iter().any(|byte| *byte != 0)),
+            .any(|texel| *texel != LightmapTexel::ZERO)),
         "a lit room must not bake to black"
     );
 }
@@ -4774,6 +4777,7 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
         config,
         profile: crate::quality::QualityLevel::High.profile(),
         bake: crate::quality::QualityLevel::High.bake_config(),
+        solve: LightmapBuildOptions::for_lightmaps(crate::quality::LightmapQuality::Full).solve,
     };
     let build = build_level_geometry_timed_with_lightmaps(
         &level,
@@ -4862,39 +4866,54 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
 }
 
 #[test]
-fn atlas_bytes_match_the_fill_pass_exactly() {
-    let level = shipped_demo();
+fn atlas_texels_carry_the_solver_values_and_dilated_borders() {
+    // The HDR atlas is the solver's output: every chart texel must be finite
+    // HDR, its gutters must copy the chart's own border (the bilinear
+    // contract), and a lit demo must carry real light rather than a zero page.
     let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
-    // The atlas was baked with the active profile's bake config (soft shadows
-    // and the finer prop grid on Full), so the reference fill must use exactly
-    // the same one.
-    let lighting =
-        LevelLighting::bake_with(&level, crate::quality::QualityLevel::High.bake_config());
     let mut checked = 0usize;
-    for (patch, chart) in &lightmaps.charts {
-        let texels = crate::lighting::lightmap::fill_chart(&lighting, patch, chart);
+    for (_, chart) in &lightmaps.charts {
         let page = &lightmaps.pages[usize::from(chart.page)];
         for row in 0..chart.height {
             for column in 0..chart.width {
-                let index = (row * chart.width + column) as usize;
-                let offset = ((chart.y + row) as usize * page.width as usize
-                    + (chart.x + column) as usize)
-                    * 3;
-                for (channel, expected) in texels[index].iter().enumerate() {
-                    let stored = f32::from(page.rgb[offset + channel]) / 255.0;
-                    let wanted = expected.clamp(0.0, 1.0);
-                    assert!(
-                        (stored - wanted).abs() <= 1.0 / 255.0 + 1.0e-6,
-                        "chart {chart:?} texel ({column},{row}) channel {channel}: \
-                         stored {stored} vs fill {wanted}"
-                    );
-                }
+                let texel = page
+                    .texel(chart.x + column, chart.y + row)
+                    .expect("chart texel");
+                assert!(
+                    texel.is_finite(),
+                    "chart {chart:?} texel ({column},{row}) is not finite HDR"
+                );
                 checked += 1;
+            }
+        }
+        // Two gutter texels on every side copy the nearest border texel, so a
+        // bilinear sample just outside the data rectangle can never read a
+        // neighbouring chart.
+        for gutter in 1..=2u32 {
+            for row in 0..chart.height {
+                let left = page.texel(chart.x.saturating_sub(gutter), chart.y + row);
+                let left_border = page.texel(chart.x, chart.y + row);
+                assert_eq!(
+                    left, left_border,
+                    "left gutter {gutter} must copy the border"
+                );
+                let right = page.texel(chart.x + chart.width + gutter - 1, chart.y + row);
+                let right_border = page.texel(chart.x + chart.width - 1, chart.y + row);
+                assert_eq!(
+                    right, right_border,
+                    "right gutter {gutter} must copy the border"
+                );
             }
         }
     }
     assert!(checked > 100_000, "must check real texel volume: {checked}");
+    let lit = lightmaps.pages.iter().any(|page| {
+        page.texels
+            .iter()
+            .any(|texel| texel.light_at([0.0, 1.0, 0.0])[0] > 0.1)
+    });
+    assert!(lit, "the demo's HDR atlas must carry real light");
 }
 
 /// Atlas texel statistics for one patch kind in one room, restricted to the
@@ -4921,6 +4940,9 @@ fn atlas_texels_in_box(
         let Some(page) = lightmaps.pages.get(usize::from(chart.page)) else {
             continue;
         };
+        // The solver's own normal for this patch, so the directional
+        // reconstruction is evaluated exactly as the shader evaluates it.
+        let normal = crate::lighting::transport::patch_normal(patch);
         for row in 0..chart.height {
             for column in 0..chart.width {
                 let u = (column as f32 + 0.5) / chart.width as f32;
@@ -4935,11 +4957,12 @@ fn atlas_texels_in_box(
                 {
                     continue;
                 }
-                let offset = ((chart.y + row) as usize * page.width as usize
-                    + (chart.x + column) as usize)
-                    * 3;
-                for channel in 0..3 {
-                    sum += f64::from(page.rgb[offset + channel]);
+                let Some(texel) = page.texel(chart.x + column, chart.y + row) else {
+                    continue;
+                };
+                let light = texel.light_at(normal);
+                for value in light {
+                    sum += f64::from(crate::lighting::transport::soft_clip_channel(value));
                 }
                 count += 1;
             }
@@ -4948,7 +4971,7 @@ fn atlas_texels_in_box(
     let mean = if count == 0 {
         0.0
     } else {
-        (sum / (count as f64 * 3.0)) as f32
+        (sum / (count as f64 * 3.0) * 255.0) as f32
     };
     (mean, count)
 }
@@ -5027,17 +5050,25 @@ fn a_tall_chamber_receives_per_texel_light_from_a_directional_ceiling_fixture() 
         ceiling_side.0
     );
     assert!(
-        ceiling_side.0 > ceiling_far.0 + 3.0,
-        "the bounce fill must reach the ceiling beside the panel ({:.1}/255) above the \
-         far ceiling ({:.1}/255)",
+        ceiling_side.0 > ceiling_far.0 * 1.3,
+        "the physical bounce must reach the ceiling beside the panel ({:.1}/255) above the \
+         far ceiling ({:.1}/255); in a 17 m chamber the indirect term is small but must still \
+         follow the lit floor",
         ceiling_side.0,
         ceiling_far.0
     );
-    // The bare ambient is 0.10, i.e. 25.5/255; a valid bake never goes below it.
+    // The prepared HDR path deliberately has no ambient floor: the far corner
+    // is lit by transport alone, so it may be dim, but every sample must stay a
+    // finite non-negative HDR value and the bright under-panel values must not
+    // have clipped to a flat white.
     assert!(
-        far.0 >= 24.0,
-        "the far floor must stay readable at the ambient floor, got {:.1}/255",
-        far.0
+        under.0.is_finite() && far.0.is_finite() && ceiling_side.0.is_finite(),
+        "every atlas sample must be finite HDR: {under:?} {far:?} {ceiling_side:?}"
+    );
+    assert!(
+        under.0 > 0.0 && under.0 <= 255.0,
+        "the under-panel light must be a real HDR value: {:.1}/255",
+        under.0
     );
 }
 
@@ -5122,10 +5153,10 @@ fn a_warm_lightmap_cache_reproduces_the_cold_atlas_exactly() {
     assert_eq!(cold.lightmap_failure, None);
     assert_eq!(cache.len(), 1, "a completed fill is cached");
     assert!(
-        cold_maps
-            .pages
+        cold_maps.pages.iter().any(|page| page
+            .texels
             .iter()
-            .any(|page| page.rgb.iter().any(|b| *b != 0)),
+            .any(|texel| *texel != LightmapTexel::ZERO)),
         "the cold atlas must carry real light"
     );
 
@@ -5280,6 +5311,257 @@ fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
     );
 }
 
+// --------------------------------------------------- runtime spawn API
+
+/// A one-triangle model whose single primitive emits, for the runtime spawn
+/// tests. The emission is deliberately non-trivial so a scaled value is
+/// distinguishable from the authored one.
+fn runtime_emissive_model() -> crate::gltf::PropModel {
+    use crate::gltf::{PropModel, PropSubmesh, PropVertex};
+    use crate::materials::MaterialEmission;
+
+    PropModel {
+        vertices: vec![
+            PropVertex {
+                pos: [0.0, 0.0, 0.0],
+                color: [1.0, 1.0, 1.0, 1.0],
+                uv: [0.0, 0.0],
+            },
+            PropVertex {
+                pos: [1.0, 0.0, 0.0],
+                color: [1.0, 1.0, 1.0, 1.0],
+                uv: [1.0, 0.0],
+            },
+            PropVertex {
+                pos: [0.0, 1.0, 0.0],
+                color: [1.0, 1.0, 1.0, 1.0],
+                uv: [0.0, 1.0],
+            },
+        ],
+        indices: vec![0, 1, 2],
+        textures: Vec::new(),
+        submeshes: vec![PropSubmesh {
+            material: 0,
+            texture: None,
+            emission: MaterialEmission::new([0.8, 0.4, 0.2], 2.0),
+            first_index: 0,
+            index_count: 3,
+        }],
+        triangles: 1,
+        materials: 1,
+        ..PropModel::default()
+    }
+}
+
+#[test]
+fn a_runtime_emission_scale_multiplies_every_primitive_emission() {
+    use crate::materials::MaterialEmission;
+    use crate::render::common::dynamic::SpawnOrientation;
+
+    let mut scene = DynamicScene::new();
+    let mesh = scene
+        .register_model(
+            "runtime:emissive.glb",
+            &runtime_emissive_model(),
+            Vec::new(),
+            &[],
+        )
+        .expect("the test model registers");
+    let id = scene
+        .spawn_registered(mesh, [1.0, 0.0, 2.0], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
+        .expect("the test object spawns");
+    let submesh = scene
+        .get(id)
+        .expect("the object is live")
+        .mesh()
+        .submeshes
+        .first()
+        .cloned()
+        .expect("the model has a primitive");
+    assert_eq!(
+        scene.get(id).unwrap().emission_scale(),
+        1.0,
+        "the default scale leaves the authored emission alone"
+    );
+    assert_eq!(
+        scene
+            .get(id)
+            .unwrap()
+            .submesh_emission(&submesh)
+            .effective_color(),
+        [1.6, 0.8, 0.4],
+        "intensity 2.0 times the authored colour"
+    );
+
+    // Half scale halves every primitive's resolved emission, mask included.
+    assert!(scene.set_emission_scale(id, 0.5));
+    let scaled = scene.get(id).unwrap().submesh_emission(&submesh);
+    assert_eq!(scaled.effective_color(), [0.8, 0.4, 0.2]);
+    assert_eq!(scaled.mask, submesh.emission.mask);
+
+    // The scale multiplies the object-wide override on top of the primitive.
+    assert!(scene.set_emission(id, Some(MaterialEmission::new([1.0, 1.0, 1.0], 2.0))));
+    assert!(scene.set_emission_scale(id, 0.25));
+    assert_eq!(
+        scene
+            .get(id)
+            .unwrap()
+            .submesh_emission(&submesh)
+            .effective_color(),
+        [0.5, 0.5, 0.5]
+    );
+
+    // A zero scale switches the object's emission off rather than dimming.
+    assert!(scene.set_emission_scale(id, 0.0));
+    assert!(
+        !scene
+            .get(id)
+            .unwrap()
+            .submesh_emission(&submesh)
+            .is_emissive()
+    );
+
+    // Malformed scales are refused and the stored value kept.
+    assert!(!scene.set_emission_scale(id, -0.5));
+    assert!(!scene.set_emission_scale(id, f32::NAN));
+    assert_eq!(scene.get(id).unwrap().emission_scale(), 0.0);
+    assert!(scene.despawn(id));
+    assert!(
+        !scene.set_emission_scale(id, 1.0),
+        "a stale handle is not live"
+    );
+}
+
+#[test]
+fn a_runtime_transform_moves_the_object_without_touching_its_mesh() {
+    use crate::render::common::dynamic::SpawnOrientation;
+
+    let mut scene = DynamicScene::new();
+    let mesh = scene
+        .register_model(
+            "runtime:triangle.glb",
+            &runtime_emissive_model(),
+            Vec::new(),
+            &[],
+        )
+        .expect("the test model registers");
+    let id = scene
+        .spawn_registered(mesh, [1.0, 0.0, 2.0], SpawnOrientation::YAW_ONLY, 10.0, 1.0)
+        .expect("the test object spawns");
+    let before = scene.get(id).expect("live").mesh_index();
+    let revision = scene.revision();
+
+    assert!(scene.set_transform(id, [4.0, 1.0, 2.0], 45.0, 1.0));
+    let moved = scene.get(id).expect("still live");
+    assert_eq!(moved.mesh_index(), before, "a move never changes the mesh");
+    assert_eq!(moved.translation(), [4.0, 1.0, 2.0]);
+    assert_eq!(moved.spin_degrees(), 45.0);
+    // A transform write is not a structural change: the renderer's
+    // revision-based re-upload must not fire for it.
+    assert_eq!(
+        scene.revision(),
+        revision,
+        "a move must not bump the revision"
+    );
+}
+
+#[test]
+fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
+    // The headless renderer needs a native GPU adapter. A host without one
+    // skips this facade test; the scene-level tests above cover the same
+    // transform and emission contracts without a device.
+    let Ok(mut renderer) = Renderer::new_headless(DrawableSize::new(64, 64)) else {
+        println!("[test] no GPU adapter; skipping the runtime-spawn facade test");
+        return;
+    };
+    assert_eq!(renderer.runtime_spawn_count(), 0);
+
+    // A registry id resolves through the catalogue: one live object at the
+    // requested transform, replacing nothing.
+    assert!(renderer.spawn_runtime_model(7, "core:crate", [1.0, 0.5, 2.0], 30.0, 1.0));
+    assert_eq!(renderer.runtime_spawn_count(), 1);
+    assert_eq!(renderer.dynamic_scene().len(), 1);
+    let object = &renderer.dynamic_scene().objects()[0];
+    assert_eq!(object.translation(), [1.0, 0.5, 2.0]);
+    assert_eq!(object.spin_degrees(), 30.0);
+    assert_eq!(object.scale(), 1.0);
+    assert_eq!(object.emission_scale(), 1.0, "the default material variant");
+
+    // A second key adds a second object; a live key replaces its own object
+    // rather than stacking a duplicate.
+    assert!(renderer.spawn_runtime_model(8, "core:crate", [3.0, 0.0, 0.0], 0.0, 1.0));
+    assert_eq!(renderer.runtime_spawn_count(), 2);
+    assert!(renderer.spawn_runtime_model(7, "core:crate", [4.0, 1.0, 0.0], 90.0, 1.5));
+    assert_eq!(renderer.runtime_spawn_count(), 2);
+    assert_eq!(renderer.dynamic_scene().len(), 2);
+    let replaced_mesh = {
+        let replaced = renderer
+            .dynamic_scene()
+            .objects()
+            .iter()
+            .find(|object| object.translation() == [4.0, 1.0, 0.0])
+            .expect("the replacement object is live");
+        assert_eq!(replaced.scale(), 1.5);
+        replaced.mesh_index()
+    };
+
+    // A transform moves the keyed object and keeps its mesh and scale.
+    assert!(renderer.set_runtime_transform(7, [5.0, 1.0, 1.0], 45.0));
+    assert!(!renderer.set_runtime_transform(999, [0.0, 0.0, 0.0], 0.0));
+    let (moved_mesh, moved_yaw, moved_scale) = {
+        let moved = renderer
+            .dynamic_scene()
+            .objects()
+            .iter()
+            .find(|object| object.translation() == [5.0, 1.0, 1.0])
+            .expect("the moved object is live");
+        (moved.mesh_index(), moved.spin_degrees(), moved.scale())
+    };
+    assert_eq!(moved_mesh, replaced_mesh);
+    assert_eq!(moved_yaw, 45.0);
+    assert_eq!(moved_scale, 1.5, "a move keeps the spawn scale");
+
+    // The emission scale is the runtime material-variant write.
+    assert!(renderer.set_runtime_emission(7, 0.5));
+    let scaled = renderer
+        .dynamic_scene()
+        .objects()
+        .iter()
+        .find(|object| object.translation() == [5.0, 1.0, 1.0])
+        .expect("the object is live")
+        .emission_scale();
+    assert_eq!(scaled, 0.5);
+    assert!(
+        !renderer.set_runtime_emission(999, 0.5),
+        "an unknown key is not live"
+    );
+
+    // Despawn removes the keyed object; a second despawn reports nothing live.
+    assert!(renderer.despawn_runtime_model(8));
+    assert_eq!(renderer.runtime_spawn_count(), 1);
+    assert!(!renderer.despawn_runtime_model(8));
+    assert!(renderer.despawn_runtime_model(7));
+    assert_eq!(renderer.runtime_spawn_count(), 0);
+    assert!(renderer.dynamic_scene().is_empty());
+
+    // An unknown registry id and an unresolvable direct path both fail without
+    // panicking, and a direct path the asset cache resolves works like a
+    // registry id.
+    assert!(!renderer.spawn_runtime_model(9, "core:not_a_shipped_prop", [0.0; 3], 0.0, 1.0));
+    assert!(!renderer.spawn_runtime_model(
+        9,
+        "core/props/models/not_a_model.glb",
+        [0.0; 3],
+        0.0,
+        1.0
+    ));
+    assert_eq!(renderer.runtime_spawn_count(), 0);
+    assert!(renderer.spawn_runtime_model(9, "core/props/models/crate.glb", [0.0; 3], 0.0, 1.0));
+    assert_eq!(renderer.runtime_spawn_count(), 1);
+    assert!(renderer.despawn_runtime_model(9));
+    assert_eq!(renderer.runtime_spawn_count(), 0);
+}
+
 // ------------------------------------------------------- material draw passes
 
 use super::common::materials::{BatchPass, MaterialRenderState, batch_pass_for};
@@ -5399,7 +5681,7 @@ fn every_window_cap_spans_its_opening_in_world_space() {
     // other by exactly the wall's origin, which is a hole at one corner of
     // every opening on a wall whose min corner is not zero.
     let level = crate::level::LevelDef::from_json(
-        r#"{ "format_version": 2, "id": "cap_origin", "name": "Cap Origin",
+        r#"{ "format_version": 3, "id": "cap_origin", "name": "Cap Origin",
             "spawn": { "x": 1.0, "z": 1.0, "yaw_degrees": 0.0 },
             "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 14.0,
                         "height": 3.0, "floor_y": 0.0 }],
@@ -5496,7 +5778,9 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
     );
 
     // The routing itself comes from the emitted geometry, so build the demo the
-    // renderer builds and check the plane it derives.
+    // renderer builds and check the plane it derives. The route is per range:
+    // every wet-deck range points at the pool-deck plane, a probe material's
+    // ranges point at none.
     let mesh = &demo_lightmap_build(crate::quality::QualityLevel::High).mesh;
     let routing =
         super::common::reflections::routing_from_mesh(mesh, &reflections, reflections.len());
@@ -5516,15 +5800,30 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
         "the pool deck sits at y = -1.5, got offset {}",
         plane.offset
     );
-    assert_eq!(
-        routing.plane_of(usize::from(wet)),
-        Some(0),
-        "the wet deck material routes to that plane"
-    );
-    assert_eq!(
-        routing.plane_of(usize::from(linoleum)),
-        None,
-        "a probe material never routes to a plane"
+    let mut wet_ranges = 0usize;
+    let mut linoleum_ranges = 0usize;
+    for (index, range) in mesh.ranges.iter().enumerate() {
+        if range.key.material == wet {
+            wet_ranges = wet_ranges.saturating_add(1);
+            assert_eq!(
+                routing.plane_of_range(index),
+                Some(0),
+                "the wet deck range {index} routes to that plane"
+            );
+        }
+        if range.key.material == linoleum {
+            linoleum_ranges = linoleum_ranges.saturating_add(1);
+            assert_eq!(
+                routing.plane_of_range(index),
+                None,
+                "a probe material never routes to a plane"
+            );
+        }
+    }
+    assert!(wet_ranges > 0, "the demo must emit wet-deck ranges");
+    assert!(
+        linoleum_ranges > 0,
+        "the demo must emit polished-linoleum ranges"
     );
     assert!(routing.probe_for_material[usize::from(linoleum)]);
     assert!(!routing.probe_for_material[usize::from(wet)]);
@@ -6178,7 +6477,7 @@ fn a_per_surface_shine_override_reaches_the_batch_key() {
     // carries the override, which is the one place the draw path reads it.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2, "id": "shine_key", "name": "Shine Key",
+            "format_version": 3, "id": "shine_key", "name": "Shine Key",
             "spawn": { "x": 1.0, "z": 1.0 },
             "defaults": { "wall": "core:wallpaper_yellow_01",
                           "floor": "core:carpet_beige_01",
@@ -6468,7 +6767,7 @@ fn water_test_level(opacity: Option<f32>, material: Option<&str>) -> LevelDef {
     let material = material.map_or(String::new(), |id| format!(r#", "material": "{id}""#));
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "water_test",
             "name": "Water Test",
             "spawn": {{ "x": 3.0, "z": 3.0 }},
@@ -6658,7 +6957,7 @@ fn water_is_ordered_with_the_other_translucent_surfaces() {
 
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "two_pools",
             "name": "Two Pools",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -7130,11 +7429,31 @@ fn the_shipped_mannequin_selects_its_poses_through_cues() {
         .iter()
         .map(|animation| animation.name.as_str())
         .collect();
-    assert_eq!(names, ["pose_stand", "pose_arms_up", "pose_arms_forward"]);
+    assert_eq!(
+        names,
+        [
+            "pose_stand",
+            "pose_arms_up",
+            "pose_arms_forward",
+            "walk",
+            "run"
+        ],
+        "the shipped mannequin carries three pose holds and two locomotion clips"
+    );
     for animation in &model.animations {
-        assert!(animation.looped, "a pose is a hold");
-        assert_eq!(animation.kind.as_deref(), Some("pose"));
-        assert!(animation.reference_speed_mps.is_none());
+        assert!(animation.looped, "every shipped clip loops");
+        match animation.kind.as_deref() {
+            Some("pose") => {
+                assert!(animation.reference_speed_mps.is_none());
+            }
+            Some("walk" | "run") => {
+                assert!(
+                    animation.reference_speed_mps.is_some(),
+                    "a locomotion clip authors its reference speed"
+                );
+            }
+            other => panic!("unexpected mannequin clip kind {other:?}"),
+        }
     }
 
     let hand_slots: Vec<usize> = ["hand_l", "hand_r"]
@@ -7379,7 +7698,7 @@ const DEMO_DUCK: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
 fn duck_pool_level(props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "float_render_test",
             "name": "Float Render Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -7626,7 +7945,7 @@ fn wall_reveals_and_ends_face_out_of_the_solid_on_both_axes() {
         };
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "winding_test",
                 "name": "Winding Test",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -7681,7 +8000,7 @@ fn a_wall_end_abutting_an_opening_keeps_its_exposed_reveal() {
     // it because B's footprint merely touches the plane leaves a void in the
     // doorway, visible only once back faces are culled.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "abutting_opening",
         "name": "Abutting Opening",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -7729,7 +8048,6 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
     level.props = vec![PropDef {
         id: None,
         display_name: None,
-        interaction: None,
         float: None,
         model: "core:crate".into(),
         x: 2.0,
@@ -7739,6 +8057,8 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
         scale: 1.0,
         size: Some([1.0, 1.5, 2.0]),
         solid: false,
+        components: Vec::new(),
+        bindings: Vec::new(),
         lights: Vec::new(),
     }];
     let mesh = build_level_geometry(&level);
@@ -7900,7 +8220,7 @@ fn a_full_height_partition_does_not_emit_the_wall_face_hidden_behind_it() {
 fn a_switchable_fixture_owns_its_luminous_face_material() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "switchable_faces",
             "name": "Switchable Faces",
             "spawn": { "x": 2.0, "z": 2.0 },

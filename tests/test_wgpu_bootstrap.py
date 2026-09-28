@@ -47,7 +47,11 @@ import threading
 import time
 import unittest
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, TEST_DIR)
+from platform_support import display_available  # noqa: E402
+
+ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
 SMOKE_ROOT = os.path.join(ROOT, "target", "agent-work", "wgpu-smoke")
 DEFAULT_BINARY = os.path.join(ROOT, "target", "release", "places")
 
@@ -91,10 +95,31 @@ NOTEXTURE_LEVEL_ID = "wgpu_smoke_notexture"
 MISSING_LEVEL_ID = "wgpu_smoke_missing"
 
 
-def _display_available() -> bool:
-    if sys.platform == "darwin":
-        return True
-    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+def _console_locked() -> bool:
+    """True when the macOS console session is locked.
+
+    A locked session cannot present a window: every surface acquisition
+    reports "occluded", so the presentation and action-script tests would fail
+    for a reason that has nothing to do with the build under test. They skip
+    explicitly instead.
+    """
+    if sys.platform != "darwin":
+        return False
+    try:
+        console = subprocess.run(
+            ["ioreg", "-n", "Root", "-d1"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return 'IOConsoleLocked" = Yes' in console or 'CGSSessionScreenIsLocked"=Yes' in console
+
+
+DISPLAY_LOCKED = _console_locked()
+LOCKED_REASON = "the macOS console session is locked; window presentation is occluded"
 
 
 def _clean_env() -> dict:
@@ -107,19 +132,72 @@ def _clean_env() -> dict:
     return env
 
 
+class PlatformCapabilityTests(unittest.TestCase):
+    """The shared display table needs neither a binary nor a display."""
+
+    def test_display_available_follows_the_platform_table(self):
+        # Native macOS and Windows desktops attempt the suite; Windows has no
+        # DISPLAY/WAYLAND_DISPLAY variables at all.
+        self.assertTrue(display_available("darwin", {}))
+        self.assertTrue(display_available("win32", {}))
+        self.assertTrue(display_available("win32", {"SESSIONNAME": "Console"}))
+        # Other platforms need an explicit X11 or Wayland session.
+        self.assertFalse(display_available("linux", {}))
+        self.assertTrue(display_available("linux", {"DISPLAY": ":0"}))
+        self.assertTrue(display_available("linux", {"WAYLAND_DISPLAY": "wayland-0"}))
+
+
 def _write_level(root: str, level: dict) -> None:
-    """Installs one standalone level into a scratch state root."""
+    """Compiles one authoring level into a scratch state root.
+
+    The player loads only compiled packages, so the harness runs the explicit
+    compiler command the workflow documents; the source stays outside the
+    playable levels directory.
+    """
+    compiler = os.environ.get(
+        "PLACES_COMPILE_BIN", os.path.join(ROOT, "target", "release", "places-compile")
+    )
+    if not os.path.isfile(compiler):
+        raise unittest.SkipTest(
+            "no release compiler at target/release/places-compile; "
+            "run `cargo build --release` first"
+        )
+    sources = os.path.join(root, "sources")
     levels_dir = os.path.join(root, "levels")
+    os.makedirs(sources, exist_ok=True)
     os.makedirs(levels_dir, exist_ok=True)
-    path = os.path.join(levels_dir, f"{level['id']}.json")
-    with open(path, "w", encoding="utf-8") as handle:
+    source = os.path.join(sources, f"{level['id']}.json")
+    with open(source, "w", encoding="utf-8") as handle:
         json.dump(level, handle)
+    out = os.path.join(levels_dir, f"{level['id']}.placesmap")
+    result = subprocess.run(
+        [
+            compiler,
+            "build",
+            source,
+            "--out",
+            out,
+            "--asset-root",
+            os.path.join(ROOT, "assets"),
+            "--workers",
+            "2",
+        ],
+        cwd=ROOT,
+        env=_clean_env(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise AssertionError(f"places-compile failed for {level['id']}:\n{result.stdout}")
 
 
 def _second_level() -> dict:
     """A small but real level: one room with a floor, ceiling and walls."""
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": SECOND_LEVEL_ID,
         "name": "wgpu Smoke Second",
         "author": "wgpu runtime smoke test",
@@ -133,7 +211,7 @@ def _second_level() -> dict:
 def _empty_level() -> dict:
     """A valid level that emits no static world geometry at all."""
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": EMPTY_LEVEL_ID,
         "name": "wgpu Smoke Empty",
         "author": "wgpu runtime smoke test",
@@ -148,7 +226,7 @@ def _notexture_level() -> dict:
     one, not an error case.
     """
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": NOTEXTURE_LEVEL_ID,
         "name": "wgpu Smoke No Texture",
         "author": "wgpu runtime smoke test",
@@ -167,7 +245,7 @@ def _missing_level() -> dict:
     must still upload and present, with the missing count reported.
     """
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": MISSING_LEVEL_ID,
         "name": "wgpu Smoke Missing",
         "author": "wgpu runtime smoke test",
@@ -287,7 +365,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 "no release binary at target/release/places; "
                 "run `cargo build --release` first (or set PLACES_SMOKE_BIN)"
             )
-        if not _display_available():
+        if not display_available():
             raise unittest.SkipTest("no graphical session for the SDL window")
         cls.backend = EXPECTED_BACKEND.get(sys.platform)
         if cls.backend is None:
@@ -308,7 +386,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         env.update(
             {
                 "PLACES_BENCH": "1",
-                "PLACES_BENCH_FRAMES": "5",
+                # The compiled decode plus installation consumes loading-screen
+                # frames; the budget must leave room for the ready presentation
+                # and every scripted action that waits on it.
+                "PLACES_BENCH_FRAMES": "60",
                 "PLACES_VERBOSE": "1",
                 "PLACES_LEVEL": "places_demo",
                 # Pinned so a previous test's `PLACES_QUALITY=low` (persisted in
@@ -639,7 +720,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     # ------------------------------------------------------------ level reload
 
-    def run_loading_actions(self, name, levels, initial, actions, *, corrupt_on_request=None, extra_env=None):
+    def run_loading_actions(self, name, levels, initial, actions, *, corrupt_on_request=None,
+                            replace_after_read=None, extra_env=None):
         """Runs real worker/event processing; only an owned scratch input may be corrupted."""
         state = os.path.join(SMOKE_ROOT, name)
         shutil.rmtree(state, ignore_errors=True)
@@ -673,9 +755,55 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                         continue  # A final line may still be flushing.
                     if event["event"] == "request" and event["detail"] == corrupt_on_request:
                         try:
-                            path = os.path.join(state, "levels", f"{corrupt_on_request}.json")
-                            with open(path, "w", encoding="utf-8") as stream:
-                                stream.write('{"format_version":')
+                            # Corrupt the compiled package after discovery: the
+                            # load must fail cleanly and keep the previous world.
+                            path = os.path.join(state, "levels", f"{corrupt_on_request}.placesmap")
+                            with open(path, "wb") as stream:
+                                stream.write(b"PK\x03\x04corrupted")
+                        except OSError as error:
+                            observer_errors.append(str(error))
+                        else:
+                            changed.set()
+                        return
+
+        def replace_after_worker_read():
+            # Swap the compiled package after the worker published the
+            # Geometry phase for its first request: the trace proves the
+            # original bytes were consumed, so a re-request while the
+            # preparation is still outstanding is the in-flight content race
+            # the request identity must detect.
+            target_id, replacement = replace_after_read
+            target_request = None
+            while not stop.wait(0.005):
+                try:
+                    with open(trace, encoding="utf-8") as stream:
+                        lines = stream.readlines()
+                except FileNotFoundError:
+                    continue
+                except OSError as error:
+                    observer_errors.append(str(error))
+                    return
+                for line in lines:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if (
+                        target_request is None
+                        and event["event"] == "request"
+                        and event["detail"] == target_id
+                    ):
+                        target_request = event["request"]
+                    elif (
+                        target_request is not None
+                        and event["event"] == "phase"
+                        and event["request"] == target_request
+                        and event["detail"] == "Decoding compiled world"
+                    ):
+                        try:
+                            path = os.path.join(state, "levels", f"{target_id}.placesmap")
+                            with open(path, "wb") as stream:
+                                stream.write(replacement)
                         except OSError as error:
                             observer_errors.append(str(error))
                         else:
@@ -686,6 +814,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         if corrupt_on_request is not None:
             self.assertIn(corrupt_on_request, [level["id"] for level in levels])
             observer = threading.Thread(target=corrupt_after_request, name="owned-level-corruption")
+            observer.start()
+        elif replace_after_read is not None:
+            self.assertIn(replace_after_read[0], [level["id"] for level in levels])
+            observer = threading.Thread(target=replace_after_worker_read, name="owned-level-replacement")
             observer.start()
         try:
             code, output = self.run_binary({
@@ -702,8 +834,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 observer.join(timeout=2)
                 self.assertFalse(observer.is_alive(), "owned trace observer must terminate")
         self.assertFalse(observer_errors, observer_errors)
-        if corrupt_on_request is not None:
-            self.assertTrue(changed.is_set(), "test never reached its post-discovery mutation")
+        if corrupt_on_request is not None or replace_after_read is not None:
+            self.assertTrue(changed.is_set(), "test never reached its post-read mutation")
         self.assertEqual(code, 0, output)
         self.assert_no_gpu_failure(output)
         with open(trace, encoding="utf-8") as stream:
@@ -775,6 +907,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                   "w", encoding="utf-8") as stream:
             json.dump({"disposal_ms": duration}, stream)
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_loading_resize_cancel_and_retry_process_real_events(self):
         anchor = f"request:{SECOND_LEVEL_ID}"
         events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], "places_demo", [
@@ -804,6 +937,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
                          ["places_demo", SECOND_LEVEL_ID])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_selecting_the_preparing_background_level_reuses_its_preparation(self):
         # No PLACES_LEVEL: the ordinary startup prepares the menu background.
         # Selecting that same world from the level list while it is preparing
@@ -829,6 +963,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
                          ["places_demo"])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_quit_during_preparation_joins_owned_work_without_committing(self):
         events, _ = self.run_loading_actions("quit-loading-state", [_second_level()], SECOND_LEVEL_ID, [
             {"after": f"request:{SECOND_LEVEL_ID}", "delay_ms": 150, "action": {"kind": "quit"}},
@@ -837,6 +972,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertFalse(any(event["event"] in {"cpu_ready", "gpu_ready", "scene_presented"} for event in events))
         self.assertTrue(any(event["event"] == "present" and event["detail"] == "loading" for event in events))
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_rapid_level_request_commits_only_latest_generation(self):
         second = _second_level()
         third = _second_level()
@@ -853,6 +989,61 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             self.assertEqual([(event["request"], event["detail"]) for event in events if event["event"] == phase],
                              [(requests[1]["request"], third["id"])])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
+    def test_in_flight_same_path_replacement_supersedes_with_new_content(self):
+        # AUD-005: replace the compiled package *after* the worker has read it,
+        # then re-request the same level while the preparation is still
+        # outstanding. The new request must supersede the old preparation; the
+        # committed world must be the replacement's content, which its spawn
+        # position proves.
+        target = "wgpu_smoke_replace"
+        original = _second_level()
+        original["id"], original["name"] = target, "wgpu Smoke Replace"
+        replacement = _second_level()
+        replacement["id"], replacement["name"] = target, "wgpu Smoke Replace"
+        replacement["spawn"] = {"x": 1.0, "z": 1.0}
+        replacement["rooms"][0]["width"] = 6.0
+
+        fixture = os.path.join(SMOKE_ROOT, "replace-fixture")
+        shutil.rmtree(fixture, ignore_errors=True)
+        os.makedirs(fixture, exist_ok=True)
+        _write_level(fixture, replacement)
+        with open(os.path.join(fixture, "levels", f"{target}.placesmap"), "rb") as stream:
+            replacement_bytes = stream.read()
+        self.assertNotEqual(len(replacement_bytes), 0)
+
+        events, output = self.run_loading_actions(
+            "replace-in-flight-state", [original], "places_demo", [
+                {"after": "ready:places_demo", "delay_ms": 0,
+                 "action": {"kind": "load", "level": target}},
+                {"after": f"request:{target}", "delay_ms": 2000,
+                 "action": {"kind": "load", "level": target}},
+            ],
+            replace_after_read=(target, replacement_bytes),
+            extra_env={"PLACES_PAUSE": "1"},
+        )
+        self.assert_no_gpu_failure(output)
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests], ["places_demo", target, target],
+                         "changed package content must issue a new generation")
+        first, second = requests[1]["request"], requests[2]["request"]
+        self.assertLess(first, second)
+        self.assertFalse(
+            any(event["event"] in ("cpu_ready", "gpu_ready", "scene_presented")
+                and event["request"] == first for event in events),
+            "the superseded preparation must not become presentable")
+        commits = [event for event in events if event["event"] == "world_committed"]
+        self.assertEqual([event["request"] for event in commits],
+                         [requests[0]["request"], second],
+                         "only the replacement generation may commit")
+        snapshot = json.loads(commits[-1]["detail"])
+        self.assert_world_snapshot_consistent(snapshot)
+        self.assertEqual(snapshot["current_level_id"], target)
+        self.assertEqual(snapshot["player_position"][0], 1.0,
+                         "the committed world is the replacement's content")
+        self.assertEqual(snapshot["player_position"][2], 1.0)
+
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_failed_request_preserves_previous_world_and_allows_retry(self):
         # Requires the failed:<id> action anchor, emitted after recovery state is installed.
         good = _second_level()
@@ -888,6 +1079,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(snapshot["quality"], snapshot["renderer_quality"])
         self.assertEqual(snapshot["lightmaps"], snapshot["renderer_lightmaps"])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_graphics_changes_during_preparation_commit_only_latest_low_full(self):
         anchor = f"request:{SECOND_LEVEL_ID}"
         events, _ = self.run_loading_actions("pending-quality-state", [_second_level()], SECOND_LEVEL_ID, [
@@ -910,6 +1102,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual([event["request"] for event in events if event["event"] == "scene_presented"],
                          [requests[-1]["request"]])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_graphics_only_rebuild_preserves_nondefault_player_and_entity_world(self):
         # Use the existing authored fixture unchanged, so preservation includes real
         # character/interaction/route counts instead of only an empty room.
@@ -938,6 +1131,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # fresh level visit and must not restart the ready-frame/capture counter.
         self.assertEqual(sum(event["event"] == "scene_presented" for event in events), 1)
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_repeated_visits_reuse_prepared_geometry_but_reset_new_world_spawn(self):
         with open(os.path.join(ROOT, "tests", "fixtures", "levels", "entity_showcase.json"),
                   encoding="utf-8") as stream:
@@ -949,7 +1143,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             {"after": f"ready:{second['id']}", "delay_ms": 0,
              "action": {"kind": "load", "level": first["id"]}},
         ], extra_env={"PLACES_SPAWN": "13,2,180", "PLACES_PAUSE": "1"})
-        self.assertIn(f"[loading] prepared-cache hit level={first['id']}", output)
+        self.assertIn(f"[loading] compiled-cache hit level={first['id']}", output)
         commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
         self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
                          [first["id"], second["id"], first["id"]])
@@ -971,6 +1165,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
                          [first["id"], second["id"], first["id"]])
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_direct_launch_prepares_only_the_requested_world(self):
         state = os.path.join(SMOKE_ROOT, "direct-state")
         shutil.rmtree(state, ignore_errors=True)
@@ -991,6 +1186,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                             for event in events))
         self.assert_no_gpu_failure(output)
 
+    @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
     def test_a_second_level_replaces_the_uploaded_world(self):
         state = os.path.join(SMOKE_ROOT, "reload-state")
         shutil.rmtree(state, ignore_errors=True)

@@ -7,7 +7,31 @@
 use std::fmt::Write as _;
 
 use super::*;
+use crate::entities::WorldCommand;
+use crate::entities::components::StateValue;
 use crate::test_support::assert_exact;
+
+/// Advances `frames` deterministic 60 Hz simulation frames with no input.
+fn advance_frames(game: &mut Game, frames: usize) {
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 60.0;
+    for _ in 0..frames {
+        game.update_player_movement(&mut input, &settings);
+    }
+}
+
+/// The typed state `name` on the authored entity `id`, cloned for assertion.
+fn state_of(game: &Game, id: &str, name: &str) -> Option<StateValue> {
+    let handle = game.entities().handle_of(id)?;
+    game.entities()
+        .components()
+        .states
+        .get(handle)?
+        .get(name)
+        .cloned()
+}
 
 #[test]
 fn test_pitch_movement_and_clamping() {
@@ -120,7 +144,7 @@ fn test_paused_gameplay_does_not_move_or_turn() {
 fn step_rule_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "steps",
             "name": "Steps",
             "spawn": { "x": 1.0, "z": 4.0, "yaw_degrees": 90.0 },
@@ -180,7 +204,7 @@ fn force_stance(game: &mut Game, stance: Stance) {
 fn test_spawn_position_resolves_the_local_floor() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "elevated_spawn",
             "name": "Elevated Spawn",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -314,7 +338,7 @@ fn test_controller_walks_off_a_deep_edge_and_falls() {
 fn test_controller_cannot_walk_off_the_last_floor_into_the_void() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "open_edge",
             "name": "Open Edge",
             "spawn": { "x": 1.0, "z": 4.0, "yaw_degrees": 90.0 },
@@ -417,7 +441,7 @@ fn test_controller_climbs_the_home_staircase_and_the_ramp() {
 fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "max_slope",
             "name": "Max Slope",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -475,7 +499,7 @@ fn test_controller_climbs_an_exact_limit_riser_at_an_elevated_floor() {
     for floor_y in [0.3f32, 1.7, 10.3, 100.1] {
         let level = LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "limit_riser",
                 "name": "Limit Riser",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -511,7 +535,7 @@ fn test_controller_climbs_an_exact_limit_riser_at_an_elevated_floor() {
 fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "max_slope_down",
             "name": "Max Slope Down",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -708,7 +732,7 @@ fn capture_stairs_walk_trace() {
 fn smooth_stairs_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "smooth_stairs",
             "name": "Smooth Stairs",
             "spawn": { "x": 2.0, "z": 4.0 },
@@ -898,7 +922,7 @@ fn test_walk_surface_stays_between_the_treads_it_connects() {
     for (x, z, width, depth, offset_y, rise) in cases {
         let level = LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "stair_sandwich",
                 "name": "Stair Sandwich",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
@@ -954,7 +978,7 @@ fn test_walk_surface_stays_between_the_treads_it_connects() {
 fn test_controller_cannot_climb_a_tall_step_or_a_wall() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "no_climb",
             "name": "No Climb",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1027,7 +1051,7 @@ fn play_at(game: &mut Game, x: f32, floor_y: f32, z: f32, yaw_degrees: f32, delt
 fn pool_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "pool",
             "name": "Pool",
             "spawn": { "x": 1.0, "z": 4.0 },
@@ -1053,7 +1077,7 @@ fn pool_level() -> LevelDef {
 fn walkable_ceiling_follows_the_room_profile() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -1238,7 +1262,7 @@ fn jump_apex_is_frame_rate_independent() {
 fn ceiling_bump_clamps_the_head_and_zeroes_upward_velocity() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "low_room",
             "name": "Low Room",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1627,7 +1651,7 @@ fn a_shallow_pool_still_lets_the_swimmer_submerge() {
     // are 1.35 m apart, less than the 1.6 m standing eye height.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "shallow_pool",
             "name": "Shallow Pool",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1730,7 +1754,7 @@ fn standing_jump_lands_on_the_demo_desk_top() {
 fn table_top_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "table_top",
             "name": "Table Top",
             "spawn": { "x": 6.0, "z": 7.5 },
@@ -1908,7 +1932,7 @@ fn repeated_jumps_onto_a_prop_top_land_and_stand_stably() {
 fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "low_beam",
             "name": "Low Beam",
             "spawn": { "x": 2.0, "z": 5.0 },
@@ -2091,7 +2115,7 @@ fn crouch_eye_eases_smoothly_and_snaps_at_the_exact_ends() {
 fn blocked_uncrouch_keeps_the_crouched_body() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "blocked_uncrouch",
             "name": "Blocked Uncrouch",
             "spawn": { "x": 2.0, "z": 5.0 },
@@ -2486,7 +2510,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
 fn a_high_walled_pool_cannot_be_exited() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "high_walled_pool",
             "name": "High Walled Pool",
             "spawn": { "x": 1.0, "z": 4.0 },
@@ -2539,7 +2563,7 @@ fn a_high_walled_pool_cannot_be_exited() {
 fn a_solid_edge_prop_is_never_a_water_exit() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "solid_edge_pool",
             "name": "Solid Edge Pool",
             "spawn": { "x": 1.0, "z": 4.0 },
@@ -2582,7 +2606,7 @@ fn the_water_exit_step_up_only_applies_at_the_surface() {
     // -0.5 surface (inside the allowance).
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "surface_only_exit",
             "name": "Surface Only Exit",
             "spawn": { "x": 1.0, "z": 4.0 },
@@ -2717,7 +2741,7 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
 fn a_ladder_never_attaches_from_its_exit_side() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "ladder_sides",
             "name": "Ladder Sides",
             "spawn": { "x": 2.0, "z": 5.0 },
@@ -2760,7 +2784,7 @@ fn a_ladder_never_attaches_from_its_exit_side() {
 fn a_ladder_obstruction_holds_the_climber_in_place() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "ladder_obstruction",
             "name": "Ladder Obstruction",
             "spawn": { "x": 2.0, "z": 5.0 },
@@ -2921,7 +2945,7 @@ fn wading_uses_the_stance_eye_offset_on_the_real_step() {
 fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "mid_depth",
             "name": "Mid Depth",
             "spawn": { "x": 1.0, "z": 4.0 },
@@ -3189,18 +3213,18 @@ fn stance_changes_on_stairs_in_air_and_on_ladders_anchor_the_feet() {
 // ---------------------------------------------------------------------------
 
 /// A 20x20 room with two aimable plants on one clear line of sight, plus an
-/// optional low beam occluder and optional authored extras.
-fn interaction_level(props_json: &str, walls_json: &str, triggers_json: &str) -> LevelDef {
+/// optional low beam occluder and optional authored volumes.
+fn interaction_level(props_json: &str, walls_json: &str, volumes_json: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "interaction_test",
             "name": "Interaction Test",
             "spawn": {{ "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 }},
             "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }} ],
             "walls": {walls_json},
             "props": {props_json},
-            "area_triggers": {triggers_json}
+            "volumes": {volumes_json}
         }}"#
     ))
     .expect("valid interaction test json")
@@ -3208,20 +3232,22 @@ fn interaction_level(props_json: &str, walls_json: &str, triggers_json: &str) ->
 
 /// Two same-model plants on one clear line of sight: one 1.4 m in front of the
 /// spawn, one 2.7 m out, both tall enough to intersect a flat view ray.
-fn two_plant_level(walls_json: &str, triggers_json: &str) -> LevelDef {
+fn two_plant_level(walls_json: &str, volumes_json: &str) -> LevelDef {
     interaction_level(
         r#"[
             { "id": "near_plant", "display_name": "Near Plant", "model": "core:plant",
               "x": 3.4, "z": 5.0, "size": [0.6, 1.8, 0.6],
-              "interaction": { "prompt": "Toggle name",
-                               "actions": [{ "action": "toggle_label" }] } },
+              "components": [ { "component": "interactable", "prompt": "Toggle name" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label" }] } ] },
             { "id": "far_plant", "display_name": "Far Plant", "model": "core:plant",
               "x": 4.7, "z": 5.0, "size": [0.6, 1.8, 0.6],
-              "interaction": { "prompt": "Toggle name",
-                               "actions": [{ "action": "toggle_label" }] } }
+              "components": [ { "component": "interactable", "prompt": "Toggle name" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label" }] } ] }
         ]"#,
         walls_json,
-        triggers_json,
+        volumes_json,
     )
 }
 
@@ -3257,7 +3283,7 @@ fn interaction_press_latches_once_and_never_fires_while_paused() {
         "the first frame latches a press"
     );
     let report = game.dispatch_interaction().expect("a target");
-    assert_eq!(report.labels_shown, 1);
+    assert_eq!(report.actions_run, 1, "the interact binding ran once");
     assert!(game.is_label_visible(0));
 
     // Held: no second press, no second dispatch.
@@ -3271,7 +3297,7 @@ fn interaction_press_latches_once_and_never_fires_while_paused() {
     game.update_player_movement(&mut held, &settings);
     assert!(game.take_interact_press(), "release re-arms the edge");
     let report = game.dispatch_interaction().expect("a target");
-    assert_eq!(report.labels_hidden, 1);
+    assert_eq!(report.actions_run, 1, "one press is one binding fire");
     assert!(!game.is_label_visible(0));
 
     // Paused: the movement update never latches, even with the key down.
@@ -3293,15 +3319,8 @@ fn interaction_targeting_is_nearest_in_reach_and_duplicates_are_independent() {
     // Aiming at the near plant resolves it; toggling it does not touch the far one.
     aim_at(&mut game, 3.4, 5.0, 0.9);
     assert_eq!(game.interaction_target(), Some(0));
-    game.dispatch_actions(
-        &game
-            .interactables()
-            .get(0)
-            .expect("near plant")
-            .actions
-            .clone(),
-        Some(0),
-    );
+    let report = game.dispatch_interaction().expect("the near plant");
+    assert_eq!(report.actions_run, 1);
     assert!(game.is_label_visible(0));
     assert!(!game.is_label_visible(1), "the far plant is untouched");
 
@@ -3318,15 +3337,8 @@ fn interaction_targeting_is_nearest_in_reach_and_duplicates_are_independent() {
     play_at(&mut game, 4.0, 0.0, 5.0, 0.0, 1.0 / 60.0);
     aim_at(&mut game, 4.6, 5.0, 0.9);
     assert_eq!(game.interaction_target(), Some(1));
-    game.dispatch_actions(
-        &game
-            .interactables()
-            .get(1)
-            .expect("far plant")
-            .actions
-            .clone(),
-        Some(1),
-    );
+    let report = game.dispatch_interaction().expect("the far plant");
+    assert_eq!(report.actions_run, 1);
     assert!(game.is_label_visible(1));
     assert!(game.is_label_visible(0), "the near plant's label survives");
 }
@@ -3342,7 +3354,9 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         r#"[
             { "id": "far_plant", "display_name": "Far Plant", "model": "core:plant",
               "x": 4.6, "z": 5.0,
-              "interaction": { "actions": [{ "action": "toggle_label" }] } }
+              "components": [ { "component": "interactable" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label" }] } ] }
         ]"#,
         "[]",
         "[]",
@@ -3351,7 +3365,6 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
     level.props.push(crate::level::PropDef {
         id: Some("beam".into()),
         display_name: None,
-        interaction: None,
         model: "core:beam".into(),
         x: 3.2,
         y: 1.0,
@@ -3360,6 +3373,8 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         scale: 1.0,
         size: Some([0.8, 0.4, 0.8]),
         solid: true,
+        components: Vec::new(),
+        bindings: Vec::new(),
         lights: Vec::new(),
         float: None,
     });
@@ -3405,13 +3420,11 @@ fn labels_reset_on_level_load_and_survive_reset_to_start() {
     let level = two_plant_level("[]", "[]");
     let mut game = game_for(&level);
     assert_eq!(game.interactables().len(), 2);
-    let actions = game
-        .interactables()
-        .get(0)
-        .expect("near plant")
-        .actions
-        .clone();
-    game.dispatch_actions(&actions, Some(0));
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 60.0;
+    aim_at(&mut game, 3.4, 5.0, 0.9);
+    let report = game.dispatch_interaction().expect("the near plant");
+    assert_eq!(report.actions_run, 1);
     assert!(game.is_label_visible(0));
 
     game.reset_to_spawn();
@@ -3453,16 +3466,17 @@ fn the_demo_authors_entity_and_duplicate_prop_labels() {
         .expect("the south pool chair carries an interaction");
     assert_ne!(north, south);
 
-    let north_actions = items.get(north).expect("north").actions.clone();
-    let south_actions = items.get(south).expect("south").actions.clone();
-    let spooner_actions = items.get(spooner).expect("spooner").actions.clone();
-    game.dispatch_actions(&north_actions, Some(north));
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(north))
+        .expect("north fires");
+    assert_eq!(report.actions_run, 1);
     assert!(game.is_label_visible(north));
     assert!(!game.is_label_visible(south));
     assert!(!game.is_label_visible(spooner));
 
-    game.dispatch_actions(&south_actions, Some(south));
-    game.dispatch_actions(&spooner_actions, Some(spooner));
+    let _ = game.entities_mut().dispatch_interaction(Some(south));
+    let _ = game.entities_mut().dispatch_interaction(Some(spooner));
     assert!(game.is_label_visible(north));
     assert!(game.is_label_visible(south));
     assert!(game.is_label_visible(spooner));
@@ -3477,20 +3491,26 @@ fn area_triggers_enter_once_rearm_and_honour_cooldown_and_once() {
         r#"[
             { "id": "pad_plant", "display_name": "Pad Plant", "model": "core:plant",
               "x": 8.0, "z": 8.0,
-              "interaction": { "actions": [{ "action": "toggle_label" }] } }
+              "components": [ { "component": "interactable" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label" }] } ] }
         ]"#,
         "[]",
         r#"[
             { "id": "cooldown_pad", "x": 4.0, "z": 4.0, "width": 2.0, "depth": 2.0,
-              "bottom_y": 0.0, "top_y": 1.5, "cooldown_seconds": 1.0,
-              "actions": [{ "action": "toggle_label", "target": "pad_plant" }] },
+              "bottom_y": 0.0, "top_y": 1.5,
+              "bindings": [ { "on": "enter_volume", "cooldown_seconds": 1.0,
+                              "actions": [{ "action": "toggle_label",
+                                            "target": "pad_plant" }] } ] },
             { "id": "once_pad", "x": 8.0, "z": 12.0, "width": 2.0, "depth": 2.0,
-              "bottom_y": 0.0, "top_y": 1.5, "once": true,
-              "actions": [{ "action": "toggle_label", "target": "pad_plant" }] }
+              "bottom_y": 0.0, "top_y": 1.5,
+              "bindings": [ { "on": "enter_volume", "once": true,
+                              "actions": [{ "action": "toggle_label",
+                                            "target": "pad_plant" }] } ] }
         ]"#,
     );
     let mut game = game_for(&level);
-    assert_eq!(game.triggers().len(), 2);
+    assert_eq!(game.volume_count(), 2);
     let plant = game.interactables().index_of("pad_plant").expect("plant");
 
     // Standing inside the cooldown pad does not repeat, even as time passes.
@@ -3548,13 +3568,17 @@ fn a_fast_fall_through_a_thin_trigger_band_is_caught() {
         r#"[
             { "id": "band_plant", "display_name": "Band Plant", "model": "core:plant",
               "x": 8.0, "z": 8.0,
-              "interaction": { "actions": [{ "action": "toggle_label" }] } }
+              "components": [ { "component": "interactable" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label" }] } ] }
         ]"#,
         "[]",
         r#"[
             { "id": "band", "x": 4.0, "z": 4.0, "width": 2.0, "depth": 2.0,
               "bottom_y": 0.0, "top_y": 0.1,
-              "actions": [{ "action": "toggle_label", "target": "band_plant" }] }
+              "bindings": [ { "on": "enter_volume",
+                              "actions": [{ "action": "toggle_label",
+                                            "target": "band_plant" }] } ] }
         ]"#,
     );
     let mut game = game_for(&level);
@@ -3587,10 +3611,12 @@ fn reset_to_start_clears_state_and_never_sweeps_the_teleport() {
         r#"[
             { "id": "spawn_pad", "x": 0.5, "z": 0.5, "width": 1.0, "depth": 1.0,
               "bottom_y": 0.0, "top_y": 1.5,
-              "actions": [{ "action": "reset_to_start" }] },
+              "bindings": [ { "on": "enter_volume",
+                              "actions": [{ "action": "reset_to_start" }] } ] },
             { "id": "far_pad", "x": 8.0, "z": 8.0, "width": 2.0, "depth": 2.0,
               "bottom_y": 0.0, "top_y": 1.5,
-              "actions": [{ "action": "reset_to_start" }] }
+              "bindings": [ { "on": "enter_volume",
+                              "actions": [{ "action": "reset_to_start" }] } ] }
         ]"#,
     );
     // Move the spawn into the first pad's volume: the enter semantics must not
@@ -3652,7 +3678,7 @@ fn reset_to_start_clears_state_and_never_sweeps_the_teleport() {
 
     // The teleport did not sweep the pads between spawn and the far pad: the
     // only fire was the far pad itself.
-    assert_eq!(game.triggers().len(), 2);
+    assert_eq!(game.volume_count(), 2);
 }
 
 /// Jump held across a reset never launches on the first post-reset frame, and
@@ -3665,7 +3691,8 @@ fn holding_jump_across_a_reset_does_not_launch_or_stick() {
         r#"[
             { "id": "far_pad", "x": 8.0, "z": 8.0, "width": 2.0, "depth": 2.0,
               "bottom_y": 0.0, "top_y": 1.5,
-              "actions": [{ "action": "reset_to_start" }] }
+              "bindings": [ { "on": "enter_volume",
+                              "actions": [{ "action": "reset_to_start" }] } ] }
         ]"#,
     );
     let mut game = game_for(&level);
@@ -3698,9 +3725,11 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
     let level = two_plant_level("[]", "[]");
     let mut game = game_for(&level);
 
-    let unsupported = [ActionDef::PlayAudio {
-        target: None,
-        sound: Some("beep".into()),
+    // A `set_light` on an entity that carries no light is reported as
+    // unsupported instead of being silently applied or silently dropped.
+    let unsupported = [ActionDef::SetLight {
+        target: Some("near_plant".into()),
+        on: false,
     }];
     let report = game.dispatch_actions(&unsupported, None);
     assert_eq!(report.unsupported, 1);
@@ -3786,13 +3815,29 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
         std::fs::read_to_string("levels/level0_pit.json").expect("The Pit level is present");
     let level = LevelDef::from_json(&content).expect("The Pit parses");
     validate_pit_level(&level);
-    let triggers = AreaTriggers::from_level(&level);
+    // The volume entities carry the hole triggers; each has an `enter_volume`
+    // binding whose actions reset the player.
+    let world = crate::entities::EntityWorld::from_level(&level);
+    let volumes: Vec<(String, [f32; 4])> = world
+        .components()
+        .volumes
+        .iter()
+        .map(|(handle, volume)| {
+            (
+                world
+                    .id_of(handle)
+                    .expect("every volume has an authored id")
+                    .to_string(),
+                volume.bounds,
+            )
+        })
+        .collect();
     assert_eq!(
-        triggers.len(),
+        volumes.len(),
         17,
         "one trigger per hole (15) plus the two Pit-gate triggers"
     );
-    let ids: Vec<&str> = triggers.triggers().iter().map(|t| t.id.as_str()).collect();
+    let ids: Vec<&str> = volumes.iter().map(|(id, _)| id.as_str()).collect();
     assert!(ids.contains(&"pit_hole_1"));
     assert!(ids.contains(&"pit_hole_15"));
     assert!(ids.contains(&"pit_gate_approach"));
@@ -3801,14 +3846,10 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
     let settings = Settings::default();
     let spawn = spawn_position(&level);
     let spawn_yaw = level.spawn.yaw_degrees.to_radians();
-    for trigger in triggers
-        .triggers()
-        .iter()
-        .filter(|trigger| trigger.id.starts_with("pit_hole_"))
-    {
+    for (id, bounds) in volumes.iter().filter(|(id, _)| id.starts_with("pit_hole_")) {
         let mut game = Game::new(spawn, spawn_yaw, CollisionWorld::from_level(&level));
-        let cx = f32::midpoint(trigger.x0, trigger.x1);
-        let cz = f32::midpoint(trigger.z0, trigger.z1);
+        let cx = f32::midpoint(bounds[0], bounds[1]);
+        let cz = f32::midpoint(bounds[2], bounds[3]);
         // Start on the carpet 0.8 m north of the hole and walk south into it.
         play_at(&mut game, cx, 0.0, cz - 0.8, 180.0, 1.0 / 60.0);
         let mut input = InputState::holding(&[Control::MoveForward]);
@@ -3820,12 +3861,11 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
                 break;
             }
         }
-        assert!(reset, "walking into {} resets the player", trigger.id);
+        assert!(reset, "walking into {id} resets the player");
         assert!(
             (game.player_position.x - spawn.x).abs() < 1e-4
                 && (game.player_position.z - spawn.z).abs() < 1e-4,
-            "{} returns the player to the authored spawn",
-            trigger.id
+            "{id} returns the player to the authored spawn"
         );
         assert!((game.player_yaw - spawn_yaw).abs() < 1e-4);
         assert!((game.vertical_velocity - 0.0).abs() < 1e-6);
@@ -3852,10 +3892,10 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
     // spawn, walks in again and returns again — no cooldown stall, no loop at
     // the spawn, and the counter advances each time.
     let mut repeat = Game::new(spawn, spawn_yaw, CollisionWorld::from_level(&level));
-    let first = triggers.get(0).expect("the first hole");
+    let first = volumes.first().expect("the first hole");
     for expected in 1..=2 {
-        let cx = f32::midpoint(first.x0, first.x1);
-        let cz = f32::midpoint(first.z0, first.z1);
+        let cx = f32::midpoint(first.1[0], first.1[1]);
+        let cz = f32::midpoint(first.1[2], first.1[3]);
         play_at(&mut repeat, cx, 0.0, cz - 0.8, 180.0, 1.0 / 60.0);
         let mut walk = InputState::holding(&[Control::MoveForward]);
         let mut settled = false;
@@ -3886,10 +3926,14 @@ fn explicit_targets_can_be_label_only_props() {
     let level = interaction_level(
         r#"[
             { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
-              "x": 8.0, "z": 8.0 },
+              "x": 8.0, "z": 8.0,
+              "components": [ { "component": "interactable", "enabled": false } ] },
             { "id": "switch", "display_name": "Switch", "model": "core:switch",
               "x": 4.0, "z": 5.0,
-              "interaction": { "actions": [{ "action": "toggle_label", "target": "lamp" }] } }
+              "components": [ { "component": "interactable", "prompt": "Switch" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [{ "action": "toggle_label",
+                                            "target": "lamp" }] } ] }
         ]"#,
         "[]",
         "[]",
@@ -3904,22 +3948,19 @@ fn explicit_targets_can_be_label_only_props() {
         .index_of("switch")
         .expect("the switch is aimable");
     assert!(
-        game.interactables()
-            .get(lamp)
-            .expect("lamp")
-            .actions
-            .is_empty(),
-        "a label-only target has no actions and is never aimable"
+        !game.interactables().get(lamp).expect("lamp").enabled,
+        "a label-only target is never aimable"
+    );
+    // Aiming at the lamp finds nothing: the disabled instance is skipped.
+    play_at(&mut game, 7.0, 0.0, 8.0, 0.0, 1.0 / 60.0);
+    aim_at(&mut game, 8.0, 8.0, 0.5);
+    assert_eq!(
+        game.interaction_target(),
+        None,
+        "the label-only instance is not a target"
     );
 
-    let actions = game
-        .interactables()
-        .get(switch)
-        .expect("switch")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, Some(switch));
-    assert_eq!(report.labels_shown, 1);
+    let _ = game.entities_mut().dispatch_interaction(Some(switch));
     assert!(game.is_label_visible(lamp), "the target's label toggles");
     assert!(
         !game.is_label_visible(switch),
@@ -3934,7 +3975,7 @@ fn explicit_targets_can_be_label_only_props() {
 fn a_crouch_toggle_in_water_does_not_fabricate_a_trigger_crossing() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "swim_stance_trigger",
             "name": "Swim Stance Trigger",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -3947,12 +3988,16 @@ fn a_crouch_toggle_in_water_does_not_fabricate_a_trigger_crossing() {
             "props": [
                 { "id": "band_plant", "display_name": "Band Plant", "model": "core:plant",
                   "x": 1.0, "z": 1.0,
-                  "interaction": { "actions": [{ "action": "toggle_label" }] } }
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle_label" }] } ] }
             ],
-            "area_triggers": [
+            "volumes": [
                 { "id": "band", "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
                   "bottom_y": -1.5, "top_y": -1.0,
-                  "actions": [{ "action": "toggle_label", "target": "band_plant" }] }
+                  "bindings": [ { "on": "enter_volume",
+                                  "actions": [{ "action": "toggle_label",
+                                                "target": "band_plant" }] } ] }
             ]
         }"#,
     )
@@ -3981,13 +4026,13 @@ fn a_crouch_toggle_in_water_does_not_fabricate_a_trigger_crossing() {
     );
 }
 
-/// When one frame crosses two trigger volumes, the first dispatches and the
-/// later one is deferred to the next frame rather than lost.
+/// When one frame crosses two trigger volumes, both crossings dispatch in
+/// that frame: each band fires exactly once, and neither is lost to the other.
 #[test]
-fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
+fn a_swept_crossing_of_two_trigger_bands_fires_each_exactly_once() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "stacked_triggers",
             "name": "Stacked Triggers",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -3996,18 +4041,26 @@ fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
             "props": [
                 { "id": "upper", "display_name": "Upper", "model": "core:plant",
                   "x": 1.0, "z": 1.0,
-                  "interaction": { "actions": [{ "action": "toggle_label" }] } },
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle_label" }] } ] },
                 { "id": "lower", "display_name": "Lower", "model": "core:plant",
                   "x": 2.0, "z": 1.0,
-                  "interaction": { "actions": [{ "action": "toggle_label" }] } }
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle_label" }] } ] }
             ],
-            "area_triggers": [
+            "volumes": [
                 { "id": "upper_band", "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
                   "bottom_y": 0.0, "top_y": 0.2,
-                  "actions": [{ "action": "toggle_label", "target": "upper" }] },
+                  "bindings": [ { "on": "enter_volume",
+                                  "actions": [{ "action": "toggle_label",
+                                                "target": "upper" }] } ] },
                 { "id": "lower_band", "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
                   "bottom_y": -1.0, "top_y": -0.8,
-                  "actions": [{ "action": "toggle_label", "target": "lower" }] }
+                  "bindings": [ { "on": "enter_volume",
+                                  "actions": [{ "action": "toggle_label",
+                                                "target": "lower" }] } ] }
             ]
         }"#,
     )
@@ -4024,22 +4077,26 @@ fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
     game.vertical_velocity = -25.0;
     game.sim_delta_seconds = MAX_SIM_DELTA;
     game.update_player_movement(&mut InputState::default(), &Settings::default());
+    assert_eq!(
+        game.last_world_tick().events_processed,
+        2,
+        "both swept crossings became enter edges"
+    );
     assert!(
         game.is_label_visible(upper),
         "the first band fires this frame"
     );
     assert!(
-        !game.is_label_visible(lower),
-        "the later band is deferred, not fired in the same frame"
+        game.is_label_visible(lower),
+        "the later band's crossing is dispatched in the same sweep, never dropped"
     );
 
-    // The deferred crossing dispatches on the next frame even though the
-    // player has already fallen past it.
+    // The player has already fallen past both bands: neither re-fires.
     game.sim_delta_seconds = 1.0 / 60.0;
     game.update_player_movement(&mut InputState::default(), &Settings::default());
     assert!(
-        game.is_label_visible(lower),
-        "the deferred band still fires on a later frame"
+        game.is_label_visible(upper) && game.is_label_visible(lower),
+        "each band's crossing fired exactly once"
     );
 }
 
@@ -4049,7 +4106,7 @@ fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
 fn routed_entity_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "routed_entity",
             "name": "Routed Entity",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -4060,7 +4117,9 @@ fn routed_entity_level() -> LevelDef {
             "props": [
                 { "id": "walker", "display_name": "Walker", "model": "entity:x",
                   "x": 2.0, "z": 2.0, "size": [0.4, 0.5, 0.4],
-                  "interaction": { "actions": [{ "action": "toggle_label" }] } }
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle_label" }] } ] }
             ],
             "routes": [
                 { "id": "walker", "loop": true, "steps": [
@@ -4121,7 +4180,7 @@ fn a_route_moves_the_entity_and_its_live_anchor_follows() {
 fn a_route_never_walks_the_entity_through_a_wall() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "blocked_route",
             "name": "Blocked Route",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -4327,14 +4386,11 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
         .interactables()
         .index_of("mannequin_pose")
         .expect("the mannequin is interactable");
-    let actions = game
-        .interactables()
-        .get(index)
-        .expect("target")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, Some(index));
-    assert_eq!(report.animations_started, 1);
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(index))
+        .expect("the mannequin fires");
+    assert_eq!(report.actions_run, 1);
     assert_eq!(
         game.animation_override("mannequin_pose"),
         Some(&PoseCue::Clip {
@@ -4384,7 +4440,7 @@ fn reset_to_spawn_restores_a_routed_entitys_authored_anchor_and_bounds() {
 fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "cue_only_target",
             "name": "Cue Only Target",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -4392,11 +4448,14 @@ fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
             "props": [
                 { "id": "actor", "model": "core:crate", "x": 2.0, "z": 2.0,
                   "size": [0.4, 0.4, 0.4],
-                  "interaction": { "actions": [
-                    { "action": "play_animation", "target": "dummy",
-                      "clip": "pose_sit_chair" } ] } },
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact", "actions": [
+                      { "action": "play_animation", "target": "dummy",
+                        "clip": "pose_sit_chair" } ] } ] },
                 { "id": "dummy", "model": "skeleton", "x": 4.0, "z": 2.0,
-                  "size": [0.42, 1.7, 0.24] }
+                  "size": [0.42, 1.7, 0.24],
+                  "components": [ { "component": "animation",
+                                    "clip": "pose_sit_chair" } ] }
             ]
         }"#,
     )
@@ -4408,15 +4467,11 @@ fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
         game.interactables().index_of("dummy").is_some(),
         "the explicit target is a resolvable cue-only instance"
     );
-    let actions = game
-        .interactables()
-        .get(actor)
-        .expect("target")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, Some(actor));
-    assert_eq!(report.missing_targets, 0);
-    assert_eq!(report.animations_started, 1);
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(actor))
+        .expect("the actor fires");
+    assert_eq!(report.actions_run, 1);
     assert_eq!(
         game.animation_override("dummy"),
         Some(&PoseCue::Clip {
@@ -4433,7 +4488,7 @@ fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
 fn a_route_turn_reorients_the_live_aim_bounds() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "turning_route",
             "name": "Turning Route",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -4442,7 +4497,9 @@ fn a_route_turn_reorients_the_live_aim_bounds() {
                 { "id": "turner", "display_name": "Turner", "model": "entity:x",
                   "x": 4.0, "z": 2.0, "rotation_degrees": 0.0,
                   "size": [0.2, 0.5, 0.8],
-                  "interaction": { "actions": [{ "action": "toggle_label" }] } }
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle_label" }] } ] }
             ],
             "routes": [
                 { "id": "turner", "steps": [
@@ -4487,7 +4544,7 @@ fn a_route_turn_reorients_the_live_aim_bounds() {
 fn switch_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "switch_test",
             "name": "Switch Test",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -4495,14 +4552,20 @@ fn switch_level() -> LevelDef {
             "props": [
                 { "id": "switch_a", "display_name": "Switch A", "model": "home:wall_switch",
                   "x": 2.0, "z": 0.2, "size": [0.18, 0.18, 0.1],
-                  "interaction": { "prompt": "Switch", "actions": [
-                    { "action": "toggle_animation", "clip": "toggle" },
-                    { "action": "toggle_label" } ] } },
+                  "components": [ { "component": "interactable", "prompt": "Switch" },
+                                  { "component": "animation", "clip": "toggle",
+                                    "looped": false, "playing": false } ],
+                  "bindings": [ { "on": "interact", "actions": [
+                      { "action": "toggle_animation", "clip": "toggle" },
+                      { "action": "toggle_label" } ] } ] },
                 { "id": "switch_b", "display_name": "Switch B", "model": "home:wall_switch",
                   "x": 4.0, "z": 0.2, "size": [0.18, 0.18, 0.1],
-                  "interaction": { "prompt": "Switch", "actions": [
-                    { "action": "toggle_animation", "clip": "toggle" },
-                    { "action": "toggle_label" } ] } }
+                  "components": [ { "component": "interactable", "prompt": "Switch" },
+                                  { "component": "animation", "clip": "toggle",
+                                    "looped": false, "playing": false } ],
+                  "bindings": [ { "on": "interact", "actions": [
+                      { "action": "toggle_animation", "clip": "toggle" },
+                      { "action": "toggle_label" } ] } ] }
             ]
         }"#,
     )
@@ -4545,24 +4608,27 @@ fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
         None,
         "the other switch is untouched"
     );
-    let frames: Vec<&EntityFrame> = game
+    // An unrouted switch's cue reaches the renderer through a cue-only frame:
+    // the renderer matches frames to the characters it claimed, so a rigid
+    // animated prop needs a frame exactly like a routed character does.
+    let switch_frame = game
         .entity_frames()
         .iter()
-        .filter(|frame| frame.instance_id == "switch_a")
-        .collect();
-    assert_eq!(frames.len(), 1, "only switch A gets a cue frame");
-    assert_eq!(
-        frames.first().expect("one frame").cue,
-        PoseCue::Scrub {
-            name: "toggle".into(),
-            target: 1.0,
-        }
+        .find(|frame| frame.instance_id == "switch_a")
+        .expect("the cued switch has a frame");
+    assert!(
+        switch_frame.transform.is_none(),
+        "the cue-only frame carries no transform"
     );
     assert!(
         game.entity_frames()
             .iter()
             .all(|frame| frame.instance_id != "switch_b"),
-        "switch B has no frame at all"
+        "switch B has no cue and therefore no frame"
+    );
+    assert!(
+        game.animation_override("switch_b").is_none(),
+        "switch B has no cue at all"
     );
 
     // A second press flips the target back toward the rest end rather than
@@ -4643,10 +4709,10 @@ fn toggle_animation_rejects_a_missing_clip_or_target() {
     assert_eq!(game.animation_override("switch_a"), None);
 }
 
-/// a reset returns every switch to its rest end while a playing
-/// animation override is still cleared.
+/// A reset returns every switch to its authored rest pose: both a toggle
+/// scrub and a playing animation override are cleared.
 #[test]
-fn reset_retargets_toggles_to_rest_and_clears_playing_animations() {
+fn reset_clears_toggle_scrubs_and_playing_animations() {
     let level = switch_level();
     let mut game = game_for(&level);
     let index = game
@@ -4670,11 +4736,8 @@ fn reset_retargets_toggles_to_rest_and_clears_playing_animations() {
     game.reset_to_spawn();
     assert_eq!(
         game.animation_override("switch_a"),
-        Some(&PoseCue::Scrub {
-            name: "toggle".into(),
-            target: 0.0,
-        }),
-        "the toggle survives the reset, aimed back at its rest end"
+        None,
+        "a reset clears the toggle override, returning the prop to its authored start"
     );
     game.dispatch_actions(
         &[ActionDef::PlayAnimation {
@@ -4811,10 +4874,11 @@ fn gameplay_consumes_fast_taps_once_without_a_held_frame() {
 /// `toggle` action that drives a door, and the renderer's hand-off reports the
 /// change exactly once.
 #[test]
+#[allow(clippy::too_many_lines)] // one cohesive end-to-end scenario
 fn a_switch_toggles_a_switchable_light_fixture() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "switch_light",
             "name": "Switch Light",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -4828,9 +4892,10 @@ fn a_switch_toggles_a_switchable_light_fixture() {
             "props": [
                 { "id": "room_switch", "model": "home:wall_switch", "x": 4.0, "y": 1.2, "z": 1.0,
                   "solid": false,
-                  "interaction": { "prompt": "Switch", "actions": [
+                  "components": [ { "component": "interactable", "prompt": "Switch" } ],
+                  "bindings": [ { "on": "interact", "actions": [
                       { "action": "toggle", "target": "room_light" }
-                  ] } }
+                  ] } ] }
             ]
         }"#,
     )
@@ -4838,19 +4903,29 @@ fn a_switch_toggles_a_switchable_light_fixture() {
     crate::loader::validate_level(&level).expect("the switch level validates");
 
     let mut game = game_for(&level);
-    // A non-switchable fixture is refused by validation, so the only fixture
-    // the dispatcher can reach is `room_light`.
-    let actions = game
+    let switch = game
         .interactables()
-        .items()
-        .iter()
-        .find(|item| item.id == "room_switch")
-        .expect("the switch is aimable")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, None);
-    assert_eq!(report.lights_toggled, 1, "one switchable fixture flipped");
-    assert_eq!(report.missing_targets, 0, "the target resolved");
+        .index_of("room_switch")
+        .expect("the switch is aimable");
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(switch))
+        .expect("the switch fires");
+    assert_eq!(report.actions_run, 1, "one toggle action ran");
+    let light = game
+        .entities()
+        .handle_of("room_light")
+        .expect("the fixture entity");
+    assert!(
+        !game
+            .entities()
+            .components()
+            .lights
+            .get(light)
+            .expect("the light component")
+            .enabled,
+        "the switchable fixture flipped off"
+    );
     assert_eq!(
         game.take_light_toggles(),
         vec![(0, false)],
@@ -4859,14 +4934,19 @@ fn a_switch_toggles_a_switchable_light_fixture() {
     assert!(game.take_light_toggles().is_empty(), "and never repeats");
 
     // A second press flips it back on.
-    let report = game.dispatch_actions(&actions, None);
-    assert_eq!(report.lights_toggled, 1);
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(switch))
+        .expect("the switch fires again");
+    assert_eq!(report.actions_run, 1);
     assert_eq!(game.take_light_toggles(), vec![(0, true)]);
 
-    // A `toggle` that names a fixture which never switches is a load error:
-    // the engine must not pretend a baked fixture can change.
+    // A `toggle` that names a fixture which never switches is rejected twice:
+    // the loader refuses the map, and a hand-built world (bypassing
+    // validation) still refuses at runtime rather than reporting a pretend
+    // change.
     let bad = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "bad_switch",
         "name": "Bad Switch",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -4877,15 +4957,40 @@ fn a_switch_toggles_a_switchable_light_fixture() {
         "props": [
             { "id": "room_switch", "model": "home:wall_switch", "x": 4.0, "y": 1.2, "z": 1.0,
               "solid": false,
-              "interaction": { "actions": [
+              "components": [ { "component": "interactable" } ],
+              "bindings": [ { "on": "interact", "actions": [
                   { "action": "toggle", "target": "always_on" }
-              ] } }
+              ] } ] }
         ]
     }"#;
     let bad_level = LevelDef::from_json(bad).expect("the bad switch level parses");
-    let error =
-        crate::loader::validate_level(&bad_level).expect_err("a fixed fixture is not toggleable");
-    assert!(error.contains("always_on"), "{error}");
+    let err = crate::loader::validate_level(&bad_level)
+        .expect_err("a non-switchable fixture is not a toggle target");
+    assert!(
+        err.contains("switchable ceiling fixture"),
+        "the error names the requirement: {err}"
+    );
+    let mut bad_game = game_for(&bad_level);
+    let report = bad_game.dispatch_actions(
+        &[ActionDef::Toggle {
+            target: Some("always_on".into()),
+        }],
+        None,
+    );
+    assert_eq!(
+        report.unsupported, 1,
+        "a baked fixture is refused, never reported as switched"
+    );
+    assert_eq!(report.actions_run, 0);
+    assert!(
+        bad_game.take_light_toggles().is_empty(),
+        "a refused toggle reaches the renderer as nothing"
+    );
+    assert_eq!(
+        bad_game.light_states(),
+        vec![(0, true)],
+        "the baked fixture stays on"
+    );
 }
 
 /// A closed door blocks the player, an open one lets them through, and the
@@ -4894,7 +4999,7 @@ fn a_switch_toggles_a_switchable_light_fixture() {
 fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "door_collision",
             "name": "Door Collision",
             "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 180.0 },
@@ -4903,14 +5008,14 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
                 { "id": "barrier", "x": 2.0, "y": 0.0, "z": 4.0,
                   "rotation_degrees": 0.0, "width": 4.0, "height": 2.2,
                   "thickness": 0.06, "open_direction": "right",
-                  "swing_degrees": 90.0, "initial_state": "closed",
-                  "manual_interaction": false }
+                  "swing_degrees": 90.0, "initial_state": "closed" }
             ],
             "props": [
                 { "id": "gate_switch", "model": "home:wall_switch", "x": 0.6, "y": 1.2, "z": 4.0,
                   "solid": false,
-                  "interaction": { "prompt": "Gate", "actions": [
-                      { "action": "open", "target": "barrier" } ] } }
+                  "components": [ { "component": "interactable", "prompt": "Gate" } ],
+                  "bindings": [ { "on": "interact", "actions": [
+                      { "action": "open", "target": "barrier" } ] } ] }
             ]
         }"#,
     )
@@ -4928,18 +5033,17 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
     );
     assert!(game.grounded);
 
-    // A switch drives it: the action batch opens the leaf, and the frames
+    // A switch drives it: the interact binding opens the leaf, and the frames
     // after it advance the hinge.
-    let actions = game
+    let gate_switch = game
         .interactables()
-        .items()
-        .iter()
-        .find(|item| item.id == "gate_switch")
-        .expect("the switch is aimable")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, None);
-    assert_eq!(report.doors_acted, 1, "the switch opened the door");
+        .index_of("gate_switch")
+        .expect("the switch is aimable");
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(gate_switch))
+        .expect("the switch fires");
+    assert_eq!(report.actions_run, 1, "the switch opened the door");
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
     let settings = Settings::default();
     let mut idle = InputState::default();
@@ -4965,16 +5069,19 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
 fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "door_interaction",
             "name": "Door Interaction",
             "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 180.0 },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "doors": [
                 { "id": "manual_door", "x": 3.0, "z": 3.2, "rotation_degrees": 0.0,
-                  "width": 1.2, "height": 2.1, "open_direction": "left" },
+                  "width": 1.2, "height": 2.1, "open_direction": "left",
+                  "components": [ { "component": "interactable", "prompt": "Door" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [{ "action": "toggle" }] } ] },
                 { "id": "external_door", "x": 5.5, "z": 3.2, "rotation_degrees": 0.0,
-                  "width": 1.2, "height": 2.1, "manual_interaction": false }
+                  "width": 1.2, "height": 2.1 }
             ]
         }"#,
     )
@@ -4990,20 +5097,17 @@ fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
     assert!(ids.contains(&"manual_door"));
     assert!(!ids.contains(&"external_door"));
 
-    // Aim at the manual door and interact: it starts opening and its prompt
-    // turns into the closing prompt once it is open.
+    // Interact with the manual door: it starts opening and its prompt turns
+    // into the closing prompt once it is open.
     let index = game
         .interactables()
         .index_of("manual_door")
         .expect("manual door target");
-    let actions = game
-        .interactables()
-        .get(index)
-        .expect("target")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, Some(index));
-    assert_eq!(report.doors_acted, 1);
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(index))
+        .expect("the door fires");
+    assert_eq!(report.actions_run, 1);
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
 }
 
@@ -5015,53 +5119,1024 @@ fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
 fn self_referential_actions_dispatch_once_and_terminate() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "self_actions",
             "name": "Self Actions",
             "spawn": { "x": 2.0, "z": 2.0 },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "doors": [
                 { "id": "self_door", "x": 1.0, "z": 3.0, "rotation_degrees": 0.0,
-                  "width": 1.0, "height": 2.1, "manual_interaction": false }
+                  "width": 1.0, "height": 2.1 }
             ],
             "props": [
                 { "id": "self_switch", "model": "home:wall_switch", "x": 1.0, "y": 1.2, "z": 2.0,
                   "solid": false,
-                  "interaction": { "prompt": "Self", "actions": [
+                  "components": [ { "component": "interactable", "prompt": "Self" } ],
+                  "bindings": [ { "on": "interact", "actions": [
                       { "action": "toggle_label", "target": "self_switch" },
                       { "action": "toggle", "target": "self_door" },
                       { "action": "toggle_label", "target": "self_switch" }
-                  ] } }
+                  ] } ] }
             ]
         }"#,
     )
     .expect("the self-action level parses");
     crate::loader::validate_level(&level).expect("the self-action level validates");
     let mut game = game_for(&level);
-    let actions = game
+    let switch = game
         .interactables()
-        .items()
-        .iter()
-        .find(|item| item.id == "self_switch")
-        .expect("the switch is aimable")
-        .actions
-        .clone();
-    let report = game.dispatch_actions(&actions, None);
+        .index_of("self_switch")
+        .expect("the switch is aimable");
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(switch))
+        .expect("the switch fires");
     assert_eq!(
         report.actions_run, 3,
         "the batch runs exactly its own actions, never a chain"
     );
-    assert_eq!(report.doors_acted, 1);
     assert_eq!(
-        report.labels_toggled(),
-        2,
-        "two self-label toggles run in order and both are counted"
+        game.doors().get(0).expect("door").phase().name(),
+        "opening",
+        "the door toggle ran inside the batch"
     );
     assert!(
-        !game.is_label_visible(
-            game.interactables()
-                .index_of("self_switch")
-                .expect("the switch label")
-        )
+        !game.is_label_visible(switch),
+        "two self-label toggles run in order and both are counted"
     );
+}
+
+// ---------------------------------------------------------------------------
+// the entity runtime contract: components, bindings, volumes, timers,
+// sequences, spawns and locks
+// ---------------------------------------------------------------------------
+
+/// A disabled interactable keeps its place in the aiming table but is never
+/// targetable; `enable` restores it.
+#[test]
+fn a_disabled_interactable_is_not_aimable_until_enabled() {
+    let level = interaction_level(
+        r#"[
+            { "id": "off_prop", "display_name": "Off Prop", "model": "core:plant",
+              "x": 3.0, "z": 5.0,
+              "components": [ { "component": "interactable", "enabled": false,
+                                "prompt": "Off" } ] }
+        ]"#,
+        "[]",
+        "[]",
+    );
+    crate::loader::validate_level(&level).expect("the disabled level validates");
+    let mut game = game_for(&level);
+    let off = game
+        .interactables()
+        .index_of("off_prop")
+        .expect("the instance stays in the table");
+    game.set_app_state(AppState::Playing);
+    aim_at(&mut game, 3.0, 5.0, 0.9);
+    assert!(
+        !game.interactables().get(off).expect("prop").enabled,
+        "the instance starts disabled"
+    );
+    assert_eq!(
+        game.interaction_target(),
+        None,
+        "a disabled interactable is never aimable"
+    );
+
+    let report = game.dispatch_actions(
+        &[ActionDef::Enable {
+            target: Some("off_prop".into()),
+        }],
+        None,
+    );
+    assert_eq!(report.actions_run, 1);
+    assert!(game.interactables().get(off).expect("prop").enabled);
+    aim_at(&mut game, 3.0, 5.0, 0.9);
+    assert_eq!(game.interaction_target(), Some(off));
+}
+
+/// A switch entity whose `interact` binding calls `set_light` flips the
+/// fixture's light component and hands exactly one change to the renderer.
+#[test]
+fn a_switch_sets_a_switchable_fixture_light_off() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "interact_light",
+            "name": "Interact Light",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "ceiling_lights": [
+                { "id": "room_light", "fixture": "core:fluorescent_panel_01",
+                  "x": 4.0, "z": 4.0, "switchable": true }
+            ],
+            "props": [
+                { "id": "room_switch", "model": "home:wall_switch", "x": 4.0, "y": 1.2, "z": 1.0,
+                  "solid": false,
+                  "components": [ { "component": "interactable", "prompt": "Switch" } ],
+                  "bindings": [ { "on": "interact", "actions": [
+                      { "action": "set_light", "target": "room_light", "on": false }
+                  ] } ] }
+            ]
+        }"#,
+    )
+    .expect("the interaction-light level parses");
+    crate::loader::validate_level(&level).expect("the interaction-light level validates");
+
+    let mut game = game_for(&level);
+    let switch = game
+        .interactables()
+        .index_of("room_switch")
+        .expect("the switch is aimable");
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(switch))
+        .expect("the switch fires");
+    assert_eq!(report.actions_run, 1, "the set_light binding ran");
+    let light = game
+        .entities()
+        .handle_of("room_light")
+        .expect("the fixture entity");
+    assert!(
+        !game
+            .entities()
+            .components()
+            .lights
+            .get(light)
+            .expect("the light component")
+            .enabled,
+        "the fixture's light component flipped off"
+    );
+    assert_eq!(
+        game.take_light_toggles(),
+        vec![(0, false)],
+        "the change is handed to the renderer exactly once"
+    );
+    assert!(game.take_light_toggles().is_empty(), "and never repeats");
+    assert_eq!(game.light_states(), vec![(0, false)]);
+
+    // Writing the same state again is not a change: the binding still runs,
+    // but nothing is reported to the renderer.
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(switch))
+        .expect("the switch fires again");
+    assert_eq!(report.actions_run, 1);
+    assert!(game.take_light_toggles().is_empty());
+}
+
+/// `set_state` emits an `object_state` event, and a second binding on the same
+/// entity runs only while its `enabled` condition holds: both branches.
+#[test]
+fn an_object_state_binding_runs_only_when_its_condition_holds() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "state_condition",
+            "name": "State Condition",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "doors": [
+                { "id": "gate", "x": 6.5, "z": 1.0, "rotation_degrees": 0.0,
+                  "width": 1.0, "height": 2.1,
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [ { "action": "toggle" } ] } ] }
+            ],
+            "props": [
+                { "id": "panel", "display_name": "Panel", "model": "home:wall_switch",
+                  "x": 3.0, "z": 2.0,
+                  "components": [ { "component": "interactable", "prompt": "Arm" },
+                                  { "component": "state", "name": "on", "value": false } ],
+                  "bindings": [
+                      { "on": "interact",
+                        "actions": [ { "action": "set_state", "name": "on",
+                                       "value": true } ] },
+                      { "on": "object_state", "key": "on",
+                        "when": [ { "check": "enabled", "target": "gate" } ],
+                        "actions": [ { "action": "toggle_label" } ] }
+                  ] }
+            ]
+        }"#,
+    )
+    .expect("the state-condition level parses");
+    crate::loader::validate_level(&level).expect("the state-condition level validates");
+
+    // True branch: the door is enabled, so the conditioned binding runs.
+    let mut game = game_for(&level);
+    let panel = game.interactables().index_of("panel").expect("panel");
+    assert!(
+        game.entities()
+            .condition_holds(&crate::level::ConditionDef::Enabled {
+                target: "gate".into()
+            }),
+        "the condition starts true"
+    );
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(panel))
+        .expect("the panel fires");
+    assert_eq!(
+        report.actions_run, 2,
+        "the state write and the conditioned toggle both ran"
+    );
+    assert_eq!(state_of(&game, "panel", "on"), Some(StateValue::Bool(true)));
+    assert!(
+        game.is_label_visible(panel),
+        "the condition held: the label toggled"
+    );
+
+    // False branch: disabling the door makes the same event skip the binding.
+    let mut blocked = game_for(&level);
+    blocked.dispatch_actions(
+        &[ActionDef::Disable {
+            target: Some("gate".into()),
+        }],
+        None,
+    );
+    assert!(
+        !blocked
+            .entities()
+            .condition_holds(&crate::level::ConditionDef::Enabled {
+                target: "gate".into()
+            }),
+        "the disabled door fails the condition"
+    );
+    let panel = blocked.interactables().index_of("panel").expect("panel");
+    let report = blocked
+        .entities_mut()
+        .dispatch_interaction(Some(panel))
+        .expect("the panel fires");
+    assert_eq!(
+        report.actions_run, 1,
+        "only the state write ran; the false-condition binding was skipped"
+    );
+    assert_eq!(
+        state_of(&blocked, "panel", "on"),
+        Some(StateValue::Bool(true)),
+        "the state is written in both branches"
+    );
+    assert!(
+        !blocked.is_label_visible(panel),
+        "the false-condition binding never ran"
+    );
+}
+
+/// A volume `enter_volume` binding with `once: true` fires on its first entry,
+/// refuses the second, and is re-armed by a reset.
+#[test]
+fn a_once_volume_binding_fires_once_and_re_arms_on_reset() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "once_volume",
+            "name": "Once Volume",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 } ],
+            "props": [
+                { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+                  "x": 9.0, "z": 9.0,
+                  "components": [ { "component": "interactable", "enabled": false } ] }
+            ],
+            "volumes": [
+                { "id": "pad", "x": 5.0, "z": 5.0, "width": 2.0, "depth": 2.0,
+                  "bottom_y": 0.0, "top_y": 1.5,
+                  "bindings": [ { "on": "enter_volume", "once": true,
+                                  "actions": [ { "action": "toggle_label",
+                                                 "target": "lamp" } ] } ] }
+            ]
+        }"#,
+    )
+    .expect("the once-volume level parses");
+    crate::loader::validate_level(&level).expect("the once-volume level validates");
+
+    let mut game = game_for(&level);
+    let lamp = game.interactables().index_of("lamp").expect("lamp");
+    assert_eq!(game.volume_count(), 1);
+
+    let enter = |game: &mut Game| {
+        play_at(game, 6.0, 0.0, 6.0, 0.0, 1.0 / 60.0);
+        game.update_player_movement(&mut InputState::default(), &Settings::default());
+    };
+    enter(&mut game);
+    assert!(
+        game.is_label_visible(lamp),
+        "the once binding fires on the first entry"
+    );
+
+    // Leave and return: the second entry is refused by `once`.
+    play_at(&mut game, 1.0, 0.0, 1.0, 0.0, 1.0 / 60.0);
+    game.update_player_movement(&mut InputState::default(), &Settings::default());
+    enter(&mut game);
+    assert!(
+        game.is_label_visible(lamp),
+        "the second entry is refused by `once`"
+    );
+
+    // A reset re-arms the binding: the next entry fires again.
+    game.reset_to_spawn();
+    enter(&mut game);
+    assert!(
+        !game.is_label_visible(lamp),
+        "a reset re-arms the once binding"
+    );
+}
+
+/// A one-shot timer fires exactly once, after its full period and never again.
+#[test]
+fn a_one_shot_timer_fires_exactly_once() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "one_shot_timer",
+            "name": "One Shot Timer",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "props": [
+                { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+                  "x": 9.0, "z": 9.0,
+                  "components": [ { "component": "interactable", "enabled": false } ] }
+            ],
+            "timers": [
+                { "id": "tick_once", "seconds": 0.5, "repeat": false, "autostart": false,
+                  "bindings": [ { "on": "timer", "key": "tick_once",
+                                  "actions": [ { "action": "toggle_label",
+                                                 "target": "lamp" } ] } ] }
+            ]
+        }"#,
+    )
+    .expect("the one-shot timer level parses");
+    crate::loader::validate_level(&level).expect("the one-shot timer level validates");
+
+    let mut game = game_for(&level);
+    let lamp = game.interactables().index_of("lamp").expect("lamp");
+    let report = game.dispatch_actions(
+        &[ActionDef::StartTimer {
+            target: Some("tick_once".into()),
+            seconds: None,
+            repeat: None,
+        }],
+        None,
+    );
+    assert_eq!(report.timers_changed, 1);
+    assert_eq!(report.missing_targets, 0);
+
+    advance_frames(&mut game, 29);
+    assert_eq!(
+        game.entities()
+            .timers()
+            .get("tick_once")
+            .expect("timer")
+            .fires,
+        0,
+        "not due before its period"
+    );
+    assert!(!game.is_label_visible(lamp));
+
+    advance_frames(&mut game, 2);
+    let timer = game.entities().timers().get("tick_once").expect("timer");
+    assert_eq!(timer.fires, 1, "exactly one fire at the period");
+    assert!(!timer.running, "a one-shot stops after its fire");
+    assert!(game.is_label_visible(lamp), "the fire ran its binding");
+
+    advance_frames(&mut game, 120);
+    let timer = game.entities().timers().get("tick_once").expect("timer");
+    assert_eq!(timer.fires, 1, "a one-shot never fires again");
+    assert!(
+        game.is_label_visible(lamp),
+        "no second fire toggled the label back"
+    );
+}
+
+/// A repeating timer re-arms at its full period and fires again.
+#[test]
+fn a_repeating_timer_fires_again_each_period() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "repeating_timer",
+            "name": "Repeating Timer",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "props": [
+                { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+                  "x": 9.0, "z": 9.0,
+                  "components": [ { "component": "interactable", "enabled": false } ] }
+            ],
+            "timers": [
+                { "id": "pulse", "seconds": 0.25, "repeat": true, "autostart": false,
+                  "bindings": [ { "on": "timer", "key": "pulse",
+                                  "actions": [ { "action": "toggle_label",
+                                                 "target": "lamp" } ] } ] }
+            ]
+        }"#,
+    )
+    .expect("the repeating timer level parses");
+    crate::loader::validate_level(&level).expect("the repeating timer level validates");
+
+    let mut game = game_for(&level);
+    let lamp = game.interactables().index_of("lamp").expect("lamp");
+    let report = game.dispatch_actions(
+        &[ActionDef::StartTimer {
+            target: Some("pulse".into()),
+            seconds: None,
+            repeat: None,
+        }],
+        None,
+    );
+    assert_eq!(report.timers_changed, 1);
+
+    advance_frames(&mut game, 14);
+    assert_eq!(
+        game.entities().timers().get("pulse").expect("timer").fires,
+        0
+    );
+    advance_frames(&mut game, 2);
+    assert_eq!(
+        game.entities().timers().get("pulse").expect("timer").fires,
+        1
+    );
+    assert!(game.is_label_visible(lamp));
+
+    // One full period later the timer has fired again and re-armed.
+    advance_frames(&mut game, 16);
+    let timer = game.entities().timers().get("pulse").expect("timer");
+    assert_eq!(timer.fires, 2, "a repeating timer fires again");
+    assert!(timer.running, "and stays armed");
+    assert!(
+        !game.is_label_visible(lamp),
+        "the second fire toggled the label"
+    );
+
+    advance_frames(&mut game, 16);
+    assert_eq!(
+        game.entities().timers().get("pulse").expect("timer").fires,
+        3
+    );
+    assert!(game.is_label_visible(lamp));
+}
+
+/// An `interact` binding starts a sequence; its steps wait, write a state and
+/// emit, and completion fires the `sequence_complete` binding exactly once.
+#[test]
+fn an_interact_starts_a_sequence_that_completes_once() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "sequence_test",
+            "name": "Sequence Test",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "props": [
+                { "id": "actor", "display_name": "Actor", "model": "core:crate",
+                  "x": 4.0, "z": 4.0,
+                  "components": [ { "component": "interactable", "prompt": "Run" },
+                                  { "component": "state", "name": "phase",
+                                    "value": "idle" } ],
+                  "bindings": [
+                      { "on": "interact",
+                        "actions": [ { "action": "start_sequence",
+                                       "sequence": "lamp_on" } ] },
+                      { "on": "sequence_complete",
+                        "actions": [ { "action": "toggle_label" } ] }
+                  ] }
+            ],
+            "sequences": [
+                { "id": "lamp_on", "steps": [
+                    { "step": "wait", "seconds": 0.05 },
+                    { "step": "set_state", "name": "phase", "value": "lit" },
+                    { "step": "emit", "on": "object_state", "key": "done" }
+                ] }
+            ]
+        }"#,
+    )
+    .expect("the sequence level parses");
+    crate::loader::validate_level(&level).expect("the sequence level validates");
+
+    let mut game = game_for(&level);
+    let actor = game.interactables().index_of("actor").expect("actor");
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(actor))
+        .expect("the actor fires");
+    assert_eq!(report.actions_run, 1, "the interact binding started it");
+    let handle = game.entities().handle_of("actor").expect("actor");
+    let control = game
+        .entities()
+        .components()
+        .sequences
+        .get(handle)
+        .expect("a sequence control");
+    assert!(control.running);
+    assert_eq!(control.sequence, "lamp_on");
+
+    // Two frames are inside the 0.05 s wait: nothing has run yet.
+    advance_frames(&mut game, 2);
+    assert_eq!(
+        state_of(&game, "actor", "phase"),
+        Some(StateValue::Text("idle".into())),
+        "the wait step defers the state write"
+    );
+    assert!(!game.is_label_visible(actor));
+
+    // The wait completes, then the immediate set_state and emit steps run and
+    // the sequence completes in the same tick.
+    advance_frames(&mut game, 3);
+    assert_eq!(
+        state_of(&game, "actor", "phase"),
+        Some(StateValue::Text("lit".into()))
+    );
+    assert!(
+        !game
+            .entities()
+            .components()
+            .sequences
+            .get(handle)
+            .expect("control")
+            .running,
+        "the sequence completed"
+    );
+    assert!(
+        game.is_label_visible(actor),
+        "sequence_complete ran its binding"
+    );
+
+    advance_frames(&mut game, 30);
+    assert!(
+        game.is_label_visible(actor),
+        "exactly one completion, never a second"
+    );
+}
+
+/// A second `start_sequence` on the same entity replaces the first: only the
+/// replacement's steps run.
+#[test]
+fn a_second_sequence_replaces_the_first_on_the_same_entity() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "sequence_replace",
+            "name": "Sequence Replace",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "props": [
+                { "id": "actor", "display_name": "Actor", "model": "core:crate",
+                  "x": 4.0, "z": 4.0,
+                  "components": [ { "component": "state", "name": "phase",
+                                    "value": "idle" } ] }
+            ],
+            "sequences": [
+                { "id": "slow", "steps": [
+                    { "step": "wait", "seconds": 10.0 },
+                    { "step": "action", "action": { "action": "set_state", "target": "actor",
+                                                    "name": "phase", "value": "slow" } }
+                ] },
+                { "id": "fast", "steps": [
+                    { "step": "wait", "seconds": 0.05 },
+                    { "step": "action", "action": { "action": "set_state", "target": "actor",
+                                                    "name": "phase", "value": "fast" } }
+                ] }
+            ]
+        }"#,
+    )
+    .expect("the sequence-replace level parses");
+    crate::loader::validate_level(&level).expect("the sequence-replace level validates");
+
+    let mut game = game_for(&level);
+    let started = game.dispatch_actions(
+        &[ActionDef::StartSequence {
+            sequence: "slow".into(),
+            target: Some("actor".into()),
+        }],
+        None,
+    );
+    assert_eq!(started.sequences_started, 1);
+    advance_frames(&mut game, 3);
+    assert_eq!(
+        state_of(&game, "actor", "phase"),
+        Some(StateValue::Text("idle".into())),
+        "the slow run is still waiting"
+    );
+
+    let replaced = game.dispatch_actions(
+        &[ActionDef::StartSequence {
+            sequence: "fast".into(),
+            target: Some("actor".into()),
+        }],
+        None,
+    );
+    assert_eq!(replaced.sequences_started, 1);
+    let handle = game.entities().handle_of("actor").expect("actor");
+    assert_eq!(
+        game.entities()
+            .components()
+            .sequences
+            .get(handle)
+            .expect("control")
+            .sequence,
+        "fast",
+        "the second start replaced the first"
+    );
+
+    advance_frames(&mut game, 6);
+    assert_eq!(
+        state_of(&game, "actor", "phase"),
+        Some(StateValue::Text("fast".into())),
+        "the replacement's step ran"
+    );
+
+    // Ten seconds later the replaced run would have written its own state;
+    // it never does.
+    advance_frames(&mut game, 601);
+    assert_eq!(
+        state_of(&game, "actor", "phase"),
+        Some(StateValue::Text("fast".into())),
+        "the replaced sequence never ran"
+    );
+}
+
+/// A despawned sequence owner is cancelled: its later steps never run and it
+/// never completes, with no panic.
+#[test]
+fn despawning_a_sequence_owner_cancels_it_without_completing() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "sequence_despawn",
+            "name": "Sequence Despawn",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "props": [
+                { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+                  "x": 9.0, "z": 9.0,
+                  "components": [ { "component": "interactable", "enabled": false } ] }
+            ],
+            "spawn_templates": [
+                { "id": "victim_template", "model": "core:crate", "scale": 1.0,
+                  "bindings": [ { "on": "sequence_complete",
+                                  "actions": [ { "action": "toggle_label",
+                                                 "target": "lamp" } ] } ] }
+            ],
+            "spawn_points": [
+                { "id": "victim_pad", "x": 5.0, "z": 5.0, "template": "victim_template" }
+            ],
+            "sequences": [
+                { "id": "waiter", "steps": [
+                    { "step": "wait", "seconds": 1.0 },
+                    { "step": "action", "action": { "action": "toggle_label",
+                                                    "target": "lamp" } }
+                ] }
+            ]
+        }"#,
+    )
+    .expect("the sequence-despawn level parses");
+    crate::loader::validate_level(&level).expect("the sequence-despawn level validates");
+
+    let mut game = game_for(&level);
+    let lamp = game.interactables().index_of("lamp").expect("lamp");
+    let spawned = game.dispatch_actions(
+        &[ActionDef::SpawnEntity {
+            template: None,
+            point: Some("victim_pad".into()),
+            group: None,
+            name: Some("victim".into()),
+        }],
+        None,
+    );
+    assert_eq!(spawned.spawned, 1);
+    let started = game.dispatch_actions(
+        &[ActionDef::StartSequence {
+            sequence: "waiter".into(),
+            target: Some("victim".into()),
+        }],
+        None,
+    );
+    assert_eq!(started.sequences_started, 1);
+    advance_frames(&mut game, 5);
+    assert!(
+        !game.is_label_visible(lamp),
+        "the sequence is still inside its wait"
+    );
+
+    let despawned = game.dispatch_actions(
+        &[ActionDef::DespawnEntity {
+            target: "victim".into(),
+        }],
+        None,
+    );
+    assert_eq!(despawned.despawned, 1);
+    assert!(game.entities().handle_of("victim").is_none());
+
+    // Past the wait and past where the run would have completed: the later
+    // step never runs and no completion event reaches the (dead) binding.
+    advance_frames(&mut game, 120);
+    assert!(
+        !game.is_label_visible(lamp),
+        "the cancelled sequence never ran its later step"
+    );
+}
+
+/// A spawned entity lives its authored lifetime and despawns itself; the
+/// frame loop receives the spawn and despawn render commands.
+#[test]
+fn a_spawned_entity_despawns_when_its_lifetime_elapses() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "spawn_lifetime",
+            "name": "Spawn Lifetime",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "spawn_templates": [
+                { "id": "spark", "model": "core:crate", "scale": 1.0,
+                  "lifetime_seconds": 0.5 }
+            ],
+            "spawn_points": [
+                { "id": "spark_pad", "x": 5.0, "z": 5.0, "template": "spark" }
+            ]
+        }"#,
+    )
+    .expect("the spawn-lifetime level parses");
+    crate::loader::validate_level(&level).expect("the spawn-lifetime level validates");
+
+    let mut game = game_for(&level);
+    let report = game.dispatch_actions(
+        &[ActionDef::SpawnEntity {
+            template: None,
+            point: Some("spark_pad".into()),
+            group: None,
+            name: Some("spark".into()),
+        }],
+        None,
+    );
+    assert_eq!(report.spawned, 1);
+    assert_eq!(report.missing_targets, 0);
+    assert_eq!(report.unsupported, 0);
+    assert_eq!(game.entities().live_spawns().len(), 1);
+    assert!(game.entities().handle_of("spark").is_some());
+    let commands = game.entities_mut().take_commands();
+    assert!(
+        commands
+            .iter()
+            .any(|command| matches!(command, WorldCommand::SpawnDynamic { .. })),
+        "the spawn hands a render command to the frame loop"
+    );
+
+    // Before the lifetime ends the entity is still alive.
+    advance_frames(&mut game, 29);
+    assert!(
+        game.entities().handle_of("spark").is_some(),
+        "the lifetime has not elapsed yet"
+    );
+
+    // Past the lifetime it despawns itself and releases its render object.
+    advance_frames(&mut game, 2);
+    assert!(game.entities().handle_of("spark").is_none());
+    assert!(game.entities().live_spawns().is_empty());
+    let commands = game.entities_mut().take_commands();
+    assert!(
+        commands
+            .iter()
+            .any(|command| matches!(command, WorldCommand::DespawnDynamic { .. })),
+        "the despawn hands a render command to the frame loop"
+    );
+}
+
+/// An `at_most_one_active` spawn group admits one member, refuses a second
+/// while the first lives, and is released by the member's despawn.
+#[test]
+fn an_at_most_one_spawn_group_admits_one_member_and_releases_it() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "spawn_group",
+            "name": "Spawn Group",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "spawn_templates": [
+                { "id": "member", "model": "core:crate", "scale": 1.0 }
+            ],
+            "spawn_points": [
+                { "id": "group_pad", "x": 5.0, "z": 5.0, "template": "member",
+                  "group": "solo" }
+            ],
+            "spawn_groups": [
+                { "id": "solo", "at_most_one_active": true }
+            ]
+        }"#,
+    )
+    .expect("the spawn-group level parses");
+    crate::loader::validate_level(&level).expect("the spawn-group level validates");
+
+    let mut game = game_for(&level);
+    let spawn = |game: &mut Game, name: &str| {
+        game.dispatch_actions(
+            &[ActionDef::SpawnEntity {
+                template: None,
+                point: Some("group_pad".into()),
+                group: None,
+                name: Some(name.into()),
+            }],
+            None,
+        )
+    };
+    let first = spawn(&mut game, "member_a");
+    assert_eq!(first.spawned, 1);
+    let second = spawn(&mut game, "member_b");
+    assert_eq!(second.spawned, 0, "a second live member is refused");
+    assert_eq!(
+        second.unsupported, 1,
+        "the refusal is reported, never silent"
+    );
+    assert_eq!(game.entities().live_spawns().len(), 1);
+    let group = game.entities().spawn_groups().get("solo").expect("group");
+    assert_eq!(group.spawns, 1);
+    assert!(group.live.is_some());
+
+    // Despawning the live member releases the group, and a later spawn works.
+    let released = game.dispatch_actions(
+        &[ActionDef::DespawnEntity {
+            target: "member_a".into(),
+        }],
+        None,
+    );
+    assert_eq!(released.despawned, 1);
+    assert!(
+        game.entities()
+            .spawn_groups()
+            .get("solo")
+            .expect("group")
+            .live
+            .is_none(),
+        "the group is released by the despawn"
+    );
+    let third = spawn(&mut game, "member_c");
+    assert_eq!(third.spawned, 1);
+    assert_eq!(
+        game.entities()
+            .spawn_groups()
+            .get("solo")
+            .expect("group")
+            .spawns,
+        2
+    );
+
+    // Two same-frame requests into a fresh group admit exactly one.
+    let mut batch_game = game_for(&level);
+    let batch = batch_game.dispatch_actions(
+        &[
+            ActionDef::SpawnEntity {
+                template: None,
+                point: Some("group_pad".into()),
+                group: None,
+                name: Some("member_d".into()),
+            },
+            ActionDef::SpawnEntity {
+                template: None,
+                point: Some("group_pad".into()),
+                group: None,
+                name: Some("member_e".into()),
+            },
+        ],
+        None,
+    );
+    assert_eq!(batch.spawned, 1, "exactly one request is admitted");
+    assert_eq!(batch.unsupported, 1, "the other is refused");
+    assert_eq!(batch_game.entities().live_spawns().len(), 1);
+}
+
+/// A locked door refuses the interaction that would open it; unlocking through
+/// another entity's `unlock` binding lets the same interaction open it.
+#[test]
+fn a_locked_door_refuses_interaction_until_unlocked_by_a_binding() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "locked_door",
+            "name": "Locked Door",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "doors": [
+                { "id": "gate", "x": 6.5, "z": 1.0, "rotation_degrees": 0.0,
+                  "width": 1.0, "height": 2.1, "locked": true,
+                  "components": [ { "component": "interactable", "prompt": "Gate" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [ { "action": "toggle" } ] } ] }
+            ],
+            "props": [
+                { "id": "key_switch", "model": "home:wall_switch", "x": 1.0, "y": 1.2, "z": 1.0,
+                  "solid": false,
+                  "components": [ { "component": "interactable", "prompt": "Key" } ],
+                  "bindings": [ { "on": "interact",
+                                  "actions": [ { "action": "unlock",
+                                                 "target": "gate" } ] } ] }
+            ]
+        }"#,
+    )
+    .expect("the locked-door level parses");
+    crate::loader::validate_level(&level).expect("the locked-door level validates");
+
+    let mut game = game_for(&level);
+    let door_target = game
+        .interactables()
+        .index_of("gate")
+        .expect("the door is a target");
+    let key = game
+        .interactables()
+        .index_of("key_switch")
+        .expect("the key is a target");
+    assert_eq!(game.doors().is_locked("gate"), Some(true));
+
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(door_target))
+        .expect("the door fires");
+    assert_eq!(
+        report.actions_run, 0,
+        "a locked door refuses the toggle action"
+    );
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "closed");
+    assert!(game.doors().get(0).expect("door").angle().abs() < 1e-6);
+
+    // The key's own interact binding unlocks it.
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(key))
+        .expect("the key fires");
+    assert_eq!(report.actions_run, 1);
+    assert_eq!(game.doors().is_locked("gate"), Some(false));
+
+    // The same door interaction now opens the leaf, and the frames advance it.
+    let report = game
+        .entities_mut()
+        .dispatch_interaction(Some(door_target))
+        .expect("the door fires");
+    assert_eq!(report.actions_run, 1);
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
+    advance_frames(&mut game, 80);
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "open");
+    assert!((game.doors().get(0).expect("door").angle().abs() - 90.0).abs() < 1e-3);
+}
+
+/// The shipped Demo's authored chain is real: stepping into the sauna volume
+/// arms a timer, the timer starts a sequence on the door, and the sequence's
+/// wait/state/emit steps land on the door's own typed state.
+#[test]
+fn the_demo_sauna_chain_runs_end_to_end() {
+    let source = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/levels/places_demo.json"
+    ))
+    .expect("the demo source is readable");
+    let level = LevelDef::from_json(&source).expect("the demo source parses");
+    crate::loader::validate_level(&level).expect("the demo source validates");
+    let mut game = game_for(&level);
+    game.set_app_state(AppState::Playing);
+    let settings = Settings::default();
+
+    // Stand in the sauna warmup volume with the frame's start sweeps outside.
+    let zone = level
+        .volumes
+        .iter()
+        .find(|volume| volume.id.as_deref() == Some("sauna_warmup_zone"))
+        .expect("the sauna zone exists");
+    let (x0, x1, z0, z1) = zone.bounds();
+    let (cx, cz) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+    let floor_y = crate::level::LevelSurfaces::new(&level)
+        .floor_y_at(cx, cz)
+        .expect("the sauna floor");
+    set_eye_position(&mut game, Vec3::new(cx, floor_y + EYE_HEIGHT, cz));
+    game.sim_delta_seconds = 1.0 / 60.0;
+    game.update_player_movement(&mut InputState::default(), &settings);
+
+    // Two seconds of simulation: volume edge, 1.5 s timer, 0.5 s wait.
+    for _ in 0..140 {
+        game.sim_delta_seconds = 1.0 / 60.0;
+        game.update_player_movement(&mut InputState::default(), &settings);
+    }
+    let door = game
+        .entities()
+        .handle_of("sauna_door")
+        .expect("the door entity");
+    let phase = game
+        .entities()
+        .components()
+        .states
+        .get(door)
+        .and_then(|state| state.get("phase").cloned());
+    assert_eq!(
+        phase,
+        Some(crate::entities::components::StateValue::Text("warm".into())),
+        "the sequence wrote the door's phase"
+    );
+    // The sequence's emitted `warm` cue is consumed by the door's own binding,
+    // which turns the sauna lamp off: the chain has an observable end.
+    let lamp = game.entities().handle_of("sauna_light").expect("the lamp");
+    let enabled = game
+        .entities()
+        .components()
+        .lights
+        .get(lamp)
+        .is_some_and(|light| light.enabled);
+    assert!(!enabled, "the warm cue switched the sauna lamp off");
 }

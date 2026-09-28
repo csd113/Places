@@ -559,7 +559,7 @@ mod tests {
     fn fixture_family_level() -> LevelDef {
         LevelDef::from_json(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "fixture_alignment",
                 "name": "Fixture Alignment",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -789,7 +789,7 @@ mod tests {
     fn single_fixture_level(entry: &str) -> LevelDef {
         let json = format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "fixture_falloff",
                 "name": "Fixture Falloff",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},

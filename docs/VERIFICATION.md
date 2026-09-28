@@ -37,6 +37,7 @@ cargo test --workspace --all-features
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
+python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 cargo build --release
 python3 -m unittest tests.test_compiled_build
@@ -49,6 +50,17 @@ The package suite runs the texture CLI `--check`; the gate does not invoke it tw
 All commands must exit zero. Compiled-build tests open real SDL3 windows and
 GPU surfaces; a skipped suite is not a completed desktop gate. Require the final
 test summaries to show zero failures; other warnings require investigation.
+
+`tests/platform_support.py` owns the desktop-session capability table the two
+window suites share: macOS and native Windows attempt the suite, while X11 and
+Wayland hosts require `DISPLAY`/`WAYLAND_DISPLAY`. A native Windows session
+without a usable desktop fails with the binary's window error instead of being
+silently skipped. `tests/test_packaging.py` exercises the `tools/package.sh`
+destination guard against disposable fixtures, including a real packaging run
+whose unrelated siblings must survive; it needs the release binary and can be
+skipped with `PLACES_SKIP_PACKAGING=1`. `tests/test_glb_accessors.py` mirrors
+the Rust GLB accessor fixtures in Python. `tests/test_bench_metrics.py` pins
+the loading-harness metric names and the settings-transition window rule.
 
 The map geometry checker is a manual, read-only gate over one level (its
 behaviour is also pinned by the `geometry_check::tests` fixture suite):
@@ -71,7 +83,7 @@ default because they need an adapter or write measurement files):
 cargo test --all-features --bin places -- --ignored
 ```
 
-The eight intentionally ignored diagnostics include: the reflection cube round-trip
+The intentionally ignored diagnostics include: the reflection cube round-trip
 orientation test and the sRGB sample round-trip measurement (both need a GPU
 adapter), the lighting parity-vector regeneration, the stair-trace CSV
 developer diagnostic, and the lightmap chart-statistics measurement. They are
@@ -117,17 +129,48 @@ python3 tools/levels/build_fixture_levels.py
 
 Run generators to completion before tests or runtime captures: they rewrite
 files in place. Review generated changes; a second run must leave those outputs
-identical. The texture generator skips shipped images whose dimensions differ
+identical.
+
+Generated authoring sources are not the playable content. After regenerating a
+source, recompile its package and verify it:
+
+```sh
+./target/release/places-compile build assets/levels/model_zoo.json
+./target/release/places-compile validate assets/levels/model_zoo.placesmap
+./target/release/places-compile verify assets/levels/model_zoo.json \
+    --package assets/levels/model_zoo.placesmap
+```
+
+`validate` decodes every record and re-hashes every entry; `verify` compares the
+package's developer fingerprint with the source and asset identities as they are
+now. `tests/test_package.py` independently checks the bundled packages with the
+Python standard library (manifest shape, content addressing, variant payloads).
+
+A player-side no-preparation check runs the built binary with a fresh, isolated
+state root and no source tree access:
+
+```sh
+PLACES_STATE_ROOT="$PWD/target/verification/fresh-state" \
+PLACES_ASSET_ROOT="$PWD/assets" \
+PLACES_LOAD_TRACE=1 \
+PLACES_LEVEL=places_demo ./target/release/places
+```
+
+The trace must show the compiled level committed with no `[lightmaps] fill`
+step, and the state root must contain only writable player state (`levels/`,
+`import/`, `settings.json`, `cache/`). The texture generator skips shipped images whose dimensions differ
 from its placeholder painter. Never use `--force` as a validation step. Use
 `python3 tools/props/generate_spooner_man.py` for the documented entity-only
 workflow. PNG artwork is loaded from committed assets at runtime.
 
 ## 4. Runtime and visual gate
 
-Launch the demo with `PLACES_LEVEL=places_demo cargo run --release`. The
-renderer draws the complete feature set — baked lightmaps, reflections, props,
-fixtures, emission, decals, fog, post-processing and the HUD; see
-[RENDERER.md](RENDERER.md).
+Compile the bundled sources, then launch the demo with
+`PLACES_LEVEL=places_demo cargo run --release` (or the packaged binary). The
+player decodes the compiled package — packaged lightmaps, packaged reflection
+probe captures and compiled collision — and the renderer draws the complete
+feature set: baked lightmaps, reflections, props, fixtures, emission, decals,
+fog, post-processing and the HUD; see [RENDERER.md](RENDERER.md).
 
 For a repeatable visual check, capture the canonical 25 views in both quality
 profiles:

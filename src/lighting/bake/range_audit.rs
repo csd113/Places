@@ -1,9 +1,18 @@
 //! Dynamic-range audit of the baked surface light (test-only).
 //!
 //! This is the measurement the lighting rebalance is calibrated against, kept
-//! as a regression guard: it rebuilds a level with lightmaps on, walks every
-//! real lightmap texel through `fill_chart` (the exact function the atlas uses)
-//! and reports the distribution of what the world shader samples.
+//! as a regression guard **for the vertex-lit fallback model**: it rebuilds a
+//! level with lightmaps on, walks every planned chart texel through the same
+//! per-texel evaluation the deleted `fill_chart` pass performed — the values
+//! the world still draws for the `off` variant (and for any build whose atlas
+//! could not be produced) — and reports the distribution of what the world
+//! shader samples for that model.
+//!
+//! The prepared path no longer shares this evaluation: it stores the offline
+//! HDR transport solve, whose receiver and texel contract is covered by
+//! `src/lighting/transport/tests.rs`. This audit remains meaningful because the
+//! vertex-lit fallback is still the exact, shipped fallback for every failure:
+//! every number below reads as "what the `off` variant bakes".
 //!
 //! For every texel it decomposes the baked value into the three terms the model
 //! sums — the room baseline, the visible local fixture pool and the doorway
@@ -34,7 +43,7 @@
 use super::LevelLighting;
 use crate::level::LevelDef;
 use crate::lighting::color::LightColor;
-use crate::lighting::lightmap::{LightmapMode, LightmapPatch, PatchKind, fill_chart};
+use crate::lighting::lightmap::{LightmapMode, LightmapPatch, PatchKind};
 use crate::lighting::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
 use crate::lighting::{
     AMBIENT_LEVEL, FILL_MAX, FILL_RANGE_MULTIPLIER, FILL_STRENGTH, LOCAL_LIGHT_MAX,
@@ -314,7 +323,8 @@ fn screen_terms(terms: &[super::PoolTerm]) -> (LightColor, LightColor) {
     )
 }
 
-/// The world-space nudge `fill_chart` applies to a patch before evaluation.
+/// The world-space nudge the vertex-lit texel walk applies to a patch before
+/// evaluation (the deleted `fill_chart`'s face-normal bias).
 fn face_bias(patch: &LightmapPatch) -> [f32; 3] {
     if !matches!(patch.kind, PatchKind::Wall | PatchKind::Skirt) {
         return [0.0; 3];
@@ -339,7 +349,44 @@ fn face_bias(patch: &LightmapPatch) -> [f32; 3] {
     normal.map(|value| value / length * LIGHTMAP_FACE_NORMAL_BIAS_M)
 }
 
-/// `fill_chart`'s texel axis: the texels span the patch inclusively.
+/// The exact per-texel evaluation the deleted `fill_chart` pass performed,
+/// kept here as the audit's independent reference for the vertex-lit fallback.
+///
+/// * A **wall** texel resolves its room the way the vertex bake's
+///   [`LevelLighting::sample_face`] does: strict containment first, then the
+///   patch's own room hint with the position clamped into it, so a coalesced
+///   wall run that spans a room boundary cannot bake a whole face at the
+///   neighbouring room's light.
+/// * A floor/ceiling/skirt texel that is still inside a wall solid — a junction
+///   with a crossing wall, or the outermost row where a wall is authored across
+///   the room boundary — takes the walked
+///   [`LevelLighting::sample_in_room`] path, exactly like the vertex bake.
+/// * Everything else is the fast [`LevelLighting::lightmap_texel`] path, which
+///   is `sample_in_room` without the wall-clearing walk.
+///
+/// Every channel is clamped to `[AMBIENT_LEVEL, MAX_BRIGHTNESS]`, the same
+/// clamp the vertex bake applies, so the measured value is exactly what an
+/// `off`-variant vertex of the same surface samples.
+fn vertex_lit_texel(lighting: &LevelLighting, patch: &LightmapPatch, point: [f32; 3]) -> [f32; 3] {
+    let light = if matches!(patch.kind, PatchKind::Wall) {
+        lighting.sample_face(patch.room, point[0], point[1], point[2])
+    } else if lighting.wall_contains_point(point[0], point[2]) {
+        patch.room.map_or_else(
+            || lighting.sample(point[0], point[1], point[2]),
+            |room| lighting.sample_in_room(room, point[0], point[1], point[2]),
+        )
+    } else {
+        lighting.lightmap_texel(patch.room, point[0], point[1], point[2])
+    };
+    [
+        light.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
+        light.g.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
+        light.b.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
+    ]
+}
+
+/// The deleted `fill_chart`'s texel axis: the texels span the patch
+/// inclusively, and a single-texel axis samples the middle.
 fn axis(index: usize, count: u32) -> f32 {
     if count <= 1 {
         return 0.5;
@@ -369,15 +416,18 @@ fn measure(level: &LevelDef) -> Measurement {
         LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On),
         None,
     );
-    // The audit consumes floating-point fill values, not encoded atlas pages.
-    // Plan once and fill each chart once; the separate atlas-byte regression
-    // protects packing/encoding without baking an unused copy here.
+    // The audit consumes the vertex-lit fallback values, not the prepared HDR
+    // pages: the plan's chart list is everything the historical fill request
+    // still carries, and each texel is evaluated through the same per-texel
+    // walk `fill_chart` performed. The prepared solve itself is covered by
+    // `crate::lighting::transport::tests`.
     let lighting = &prepared.build.lighting;
-    let lightmaps = prepared
+    let charts = prepared
         .fill
         .as_ref()
+        .map(|fill| fill.charts.as_slice())
         .expect("the demo must plan lightmaps");
-    let capacity = lightmaps.charts.iter().fold(0_usize, |count, (_, chart)| {
+    let capacity = charts.iter().fold(0_usize, |count, (_, chart)| {
         count.saturating_add(
             usize::try_from(chart.width)
                 .unwrap_or(0)
@@ -385,16 +435,17 @@ fn measure(level: &LevelDef) -> Measurement {
         )
     });
     let mut texels = Vec::with_capacity(capacity);
-    for (patch, chart) in &lightmaps.charts {
-        let values = fill_chart(lighting, patch, chart);
+    for (patch, chart) in charts {
         let bias = face_bias(patch);
-        let mut index = 0usize;
-        for j in 0..usize::try_from(chart.height).unwrap_or(0) {
-            for i in 0..usize::try_from(chart.width).unwrap_or(0) {
+        let width = usize::try_from(chart.width).unwrap_or(0);
+        let height = usize::try_from(chart.height).unwrap_or(0);
+        for j in 0..height {
+            for i in 0..width {
                 let u = axis(i, chart.width);
                 let v = axis(j, chart.height);
                 let raw = patch.point_at(u, v);
                 let point = [raw[0] + bias[0], raw[1] + bias[1], raw[2] + bias[2]];
+                let value = vertex_lit_texel(lighting, patch, point);
                 // A texel buried in a wall is walked into its room exactly like
                 // `sample_in_room` walks it, so the decomposition is measured at
                 // the position the model actually evaluates.
@@ -413,7 +464,6 @@ fn measure(level: &LevelDef) -> Measurement {
                     evaluated[1],
                     evaluated[2],
                 );
-                let value = values[index];
                 texels.push(Texel {
                     kind: patch.kind,
                     value: LightColor::rgb(value[0], value[1], value[2]),
@@ -424,7 +474,6 @@ fn measure(level: &LevelDef) -> Measurement {
                     fill_open: open.1,
                     blend,
                 });
-                index += 1;
             }
         }
     }
@@ -445,7 +494,7 @@ fn measure(level: &LevelDef) -> Measurement {
     Measurement {
         texels,
         rooms,
-        charts: lightmaps.charts.len(),
+        charts: charts.len(),
         lights: summary.lights,
         zones: summary.zones,
     }
@@ -468,8 +517,8 @@ fn decomposition_error(texels: &[Texel]) -> f32 {
 
 /// Fraction of texels whose stored value the measured terms do not reproduce
 /// within 0.05. A small residue is expected on texels whose evaluated position
-/// differs between `fill_chart` and this decomposition; a large one would mean
-/// the report is not measuring the model it claims to.
+/// differs between the vertex-lit texel walk and this decomposition; a large
+/// one would mean the report is not measuring the model it claims to.
 fn decomposition_mismatch(texels: &[Texel]) -> f32 {
     if texels.is_empty() {
         return 0.0;

@@ -1,5 +1,117 @@
 ## Unreleased — final architecture: doors, interactions, effects and content cutover
 
+### Reusable entities: typed components, events, sequences and spawns
+
+- New **component-oriented entity runtime** (`src/entities/`): every authored
+  object (prop, door, ceiling light, trigger volume, timer, spawn point,
+  effect) becomes one entity with a stable authored id and a generation-checked
+  handle; typed component tables (transform, renderable, collider, animation,
+  audio, light, material, state, volume, lifetime, spawn point, steam, water,
+  navigation metadata) replace object-specific state. A handle from an unloaded
+  world can never address a coincidentally equal slot in a new one, and a
+  despawn leaves no component, binding, timer, sequence or group membership
+  behind.
+- **One event/action pipeline.** Event sources (`interact`, `enter_volume`,
+  `exit_volume`, `timer`, `object_state`, `sequence_complete`, `spawn`,
+  `animation_complete`, plus AI-state/catch for the navigation upgrade) feed
+  one bounded FIFO; authored bindings add conditions, `once`, cooldowns and
+  typed actions (`open`, `close`, `toggle`, `enable`, `disable`, `set_light`,
+  `lock`, `unlock`, `play_animation`, `toggle_animation`, `play_sound`,
+  `stop_sound`, `change_material`, `move_object`, `set_state`, `toggle_label`,
+  `start_sequence`, `stop_sequence`, `start_timer`, `stop_timer`,
+  `spawn_entity`, `despawn_entity`, `reset_to_start`). Targets and
+  action/component combinations are validated by name; nothing is silently
+  dropped, a chain is cut at a bounded depth, and a full queue or budget is
+  reported once.
+- **Data-driven sequences** with waits, collision-respecting movement, facing,
+  animation waits (bounded), event emission and state changes; one sequence per
+  entity, completion emitted once, cancellation on owner despawn or map unload,
+  and simulation time throughout.
+- **Typed spawns**: templates, points and at-most-one-active groups, with
+  lifetimes, runtime names for later addressing, group release on despawn and
+  render commands applied on the frame the spawn happens.
+- **Lights and doors**: generic light state drives the prepared switchable
+  lightmap layers through the existing toggle path (no rebake, no shader
+  branch); doors gain a `locked` state and publish a navigation-facing
+  passability/collider record. Static geometry stays compiled; runtime
+  transforms, collision updates and probe sampling are unchanged.
+- **Level format 3** replaces `interaction`, `manual_interaction/prompt/reach`
+  and `area_triggers` with per-entity components, event bindings, volumes,
+  timers, sequences and spawn records; every maintained map, fixture and
+  generator is converted, all five packages are rebuilt, and the loader
+  validates every new record with an actionable named diagnostic.
+- **Demo/example wiring**: the hall switch/door and sauna switch/light/door
+  remain, plus a volume → timer → sequence chain in the sauna and a generic
+  spawn example in the Model Zoo.
+
+### Advanced offline lighting: HDR transport, directional lightmaps, probe field and prefiltered reflections
+
+- **Offline HDR diffuse transport** (`src/lighting/transport.rs`): a
+  deterministic BVH over the prepared triangles, source-appropriate point/rect/
+  line emitter sampling with soft shadows, unbiassed ray-traced diffuse
+  bounces (one at Medium, two at Full) through a surface-aware irradiance
+  cache, chart-space luma-guided denoising and gutter dilation. The vertex-lit
+  `off` variant keeps the historical display-space model, byte for byte.
+- **Directional HDR lightmaps**: each texel stores an irradiance term and a
+  dominant-lobe amplitude with an octahedral axis, reconstructed at the surface
+  normal and tone-mapped once; packaged as uncompressed RGBA16F KTX2
+  (`lightmaps-hdr`), two layers per page plus one prepared pair per switchable
+  fixture. Switchable fixtures select real prepared illumination at runtime
+  through an environment mask — no chart re-fill and no combinatorics.
+- **Irradiance field for moving objects** (`blobs/<sha>.irradiance`, `PLPF`):
+  a uniform 3D probe grid solved from the same transport pass, sampled at
+  runtime with room-aware interpolation that cannot bleed through floors,
+  ceilings or full-height walls; dynamic objects and characters follow it, with
+  a bounded fallback to the vertex-lit sample.
+- **Prefiltered static reflections**: captured cubemaps are coned offline into
+  roughness mip chains (48→6 levels, 64→7), packaged in the probe KTX2 cubes
+  and sampled with `textureSampleLevel` from the material's roughness; nothing
+  prefilteres at load.
+- **Multicore solver** with `--workers`/`PLACES_TOOL_WORKERS`, a tested
+  serial-equivalence path, and shared-budget bounds; the compiler prints
+  worker counts, scene sizes and timings.
+- Package format updates: capabilities `lightmaps-hdr` and
+  `irradiance-probes`, lightmap record v2 (`switchable_lights`), probe record
+  v2 (`levels`), a new `irradiance` variant entry and `PLPF` payload. Old
+  record versions are rejected by name; bundled packages are rebuilt.
+
+### Compiled maps: `.placesmap`, offline preparation and player cutover
+
+- New **compiled map package** format (`docs/PACKAGE_FORMAT.md`): a ZIP archive
+  with a bounded JSON manifest, the validated semantic level, and
+  content-addressed binary records for static geometry, transformed prop
+  batches, the baked lighting field, static collision primitives, prepared
+  lightmap pages and prepared reflection probe cubemaps. Every blob name embeds
+  its SHA-256, which the reader verifies before decoding; archive entries,
+  counts, dimensions and hashes are bounded before any allocation.
+- New **offline compiler** `places-compile` (`src/bin/places-compile.rs`,
+  `src/compiler.rs`): `build`, `build-collection`, `validate`, `inspect`,
+  `verify` and `capture-probes`, with `--workers`, `--variants`, atomic
+  publication, incremental fingerprint reuse and failure isolation per source.
+  It runs the proven static preparation — lighting bake, geometry emission,
+  lightmap chart planning and fill, prop instancing and collision derivation —
+  and captures reflection probes with a window-free renderer, so the player
+  never does any of it.
+- **Player cutover**: discovery, menu, import, direct launch and the embedded
+  fallback all use compiled packages. The loading worker decodes a package
+  variant, resolves texture pixels through the installed asset bundle, rebuilds
+  collision from the compiled record and uploads the packaged probe captures.
+  Geometry emission, the lighting bake, chart planning, atlas fill and probe
+  capture are absent from every player path, including startup, recovery and
+  quality changes. Raw `.json`/`.zip` sources are never playable rows; the
+  Import action names the exact compiler command.
+- Prepared lighting and reflection payloads use **KTX 2.0** (uncompressed
+  `R8G8B8A8_UNORM`, no supercompression) with the standard RGBA8 descriptor;
+  both the writer and the strict subset reader are in `src/package/ktx2.rs`.
+- `tools/package.sh` ships compiled packages; `tools/verify.sh` recompiles and
+  validates the bundled packages; `tests/test_package.py` independently checks
+  content addressing, manifest shape and variant payloads with the Python
+  standard library.
+- Documentation: `docs/PACKAGE_FORMAT.md` (new), plus updates to the authoring
+  guide, architecture, renderer, verification, offline tooling and README for
+  the explicit edit → compile → launch workflow. Level packs
+  (`.zip` + `materials.json`) are retired.
+
 ### Added
 
 - `doors[]` in the level schema: a shared door system (`src/door.rs` plus

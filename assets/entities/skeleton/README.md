@@ -84,8 +84,9 @@ as a `play_animation` interaction or a route step:
 { "id": "skeleton_seated", "display_name": "Skeleton", "model": "skeleton",
   "x": 13.0, "z": 14.5025, "rotation_degrees": 180.0,
   "size": [0.43, 1.72, 0.32], "solid": false,
-  "interaction": { "prompt": "Sit", "actions": [
-    { "action": "play_animation", "clip": "pose_sit_chair" } ] } }
+  "components": [ { "component": "interactable", "prompt": "Sit" } ],
+  "bindings": [ { "on": "interact",
+    "actions": [ { "action": "play_animation", "clip": "pose_sit_chair" } ] } ] }
 ```
 
 ## Build

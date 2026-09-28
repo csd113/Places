@@ -1,7 +1,7 @@
 // World shader: the complete static Places world fragment assembly — base
-// texture, material response, baked light from the lightmap atlas (or the
-// vertex-lit fallback), emission, reflections, fog — exactly where the
-// reference assembles them, in the same raw display space.
+// texture, material response, baked light reconstructed from the prepared HDR
+// lightmap layers (or the vertex-lit fallback), emission, reflections, fog —
+// exactly where the reference assembles them, in the same raw display space.
 //
 // Scope:
 //
@@ -13,9 +13,12 @@
 //   `+ sheen + reflection + emission`, then fog — writing raw display-space
 //   targets directly; only the surface-facing entry points (`fs_main`,
 //   `fs_cutout`) convert once with `srgb_to_linear` for the sRGB surface;
-// * take `light` from the lightmap atlas when one is resident (the reference's
-//   default path), page-selected by the vertex's page byte, and from the
-//   historical vertex-lit colour otherwise;
+// * take `light` from the prepared HDR lightmap array when one is resident:
+//   each page is a pair of linear `Rgba16Float` layers (irradiance and a
+//   directional moment) reconstructed at the material normal as
+//   `max(0, irradiance + direction * normal)`, plus every enabled switchable
+//   fixture's contribution pair, then compressed by the shared display tone
+//   map; the historical vertex-lit colour is used otherwise;
 // * decode the material's normal map (when the material binds one) into the
 //   world-space material normal the sheen and reflection terms use;
 // * classify alpha: opaque, alpha-tested (`fs_cutout`) and straight-alpha
@@ -25,9 +28,9 @@
 //   target, exactly like the reference's `u_emission_only` return.
 //
 // The light the world stage uses is *baked*, not realtime: there is no light
-// selection, no light array and no shadow map. The fragment stage computes
-// `light` from the lightmap atlas when one is resident and `vec3(1.0)`
-// otherwise. See `docs/RENDERER.md`.
+// selection, no light array and no shadow map. The fragment stage reconstructs
+// `light` from the resident lightmap layers and `vec3(1.0)` otherwise. See
+// `docs/RENDERER.md`.
 //
 // Coordinate convention: `camera.view_projection` is the Places camera matrix
 // with the single OpenGL -> wgpu clip-space correction already applied on the
@@ -78,9 +81,10 @@ struct Material {
     _padding1: f32,
 };
 
-// The whole frame/level environment: the baked-light switch and scale, the fog
-// constants, and the flat-data the reflection terms need (the mirrored planar
-// view-projection and the active mirror plane).
+// The whole frame/level environment: the baked-light switch and scale, the
+// fog constants, the prepared lightmap layers' addressing, and the flat-data
+// the reflection terms need (the mirrored planar view-projection and the
+// active mirror plane).
 struct Environment {
     // The reference's `u_light_scale`; `1` for static geometry.
     light_scale: vec3<f32>,
@@ -94,8 +98,14 @@ struct Environment {
     fog_reference_y: f32,
     // The reference's `u_fog_height_gain`.
     fog_height_gain: f32,
-    // Explicit padding to the mat4 alignment.
-    _padding: vec2<f32>,
+    // Pages in one lightmap layer group (offset 40). Each page is two array
+    // layers: irradiance then direction.
+    lightmap_page_count: u32,
+    // Packed switchable state (offset 44): bits 0..=3 the group count, bits
+    // 8..=11 the enabled mask, bit `g` set when group `g` is on; bits 16..=19
+    // hold the resident probe chain's top mip level (0 when the probes have a
+    // single level and the rough fallback below stands in).
+    lightmap_switchable: u32,
     // The reference's `u_planar_matrix`: the mirrored view-projection.
     planar_matrix: mat4x4<f32>,
     // The reference's `u_planar_plane`: `xyz` the unit normal, `w` the offset.
@@ -136,11 +146,11 @@ var emission_texture: texture_2d<f32>;
 var emission_sampler: sampler;
 
 // Group 3 is the frame/level environment: the baked-light switch and scale,
-// fog, the lightmap page array, the reflection probe cubemap and the planar
-// mirror image. The page array always has LIGHTMAP_ATLAS_MAX_PAGES layers (the
-// fallback is a 1x1 white array with the same layer count), so the binding is
-// complete even when no atlas or reflection is resident; the shader's switches
-// decide what is read.
+// fog, the prepared lightmap layer array, the reflection probe cubemap and the
+// planar mirror image. The page array holds two layers per page per group and
+// exactly the resident layer count (the fallback is a 1x1 pair), so the
+// binding is complete even when no atlas or reflection is resident; the
+// shader's switches decide what is read.
 @group(3) @binding(0)
 var<uniform> environment: Environment;
 @group(3) @binding(1)
@@ -167,8 +177,8 @@ struct WorldVertex {
     @location(3) color: vec4<f32>,
     // Lightmap atlas UV, in `[0, 1]`, from the vertex's 16-bit fixed point.
     @location(6) lightmap_uv: vec2<f32>,
-    // Lightmap page byte as a float: 0..=3 selects the atlas array layer, 255
-    // is `LIGHTMAP_NONE` (the vertex keeps its vertex-lit colour).
+    // Lightmap page byte as a float: 0..=254 selects the prepared page pair,
+    // 255 is `LIGHTMAP_NONE` (the vertex keeps its vertex-lit colour).
     @location(7) lightmap_page: f32,
     // Unit UV-u tangent.
     @location(4) tangent: vec3<f32>,
@@ -220,6 +230,59 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     return select(high, low, c <= vec3<f32>(0.04045));
 }
 
+// The prepared HDR lightmap's display tone map, per channel, C1-continuous at
+// the knee. Below 0.8 a value passes through unchanged (the calibrated look of
+// the shipped light levels); above it an exponential shoulder compresses
+// towards 1.0, so a genuine highlight rolls off instead of clipping. Mirrors
+// `crate::lighting::transport::soft_clip_channel` exactly.
+fn soft_clip_channel(x: f32) -> f32 {
+    if (x <= 0.8) {
+        return max(x, 0.0);
+    }
+    let shoulder = 0.2;
+    return 0.8 + shoulder * (1.0 - exp(-(x - 0.8) / shoulder));
+}
+
+fn soft_clip(color: vec3<f32>) -> vec3<f32> {
+    return vec3<f32>(
+        soft_clip_channel(color.r),
+        soft_clip_channel(color.g),
+        soft_clip_channel(color.b),
+    );
+}
+
+// Unpacks the octahedral pair stored in the plane alphas back to a unit
+// direction. A zero amplitude ignores the axis entirely, so a degenerate pair
+// is harmless.
+fn decode_octahedral(axis: vec2<f32>) -> vec3<f32> {
+    let p = clamp(axis, vec2<f32>(0.0), vec2<f32>(1.0)) * 2.0 - 1.0;
+    let z = 1.0 - abs(p.x) - abs(p.y);
+    if (z < 0.0) {
+        let sign_x = select(-1.0, 1.0, p.x >= 0.0);
+        let sign_y = select(-1.0, 1.0, p.y >= 0.0);
+        return vec3<f32>((1.0 - abs(p.y)) * sign_x, (1.0 - abs(p.x)) * sign_y, z);
+    }
+    return vec3<f32>(p.x, p.y, z);
+}
+
+// One lightmap page pair sampled at `uv`: the irradiance plane at `layer` and
+// the dominant-lobe plane at `layer + 1u`, reconstructed at `normal`.
+//
+// The bake stores the transport solve as two linear HDR values per texel plus
+// an octahedral dominant axis in the plane alphas: `irradiance` is the mean
+// term, `direction` the lobe's per-channel amplitude, and
+// `irradiance + direction * (2 * max(0, dot(normal, axis)) - 1)` is exact at
+// the dominant light's direction, zero (clamped) for a surface facing away,
+// and mean-exact over the sphere. That is what gives a normal-mapped or curved
+// surface a real directional response instead of one uniform value.
+fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
+    let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer);
+    let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u);
+    let axis = decode_octahedral(vec2<f32>(irradiance.a, direction.a));
+    let lobe = 2.0 * max(0.0, dot(normal, axis)) - 1.0;
+    return max(vec3<f32>(0.0), irradiance.rgb + direction.rgb * lobe);
+}
+
 // The reference's `light` term for one fragment, per channel.
 //
 // The OpenGL world fragment stage contains exactly one light expression:
@@ -231,25 +294,38 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 //     }
 //     light *= u_light_scale;
 //
-// Places binds every page as one layer of a `texture_2d_array` and selects the
-// layer from the vertex's page byte, so the same expression generalises from two
-// pages to `LIGHTMAP_ATLAS_MAX_PAGES` without a per-page branch. There is no
-// light loop, no light array and no attenuation curve in the fragment stage:
-// every fixture's contribution is already baked. A vertex with no lightmap
-// coordinates (`page >= 254.5`, the historical vertex-lit build) keeps the light
-// the bake folded into its colour, and the factor stays the unit vector. The
-// dynamic path's factor is additionally multiplied by the object's neutral probe
-// (`u_light_scale`), which is why the environment uniform carries it.
-fn surface_light(in: VsOut) -> vec3<f32> {
+// Places binds the prepared pages as one `texture_2d_array` whose layer pairs
+// are irradiated/direction planes, so the same expression generalises: the
+// vertex's page byte selects the base pair, the uniform's switchable count and
+// mask add each enabled fixture's prepared pair, and the reconstructed HDR sum
+// runs through the display tone map. There is no light loop over fixtures, no
+// light array and no attenuation curve in the fragment stage: every fixture's
+// contribution is already solved into the layers. A vertex with no lightmap
+// coordinates (`page >= 254.5`, the historical vertex-lit build) keeps the
+// light the bake folded into its colour, and the factor stays the unit vector.
+// The dynamic path's factor is additionally multiplied by the object's neutral
+// probe (`u_light_scale`), which is why the environment uniform carries it.
+fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     let lightmap_on = environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page));
-    var light = vec3<f32>(1.0);
-    if (lightmap_on > 0.5) {
-        // The page byte is an integer carried as a float; +0.5 and truncate is
-        // the exact layer index the mesh stamped (0..=3 for a resident atlas).
-        let layer = u32(in.lightmap_page + 0.5);
-        light = textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer).rgb;
+    if (lightmap_on <= 0.5) {
+        return vec3<f32>(1.0) * environment.light_scale;
     }
-    return light * environment.light_scale;
+    // The page byte is an integer carried as a float; +0.5 and truncate is the
+    // exact page index the mesh stamped.
+    let page = u32(in.lightmap_page + 0.5);
+    let pages = environment.lightmap_page_count;
+    var hdr = decode_lightmap(in.lightmap_uv, page * 2u, normal);
+    let count = environment.lightmap_switchable & 0xFu;
+    let mask = (environment.lightmap_switchable >> 8u) & 0xFu;
+    for (var group = 0u; group < count; group = group + 1u) {
+        if ((mask & (1u << group)) != 0u) {
+            // The base group occupies the first `pages * 2u` layers; each
+            // switchable contribution follows in group order, page-major.
+            let layer = pages * 2u * (group + 1u) + page * 2u;
+            hdr += decode_lightmap(in.lightmap_uv, layer, normal);
+        }
+    }
+    return soft_clip(hdr) * environment.light_scale;
 }
 
 // The reference's lit term, in display space:
@@ -341,12 +417,15 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
         combine = combine * inside * on_plane;
     } else {
         let reflected = reflect(-view, normal);
-        var sharp = textureSample(probe_map, reflection_sampler, reflected).rgb;
-        // A rough surface averages a wider cone of the room than a single
-        // reflected ray would: mixing the reading towards the surface's own
-        // facing direction stands in for a blurred cubemap read without a mip
-        // chain, a second render or a per-tap kernel.
-        if (material.roughness > 0.15) {
+        // A packaged probe carries an offline-prefiltered mip chain, so the
+        // material's roughness selects the level directly; the top level is
+        // packed in the environment word. A live capture has one level
+        // (`probe_max_mip == 0`), where the chain does not exist and the
+        // historical two-tap mix stands in so quality does not regress.
+        let probe_max_mip = f32((environment.lightmap_switchable >> 16u) & 0xFu);
+        let probe_level = clamp(material.roughness * probe_max_mip, 0.0, probe_max_mip);
+        var sharp = textureSampleLevel(probe_map, reflection_sampler, reflected, probe_level).rgb;
+        if (probe_max_mip < 0.5 && material.roughness > 0.15) {
             let broad = textureSample(
                 probe_map,
                 reflection_sampler,
@@ -402,8 +481,8 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
-    let light = surface_light(in);
     let normal = material_normal(in, front_facing);
+    let light = surface_light(in, normal);
     let view = normalize(camera.position - in.world_position);
     let sheen = surface_sheen(in, normal, view, light);
     let reflection = surface_reflection(in, normal, view);

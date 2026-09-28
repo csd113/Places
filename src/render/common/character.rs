@@ -160,11 +160,14 @@ const fn state_index(state: LocomotionState) -> usize {
 }
 
 /// What one [`CharacterScene::update`] pass did.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CharacterUpdate {
     /// Characters whose pose changed and whose vertices therefore need an
     /// upload.
     pub moved: usize,
+    /// Instance ids whose one-shot pose cue completed this frame, so the entity
+    /// runtime can emit `animation_complete`. Empty in the common case.
+    pub finished: Vec<String>,
 }
 
 /// One node's local pose: the animator's working TRS.
@@ -1035,6 +1038,18 @@ impl CharacterScene {
         assets: &mut PropAssets,
         lighting: &LevelLighting,
     ) -> Self {
+        Self::spawn_characters_with_field(level, catalog, assets, lighting, None)
+    }
+
+    /// [`Self::spawn_characters`] lighting each character from the prepared
+    /// irradiance field when one is available.
+    pub fn spawn_characters_with_field(
+        level: &crate::level::LevelDef,
+        catalog: &crate::loader::PropCatalog,
+        assets: &mut PropAssets,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+    ) -> Self {
         let surfaces = LevelSurfaces::new(level);
         let instance_ids = level.prop_instance_ids();
         let mut characters: Vec<Character> = Vec::new();
@@ -1089,7 +1104,7 @@ impl CharacterScene {
             };
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
             let transform = prop_instance_matrix(prop, base_y);
-            let albedo = sample_albedo(&asset, &transform, lighting);
+            let albedo = sample_albedo(&asset, &transform, lighting, irradiance);
             let world_bounds = character_bounds(&asset, &transform);
             let instance_id = instance_ids
                 .get(prop_index)
@@ -1136,6 +1151,7 @@ impl CharacterScene {
         frames: &[EntityFrame],
     ) -> CharacterUpdate {
         let mut moved = 0usize;
+        let mut finished: Vec<String> = Vec::new();
         for character in &mut self.characters {
             let frame = character
                 .instance_id
@@ -1155,11 +1171,16 @@ impl CharacterScene {
                 None if character.animator.is_rigid() => false,
                 None => character.animator.update(delta_seconds, snapshot),
             };
+            if character.animator.take_cue_finished()
+                && let Some(instance_id) = character.instance_id.clone()
+            {
+                finished.push(instance_id);
+            }
             if changed {
                 moved = moved.saturating_add(1);
             }
         }
-        CharacterUpdate { moved }
+        CharacterUpdate { moved, finished }
     }
 }
 
@@ -1194,6 +1215,7 @@ fn sample_albedo(
     asset: &LoadedPropAsset,
     transform: &Mat4,
     lighting: &LevelLighting,
+    irradiance: Option<&crate::lighting::probes::ProbeField>,
 ) -> Vec<[f32; 4]> {
     asset
         .model
@@ -1201,11 +1223,18 @@ fn sample_albedo(
         .iter()
         .map(|vertex| {
             let position = transform.transform_point3(Vec3::from(vertex.pos));
-            let light = lighting.sample(position.x, position.y, position.z);
+            let point = [position.x, position.y, position.z];
+            let room = lighting.room_index_at_height(point[0], point[1], point[2]);
+            let light = irradiance
+                .and_then(|field| field.sample_display(point, room))
+                .unwrap_or_else(|| {
+                    let light = lighting.sample(point[0], point[1], point[2]);
+                    [light.r, light.g, light.b]
+                });
             [
-                vertex.color[0] * light.r,
-                vertex.color[1] * light.g,
-                vertex.color[2] * light.b,
+                vertex.color[0] * light[0],
+                vertex.color[1] * light[1],
+                vertex.color[2] * light[2],
                 vertex.color[3],
             ]
         })

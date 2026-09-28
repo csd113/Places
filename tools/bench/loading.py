@@ -30,6 +30,24 @@ def trace_metrics(events: list[dict]) -> dict:
     before the event loop cannot disappear from the reported maximum. Loading
     gaps retain the full observed interval when it intersects a load window;
     clipping at a request/ready boundary would hide a stall crossing it.
+
+    The separately named metrics are:
+
+    * ``binary_startup_ms`` — trace-relative time to the window-ready mark
+      (``entry`` when window creation was not reached); the harness's
+      process-seconds field is the wall-clock counterpart.
+    * ``package_loading`` / ``loading_windows_ms`` — one window per request,
+      from ``request`` to its completion, cancellation or failure.
+    * ``first_usable_scene_ms`` — first ``scene_presented`` (the first correct
+      scene the player could use), also kept as ``first_ready_present_ms``.
+    * ``settings_transition`` / ``settings_transition_windows_ms`` — from a
+      ``settings_change`` mark to its completion: an immediate
+      ``settings_applied``, or the world ``gpu_ready``/``ready`` a rebuild
+      required.
+    * steady-state rendering is a different instrument: the ``BENCH_SUMMARY``
+      and per-frame CSV produced by the release binary under ``PLACES_BENCH``
+      (see ``tools/bench/bench_local.py``); this function never mixes a
+      transition interval into a steady-state sample.
     """
     def summary(values):
         ordered = sorted(values)
@@ -58,9 +76,33 @@ def trace_metrics(events: list[dict]) -> dict:
     if pending is not None and active:
         windows.append((pending[1], cutoff if cutoff is not None else active[-1]["elapsed_ms"]))
 
+    settings_windows = []
+    settings_pending = None
+    for event in active:
+        kind = event["event"]
+        if kind == "settings_change":
+            if settings_pending is not None:
+                settings_windows.append((settings_pending, event["elapsed_ms"]))
+            settings_pending = event["elapsed_ms"]
+        elif settings_pending is not None and kind in {
+                "settings_applied", "gpu_ready", "ready", "failed", "cancel"}:
+            settings_windows.append((settings_pending, event["elapsed_ms"]))
+            settings_pending = None
+    if settings_pending is not None and active:
+        settings_windows.append((settings_pending, cutoff if cutoff is not None else active[-1]["elapsed_ms"]))
+
+    first_usable = next((event["elapsed_ms"] for event in active if event["event"] == "scene_presented"), None)
+    startup_ms = next((event["elapsed_ms"] for event in active if event["event"] == "window_ready"), None)
+    if startup_ms is None:
+        startup_ms = origin
     result = {"trace_available": bool(events), "loading_windows_ms": windows,
+              "package_loading": summary([end - start for start, end in windows]),
+              "binary_startup_ms": startup_ms,
               "first_present_ms": next((event["elapsed_ms"] for event in active if event["event"] == "present"), None),
-              "first_ready_present_ms": next((event["elapsed_ms"] for event in active if event["event"] == "scene_presented"), None)}
+              "first_ready_present_ms": first_usable,
+              "first_usable_scene_ms": first_usable,
+              "settings_transition_windows_ms": settings_windows,
+              "settings_transition": summary([end - start for start, end in settings_windows])}
     for name, key in [("event_pump", "event_pump_gaps"), ("present", "present_gaps")]:
         times = [event["elapsed_ms"] for event in active if event["event"] == name]
         intervals = list(zip(times, times[1:]))

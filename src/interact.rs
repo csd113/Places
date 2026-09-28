@@ -1,13 +1,15 @@
 //! Object interaction targeting and world-anchored label rendering.
 //!
 //! One typed dispatcher serves both interaction sources: a placed object's
-//! `interaction` actions (fired by the Interact key while the player looks at
-//! the object) and an area trigger's actions (fired when the player enters its
-//! volume). This module owns the presentation-side half:
+//! `interactable` component (fired by the Interact key while the player looks
+//! at the object) and a trigger volume's occupancy edges (fired when the
+//! player's feet enter or leave its volume). This module owns the
+//! presentation-side half:
 //!
-//! * [`Interactable`] / [`Interactables`] — the placed props and entities that
-//!   carry a map-authored interaction, resolved once at level load into a
-//!   world-space anchor and an axis-aligned bound;
+//! * [`Interactable`] / [`Interactables`] — the aiming table derived from the
+//!   entities that carry an `interactable` component (plus label-only targets),
+//!   resolved once at level load into a world-space anchor and an axis-aligned
+//!   bound;
 //! * [`nearest_target`] — the controller's "nearest eligible object the player
 //!   is looking at" test, including reach, occlusion and the acting player's
 //!   stance-aware eye;
@@ -24,11 +26,9 @@
 use glam::Vec3;
 
 use crate::collision::{DoorCollider, WallAabb, nearest_door_entry, ray_aabb_entry};
-use crate::door::{DoorPhase, Doors};
+use crate::door::DoorPhase;
 use crate::game::Game;
-use crate::level::{
-    ActionDef, DEFAULT_INTERACTION_PROMPT, LevelDef, LevelSurfaces, PROP_FALLBACK_SIZE,
-};
+use crate::level::LevelDef;
 use crate::render::{DrawableSize, RenderCamera, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, Vertex};
 use crate::spatial::Aabb;
 
@@ -74,15 +74,16 @@ pub fn view_direction(yaw: f32, pitch: f32) -> Vec3 {
     Vec3::new(yaw.sin() * cos_pitch, pitch.sin(), -yaw.cos() * cos_pitch)
 }
 
-/// One placed instance that can be aimed at and acted upon, or named as a
-/// `toggle_label` target.
+/// One placed instance that can be aimed at and acted upon.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Interactable {
     /// Stable per-instance id (authored or deterministic default).
     pub id: String,
     /// Name a `toggle_label` action shows.
     pub display_name: String,
-    /// Prompt shown while this instance is the current target.
+    /// Prompt shown while this instance is the current target. Empty means the
+    /// instance's own default: a door shows the phase-appropriate open/close
+    /// prompt, anything else shows [`DEFAULT_INTERACTION_PROMPT`].
     pub prompt: String,
     /// Interaction reach in metres, already sanitised.
     pub reach: f32,
@@ -100,9 +101,9 @@ pub struct Interactable {
     /// For a door target: the door's index in [`Doors`], so the aim ray never
     /// treats the target leaf as its own occluder.
     pub door_index: Option<usize>,
-    /// Actions one press performs, in order. Empty for a label-only target that
-    /// another instance toggles.
-    pub actions: Vec<ActionDef>,
+    /// False disables aiming: the instance keeps its place in the table (and
+    /// its label state) but E cannot target it until an `enable` action runs.
+    pub enabled: bool,
 }
 
 /// The live pose a door publishes into its interaction entry each frame.
@@ -179,52 +180,35 @@ pub fn door_prompt(phase: DoorPhase, authored: Option<&str>) -> String {
 
 /// Every target instance named anywhere in the level, trimmed.
 ///
-/// A `toggle_label`, `play_animation` or `toggle_animation` action may name a
-/// placed prop that carries no interaction of its own; those props join the
-/// aimable set as label-only/cue-only instances with empty actions (never
-/// aimable), so an explicit target always resolves at runtime exactly as
-/// validation promised.
+/// A placed instance that any action or condition names joins the aiming table
+/// as a label-only/cue-only entry with `enabled: false` (never aimable), so an
+/// explicit target always resolves at runtime exactly as validation promised.
 #[must_use]
-fn referenced_targets(level: &LevelDef) -> Vec<String> {
+pub(crate) fn referenced_targets(level: &LevelDef) -> Vec<String> {
     let mut targets = Vec::new();
-    let interactions = level
-        .props
-        .iter()
-        .filter_map(|prop| prop.interaction.as_ref())
-        .map(|interaction| interaction.actions.as_slice())
-        .chain(
-            level
-                .area_triggers
-                .iter()
-                .map(|trigger| trigger.actions.as_slice()),
-        );
-    for actions in interactions {
-        for action in actions {
-            let target = match action {
-                ActionDef::ToggleLabel {
-                    target: Some(target),
+    let mut push = |target: &str| {
+        if !target.trim().is_empty() {
+            targets.push(target.trim().to_string());
+        }
+    };
+    for bindings in level.all_bindings() {
+        for binding in bindings {
+            for condition in &binding.when {
+                push(condition.target());
+            }
+            for action in &binding.actions {
+                if let Some(target) = action.target() {
+                    push(target);
                 }
-                | ActionDef::PlayAnimation {
-                    target: Some(target),
-                    ..
+            }
+        }
+    }
+    for sequence in &level.sequences {
+        for step in &sequence.steps {
+            for action in step.actions() {
+                if let Some(target) = action.target() {
+                    push(target);
                 }
-                | ActionDef::ToggleAnimation {
-                    target: Some(target),
-                    ..
-                }
-                | ActionDef::OpenDoor { target }
-                | ActionDef::CloseDoor { target }
-                | ActionDef::Toggle { target } => Some(target),
-                ActionDef::ToggleLabel { target: None }
-                | ActionDef::PlayAnimation { target: None, .. }
-                | ActionDef::ToggleAnimation { target: None, .. }
-                | ActionDef::ResetToStart
-                | ActionDef::PlayAudio { .. } => None,
-            };
-            if let Some(target) = target
-                && !target.trim().is_empty()
-            {
-                targets.push(target.trim().to_string());
             }
         }
     }
@@ -251,105 +235,32 @@ impl Interactables {
         Self { items: Vec::new() }
     }
 
-    /// Resolves every aimable prop, every prop referenced as a label/cue
-    /// target, and every manually interactable door.
+    /// Builds the table from resolved entries.
     ///
-    /// Bounds use the same size contract as collision
-    /// ([`crate::level::PropDef::resolved_size`] against
-    /// [`PROP_FALLBACK_SIZE`]): the authored `size`, scaled, else the standard
-    /// prop box. A solid prop that should be aimable at its picture authors
-    /// `size`, exactly as it does to block correctly. Malformed entries are
-    /// skipped; a loaded level has already been validated.
+    /// The entity runtime resolves one entry per placed instance that carries
+    /// an `interactable` component (aimable) or is named by any binding
+    /// (label-only), plus every manually interactable door; this constructor
+    /// owns the result so the table can never disagree with the components it
+    /// was built from.
     #[must_use]
-    pub fn from_level(level: &LevelDef, doors: &Doors) -> Self {
-        let surfaces = LevelSurfaces::new(level);
-        let ids = level.prop_instance_ids();
-        let referenced = referenced_targets(level);
-        let mut items = Vec::new();
-        for (index, prop) in level.props.iter().enumerate() {
-            let interaction = prop.interaction.as_ref();
-            let actions = interaction.map(|interaction| interaction.actions.as_slice());
-            let aimable = actions.is_some_and(|actions| !actions.is_empty());
-            let id = ids
-                .get(index)
-                .filter(|id| !id.trim().is_empty())
-                .cloned()
-                .unwrap_or_else(|| format!("prop_{index}"));
-            let is_target = referenced.iter().any(|target| target == &id);
-            if !aimable && !is_target {
-                continue;
-            }
-            let size = prop.resolved_size(PROP_FALLBACK_SIZE);
-            let [size_x, size_y, size_z] = size;
-            if !size.iter().all(|value| value.is_finite() && *value > 0.0)
-                || !prop.x.is_finite()
-                || !prop.y.is_finite()
-                || !prop.z.is_finite()
-                || !prop.rotation_degrees.is_finite()
-            {
-                continue;
-            }
-            let display_name = prop
-                .display_name
-                .as_deref()
-                .map(str::trim)
-                .filter(|name| !name.is_empty())
-                .unwrap_or(prop.model.as_str())
-                .to_string();
-            let prompt = interaction
-                .and_then(|interaction| interaction.prompt.as_deref())
-                .map(str::trim)
-                .filter(|prompt| !prompt.is_empty())
-                .unwrap_or(DEFAULT_INTERACTION_PROMPT)
-                .to_string();
-            let reach = interaction
-                .and_then(|interaction| interaction.reach)
-                .filter(|reach| reach.is_finite() && *reach > 0.0)
-                .map_or(DEFAULT_INTERACTION_REACH_M, |reach| {
-                    reach.min(MAX_INTERACTION_REACH_M)
-                });
-            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            let (extent_x, extent_z) =
-                rotated_half_extents(size_x * 0.5, size_z * 0.5, prop.rotation_degrees);
-            // World-space bound math with bounded level data; the operators are
-            // the formula, not unchecked indexing.
-            #[allow(clippy::arithmetic_side_effects)]
-            let (bounds, own_box, anchor) = {
-                let base = base_y + prop.y;
-                let own_box = prop.solid.then(|| {
-                    WallAabb::with_y(
-                        size_x.mul_add(-0.5, prop.x),
-                        base,
-                        size_z.mul_add(-0.5, prop.z),
-                        size_x,
-                        size_y,
-                        size_z,
-                    )
-                });
-                (
-                    Aabb {
-                        min: [prop.x - extent_x, base, prop.z - extent_z],
-                        max: [prop.x + extent_x, base + size_y, prop.z + extent_z],
-                    },
-                    own_box,
-                    Vec3::new(prop.x, base + size_y + LABEL_HEIGHT_MARGIN_M, prop.z),
-                )
-            };
-            items.push(Interactable {
-                id,
-                display_name,
-                prompt,
-                reach,
-                anchor,
-                bounds,
-                size,
-                own_box,
-                door_index: None,
-                actions: actions.map_or_else(Vec::new, <[ActionDef]>::to_vec),
-            });
-        }
-        items.extend(door_interactables(doors));
+    pub const fn with_items(items: Vec<Interactable>) -> Self {
         Self { items }
+    }
+
+    /// Replaces every entry.
+    pub fn replace(&mut self, items: Vec<Interactable>) {
+        self.items = items;
+    }
+
+    /// Appends one entry.
+    pub fn push(&mut self, item: Interactable) {
+        self.items.push(item);
+    }
+
+    /// Every entry, mutably. Used by the entity runtime to republish a routed
+    /// or swinging instance's live pose.
+    pub fn items_mut(&mut self) -> &mut [Interactable] {
+        &mut self.items
     }
 
     /// Republishes a door target's live aim bound, anchor and phase prompt.
@@ -443,51 +354,16 @@ impl Interactables {
     }
 }
 
-/// The interaction entries for a level's manually interactable doors.
-///
-/// Only a leaf that authors `manual_interaction` joins the aimable set; an
-/// externally controlled door is still an action target, but the player cannot
-/// open it by looking at it. Each entry's live bound, anchor and prompt are
-/// republished as the leaf swings (see [`Interactables::sync_door`]).
-#[must_use]
-fn door_interactables(doors: &Doors) -> Vec<Interactable> {
-    let mut items = Vec::new();
-    for (door_index, door) in doors.iter().enumerate() {
-        if !door.def.manual_interaction {
-            continue;
-        }
-        let sync = InteractableSync::from_door_collider(&door.collider());
-        let reach = door
-            .def
-            .reach
-            .filter(|reach| reach.is_finite() && *reach > 0.0)
-            .map_or(DEFAULT_INTERACTION_REACH_M, |reach| {
-                reach.min(MAX_INTERACTION_REACH_M)
-            });
-        items.push(Interactable {
-            id: door.def.id.clone(),
-            display_name: door.def.id.clone(),
-            prompt: door_prompt(door.phase(), door.def.prompt.as_deref()),
-            reach,
-            anchor: sync.anchor,
-            bounds: sync.bounds,
-            size: [door.def.width, door.def.height, door.def.thickness],
-            own_box: None,
-            door_index: Some(door_index),
-            actions: vec![ActionDef::Toggle {
-                target: door.def.id.clone(),
-            }],
-        });
-    }
-    items
-}
-
 /// The axis-aligned half-extents of a yaw-rotated rectangle, in `(x, z)`.
 ///
 /// The interaction bound is conservative: rotating the model can only grow its
 /// axis-aligned footprint, never shrink it.
 #[must_use]
-fn rotated_half_extents(half_width: f32, half_depth: f32, rotation_degrees: f32) -> (f32, f32) {
+pub(crate) fn rotated_half_extents(
+    half_width: f32,
+    half_depth: f32,
+    rotation_degrees: f32,
+) -> (f32, f32) {
     let (sin, cos) = rotation_degrees.to_radians().sin_cos();
     let sin = sin.abs();
     let cos = cos.abs();
@@ -520,7 +396,7 @@ pub fn nearest_target(
     let direction = direction.normalize();
     let mut best: Option<(usize, f32)> = None;
     for (index, item) in items.iter().enumerate() {
-        if item.actions.is_empty() {
+        if !item.enabled {
             continue;
         }
         let Some(entry) = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)
@@ -568,7 +444,7 @@ pub fn nearest_target_indexed(
     let direction = direction.normalize();
     let mut best: Option<(usize, f32)> = None;
     for (item_index, item) in items.iter().enumerate() {
-        if item.actions.is_empty() {
+        if !item.enabled {
             continue;
         }
         let Some(entry) = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)
@@ -888,7 +764,7 @@ mod tests {
     fn test_level() -> LevelDef {
         LevelDef::from_json(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "interact_render",
                 "name": "Interact Render",
                 "spawn": { "x": 2.0, "z": 5.0 },
@@ -896,8 +772,10 @@ mod tests {
                 "props": [
                     { "id": "plant", "display_name": "Test Plant", "model": "core:plant",
                       "x": 4.6, "z": 5.0, "size": [0.6, 1.8, 0.6], "solid": true,
-                      "interaction": { "prompt": "Toggle name",
-                                       "actions": [{ "action": "toggle_label" }] } }
+                      "components": [ { "component": "interactable",
+                                        "prompt": "Toggle name" } ],
+                      "bindings": [ { "on": "interact",
+                                      "actions": [{ "action": "toggle_label" }] } ] }
                 ]
             }"#,
         )
@@ -1043,8 +921,10 @@ mod tests {
         append_world_labels(&mut before, &game, &camera, drawable);
         assert!(!before.is_empty(), "the aimed-at prompt draws");
 
-        let actions = game.interactables().get(0).expect("target").actions.clone();
-        game.dispatch_actions(&actions, Some(0));
+        let report = game
+            .dispatch_interaction()
+            .expect("the aimed plant fires its own bindings");
+        assert_eq!(report.actions_run, 1);
         assert!(game.is_label_visible(0));
         let mut with_label = Vec::new();
         append_world_labels(&mut with_label, &game, &camera, drawable);

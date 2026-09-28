@@ -64,7 +64,7 @@ mod tests {
     pub(super) fn partitioned_room(openings: &str, lights: &str) -> LevelDef {
         parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "partition",
                 "name": "Partition",
                 "spawn": {{ "x": 2.0, "z": 5.0 }},
@@ -84,7 +84,7 @@ mod tests {
     pub(super) fn open_room(lights: &str) -> LevelDef {
         parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "open",
                 "name": "Open",
                 "spawn": {{ "x": 2.0, "z": 5.0 }},
@@ -119,7 +119,7 @@ mod tests {
     pub(super) fn room_with_wall(wall: &str, lights: &str) -> LevelDef {
         parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "wall",
                 "name": "Wall",
                 "spawn": {{ "x": 2.0, "z": 5.0 }},
@@ -592,7 +592,7 @@ mod tests {
     fn case_6_g_malformed_dimensions_stay_finite() {
         let level = parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "malformed",
                 "name": "Malformed",
                 "spawn": {{ "x": 2.0, "z": 5.0 }},

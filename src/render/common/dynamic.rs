@@ -343,6 +343,11 @@ pub struct DynamicObject {
     scale: f32,
     spin_degrees_per_second: f32,
     emission: Option<MaterialEmission>,
+    /// Runtime emission multiplier selected by a material-variant action.
+    /// `1.0` until one does; multiplies the object override and each
+    /// primitive's own material emission, so `0.0` switches the object's
+    /// emission off.
+    emission_scale: f32,
     light_scale: [f32; 3],
     probe_position: [f32; 3],
     probe_valid: bool,
@@ -477,11 +482,51 @@ impl DynamicObject {
         self.emission
     }
 
-    /// The emission one primitive draws with: the object override when set,
-    /// otherwise the primitive's own material emission.
+    /// The runtime emission scale; `1.0` until a material-variant action
+    /// selects another value.
+    ///
+    /// The scale multiplies whichever emission [`Self::submesh_emission`]
+    /// resolves for a primitive — the object override when one is set,
+    /// otherwise the primitive's own material emission — so `0.0` switches
+    /// the object's emission off and `1.0` leaves it untouched.
+    #[must_use]
+    pub const fn emission_scale(&self) -> f32 {
+        self.emission_scale
+    }
+
+    /// Selects the runtime emission scale, returning whether it was accepted.
+    ///
+    /// A finite, non-negative scale is stored; any other value is refused and
+    /// the previous scale is kept, because a malformed multiplier would
+    /// otherwise reach the emission uniform as a NaN or an inverted colour.
+    pub fn set_emission_scale(&mut self, scale: f32) -> bool {
+        if !scale.is_finite() || scale < 0.0 {
+            return false;
+        }
+        self.emission_scale = scale;
+        true
+    }
+
+    /// The emission a primitive draws with: the object override when set,
+    /// otherwise the primitive's own material emission, multiplied by the
+    /// runtime [`Self::emission_scale`].
+    ///
+    /// The default scale of `1.0` leaves the resolved emission arithmetically
+    /// unchanged (a multiply by one is exact), so an object that never
+    /// selected a variant draws exactly what it always did.
+    #[must_use]
+    pub fn emission_for(&self, primitive: MaterialEmission) -> MaterialEmission {
+        let emission = self.emission.unwrap_or(primitive);
+        MaterialEmission {
+            intensity: emission.intensity * self.emission_scale,
+            ..emission
+        }
+    }
+
+    /// [`Self::emission_for`] for one of this object's primitives.
     #[must_use]
     pub fn submesh_emission(&self, submesh: &DynamicSubmesh) -> MaterialEmission {
-        self.emission.unwrap_or(submesh.emission)
+        self.emission_for(submesh.emission)
     }
 
     /// The authored float motion, or `None` for an ordinary dynamic object.
@@ -860,6 +905,7 @@ impl DynamicScene {
             scale,
             spin_degrees_per_second: 0.0,
             emission: None,
+            emission_scale: 1.0,
             light_scale: [1.0; 3],
             probe_position: [f32::NAN; 3],
             probe_valid: false,
@@ -949,6 +995,7 @@ impl DynamicScene {
             scale,
             spin_degrees_per_second,
             emission: None,
+            emission_scale: 1.0,
             light_scale: [1.0; 3],
             probe_position: [f32::NAN; 3],
             probe_valid: false,
@@ -1044,6 +1091,20 @@ impl DynamicScene {
         true
     }
 
+    /// Selects an object's runtime emission scale, returning whether the
+    /// object was live and the scale accepted.
+    ///
+    /// The scale multiplies the emission every primitive of that object
+    /// resolves (see [`DynamicObject::submesh_emission`]); the default is
+    /// `1.0`. A non-finite or negative scale is refused, exactly like a
+    /// malformed transform.
+    pub fn set_emission_scale(&mut self, id: DynamicId, scale: f32) -> bool {
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        object.set_emission_scale(scale)
+    }
+
     /// Advances every spinning object and refreshes the light probes of the
     /// objects that moved appreciably.
     ///
@@ -1054,6 +1115,20 @@ impl DynamicScene {
         &mut self,
         delta_seconds: f32,
         lighting: Option<&LevelLighting>,
+    ) -> DynamicUpdate {
+        self.update_with_field(delta_seconds, lighting, None)
+    }
+
+    /// [`Self::update`] preferring the prepared irradiance field.
+    ///
+    /// A moving object reads its room's baked field first; a position the
+    /// field cannot resolve (no room, or an unlabelled probe) falls back to
+    /// the vertex-lit sample, so an object is never left unlit.
+    pub fn update_with_field(
+        &mut self,
+        delta_seconds: f32,
+        lighting: Option<&LevelLighting>,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
     ) -> DynamicUpdate {
         let mut update = DynamicUpdate::default();
         let step = if delta_seconds.is_finite() {
@@ -1086,8 +1161,14 @@ impl DynamicScene {
             if !moved {
                 continue;
             }
-            let light = lighting.sample(probe[0], probe[1], probe[2]);
-            object.light_scale = [light.r, light.g, light.b];
+            let room = lighting.room_index_at_height(probe[0], probe[1], probe[2]);
+            let light = irradiance
+                .and_then(|field| field.sample_display(probe, room))
+                .unwrap_or_else(|| {
+                    let light = lighting.sample(probe[0], probe[1], probe[2]);
+                    [light.r, light.g, light.b]
+                });
+            object.light_scale = light;
             object.probe_position = probe;
             object.probe_valid = true;
             update.probes_refreshed = update.probes_refreshed.saturating_add(1);
@@ -1236,7 +1317,7 @@ mod tests {
     fn demo_level() -> LevelDef {
         level_from(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "dynamic_test",
                 "name": "Dynamic Test",
                 "spawn": { "x": 2.0, "z": 5.0 },
@@ -1725,7 +1806,7 @@ mod tests {
     fn the_demo_follows_a_rotated_machine() {
         let level = level_from(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "dynamic_test_rotated",
                 "name": "Rotated",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -1760,7 +1841,7 @@ mod tests {
     fn the_demo_scales_the_drum_with_the_machine() {
         let level = level_from(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "dynamic_test_scaled",
                 "name": "Scaled",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -1860,7 +1941,7 @@ mod tests {
     fn a_level_with_no_machine_spawns_nothing() {
         let level = level_from(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "dynamic_test_empty",
                 "name": "Empty",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -1924,7 +2005,7 @@ mod tests {
     fn duck_level() -> LevelDef {
         level_from(
             r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "float_test",
             "name": "Float Test",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -2022,7 +2103,7 @@ mod tests {
     fn two_floats_with_different_phases_bob_independently() {
         let level = level_from(
             r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "two_ducks",
             "name": "Two Ducks",
             "spawn": { "x": 1.0, "z": 1.0 },

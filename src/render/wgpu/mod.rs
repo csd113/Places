@@ -31,7 +31,7 @@
 //!
 //! Module list:
 //!
-//! * [`lightmap`] — the baked atlas as raw RGBA8 textures;
+//! * [`lightmap`] — the prepared HDR atlas as linear `Rgba16Float` layer pairs;
 //! * [`environment`] — group 3: lightmaps, reflections, fog, planar mirror;
 //! * [`reflections`] — probe cubemaps, the planar target and capture maths;
 //! * [`props`] — the neutral prop batches as GPU buffers and materials;

@@ -21,7 +21,6 @@
 use super::*;
 use crate::level::{RoomDef, WallDef};
 use crate::test_support::{assert_exact, assert_exact_array};
-use std::io::Cursor;
 
 #[test]
 fn test_validate_level_success() {
@@ -29,7 +28,7 @@ fn test_validate_level_success() {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 2,
+        format_version: 3,
         id: "test_level".into(),
         name: "Test Level".into(),
         author: "Author".into(),
@@ -82,7 +81,12 @@ fn test_validate_level_success() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -124,7 +128,12 @@ fn test_validate_level_invalid_version() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -140,7 +149,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 2,
+        format_version: 3,
         id: "overlap".into(),
         name: "Overlap".into(),
         author: String::new(),
@@ -225,7 +234,12 @@ fn test_validate_level_preserves_overlapping_geometry() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -260,71 +274,12 @@ fn test_parse_materials_json() {
 }
 
 #[test]
-fn test_zip_extraction_and_path_traversal_rejection() {
-    use zip::write::SimpleFileOptions;
-
-    let mut buffer = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        writer.start_file("../evil.txt", options).unwrap();
-        std::io::Write::write_all(&mut writer, b"evil").unwrap();
-        writer.finish().unwrap();
-    }
-
-    let result = extract_zip(Cursor::new(&buffer));
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("Unsafe path traversal"));
-}
-
-#[test]
-fn test_zip_level_pack_extraction() {
-    use zip::write::SimpleFileOptions;
-
-    let mut buffer = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        let level_json = r#"{
-            "format_version": 2,
-            "id": "zip_test",
-            "name": "Zip Test Level",
-            "spawn": { "x": 0.0, "z": 0.0 },
-            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }]
-        }"#;
-
-        writer.start_file("level.json", options).unwrap();
-        std::io::Write::write_all(&mut writer, level_json.as_bytes()).unwrap();
-
-        let materials_json = r#"{
-            "pack:wall": "textures/wall.png"
-        }"#;
-        writer.start_file("materials.json", options).unwrap();
-        std::io::Write::write_all(&mut writer, materials_json.as_bytes()).unwrap();
-
-        writer.start_file("textures/wall.png", options).unwrap();
-        std::io::Write::write_all(&mut writer, b"mock_png_bytes").unwrap();
-
-        writer.finish().unwrap();
-    }
-
-    let pack = extract_zip(Cursor::new(&buffer)).expect("valid zip");
-    assert!(pack.level_json.contains("zip_test"));
-    assert!(pack.materials_json.is_some());
-    assert!(pack.textures.contains_key("textures/wall.png"));
-}
-
-#[test]
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 2,
+        format_version: 3,
         id: "fallback_test".into(),
         name: "Fallback Test".into(),
         author: String::new(),
@@ -358,7 +313,12 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -413,7 +373,7 @@ fn test_damaged_material_variants_resolve() {
     for (maintained, damaged) in variants {
         let sample = |material: &str| {
             let mut level = LevelDef::from_json(
-                r#"{"format_version": 2, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
+                r#"{"format_version": 3, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
             )
             .expect("minimal level");
             level.defaults.wall = material.into();
@@ -450,7 +410,7 @@ fn test_damaged_material_variants_resolve() {
 fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "budget_test",
             "name": "Budget Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -520,7 +480,7 @@ fn test_validate_rejects_huge_geometry_without_overflowing() {
 fn vertical_level(room_extra: &str, level_extra: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "vertical",
             "name": "Vertical",
             "spawn": {{ "x": 4.0, "z": 4.0 }},
@@ -625,7 +585,7 @@ fn test_validate_rejects_impossible_gable_definitions() {
 fn shine_level(value: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "shine",
             "name": "Shine",
             "spawn": {{ "x": 4.0, "z": 4.0 }},
@@ -714,7 +674,7 @@ fn test_validate_rejects_malformed_shine_by_surface_name() {
     // Malformed JSON (a string where a number belongs) is a load error, not a
     // panic: the level loader reports it and the level is skipped.
     let json = r#"{
-        "format_version": 2, "id": "bad_shine", "name": "Bad Shine",
+        "format_version": 3, "id": "bad_shine", "name": "Bad Shine",
         "spawn": { "x": 0.0, "z": 0.0 },
         "floor_patches": [ { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
                              "material": "core:carpet_beige_01", "shine": "very" } ]
@@ -828,7 +788,7 @@ fn test_validate_rejects_too_many_wall_openings() {
         .collect();
     let level = LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "openings",
             "name": "Openings",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -843,17 +803,6 @@ fn test_validate_rejects_too_many_wall_openings() {
     .expect("level parses");
     let err = validate_level(&level).expect_err("too many openings must be rejected");
     assert!(err.contains("too many openings"), "unexpected error: {err}");
-}
-
-#[test]
-fn test_zip_reads_are_capped_by_output_not_the_declared_size() {
-    // A lying header can declare one byte and still expand past the cap; the
-    // reader must bound its own output rather than trust `entry.size()`.
-    let payload = vec![0u8; usize::try_from(MAX_ZIP_ENTRY_SIZE + 1).expect("cap fits usize")];
-    let mut cursor = Cursor::new(payload);
-    let error = read_zip_entry_capped(&mut cursor, 1, MAX_ZIP_ENTRY_SIZE, "bomb.bin")
-        .expect_err("output past the cap must fail");
-    assert!(error.contains("decompression limit"), "unexpected: {error}");
 }
 
 #[test]
@@ -896,80 +845,10 @@ fn test_vertical_room_fields_round_trip() {
     assert!(validate_level(&reparsed).is_ok());
 }
 
-#[test]
-fn test_read_zip_level_json_only_reads_level_json() {
-    use zip::write::SimpleFileOptions;
-
-    let mut buffer = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        let level_json = r#"{ "format_version": 2, "id": "probe", "name": "Probe",
-            "spawn": { "x": 0.0, "z": 0.0 },
-            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }] }"#;
-        writer.start_file("level.json", options).unwrap();
-        std::io::Write::write_all(&mut writer, level_json.as_bytes()).unwrap();
-
-        // A large texture that probing must not read/decompress.
-        writer.start_file("textures/huge.png", options).unwrap();
-        std::io::Write::write_all(&mut writer, &vec![0u8; 4096]).unwrap();
-        writer.finish().unwrap();
-    }
-
-    let json = read_zip_level_json(Cursor::new(&buffer)).expect("reads level.json");
-    assert!(json.contains("\"probe\""));
-}
-
-#[test]
-fn test_read_zip_level_json_missing_entry_errors() {
-    use zip::write::SimpleFileOptions;
-
-    let mut buffer = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-        writer.start_file("readme.txt", options).unwrap();
-        std::io::Write::write_all(&mut writer, b"no level here").unwrap();
-        writer.finish().unwrap();
-    }
-
-    assert!(read_zip_level_json(Cursor::new(&buffer)).is_err());
-}
-
-#[test]
-fn test_extract_zip_shares_texture_blobs_between_aliases() {
-    use zip::write::SimpleFileOptions;
-
-    let mut buffer = Vec::new();
-    {
-        let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-        writer.start_file("level.json", options).unwrap();
-        std::io::Write::write_all(&mut writer, b"{}").unwrap();
-        writer.start_file("textures/wall.png", options).unwrap();
-        std::io::Write::write_all(&mut writer, b"PAYLOAD").unwrap();
-        writer.finish().unwrap();
-    }
-
-    let pack = extract_zip(Cursor::new(&buffer)).expect("valid zip");
-    let full = pack
-        .textures
-        .get("textures/wall.png")
-        .expect("full path alias");
-    let bare = pack.textures.get("wall.png").expect("bare name alias");
-    assert_eq!(&**full, b"PAYLOAD");
-    // Aliases must reference the same physical allocation.
-    assert!(Arc::ptr_eq(full, bare));
-}
-
 fn level_with_opening_json(opening_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "opening_test",
             "name": "Opening Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -986,7 +865,7 @@ fn level_with_opening_json(opening_json: &str) -> LevelDef {
 fn level_with_props_json(props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "props_test",
             "name": "Props Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1142,7 +1021,7 @@ fn test_parse_hex_color() {
 #[test]
 fn test_prop_catalog_from_json_str() {
     let json = r##"{
-        "format_version": 2,
+        "format_version": 3,
         "assets": [
             { "id": "core:couch", "display_name": "Couch", "asset_class": "core",
               "asset_type": "prop", "category": "Furniture",
@@ -1383,13 +1262,10 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
     );
 }
 
-/// External/user levels are discovered and loaded independently of the bundled
-/// demo: a `.json` dropped into the installed levels directory appears in the
-/// level list and loads through the ordinary custom-level path.
+/// Compiled packages are discovered, validated and loaded; authoring sources
+/// are not playable and imports point at the compiler instead.
 #[test]
-fn test_custom_levels_are_discovered_and_loaded() {
-    use zip::write::SimpleFileOptions;
-
+fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
     let root =
         std::env::temp_dir().join(format!("places-custom-level-test-{}", std::process::id()));
     let assets_dir = root.join("assets/levels");
@@ -1397,9 +1273,10 @@ fn test_custom_levels_are_discovered_and_loaded() {
     let import_dir = root.join("import");
     fs::create_dir_all(&assets_dir).expect("test assets dir");
     fs::create_dir_all(&levels_dir).expect("test levels dir");
+    fs::create_dir_all(&import_dir).expect("test import dir");
 
     let level_json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "community_room",
         "name": "Community Room",
         "author": "A Player",
@@ -1407,7 +1284,11 @@ fn test_custom_levels_are_discovered_and_loaded() {
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }],
         "ceiling_lights": [{ "fixture": "core:ceiling_panel_01", "x": 2.0, "z": 2.0 }]
     }"#;
-    fs::write(levels_dir.join("community_room.json"), level_json).expect("write the drop-in level");
+    let package = compile_fixture(&levels_dir, "community_room.json", level_json);
+    assert!(package.exists(), "the fixture package was published");
+
+    // A raw authoring source beside the package is not playable.
+    fs::write(levels_dir.join("authored.json"), level_json).expect("write a raw source");
 
     let manager = LevelManager::with_paths(assets_dir, levels_dir.clone(), import_dir.clone());
     let entry = manager
@@ -1415,70 +1296,98 @@ fn test_custom_levels_are_discovered_and_loaded() {
         .iter()
         .find(|entry| entry.id == "community_room")
         .cloned()
-        .expect("a drop-in level is discovered");
-    assert_eq!(entry.source_type, LevelSourceType::CustomJson);
+        .expect("a drop-in package is discovered");
+    assert_eq!(entry.source_type, LevelSourceType::Installed);
     assert_eq!(entry.name, "Community Room");
-    let loaded = manager.load_level(&entry).expect("the drop-in level loads");
+    assert!(
+        !manager.entries().iter().any(|entry| entry.id == "authored"),
+        "a raw source is never a playable row"
+    );
+    let loaded = manager
+        .load_level(&entry)
+        .expect("the drop-in package loads");
     assert_eq!(loaded.level.name, "Community Room");
 
-    // A `.zip` pack in the same directory is discovered and loaded as a pack.
-    let pack_path = levels_dir.join("pack_room.zip");
-    {
-        let file = fs::File::create(&pack_path).expect("create the pack");
-        let mut writer = zip::ZipWriter::new(file);
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-        let pack_json = r#"{
-            "format_version": 2,
-            "id": "pack_room",
-            "name": "Pack Room",
-            "spawn": { "x": 1.0, "z": 1.0 },
-            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
-        }"#;
-        writer
-            .start_file("level.json", options)
-            .expect("pack level.json");
-        std::io::Write::write_all(&mut writer, pack_json.as_bytes()).expect("write level.json");
-        writer.finish().expect("finish the pack");
-    }
-    let manager = LevelManager::with_paths(root.join("assets/levels"), levels_dir, import_dir);
-    let pack_entry = manager
-        .entries()
-        .iter()
-        .find(|entry| entry.id == "pack_room")
-        .cloned()
-        .expect("a drop-in pack is discovered");
-    assert_eq!(pack_entry.source_type, LevelSourceType::PackZip);
-    let loaded_pack = manager
-        .load_level(&pack_entry)
-        .expect("the drop-in pack loads");
-    assert_eq!(loaded_pack.level.name, "Pack Room");
+    // Importing a raw source is rejected with the compiler command.
+    let mut manager = LevelManager::with_paths(
+        root.join("assets/levels"),
+        levels_dir.clone(),
+        import_dir.clone(),
+    );
+    let error = manager
+        .import_file(&levels_dir.join("authored.json"))
+        .expect_err("a raw source is not importable");
+    assert!(
+        error.contains("places-compile"),
+        "the rejection names the compiler: {error}"
+    );
+
+    // Importing a package copies it into the installed directory.
+    let incoming = root.join("incoming");
+    fs::create_dir_all(&incoming).expect("incoming dir");
+    let pack_json = level_json
+        .replace("community_room", "pack_room")
+        .replace("Community Room", "Pack Room");
+    let incoming_package = compile_fixture(&incoming, "pack_room.json", &pack_json);
+    let target = import_dir.join("pack_room.placesmap");
+    fs::copy(&incoming_package, &target).expect("stage the import");
+    let imported = manager.import_available().expect("import runs");
+    assert_eq!(imported, 1, "one package imported");
+    assert!(
+        manager
+            .entries()
+            .iter()
+            .any(|entry| entry.id == "pack_room"),
+        "the imported package is discovered"
+    );
 
     fs::remove_dir_all(&root).expect("clean up the test directory");
+}
+
+/// Compiles a tiny level source into a package, without GPU capture.
+fn compile_fixture(
+    dir: &std::path::Path,
+    source_name: &str,
+    level_json: &str,
+) -> std::path::PathBuf {
+    let source = dir.join(source_name);
+    fs::write(&source, level_json).expect("write the fixture source");
+    let out = source.with_extension("placesmap");
+    let request = crate::compiler::BuildRequest {
+        source: source.clone(),
+        out: out.clone(),
+        asset_root: std::path::PathBuf::from("assets"),
+        variants: vec![crate::quality::LightmapQuality::Off],
+        workers: 1,
+        force: true,
+        capture_probes: false,
+    };
+    crate::compiler::build(&request).expect("the fixture package builds");
+    out
 }
 
 #[test]
 fn test_the_default_level_is_the_shipped_demo() {
     let manager = LevelManager::new();
     // The Level Select menu renders exactly this list: Places Demo and the
-    // generated Model Zoo are the bundled (Official) entries; any drop-in
-    // levels are CustomJson/PackZip.
-    let mut official: Vec<&str> = manager
+    // generated Model Zoo are the bundled entries; any drop-in packages are
+    // Installed.
+    let mut bundled: Vec<&str> = manager
         .entries()
         .iter()
-        .filter(|entry| entry.source_type == LevelSourceType::Official)
+        .filter(|entry| entry.source_type == LevelSourceType::Bundled)
         .map(|entry| entry.id.as_str())
         .collect();
-    official.sort_unstable();
+    bundled.sort_unstable();
     assert_eq!(
-        official,
+        bundled,
         vec!["model_zoo", "places_demo"],
         "the bundled levels are Places Demo and the Model Zoo"
     );
 
     let loaded = manager.load_default().expect("the shipped demo loads");
     assert_eq!(loaded.entry.id, "places_demo");
-    assert_eq!(loaded.entry.source_type, LevelSourceType::Official);
+    assert_eq!(loaded.entry.source_type, LevelSourceType::Bundled);
     assert_eq!(loaded.level.name, "Places Demo");
 }
 
@@ -1487,7 +1396,7 @@ fn test_ceiling_light_intensity_is_optional_and_sanitized() {
     let base = |lights: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "intensity",
                 "name": "Intensity",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1550,7 +1459,7 @@ fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
     let base = |lights: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "colour",
                 "name": "Colour",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1680,7 +1589,7 @@ fn fixture_level(name: &str) -> LevelDef {
 fn decal_level(body: &str) -> String {
     format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "decal_level",
             "name": "Decal Level",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1865,7 +1774,7 @@ fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
 fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "fixture_sheets",
             "name": "Fixture Sheets",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -2008,7 +1917,7 @@ fn gcd(mut a: u32, mut b: u32) -> u32 {
 fn test_fixtures_without_a_sheet_resolve_to_nothing() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "sheetless_fixtures",
             "name": "Sheetless Fixtures",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -2116,7 +2025,7 @@ fn test_validate_accepts_the_home_showcase_fixture() {
 fn architecture_level(extra: &str) -> Result<(), String> {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "architecture",
             "name": "Architecture",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2259,7 +2168,7 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
     let json = |water: &str| -> String {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "water_gate",
                 "name": "Water Gate",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2326,7 +2235,7 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
     let json = |ladders: &str| -> String {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "ladder_gate",
                 "name": "Ladder Gate",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -2372,7 +2281,7 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
 fn baseboard_catalog() -> crate::assets::AssetCatalog {
     crate::assets::AssetCatalog::from_json_str(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "assets": [
                 { "id": "test:tex_wall", "asset_class": "environment",
                   "asset_type": "texture", "source": "file",
@@ -2404,7 +2313,7 @@ fn baseboard_level(extra: &str) -> LevelDef {
     let separator = if extra.trim().is_empty() { "" } else { "," };
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "baseboard_prep",
             "name": "Baseboard Prep",
             "spawn": {{ "x": 2.5, "z": 2.5 }},
@@ -2467,7 +2376,7 @@ fn test_prepare_level_generates_office_baseboards_around_floor_openings() {
 fn test_prepare_level_skips_faces_that_front_no_walkable_floor() {
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "baseboard_void",
             "name": "Baseboard Void",
             "spawn": { "x": 2.5, "z": 2.5 },
@@ -2681,74 +2590,194 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
 }
 
 // ---------------------------------------------------------------------------
-// instance identity, actions and area triggers
+// instance identity, components, bindings, volumes, sequences and spawns
 // ---------------------------------------------------------------------------
 
-/// A room plus arbitrary area-trigger JSON, for validation tests.
-fn level_with_triggers_json(triggers_json: &str) -> LevelDef {
+/// A room plus arbitrary level arrays, for component/binding validation tests.
+fn binding_level(extra: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
-            "id": "triggers_test",
-            "name": "Triggers Test",
-            "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
-            "area_triggers": {triggers_json}
+            "format_version": 3,
+            "id": "bindings_test",
+            "name": "Bindings Test",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 }} ],
+            {extra}
         }}"#
     );
     LevelDef::from_json(&json).expect("valid json")
 }
 
-/// The positive path: authored ids, a self-targeted label toggle, a
-/// cross-target toggle and a reset trigger all validate, and the resolved
-/// interactables carry the authored names and actions.
+/// One prop with an enabled `interactable` and an `on: "interact"` binding
+/// whose actions are `actions`.
+fn interact_prop_json(id: &str, actions: &str) -> String {
+    format!(
+        r#"{{ "id": "{id}", "model": "core:switch", "x": 2.0, "z": 2.0,
+              "components": [ {{ "component": "interactable" }} ],
+              "bindings": [ {{ "on": "interact", "actions": [{actions}] }} ] }}"#
+    )
+}
+
+/// The positive path: a level that authors at least one of every new record --
+/// components, bindings, conditions, sequences, timers, volumes, spawn
+/// templates, spawn points, spawn groups and effects -- validates whole.
 #[test]
-fn test_validate_accepts_ids_interactions_and_area_triggers() {
+fn test_validate_accepts_every_new_feature() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
-            "id": "interactions",
-            "name": "Interactions",
+            "format_version": 3,
+            "id": "every_feature",
+            "name": "Every Feature",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 } ],
             "props": [
-                { "id": "cooler", "display_name": "Water Cooler",
-                  "model": "core:water_cooler", "x": 1.0, "z": 1.0,
-                  "interaction": { "prompt": "Toggle name",
-                                   "actions": [{ "action": "toggle_label" }] } },
-                { "model": "core:plant", "x": 2.0, "z": 2.0,
-                  "interaction": { "reach": 3.0,
-                                   "actions": [
-                                       { "action": "toggle_label", "target": "cooler" },
-                                       { "action": "reset_to_start" }
-                                   ] } }
+                { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+                  "components": [
+                      { "component": "interactable", "prompt": "Press", "reach": 2.5 },
+                      { "component": "state", "name": "pressed", "value": 0 }
+                  ],
+                  "bindings": [
+                      { "on": "interact",
+                        "when": [ { "check": "state", "target": "switch",
+                                    "name": "pressed", "equals": 0 } ],
+                        "actions": [
+                            { "action": "set_state", "name": "pressed", "value": 1 },
+                            { "action": "start_sequence", "sequence": "blink" }
+                        ] }
+                  ] },
+                { "id": "lamp", "model": "core:lamp", "x": 4.0, "z": 2.0,
+                  "display_name": "Lamp",
+                  "components": [
+                      { "component": "light", "enabled": true, "emission_scale": 1.0 },
+                      { "component": "material",
+                        "variants": [
+                            { "name": "off", "emission_scale": 0.0 },
+                            { "name": "on", "emission_scale": 1.0 }
+                        ],
+                        "current": "on" },
+                      { "component": "state", "name": "level", "value": 1 }
+                  ],
+                  "bindings": [
+                      { "on": "object_state", "key": "level",
+                        "actions": [
+                            { "action": "change_material", "target": "rat",
+                              "variant": "off" },
+                            { "action": "set_light", "target": "ceiling_panel", "on": false },
+                            { "action": "toggle_label", "target": "lamp" }
+                        ] }
+                  ] },
+                { "id": "radio", "model": "core:radio", "x": 6.0, "z": 2.0,
+                  "components": [
+                      { "component": "audio", "sound": "core:radio_hum" },
+                      { "component": "animation", "clip": "idle" }
+                  ],
+                  "bindings": [
+                      { "on": "animation_complete",
+                        "actions": [
+                            { "action": "play_sound", "target": "radio",
+                              "sound": "core:radio_hum", "loop": true },
+                            { "action": "toggle_animation", "target": "radio",
+                              "clip": "idle" }
+                        ] }
+                  ] },
+                { "id": "phone", "model": "core:phone", "x": 8.0, "z": 2.0,
+                  "components": [
+                      { "component": "interactable" },
+                      { "component": "lifetime", "seconds": 30.0 }
+                  ],
+                  "bindings": [
+                      { "on": "interact",
+                        "actions": [ { "action": "despawn_entity", "target": "rats" } ] }
+                  ] },
+                { "id": "button", "model": "core:button", "x": 10.0, "z": 2.0,
+                  "components": [ { "component": "interactable" } ],
+                  "bindings": [
+                      { "on": "interact",
+                        "actions": [
+                            { "action": "spawn_entity", "point": "rat_point" },
+                            { "action": "start_timer", "target": "ticker" }
+                        ] }
+                  ] }
             ],
-            "area_triggers": [
-                { "id": "hole", "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0,
+            "doors": [
+                { "id": "front_door", "locked": true, "x": 12.0, "z": 2.0,
+                  "width": 0.9, "height": 2.1, "rotation_degrees": 0.0,
+                  "components": [ { "component": "interactable", "prompt": "Open" } ],
+                  "bindings": [
+                      { "on": "interact",
+                        "when": [ { "check": "unlocked", "target": "front_door" } ],
+                        "actions": [ { "action": "toggle" } ] }
+                  ] }
+            ],
+            "ceiling_lights": [
+                { "id": "ceiling_panel", "fixture": "core:ceiling_panel_01",
+                  "x": 5.0, "z": 5.0, "switchable": true,
+                  "bindings": [
+                      { "on": "object_state",
+                        "actions": [ { "action": "set_light", "on": false } ] }
+                  ] }
+            ],
+            "volumes": [
+                { "id": "pit", "x": 3.0, "z": 3.0, "width": 2.0, "depth": 2.0,
                   "bottom_y": -2.0, "top_y": 0.0,
-                  "actions": [{ "action": "reset_to_start" }],
-                  "cooldown_seconds": 0.5, "once": true }
+                  "bindings": [
+                      { "on": "enter_volume",
+                        "actions": [ { "action": "reset_to_start" } ] },
+                      { "on": "exit_volume",
+                        "actions": [ { "action": "enable", "target": "switch" } ] }
+                  ] }
+            ],
+            "timers": [ { "id": "ticker", "seconds": 2.0, "repeat": true, "autostart": true } ],
+            "sequences": [
+                { "id": "blink", "steps": [
+                    { "step": "set_state", "name": "pressed", "value": 2 },
+                    { "step": "wait", "seconds": 0.5 },
+                    { "step": "action",
+                      "action": { "action": "change_material", "target": "rat",
+                                  "variant": "on" } },
+                    { "step": "wait_animation", "clip": "idle", "timeout": 2.0 },
+                    { "step": "emit", "on": "sequence_complete" },
+                    { "step": "stop" }
+                ] }
+            ],
+            "spawn_templates": [
+                { "id": "rat", "model": "core:cardboard_box", "scale": 0.5,
+                  "lifetime_seconds": 30.0,
+                  "components": [ { "component": "state", "name": "phase", "value": "idle" },
+                                  { "component": "material",
+                                    "variants": [ { "name": "off", "emission_scale": 0.0 },
+                                                  { "name": "on", "emission_scale": 1.0 } ],
+                                    "current": "on" } ],
+                  "bindings": [
+                      { "on": "spawn",
+                        "actions": [ { "action": "set_state", "name": "phase",
+                                       "value": "active" } ] }
+                  ] }
+            ],
+            "spawn_points": [
+                { "id": "rat_point", "x": 4.0, "z": 8.0, "template": "rat", "group": "rats",
+                  "bindings": [
+                      { "on": "spawn",
+                        "actions": [ { "action": "despawn_entity", "target": "phone" } ] }
+                  ] }
+            ],
+            "spawn_groups": [ { "id": "rats", "at_most_one_active": true } ],
+            "effects": [
+                { "id": "steam", "kind": "steam", "x": 2.0, "z": 2.0,
+                  "bindings": [
+                      { "on": "spawn", "actions": [ { "action": "disable" } ] }
+                  ] }
             ]
         }"#,
     )
-    .expect("the interaction level parses");
-    validate_level(&level).expect("valid ids, targets and trigger");
-
-    let items =
-        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
-    assert_eq!(items.len(), 2);
-    let cooler = items.get(0).expect("the cooler interactable");
-    assert_eq!(cooler.id, "cooler");
-    assert_eq!(cooler.display_name, "Water Cooler");
-    assert_eq!(cooler.prompt, "Toggle name");
-    assert!((cooler.reach - crate::interact::DEFAULT_INTERACTION_REACH_M).abs() < 1e-6);
-    let plant = items.get(1).expect("the plant interactable");
-    assert_eq!(
-        plant.id, "plant_1",
-        "the default id is stable and model-scoped"
-    );
-    assert!((plant.reach - 3.0).abs() < 1e-6);
-    assert_eq!(plant.actions.len(), 2, "action composition is preserved");
+    .expect("the every-feature level parses");
+    validate_level(&level).expect("a level using every new feature validates");
+    assert_eq!(level.volumes.len(), 1);
+    assert_eq!(level.timers.len(), 1);
+    assert_eq!(level.sequences.len(), 1);
+    assert_eq!(level.spawn_templates.len(), 1);
+    assert_eq!(level.spawn_points.len(), 1);
+    assert_eq!(level.spawn_groups.len(), 1);
 }
 
 /// Duplicate and malformed instance ids are named errors; the default scheme
@@ -2778,195 +2807,983 @@ fn test_validate_rejects_duplicate_and_malformed_instance_ids() {
     assert!(err.contains("well-formed"), "unexpected error: {err}");
 }
 
-/// `toggle_label` must name a placed instance that exists; an area trigger
-/// cannot be its own label target.
+/// Every placeable record shares one instance-id namespace: a prop and a door
+/// (or a timer, volume or spawn point) cannot share a name, while a sequence
+/// has its own namespace whose duplicates are still named.
 #[test]
-fn test_validate_rejects_unknown_or_missing_label_targets() {
-    let unknown = level_with_props_json(
-        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": { "actions": [{ "action": "toggle_label", "target": "ghost" }] } }]"#,
+fn test_validate_rejects_duplicate_ids_across_kinds() {
+    let prop_door = binding_level(
+        r#""props": [ { "id": "same", "model": "core:chair", "x": 2.0, "z": 2.0 } ],
+           "doors": [ { "id": "same", "x": 4.0, "z": 4.0, "width": 0.9, "height": 2.1 } ]"#,
     );
-    let err = validate_level(&unknown).expect_err("an unknown target is invalid");
+    let err = validate_level(&prop_door).expect_err("a prop and a door cannot share an id");
+    assert!(err.contains("duplicates"), "unexpected error: {err}");
+    assert!(err.contains("`same`"), "the error names the id: {err}");
+
+    let prop_timer = binding_level(
+        r#""props": [ { "id": "tick", "model": "core:clock", "x": 2.0, "z": 2.0 } ],
+           "timers": [ { "id": "tick", "seconds": 1.0 } ]"#,
+    );
+    let err = validate_level(&prop_timer).expect_err("a prop and a timer cannot share an id");
+    assert!(err.contains("`tick`"), "the error names the id: {err}");
+
+    let duplicate_sequences = binding_level(
+        r#""sequences": [ { "id": "same", "steps": [ { "step": "stop" } ] },
+                          { "id": "same", "steps": [ { "step": "stop" } ] } ]"#,
+    );
+    let err = validate_level(&duplicate_sequences).expect_err("sequence ids must be unique");
     assert!(
-        err.contains("unknown instance `ghost`"),
+        err.contains("sequence ids must be unique per level"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("`same`"), "the error names the id: {err}");
+
+    let blank_spawn_point = binding_level(
+        r#""spawn_templates": [ { "id": "rat", "model": "core:box" } ],
+           "spawn_points": [ { "id": "  ", "x": 2.0, "z": 2.0, "template": "rat" } ]"#,
+    );
+    let err = validate_level(&blank_spawn_point).expect_err("a blank id is malformed");
+    assert!(err.contains("well-formed"), "unexpected error: {err}");
+}
+
+/// Components are capability contracts: a non-repeatable kind may appear once
+/// per entity, and only `state` may repeat with distinct names.
+#[test]
+fn test_validate_rejects_duplicate_component_kinds() {
+    let two_interactables = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "interactable" } ] } ]"#,
+    );
+    let err = validate_level(&two_interactables).expect_err("two interactables are invalid");
+    assert!(
+        err.contains("more than one `interactable` component"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("`switch`"), "the error names the prop: {err}");
+
+    let repeated_state = binding_level(
+        r#""props": [ { "id": "panel", "model": "core:panel", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "state", "name": "phase", "value": 0 },
+                            { "component": "state", "name": "phase", "value": 1 } ] } ]"#,
+    );
+    let err = validate_level(&repeated_state).expect_err("repeated state names are invalid");
+    assert!(
+        err.contains("two `state` components named `phase`"),
         "unexpected error: {err}"
     );
 
-    let trigger_without_target = level_with_triggers_json(
-        r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
-             "actions": [{ "action": "toggle_label" }] }]"#,
+    // Distinct state names are the one legal repetition.
+    let distinct_states = binding_level(
+        r#""props": [ { "id": "panel", "model": "core:panel", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "state", "name": "a", "value": 0 },
+                            { "component": "state", "name": "b", "value": 1 } ] } ]"#,
     );
-    let err =
-        validate_level(&trigger_without_target).expect_err("a trigger has no label of its own");
-    assert!(err.contains("needs a `target`"), "unexpected error: {err}");
+    validate_level(&distinct_states).expect("distinct state names may repeat");
 }
 
-/// The reserved audio route is rejected by name: a map can never load with a
-/// silently ignored effect, and the error says exactly what is missing. The
-/// animation route is implemented and validates its clip and target instead.
+/// Every component value is checked by name: reach, lifetime, emission,
+/// variants, state names, clips, sounds and nav metadata.
 #[test]
-fn test_validate_rejects_unimplemented_audio_and_checks_animation_actions() {
-    let audio = level_with_props_json(
-        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": { "actions": [{ "action": "play_audio", "sound": "beep" }] } }]"#,
-    );
-    let err = validate_level(&audio).expect_err("reserved actions must not load");
-    assert!(
-        err.contains("play_audio") && err.contains("not implemented"),
-        "the error names play_audio: {err}"
-    );
-
-    // A placed prop's own interaction may pose itself.
-    let playable = level_with_props_json(
-        r#"[{ "id": "mannequin_1", "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": { "actions": [
-                { "action": "play_animation", "clip": "arms_up" } ] } }]"#,
-    );
-    validate_level(&playable).expect("play_animation is implemented");
-
-    // A blank clip name is refused by name.
-    let missing_clip = level_with_props_json(
-        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": { "actions": [{ "action": "play_animation" }] } }]"#,
-    );
-    let err = validate_level(&missing_clip).expect_err("clip is required");
-    assert!(err.contains("needs a clip name"), "unexpected error: {err}");
-
-    // An unknown target is refused with the id in the message.
-    let unknown_target = level_with_props_json(
-        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": { "actions": [
-                { "action": "play_animation", "target": "ghost", "clip": "idle" } ] } }]"#,
-    );
-    let err = validate_level(&unknown_target).expect_err("the target must resolve");
-    assert!(err.contains("ghost"), "unexpected error: {err}");
-
-    // A trigger has no implicit actor: an explicit target is required.
-    let trigger_without_target = level_with_triggers_json(
-        r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
-             "actions": [{ "action": "play_animation", "clip": "idle" }] }]"#,
-    );
-    let err = validate_level(&trigger_without_target)
-        .expect_err("a trigger has no entity of its own to pose");
-    assert!(err.contains("needs a `target`"), "unexpected error: {err}");
-}
-
-/// Area triggers are checked like water and ladders: positive footprint, real
-/// vertical band, non-negative cooldown, in-room, bounded and non-empty.
-#[test]
-fn test_validate_rejects_malformed_area_triggers() {
+fn test_validate_rejects_bad_component_values() {
     let cases = [
         (
-            r#"[{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 1.0,
-                 "actions": [{ "action": "reset_to_start" }] }]"#,
-            "width and depth must be positive",
+            r#"{ "component": "interactable", "reach": 0.0 }"#,
+            "`interactable` component 0 reach",
+            "reach 0",
         ),
         (
-            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
-                 "bottom_y": 1.0, "top_y": 0.5,
-                 "actions": [{ "action": "reset_to_start" }] }]"#,
-            "must be above its bottom_y",
+            r#"{ "component": "interactable", "reach": 9.0 }"#,
+            "`interactable` component 0 reach",
+            "reach above the cap",
         ),
         (
-            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
-                 "cooldown_seconds": -1.0,
-                 "actions": [{ "action": "reset_to_start" }] }]"#,
-            "cannot be negative",
+            r#"{ "component": "interactable", "prompt": "  " }"#,
+            "prompt must not be blank",
+            "blank prompt",
         ),
         (
-            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0, "actions": [] }]"#,
-            "must declare at least one action",
+            r#"{ "component": "lifetime", "seconds": -1.0 }"#,
+            "`lifetime` component 0 seconds",
+            "negative lifetime",
         ),
         (
-            r#"[{ "x": 40.0, "z": 40.0, "width": 1.0, "depth": 1.0,
-                 "actions": [{ "action": "reset_to_start" }] }]"#,
-            "lies outside every room section",
+            r#"{ "component": "lifetime", "seconds": 7200.0 }"#,
+            "`lifetime` component 0 seconds",
+            "lifetime above the cap",
+        ),
+        (
+            r#"{ "component": "light", "emission_scale": -1.0 }"#,
+            "`light` component 0 emission_scale",
+            "negative light emission",
+        ),
+        (
+            r#"{ "component": "material", "variants": [] }"#,
+            "must declare at least one variant",
+            "no variants",
+        ),
+        (
+            r#"{ "component": "material", "variants": [ { "name": "  " } ] }"#,
+            "must name a non-empty variant",
+            "blank variant name",
+        ),
+        (
+            r#"{ "component": "material",
+                "variants": [ { "name": "on" }, { "name": "on" } ] }"#,
+            "declares variant `on` twice",
+            "duplicate variant name",
+        ),
+        (
+            r#"{ "component": "material",
+                "variants": [ { "name": "off" } ], "current": "on" }"#,
+            "current `on` is not one of its variants",
+            "unknown current variant",
+        ),
+        (
+            r#"{ "component": "material", "variants": [ { "name": "on", "emission_scale": -1.0 } ] }"#,
+            "variant `on` emission_scale",
+            "negative variant emission",
+        ),
+        (
+            r#"{ "component": "state", "name": "  ", "value": 0 }"#,
+            "must name a non-empty state",
+            "blank state name",
+        ),
+        (
+            r#"{ "component": "animation", "clip": "  " }"#,
+            "`animation` component 0 clip must not be blank",
+            "blank clip",
+        ),
+        (
+            r#"{ "component": "audio", "sound": "  " }"#,
+            "`audio` component 0 sound must not be blank",
+            "blank sound",
+        ),
+        (
+            r#"{ "component": "nav_agent", "radius": 0.0, "speed_mps": 1.0 }"#,
+            "radius and speed_mps must be finite and positive",
+            "zero nav radius",
+        ),
+        (
+            r#"{ "component": "nav_agent", "radius": 0.5, "speed_mps": 0.0 }"#,
+            "radius and speed_mps must be finite and positive",
+            "zero nav speed",
         ),
     ];
-    for (json, expected) in cases {
-        let level = level_with_triggers_json(json);
-        let err = validate_level(&level).expect_err("the trigger must be rejected");
-        assert!(err.contains(expected), "expected `{expected}` in: {err}");
+    for (component, expected, label) in cases {
+        let level = binding_level(&format!(
+            r#""props": [ {{ "id": "thing", "model": "core:thing", "x": 2.0, "z": 2.0,
+                "components": [{component}] }} ]"#
+        ));
+        let err = validate_level(&level).expect_err(label);
+        assert!(
+            err.contains(expected),
+            "{label}: expected `{expected}` in: {err}"
+        );
+        assert!(
+            err.contains("`thing`"),
+            "{label}: the error names the prop: {err}"
+        );
     }
 }
 
-/// Composition is bounded: more than [`crate::level::MAX_ACTIONS_PER_SOURCE`]
-/// actions on one source is a named error rather than unbounded dispatch.
+/// `open`, `close`, `lock`, `unlock`, `set_light`, `change_material`,
+/// `play_animation`, `play_sound`, `move_object` and friends only fit the
+/// target kinds that implement them.
 #[test]
-fn test_validate_rejects_too_many_actions_on_one_source() {
+fn test_validate_rejects_action_target_mismatches() {
+    let open_on_light = binding_level(
+        r#""props": [ { "id": "lamp", "model": "core:lamp", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "light" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "open" } ] } ] } ]"#,
+    );
+    let err = validate_level(&open_on_light).expect_err("open needs a door");
+    assert!(
+        err.contains("`open` requires a door target"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("`lamp`"), "the error names the target: {err}");
+
+    let lock_on_prop = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json("plant", r#"{ "action": "lock" }"#)
+    ));
+    let err = validate_level(&lock_on_prop).expect_err("lock needs a door");
+    assert!(
+        err.contains("requires a door target"),
+        "unexpected error: {err}"
+    );
+
+    let static_material = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "plant",
+            r#"{ "action": "change_material", "variant": "off" }"#
+        )
+    ));
+    let err = validate_level(&static_material).expect_err("a static prop has no material");
+    assert!(
+        err.contains("a baked static prop's material is prepared geometry"),
+        "the error names the rule: {err}"
+    );
+    assert!(err.contains("`plant`"), "the error names the target: {err}");
+
+    // A switchable `light` component on a prop is rejected: only a ceiling
+    // fixture has prepared switchable layers.
+    let switchable_prop_light = binding_level(
+        r#""props": [ { "id": "lamp", "model": "core:lamp", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "light", "switchable": true } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "set_light", "on": true } ] } ] } ]"#,
+    );
+    let err =
+        validate_level(&switchable_prop_light).expect_err("a prop light cannot be switchable");
+    assert!(
+        err.contains("only a ceiling fixture has prepared switchable lightmap layers"),
+        "unexpected error: {err}"
+    );
+
+    // A non-switchable light is not a `set_light` target either.
+    let static_light_target = binding_level(
+        r#""props": [ { "id": "lamp", "model": "core:lamp", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "light" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "set_light", "on": true } ] } ] } ]"#,
+    );
+    let err = validate_level(&static_light_target)
+        .expect_err("a non-switchable light is not a set_light target");
+    assert!(
+        err.contains("a switchable light"),
+        "unexpected error: {err}"
+    );
+
+    let bad_variant = binding_level(
+        r#""spawn_templates": [ { "id": "screen", "model": "core:screen",
+            "components": [ { "component": "material",
+                              "variants": [ { "name": "off", "emission_scale": 0.0 } ] } ] } ],
+           "props": [ { "id": "button", "model": "core:button", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "change_material", "target": "screen",
+                               "variant": "missing" } ] } ] } ]"#,
+    );
+    let err = validate_level(&bad_variant).expect_err("the variant must exist");
+    assert!(
+        err.contains("no variant `missing`"),
+        "unexpected error: {err}"
+    );
+
+    let no_animation = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "mannequin",
+            r#"{ "action": "play_animation", "clip": "wave" }"#
+        )
+    ));
+    let err = validate_level(&no_animation).expect_err("play_animation needs an animation");
+    assert!(
+        err.contains("requires a target with an `animation` component"),
+        "unexpected error: {err}"
+    );
+
+    let no_audio = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json("bell", r#"{ "action": "play_sound" }"#)
+    ));
+    let err = validate_level(&no_audio).expect_err("play_sound needs audio");
+    assert!(
+        err.contains("requires a target with an `audio` component"),
+        "unexpected error: {err}"
+    );
+
+    let static_move = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "crate",
+            r#"{ "action": "move_object", "x": 3.0, "z": 3.0 }"#
+        )
+    ));
+    let err = validate_level(&static_move).expect_err("a baked static prop cannot move");
+    assert!(
+        err.contains("a baked static prop and a door cannot move"),
+        "unexpected error: {err}"
+    );
+
+    let label_on_volume = binding_level(
+        r#""volumes": [ { "id": "pit", "x": 3.0, "z": 3.0, "width": 2.0, "depth": 2.0,
+            "bindings": [ { "on": "enter_volume",
+                "actions": [ { "action": "toggle_label" } ] } ] } ]"#,
+    );
+    let err = validate_level(&label_on_volume).expect_err("a volume has no label");
+    assert!(
+        err.contains("requires a placed prop target"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("trigger volume"),
+        "the error names the actor: {err}"
+    );
+
+    // A door moves through open/close/toggle, never through move_object.
+    let move_door = binding_level(
+        r#""doors": [ { "id": "front_door", "x": 4.0, "z": 4.0, "width": 0.9, "height": 2.1,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "move_object", "target": "front_door",
+                               "x": 4.5, "z": 4.0, "speed": 1.0 } ] } ] } ]"#,
+    );
+    let err = validate_level(&move_door).expect_err("a door cannot be moved");
+    assert!(
+        err.contains("move_object") && err.contains("open"),
+        "the error names the door rule: {err}"
+    );
+
+    let move_template = binding_level(
+        r#""spawn_templates": [ { "id": "crate", "model": "core:cardboard_box" } ],
+           "props": [ { "id": "lever", "model": "core:lever", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "move_object", "target": "crate",
+                               "x": 5.0, "z": 5.0 } ] } ] } ]"#,
+    );
+    validate_level(&move_template).expect("a spawn template target can move");
+}
+
+/// Unknown action targets and unknown sequences, spawn points, spawn groups
+/// and spawn templates are all named errors.
+#[test]
+fn test_validate_rejects_unknown_action_targets() {
+    let unknown_entity = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "toggle_label", "target": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_entity).expect_err("the target must resolve");
+    assert!(
+        err.contains("unknown entity `ghost`"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("`switch`"), "the error names the actor: {err}");
+
+    let unknown_sequence = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "start_sequence", "sequence": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_sequence).expect_err("the sequence must resolve");
+    assert!(
+        err.contains("unknown sequence `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let unknown_point = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "spawn_entity", "point": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_point).expect_err("the point must resolve");
+    assert!(
+        err.contains("unknown spawn point `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let unknown_timer = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "start_timer", "target": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_timer).expect_err("the timer must resolve");
+    assert!(
+        err.contains("unknown entity `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let unknown_despawn = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "despawn_entity", "target": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_despawn).expect_err("despawn needs a real target");
+    assert!(
+        err.contains("spawn group id"),
+        "the error explains what despawn accepts: {err}"
+    );
+}
+
+/// Conditions must resolve, `state` must name an authored state, and
+/// door-only checks need a door.
+#[test]
+fn test_validate_rejects_unknown_condition_targets_and_states() {
+    let unknown_target = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "when": [ { "check": "enabled", "target": "ghost" } ],
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&unknown_target).expect_err("the condition target must resolve");
+    assert!(
+        err.contains("condition 0 (`enabled`) targets unknown entity `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let unknown_state = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "when": [ { "check": "state", "target": "switch",
+                            "name": "missing", "equals": 0 } ],
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&unknown_state).expect_err("the state must exist");
+    assert!(
+        err.contains("reads state `missing` on `switch`"),
+        "unexpected error: {err}"
+    );
+
+    let door_condition_on_prop = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "when": [ { "check": "locked", "target": "switch" } ],
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&door_condition_on_prop).expect_err("locked needs a door target");
+    assert!(err.contains("need a door"), "unexpected error: {err}");
+    assert!(
+        err.contains("`switch`"),
+        "the error names the target: {err}"
+    );
+}
+
+/// `set_state` is strict: it may only change a state the target already
+/// authors (timers and trigger volumes are the runtime-owned exception).
+#[test]
+fn test_validate_rejects_invented_state_writes() {
+    let invented = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_state", "name": "invented", "value": 1 }"#
+        )
+    ));
+    let err = validate_level(&invented).expect_err("a new state name cannot be invented");
+    assert!(
+        err.contains("`set_state` requires an authored state named `invented`"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("`switch`"),
+        "the error names the target: {err}"
+    );
+
+    let blank = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "set_state", "name": "  ", "value": 1 }"#
+        )
+    ));
+    let err = validate_level(&blank).expect_err("a blank state name is invalid");
+    assert!(
+        err.contains("needs a non-empty state name"),
+        "unexpected error: {err}"
+    );
+
+    let authored = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "state", "name": "pressed", "value": 0 } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "set_state", "name": "pressed", "value": 1 } ] } ] } ]"#,
+    );
+    validate_level(&authored).expect("a state the target authors can be written");
+}
+
+/// A synthesized water/effect id shares the instance namespace: an authored id
+/// cannot shadow the entity `enable`/`disable` addresses.
+#[test]
+fn test_validate_rejects_shadowed_water_and_effect_ids() {
+    let shadowed_water = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "shadow_water",
+            "name": "Shadow Water",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "water": [ { "x": 4.0, "z": 4.0, "width": 2.0, "depth": 2.0,
+                         "surface_y": 0.0, "bottom_y": -2.0 } ],
+            "props": [ { "id": "water_1", "model": "core:crate", "x": 2.0, "z": 2.0 } ]
+        }"#,
+    )
+    .expect("the shadow level parses");
+    let err = validate_level(&shadowed_water).expect_err("the synthesized id is reserved");
+    assert!(err.contains("water_1"), "the error names the id: {err}");
+
+    let shadowed_effect = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "shadow_effect",
+            "name": "Shadow Effect",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "effects": [ { "kind": "steam", "x": 4.0, "z": 4.0 } ],
+            "props": [ { "id": "effect_1", "model": "core:crate", "x": 2.0, "z": 2.0 } ]
+        }"#,
+    )
+    .expect("the shadow effect level parses");
+    let err = validate_level(&shadowed_effect).expect_err("the synthesized id is reserved");
+    assert!(err.contains("effect_1"), "the error names the id: {err}");
+}
+
+/// A binding only validates on a record that can emit its event.
+#[test]
+fn test_validate_rejects_bindings_that_cannot_fire() {
+    // A `timer` binding is legal on any record: a sequence's `emit` step can
+    // publish the same cue, so a prop listening for one is a real pattern.
+    let timer_on_prop = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json("switch", r#"{ "action": "reset_to_start" }"#)
+            .replace(r#""on": "interact""#, r#""on": "timer""#)
+    ));
+    validate_level(&timer_on_prop).expect("a prop may listen for a timer cue");
+
+    let volume_on_door = binding_level(
+        r#""doors": [ { "id": "front_door", "x": 4.0, "z": 4.0, "width": 0.9, "height": 2.1,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "enter_volume",
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&volume_on_door).expect_err("a door emits no volume event");
+    assert!(
+        err.contains("listens for `enter_volume`") && err.contains("trigger volume"),
+        "unexpected error: {err}"
+    );
+
+    let animation_without_component = binding_level(
+        r#""props": [ { "id": "radio", "model": "core:radio", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "animation_complete",
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&animation_without_component)
+        .expect_err("animation_complete needs an animation component");
+    assert!(
+        err.contains("has no `animation` component"),
+        "unexpected error: {err}"
+    );
+
+    let disabled_interactable = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable", "enabled": false } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&disabled_interactable)
+        .expect_err("a disabled interactable never emits interact");
+    assert!(
+        err.contains("no enabled `interactable` component"),
+        "unexpected error: {err}"
+    );
+
+    // Acceptance: the kinds that own an event may listen for it.
+    let legal = binding_level(
+        r#""volumes": [ { "id": "pit", "x": 3.0, "z": 3.0, "width": 2.0, "depth": 2.0,
+              "bindings": [ { "on": "enter_volume",
+                              "actions": [ { "action": "reset_to_start" } ] } ] } ],
+           "props": [ { "id": "radio", "model": "core:radio", "x": 2.0, "z": 2.0,
+              "components": [ { "component": "animation", "clip": "idle" } ],
+              "bindings": [ { "on": "animation_complete",
+                              "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    validate_level(&legal).expect("each event owner may listen for its own event");
+}
+
+/// Binding lists, action lists, cooldowns and ids are all bounded and
+/// non-empty; a malformed one is a named error.
+#[test]
+fn test_validate_rejects_oversized_or_malformed_bindings() {
+    let bindings: Vec<&str> = (0..=crate::level::MAX_BINDINGS_PER_ENTITY)
+        .map(|_| r#"{ "on": "interact", "actions": [{ "action": "reset_to_start" }] }"#)
+        .collect();
+    let too_many_bindings = binding_level(&format!(
+        r#""props": [ {{ "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ {{ "component": "interactable" }} ],
+            "bindings": [{}] }} ]"#,
+        bindings.join(",")
+    ));
+    let err = validate_level(&too_many_bindings).expect_err("an oversized binding list is invalid");
+    assert!(err.contains("the limit is"), "unexpected error: {err}");
+    assert!(
+        err.contains("`switch`"),
+        "the error names the record: {err}"
+    );
+
     let actions: Vec<&str> = (0..=crate::level::MAX_ACTIONS_PER_SOURCE)
         .map(|_| r#"{ "action": "reset_to_start" }"#)
         .collect();
-    let level = level_with_props_json(&format!(
-        r#"[{{ "model": "core:plant", "x": 1.0, "z": 1.0,
-             "interaction": {{ "actions": [{}] }} }}]"#,
-        actions.join(",")
+    let too_many_actions = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json("switch", &actions.join(","))
     ));
-    let err = validate_level(&level).expect_err("an oversized batch is invalid");
+    let err = validate_level(&too_many_actions).expect_err("an oversized action batch is invalid");
     assert!(err.contains("the limit is"), "unexpected error: {err}");
+
+    let empty_actions = binding_level(&format!(
+        r#""props": [{}]"#,
+        interact_prop_json("switch", "")
+    ));
+    let err = validate_level(&empty_actions).expect_err("a binding needs an action");
+    assert!(
+        err.contains("must declare at least one action"),
+        "unexpected error: {err}"
+    );
+
+    let bad_cooldown = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact", "cooldown_seconds": -1.0,
+                            "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&bad_cooldown).expect_err("a negative cooldown is invalid");
+    assert!(
+        err.contains("cooldown_seconds must be a finite number that is not negative"),
+        "unexpected error: {err}"
+    );
+
+    let blank_binding_id = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "id": "  ", "on": "interact",
+                            "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    let err = validate_level(&blank_binding_id).expect_err("a blank binding id is invalid");
+    assert!(
+        err.contains("id must not be blank when specified"),
+        "unexpected error: {err}"
+    );
 }
 
-/// A level with no interaction content validates, resolves no interactables
-/// and no triggers, and its props still receive deterministic ids for later
-/// reference without changing any rendered or simulated behaviour.
+/// Sequences are bounded, their delays are ranged and their step values are
+/// finite; a `wait_animation` clip is only shape-checked because the loader does
+/// not know a model's clip set (the runtime timeout bounds a missing clip).
 #[test]
-fn test_levels_load_without_interactions_or_triggers() {
+fn test_validate_rejects_malformed_sequences() {
+    let cases = [
+        (
+            r#"{ "id": "empty", "steps": [] }"#,
+            "declares no steps",
+            "empty step list",
+        ),
+        (
+            r#"{ "id": "bad_wait", "steps": [ { "step": "wait", "seconds": -1.0 } ] }"#,
+            "between 0 and 600",
+            "negative wait",
+        ),
+        (
+            r#"{ "id": "bad_move", "steps": [ { "step": "move", "x": 2.0, "z": 2.0,
+                "speed": 0.0 } ] }"#,
+            "speed positive",
+            "zero move speed",
+        ),
+        (
+            r#"{ "id": "bad_animation", "steps": [
+                { "step": "wait_animation", "clip": "idle", "timeout": 1000.0 } ] }"#,
+            "between 0 and 120",
+            "oversized animation timeout",
+        ),
+        (
+            r#"{ "id": "blank_clip", "steps": [
+                { "step": "wait_animation", "clip": "  ", "timeout": 1.0 } ] }"#,
+            "clip must not be blank",
+            "blank wait_animation clip",
+        ),
+        (
+            r#"{ "id": "blank_emit", "steps": [
+                { "step": "emit", "on": "timer", "key": "  " } ] }"#,
+            "key must not be blank",
+            "blank emit key",
+        ),
+        (
+            r#"{ "id": "bad_state", "steps": [
+                { "step": "set_state", "name": "  ", "value": 0 } ] }"#,
+            "must name a non-empty state",
+            "blank sequence state name",
+        ),
+    ];
+    for (sequence, expected, label) in cases {
+        let level = binding_level(&format!(r#""sequences": [{sequence}]"#));
+        let err = validate_level(&level).expect_err(label);
+        assert!(
+            err.contains("Sequence 0"),
+            "{label}: the error names the sequence: {err}"
+        );
+        assert!(
+            err.contains(expected),
+            "{label}: expected `{expected}` in: {err}"
+        );
+    }
+}
+
+/// The obvious zero-delay cycle is refused, while a cycle that passes through
+/// a wait is legal.
+#[test]
+fn test_validate_rejects_zero_delay_cycles_but_allows_delayed_ones() {
+    let cycle = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "start_sequence", "sequence": "loop" } ] } ] } ],
+           "sequences": [ { "id": "loop", "steps": [
+                { "step": "action",
+                  "action": { "action": "start_sequence", "sequence": "loop" } } ] } ]"#,
+    );
+    let err = validate_level(&cycle).expect_err("an immediate self-restart is a zero-delay cycle");
+    assert!(err.contains("Zero-delay cycle"), "unexpected error: {err}");
+    assert!(
+        err.contains("sequence `loop`"),
+        "the cycle path names it: {err}"
+    );
+    assert!(
+        err.contains("without consuming a wait"),
+        "the error explains the cycle: {err}"
+    );
+
+    let delayed = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [ { "on": "interact",
+                "actions": [ { "action": "start_sequence", "sequence": "loop" } ] } ] } ],
+           "sequences": [ { "id": "loop", "steps": [
+                { "step": "wait", "seconds": 1.0 },
+                { "step": "action",
+                  "action": { "action": "start_sequence", "sequence": "loop" } } ] } ]"#,
+    );
+    validate_level(&delayed).expect("a cycle behind a wait is legal repetition");
+
+    // A sequence that completes immediately and is restarted by its own
+    // `sequence_complete` binding is a zero-delay cycle...
+    let completion_cycle = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" } ],
+            "bindings": [
+                { "on": "interact",
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] },
+                { "on": "sequence_complete",
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] }
+            ] } ],
+           "sequences": [ { "id": "once", "steps": [ { "step": "stop" } ] } ]"#,
+    );
+    let err = validate_level(&completion_cycle)
+        .expect_err("an immediate completion that restarts itself is a zero-delay cycle");
+    assert!(err.contains("Zero-delay cycle"), "unexpected error: {err}");
+    assert!(
+        err.contains("binding 1 on `switch`"),
+        "the cycle path names the re-entering binding: {err}"
+    );
+
+    // ... unless a cooldown or a condition bounds the repetition.
+    let cooled = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "state", "name": "done", "value": 0 } ],
+            "bindings": [
+                { "on": "interact",
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] },
+                { "on": "sequence_complete", "cooldown_seconds": 0.5,
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] }
+            ] } ],
+           "sequences": [ { "id": "once", "steps": [ { "step": "stop" } ] } ]"#,
+    );
+    validate_level(&cooled).expect("a cooldown bounds the repetition");
+
+    let conditioned = binding_level(
+        r#""props": [ { "id": "switch", "model": "core:switch", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "interactable" },
+                            { "component": "state", "name": "done", "value": 0 } ],
+            "bindings": [
+                { "on": "interact",
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] },
+                { "on": "sequence_complete",
+                  "when": [ { "check": "state", "target": "switch",
+                              "name": "done", "equals": 0 } ],
+                  "actions": [ { "action": "start_sequence", "sequence": "once" } ] }
+            ] } ],
+           "sequences": [ { "id": "once", "steps": [ { "step": "stop" } ] } ]"#,
+    );
+    validate_level(&conditioned).expect("a condition bounds the repetition");
+}
+
+/// Spawn templates, points and groups must resolve and carry usable values.
+#[test]
+fn test_validate_rejects_malformed_spawns() {
+    let missing_template = binding_level(
+        r#""spawn_points": [ { "id": "point", "x": 2.0, "z": 2.0, "template": "ghost" } ]"#,
+    );
+    let err = validate_level(&missing_template).expect_err("the template must exist");
+    assert!(
+        err.contains("references unknown spawn template `ghost`"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("`point`"), "the error names the point: {err}");
+
+    let missing_group = binding_level(
+        r#""spawn_templates": [ { "id": "rat", "model": "core:box" } ],
+           "spawn_points": [ { "id": "point", "x": 2.0, "z": 2.0, "template": "rat",
+                               "group": "ghost" } ]"#,
+    );
+    let err = validate_level(&missing_group).expect_err("the group must exist");
+    assert!(
+        err.contains("references unknown spawn group `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let blank_model = binding_level(r#""spawn_templates": [ { "id": "rat", "model": "  " } ]"#);
+    let err = validate_level(&blank_model).expect_err("the template model is required");
+    assert!(
+        err.contains("non-empty model id"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("Spawn template 0"),
+        "the error names the template: {err}"
+    );
+
+    let bad_scale = binding_level(
+        r#""spawn_templates": [ { "id": "rat", "model": "core:box", "scale": 0.0 } ]"#,
+    );
+    let err = validate_level(&bad_scale).expect_err("the scale must be positive");
+    assert!(
+        err.contains("scale must be a finite positive number"),
+        "unexpected error: {err}"
+    );
+
+    let negative_lifetime = binding_level(
+        r#""spawn_templates": [ { "id": "rat", "model": "core:box",
+                                  "lifetime_seconds": -1.0 } ]"#,
+    );
+    let err = validate_level(&negative_lifetime).expect_err("a negative lifetime is invalid");
+    assert!(
+        err.contains("lifetime_seconds must be a finite positive number"),
+        "unexpected error: {err}"
+    );
+
+    let template_without_point = binding_level(&format!(
+        r#""spawn_templates": [ {{ "id": "rat", "model": "core:box" }} ],
+           "props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "spawn_entity", "template": "rat" }"#
+        )
+    ));
+    let err = validate_level(&template_without_point)
+        .expect_err("a template without a point cannot resolve");
+    assert!(
+        err.contains("names a `template` without a `point`"),
+        "unexpected error: {err}"
+    );
+
+    let unknown_spawn_group = binding_level(&format!(
+        r#""spawn_templates": [ {{ "id": "rat", "model": "core:box" }} ],
+           "spawn_points": [ {{ "id": "point", "x": 2.0, "z": 2.0, "template": "rat" }} ],
+           "props": [{}]"#,
+        interact_prop_json(
+            "switch",
+            r#"{ "action": "spawn_entity", "point": "point", "group": "ghost" }"#
+        )
+    ));
+    let err = validate_level(&unknown_spawn_group).expect_err("the spawn group must exist");
+    assert!(
+        err.contains("references unknown spawn group `ghost`"),
+        "unexpected error: {err}"
+    );
+}
+
+/// Trigger volumes are checked like the area triggers they replaced: a real
+/// footprint, a real vertical band, an overlapping room and a bounded count.
+#[test]
+fn test_validate_rejects_malformed_volumes() {
+    let cases = [
+        (
+            r#"[{ "x": 2.0, "z": 2.0, "width": 0.0, "depth": 1.0 }]"#,
+            "width and depth must be positive",
+        ),
+        (
+            r#"[{ "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0,
+                 "bottom_y": 0.5, "top_y": 0.2 }]"#,
+            "must be above its bottom_y",
+        ),
+        (
+            r#"[{ "x": 40.0, "z": 40.0, "width": 1.0, "depth": 1.0 }]"#,
+            "lies outside every room section",
+        ),
+    ];
+    for (volumes, expected) in cases {
+        let level = binding_level(&format!(r#""volumes": {volumes}"#));
+        let err = validate_level(&level).expect_err("the volume must be rejected");
+        assert!(err.contains(expected), "expected `{expected}` in: {err}");
+        assert!(
+            err.contains("Trigger volume 0"),
+            "the error names the volume: {err}"
+        );
+    }
+
+    // A well-formed volume with an id default and bindings validates.
+    let valid = binding_level(
+        r#""volumes": [ { "x": 2.0, "z": 2.0, "width": 2.0, "depth": 2.0,
+            "bottom_y": -1.0, "top_y": 0.0,
+            "bindings": [ { "on": "enter_volume",
+                            "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
+    );
+    validate_level(&valid).expect("a well-formed volume validates");
+}
+
+/// A `toggle_label` target may name a placed prop with no interaction of its
+/// own; only an unknown id is an error.
+#[test]
+fn test_validate_accepts_a_label_only_target() {
+    let level = binding_level(
+        r#""props": [
+            { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+              "x": 1.0, "z": 1.0 },
+            { "id": "switch", "display_name": "Switch", "model": "core:switch",
+              "x": 2.0, "z": 1.0,
+              "components": [ { "component": "interactable" } ],
+              "bindings": [ { "on": "interact",
+                              "actions": [ { "action": "toggle_label",
+                                             "target": "lamp" } ] } ] }
+        ]"#,
+    );
+    validate_level(&level).expect("a label-only target is valid");
+}
+
+/// A level with no binding content validates, keeps its deterministic prop
+/// ids and authors no volumes, sequences or spawns.
+#[test]
+fn test_levels_load_without_bindings_or_volumes() {
     let level = level_with_props_json(
         r#"[{ "model": "core:chair", "x": 1.0, "z": 1.0 },
             { "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
     );
     validate_level(&level).expect("a prop list is still valid");
-    assert!(
-        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level))
-            .is_empty(),
-        "scenery without an interaction is not aimable"
-    );
-    assert!(
-        crate::level::AreaTriggers::from_level(&level).is_empty(),
-        "the level has no triggers"
-    );
+    assert!(level.volumes.is_empty(), "the level has no trigger volumes");
+    assert!(level.timers.is_empty(), "the level has no timers");
+    assert!(level.sequences.is_empty(), "the level has no sequences");
     assert_eq!(level.prop_instance_ids(), vec!["chair_1", "chair_2"]);
-
-    // The shipped demo's demo interactions resolve and validate.
-    let manager = LevelManager::new();
-    let loaded = manager.load_default().expect("the demo loads");
-    let interactables = crate::interact::Interactables::from_level(
-        &loaded.level,
-        &crate::door::Doors::from_level(&loaded.level),
-    );
-    assert!(
-        interactables.len() >= 5,
-        "the demo authors several label interactions: {}",
-        interactables.len()
-    );
-    assert!(interactables.index_of("spooner_man").is_some());
-    assert!(interactables.index_of("pool_chair_north").is_some());
-    assert!(interactables.index_of("pool_chair_south").is_some());
-}
-
-/// A `toggle_label` target may name a prop with no interaction of its own; the
-/// target joins the resolved set as a label-only instance. Only an unknown id
-/// is an error.
-#[test]
-fn test_validate_accepts_a_label_only_target() {
-    let level = level_with_props_json(
-        r#"[
-            { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
-              "x": 1.0, "z": 1.0 },
-            { "id": "switch", "display_name": "Switch", "model": "core:switch",
-              "x": 2.0, "z": 1.0,
-              "interaction": { "actions": [{ "action": "toggle_label", "target": "lamp" }] } }
-        ]"#,
-    );
-    validate_level(&level).expect("a label-only target is valid");
-    let items =
-        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
-    let lamp = items.index_of("lamp").expect("the target is resolved");
-    assert!(
-        items.get(lamp).expect("lamp").actions.is_empty(),
-        "a label-only target is not aimable"
-    );
-    assert!(items.index_of("switch").is_some());
 }
 
 /// A level with a prop and a set of routes, plus a wall at x = 5..5.2 that
@@ -2974,7 +3791,7 @@ fn test_validate_accepts_a_label_only_target() {
 fn level_with_routes_json(props_json: &str, routes_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "routes_test",
             "name": "Routes Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -3108,7 +3925,7 @@ const DEMO_DUCK_FLOAT: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 
 fn float_level_with_routes(prop_json: &str, routes_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "float_test",
             "name": "Float Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -3278,7 +4095,7 @@ fn test_the_shipped_demo_duck_validates() {
 fn validate_with(extra: &str) -> Result<(), String> {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "round_validation",
             "name": "Round Validation",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -3363,7 +4180,7 @@ fn test_valid_round_primitives_pass_validation() {
 fn test_ceiling_tile_frame_validation() {
     let bad_origin = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "bad_frame",
             "name": "Bad Frame",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -3374,7 +4191,7 @@ fn test_ceiling_tile_frame_validation() {
     assert!(bad_origin.is_err(), "a null origin is a parse error");
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "frame",
             "name": "Frame",
             "spawn": { "x": 0.0, "z": 0.0 },

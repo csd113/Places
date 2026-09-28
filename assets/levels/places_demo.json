@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",
@@ -1830,14 +1830,22 @@
         0.7
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "core:chair",
@@ -1866,14 +1874,22 @@
         0.35
       ],
       "solid": true,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "core:cabinet",
@@ -2020,14 +2036,22 @@
       "solid": true,
       "id": "pool_chair_north",
       "display_name": "Pool Chair",
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "core:pool_chair",
@@ -2043,14 +2067,22 @@
       "solid": true,
       "id": "pool_chair_south",
       "display_name": "Pool Chair",
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "model": "core:pool_ladder",
@@ -2494,14 +2526,22 @@
       "z": 11.5,
       "rotation_degrees": 0.0,
       "solid": false,
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "spooner_man",
@@ -2517,14 +2557,22 @@
         0.7
       ],
       "comment": "Spooner-Man follows a slow six-destination route with seated waits across the pool, offices, laundry, kitchen and balcony. The authored size is the aim/label bound, not collision (the entity is not solid).",
-      "interaction": {
-        "prompt": "Toggle name",
-        "actions": [
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "kitchen_switch",
@@ -2541,19 +2589,33 @@
       ],
       "solid": false,
       "comment": "Mounted on the west face of the kitchen-opening column, 1.2 m above the floor. E flips the lever (toggle_animation) and toggles this instance's name label in one batch; the lever is a rigid node clip scrubbed toward the opposite end, so a second press mid-move reverses from the current pose and only this instance moves.",
-      "interaction": {
-        "prompt": "Switch",
-        "reach": 1.6,
-        "actions": [
-          {
-            "action": "toggle_animation",
-            "clip": "toggle"
-          },
-          {
-            "action": "toggle_label"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Switch",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "kitchen_pendant",
@@ -2783,25 +2845,35 @@
         0.1
       ],
       "solid": false,
-      "comment": "On the living-room face of the corridor wall, beside the hall door. One press flips the lever and toggles the door (and the door label).",
-      "interaction": {
-        "prompt": "Hall switch",
-        "reach": 1.6,
-        "actions": [
-          {
-            "action": "toggle_animation",
-            "clip": "toggle"
-          },
-          {
-            "action": "toggle",
-            "target": "hall_door"
-          },
-          {
-            "action": "toggle_label",
-            "target": "hall_door"
-          }
-        ]
-      }
+      "comment": "On the living-room face of the corridor wall, beside the hall door. One press flips the lever and toggles the door; the door has no floating label in v3, so the old label toggle is gone.",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Hall switch",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "hall_door"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "sauna_switch",
@@ -2818,24 +2890,38 @@
       ],
       "solid": false,
       "comment": "Beside the sauna door, facing into the sauna. Drives the sauna leaf through the same declarative action wiring as every other switch.",
-      "interaction": {
-        "prompt": "Sauna switch",
-        "reach": 1.6,
-        "actions": [
-          {
-            "action": "toggle_animation",
-            "clip": "toggle"
-          },
-          {
-            "action": "toggle",
-            "target": "sauna_light"
-          },
-          {
-            "action": "toggle",
-            "target": "sauna_door"
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Sauna switch",
+          "reach": 1.6
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "sauna_light"
+            },
+            {
+              "action": "toggle",
+              "target": "sauna_door"
+            }
+          ]
+        }
+      ]
     }
   ],
   "decals": [
@@ -3787,8 +3873,22 @@
       "swing_degrees": 90.0,
       "open_speed_degrees": 130.0,
       "initial_state": "closed",
-      "manual_interaction": true,
-      "prompt": "Hall door",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Hall door"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
       "comment": "White interior door in the corridor-to-living-room passage (wall 35). Left swing opens into the corridor; the wall switch beside it also drives it."
     },
     {
@@ -3804,9 +3904,40 @@
       "swing_degrees": 95.0,
       "open_speed_degrees": 90.0,
       "initial_state": "open",
-      "manual_interaction": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Sauna door"
+        },
+        {
+          "component": "state",
+          "name": "phase",
+          "value": "cold"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        },
+        {
+          "on": "timer",
+          "key": "warm",
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "sauna_light",
+              "on": false
+            }
+          ],
+          "comment": "Consumes the sequence's warm cue: the sauna lamp turns off when the warmup finishes."
+        }
+      ],
       "kind": "sauna",
-      "prompt": "Sauna door",
       "comment": "Sauna leaf in the pool-deck doorway (wall 14): wooden stiles, a glass panel and a wooden handle, driven by the shared door system."
     },
     {
@@ -3821,8 +3952,6 @@
       "open_direction": "right",
       "swing_degrees": 88.0,
       "initial_state": "open",
-      "manual_interaction": false,
-      "prompt": null,
       "comment": "Externally controlled door: it starts open and only a map action moves it, so it is never an interaction target."
     }
   ],
@@ -3857,20 +3986,25 @@
       "lifetime_seconds": 3.6
     }
   ],
-  "area_triggers": [
+  "volumes": [
     {
       "id": "study_door_approach",
       "x": 63.3,
       "z": 4.5,
       "width": 1.2,
       "depth": 1.2,
-      "actions": [
+      "bindings": [
         {
-          "action": "open",
-          "target": "study_door"
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "open",
+              "target": "study_door"
+            }
+          ],
+          "cooldown_seconds": 1.0
         }
       ],
-      "cooldown_seconds": 1.0,
       "comment": "Opens the externally controlled study door as the player approaches from the living room."
     },
     {
@@ -3879,14 +4013,87 @@
       "z": 4.5,
       "width": 1.2,
       "depth": 1.2,
-      "actions": [
+      "bindings": [
         {
-          "action": "open",
-          "target": "study_door"
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "open",
+              "target": "study_door"
+            }
+          ],
+          "cooldown_seconds": 1.0
         }
       ],
-      "cooldown_seconds": 1.0,
       "comment": "Opens it again from the study side, so the room is never sealed."
+    },
+    {
+      "id": "sauna_warmup_zone",
+      "x": 26.5,
+      "z": 12.7,
+      "width": 1.2,
+      "depth": 1.2,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "once": true,
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "sauna_warmup_timer",
+              "name": "phase",
+              "value": "armed"
+            },
+            {
+              "action": "start_timer",
+              "target": "sauna_warmup_timer"
+            }
+          ]
+        }
+      ],
+      "comment": "Stepping into the sauna arms a one-shot 1.5 s timer; the timer starts sauna_warmup on the door, which waits, writes the door's phase and emits the warm cue."
+    }
+  ],
+  "timers": [
+    {
+      "id": "sauna_warmup_timer",
+      "seconds": 1.5,
+      "repeat": false,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "sauna_warmup",
+              "target": "sauna_door"
+            }
+          ]
+        }
+      ],
+      "comment": "Headless entity: the timer has no geometry and exists only for the binding above."
+    }
+  ],
+  "sequences": [
+    {
+      "id": "sauna_warmup",
+      "steps": [
+        {
+          "step": "wait",
+          "seconds": 0.5
+        },
+        {
+          "step": "set_state",
+          "name": "phase",
+          "value": "warm"
+        },
+        {
+          "step": "emit",
+          "on": "timer",
+          "key": "warm"
+        }
+      ],
+      "comment": "Runs on sauna_door: the door owns the phase state the steps below write, and emit publishes the warm cue for any listener."
     }
   ]
 }

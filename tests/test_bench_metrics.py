@@ -76,17 +76,67 @@ class LoadingMetricsTests(unittest.TestCase):
             self.assertEqual(absent, [])
             self.assertIsNone(no_error)
 
+    def test_settings_transitions_are_separate_from_loading_and_steady_state(self):
+        # One immediate apply and one rebuild that requires a world commit; the
+        # named settings_transition metric covers exactly those windows.
+        events = [
+            event("entry", 0),
+            event("window_ready", 5),
+            event("request", 10),
+            event("scene_presented", 60, detail="small"),
+            event("ready", 60),
+            event("settings_change", 100, detail=json.dumps({"quality": "low"})),
+            event("settings_applied", 104),
+            event("settings_change", 200, detail=json.dumps({"lightmaps": "full"})),
+            event("request", 205),
+            event("gpu_ready", 260),
+            event("ready", 260),
+            event("present", 262, detail="ready"),
+            event("shutdown_requested", 300),
+        ]
+        result = trace_metrics(events)
+        self.assertEqual(result["settings_transition_windows_ms"], [(100, 104), (200, 260)])
+        self.assertEqual(result["settings_transition"]["count"], 2)
+        self.assertEqual(result["settings_transition"]["p50_ms"], 4)
+        self.assertEqual(result["settings_transition"]["max_ms"], 60)
+        self.assertEqual(result["loading_windows_ms"], [(10, 60), (205, 262)])
+        self.assertEqual(result["package_loading"]["count"], 2)
+        self.assertEqual(result["binary_startup_ms"], 5)
+        self.assertEqual(result["first_usable_scene_ms"], 60)
+        self.assertEqual(result["first_ready_present_ms"], result["first_usable_scene_ms"])
+
+    def test_unfinished_settings_transition_reports_the_open_interval(self):
+        # A rebuild that never commits still reports from the change to the
+        # shutdown boundary rather than disappearing.
+        events = [
+            event("entry", 0),
+            event("window_ready", 2),
+            event("settings_change", 50, detail="{}"),
+            event("shutdown_requested", 90),
+        ]
+        result = trace_metrics(events)
+        self.assertEqual(result["settings_transition_windows_ms"], [(50, 90)])
+        self.assertEqual(result["settings_transition"]["max_ms"], 40)
+
+    def test_metrics_are_unavailable_not_zero_without_a_trace(self):
+        result = trace_metrics([])
+        self.assertIsNone(result["binary_startup_ms"])
+        self.assertIsNone(result["first_usable_scene_ms"])
+        self.assertEqual(result["package_loading"]["count"], 0)
+        self.assertEqual(result["settings_transition"]["count"], 0)
+        self.assertIsNone(result["settings_transition"]["max_ms"])
+
 
 class LightmapSegmentTests(unittest.TestCase):
     def test_last_commit_counts_and_timings_never_include_other_worlds(self):
-        text = """[loading] prepared-cache miss level=demo
+        text = """[loading] compiled-cache miss level=demo
 [loading] committed demo
 [level] 100 static vertices, 200 prop vertices, built in 900.0 ms (lighting 500.0 + props 300.0 + surfaces 100.0)
-[loading] prepared-cache hit level=small
+[loading] compiled-cache hit level=small
 [loading] committed small
 [level] 4 static vertices, 6 prop vertices, built in 9.0 ms (lighting 5.0 + props 3.0 + surfaces 1.0)
 [lightmaps] 1 page(s), 2 chart(s), 3 chart texels, 4 page texels (5 KiB), filled in 6.0 ms
-[loading] prepared-cache miss level=cancelled
+[loading] compiled-cache miss level=cancelled
 """
         result = parse_logs(text)
         self.assertEqual(result["level_id"], "small")
@@ -98,10 +148,10 @@ class LightmapSegmentTests(unittest.TestCase):
         self.assertEqual(result["lightmap_bake_ms"], 6)
 
     def test_uncommitted_same_level_request_cannot_relabel_previous_hit(self):
-        text = """[loading] prepared-cache hit level=small
+        text = """[loading] compiled-cache hit level=small
 [loading] committed small
 [level] 4 static vertices, 6 prop vertices, built in 9.0 ms (lighting 5.0 + props 3.0 + surfaces 1.0)
-[loading] prepared-cache miss level=small
+[loading] compiled-cache miss level=small
 """
         self.assertEqual(parse_logs(text)["prepared_cache"], "hit")
 

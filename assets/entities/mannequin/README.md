@@ -62,8 +62,9 @@ or an area trigger):
 ```json
 { "id": "pose_dummy", "model": "mannequin", "x": 4.0, "z": 3.0,
   "rotation_degrees": 180.0, "size": [0.42, 1.72, 0.305],
-  "interaction": { "prompt": "Arms up",
-                   "actions": [{ "action": "play_animation", "clip": "pose_arms_up" }] } }
+  "components": [ { "component": "interactable", "prompt": "Arms up" } ],
+  "bindings": [ { "on": "interact",
+                  "actions": [{ "action": "play_animation", "clip": "pose_arms_up" }] } ] }
 ```
 
 A route can also cycle the poses (`{ "step": "play", "clip": "pose_arms_forward",

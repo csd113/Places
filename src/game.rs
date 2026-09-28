@@ -5,16 +5,16 @@ use glam::{Vec2, Vec3};
 use crate::collision::{
     CONTACT_EPS, CROUCH_HEIGHT, DoorCollider, PLAYER_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT,
     STEP_EPS, WallAabb, highest_support_top_indexed, lowest_door_underside,
-    lowest_underside_indexed, resolve_player_collision_with_doors, segment_overlaps_aabb,
+    lowest_underside_indexed, resolve_player_collision_with_doors,
 };
 use crate::collision_index::CollisionIndex;
-use crate::door::{DoorRuntime, Doors};
+use crate::entities::{EntityWorld, WorldContext, WorldTick};
 use crate::entity::{EntityFrame, EntityRoutes, PoseCue, RouteState, RouteWorld};
 use crate::input::{Control, InputState};
 use crate::interact::{Interactables, nearest_target_indexed};
 use crate::level::{
-    ActionDef, AreaTriggers, Ladder, Ladders, LevelDef, LevelSurfaces, WalkableCeiling,
-    WalkableFloor, WaterSample, WaterVolumes,
+    ActionDef, Ladder, Ladders, LevelDef, LevelSurfaces, WalkableCeiling, WalkableFloor,
+    WaterSample, WaterVolumes,
 };
 use crate::settings::Settings;
 
@@ -246,51 +246,54 @@ pub struct LocomotionSnapshot {
     pub speed: f32,
 }
 
-/// The static, level-derived collision world the controller queries.
+/// The static, level-derived collision world the controller queries, plus the
+/// level's whole entity runtime.
 ///
-/// This is the reusable bundle later systems hand to [`Game::new`] and
-/// [`Game::reset_level`]: walls and solid props as axis-aligned boxes, the
-/// walkable floor and ceiling samplers, the water volumes, the ladder volumes,
-/// the area triggers and the interactable instances. Building it once per
-/// level load is what keeps the per-frame query surface a fixed set of
-/// samplers rather than a mesh walk.
-#[derive(Debug, Clone, Default, PartialEq)]
+/// This is the reusable bundle [`Game::new`] and [`Game::reset_level`] take:
+/// walls and solid props as axis-aligned boxes, the walkable floor and ceiling
+/// samplers, the water volumes, the ladder volumes, and the [`EntityWorld`]
+/// that owns every authored object, its components, events, timers, sequences
+/// and spawn groups. Building it once per level load is what keeps the
+/// per-frame query surface a fixed set of samplers rather than a mesh walk.
+#[derive(Debug, Default)]
 pub struct CollisionWorld {
     pub walls: Vec<WallAabb>,
     pub floor: WalkableFloor,
     pub water: WaterVolumes,
     pub ceiling: WalkableCeiling,
     pub ladders: Ladders,
-    /// Authored area triggers, resolved with their ids and vertical bounds.
-    pub triggers: AreaTriggers,
-    /// Placed props/entities that declare a map-authored interaction, plus
-    /// every manually interactable door.
-    pub interactables: Interactables,
-    /// Authored movement/pose routes for placed entities.
-    pub routes: EntityRoutes,
-    /// Every authored door with its run-time state.
-    pub doors: Doors,
-    /// Every ceiling fixture's switch state.
-    pub fixtures: Vec<FixtureSwitch>,
+    /// Every authored entity and the runtime that drives it.
+    pub world: EntityWorld,
 }
 
 impl CollisionWorld {
-    /// Resolves every collision sampler against a level.
+    /// Resolves every collision sampler and the entity runtime against a level.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
-        let doors = Doors::from_level(level);
-        let interactables = Interactables::from_level(level, &doors);
         Self {
             walls: level.collision_aabbs(),
             floor: WalkableFloor::from_level(level),
             water: WaterVolumes::from_level(level),
             ceiling: WalkableCeiling::from_level(level),
             ladders: Ladders::from_level(level),
-            triggers: AreaTriggers::from_level(level),
-            interactables,
-            routes: EntityRoutes::from_level(level),
-            doors,
-            fixtures: FixtureSwitch::from_level(level),
+            world: EntityWorld::from_level(level),
+        }
+    }
+
+    /// Builds the collision world from a compiled static record plus the
+    /// level's entity runtime.
+    #[must_use]
+    pub fn from_compiled(
+        level: &LevelDef,
+        statics: crate::package::collision::CompiledCollision,
+    ) -> Self {
+        Self {
+            walls: statics.walls,
+            floor: statics.floor,
+            water: statics.water,
+            ceiling: statics.ceiling,
+            ladders: statics.ladders,
+            world: EntityWorld::from_level(level),
         }
     }
 }
@@ -319,92 +322,9 @@ pub fn spawn_eye_y(floor: &WalkableFloor, x: f32, z: f32) -> f32 {
 
 /// What one dispatched action batch did.
 ///
-/// Returned by [`Game::dispatch_actions`] and [`Game::dispatch_interaction`] so
-/// the frame loop can report what happened without reaching into run state. A
-/// `reset_to_start` stops the batch (safe ordering), so `actions_run` counts the
-/// actions actually executed.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct DispatchReport {
-    /// Actions executed, including the one that reset the player.
-    pub actions_run: usize,
-    /// Labels toggled on, summed over the batch.
-    pub labels_shown: usize,
-    /// Labels toggled off, summed over the batch.
-    pub labels_hidden: usize,
-    /// True when an action returned the player to the authored spawn.
-    pub player_reset: bool,
-    /// Actions skipped because their explicit `target` names no instance.
-    pub missing_targets: usize,
-    /// Actions skipped because the engine does not implement them (validation
-    /// rejects these for loaded levels; programmatic use stays safe).
-    pub unsupported: usize,
-    /// Animation cues started on placed entities, summed over the batch.
-    pub animations_started: usize,
-    /// Door leaves the batch requested to open, close or flip.
-    pub doors_acted: usize,
-    /// Light fixtures the batch switched on or off.
-    pub lights_toggled: usize,
-}
-
-impl DispatchReport {
-    /// Number of label toggles, whichever direction.
-    #[must_use]
-    pub const fn labels_toggled(&self) -> usize {
-        self.labels_shown.saturating_add(self.labels_hidden)
-    }
-}
-
-/// One light fixture's switch state.
-///
-/// The state lives here because a switch is a gameplay input; the renderer owns
-/// the expensive half (the lightmap refill and the fixture's emission), and the
-/// frame loop hands it the dirty switches with [`Game::take_light_toggles`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FixtureSwitch {
-    /// The fixture's instance id, its action-target name.
-    pub id: String,
-    /// Whether a map action may switch it.
-    pub switchable: bool,
-    /// Current on/off state, initialised from the fixture's `enabled` flag.
-    pub enabled: bool,
-    /// True when the state changed and the renderer has not applied it yet.
-    pub dirty: bool,
-}
-
-impl FixtureSwitch {
-    /// Per-fixture switch state for a level, in fixture order.
-    #[must_use]
-    fn from_level(level: &LevelDef) -> Vec<Self> {
-        let ids = level.light_instance_ids();
-        level
-            .ceiling_lights
-            .iter()
-            .zip(ids)
-            .map(|(fixture, id)| Self {
-                id,
-                switchable: fixture.switchable,
-                enabled: fixture.enabled,
-                dirty: false,
-            })
-            .collect()
-    }
-}
-
-/// One area trigger's runtime state, parallel to [`Game::triggers`].
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-struct TriggerState {
-    /// True while the player's feet were inside the volume at the last update:
-    /// leaving re-arms the trigger.
-    inside: bool,
-    /// Seconds until the trigger may fire again.
-    cooldown_remaining: f32,
-    /// True once a `once` trigger has fired in this run.
-    fired_once: bool,
-    /// True when an entry (or swept crossing) happened but another trigger
-    /// already dispatched this frame: the batch runs on a later frame instead
-    /// of being lost.
-    pending: bool,
-}
+/// The report is produced by the entity runtime ([`crate::entities`]) and
+/// re-exported here so the frame loop and tests keep one name for it.
+pub use crate::entities::DispatchReport;
 
 /// Manages game loop timing, player state, and menu lifecycle.
 // The flags are independent, documented state machines (Rust's enum-per-flag
@@ -461,15 +381,11 @@ pub struct Game {
     pub water: WaterVolumes,
     /// The level's climbable ladder volumes.
     pub ladders: Ladders,
-    /// The level's area triggers, sampled every Playing update. Private with
-    /// [`Game::triggers`] so it can never be replaced without its parallel
-    /// runtime state (`trigger_states`) being re-seeded.
-    triggers: AreaTriggers,
-    /// The level's interactable placed instances (props/entities with an
-    /// authored interaction, plus label-only targets), resolved once at load.
-    /// Private with [`Game::interactables`] so it can never be replaced without
-    /// its parallel label state (`label_visible`) being re-sized.
-    interactables: Interactables,
+    /// The level's whole entity runtime: authored ids, typed components,
+    /// doors, routes, volumes, lights, events, timers, sequences and spawns.
+    /// Private with [`Game::world`] so no caller can replace it without the
+    /// player-side state being re-seeded.
+    world: EntityWorld,
     /// Vertical speed in m/s, positive upward. Zero while grounded.
     pub vertical_velocity: f32,
     /// True while the player stands on the walkable floor or a solid prop top.
@@ -496,34 +412,6 @@ pub struct Game {
     /// Set for the frame Interact was first pressed; consumed by
     /// [`Game::take_interact_press`] so dispatch happens exactly once.
     interact_pressed: bool,
-    /// Per-trigger runtime state, parallel to [`Game::triggers`].
-    trigger_states: Vec<TriggerState>,
-    /// Authored routes, private with [`Game::routes`] so they can never be
-    /// replaced without the parallel runtime state being re-seeded.
-    routes: EntityRoutes,
-    /// Per-route runtime state, parallel to [`Game::routes`].
-    route_states: Vec<RouteState>,
-    /// Every authored door with its run-time pose, private with
-    /// [`Game::doors`] so the id map can never go stale.
-    doors: Doors,
-    /// Every ceiling fixture's switch state, parallel to the level's
-    /// `ceiling_lights`.
-    fixtures: Vec<FixtureSwitch>,
-    /// The leaf colliders at the doors' current angles, refreshed whenever a
-    /// leaf moves. Movement, headroom and aiming read this slice; a level with
-    /// only resting doors pays one comparison per query.
-    door_colliders: Vec<DoorCollider>,
-    /// Live `play_animation` overrides per instance id, in dispatch order.
-    /// An override wins over the route's own cue until a reset or another
-    /// override replaces it.
-    animation_overrides: Vec<(String, PoseCue)>,
-    /// The per-frame entity handoff to the renderer, rebuilt by every
-    /// [`Game::update_entities`] pass.
-    entity_frames: Vec<EntityFrame>,
-    /// Label visibility per interactable index; parallel to
-    /// [`Game::interactables`]. Reset on level load, preserved by
-    /// `reset_to_start`.
-    label_visible: Vec<bool>,
     /// The authored spawn this run resets to: `reset_to_start`, and the point
     /// the trigger sweep is re-seeded from after a teleport.
     spawn_position: Vec3,
@@ -536,6 +424,8 @@ pub struct Game {
     vertical_accumulator: f32,
     /// Phase of the idle bob at the water's float line, in radians.
     bob_phase: f32,
+    /// Counters of the most recent entity-world tick.
+    last_tick: WorldTick,
 }
 
 /// What one fixed vertical substep resolved to.
@@ -549,14 +439,6 @@ enum VerticalStep {
     /// zeroed velocity to the frame boundary and let the fall resume next
     /// frame.
     Bumped,
-}
-
-/// Which end a door action asks one leaf to move toward.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DoorRequest {
-    Open,
-    Close,
-    Toggle,
 }
 
 /// How one frame's horizontal move treats floors and the collision band.
@@ -624,8 +506,7 @@ impl Game {
             ceiling: world.ceiling,
             water: world.water,
             ladders: world.ladders,
-            triggers: world.triggers,
-            interactables: world.interactables,
+            world: world.world,
             vertical_velocity: 0.0,
             grounded,
             locomotion: LocomotionSnapshot::default(),
@@ -636,42 +517,48 @@ impl Game {
             crouch_latched: false,
             interact_latched: false,
             interact_pressed: false,
-            trigger_states: Vec::new(),
-            routes: world.routes,
-            route_states: Vec::new(),
-            door_colliders: world.doors.colliders(),
-            doors: world.doors,
-            fixtures: world.fixtures,
-            animation_overrides: Vec::new(),
-            entity_frames: Vec::new(),
-            label_visible: Vec::new(),
             spawn_position: spawn_pos,
             spawn_yaw: spawn_yaw.rem_euclid(TWO_PI),
             reset_count: 0,
             vertical_accumulator: 0.0,
             bob_phase: 0.0,
+            last_tick: WorldTick::default(),
         };
-        game.label_visible = vec![false; game.interactables.len()];
-        game.seed_trigger_states(spawn_pos);
-        game.seed_entity_state();
+        game.world
+            .seed_volumes(Vec3::new(spawn_pos.x, game.feet_y(), spawn_pos.z));
+        let routes = RouteWorld {
+            walls: &game.walls,
+            floor: &game.floor,
+            index: &game.collision_index,
+        };
+        game.world.update_entities(0.0, &routes);
         game
     }
 
-    /// The level-derived collision world currently in force.
+    /// The level's entity runtime.
     #[must_use]
-    pub fn collision_world(&self) -> CollisionWorld {
-        CollisionWorld {
-            walls: self.walls.clone(),
-            floor: self.floor.clone(),
-            water: self.water.clone(),
-            ceiling: self.ceiling.clone(),
-            ladders: self.ladders.clone(),
-            triggers: self.triggers.clone(),
-            interactables: self.interactables.clone(),
-            routes: self.routes.clone(),
-            doors: self.doors.clone(),
-            fixtures: self.fixtures.clone(),
-        }
+    pub const fn world(&self) -> &EntityWorld {
+        &self.world
+    }
+
+    /// The level's entity runtime, mutably.
+    pub const fn world_mut(&mut self) -> &mut EntityWorld {
+        &mut self.world
+    }
+
+    /// Replaces the authored spawn without rebuilding the collision world or
+    /// the entity runtime.
+    ///
+    /// Used by the `PLACES_SPAWN` developer override before play begins: the
+    /// player, the reset target and the volume baseline all move to the new
+    /// point, and nothing else about the level changes.
+    pub fn reset_spawn_point(&mut self, spawn_pos: Vec3, spawn_yaw: f32) {
+        self.spawn_position = spawn_pos;
+        self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
+        self.clear_run_state(spawn_pos, self.spawn_yaw, false);
+        self.world
+            .reseed_volumes(Vec3::new(spawn_pos.x, self.feet_y(), spawn_pos.z));
+        self.seed_routes_at_rest();
     }
 
     #[must_use]
@@ -699,15 +586,14 @@ impl Game {
     }
 
     /// Resets player position, orientation, collision walls, walkable floor,
-    /// ceilings, water, ladders, area triggers and interactables when loading a
-    /// level.
+    /// ceilings, water, ladders and the entity runtime when loading a level.
     ///
     /// The player spawns grounded when a walkable floor exists under the spawn
     /// point; outside every room a spawn settles on the global ground plane
     /// at its own height on the first update. Vertical velocity starts at zero,
     /// the jump and crouch latches are released, and the stance returns to
-    /// standing. A fresh level also clears every label, re-seeds trigger states
-    /// at the spawn and starts the run's reset counter at zero.
+    /// standing. A fresh level also starts the run's reset counter at zero and
+    /// re-seeds every trigger volume from the spawn position.
     pub fn reset_level(&mut self, spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) {
         self.walls = world.walls;
         self.collision_index = CollisionIndex::build(&self.walls);
@@ -715,43 +601,33 @@ impl Game {
         self.water = world.water;
         self.ceiling = world.ceiling;
         self.ladders = world.ladders;
-        self.triggers = world.triggers;
-        self.interactables = world.interactables;
-        self.routes = world.routes;
-        self.doors = world.doors;
-        self.door_colliders = self.doors.colliders();
-        self.fixtures = world.fixtures;
+        self.world = world.world;
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
-        self.label_visible = vec![false; self.interactables.len()];
         self.reset_count = 0;
         self.clear_run_state(spawn_pos, self.spawn_yaw, false);
-        self.seed_trigger_states(spawn_pos);
-        self.seed_entity_state();
+        self.world
+            .seed_volumes(Vec3::new(spawn_pos.x, self.feet_y(), spawn_pos.z));
+        self.seed_routes_at_rest();
     }
 
     /// Returns the player to the level's authored spawn without rebuilding the
     /// collision world.
     ///
     /// This is the `reset_to_start` action: ground, water, ladder, stance and
-    /// velocity state are reconciled to a clean standing spawn, trigger volumes
-    /// are re-armed from the spawn position (so nothing between the old and new
-    /// positions is swept), and keys held across the reset cannot fire again
+    /// velocity state are reconciled to a clean standing spawn, the entity
+    /// runtime re-seeds every door, route, timer, spawn group and volume from
+    /// the authored start, and keys held across the reset cannot fire again
     /// until released. Label visibility is preserved: it is a view toggle, not
     /// movement state.
     pub fn reset_to_spawn(&mut self) {
         self.clear_run_state(self.spawn_position, self.spawn_yaw, true);
-        self.seed_trigger_states(self.spawn_position);
-        // Routed entities return to their authored spawns and any
-        // `play_animation` override is cleared, so a reset is a coherent
-        // return to the authored start for the whole level. A
-        // `toggle_animation` scrub is retargeted to its rest end instead of
-        // dropped: a rigid prop has no locomotion state to fall back to.
-        self.seed_entity_state();
-        // Doors return to their authored start state too: a reset is a clean
-        // run, not a half-open house.
-        self.doors.reset();
-        self.publish_door_colliders();
+        self.world.reset_runtime();
+        self.world.seed_volumes(Vec3::new(
+            self.spawn_position.x,
+            self.feet_y(),
+            self.spawn_position.z,
+        ));
         self.reset_count = self.reset_count.saturating_add(1);
     }
 
@@ -794,185 +670,101 @@ impl Game {
         self.crouch_latched = suppress_held;
         self.interact_latched = suppress_held;
         self.interact_pressed = false;
-        self.bob_phase = 0.0;
         self.locomotion = LocomotionSnapshot::default();
         self.last_frame_time = Instant::now();
         self.delta_seconds = 0.0;
         self.sim_delta_seconds = 0.0;
     }
 
-    /// Seeds every trigger's runtime state from the player's feet at
-    /// `spawn_pos`.
-    ///
-    /// A trigger whose volume already contains the spawn starts *inside* it, so
-    /// the standard enter semantics apply: the player must leave and re-enter
-    /// before it fires. That is what stops a reset to a spawn inside a volume
-    /// from looping immediately.
-    fn seed_trigger_states(&mut self, spawn_pos: Vec3) {
-        let feet_y = self.feet_y;
-        self.trigger_states.clear();
-        self.trigger_states.reserve(self.triggers.len());
-        for trigger in self.triggers.triggers() {
-            self.trigger_states.push(TriggerState {
-                inside: trigger.contains(spawn_pos.x, spawn_pos.z, feet_y),
-                cooldown_remaining: 0.0,
-                fired_once: false,
-                pending: false,
-            });
-        }
-    }
-
-    /// Re-baselines every trigger's `inside` flag at the player's feet without
-    /// touching cooldowns, `once` latches or pending entries.
+    /// Re-baselines every volume's `inside` flag at the player's feet without
+    /// firing an edge.
     ///
     /// Used when the body's reference feet move without locomotion (the swim
-    /// stance animation): the volume the player is now in becomes the new
-    /// baseline, so the change itself is never reported as a swept entry. A
-    /// real trigger entry is still detected from the baseline at the frame's
-    /// start to the feet at its end.
+    /// stance animation) and after a level load: the volume the player is now
+    /// in becomes the new baseline, so the change itself is never reported as
+    /// a swept entry.
     fn reseed_trigger_inside(&mut self) {
-        let feet_y = self.feet_y;
-        let (x, z) = (self.player_position.x, self.player_position.z);
-        for (state, trigger) in self
-            .trigger_states
-            .iter_mut()
-            .zip(self.triggers.triggers().iter())
-        {
-            state.inside = trigger.contains(x, z, feet_y);
-        }
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        self.world.reseed_volumes(feet);
     }
 
-    /// Seeds every route's runtime state at its authored spawn, clears any
-    /// `play_animation` overrides and republishes each routed instance's live
-    /// anchor and bounds from its spawn (so a reset restores the authored
-    /// values rather than keeping a stale live offset).
-    fn seed_entity_state(&mut self) {
-        self.route_states.clear();
-        self.route_states.reserve(self.routes.len());
-        for route in self.routes.routes() {
-            self.route_states.push(route.new_state());
-        }
-        // A `play_animation` override is dropped so a reset is a coherent
-        // return to the authored start. A `toggle_animation` scrub is kept and
-        // re-targeted to its rest end: a rigid prop holds its last pose with
-        // no cue, so clearing it would leave a switch where its last press
-        // put it instead of at the authored start.
-        self.animation_overrides.retain_mut(|(_, cue)| {
-            if let PoseCue::Scrub { target, .. } = cue {
-                *target = 0.0;
-                true
-            } else {
-                false
-            }
-        });
-        self.sync_routed_interactables();
-        self.rebuild_entity_frames();
-    }
-
-    /// Rebuilds the per-frame entity handoff from the current route state.
-    ///
-    /// An interaction override wins over the route's own cue; an override that
-    /// names a routed instance is folded into that instance's frame, and one
-    /// that names a non-routed placed entity gets a cue-only frame.
-    fn rebuild_entity_frames(&mut self) {
-        self.entity_frames.clear();
-        for (route, state) in self.routes.routes().iter().zip(self.route_states.iter()) {
-            let cue = self
-                .animation_overrides
-                .iter()
-                .rev()
-                .find(|(id, _)| id == &route.instance_id)
-                .map_or_else(|| state.cue.clone(), |(_, cue)| cue.clone());
-            self.entity_frames.push(EntityFrame {
-                instance_id: route.instance_id.clone(),
-                transform: Some((state.position, state.yaw)),
-                cue,
-            });
-        }
-        for (id, cue) in &self.animation_overrides {
-            if self.routes.get(id).is_none() {
-                self.entity_frames.push(EntityFrame {
-                    instance_id: id.clone(),
-                    transform: None,
-                    cue: cue.clone(),
-                });
-            }
-        }
-    }
-
-    /// Advances every route and rebuilds the renderer handoff.
-    ///
-    /// Runs once per Playing frame, after the player's movement and triggers,
-    /// so an interaction or trigger that starts an animation takes effect on
-    /// the same frame's character pass.
-    fn update_entities(&mut self) {
-        if self.routes.is_empty() && self.animation_overrides.is_empty() {
-            return;
-        }
-        let delta = self.sim_delta_seconds;
-        let world = RouteWorld {
+    /// Re-seeds every route's state without advancing time.
+    fn seed_routes_at_rest(&mut self) {
+        let routes = RouteWorld {
             walls: &self.walls,
             floor: &self.floor,
             index: &self.collision_index,
         };
-        for (route, state) in self
-            .routes
-            .routes()
-            .iter()
-            .zip(self.route_states.iter_mut())
-        {
-            route.advance(state, delta, &world);
-        }
-        self.sync_routed_interactables();
-        self.rebuild_entity_frames();
+        self.world.update_entities(0.0, &routes);
     }
 
-    /// Republishes each routed entity's live anchor and bounds, so aiming and
-    /// floating labels follow a character that walked away from its spawn (and
-    /// turn with it).
-    ///
-    /// Values are fully derived from the live route state and the instance's
-    /// own size contract, so repeated frames never accumulate drift and a
-    /// reset — which re-seeds the route state — always restores the authored
-    /// values.
-    fn sync_routed_interactables(&mut self) {
-        for (route, state) in self.routes.routes().iter().zip(self.route_states.iter()) {
-            let Some(index) = self.interactables.index_of(&route.instance_id) else {
-                continue;
-            };
-            self.interactables
-                .set_live_pose(index, state.position, state.yaw.to_degrees());
+    /// Advances the entity runtime by one frame and applies its outcome.
+    fn update_world(&mut self, feet_from: Vec3) {
+        let delta = self.sim_delta_seconds;
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        let ctx = WorldContext {
+            delta_seconds: delta,
+            feet_from,
+            feet,
+            eye: self.player_position,
+            body_height: self.body_height(),
+            walls: &self.walls,
+            index: &self.collision_index,
+            floor: &self.floor,
+        };
+        self.world.update_volumes(ctx.feet_from, ctx.feet);
+        let tick = self.world.tick(&ctx);
+        self.last_tick = tick;
+        if tick.player_reset {
+            // `reset_to_start` ends the frame: the player is at the spawn and
+            // nothing else this frame may act on the teleported state.
+            self.reset_to_spawn();
+            return;
         }
+        let routes = RouteWorld {
+            walls: &self.walls,
+            floor: &self.floor,
+            index: &self.collision_index,
+        };
+        self.world.update_entities(delta, &routes);
+    }
+
+    /// The tick report of the last [`Game::update_world`], for diagnostics.
+    #[must_use]
+    pub const fn last_world_tick(&self) -> WorldTick {
+        self.last_tick
     }
 
     /// The per-frame entity handoff for the character renderer.
     #[must_use]
     pub fn entity_frames(&self) -> &[EntityFrame] {
-        &self.entity_frames
+        self.world.entity_frames()
     }
 
     /// The authored entity routes resident for this level.
     #[must_use]
     pub const fn routes(&self) -> &EntityRoutes {
-        &self.routes
+        self.world.routes()
     }
 
     /// One route's runtime state, for diagnostics and tests.
     #[must_use]
     pub fn route_state(&self, instance_id: &str) -> Option<&RouteState> {
-        self.routes
-            .index_of(instance_id)
-            .and_then(|index| self.route_states.get(index))
+        self.world.route_state(instance_id)
     }
 
     /// The live animation override on `instance_id`, if one is set.
     #[must_use]
     pub fn animation_override(&self, instance_id: &str) -> Option<&PoseCue> {
-        self.animation_overrides
-            .iter()
-            .rev()
-            .find(|(id, _)| id == instance_id)
-            .map(|(_, cue)| cue)
+        self.world.animation_override(instance_id)
     }
 
     /// Handles Escape key in gameplay / pause states.
@@ -1150,8 +942,7 @@ impl Game {
         }
 
         let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
-        self.update_triggers(trigger_origin);
-        self.update_entities();
+        self.update_world(trigger_origin);
     }
 
     /// One Playing frame: look, stance, interact latch, movement,
@@ -1437,10 +1228,10 @@ impl Game {
         nearest_target_indexed(
             self.player_position,
             self.view_direction(),
-            self.interactables.items(),
+            self.world.interactables().items(),
             &self.collision_index,
             &self.walls,
-            &self.door_colliders,
+            self.world.door_colliders(),
         )
     }
 
@@ -1469,445 +1260,118 @@ impl Game {
 
     /// Runs the interaction on the currently aimed-at instance, if any.
     ///
-    /// Returns `None` when nothing is in reach; otherwise the batch report for
-    /// the instance's types actions, with the instance itself as the implicit
-    /// `toggle_label` target.
+    /// The press becomes an `interact` event on the aimed entity; the entity's
+    /// own bindings decide what it does. Returns `None` when nothing is in
+    /// reach.
     pub fn dispatch_interaction(&mut self) -> Option<DispatchReport> {
-        let index = self.interaction_target()?;
-        let actions = self.interactables.get(index)?.actions.clone();
-        Some(self.dispatch_actions(&actions, Some(index)))
+        let target = self.interaction_target();
+        let report = self.world.dispatch_interaction(target)?;
+        if report.player_reset {
+            self.reset_to_spawn();
+        }
+        Some(report)
     }
 
-    /// Runs one ordered batch of map-authored actions through the single
-    /// dispatcher.
+    /// Runs one ordered batch of map-authored actions through the dispatcher.
     ///
-    /// The batch is bounded by [`crate::level::MAX_ACTIONS_PER_SOURCE`], and a
-    /// `reset_to_start` ends it: the remaining actions do not run, because the
-    /// player is now at the spawn and later effects must wait for a later
-    /// dispatch rather than execute against a teleported player. Actions the
-    /// engine does not implement are counted as `unsupported` instead of
-    /// failing silently (validation rejects them for loaded maps; direct
-    /// construction stays safe).
+    /// `actor` is the aiming-table index of the acting instance, exactly as
+    /// before the entity runtime landed: the world resolves it to the entity
+    /// that owns that target. Authored map wiring goes through events and
+    /// bindings; this direct entry point serves tests and developer tooling.
     pub fn dispatch_actions(
         &mut self,
         actions: &[ActionDef],
         actor: Option<usize>,
     ) -> DispatchReport {
-        let mut report = DispatchReport::default();
-        let mut frames_dirty = false;
-        for action in actions.iter().take(crate::level::MAX_ACTIONS_PER_SOURCE) {
-            match action {
-                ActionDef::ToggleLabel { target } => {
-                    // An explicit target must resolve on its own: only an
-                    // omitted target means the acting instance. Falling back
-                    // on a failed explicit target would toggle the wrong
-                    // instance (or silently no-op from a trigger).
-                    let resolved = match target.as_deref() {
-                        Some(id) => self.interactables.index_of(id.trim()),
-                        None => actor,
-                    };
-                    let Some(index) = resolved else {
-                        report.missing_targets = report.missing_targets.saturating_add(1);
-                        continue;
-                    };
-                    let Some(visible) = self.toggle_label(index) else {
-                        report.missing_targets = report.missing_targets.saturating_add(1);
-                        continue;
-                    };
-                    report.actions_run = report.actions_run.saturating_add(1);
-                    if visible {
-                        report.labels_shown = report.labels_shown.saturating_add(1);
-                    } else {
-                        report.labels_hidden = report.labels_hidden.saturating_add(1);
-                    }
-                }
-                ActionDef::ResetToStart => {
-                    self.reset_to_spawn();
-                    report.actions_run = report.actions_run.saturating_add(1);
-                    report.player_reset = true;
-                    // Safe ordering: the remainder of the batch is dropped
-                    // rather than run against the teleported player.
-                    return report;
-                }
-                ActionDef::PlayAnimation {
-                    target,
-                    clip,
-                    looped,
-                } => {
-                    // Same target rule as `toggle_label`: an omitted target is
-                    // the acting instance, an explicit target must resolve on
-                    // its own.
-                    let resolved = match target.as_deref() {
-                        Some(id) => self.interactables.index_of(id.trim()),
-                        None => actor,
-                    };
-                    let Some(index) = resolved else {
-                        report.missing_targets = report.missing_targets.saturating_add(1);
-                        continue;
-                    };
-                    let Some(instance_id) =
-                        self.interactables.get(index).map(|item| item.id.clone())
-                    else {
-                        report.missing_targets = report.missing_targets.saturating_add(1);
-                        continue;
-                    };
-                    let Some(name) = clip
-                        .as_deref()
-                        .map(str::trim)
-                        .filter(|name| !name.is_empty())
-                    else {
-                        report.unsupported = report.unsupported.saturating_add(1);
-                        continue;
-                    };
-                    let cue = PoseCue::Clip {
-                        name: name.to_string(),
-                        once: !looped,
-                        paused: false,
-                    };
-                    if let Some(entry) = self
-                        .animation_overrides
-                        .iter_mut()
-                        .find(|(id, _)| id == &instance_id)
-                    {
-                        entry.1 = cue;
-                    } else {
-                        self.animation_overrides.push((instance_id, cue));
-                    }
-                    report.actions_run = report.actions_run.saturating_add(1);
-                    report.animations_started = report.animations_started.saturating_add(1);
-                    frames_dirty = true;
-                }
-                ActionDef::ToggleAnimation { target, clip } => {
-                    if self.stage_toggle_animation(
-                        target.as_deref(),
-                        clip.as_deref(),
-                        actor,
-                        &mut report,
-                    ) {
-                        frames_dirty = true;
-                    }
-                }
-                ActionDef::OpenDoor { .. }
-                | ActionDef::CloseDoor { .. }
-                | ActionDef::Toggle { .. } => {
-                    self.dispatch_door_or_light(action, &mut report);
-                }
-                ActionDef::PlayAudio { .. } => {
-                    report.unsupported = report.unsupported.saturating_add(1);
-                }
-            }
-        }
-        if frames_dirty {
-            self.rebuild_entity_frames();
+        let handle = actor
+            .and_then(|index| self.world.interactables().get(index))
+            .and_then(|item| self.world.handle_of(&item.id));
+        let report = self.world.dispatch_actions(actions, handle);
+        if report.player_reset {
+            self.reset_to_spawn();
         }
         report
     }
 
-    /// Runs one door/light action and folds the outcome into `report`.
-    fn dispatch_door_or_light(&mut self, action: &ActionDef, report: &mut DispatchReport) {
-        let (target, request) = match action {
-            ActionDef::OpenDoor { target } => (target.trim(), DoorRequest::Open),
-            ActionDef::CloseDoor { target } => (target.trim(), DoorRequest::Close),
-            ActionDef::Toggle { target } => (target.trim(), DoorRequest::Toggle),
-            ActionDef::ToggleLabel { .. }
-            | ActionDef::ResetToStart
-            | ActionDef::PlayAnimation { .. }
-            | ActionDef::ToggleAnimation { .. }
-            | ActionDef::PlayAudio { .. } => return,
-        };
-        if let Some(index) = self.doors.index_of(target) {
-            let changed = match request {
-                DoorRequest::Open => self.doors.request_open(target),
-                DoorRequest::Close => self.doors.request_close(target),
-                DoorRequest::Toggle => self.doors.get_mut(index).is_some_and(DoorRuntime::toggle),
-            };
-            if changed {
-                report.actions_run = report.actions_run.saturating_add(1);
-                report.doors_acted = report.doors_acted.saturating_add(1);
-            }
-            return;
-        }
-        // A `toggle` may instead name a switchable fixture; open/close may not.
-        if request == DoorRequest::Toggle && self.toggle_fixture(target) {
-            report.actions_run = report.actions_run.saturating_add(1);
-            report.lights_toggled = report.lights_toggled.saturating_add(1);
-            return;
-        }
-        report.missing_targets = report.missing_targets.saturating_add(1);
-    }
-
-    /// Flips one switchable fixture, returning whether it changed.
-    fn toggle_fixture(&mut self, id: &str) -> bool {
-        let Some(fixture) = self
-            .fixtures
-            .iter_mut()
-            .find(|fixture| fixture.id == id && fixture.switchable)
-        else {
-            return false;
-        };
-        fixture.enabled = !fixture.enabled;
-        fixture.dirty = true;
-        true
-    }
-
-    /// Every switchable fixture's current state, in fixture order.
-    ///
-    /// Used after a level commit or a graphics rebuild: the renderer's bake is
-    /// rebuilt from the authored states, so the run's live states are pushed
-    /// again to keep a rebuild from silently turning a switched-off light back
-    /// on.
+    /// Every switchable fixture's current state, in fixture order, for a
+    /// renderer rebuild after a graphics change.
     #[must_use]
     pub fn light_states(&self) -> Vec<(usize, bool)> {
-        self.fixtures
-            .iter()
-            .enumerate()
-            .filter(|(_, fixture)| fixture.switchable)
-            .map(|(index, fixture)| (index, fixture.enabled))
-            .collect()
+        self.world.light_states()
     }
 
     /// Drains the fixture switches whose state changed since the last call.
-    ///
-    /// The frame loop hands these to the renderer, which owns the lightmap
-    /// refill and the fixture emission. An empty result (the common case) is a
-    /// `Vec::new` with no allocation per frame.
-    #[must_use]
     pub fn take_light_toggles(&mut self) -> Vec<(usize, bool)> {
-        let mut toggles = Vec::new();
-        for (index, fixture) in self.fixtures.iter_mut().enumerate() {
-            if fixture.dirty {
-                fixture.dirty = false;
-                toggles.push((index, fixture.enabled));
-            }
-        }
-        toggles
-    }
-
-    /// The switch state of every fixture, in fixture order.
-    #[must_use]
-    pub fn fixtures(&self) -> &[FixtureSwitch] {
-        &self.fixtures
-    }
-
-    /// Stages one `toggle_animation` action and returns whether it cued an
-    /// instance (so the caller rebuilds the entity frames).
-    ///
-    /// Same target rule as `toggle_label`: an omitted target is the acting
-    /// instance, an explicit target must resolve on its own. The scrub
-    /// direction flips from wherever the instance is now aiming, so a press
-    /// mid-movement reverses instead of restarting; the first press on an
-    /// instance moves to the far end. State stays on the instance's own
-    /// override entry, so two switches never share a target.
-    fn stage_toggle_animation(
-        &mut self,
-        target: Option<&str>,
-        clip: Option<&str>,
-        actor: Option<usize>,
-        report: &mut DispatchReport,
-    ) -> bool {
-        let resolved = match target {
-            Some(id) => self.interactables.index_of(id.trim()),
-            None => actor,
-        };
-        let Some(index) = resolved else {
-            report.missing_targets = report.missing_targets.saturating_add(1);
-            return false;
-        };
-        let Some(instance_id) = self.interactables.get(index).map(|item| item.id.clone()) else {
-            report.missing_targets = report.missing_targets.saturating_add(1);
-            return false;
-        };
-        let Some(name) = clip.map(str::trim).filter(|name| !name.is_empty()) else {
-            report.unsupported = report.unsupported.saturating_add(1);
-            return false;
-        };
-        let current = self
-            .animation_overrides
-            .iter()
-            .rev()
-            .find(|(id, _)| id == &instance_id)
-            .and_then(|(_, cue)| match cue {
-                PoseCue::Scrub { target, .. } => Some(*target),
-                PoseCue::Idle | PoseCue::Walk { .. } | PoseCue::Clip { .. } => None,
-            });
-        let next = match current {
-            Some(target) if target >= 0.5 => 0.0,
-            Some(_) | None => 1.0,
-        };
-        let cue = PoseCue::Scrub {
-            name: name.to_string(),
-            target: next,
-        };
-        if let Some(entry) = self
-            .animation_overrides
-            .iter_mut()
-            .rev()
-            .find(|(id, _)| id == &instance_id)
-        {
-            entry.1 = cue;
-        } else {
-            self.animation_overrides.push((instance_id, cue));
-        }
-        report.actions_run = report.actions_run.saturating_add(1);
-        report.animations_started = report.animations_started.saturating_add(1);
-        true
-    }
-
-    /// Flips one instance's label, returning the new visibility.
-    ///
-    /// State is indexed by placed instance, so two copies of the same model
-    /// toggle independently.
-    fn toggle_label(&mut self, index: usize) -> Option<bool> {
-        let visible = self.label_visible.get_mut(index)?;
-        *visible = !*visible;
-        Some(*visible)
+        self.world.take_light_toggles()
     }
 
     /// True when `index`'s floating label is currently shown.
     #[must_use]
     pub fn is_label_visible(&self, index: usize) -> bool {
-        self.label_visible.get(index).copied().unwrap_or(false)
+        self.world.is_label_visible(index)
     }
 
     /// The interactable instances resident for this level.
     #[must_use]
     pub const fn interactables(&self) -> &Interactables {
-        &self.interactables
-    }
-
-    /// The area triggers resident for this level, in authored order.
-    #[must_use]
-    pub const fn triggers(&self) -> &AreaTriggers {
-        &self.triggers
+        self.world.interactables()
     }
 
     /// Every door resident for this level, in authored order.
     #[must_use]
-    pub const fn doors(&self) -> &Doors {
-        &self.doors
+    pub const fn doors(&self) -> &crate::door::Doors {
+        self.world.doors()
+    }
+
+    /// The level's entity runtime.
+    #[must_use]
+    pub const fn entities(&self) -> &EntityWorld {
+        &self.world
+    }
+
+    /// The level's entity runtime, mutably.
+    pub const fn entities_mut(&mut self) -> &mut EntityWorld {
+        &mut self.world
+    }
+
+    /// Enables or disables one authored water volume's sampling.
+    ///
+    /// The baked surface keeps drawing; a disabled volume simply stops
+    /// answering the controller's water queries.
+    pub fn set_water_enabled(&mut self, index: usize, enabled: bool) {
+        let _ = self.water.set_enabled(index, enabled);
     }
 
     /// The door leaf colliders at the current angles.
     #[must_use]
     pub fn door_colliders(&self) -> &[DoorCollider] {
-        &self.door_colliders
+        self.world.door_colliders()
     }
 
-    /// Republishes the door colliders after a pose change.
-    fn publish_door_colliders(&mut self) {
-        if self.door_colliders.len() != self.doors.len() {
-            self.door_colliders = self.doors.colliders();
-            return;
-        }
-        for (slot, door) in self.door_colliders.iter_mut().zip(self.doors.iter()) {
-            *slot = door.collider();
-        }
-    }
-
-    /// Republishes every door target's aim bound, anchor and phase prompt.
-    ///
-    /// Called whenever a leaf moved; a level with only resting doors pays
-    /// nothing, and the entries the player can aim at always match the leaf on
-    /// screen.
-    fn sync_door_interactables(&mut self) {
-        if self.doors.is_empty() {
-            return;
-        }
-        for index in 0..self.doors.len() {
-            let (Some(collider), Some(door)) =
-                (self.door_colliders.get(index), self.doors.get(index))
-            else {
-                continue;
-            };
-            let phase = door.phase();
-            let prompt = door.def.prompt.clone();
-            self.interactables
-                .sync_door(index, collider, phase, prompt.as_deref());
-        }
-    }
-
-    /// True when a candidate leaf pose would overlap the player's body.
-    ///
-    /// Deliberately conservative: a leaf that would touch the body at the new
-    /// angle stops instead of pushing the player. That is the whole anti-trap
-    /// rule — the collider never advances into a body, so the player can never
-    /// be launched or wedged by a closing door.
-    fn door_pose_hits_player(
-        candidate: &DoorCollider,
-        player: Vec3,
-        feet: f32,
-        body_height: f32,
-    ) -> bool {
-        candidate.overlaps_body_y(feet, body_height)
-            && candidate.overlaps_disc(player.x, player.z, PLAYER_RADIUS)
-    }
-
-    /// True when a candidate leaf pose enters static collision.
-    ///
-    /// Both faces of the leaf are sampled at three heights along three stations
-    /// (hinge, centre, latch). The samples sit on the leaf's own surfaces, so a
-    /// resting leaf flush against a reveal does not self-block, while a leaf
-    /// swinging into a wall, jamb or piece of furniture stops before it
-    /// intersects.
-    fn door_pose_hits_static(
-        index: &CollisionIndex,
-        walls: &[WallAabb],
-        candidate: &DoorCollider,
-    ) -> bool {
-        let low = 0.05_f32
-            .min(candidate.height * 0.25)
-            .mul_add(1.0, candidate.hinge_y);
-        let high = (candidate.height - 0.05)
-            .max(0.0)
-            .mul_add(1.0, candidate.hinge_y);
-        let middle = candidate.height.mul_add(0.5, candidate.hinge_y);
-        for t in [0.0_f32, 0.5, 1.0] {
-            for side in [-1.0_f32, 1.0] {
-                let (px, pz) = candidate.point_at(t, side);
-                for y in [low, middle, high] {
-                    let mut blocked = false;
-                    index.for_each_point(px, pz, walls, |wall| {
-                        if blocked {
-                            return;
-                        }
-                        if y > wall.min_y + STEP_EPS
-                            && y < wall.max_y - STEP_EPS
-                            && px > wall.min_x
-                            && px < wall.max_x
-                            && pz > wall.min_z
-                            && pz < wall.max_z
-                        {
-                            blocked = true;
-                        }
-                    });
-                    if blocked {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
+    /// The number of authored trigger volumes.
+    #[must_use]
+    pub fn volume_count(&self) -> usize {
+        self.world.components().volumes.len()
     }
 
     /// Advances every moving door by one frame and republishes its collider.
     fn update_doors(&mut self, delta: f32) {
-        if !self.doors.any_moving() {
-            return;
-        }
-        let player = self.player_position;
-        let feet = self.feet_y();
-        let body = self.body_height();
-        let index = &self.collision_index;
-        let walls = &self.walls;
-        let doors = &mut self.doors;
-        let moved = doors.advance(delta, |_, candidate| {
-            Self::door_pose_hits_player(candidate, player, feet, body)
-                || Self::door_pose_hits_static(index, walls, candidate)
-        });
-        if moved > 0 {
-            self.publish_door_colliders();
-            self.sync_door_interactables();
-        }
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        let ctx = WorldContext {
+            delta_seconds: delta,
+            feet_from: feet,
+            feet,
+            eye: self.player_position,
+            body_height: self.body_height(),
+            walls: &self.walls,
+            index: &self.collision_index,
+            floor: &self.floor,
+        };
+        let _ = self.world.update_doors(&ctx);
     }
 
     /// The collision world's boxes, for presentation-side occlusion tests.
@@ -1916,91 +1380,7 @@ impl Game {
         &self.walls
     }
 
-    /// Runs this frame's area triggers from the feet position at the frame's
-    /// start to the resolved feet position now.
-    ///
-    /// Each trigger fires once per entry: the player must leave the volume to
-    /// re-arm, `cooldown_seconds` bounds repeats and `once` latches per run.
-    /// The swept segment catches a fast fall through a thin band. At most one
-    /// trigger batch runs per frame, so a reset can never chain into a second
-    /// volume in the same frame; any other trigger whose entry (or swept
-    /// crossing) happened this frame is marked pending and dispatched on a
-    /// later frame, so a one-frame crossing of a later volume is deferred
-    /// rather than lost.
-    fn update_triggers(&mut self, origin: Vec3) {
-        if self.triggers.is_empty() {
-            return;
-        }
-        let delta = self.sim_delta_seconds;
-        let to = Vec3::new(
-            self.player_position.x,
-            self.feet_y(),
-            self.player_position.z,
-        );
-        for state in &mut self.trigger_states {
-            state.cooldown_remaining = (state.cooldown_remaining - delta).max(0.0);
-        }
-        let mut dispatched = false;
-        for index in 0..self.triggers.len() {
-            let Some(trigger) = self.triggers.get(index) else {
-                continue;
-            };
-            let inside = trigger.contains(to.x, to.z, to.y);
-            let (bottom_y, top_y) = trigger.y_bounds();
-            let swept = segment_overlaps_aabb(
-                origin,
-                to,
-                [trigger.x0, bottom_y, trigger.z0],
-                [trigger.x1, top_y, trigger.z1],
-            );
-            let cooldown_seconds = trigger.cooldown_seconds;
-            let once = trigger.once;
-            // Copy the previous state so the immutable borrow ends before the
-            // dispatch; `TriggerState` is `Copy`.
-            let Some(previous) = self.trigger_states.get(index).copied() else {
-                continue;
-            };
-            let entered = !previous.inside && (inside || swept);
-            let ready = previous.cooldown_remaining <= 0.0 && !(once && previous.fired_once);
-            let will_fire = !dispatched && ready && (entered || previous.pending);
-            // The batch is cloned only on the frames it actually runs.
-            let actions = if will_fire {
-                trigger.actions.clone()
-            } else {
-                Vec::new()
-            };
-            let fired = {
-                let Some(state) = self.trigger_states.get_mut(index) else {
-                    continue;
-                };
-                state.inside = inside;
-                if entered {
-                    // The entry is remembered: if another trigger already ran
-                    // this frame, this one dispatches on the next one.
-                    state.pending = true;
-                }
-                if will_fire {
-                    state.pending = false;
-                    state.cooldown_remaining = cooldown_seconds;
-                    state.fired_once = true;
-                    true
-                } else {
-                    false
-                }
-            };
-            if fired {
-                dispatched = true;
-                let report = self.dispatch_actions(&actions, None);
-                if report.player_reset {
-                    // The reset re-seeded every trigger state (clearing pending
-                    // flags) from the spawn; nothing else may run this frame.
-                    return;
-                }
-            }
-        }
-    }
-
-    /// Toggles the requested stance.
+    /// Toggles the requested stance.    /// Toggles the requested stance.
     ///
     /// The target stance owns the collision body immediately: crouching
     /// shrinks the body on the press frame (always safe), and standing is
@@ -2031,7 +1411,7 @@ impl Game {
             &self.walls,
         );
         let door_underside = lowest_door_underside(
-            &self.door_colliders,
+            self.world.door_colliders(),
             self.player_position.x,
             self.player_position.z,
             PLAYER_RADIUS,
@@ -2220,7 +1600,7 @@ impl Game {
                 foot_y,
                 body_height,
                 &self.walls,
-                &self.door_colliders,
+                self.world.door_colliders(),
             );
             // A depenetration deeper than the body radius is a teleport (the
             // centre was inside a box, or several boxes pushed at once): refuse

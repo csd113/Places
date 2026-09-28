@@ -1173,6 +1173,213 @@ fn rejects_a_count_larger_than_the_buffer_can_hold() {
     );
 }
 
+// ------------------------------------------------- accessor view bounds (AUD-002)
+
+/// Fixture binary for the accessor view-bounds tests: floats `0.0..=11.0`,
+/// little-endian, exactly 48 bytes.
+fn accessor_fixture_binary() -> Vec<u8> {
+    [
+        0.0f32, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0,
+    ]
+    .iter()
+    .flat_map(|value| value.to_le_bytes())
+    .collect()
+}
+
+/// A document with one VEC3 float accessor over bufferView 0.
+fn vec3_accessor_document(
+    view_offset: usize,
+    view_length: usize,
+    accessor_offset: usize,
+    count: usize,
+    stride: Option<usize>,
+) -> serde_json::Value {
+    let mut view = serde_json::json!({
+        "buffer": 0,
+        "byteOffset": view_offset,
+        "byteLength": view_length,
+    });
+    if let Some(stride) = stride {
+        view["byteStride"] = serde_json::json!(stride);
+    }
+    serde_json::json!({
+        "bufferViews": [view],
+        "accessors": [{
+            "bufferView": 0,
+            "componentType": COMPONENT_FLOAT,
+            "count": count,
+            "type": "VEC3",
+            "byteOffset": accessor_offset,
+        }],
+    })
+}
+
+#[test]
+fn accessor_data_accepts_a_nonzero_offset_that_ends_at_the_view_end() {
+    // AUD-002 case A: the 48-byte view holds three VEC3 float elements
+    // starting at byte 12; the last element ends exactly at the view end, so
+    // the file is valid and must decode.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 48, 12, 3, None);
+    let values =
+        read_vec(&json, &binary, 0, 3).expect("an accessor that ends inside its view is valid");
+    assert_eq!(
+        values,
+        vec![[3.0, 4.0, 5.0], [6.0, 7.0, 8.0], [9.0, 10.0, 11.0]]
+    );
+}
+
+#[test]
+fn accessor_data_rejects_an_element_that_crosses_its_view() {
+    // AUD-002 case B: the view declares only 36 bytes, so the accessor's last
+    // element would read adjacent binary data. The binary continues to 48
+    // bytes, but that must not extend the view.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 36, 12, 3, None);
+    let error = read_vec(&json, &binary, 0, 3)
+        .expect_err("an accessor that runs past its bufferView must fail");
+    assert!(
+        error.0.contains("bufferView") || error.0.contains("too small"),
+        "{}",
+        error.0
+    );
+}
+
+#[test]
+fn accessor_data_accepts_a_nonzero_view_offset_with_an_exact_end() {
+    // Fixture 3: the view starts at byte 12 and ends exactly at the end of
+    // the 48-byte binary chunk.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(12, 36, 0, 3, None);
+    let values = read_vec(&json, &binary, 0, 3).expect("view_end == binary.len() is valid");
+    assert_eq!(
+        values,
+        vec![[3.0, 4.0, 5.0], [6.0, 7.0, 8.0], [9.0, 10.0, 11.0]]
+    );
+}
+
+#[test]
+fn accessor_data_decodes_valid_interleaving() {
+    // Fixture 4: VEC3 floats interleaved with one padding float per element,
+    // i.e. a 16-byte stride over 12-byte elements.
+    let binary: Vec<u8> = [
+        1.0f32, 2.0, 3.0, 0.0, 4.0, 5.0, 6.0, 0.0, 7.0, 8.0, 9.0, 0.0,
+    ]
+    .iter()
+    .flat_map(|value| value.to_le_bytes())
+    .collect();
+    let json = vec3_accessor_document(0, 48, 0, 3, Some(16));
+    let values = read_vec(&json, &binary, 0, 3).expect("interleaved VEC3 must decode");
+    assert_eq!(
+        values,
+        vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    );
+}
+
+#[test]
+fn accessor_data_rejects_a_stride_smaller_than_the_element() {
+    // Fixture 5: an 8-byte stride cannot hold a 12-byte VEC3 float element.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 36, 0, 3, Some(8));
+    let error = read_vec(&json, &binary, 0, 3).expect_err("an undersized byteStride must fail");
+    assert!(error.0.contains("byteStride"), "{}", error.0);
+}
+
+#[test]
+fn accessor_data_rejects_a_stride_that_is_not_a_multiple_of_four() {
+    // Fixture 5: 18 bytes is large enough for a VEC3 element but breaks
+    // glTF's 4-byte stride rule.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 48, 0, 3, Some(18));
+    let error =
+        read_vec(&json, &binary, 0, 3).expect_err("a non-multiple-of-4 byteStride must fail");
+    assert!(error.0.contains("byteStride"), "{}", error.0);
+}
+
+#[test]
+fn accessor_data_rejects_a_view_that_extends_past_the_binary() {
+    // Fixture 6: the view claims bytes 4..52 of a 48-byte binary chunk.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(4, 48, 0, 3, None);
+    let error = read_vec(&json, &binary, 0, 3).expect_err("a truncated view must fail");
+    assert!(error.0.contains("truncated"), "{}", error.0);
+}
+
+#[test]
+fn accessor_data_rejects_overflowing_metadata_without_panicking() {
+    // Fixture 7: a count whose element span overflows `usize` and a byte
+    // offset that cannot be added to the element span.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 48, 0, usize::MAX, None);
+    let error = read_vec(&json, &binary, 0, 3).expect_err("an overflowing count must fail");
+    assert!(error.0.contains("overflows"), "{}", error.0);
+
+    let json = vec3_accessor_document(0, 48, usize::MAX, 3, None);
+    let error = read_vec(&json, &binary, 0, 3).expect_err("an overflowing byte offset must fail");
+    assert!(error.0.contains("overflows"), "{}", error.0);
+}
+
+#[test]
+fn accessor_data_decodes_a_mat4_with_a_nonzero_offset_and_exact_end() {
+    // Fixture 8: the skin inverse-bind layout. The view starts four bytes
+    // before the matrix, the accessor skips a further four bytes and reads one
+    // 64-byte MAT4, and the view ends exactly at the binary end.
+    let matrix: [f32; 16] = [
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+    ];
+    let mut binary = vec![0xAA_u8; 8];
+    binary.extend(matrix.iter().flat_map(|value| value.to_le_bytes()));
+    binary.extend_from_slice(&[0xBB_u8; 4]);
+    let json = serde_json::json!({
+        "bufferViews": [{"buffer": 0, "byteOffset": 4, "byteLength": 72}],
+        "accessors": [{
+            "bufferView": 0,
+            "componentType": COMPONENT_FLOAT,
+            "count": 1,
+            "type": "MAT4",
+            "byteOffset": 4,
+        }],
+    });
+    let values = read_vec(&json, &binary, 0, 16).expect("a MAT4 with a nonzero offset must decode");
+    assert_eq!(values, vec![matrix.to_vec()]);
+}
+
+#[test]
+fn accessor_data_rejects_a_zero_count() {
+    // Fixture 9: glTF accessors hold at least one element; an empty accessor
+    // used to be accepted as an empty tuple list.
+    let binary = accessor_fixture_binary();
+    let json = vec3_accessor_document(0, 48, 0, 0, None);
+    let error = read_vec(&json, &binary, 0, 3).expect_err("a zero count must fail");
+    assert!(error.0.contains("zero"), "{}", error.0);
+}
+
+#[test]
+fn accessor_data_rejects_negative_byte_fields() {
+    // glTF byte offsets and strides are unsigned. A present negative value is
+    // malformed and must fail instead of being read as an absent field (which
+    // would decode the start of the view) or as a negative index.
+    let binary = accessor_fixture_binary();
+
+    let mut view_offset = vec3_accessor_document(0, 48, 0, 3, None);
+    view_offset["bufferViews"][0]["byteOffset"] = serde_json::json!(-4);
+    let error = read_vec(&view_offset, &binary, 0, 3)
+        .expect_err("a negative bufferView byteOffset must be rejected");
+    assert!(error.0.contains("non-negative"), "{}", error.0);
+
+    let mut accessor_offset = vec3_accessor_document(0, 48, 0, 3, None);
+    accessor_offset["accessors"][0]["byteOffset"] = serde_json::json!(-12);
+    let error = read_vec(&accessor_offset, &binary, 0, 3)
+        .expect_err("a negative accessor byteOffset must be rejected");
+    assert!(error.0.contains("non-negative"), "{}", error.0);
+
+    let mut stride = vec3_accessor_document(0, 48, 0, 3, Some(12));
+    stride["bufferViews"][0]["byteStride"] = serde_json::json!(-12);
+    let error =
+        read_vec(&stride, &binary, 0, 3).expect_err("a negative byteStride must be rejected");
+    assert!(error.0.contains("non-negative"), "{}", error.0);
+}
+
 #[test]
 fn rejects_truncated_and_oversized_containers() {
     let mut truncated = minimal_triangle_glb();

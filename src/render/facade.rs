@@ -46,6 +46,47 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Builds a window-free renderer for the offline probe capture.
+    ///
+    /// Used only by `places-compile`: the player always owns a window. The
+    /// returned renderer can install a prepared world, capture its reflection
+    /// probes and read them back; it never presents.
+    ///
+    /// # Errors
+    ///
+    /// Returns the backend's initialization message when no native adapter or
+    /// device can be created.
+    pub fn new_headless(drawable: DrawableSize) -> Result<Self, String> {
+        WgpuRenderer::new_headless(drawable).map(|renderer| Self { renderer })
+    }
+
+    /// Re-captures the resident world's reflection probes.
+    ///
+    /// The offline compiler calls this after installation, and again after
+    /// changing the reflection quality, so both packaged face sizes are the
+    /// proven capture result.
+    pub fn capture_reflection_probes(&mut self) {
+        self.renderer.capture_reflection_probes();
+    }
+
+    /// Recreates the probe targets at `quality` and re-captures them.
+    pub fn reprepare_reflection_probes(&mut self, quality: ReflectionQuality) {
+        self.renderer.reprepare_reflection_probes(quality);
+    }
+
+    /// Reads the resident probe cubemaps back as RGBA8 base faces.
+    ///
+    /// The compiler turns each readback into the packaged roughness mip chain
+    /// (`ProbeFaceReadback::packaged_mips`); the resident texture is sampled
+    /// at level 0 until such a chain is uploaded back into it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a face buffer cannot be mapped or read.
+    pub fn read_back_probe_faces(&mut self) -> Result<Vec<super::ProbeFaceReadback>, String> {
+        self.renderer.read_back_probe_faces()
+    }
+
     /// Applies sampler/post gates without rebuilding the world.
     pub fn apply_frame_graphics(&mut self) -> bool {
         self.renderer.apply_frame_graphics()
@@ -73,6 +114,29 @@ impl Renderer {
     ) {
         self.renderer
             .install_prepared(loaded, build, assets, characters, preserve_playback);
+    }
+
+    /// Installs a complete decoded package variant whose reflection probes
+    /// were captured by the compiler.
+    ///
+    /// The player path: packaged probes are uploaded and never baked.
+    pub fn install_prepared_precompiled(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: std::sync::Arc<super::LevelBuild>,
+        assets: crate::props::PropAssets,
+        characters: CharacterScene,
+        preserve_playback: bool,
+        probes: crate::package::world::ProbeCaptures,
+    ) {
+        self.renderer.install_prepared_precompiled(
+            loaded,
+            build,
+            assets,
+            characters,
+            preserve_playback,
+            probes,
+        );
     }
 
     /// Advances bounded GPU preparation; true only once the whole world is installed.
@@ -192,6 +256,66 @@ impl Renderer {
         self.renderer.update_dynamic(delta_seconds)
     }
 
+    /// Spawns one runtime entity's model as a dynamic object.
+    ///
+    /// `key` is the engine's stable runtime token; spawning a live key replaces
+    /// the previous object. `model` is a catalogue registry id (such as
+    /// `core:crate`) or a direct model path. Returns `false` when the model
+    /// cannot be resolved or the scene is full; an unresolvable model is
+    /// reported once per model path.
+    pub fn spawn_runtime_model(
+        &mut self,
+        key: u64,
+        model: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> bool {
+        self.renderer
+            .spawn_runtime_model(key, model, position, yaw_degrees, scale)
+    }
+
+    /// Despawns the runtime object a key spawned; returns whether it was live.
+    ///
+    /// The key map is cleared with the neutral dynamic scene by a level
+    /// change or a demonstration respawn, so a stale key never resolves to an
+    /// object of another install.
+    pub fn despawn_runtime_model(&mut self, key: u64) -> bool {
+        self.renderer.despawn_runtime_model(key)
+    }
+
+    /// Moves a live runtime object; returns whether it was live.
+    ///
+    /// The object keeps its mesh, scale and material. The write reaches the
+    /// GPU through [`Self::update_dynamic`]'s sync, so it forces no geometry
+    /// re-upload.
+    pub fn set_runtime_transform(
+        &mut self,
+        key: u64,
+        position: [f32; 3],
+        yaw_degrees: f32,
+    ) -> bool {
+        self.renderer
+            .set_runtime_transform(key, position, yaw_degrees)
+    }
+
+    /// Selects the object's emission scale (the runtime material-variant
+    /// effect).
+    ///
+    /// The scale multiplies every primitive emission the object draws, so
+    /// `0.0` switches its emission off. Returns whether the key held a live
+    /// object and the scale was accepted.
+    pub fn set_runtime_emission(&mut self, key: u64, scale: f32) -> bool {
+        self.renderer.set_runtime_emission(key, scale)
+    }
+
+    /// Live runtime-spawned object count (spawned-object budget
+    /// diagnostics/tests).
+    #[must_use]
+    pub fn runtime_spawn_count(&self) -> usize {
+        self.renderer.runtime_spawn_count()
+    }
+
     /// Republishes every door leaf's angle from the gameplay state.
     ///
     /// The drawn slab and the physical collider read the same door angle, so
@@ -230,6 +354,11 @@ impl Renderer {
         self.renderer.set_level_effects(level)
     }
 
+    /// Enables or disables one authored effect emitter at runtime.
+    pub fn set_effect_enabled(&mut self, authored_index: usize, enabled: bool) -> bool {
+        self.renderer.set_effect_enabled(authored_index, enabled)
+    }
+
     /// Advances every animated character's pose and re-uploads the ones that
     /// moved.
     ///
@@ -243,7 +372,7 @@ impl Renderer {
         delta_seconds: f32,
         locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
-    ) -> usize {
+    ) -> crate::render::CharacterUpdate {
         self.renderer
             .update_characters(delta_seconds, locomotion, frames)
     }

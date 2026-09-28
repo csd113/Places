@@ -21,7 +21,10 @@ The checks here are the tooling half of the asset architecture:
   and the engine regression fixtures in ``tests/fixtures/levels/`` only
   reference ids the catalog declares, and their optional ``ceiling_lights[]``
   pool/emission fields, ``ceiling_lights[].enabled`` switch and
-  ``props[].lights`` sources obey the documented shapes, dimensions and ranges.
+  ``props[].lights`` sources obey the documented shapes, dimensions and ranges;
+* the v3 entity layer: instance ids and typed components, event bindings,
+  conditions and actions with resolvable capability-fit targets, trigger
+  volumes, timers, sequences and spawn templates/points/groups.
 
 Run it from the repository root::
 
@@ -72,38 +75,105 @@ MAX_LIGHT_INTENSITY = 8.0
 MAX_EMISSION_INTENSITY = 8.0
 
 # Map-authored actions: the closed set the engine parses, and the subset it
-# implements. The reserved tags are rejected by name, not silently ignored.
+# implements. The reserved/unimplemented tags are rejected by name, not
+# silently ignored. Audio (`play_sound`/`stop_sound`) has no subsystem yet, so
+# it is parsed but unimplemented; there is no `play_audio` tag at all.
 ACTION_TAGS = (
-    "toggle_label",
-    "reset_to_start",
-    "play_animation",
-    "toggle_animation",
-    "play_audio",
     "open",
     "close",
     "toggle",
+    "enable",
+    "disable",
+    "set_light",
+    "lock",
+    "unlock",
+    "play_animation",
+    "toggle_animation",
+    "play_sound",
+    "stop_sound",
+    "change_material",
+    "move_object",
+    "set_state",
+    "toggle_label",
+    "start_sequence",
+    "stop_sequence",
+    "start_timer",
+    "stop_timer",
+    "spawn_entity",
+    "despawn_entity",
+    "reset_to_start",
 )
-IMPLEMENTED_ACTIONS = (
-    "toggle_label",
-    "reset_to_start",
-    "play_animation",
-    "toggle_animation",
-    "open",
-    "close",
-    "toggle",
+IMPLEMENTED_ACTIONS = tuple(
+    tag for tag in ACTION_TAGS if tag not in ("play_sound", "stop_sound")
+)
+
+# Typed components, event kinds and condition checks the runtime defines
+# (src/level.rs).
+COMPONENT_TAGS = (
+    "interactable",
+    "animation",
+    "audio",
+    "light",
+    "material",
+    "state",
+    "lifetime",
+    "steam",
+    "water",
+    "nav_agent",
+    "nav_obstacle",
+)
+EVENT_KINDS = (
+    "interact",
+    "enter_volume",
+    "exit_volume",
+    "timer",
+    "object_state",
+    "sequence_complete",
+    "spawn",
+    "animation_complete",
+    "ai_state",
+    "caught",
+)
+CONDITION_CHECKS = (
+    "state",
+    "enabled",
+    "disabled",
+    "locked",
+    "unlocked",
+    "door_open",
+    "door_closed",
+    "sequence_running",
+    "sequence_idle",
+)
+SEQUENCE_STEP_TAGS = (
+    "action",
+    "wait",
+    "move",
+    "face",
+    "wait_animation",
+    "emit",
+    "set_state",
+    "stop",
 )
 
 # Mirrors src/level.rs: a float's motion is bounded and must be contained by
 # the water volume it rides.
 MAX_LEVEL_FLOAT_PROPS = 32
 MAX_FLOAT_HEEL_DEGREES = 45.0
-# Bounds mirror src/level.rs (MAX_ACTIONS_PER_SOURCE, MAX_LEVEL_AREA_TRIGGERS,
-# MAX_LEVEL_ROUTES, MAX_ROUTE_STEPS, MAX_ROUTE_SPEED_MPS, MAX_ROUTE_WAIT_SECONDS,
-# MAX_ROUTE_PLAY_SECONDS) and src/interact.rs (MAX_INTERACTION_REACH_M).
+# Mirrors the v3 schema's counted resources (src/level.rs and
+# src/entities/{sequences,spawn}.rs); reach mirrors src/interact.rs.
 MAX_ACTIONS_PER_SOURCE = 8
+MAX_BINDINGS_PER_ENTITY = 16
 MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
 MAX_ENTITY_ROUTES = 256
+MAX_LEVEL_SEQUENCES = 256
+MAX_SEQUENCE_STEPS = 64
+MAX_SEQUENCE_WAIT_S = 600.0
+MAX_SEQUENCE_ANIMATION_TIMEOUT_S = 120.0
+MAX_LEVEL_SPAWN_TEMPLATES = 64
+MAX_LEVEL_SPAWN_POINTS = 256
+MAX_LEVEL_SPAWN_GROUPS = 64
 # Mirrors src/level.rs: two dynamic objects per door against the renderer's
 # MAX_DYNAMIC_OBJECTS budget, leaving room for floats and demonstration objects.
 MAX_LEVEL_DOORS = 24
@@ -1013,230 +1083,917 @@ def _resolve_prop_ids(level: dict) -> List[str]:
     return ids
 
 
-def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
-    """Instance ids, prop interactions, area triggers and entity routes.
+def _default_volume_ids(level: dict) -> List[str]:
+    """The engine's per-instance ids for trigger volumes: authored, else `trigger_<n>`."""
+    ids: List[str] = []
+    for index, volume in enumerate(level.get("volumes") or []):
+        authored = volume.get("id") if isinstance(volume, dict) else None
+        if isinstance(authored, str) and authored.strip():
+            ids.append(authored.strip())
+        else:
+            ids.append(f"trigger_{index + 1}")
+    return ids
 
-    Mirrors the Rust loader's rules so a level that passes this validator
-    cannot surprise the engine: well-formed unique ids, 1..8 typed actions with
-    resolvable targets, implemented actions only, and real trigger volumes. The
-    reserved ``play_audio`` tag is rejected by name rather than silently
-    ignored; ``play_animation`` is implemented and checked like ``toggle_label``.
+
+def _entity_facts(kind: str) -> Dict:
+    """What one addressable record can do, derived from its kind and components."""
+    return {
+        "kind": kind,
+        "is_prop": False,
+        "is_door": False,
+        "is_light_fixture": False,
+        "is_timer": False,
+        "is_volume": False,
+        "is_spawn_point": False,
+        "is_spawn_template": False,
+        "has_interactable": False,
+        "interactable_enabled": False,
+        "has_animation": False,
+        "has_light": False,
+        "has_material": False,
+        "has_audio": False,
+        "state_names": set(),
+        "material_variants": [],
+    }
+
+
+def _validate_components(context: str, components: object, facts: Dict, errors: List[str]) -> None:
+    """Validates one record's typed components and fills the facts actions read.
+
+    Mirrors ``loader::validate_components``: a component the runtime can never
+    honour is a named error, never a silent no-op.
     """
+    if components is None:
+        return
+    if not isinstance(components, list):
+        errors.append(f"{context}: components must be an array")
+        return
+    for index, component in enumerate(components):
+        entry = f"{context}: component {index}"
+        if not isinstance(component, dict):
+            errors.append(f"{entry} must be an object")
+            continue
+        tag = component.get("component")
+        if tag not in COMPONENT_TAGS:
+            errors.append(f"{entry} has unknown component '{tag}'")
+            continue
+        if tag == "interactable":
+            facts["has_interactable"] = True
+            facts["interactable_enabled"] = bool(component.get("enabled", True))
+            prompt = component.get("prompt")
+            if prompt is not None and (not isinstance(prompt, str) or not prompt.strip()):
+                errors.append(f"{entry} prompt must not be blank when specified")
+            reach = component.get("reach")
+            if reach is not None and (
+                not is_finite_number(reach) or reach <= 0.0 or reach > MAX_INTERACTION_REACH_M
+            ):
+                errors.append(f"{entry} reach must be in (0, {MAX_INTERACTION_REACH_M}]")
+            label = component.get("label")
+            if label is not None and (not isinstance(label, str) or not label.strip()):
+                errors.append(f"{entry} label must not be blank when specified")
+        elif tag == "animation":
+            facts["has_animation"] = True
+            clip = component.get("clip")
+            if not isinstance(clip, str) or not clip.strip():
+                errors.append(f"{entry} needs a non-blank clip name")
+            speed = component.get("speed", 1.0)
+            if not is_finite_number(speed) or speed <= 0.0:
+                errors.append(f"{entry} speed must be a finite positive number")
+        elif tag == "audio":
+            facts["has_audio"] = True
+            sound = component.get("sound")
+            if not isinstance(sound, str) or not sound.strip():
+                errors.append(f"{entry} needs a non-blank sound id")
+        elif tag == "light":
+            facts["has_light"] = True
+            if "enabled" in component and not isinstance(component["enabled"], bool):
+                errors.append(f"{entry} enabled must be a boolean")
+            if "switchable" in component and not isinstance(component["switchable"], bool):
+                errors.append(f"{entry} switchable must be a boolean")
+            scale = component.get("emission_scale", 1.0)
+            if not is_finite_number(scale) or scale < 0.0:
+                errors.append(f"{entry} emission_scale must be a finite number >= 0")
+        elif tag == "material":
+            facts["has_material"] = True
+            variants = component.get("variants")
+            names: List[str] = []
+            if not isinstance(variants, list) or not variants:
+                errors.append(f"{entry} needs a non-empty variants array")
+            else:
+                for variant_index, variant in enumerate(variants):
+                    if not isinstance(variant, dict):
+                        errors.append(f"{entry} variant {variant_index} must be an object")
+                        continue
+                    name = variant.get("name")
+                    if not isinstance(name, str) or not name.strip():
+                        errors.append(f"{entry} variant {variant_index} needs a non-blank name")
+                        continue
+                    names.append(name.strip())
+                    emission = variant.get("emission_scale", 1.0)
+                    if not is_finite_number(emission) or emission < 0.0:
+                        errors.append(
+                            f"{entry} variant {variant_index} emission_scale must be finite >= 0"
+                        )
+            facts["material_variants"] = names
+            current = component.get("current")
+            if current is not None and current not in names:
+                errors.append(f"{entry} current '{current}' is not a declared variant")
+        elif tag == "state":
+            name = component.get("name")
+            if not isinstance(name, str) or not name.strip():
+                errors.append(f"{entry} needs a non-blank state name")
+            else:
+                facts["state_names"].add(name.strip())
+            if "value" not in component:
+                errors.append(f"{entry} needs a value")
+            elif isinstance(component["value"], (dict, list)):
+                errors.append(f"{entry} value must be a boolean, number or string")
+        elif tag == "lifetime":
+            seconds = component.get("seconds")
+            if not is_finite_number(seconds) or seconds <= 0.0:
+                errors.append(f"{entry} seconds must be a finite positive number")
+        elif tag == "nav_agent":
+            for key in ("radius", "speed_mps"):
+                value = component.get(key)
+                if not is_finite_number(value) or value <= 0.0:
+                    errors.append(f"{entry} {key} must be a finite positive number")
+        elif tag == "nav_obstacle":
+            size = component.get("size")
+            if size is not None and (
+                not isinstance(size, list)
+                or len(size) != 3
+                or not all(is_finite_number(value) and value > 0.0 for value in size)
+            ):
+                errors.append(f"{entry} size must be [width, height, depth] of positive numbers")
+        elif tag in ("steam", "water") and "enabled" in component:
+            if not isinstance(component["enabled"], bool):
+                errors.append(f"{entry} enabled must be a boolean")
+
+
+def _validate_instance_id(
+    seen: Dict[str, str], ident: object, context: str, namespace: str, errors: List[str]
+) -> Optional[str]:
+    """Well-formedness and uniqueness for one authored/defaulted id."""
+    if not isinstance(ident, str) or not ident.strip():
+        errors.append(f"{context} id must be a non-empty, well-formed identifier")
+        return None
+    trimmed = ident.strip()
+    if not _ASSET_ID.match(trimmed):
+        errors.append(f"{context} id '{trimmed}' must be a well-formed identifier")
+        return None
+    if trimmed in seen:
+        errors.append(f"{context} id '{trimmed}' duplicates {seen[trimmed]}; {namespace} ids must be unique")
+        return None
+    seen[trimmed] = context
+    return trimmed
+
+
+def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
+    """Every addressable id and capability set the action/condition checks read.
+
+    One instance namespace covers props, doors, ceiling fixtures, trigger
+    volumes, timers and spawn points; sequences, spawn templates and spawn
+    groups are separate resource namespaces, exactly as ``loader::LevelIndex``
+    resolves them.
+    """
+    entities: Dict[str, Dict] = {}
+    templates: Dict[str, Dict] = {}
+    sequences: Dict[str, Dict] = {}
+    groups: Dict[str, Dict] = {}
+    points: Dict[str, Dict] = {}
     prop_ids = _resolve_prop_ids(level)
-    doors = level.get("doors") or []
-    door_ids: List[str] = []
-    for index, door in enumerate(doors if isinstance(doors, list) else []):
+    seen: Dict[str, str] = {}
+
+    for index, prop in enumerate(level.get("props") or []):
+        if not isinstance(prop, dict) or index >= len(prop_ids):
+            continue
+        context = f"prop {index} ('{prop_ids[index]}')"
+        ident = _validate_instance_id(seen, prop_ids[index], context, "instance", errors)
+        if ident is None:
+            continue
+        facts = _entity_facts("prop")
+        facts["is_prop"] = True
+        if prop.get("display_name") is not None and (
+            not isinstance(prop["display_name"], str) or not prop["display_name"].strip()
+        ):
+            errors.append(f"{context} display_name must not be blank when specified")
+        _validate_components(context, prop.get("components"), facts, errors)
+        entities[ident] = facts
+
+    for index, fixture in enumerate(level.get("ceiling_lights") or []):
+        if not isinstance(fixture, dict):
+            continue
+        authored = fixture.get("id")
+        if not isinstance(authored, str) or not authored.strip():
+            continue
+        context = f"ceiling light {index} ('{authored.strip()}')"
+        ident = _validate_instance_id(seen, authored, context, "instance", errors)
+        if ident is None:
+            continue
+        facts = _entity_facts("ceiling light")
+        facts["is_light_fixture"] = True
+        entities[ident] = facts
+
+    for index, door in enumerate(level.get("doors") or []):
         if not isinstance(door, dict):
-            errors.append(f"{where}: door {index} must be an object")
             continue
         authored = door.get("id")
-        door_id = str(authored).strip() if isinstance(authored, str) else ""
-        if not door_id:
-            errors.append(f"{where}: door {index} needs an id")
+        context = f"door {index} ('{authored}')"
+        ident = _validate_instance_id(seen, authored, context, "instance", errors)
+        if ident is None:
             continue
-        door_ids.append(door_id)
-    switchable_lights = [
-        str(fixture["id"]).strip()
-        for fixture in level.get("ceiling_lights") or []
-        if isinstance(fixture, dict)
-        and fixture.get("switchable")
-        and isinstance(fixture.get("id"), str)
-        and str(fixture["id"]).strip()
-    ]
-    seen: dict = {}
-    for index, door_id in enumerate(door_ids):
-        if not _ASSET_ID.match(door_id):
-            errors.append(f"{where}: door {index} id '{door_id}' must be a well-formed identifier")
-        elif door_id in seen:
-            errors.append(f"{where}: door {index} id '{door_id}' duplicates {seen[door_id]}")
-        else:
-            seen[door_id] = f"door {index}"
-    for index, prop_id in enumerate(prop_ids):
-        if not _ASSET_ID.match(prop_id):
-            errors.append(f"{where}: prop {index} id '{prop_id}' must be a well-formed identifier")
-        elif prop_id in seen:
-            errors.append(f"{where}: prop {index} id '{prop_id}' duplicates {seen[prop_id]}")
-        else:
-            seen[prop_id] = f"prop {index}"
-    for index, prop in enumerate(level.get("props") or []):
-        name = prop.get("display_name")
-        if name is not None and (not isinstance(name, str) or not name.strip()):
-            errors.append(f"{where}: prop {index} display_name must not be blank")
-    trigger_ids = []
-    for index, trigger in enumerate(level.get("area_triggers") or []):
-        authored = trigger.get("id")
-        trigger_id = (
-            authored.strip()
-            if isinstance(authored, str) and authored.strip()
-            else f"trigger_{index + 1}"
+        facts = _entity_facts("door")
+        facts["is_door"] = True
+        _validate_components(context, door.get("components"), facts, errors)
+        entities[ident] = facts
+
+    for index, ident in enumerate(_default_volume_ids(level)):
+        context = f"trigger volume {index} ('{ident}')"
+        resolved = _validate_instance_id(seen, ident, context, "instance", errors)
+        if resolved is None:
+            continue
+        facts = _entity_facts("trigger volume")
+        facts["is_volume"] = True
+        entities[resolved] = facts
+
+    for index, timer in enumerate(level.get("timers") or []):
+        if not isinstance(timer, dict):
+            continue
+        context = f"timer {index} ('{timer.get('id')}')"
+        ident = _validate_instance_id(seen, timer.get("id"), context, "instance", errors)
+        if ident is None:
+            continue
+        facts = _entity_facts("timer")
+        facts["is_timer"] = True
+        entities[ident] = facts
+
+    for index, point in enumerate(level.get("spawn_points") or []):
+        if not isinstance(point, dict):
+            continue
+        context = f"spawn point {index} ('{point.get('id')}')"
+        ident = _validate_instance_id(seen, point.get("id"), context, "instance", errors)
+        if ident is None:
+            continue
+        facts = _entity_facts("spawn point")
+        facts["is_spawn_point"] = True
+        points[ident] = facts
+        entities[ident] = facts
+
+    sequence_seen: Dict[str, str] = {}
+    for index, sequence in enumerate(level.get("sequences") or []):
+        if not isinstance(sequence, dict):
+            continue
+        context = f"sequence {index} ('{sequence.get('id')}')"
+        ident = _validate_instance_id(
+            sequence_seen, sequence.get("id"), context, "sequence", errors
         )
-        trigger_ids.append(trigger_id)
-        if not _ASSET_ID.match(trigger_id):
-            errors.append(f"{where}: area trigger {index} id '{trigger_id}' must be a well-formed identifier")
-        elif trigger_id in seen:
-            errors.append(f"{where}: area trigger {index} id '{trigger_id}' duplicates {seen[trigger_id]}")
-        else:
-            seen[trigger_id] = f"area trigger {index}"
-    for index, fixture in enumerate(level.get("ceiling_lights") or []):
-        authored = fixture.get("id")
-        if authored is None:
-            continue
-        fixture_id = str(authored).strip()
-        if not _ASSET_ID.match(fixture_id):
-            errors.append(f"{where}: ceiling light {index} id '{fixture_id}' must be a well-formed identifier")
-        elif fixture_id in seen:
-            errors.append(f"{where}: ceiling light {index} id '{fixture_id}' duplicates {seen[fixture_id]}")
-        else:
-            seen[fixture_id] = f"ceiling light {index}"
+        if ident is not None:
+            sequences[ident] = {"id": ident, "def": sequence}
 
-    actions_by_source = [
-        (f"prop {index} interaction", prop.get("interaction"), prop_ids[index])
-        for index, prop in enumerate(level.get("props") or [])
-        if prop.get("interaction") is not None
-    ]
-    actions_by_source.extend(
-        (f"area trigger {index}", trigger, None)
-        for index, trigger in enumerate(level.get("area_triggers") or [])
-    )
-    for source, definition, implicit_target in actions_by_source:
-        if not isinstance(definition, dict):
-            errors.append(f"{where}: {source} must be an object")
+    template_seen: Dict[str, str] = {}
+    for index, template in enumerate(level.get("spawn_templates") or []):
+        if not isinstance(template, dict):
             continue
-        reach = definition.get("reach")
-        if reach is not None and (
-            not is_finite_number(reach) or reach <= 0.0 or reach > MAX_INTERACTION_REACH_M
-        ):
-            errors.append(f"{where}: {source} reach must be a finite number in (0, {MAX_INTERACTION_REACH_M}]")
-        actions = definition.get("actions")
-        if not isinstance(actions, list) or not actions:
-            errors.append(f"{where}: {source} must declare 1..{MAX_ACTIONS_PER_SOURCE} actions")
+        context = f"spawn template {index} ('{template.get('id')}')"
+        ident = _validate_instance_id(
+            template_seen, template.get("id"), context, "spawn template", errors
+        )
+        if ident is None:
             continue
-        if len(actions) > MAX_ACTIONS_PER_SOURCE:
-            errors.append(f"{where}: {source} declares {len(actions)} actions; the limit is {MAX_ACTIONS_PER_SOURCE}")
-        for action_index, action in enumerate(actions):
-            if not isinstance(action, dict):
-                errors.append(f"{where}: {source} action {action_index} must be an object")
-                continue
-            tag = action.get("action")
-            if tag not in ACTION_TAGS:
+        facts = _entity_facts("spawn template")
+        facts["is_spawn_template"] = True
+        _validate_components(context, template.get("components"), facts, errors)
+        templates[ident] = facts
+
+    group_seen: Dict[str, str] = {}
+    for index, group in enumerate(level.get("spawn_groups") or []):
+        if not isinstance(group, dict):
+            continue
+        context = f"spawn group {index} ('{group.get('id')}')"
+        ident = _validate_instance_id(group_seen, group.get("id"), context, "spawn group", errors)
+        if ident is not None:
+            groups[ident] = group
+
+    return {
+        "entities": entities,
+        "templates": templates,
+        "sequences": sequences,
+        "groups": groups,
+        "points": points,
+        "prop_ids": prop_ids,
+    }
+
+
+def _resolve_subject(
+    target: object,
+    implicit: Optional[tuple],
+    index: Dict,
+    context: str,
+    tag: str,
+    errors: List[str],
+) -> Optional[tuple]:
+    """The subject one action acts on, or None when there is nothing to check."""
+    if target is not None:
+        if not isinstance(target, str) or not target.strip():
+            errors.append(f"{context} ('{tag}') target must not be blank when specified")
+            return None
+        resolved = target.strip()
+        facts = index["entities"].get(resolved) or index["templates"].get(resolved)
+        if facts is None:
+            errors.append(f"{context} ('{tag}') targets unknown entity '{resolved}'")
+            return None
+        return resolved, facts
+    return implicit
+
+
+def _validate_conditions(context: str, when: object, index: Dict, errors: List[str]) -> None:
+    """Every condition in one binding: a known check and a resolvable target."""
+    if when is None:
+        return
+    if not isinstance(when, list):
+        errors.append(f"{context}: when must be an array of conditions")
+        return
+    for position, condition in enumerate(when):
+        entry = f"{context} condition {position}"
+        if not isinstance(condition, dict):
+            errors.append(f"{entry} must be an object")
+            continue
+        check = condition.get("check")
+        if check not in CONDITION_CHECKS:
+            errors.append(f"{entry} has unknown check '{check}'")
+            continue
+        target = condition.get("target")
+        if not isinstance(target, str) or not target.strip():
+            errors.append(f"{entry} ('{check}') needs a target")
+        elif target.strip() not in index["entities"]:
+            errors.append(f"{entry} ('{check}') targets unknown entity '{target.strip()}'")
+        if check == "state":
+            name = condition.get("name")
+            if not isinstance(name, str) or not name.strip():
+                errors.append(f"{entry} ('state') needs a state name")
+            if "equals" not in condition:
+                errors.append(f"{entry} ('state') needs an equals value")
+
+
+def _validate_actions(
+    context: str,
+    actions: object,
+    implicit: Optional[tuple],
+    index: Dict,
+    errors: List[str],
+) -> None:
+    """One source's actions: bounded, known tags, resolvable capability-fit targets."""
+    if not isinstance(actions, list) or not actions:
+        errors.append(f"{context} must declare 1..{MAX_ACTIONS_PER_SOURCE} actions")
+        return
+    if len(actions) > MAX_ACTIONS_PER_SOURCE:
+        errors.append(f"{context} declares {len(actions)} actions; the limit is {MAX_ACTIONS_PER_SOURCE}")
+    for position, action in enumerate(actions):
+        if not isinstance(action, dict):
+            errors.append(f"{context} action {position} must be an object")
+            continue
+        tag = action.get("action")
+        entry = f"{context} action {position}"
+        if tag not in ACTION_TAGS:
+            errors.append(f"{entry} has unknown action '{tag}'")
+            continue
+        if tag not in IMPLEMENTED_ACTIONS:
+            errors.append(f"{entry} ('{tag}') is not implemented yet")
+            continue
+
+        def subject():
+            return _resolve_subject(action.get("target"), implicit, index, entry, tag, errors)
+
+        def require(requirement: str, predicate) -> None:
+            resolved = subject()
+            if resolved is None:
+                return
+            subject_id, facts = resolved
+            if not predicate(facts):
                 errors.append(
-                    f"{where}: {source} action {action_index} has unknown action '{tag}'"
+                    f"{entry} ('{tag}') targets '{subject_id}', a {facts['kind']}; "
+                    f"`{tag}` requires {requirement}"
                 )
-            elif tag not in IMPLEMENTED_ACTIONS:
-                errors.append(
-                    f"{where}: {source} action {action_index} ('{tag}') is not implemented yet"
-                )
-            elif tag == "toggle_label":
-                target = action.get("target")
-                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
-                if not resolved:
-                    errors.append(f"{where}: {source} action {action_index} ('toggle_label') needs a target")
-                elif resolved not in prop_ids and resolved not in door_ids:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle_label') targets unknown instance '{resolved}'"
-                    )
-            elif tag == "play_animation":
-                target = action.get("target")
-                if isinstance(target, str) and not target.strip():
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('play_animation') target must not be blank"
-                    )
-                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
-                if not resolved:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('play_animation') needs a target"
-                    )
-                elif resolved not in prop_ids:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('play_animation') targets unknown instance '{resolved}'"
-                    )
-                clip = action.get("clip")
-                if not isinstance(clip, str) or not clip.strip():
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('play_animation') needs a clip name"
-                    )
-                looped = action.get("loop", False)
-                if not isinstance(looped, bool):
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('play_animation') loop must be a boolean"
-                    )
-            elif tag == "toggle_animation":
-                target = action.get("target")
-                if isinstance(target, str) and not target.strip():
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle_animation') target must not be blank"
-                    )
-                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
-                if not resolved:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle_animation') needs a target"
-                    )
-                elif resolved not in prop_ids:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle_animation') targets unknown instance '{resolved}'"
-                    )
-                clip = action.get("clip")
-                if not isinstance(clip, str) or not clip.strip():
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle_animation') needs a clip name"
-                    )
-            elif tag in ("open", "close"):
-                target = action.get("target")
-                resolved = target.strip() if isinstance(target, str) else ""
-                if not resolved:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('{tag}') needs a door target"
-                    )
-                elif resolved not in door_ids:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('{tag}') targets unknown door '{resolved}'"
-                    )
-            elif tag == "toggle":
-                target = action.get("target")
-                resolved = target.strip() if isinstance(target, str) else ""
-                if not resolved:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle') needs a target"
-                    )
-                elif resolved not in door_ids and resolved not in switchable_lights:
-                    errors.append(
-                        f"{where}: {source} action {action_index} ('toggle') targets '{resolved}', "
-                        "which is not a door or a switchable light fixture"
+
+        if tag in ("open", "close", "lock", "unlock"):
+            require("a door target", lambda facts: facts["is_door"])
+        elif tag == "toggle":
+            require(
+                "a door or a light-capable target",
+                lambda facts: facts["is_door"] or facts["is_light_fixture"] or facts["has_light"],
+            )
+        elif tag in ("enable", "disable"):
+            subject()
+        elif tag == "set_light":
+            if not isinstance(action.get("on"), bool):
+                errors.append(f"{entry} ('set_light') needs a boolean `on`")
+            require(
+                "a light-capable target",
+                lambda facts: facts["is_light_fixture"] or facts["has_light"],
+            )
+        elif tag in ("play_animation", "toggle_animation"):
+            require("a target with an `animation` component", lambda facts: facts["has_animation"])
+            clip = action.get("clip")
+            if clip is not None and (not isinstance(clip, str) or not clip.strip()):
+                errors.append(f"{entry} ('{tag}') clip must not be blank when specified")
+        elif tag == "change_material":
+            require("a target with a `material` component", lambda facts: facts["has_material"])
+            variant = action.get("variant")
+            if not isinstance(variant, str) or not variant.strip():
+                errors.append(f"{entry} ('change_material') needs a non-empty variant name")
+            else:
+                resolved = subject()
+                if resolved is not None:
+                    _, facts = resolved
+                    if facts["has_material"] and variant.strip() not in facts["material_variants"]:
+                        errors.append(
+                            f"{entry} ('change_material') targets a `material` component "
+                            f"that declares no variant '{variant.strip()}'"
+                        )
+        elif tag == "move_object":
+            for key in ("x", "z"):
+                if not is_finite_number(action.get(key)):
+                    errors.append(f"{entry} ('move_object') {key} must be a finite number")
+            if action.get("y") is not None and not is_finite_number(action.get("y")):
+                errors.append(f"{entry} ('move_object') y must be a finite number when specified")
+            speed = action.get("speed")
+            if speed is not None and (not is_finite_number(speed) or speed <= 0.0):
+                errors.append(f"{entry} ('move_object') speed must be a finite positive number")
+            require(
+                "a door or a spawn-template instance",
+                lambda facts: facts["is_door"] or facts["is_spawn_template"],
+            )
+        elif tag == "set_state":
+            name = action.get("name")
+            if not isinstance(name, str) or not name.strip():
+                errors.append(f"{entry} ('set_state') needs a non-empty state name")
+            elif "value" not in action:
+                errors.append(f"{entry} ('set_state') needs a value")
+            elif isinstance(action["value"], (dict, list)):
+                errors.append(f"{entry} ('set_state') value must be a boolean, number or string")
+            if isinstance(name, str) and name.strip():
+                trimmed = name.strip()
+
+                def state_capable(facts, trimmed=trimmed):
+                    return (
+                        trimmed in facts["state_names"]
+                        or facts["is_timer"]
+                        or facts["is_volume"]
                     )
 
-    triggers = level.get("area_triggers") or []
-    if isinstance(triggers, list) and len(triggers) > MAX_AREA_TRIGGERS:
-        errors.append(f"{where}: too many area triggers ({len(triggers)}; limit {MAX_AREA_TRIGGERS})")
-    for index, trigger in enumerate(triggers if isinstance(triggers, list) else []):
-        if not isinstance(trigger, dict):
-            errors.append(f"{where}: area trigger {index} must be an object")
+                require(
+                    f"an authored state named '{trimmed}' (or a timer/volume target)",
+                    state_capable,
+                )
+        elif tag == "toggle_label":
+            require("a placed prop target", lambda facts: facts["is_prop"])
+        elif tag == "start_sequence":
+            sequence = action.get("sequence")
+            if not isinstance(sequence, str) or not sequence.strip():
+                errors.append(f"{entry} ('start_sequence') needs a non-empty sequence id")
+            elif sequence.strip() not in index["sequences"]:
+                errors.append(f"{entry} ('start_sequence') references unknown sequence '{sequence.strip()}'")
+            subject()
+        elif tag == "stop_sequence":
+            subject()
+        elif tag in ("start_timer", "stop_timer"):
+            require("a timer target", lambda facts: facts["is_timer"])
+            if tag == "start_timer":
+                seconds = action.get("seconds")
+                if seconds is not None and (not is_finite_number(seconds) or seconds <= 0.0):
+                    errors.append(
+                        f"{entry} ('start_timer') seconds override must be a finite positive number"
+                    )
+        elif tag == "spawn_entity":
+            template = action.get("template")
+            if template is not None and (not isinstance(template, str) or not template.strip()):
+                errors.append(f"{entry} ('spawn_entity') template must not be blank when specified")
+            elif isinstance(template, str) and template.strip() not in index["templates"]:
+                errors.append(
+                    f"{entry} ('spawn_entity') references unknown spawn template '{template.strip()}'"
+                )
+            group = action.get("group")
+            if group is not None and (not isinstance(group, str) or not group.strip()):
+                errors.append(f"{entry} ('spawn_entity') group must not be blank when specified")
+            elif isinstance(group, str) and group.strip() not in index["groups"]:
+                errors.append(f"{entry} ('spawn_entity') references unknown spawn group '{group.strip()}'")
+            name = action.get("name")
+            if name is not None and (not isinstance(name, str) or not name.strip()):
+                errors.append(f"{entry} ('spawn_entity') name must not be blank when specified")
+            point = action.get("point")
+            if point is not None and (not isinstance(point, str) or not point.strip()):
+                errors.append(f"{entry} ('spawn_entity') point must not be blank when specified")
+            elif isinstance(point, str):
+                if point.strip() not in index["points"]:
+                    errors.append(f"{entry} ('spawn_entity') targets unknown spawn point '{point.strip()}'")
+            elif isinstance(template, str) and template.strip():
+                errors.append(
+                    f"{entry} ('spawn_entity') names a template without a point; a template "
+                    "alone has no world position, so name the spawn point to spawn at"
+                )
+            else:
+                resolved = subject()
+                if resolved is not None and not resolved[1]["is_spawn_point"]:
+                    errors.append(
+                        f"{entry} ('spawn_entity') targets '{resolved[0]}', a "
+                        f"{resolved[1]['kind']}; a spawn without a point may only come from a spawn point"
+                    )
+        elif tag == "despawn_entity":
+            target = action.get("target")
+            if not isinstance(target, str) or not target.strip():
+                errors.append(f"{entry} ('despawn_entity') needs a non-empty target")
+            elif (
+                target.strip() not in index["entities"]
+                and target.strip() not in index["templates"]
+                and target.strip() not in index["groups"]
+            ):
+                errors.append(
+                    f"{entry} ('despawn_entity') targets '{target.strip()}'; needs an authored "
+                    "entity id or spawn group id"
+                )
+
+
+def _validate_bindings(
+    context: str,
+    bindings: object,
+    implicit: Optional[tuple],
+    index: Dict,
+    errors: List[str],
+) -> None:
+    """One record's event bindings: bounded, known event kinds, executable actions."""
+    if bindings is None:
+        return
+    if not isinstance(bindings, list):
+        errors.append(f"{context}: bindings must be an array")
+        return
+    if len(bindings) > MAX_BINDINGS_PER_ENTITY:
+        errors.append(f"{context} declares {len(bindings)} bindings; the limit is {MAX_BINDINGS_PER_ENTITY}")
+    for position, binding in enumerate(bindings):
+        entry = f"{context} binding {position}"
+        if not isinstance(binding, dict):
+            errors.append(f"{entry} must be an object")
             continue
-        width = trigger.get("width")
-        depth = trigger.get("depth")
-        if not is_finite_number(width) or not is_finite_number(depth) or width <= 0.0 or depth <= 0.0:
-            errors.append(f"{where}: area trigger {index} width and depth must be positive numbers")
-        cooldown = trigger.get("cooldown_seconds", 0.0)
+        on = binding.get("on")
+        if on not in EVENT_KINDS:
+            errors.append(f"{entry} has unknown event kind '{on}'")
+        elif implicit is not None:
+            facts = implicit[1]
+            if on in ("enter_volume", "exit_volume") and not facts["is_volume"]:
+                errors.append(f"{entry} listens for '{on}', but {context} is not a trigger volume")
+            # A `timer` cue may come from an authored timer or from a
+            # sequence's `emit` step: any record may listen for it.
+            elif on == "animation_complete" and not facts["has_animation"]:
+                errors.append(f"{entry} listens for 'animation_complete', but {context} has no animation component")
+            elif on == "interact" and not (facts["has_interactable"] and facts["interactable_enabled"]):
+                errors.append(
+                    f"{entry} listens for 'interact', but {context} has no enabled interactable component"
+                )
+        binding_id = binding.get("id")
+        if binding_id is not None and (not isinstance(binding_id, str) or not binding_id.strip()):
+            errors.append(f"{entry} id must not be blank when specified")
+        key = binding.get("key")
+        if key is not None and (not isinstance(key, str) or not key.strip()):
+            errors.append(f"{entry} key must not be blank when specified")
+        once = binding.get("once", False)
+        if not isinstance(once, bool):
+            errors.append(f"{entry} once must be a boolean")
+        cooldown = binding.get("cooldown_seconds", 0.0)
         if not is_finite_number(cooldown) or cooldown < 0.0:
-            errors.append(f"{where}: area trigger {index} cooldown_seconds must be a finite number >= 0")
-        bottom = trigger.get("bottom_y")
-        top = trigger.get("top_y")
+            errors.append(f"{entry} cooldown_seconds must be a finite number >= 0")
+        _validate_conditions(entry, binding.get("when"), index, errors)
+        _validate_actions(entry, binding.get("actions"), implicit, index, errors)
+
+
+def _validate_volumes(level: dict, where: str, errors: List[str]) -> None:
+    """Trigger volumes: count, footprint, vertical band, room overlap.
+
+    The volume's actions live in its bindings and are validated with every
+    other binding; this function mirrors ``loader::validate_volumes``.
+    """
+    volumes = level.get("volumes")
+    if volumes is None:
+        return
+    if not isinstance(volumes, list):
+        errors.append(f"{where}: volumes must be an array")
+        return
+    if len(volumes) > MAX_AREA_TRIGGERS:
+        errors.append(f"{where}: too many trigger volumes ({len(volumes)}; limit {MAX_AREA_TRIGGERS})")
+    for index, volume in enumerate(volumes):
+        if not isinstance(volume, dict):
+            errors.append(f"{where}: trigger volume {index} must be an object")
+            continue
+        width = volume.get("width")
+        depth = volume.get("depth")
+        if not is_finite_number(width) or not is_finite_number(depth) or width <= 0.0 or depth <= 0.0:
+            errors.append(f"{where}: trigger volume {index} width and depth must be positive numbers")
+        bottom = volume.get("bottom_y")
+        top = volume.get("top_y")
         if bottom is not None and not is_finite_number(bottom):
-            errors.append(f"{where}: area trigger {index} bottom_y must be a finite number")
+            errors.append(f"{where}: trigger volume {index} bottom_y must be a finite number")
         if top is not None and not is_finite_number(top):
-            errors.append(f"{where}: area trigger {index} top_y must be a finite number")
+            errors.append(f"{where}: trigger volume {index} top_y must be a finite number")
         if is_finite_number(bottom) and is_finite_number(top) and top <= bottom:
-            errors.append(f"{where}: area trigger {index} top_y must be above its bottom_y")
+            errors.append(f"{where}: trigger volume {index} top_y must be above its bottom_y")
         if is_finite_number(width) and is_finite_number(depth) and width > 0.0 and depth > 0.0:
             footprint = {
-                "x": trigger.get("x", 0.0),
-                "z": trigger.get("z", 0.0),
+                "x": volume.get("x", 0.0),
+                "z": volume.get("z", 0.0),
                 "width": width,
                 "depth": depth,
             }
             if not wall_touches_any_room(level, footprint):
-                errors.append(f"{where}: area trigger {index} lies outside every room section")
+                errors.append(f"{where}: trigger volume {index} lies outside every room section")
 
-    validate_entity_routes(level, where, errors, prop_ids)
+
+def _validate_timers(level: dict, where: str, index: Dict, errors: List[str]) -> None:
+    """Authored timers: a positive period and structurally valid bindings."""
+    timers = level.get("timers")
+    if timers is None:
+        return
+    if not isinstance(timers, list):
+        errors.append(f"{where}: timers must be an array")
+        return
+    for position, timer in enumerate(timers):
+        context = f"{where}: timer {position}"
+        if not isinstance(timer, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        ident = timer.get("id")
+        if not isinstance(ident, str) or not ident.strip():
+            errors.append(f"{context} needs an id")
+            continue
+        ident = ident.strip()
+        seconds = timer.get("seconds")
+        if not is_finite_number(seconds) or seconds <= 0.0:
+            errors.append(f"{context} ('{ident}') seconds must be a finite positive number")
+        for flag in ("repeat", "autostart"):
+            if flag in timer and not isinstance(timer[flag], bool):
+                errors.append(f"{context} ('{ident}') {flag} must be a boolean")
+        facts = index["entities"].get(ident)
+        _validate_bindings(
+            f"{where}: timer ('{ident}')",
+            timer.get("bindings"),
+            (ident, facts) if facts else None,
+            index,
+            errors,
+        )
+
+
+def _validate_spawns(level: dict, where: str, index: Dict, errors: List[str]) -> None:
+    """Spawn templates, points and groups, including the at-most-one-active rule."""
+    templates = level.get("spawn_templates") or []
+    points = level.get("spawn_points") or []
+    groups = level.get("spawn_groups") or []
+    if len(templates) > MAX_LEVEL_SPAWN_TEMPLATES:
+        errors.append(f"{where}: too many spawn templates ({len(templates)}; limit {MAX_LEVEL_SPAWN_TEMPLATES})")
+    if len(points) > MAX_LEVEL_SPAWN_POINTS:
+        errors.append(f"{where}: too many spawn points ({len(points)}; limit {MAX_LEVEL_SPAWN_POINTS})")
+    if len(groups) > MAX_LEVEL_SPAWN_GROUPS:
+        errors.append(f"{where}: too many spawn groups ({len(groups)}; limit {MAX_LEVEL_SPAWN_GROUPS})")
+
+    for position, template in enumerate(templates):
+        context = f"{where}: spawn template {position}"
+        if not isinstance(template, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        ident = template.get("id")
+        if not isinstance(ident, str) or not ident.strip():
+            errors.append(f"{context} needs an id")
+            continue
+        ident = ident.strip()
+        model = template.get("model")
+        if not isinstance(model, str) or not model.strip():
+            errors.append(f"{context} ('{ident}') needs a model")
+        scale = template.get("scale", 1.0)
+        if not is_finite_number(scale) or scale <= 0.0:
+            errors.append(f"{context} ('{ident}') scale must be a finite positive number")
+        lifetime = template.get("lifetime_seconds")
+        if lifetime is not None and (not is_finite_number(lifetime) or lifetime <= 0.0):
+            errors.append(f"{context} ('{ident}') lifetime_seconds must be a finite positive number")
+        facts = index["templates"].get(ident)
+        _validate_bindings(f"{where}: spawn template ('{ident}')", template.get("bindings"), (ident, facts), index, errors)
+
+    for position, point in enumerate(points):
+        context = f"{where}: spawn point {position}"
+        if not isinstance(point, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        ident = point.get("id")
+        if not isinstance(ident, str) or not ident.strip():
+            errors.append(f"{context} needs an id")
+            continue
+        ident = ident.strip()
+        for key in ("x", "z"):
+            if not is_finite_number(point.get(key, 0.0)):
+                errors.append(f"{context} ('{ident}') {key} must be a finite number")
+        if point.get("y") is not None and not is_finite_number(point.get("y")):
+            errors.append(f"{context} ('{ident}') y must be a finite number when specified")
+        if point.get("yaw_degrees") is not None and not is_finite_number(point.get("yaw_degrees")):
+            errors.append(f"{context} ('{ident}') yaw_degrees must be a finite number")
+        template = point.get("template")
+        if not isinstance(template, str) or not template.strip():
+            errors.append(f"{context} ('{ident}') needs a template")
+        elif template.strip() not in index["templates"]:
+            errors.append(f"{context} ('{ident}') references unknown spawn template '{template.strip()}'")
+        group = point.get("group")
+        if group is not None:
+            if not isinstance(group, str) or not group.strip():
+                errors.append(f"{context} ('{ident}') group must not be blank when specified")
+            elif group.strip() not in index["groups"]:
+                errors.append(f"{context} ('{ident}') references unknown spawn group '{group.strip()}'")
+        facts = index["entities"].get(ident)
+        _validate_bindings(
+            f"{where}: spawn point ('{ident}')",
+            point.get("bindings"),
+            (ident, facts) if facts else None,
+            index,
+            errors,
+        )
+
+    for position, group in enumerate(groups):
+        context = f"{where}: spawn group {position}"
+        if not isinstance(group, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        if not isinstance(group.get("id"), str) or not group["id"].strip():
+            errors.append(f"{context} needs an id")
+        if "at_most_one_active" in group and not isinstance(group["at_most_one_active"], bool):
+            errors.append(f"{context} at_most_one_active must be a boolean")
+
+
+def _validate_sequences(level: dict, where: str, index: Dict, errors: List[str]) -> None:
+    """Authored sequences: bounded steps, known step tags and their required fields."""
+    sequences = level.get("sequences")
+    if sequences is None:
+        return
+    if not isinstance(sequences, list):
+        errors.append(f"{where}: sequences must be an array")
+        return
+    if len(sequences) > MAX_LEVEL_SEQUENCES:
+        errors.append(f"{where}: too many sequences ({len(sequences)}; limit {MAX_LEVEL_SEQUENCES})")
+    for position, sequence in enumerate(sequences):
+        context = f"{where}: sequence {position}"
+        if not isinstance(sequence, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        ident = sequence.get("id")
+        if not isinstance(ident, str) or not ident.strip():
+            errors.append(f"{context} needs an id")
+            continue
+        ident = ident.strip()
+        looped = sequence.get("looped", False)
+        if not isinstance(looped, bool):
+            errors.append(f"{context} ('{ident}') looped must be a boolean")
+        steps = sequence.get("steps")
+        if not isinstance(steps, list) or not steps:
+            errors.append(f"{context} ('{ident}') must declare at least one step")
+            continue
+        if len(steps) > MAX_SEQUENCE_STEPS:
+            errors.append(f"{context} ('{ident}') declares {len(steps)} steps; the limit is {MAX_SEQUENCE_STEPS}")
+        for step_position, step in enumerate(steps):
+            entry = f"{context} ('{ident}') step {step_position}"
+            if not isinstance(step, dict):
+                errors.append(f"{entry} must be an object")
+                continue
+            tag = step.get("step")
+            if tag not in SEQUENCE_STEP_TAGS:
+                errors.append(f"{entry} has unknown step '{tag}'")
+                continue
+            if tag == "action":
+                action = step.get("action")
+                if not isinstance(action, dict):
+                    errors.append(f"{entry} ('action') needs an action object")
+                else:
+                    _validate_actions(entry, [action], None, index, errors)
+            elif tag == "wait":
+                seconds = step.get("seconds")
+                if not is_finite_number(seconds) or not 0.0 <= seconds <= MAX_SEQUENCE_WAIT_S:
+                    errors.append(f"{entry} ('wait') seconds must be between 0 and {MAX_SEQUENCE_WAIT_S}")
+            elif tag == "move":
+                for key in ("x", "z", "speed"):
+                    if not is_finite_number(step.get(key)):
+                        errors.append(f"{entry} ('move') {key} must be a finite number")
+                speed = step.get("speed")
+                if is_finite_number(speed) and speed <= 0.0:
+                    errors.append(f"{entry} ('move') speed must be positive")
+                if step.get("y") is not None and not is_finite_number(step.get("y")):
+                    errors.append(f"{entry} ('move') y must be a finite number when specified")
+            elif tag == "face":
+                if not is_finite_number(step.get("yaw_degrees")):
+                    errors.append(f"{entry} ('face') yaw_degrees must be a finite number")
+            elif tag == "wait_animation":
+                timeout = step.get("timeout", 0.0)
+                if not is_finite_number(timeout) or not 0.0 <= timeout <= MAX_SEQUENCE_ANIMATION_TIMEOUT_S:
+                    errors.append(
+                        f"{entry} ('wait_animation') timeout must be between 0 and "
+                        f"{MAX_SEQUENCE_ANIMATION_TIMEOUT_S}"
+                    )
+                clip = step.get("clip")
+                if clip is not None and (not isinstance(clip, str) or not clip.strip()):
+                    errors.append(f"{entry} ('wait_animation') clip must not be blank when specified")
+            elif tag == "emit":
+                if step.get("on") not in EVENT_KINDS:
+                    errors.append(f"{entry} ('emit') on must be a known event kind")
+                key = step.get("key")
+                if key is not None and (not isinstance(key, str) or not key.strip()):
+                    errors.append(f"{entry} ('emit') key must not be blank when specified")
+            elif tag == "set_state":
+                name = step.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    errors.append(f"{entry} ('set_state') needs a state name")
+                if "value" not in step:
+                    errors.append(f"{entry} ('set_state') needs a value")
+                elif isinstance(step["value"], (dict, list)):
+                    errors.append(f"{entry} ('set_state') value must be a boolean, number or string")
+
+
+def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
+    """Instance ids, typed components, event bindings, timers, sequences and volumes.
+
+    Mirrors the v3 loader contract (``loader::validate_instance_ids``,
+    ``validate_bindings``, ``validate_volumes``, ``validate_timers``,
+    ``validate_sequences``, ``validate_spawns``): well-formed unique ids,
+    known component and event kinds, 1..8 typed actions per binding with
+    resolvable capability-fit targets, real trigger volumes, well-formed
+    timers, sequences and spawn definitions. ``play_sound``/``stop_sound`` are
+    parsed but unimplemented and are rejected by name; ``play_audio`` no longer
+    exists as a tag at all.
+    """
+    index = _index_level_entities(level, where, errors)
+
+    for position, prop in enumerate(level.get("props") or []):
+        if not isinstance(prop, dict):
+            continue
+        prop_id = index["prop_ids"][position] if position < len(index["prop_ids"]) else None
+        facts = index["entities"].get(prop_id) if prop_id else None
+        _validate_bindings(
+            f"prop {position}" + (f" ('{prop_id}')" if prop_id else ""),
+            prop.get("bindings"),
+            (prop_id, facts) if prop_id and facts else None,
+            index,
+            errors,
+        )
+    for position, door in enumerate(level.get("doors") or []):
+        if not isinstance(door, dict):
+            continue
+        door_id = str(door.get("id", "")).strip() or None
+        facts = index["entities"].get(door_id) if door_id else None
+        _validate_bindings(
+            f"door {position}" + (f" ('{door_id}')" if door_id else ""),
+            door.get("bindings"),
+            (door_id, facts) if door_id and facts else None,
+            index,
+            errors,
+        )
+    for position, fixture in enumerate(level.get("ceiling_lights") or []):
+        if not isinstance(fixture, dict):
+            continue
+        fixture_id = fixture.get("id")
+        if not isinstance(fixture_id, str) or not fixture_id.strip():
+            continue
+        fixture_id = fixture_id.strip()
+        facts = index["entities"].get(fixture_id)
+        _validate_bindings(
+            f"ceiling light {position} ('{fixture_id}')",
+            fixture.get("bindings"),
+            (fixture_id, facts) if facts else None,
+            index,
+            errors,
+        )
+    volume_ids = _default_volume_ids(level)
+    for position, volume in enumerate(level.get("volumes") or []):
+        if not isinstance(volume, dict):
+            continue
+        volume_id = volume_ids[position] if position < len(volume_ids) else f"trigger_{position + 1}"
+        facts = index["entities"].get(volume_id)
+        _validate_bindings(
+            f"trigger volume {position} ('{volume_id}')",
+            volume.get("bindings"),
+            (volume_id, facts) if facts else None,
+            index,
+            errors,
+        )
+    for position, effect in enumerate(level.get("effects") or []):
+        if not isinstance(effect, dict):
+            continue
+        effect_id = effect.get("id")
+        label = f"effect {position}" + (
+            f" ('{effect_id}')" if isinstance(effect_id, str) and effect_id.strip() else ""
+        )
+        _validate_bindings(
+            label,
+            effect.get("bindings"),
+            ("the effect", _entity_facts("effect")),
+            index,
+            errors,
+        )
+
+    _validate_timers(level, where, index, errors)
+    _validate_sequences(level, where, index, errors)
+    _validate_spawns(level, where, index, errors)
+    _validate_volumes(level, where, errors)
+
+    validate_entity_routes(level, where, errors, index["prop_ids"])
 
 
 def validate_floats(level: dict, where: str, errors: List[str]) -> None:

@@ -9,7 +9,11 @@
 //!   centroid of the reflective geometry that asked for one, from six
 //!   90-degree views of the whole scene. The reference renders
 //!   the six faces in the GL cube order +X/-X/+Y/-Y/+Z/-Z with the GL face-up
-//!   vectors, through `look_at_rh`/`perspective_rh_gl`.
+//!   vectors, through `look_at_rh`/`perspective_rh_gl`. A compiled package
+//!   stores each capture with an offline-prefiltered roughness mip chain
+//!   ([`crate::render::common::probe_filter`]); a developer install that bakes
+//!   its own probes fills level 0 only and the shader keeps its two-tap rough
+//!   fallback.
 //! * **Planar mirrors.** A real second view of the level, mirrored through a
 //!   plane derived from the geometry itself: half the render size, its own
 //!   depth, rendered with the mirrored view-projection and a reversed front
@@ -29,6 +33,7 @@
 use crate::quality::ReflectionQuality;
 use crate::render::common::reflections::{ReflectionPlane, mirror_matrix, planar_target_size};
 use crate::render::common::view::{DrawableSize, MAX_REFLECTION_PROBES};
+use crate::render::common::{MAX_PROBE_MIPS, mip_levels_for, prefilter_cube};
 use crate::spatial::{DepthRange, Frustum};
 
 /// The format every reflection target uses.
@@ -188,12 +193,18 @@ pub fn probe_bake_position(point: [f32; 3]) -> [f32; 3] {
 }
 
 /// One probe cubemap with its own depth attachment.
+///
+/// The colour texture always carries the full packaging chain for its face
+/// size, so a packaged payload's levels always fit; a developer install writes
+/// level 0 and leaves the small coarse levels unread (`probe_max_mip` is zero,
+/// which selects the shader's two-tap fallback).
 pub struct ProbeCube {
-    /// Kept for ownership; the cube view references it.
-    _texture: wgpu::Texture,
-    /// The sampling view, dimensioned `Cube`.
+    /// Kept for ownership; the cube view references it, and the compiler
+    /// reads faces back from it.
+    texture: wgpu::Texture,
+    /// The sampling view, dimensioned `Cube`, over every mip level.
     view: wgpu::TextureView,
-    /// One render view per face, created once.
+    /// One render view per face at level 0, created once.
     face_views: Vec<wgpu::TextureView>,
     /// Kept for ownership; the face views reference it.
     _depth_texture: wgpu::Texture,
@@ -201,15 +212,43 @@ pub struct ProbeCube {
     depth_face_views: Vec<wgpu::TextureView>,
     /// World position the probe was baked from.
     pub position: [f32; 3],
-    /// Face edge, in texels.
+    /// Base face edge, in texels.
     pub face_size: u32,
+    /// Mip levels the colour texture carries.
+    pub mip_levels: u32,
+}
+
+/// The edge of mip `level` of a probe captured at `face_edge`, or `None` past
+/// the chain.
+///
+/// Level 0 is the base edge; each level halves, and a level below one texel
+/// does not exist.
+#[must_use]
+pub const fn probe_mip_edge(face_edge: u32, level: u32) -> Option<u32> {
+    if face_edge == 0 || level >= u32::BITS {
+        return None;
+    }
+    let edge = face_edge >> level;
+    if edge == 0 { None } else { Some(edge) }
 }
 
 impl ProbeCube {
     /// Creates one probe's cubemap and per-face depth attachments.
+    ///
+    /// `mip_levels` is clamped to the chain the face size supports
+    /// (`ilog2(face_size) + 1`), so an oversized request cannot make wgpu
+    /// reject the texture. The depth attachment stays one level: a capture
+    /// renders level 0 only.
     #[must_use]
-    pub fn create(device: &wgpu::Device, position: [f32; 3], face_size: u32) -> Self {
+    pub fn create(
+        device: &wgpu::Device,
+        position: [f32; 3],
+        face_size: u32,
+        mip_levels: u32,
+    ) -> Self {
         let face_size = face_size.max(1);
+        let max_levels = face_size.ilog2().saturating_add(1);
+        let mip_levels = mip_levels.clamp(1, max_levels);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("places-wgpu-probe"),
             size: wgpu::Extent3d {
@@ -217,11 +256,14 @@ impl ProbeCube {
                 height: face_size,
                 depth_or_array_layers: 6,
             },
-            mip_level_count: 1,
+            mip_level_count: mip_levels,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: REFLECTION_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -236,6 +278,8 @@ impl ProbeCube {
                     dimension: Some(wgpu::TextureViewDimension::D2),
                     base_array_layer: face,
                     array_layer_count: Some(1),
+                    base_mip_level: 0,
+                    mip_level_count: Some(1),
                     ..wgpu::TextureViewDescriptor::default()
                 })
             })
@@ -266,13 +310,14 @@ impl ProbeCube {
             })
             .collect();
         Self {
-            _texture: texture,
+            texture,
             view,
             face_views,
             _depth_texture: depth_texture,
             depth_face_views,
             position,
             face_size,
+            mip_levels,
         }
     }
 
@@ -280,6 +325,57 @@ impl ProbeCube {
     #[must_use]
     pub const fn view(&self) -> &wgpu::TextureView {
         &self.view
+    }
+
+    /// The owning texture, for the offline compiler's face read-back.
+    #[must_use]
+    pub const fn texture(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+
+    /// Writes one RGBA8 face into one mip level of the resident cubemap.
+    ///
+    /// `rgba` must hold exactly `edge * edge * 4` bytes for `edge` the level's
+    /// edge (`face_size >> level`); a shorter buffer, a level past the resident
+    /// chain, or a face index past six is ignored rather than letting wgpu
+    /// validate the write.
+    pub fn write_face(&self, queue: &wgpu::Queue, level: u32, face: usize, rgba: &[u8]) {
+        if level >= self.mip_levels {
+            return;
+        }
+        let Some(level_edge) = probe_mip_edge(self.face_size, level) else {
+            return;
+        };
+        let expected = usize::try_from(level_edge)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(usize::try_from(level_edge).unwrap_or(usize::MAX))
+            .saturating_mul(4);
+        if face >= 6 || rgba.len() != expected {
+            return;
+        }
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: level,
+                origin: wgpu::Origin3d {
+                    x: 0,
+                    y: 0,
+                    z: u32::try_from(face).unwrap_or(0),
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(level_edge.saturating_mul(4)),
+                rows_per_image: Some(level_edge),
+            },
+            wgpu::Extent3d {
+                width: level_edge,
+                height: level_edge,
+                depth_or_array_layers: 1,
+            },
+        );
     }
 
     /// The render view of one face (one array layer, 2D view).
@@ -292,6 +388,53 @@ impl ProbeCube {
     #[must_use]
     pub fn depth_face_view(&self, face: usize) -> Option<&wgpu::TextureView> {
         self.depth_face_views.get(face)
+    }
+}
+
+/// One probe's captured faces, as the offline compiler packages them.
+///
+/// RGBA8, one `edge * edge * 4` buffer per face in the renderer's cube face
+/// order; [`Self::packaged_mips`] turns the capture into the roughness chain
+/// the compiler writes into one KTX2 cube and the player uploads back verbatim.
+#[derive(Clone, Debug)]
+pub struct ProbeFaceReadback {
+    /// World position the probe was captured from.
+    pub position: [f32; 3],
+    /// Base face edge in texels.
+    pub face_size: u32,
+    /// Six RGBA8 base faces in cube face order.
+    pub faces: [Vec<u8>; 6],
+}
+
+impl ProbeFaceReadback {
+    /// Maximum mip levels a packaged probe chain may carry.
+    ///
+    /// The package record validates against this; the value is the neutral
+    /// prefilter's [`MAX_PROBE_MIPS`].
+    pub const MAX_MIP_LEVELS: u32 = MAX_PROBE_MIPS;
+
+    /// The mip level count a packaged chain at `face_edge` carries.
+    #[must_use]
+    pub const fn packaged_mip_levels(face_edge: u32) -> u32 {
+        mip_levels_for(face_edge)
+    }
+
+    /// Builds the offline-prefiltered mip chain this capture packages.
+    ///
+    /// Level 0 is a copy of [`Self::faces`]; each later level is a cone average
+    /// with roughness growing to one, computed by
+    /// [`crate::render::common::probe_filter`]. The filter is deterministic and
+    /// thread-free, so two builds of the same capture package identical bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the face buffers do not match `face_size`.
+    pub fn packaged_mips(&self) -> Result<Vec<[Vec<u8>; 6]>, String> {
+        prefilter_cube(
+            self.face_size,
+            &self.faces,
+            Self::packaged_mip_levels(self.face_size),
+        )
     }
 }
 
@@ -381,7 +524,9 @@ impl ReflectionTargets {
     ///
     /// The capture position is the reference's `point + 1.2 m Y`; the face edge
     /// follows the Reflections setting, and [`ReflectionQuality::Off`] creates
-    /// no cubemaps at all (nothing may sample a stale capture).
+    /// no cubemaps at all (nothing may sample a stale capture). Every cubemap
+    /// carries the packaging chain for its face size, so a compiled payload's
+    /// levels always fit; a live bake fills level 0 only.
     #[must_use]
     pub fn for_quality(
         device: &wgpu::Device,
@@ -392,7 +537,14 @@ impl ReflectionTargets {
             probe_points
                 .iter()
                 .take(MAX_REFLECTION_PROBES)
-                .map(|point| ProbeCube::create(device, probe_bake_position(*point), face_size))
+                .map(|point| {
+                    ProbeCube::create(
+                        device,
+                        probe_bake_position(*point),
+                        face_size,
+                        mip_levels_for(face_size),
+                    )
+                })
                 .collect()
         });
         Self {
@@ -480,6 +632,60 @@ mod tests {
         assert_eq!(CUBE_FACE_DIRECTIONS[5], [0.0, 0.0, -1.0]);
         assert_eq!(CUBE_FACE_UPS[2], [0.0, 0.0, 1.0]);
         assert_eq!(CUBE_FACE_UPS[3], [0.0, 0.0, -1.0]);
+        // The neutral prefilter mirrors this order; the two must not drift.
+        assert_eq!(
+            CUBE_FACE_DIRECTIONS,
+            crate::render::common::probe_filter::CUBE_FACE_DIRECTIONS
+        );
+        assert_eq!(
+            CUBE_FACE_UPS,
+            crate::render::common::probe_filter::CUBE_FACE_UPS
+        );
+    }
+
+    #[test]
+    fn probe_mip_edges_halve_to_one_texel() {
+        assert_eq!(probe_mip_edge(64, 0), Some(64));
+        assert_eq!(probe_mip_edge(64, 1), Some(32));
+        assert_eq!(probe_mip_edge(64, 6), Some(1));
+        assert_eq!(probe_mip_edge(64, 7), None);
+        assert_eq!(probe_mip_edge(48, 0), Some(48));
+        assert_eq!(probe_mip_edge(48, 5), Some(1));
+        assert_eq!(probe_mip_edge(48, 6), None);
+        assert_eq!(probe_mip_edge(0, 0), None);
+        assert_eq!(probe_mip_edge(64, u32::BITS), None);
+        assert_eq!(
+            probe_mip_edge(64, ProbeFaceReadback::MAX_MIP_LEVELS - 1),
+            Some(1),
+            "the packaging cap lands exactly on the one-texel level"
+        );
+    }
+
+    #[test]
+    fn a_packaged_chain_covers_every_packaged_level() {
+        let edge = 8;
+        let bytes = usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 4;
+        let faces: [Vec<u8>; 6] = std::array::from_fn(|_| vec![9_u8; bytes]);
+        let readback = ProbeFaceReadback {
+            position: [0.0, 0.0, 0.0],
+            face_size: edge,
+            faces,
+        };
+        let chain = readback.packaged_mips().expect("chain");
+        assert_eq!(
+            u32::try_from(chain.len()).unwrap(),
+            ProbeFaceReadback::packaged_mip_levels(edge)
+        );
+        assert_eq!(chain[0], readback.faces, "level 0 is the capture");
+        let mut expected = edge;
+        for faces in &chain {
+            for face in faces {
+                let expected_bytes =
+                    usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 4;
+                assert_eq!(face.len(), expected_bytes);
+            }
+            expected /= 2;
+        }
     }
 
     #[test]

@@ -125,6 +125,19 @@ POSE_DEMOS: List[Tuple[str, str, str]] = [
 ]
 SWITCH_DEMO = "home:wall_switch"
 
+# The generic-spawn demonstration: the crate display spawns a half-scale crate
+# at a floor point in the same bay row, through one `spawn_entity` action. The
+# point belongs to an at-most-one-active group, so a second press while the
+# spawned crate is alive is refused with a diagnostic (despawn-by-group is
+# exercised by the runtime tests; the zoo never despawns it itself).
+SPAWN_MODEL = "core:crate"
+SPAWN_TEMPLATE_ID = "zoo_crate_spawn"
+SPAWN_POINT_ID = "zoo_crate_spawn_point"
+SPAWN_GROUP_ID = "zoo_spawn"
+# 1.2 m east of the crate display at (10.8, 16.3): the aisle gap before the
+# desk bay, clear of both displays and of the spawn's own half-metre footprint.
+SPAWN_POINT = (12.0, 16.3)
+
 
 # Set by --quiet; the worker's progress lines honour it (workers inherit the
 # flag through their own imported module, so it must be module-level).
@@ -451,6 +464,50 @@ def instance_id(entry: Dict, role: str) -> str:
     return f"zoo:{entry['id'].replace(':', '-')}:{role}"
 
 
+def animation_component(actions: Sequence[Dict]) -> Optional[Dict]:
+    """The `animation` component the v3 loader requires for an animation action.
+
+    The generator's interaction blocks carry the clip on the action, so the
+    first animation action's clip is hoisted into the component (at rest,
+    `playing: false`) exactly as `tools/levels/convert_v3.py` does.
+    """
+    for action in actions:
+        tag = action.get("action")
+        if tag not in ("play_animation", "toggle_animation"):
+            continue
+        clip = action.get("clip")
+        if not isinstance(clip, str) or not clip.strip():
+            return None
+        return {
+            "component": "animation",
+            "clip": clip.strip(),
+            "looped": bool(action.get("loop", False)) if tag == "play_animation" else False,
+            "playing": False,
+        }
+    return None
+
+
+def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
+    """The format-v3 components/bindings for one interaction block.
+
+    The generator's callers keep authoring the compact interaction form; this
+    translates it to the typed components and event bindings a v3 level
+    carries, in the same field order the one-off converter emits.
+    """
+    component: Dict = {"component": "interactable"}
+    prompt = interaction.get("prompt")
+    if prompt is not None:
+        component["prompt"] = prompt
+    reach = interaction.get("reach")
+    if reach is not None:
+        component["reach"] = reach
+    components = [component]
+    animation = animation_component(interaction["actions"])
+    if animation is not None:
+        components.append(animation)
+    return components, [{"on": "interact", "actions": interaction["actions"]}]
+
+
 def ordered_displays(catalog: Dict) -> List[Dict]:
     """Every display the zoo must contain, in a deterministic order.
 
@@ -561,7 +618,7 @@ class Layout:
         self.props: List[Dict] = []
         self.decals: List[Dict] = []
         self.routes: List[Dict] = []
-        self.triggers: List[Dict] = []
+        self.volumes: List[Dict] = []
         self.ladders: List[Dict] = []
         self.water: List[Dict] = []
         self.floor_regions: List[Dict] = []
@@ -600,7 +657,9 @@ class Layout:
                 "actions": [{"action": "toggle_label"}],
             }
         if interaction is not False:
-            placement["interaction"] = interaction
+            components, bindings = interaction_v3(interaction)
+            placement["components"] = components
+            placement["bindings"] = bindings
         placement.update(fields)
         self.props.append(placement)
         return placement
@@ -642,6 +701,16 @@ def place_floor_items(layout: Layout, displays: Sequence[Dict], inspections: Dic
                 "prompt": "Pose",
                 "actions": [
                     {"action": "play_animation", "clip": item["clip"], "loop": False},
+                    {"action": "toggle_label"},
+                ],
+            }
+        if entry["id"] == SPAWN_MODEL:
+            # The generic-spawn demonstration: the crate display shows its name
+            # and spawns the half-scale template at the floor point beside it.
+            fields["interaction"] = {
+                "prompt": "Show name",
+                "actions": [
+                    {"action": "spawn_entity", "point": SPAWN_POINT_ID},
                     {"action": "toggle_label"},
                 ],
             }
@@ -1120,7 +1189,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     ]
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": "model_zoo",
         "name": "Model Zoo",
         "author": "Places",
@@ -1159,7 +1228,28 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
         "props": layout.props,
         "decals": layout.decals,
         "routes": layout.routes,
-        "area_triggers": layout.triggers,
+        "volumes": layout.volumes,
+        "spawn_templates": [
+            {
+                "id": SPAWN_TEMPLATE_ID,
+                "model": SPAWN_MODEL,
+                "scale": 0.5,
+                "lifetime_seconds": 20.0,
+                "components": [
+                    {"component": "state", "name": "phase", "value": "spawned"}
+                ],
+            }
+        ],
+        "spawn_points": [
+            {
+                "id": SPAWN_POINT_ID,
+                "x": SPAWN_POINT[0],
+                "z": SPAWN_POINT[1],
+                "template": SPAWN_TEMPLATE_ID,
+                "group": SPAWN_GROUP_ID,
+            }
+        ],
+        "spawn_groups": [{"id": SPAWN_GROUP_ID, "at_most_one_active": True}],
         "geometry_intent": intent,
     }
 

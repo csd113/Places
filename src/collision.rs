@@ -1,5 +1,7 @@
 use glam::{Vec2, Vec3};
 
+use crate::package::binary::{Reader, Writer};
+
 pub const PLAYER_RADIUS: f32 = 0.30;
 pub const PLAYER_HEIGHT: f32 = 1.8;
 
@@ -151,6 +153,52 @@ impl WallAabb {
     #[must_use]
     pub fn supports_center(&self, x: f32, z: f32) -> bool {
         x >= self.min_x && x <= self.max_x && z >= self.min_z && z <= self.max_z
+    }
+
+    /// Writes this box in the compiled collision record's component order:
+    /// `min_x, min_y, min_z, max_x, max_y, max_z, step_up`.
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) {
+        writer.f32(self.min_x);
+        writer.f32(self.min_y);
+        writer.f32(self.min_z);
+        writer.f32(self.max_x);
+        writer.f32(self.max_y);
+        writer.f32(self.max_z);
+        writer.f32(self.step_up);
+    }
+
+    /// Reads one box from a compiled collision record.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named error when the record is truncated, a component is not
+    /// finite, or a minimum bound exceeds its maximum.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        let min_x = reader.f32()?;
+        let min_y = reader.f32()?;
+        let min_z = reader.f32()?;
+        let max_x = reader.f32()?;
+        let max_y = reader.f32()?;
+        let max_z = reader.f32()?;
+        let step_up = reader.f32()?;
+        if ![min_x, min_y, min_z, max_x, max_y, max_z, step_up]
+            .iter()
+            .all(|value| value.is_finite())
+        {
+            return Err("wall box has a non-finite value".to_string());
+        }
+        if min_x > max_x || min_y > max_y || min_z > max_z {
+            return Err("wall box bounds are inverted".to_string());
+        }
+        Ok(Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            min_z,
+            max_z,
+            step_up,
+        })
     }
 }
 

@@ -167,7 +167,7 @@ def showcase_level() -> Dict:
     ]
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": "prop_showcase",
         "name": "Prop Showcase (dev)",
         "author": "Places Team",
@@ -247,7 +247,7 @@ def stress_level() -> Dict:
         props.append(prop("core:cardboard_box", 9.6, -8.0 + index * 0.62, y=-0.02 * index))
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "id": "prop_stress",
         "name": "Prop Stress Test (dev)",
         "author": "Places Team",

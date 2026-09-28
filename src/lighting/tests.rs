@@ -32,7 +32,7 @@ fn level_with_room(width: f32, depth: f32, height: f32, intensities: &[f32]) -> 
         .collect();
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "lighting_test",
             "name": "Lighting Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -66,7 +66,7 @@ fn level_with_colored_room(
         .collect();
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "lighting_color_test",
             "name": "Lighting Colour Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -90,7 +90,7 @@ fn lum(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> f32 {
 fn fixture_panel_follows_a_gable_eave_and_ridge() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable_light",
             "name": "Gable Light",
             "spawn": { "x": 12.0, "z": 12.0 },
@@ -148,7 +148,7 @@ fn fixture_panel_follows_a_gable_eave_and_ridge() {
 fn elevated_room_fixtures_hang_from_their_own_ceiling() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "elevated_light",
             "name": "Elevated Light",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -213,7 +213,7 @@ fn brighter_fixtures_raise_the_room_baseline() {
 #[test]
 fn a_missing_intensity_behaves_as_a_standard_fixture() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "defaults",
         "name": "Defaults",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -233,7 +233,7 @@ fn a_missing_intensity_behaves_as_a_standard_fixture() {
 #[test]
 fn negative_fixture_brightness_is_sanitized_to_no_light() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "brightness",
         "name": "Brightness",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -346,7 +346,7 @@ fn a_room_without_fixtures_is_dim_but_never_black() {
 #[test]
 fn samples_under_a_fixture_are_brighter_than_distant_samples() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "pool",
         "name": "Pool",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -423,7 +423,7 @@ fn local_pools_scale_with_fixture_intensity() {
     let level = |intensity: f32| {
         LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "pool_intensity",
                 "name": "Pool Intensity",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -460,7 +460,7 @@ fn two_room_level(opening: bool) -> LevelDef {
     };
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "blend",
             "name": "Blend",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -558,7 +558,7 @@ fn openings_blend_between_differently_lit_rooms() {
 #[test]
 fn openings_do_not_blend_through_solid_walls() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "solid",
         "name": "Solid",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -590,7 +590,7 @@ fn overlapping_rooms_own_lights_deterministically_and_only_once() {
     // to the smaller room only, so the small room is bright and the big one
     // receives nothing.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "overlap",
         "name": "Overlap",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -765,7 +765,7 @@ fn summaries_describe_the_bake() {
 #[test]
 fn fixture_plane_follows_the_room_ceiling() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "heights",
         "name": "Heights",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -794,7 +794,7 @@ fn vertically_offset_samples_follow_their_true_position() {
     // the side at the emitter's own height is darker than the floor beneath
     // (the directional lobe), and a distant point is darker still.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "height_sample",
         "name": "Height Sample",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -830,7 +830,7 @@ fn sample_points_use_the_smaller_overlapping_room() {
     // The documented ownership rule is shared by light ownership and point
     // sampling, so a sample inside the overlap resolves to the small room.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "sample_overlap",
         "name": "Sample Overlap",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -896,7 +896,7 @@ fn warm_and_cool_fixtures_mix_without_losing_either_colour() {
     let scenario = |lights: &str| {
         LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "mix_two",
                 "name": "Mix Two",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -952,7 +952,7 @@ fn three_arbitrary_colours_accumulate_independently() {
     // able to accumulate from an arbitrary fixture, which rules out two
     // hardcoded fixture modes.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "mix_three",
         "name": "Mix Three",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1064,7 +1064,7 @@ fn levels_without_a_colour_use_the_documented_default() {
     // Every shipped level omits `color`; they must bake the restrained warm
     // default rather than turning white or black.
     let omitted = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "default_colour",
         "name": "Default Colour",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1091,7 +1091,7 @@ fn levels_without_a_colour_use_the_documented_default() {
 /// One room carrying the three shipped fixture families.
 fn level_with_fixture_families() -> LevelDef {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "fixtures",
         "name": "Fixture Families",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1181,7 +1181,7 @@ fn fixture_families_own_their_footprint_and_mount() {
 
     // A hand-edited wall fixture without a height stays finite.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "wallless",
         "name": "Wallless",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1199,7 +1199,7 @@ fn fixture_families_own_their_footprint_and_mount() {
     // A room lit only by the cool round fixture must read cool; mixing a
     // warm fixture in stays a blend, which the RGB lighting tests cover.
     let cool_only = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "cool_only",
         "name": "Cool Only",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1227,7 +1227,7 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     let level = |lights: &str| {
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "wall_validation",
                 "name": "Wall Validation",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1281,7 +1281,7 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
 fn two_rooms_with_wall(openings_json: &str, fixture_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "opening_seam",
             "name": "Opening Seam",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1349,7 +1349,7 @@ fn a_lit_corner_does_not_transmit_diagonally() {
     // line between them is through one of the walls. Approaching the corner
     // diagonally must stay blocked at every offset from the exact corner line.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "corner_seam",
         "name": "Corner Seam",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1390,7 +1390,7 @@ fn a_lit_corner_does_not_transmit_diagonally() {
 fn level_with_one_light(light_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "single_light_test",
             "name": "Single Light Test",
             "spawn": {{ "x": 5.0, "z": 5.0 }},
@@ -1495,7 +1495,7 @@ fn a_fixture_can_author_its_own_pool_shape() {
 fn level_with_prop_light(prop_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "prop_light_test",
             "name": "Prop Light Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1649,7 +1649,7 @@ fn malformed_prop_lights_are_rejected_or_skipped_without_panicking() {
 
     // A non-finite offset is a level error too.
     let bad_offset = LevelDef::from_json(
-        r#"{ "format_version": 2, "id": "bad_offset", "name": "Bad Offset",
+        r#"{ "format_version": 3, "id": "bad_offset", "name": "Bad Offset",
              "spawn": { "x": 0.0, "z": 0.0 },
              "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }],
              "props": [{ "model": "core:desk", "x": 1.0, "z": 1.0,
@@ -1676,7 +1676,7 @@ fn malformed_prop_lights_are_rejected_or_skipped_without_panicking() {
 fn prop_scene(width: f32, depth: f32, lights: &[String], props: &[String]) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "prop_occlusion",
             "name": "Prop Occlusion",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1715,7 +1715,7 @@ fn lightmap_texels_match_the_vertex_path_exactly() {
     // for (a texel centre is generated on a surface, never inside a wall).
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "prop_occlusion",
             "name": "Prop Occlusion",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1977,7 +1977,7 @@ fn multiple_props_stack_their_shadows() {
 fn a_prop_over_a_raised_floor_region_occludes_from_its_own_base() {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "raised_prop",
             "name": "Raised Prop",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1994,7 +1994,7 @@ fn a_prop_over_a_raised_floor_region_occludes_from_its_own_base() {
     let with_prop = LevelLighting::bake(&LevelDef::from_json(&json).expect("scene parses"));
     let json_without = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "raised_prop",
             "name": "Raised Prop",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -2033,7 +2033,7 @@ fn a_prop_over_a_raised_floor_region_occludes_from_its_own_base() {
 fn a_prop_against_a_wall_still_occludes() {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "prop_wall",
             "name": "Prop Wall",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -2048,7 +2048,7 @@ fn a_prop_against_a_wall_still_occludes() {
     let with_prop = LevelLighting::bake(&LevelDef::from_json(&json).expect("scene parses"));
     let json_without = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "prop_wall",
             "name": "Prop Wall",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -2961,7 +2961,7 @@ fn screen_terms_for_test(terms: &[PoolTerm]) -> (LightColor, LightColor) {
 fn a_narrow_corridor_keeps_one_baseline_across_the_zone_grid() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "narrow_corridor",
             "name": "Narrow Corridor",
             "spawn": { "x": 1.0, "z": 2.0 },
@@ -3020,7 +3020,7 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     // baselines, and their areas must tile the room.
     let partitioned = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "zone_report",
             "name": "Zone Report",
             "spawn": { "x": 2.0, "z": 5.0 },
@@ -3204,7 +3204,7 @@ static PIT_SAMPLES: &[(&str, f32, f32, f32)] = &[
 fn controlled_ladder_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "controlled_ladder",
             "name": "Controlled Ladder",
             "spawn": { "x": 6.0, "z": 6.0 },

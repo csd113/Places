@@ -1,0 +1,774 @@
+//! Typed runtime components and their storage.
+//!
+//! One table per component kind, aligned with the entity store's slot indices.
+//! Every entry records the generation it was inserted with, so a table answers
+//! `get(stale_handle) == None` for any handle whose slot has been reused since
+//! the write. Component lifetime follows slot lifetime: the owner
+//! ([`crate::entities::EntityWorld`]) removes every component before it
+//! releases a slot, so a removed entity can never be read through a recycled
+//! handle.
+//!
+//! The component set is deliberately small and purpose-built. Static props,
+//! doors, light fixtures, trigger volumes, effect emitters, timers, spawn
+//! points and routed characters each resolve one entity with the components
+//! the engine actually implements; there is no reflection, no string field
+//! setter and no generic script bag.
+
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
+
+use super::id::EntityHandle;
+
+/// One typed state value. Authored JSON is `true`, `3`, `2.5` or `"on"`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum StateValue {
+    /// A boolean state.
+    Bool(bool),
+    /// An integer state.
+    Int(i64),
+    /// A floating-point state.
+    Float(f32),
+    /// A text state.
+    Text(String),
+}
+
+impl StateValue {
+    /// The value as a boolean, when it is one.
+    #[must_use]
+    pub const fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(*value),
+            Self::Int(_) | Self::Float(_) | Self::Text(_) => None,
+        }
+    }
+
+    /// The value as an integer, when it is one.
+    #[must_use]
+    pub const fn as_int(&self) -> Option<i64> {
+        match self {
+            Self::Int(value) => Some(*value),
+            Self::Bool(_) | Self::Float(_) | Self::Text(_) => None,
+        }
+    }
+
+    /// The value as `f32`, when it is a number.
+    ///
+    /// An integer loses precision only beyond 2^24, where a state value is
+    /// already outside any gameplay use.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)] // documented integer-to-float view
+    pub const fn as_float(&self) -> Option<f32> {
+        match self {
+            Self::Float(value) => Some(*value),
+            Self::Int(value) => Some(*value as f32),
+            Self::Bool(_) | Self::Text(_) => None,
+        }
+    }
+
+    /// The value as text, when it is one.
+    #[must_use]
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Self::Text(value) => Some(value),
+            Self::Bool(_) | Self::Int(_) | Self::Float(_) => None,
+        }
+    }
+
+    /// Stable kind name, for diagnostics.
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::Bool(_) => "bool",
+            Self::Int(_) => "int",
+            Self::Float(_) => "float",
+            Self::Text(_) => "text",
+        }
+    }
+}
+
+/// One component slot: the generation it was written with plus its value.
+#[derive(Clone, Debug, PartialEq)]
+struct Entry<T> {
+    generation: u32,
+    value: T,
+}
+
+/// A sparse table of one component kind, aligned with the entity store.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComponentTable<T> {
+    slots: Vec<Option<Entry<T>>>,
+}
+
+impl<T> Default for ComponentTable<T> {
+    fn default() -> Self {
+        Self { slots: Vec::new() }
+    }
+}
+
+impl<T> ComponentTable<T> {
+    /// An empty table.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { slots: Vec::new() }
+    }
+
+    /// Writes `value` for `handle`, returning the previous value.
+    pub fn insert(&mut self, handle: EntityHandle, value: T) -> Option<T> {
+        let index = handle.index() as usize;
+        while self.slots.len() <= index {
+            self.slots.push(None);
+        }
+        let previous = self
+            .slots
+            .get_mut(index)
+            .and_then(std::option::Option::take)
+            .filter(|entry| entry.generation == handle.generation())
+            .map(|entry| entry.value);
+        if let Some(slot) = self.slots.get_mut(index) {
+            *slot = Some(Entry {
+                generation: handle.generation(),
+                value,
+            });
+        }
+        previous
+    }
+
+    /// The value for `handle`, when it is live at that generation.
+    #[must_use]
+    pub fn get(&self, handle: EntityHandle) -> Option<&T> {
+        self.slots
+            .get(handle.index() as usize)
+            .and_then(Option::as_ref)
+            .filter(|entry| entry.generation == handle.generation())
+            .map(|entry| &entry.value)
+    }
+
+    /// The value for `handle`, mutably, when it is live at that generation.
+    pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut T> {
+        self.slots
+            .get_mut(handle.index() as usize)
+            .and_then(Option::as_mut)
+            .filter(|entry| entry.generation == handle.generation())
+            .map(|entry| &mut entry.value)
+    }
+
+    /// Removes the value for `handle`, returning it when it was live.
+    pub fn remove(&mut self, handle: EntityHandle) -> Option<T> {
+        let slot = self.slots.get_mut(handle.index() as usize)?;
+        let matches = slot
+            .as_ref()
+            .is_some_and(|entry| entry.generation == handle.generation());
+        if !matches {
+            return None;
+        }
+        slot.take().map(|entry| entry.value)
+    }
+
+    /// True when `handle` has a live value.
+    #[must_use]
+    pub fn contains(&self, handle: EntityHandle) -> bool {
+        self.get(handle).is_some()
+    }
+
+    /// Every live entry, in slot order.
+    pub fn iter(&self) -> impl Iterator<Item = (EntityHandle, &T)> {
+        self.slots.iter().enumerate().filter_map(|(index, slot)| {
+            slot.as_ref().and_then(|entry| {
+                u32::try_from(index).ok().map(|index| {
+                    (
+                        EntityHandle::from_parts(index, entry.generation),
+                        &entry.value,
+                    )
+                })
+            })
+        })
+    }
+
+    /// The number of live entries.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.slots.iter().filter(|slot| slot.is_some()).count()
+    }
+
+    /// True when no entry is live.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.slots.iter().all(Option::is_none)
+    }
+
+    /// Drops every entry.
+    pub fn clear(&mut self) {
+        self.slots.clear();
+    }
+}
+
+/// A world-space pose: position, yaw and uniform scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Transform {
+    /// World position of the entity's base (feet or model origin).
+    pub position: Vec3,
+    /// Yaw in degrees; `0` faces `+X` for doors, `-Z` for characters.
+    pub yaw_degrees: f32,
+    /// Uniform scale.
+    pub scale: f32,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            position: Vec3::ZERO,
+            yaw_degrees: 0.0,
+            scale: 1.0,
+        }
+    }
+}
+
+/// What an entity draws.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Renderable {
+    /// Catalogue model id or path the renderer resolves.
+    pub model: String,
+    /// Material override authored on the entity, when it has one.
+    pub material: Option<String>,
+    /// False hides the entity without removing it.
+    pub visible: bool,
+    /// True when the entity is drawn through the dynamic-object path, so a
+    /// transform change or a despawn is expressible at runtime. A baked static
+    /// entity is `false`.
+    pub dynamic: bool,
+}
+
+/// Authored collision for an entity that is not baked into the static world.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Collider {
+    /// `[width, height, depth]` in metres.
+    pub size: [f32; 3],
+    /// True when the collider blocks movement.
+    pub solid: bool,
+}
+
+/// Playback state of one named clip.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Animation {
+    /// Clip name resolved against the model's animation set.
+    pub clip: String,
+    /// Playback rate multiplier.
+    pub speed: f32,
+    /// True loops, false holds the last pose.
+    pub looped: bool,
+    /// True while the clip is advancing.
+    pub playing: bool,
+    /// Normalized progress in `0..=1`; `Scrub` targets ease this.
+    pub progress: f32,
+}
+
+impl Default for Animation {
+    fn default() -> Self {
+        Self {
+            clip: String::new(),
+            speed: 1.0,
+            looped: false,
+            playing: false,
+            progress: 0.0,
+        }
+    }
+}
+
+/// An aimable instance and what its interaction emits.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Interactable {
+    /// Prompt shown while aimed at. Empty means the entity's own default: a
+    /// door shows its phase-appropriate open/close prompt, anything else shows
+    /// `DEFAULT_INTERACTION_PROMPT`.
+    pub prompt: String,
+    /// Reach in metres, already capped.
+    pub reach: f32,
+    /// False disables aiming without removing the entity.
+    pub enabled: bool,
+    /// Optional display name a `toggle_label` action shows and hides.
+    pub label: Option<String>,
+    /// Whether the floating display name is currently shown.
+    pub label_visible: bool,
+}
+
+/// An audio emitter's typed state.
+///
+/// `playing`/`looped`/`enabled` are the behaviour the audio route implements;
+/// the backend that turns them into samples is the audio subsystem (see
+/// `crate::audio`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct AudioEmitter {
+    /// Authored sound asset id.
+    pub sound: String,
+    /// Linear gain.
+    pub gain: f32,
+    /// True loops until stopped.
+    pub looped: bool,
+    /// False mutes the emitter without clearing its state.
+    pub enabled: bool,
+    /// True once a `play_sound` action asked for playback.
+    pub playing: bool,
+}
+
+/// One switchable light.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Light {
+    /// Current on/off state.
+    pub enabled: bool,
+    /// Whether an action may switch it.
+    pub switchable: bool,
+    /// Emissive scale for the visible face.
+    pub emission_scale: f32,
+    /// Index of the prepared switchable lightmap group this light drives: a
+    /// ceiling fixture's position in the level's `ceiling_lights`. `None` for a
+    /// light with no prepared layers (a prop light or a spawned light), whose
+    /// state is still real but changes only its own emission.
+    pub fixture: Option<u32>,
+    /// True when the state changed and the renderer has not applied it yet.
+    pub dirty: bool,
+}
+
+/// One named material variant and the per-object emission scale it selects.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Material {
+    /// The selected variant name.
+    pub variant: String,
+    /// Every variant the entity can select, with its emission scale.
+    pub variants: Vec<(String, f32)>,
+}
+
+impl Material {
+    /// The emission scale of the selected variant, or `1.0` when unknown.
+    #[must_use]
+    pub fn emission_scale(&self) -> f32 {
+        self.variants
+            .iter()
+            .find(|(name, _)| name == &self.variant)
+            .map_or(1.0, |(_, scale)| *scale)
+    }
+
+    /// Selects `variant`, returning whether it changed.
+    pub fn select(&mut self, variant: &str) -> bool {
+        if !self.variants.iter().any(|(name, _)| name == variant) || self.variant == variant {
+            return false;
+        }
+        variant.clone_into(&mut self.variant);
+        true
+    }
+}
+
+/// One entity's typed states, by name.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ObjectState {
+    /// `(name, value)` pairs in authored order.
+    pub values: Vec<(String, StateValue)>,
+}
+
+impl ObjectState {
+    /// The value of `name`, if it exists.
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&StateValue> {
+        self.values
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+    }
+
+    /// Writes `name`, returning true only when the stored value changed.
+    ///
+    /// A condition evaluation and a state event both read this: a `set_state`
+    /// that writes the value it already holds is not a state change and does
+    /// not emit an event.
+    pub fn set(&mut self, name: &str, value: StateValue) -> bool {
+        if let Some((_, current)) = self.values.iter_mut().find(|(key, _)| key == name) {
+            if *current == value {
+                return false;
+            }
+            *current = value;
+            return true;
+        }
+        self.values.push((name.to_string(), value));
+        true
+    }
+}
+
+/// A trigger volume and its occupancy edge state.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TriggerVolume {
+    /// Footprint bounds `(x0, x1, z0, z1)`, normalised.
+    pub bounds: [f32; 4],
+    /// Lowest world Y of the volume.
+    pub bottom_y: f32,
+    /// Highest world Y of the volume.
+    pub top_y: f32,
+    /// True while the player's feet were inside at the last update.
+    pub inside: bool,
+}
+
+impl TriggerVolume {
+    /// True when `(x, z, y)` lies inside the volume.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32, y: f32) -> bool {
+        x >= self.bounds[0]
+            && x <= self.bounds[1]
+            && z >= self.bounds[2]
+            && z <= self.bounds[3]
+            && y >= self.bottom_y
+            && y <= self.top_y
+    }
+}
+
+/// The sequence controller attached to the entity that started a sequence.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SequenceCtl {
+    /// Id of the running sequence; empty when idle.
+    pub sequence: String,
+    /// True while a sequence is running on this entity.
+    pub running: bool,
+}
+
+/// How long a spawned entity lives.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lifetime {
+    /// Seconds until expiry; `None` never expires.
+    pub remaining: Option<f32>,
+    /// True removes the entity from the world when the timer reaches zero.
+    pub despawn: bool,
+}
+
+/// One spawn point: where a template spawns and which group owns it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpawnPoint {
+    /// Template id this point instantiates.
+    pub template: String,
+    /// Optional group id whose at-most-one rule applies.
+    pub group: Option<String>,
+}
+
+/// One steam/effect emitter's enabled state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Steam {
+    /// False suppresses the emitter's billboards without removing the level
+    /// effect.
+    pub enabled: bool,
+    /// Authored index in the level's `effects` array, so an enable/disable
+    /// reaches the renderer's resolved emitter. `None` for a component with no
+    /// matching level effect.
+    pub effect: Option<u32>,
+}
+
+/// One water volume's enabled state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WaterVolumeCtl {
+    /// False removes the volume from the water sampling: the baked surface
+    /// still draws, but the controller walks or falls through the footprint.
+    pub enabled: bool,
+}
+
+/// Movement metadata for the navigation upgrade.
+///
+/// Metadata only: this release does not generate a navmesh or pathfind, and
+/// nothing in this module reads these components.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NavAgent {
+    /// Body radius in metres.
+    pub radius: f32,
+    /// Preferred speed in m/s.
+    pub speed_mps: f32,
+}
+
+/// Navigation obstacle metadata for the navigation upgrade.
+///
+/// Metadata only, like [`NavAgent`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NavObstacle {
+    /// `[width, height, depth]` in metres.
+    pub size: [f32; 3],
+    /// False marks a purely decorative obstacle.
+    pub affects_nav: bool,
+}
+
+/// Every component table of one world.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ComponentTables {
+    /// World pose.
+    pub transforms: ComponentTable<Transform>,
+    /// What the entity draws.
+    pub renderables: ComponentTable<Renderable>,
+    /// Authored collision for runtime entities.
+    pub colliders: ComponentTable<Collider>,
+    /// Clip playback state.
+    pub animations: ComponentTable<Animation>,
+    /// Aimable instances.
+    pub interactables: ComponentTable<Interactable>,
+    /// Audio emitters.
+    pub audio: ComponentTable<AudioEmitter>,
+    /// Switchable lights.
+    pub lights: ComponentTable<Light>,
+    /// Per-object material variants.
+    pub materials: ComponentTable<Material>,
+    /// Typed state bags.
+    pub states: ComponentTable<ObjectState>,
+    /// Trigger volumes.
+    pub volumes: ComponentTable<TriggerVolume>,
+    /// Sequence controllers.
+    pub sequences: ComponentTable<SequenceCtl>,
+    /// Spawn lifetimes.
+    pub lifetimes: ComponentTable<Lifetime>,
+    /// Spawn points.
+    pub spawn_points: ComponentTable<SpawnPoint>,
+    /// Steam/effect emitters.
+    pub steam: ComponentTable<Steam>,
+    /// Water volume controls.
+    pub water: ComponentTable<WaterVolumeCtl>,
+    /// Navigation agent metadata (not yet consumed).
+    pub nav_agents: ComponentTable<NavAgent>,
+    /// Navigation obstacle metadata (not yet consumed).
+    pub nav_obstacles: ComponentTable<NavObstacle>,
+}
+
+impl ComponentTables {
+    /// An empty component set.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            transforms: ComponentTable::new(),
+            renderables: ComponentTable::new(),
+            colliders: ComponentTable::new(),
+            animations: ComponentTable::new(),
+            interactables: ComponentTable::new(),
+            audio: ComponentTable::new(),
+            lights: ComponentTable::new(),
+            materials: ComponentTable::new(),
+            states: ComponentTable::new(),
+            volumes: ComponentTable::new(),
+            sequences: ComponentTable::new(),
+            lifetimes: ComponentTable::new(),
+            spawn_points: ComponentTable::new(),
+            steam: ComponentTable::new(),
+            water: ComponentTable::new(),
+            nav_agents: ComponentTable::new(),
+            nav_obstacles: ComponentTable::new(),
+        }
+    }
+
+    /// Drops every component of every kind.
+    pub fn clear(&mut self) {
+        self.transforms.clear();
+        self.renderables.clear();
+        self.colliders.clear();
+        self.animations.clear();
+        self.interactables.clear();
+        self.audio.clear();
+        self.lights.clear();
+        self.materials.clear();
+        self.states.clear();
+        self.volumes.clear();
+        self.sequences.clear();
+        self.lifetimes.clear();
+        self.spawn_points.clear();
+        self.steam.clear();
+        self.water.clear();
+        self.nav_agents.clear();
+        self.nav_obstacles.clear();
+    }
+
+    /// Total entries across every table, for the diagnostics summary.
+    #[must_use]
+    #[allow(clippy::arithmetic_side_effects)] // bounded per-table entry counts
+    pub fn len(&self) -> usize {
+        self.transforms.len()
+            + self.renderables.len()
+            + self.colliders.len()
+            + self.animations.len()
+            + self.interactables.len()
+            + self.audio.len()
+            + self.lights.len()
+            + self.materials.len()
+            + self.states.len()
+            + self.volumes.len()
+            + self.sequences.len()
+            + self.lifetimes.len()
+            + self.spawn_points.len()
+            + self.steam.len()
+            + self.water.len()
+            + self.nav_agents.len()
+            + self.nav_obstacles.len()
+    }
+
+    /// True when no table holds an entry.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Removes every component of `handle`.
+    pub fn remove_all(&mut self, handle: EntityHandle) {
+        self.transforms.remove(handle);
+        self.renderables.remove(handle);
+        self.colliders.remove(handle);
+        self.animations.remove(handle);
+        self.interactables.remove(handle);
+        self.audio.remove(handle);
+        self.lights.remove(handle);
+        self.materials.remove(handle);
+        self.states.remove(handle);
+        self.volumes.remove(handle);
+        self.sequences.remove(handle);
+        self.lifetimes.remove(handle);
+        self.spawn_points.remove(handle);
+        self.steam.remove(handle);
+        self.water.remove(handle);
+        self.nav_agents.remove(handle);
+        self.nav_obstacles.remove(handle);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::float_cmp)]
+
+    use super::*;
+    use crate::entities::id::EntityStore;
+
+    #[test]
+    fn a_stale_handle_reads_nothing_from_any_table() {
+        let mut store = EntityStore::new();
+        let handle = store.insert();
+        let mut tables = ComponentTables::new();
+        tables.transforms.insert(
+            handle,
+            Transform {
+                position: Vec3::new(1.0, 2.0, 3.0),
+                yaw_degrees: 90.0,
+                scale: 1.0,
+            },
+        );
+        assert!(tables.transforms.contains(handle));
+        // The owner removes the components before it releases the slot, which
+        // is what makes the stale handle read nothing.
+        tables.remove_all(handle);
+        assert!(store.remove(handle));
+        let reused = store.insert();
+        assert_eq!(reused.index(), handle.index());
+        assert_ne!(reused.generation(), handle.generation());
+        assert!(tables.transforms.get(handle).is_none());
+        assert!(tables.transforms.get(reused).is_none());
+        // Writing through the reused handle is what attaches a component to
+        // the new occupant; the old handle still reads nothing.
+        tables.transforms.insert(
+            reused,
+            Transform {
+                position: Vec3::new(1.0, 2.0, 3.0),
+                yaw_degrees: 0.0,
+                scale: 1.0,
+            },
+        );
+        assert!(tables.transforms.get(reused).is_some());
+        assert!(tables.transforms.get(handle).is_none());
+    }
+
+    #[test]
+    fn iteration_yields_live_handles_in_slot_order() {
+        // Slot order, not insertion order: a recycled slot sorts where the
+        // slot is, which is what makes iteration deterministic.
+        let mut store = EntityStore::new();
+        let a = store.insert();
+        let b = store.insert();
+        store.remove(a);
+        let c = store.insert();
+        let mut tables = ComponentTables::new();
+        tables.interactables.insert(
+            b,
+            Interactable {
+                prompt: "B".into(),
+                reach: 1.0,
+                enabled: true,
+                label: None,
+                label_visible: false,
+            },
+        );
+        tables.interactables.insert(
+            c,
+            Interactable {
+                prompt: "C".into(),
+                reach: 1.0,
+                enabled: true,
+                label: None,
+                label_visible: false,
+            },
+        );
+        let prompts: Vec<&str> = tables
+            .interactables
+            .iter()
+            .map(|(_, item)| item.prompt.as_str())
+            .collect();
+        assert_eq!(
+            prompts,
+            vec!["C", "B"],
+            "slot order: the recycled slot is first"
+        );
+    }
+
+    #[test]
+    fn state_writes_report_only_real_changes() {
+        let mut state = ObjectState::default();
+        assert!(state.set("on", StateValue::Bool(false)));
+        assert!(!state.set("on", StateValue::Bool(false)), "no change");
+        assert!(state.set("on", StateValue::Bool(true)), "changed");
+        assert_eq!(state.get("on").and_then(StateValue::as_bool), Some(true));
+        assert!(state.set("level", StateValue::Int(2)));
+        assert_eq!(state.get("level").and_then(StateValue::as_int), Some(2));
+    }
+
+    #[test]
+    fn state_values_expose_their_kind() {
+        assert_eq!(StateValue::Bool(true).kind(), "bool");
+        assert_eq!(StateValue::Int(3).as_float(), Some(3.0));
+        assert_eq!(StateValue::Float(1.5).as_int(), None);
+        assert_eq!(StateValue::Text("on".into()).as_text(), Some("on"));
+        assert_eq!(StateValue::Text("on".into()).as_bool(), None);
+    }
+
+    #[test]
+    fn material_variants_select_by_name() {
+        let mut material = Material {
+            variant: "off".into(),
+            variants: vec![("off".into(), 0.0), ("on".into(), 1.0)],
+        };
+        assert_eq!(material.emission_scale(), 0.0);
+        assert!(material.select("on"));
+        assert!(!material.select("on"), "already selected");
+        assert!(!material.select("missing"), "unknown variant");
+        assert_eq!(material.emission_scale(), 1.0);
+    }
+
+    #[test]
+    fn removing_a_handle_clears_every_component_kind() {
+        let mut store = EntityStore::new();
+        let handle = store.insert();
+        let mut tables = ComponentTables::new();
+        tables.steam.insert(
+            handle,
+            Steam {
+                enabled: true,
+                effect: None,
+            },
+        );
+        tables.lights.insert(
+            handle,
+            Light {
+                enabled: false,
+                switchable: true,
+                emission_scale: 1.0,
+                fixture: Some(0),
+                dirty: false,
+            },
+        );
+        assert!(!tables.is_empty());
+        assert_eq!(tables.len(), 2);
+        tables.remove_all(handle);
+        assert!(tables.is_empty());
+    }
+}

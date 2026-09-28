@@ -40,6 +40,17 @@ only completed image comparisons are parallelized.
 ## Commands
 
 ```sh
+# Compiled map packages: the explicit edit -> compile -> launch workflow.
+cargo build --release
+./target/release/places-compile build assets/levels/places_demo.json
+./target/release/places-compile build assets/levels/model_zoo.json --workers 8
+./target/release/places-compile build-collection levels/ --workers 8
+./target/release/places-compile validate assets/levels/places_demo.placesmap
+./target/release/places-compile inspect assets/levels/places_demo.placesmap
+./target/release/places-compile verify assets/levels/places_demo.json \
+    --package assets/levels/places_demo.placesmap
+PLACES_LEVEL=places_demo ./target/release/places
+
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 python3 tools/props/preview.py --all --workers 8 --out target/previews
 python3 tools/textures/build.py --check
@@ -71,6 +82,28 @@ It runs original, updated serial and 4/8/12-worker CLI workloads in copied trees
 compares deterministic output hashes, and saves command logs and timings. This is a
 bounded representative check, not proof of every possible imported asset.
 
+## Lighting, probes and quality variants the compiler prepares
+
+`places-compile build` runs the offline transport solver
+(`src/lighting/transport.rs`) for every `medium`/`full` variant: direct
+emitter sampling with soft shadows, one or two visibility-tested diffuse
+bounces, a directional dominant-axis per-texel encoding, and a prepared
+irradiance field for moving objects (solved from the non-switchable emitters;
+a switchable fixture's contribution is prepared only as its extra atlas layer
+pair). The result is packaged as linear
+HDR KTX2 lightmaps (`R16G16B16A16_SFLOAT`, two layers per page plus one pair
+per switchable fixture), a `PLPF` irradiance-field record and prefiltered
+reflection cubemap mip chains. The `off` variant ships the historical
+vertex-lit mesh and no atlas.
+
+Quality variants differ in prepared data, never in runtime work: Medium runs
+one bounce with two emitter taps per axis at 12 texels/m; Full runs two
+bounces with three taps at 16 texels/m. `--workers N` sets the shared CPU
+budget for the solve (default from the host's available parallelism, clamped
+to 12; `PLACES_TOOL_WORKERS` is the environment fallback and the flag wins).
+`--workers 1` is the serial reference path and is tested to produce identical
+values to the parallel path.
+
 ## Complete first-party inventory
 
 A = CPU work partitioned at the listed consumer; B = already parallel; C = I/O or
@@ -81,6 +114,7 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 
 | Entry point | Purpose / consumers | Dependencies / output | Class and execution |
 | --- | --- | --- | --- |
+| `src/bin/places-compile.rs` | Offline map compiler CLI (build/build-collection/validate/inspect/verify) | S/Places library; `.placesmap` packages | A per atlas fill (1..=3), plus one headless GPU probe capture per variant; serial across sources |
 | `tests/test_compiled_build.py` | Packaged native windowed smoke | S/Places; scratch runtime output | C; sequential native subprocesses |
 | `tests/test_bench_metrics.py` | Trace interval and committed-world metric known answers | S/bench helpers; scratch JSON | D; tiny deterministic fixtures |
 | `tests/test_lightmap_harness.py` | Capture environment and missing-output rejection | S/mock subprocess; scratch paths | D; no native game |
@@ -147,6 +181,12 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 | `tools/textures/pool_art.py` | pool art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
 | `tools/textures/seam_repair.py` | PNG seam report/check/repair; authoring | S; PNGs/diagnostics | A per-image spawn, parent writes |
 | `tools/textures/water_art.py` | water art painters; textures/build.py | S/T; canvas | A through parent painter batches; lattice cache shared where applicable |
+
+`places-compile` runs one bounded CPU budget: `--workers N` selects it,
+`PLACES_TOOL_WORKERS` is the environment fallback and the flag wins; `--workers
+1` takes the serial atlas path. Its probe capture uses the one native GPU
+sequentially. Builds publish atomically, so an interrupted run leaves the last
+valid package in place.
 
 The inventory covers maintained entry points and their execution contracts.
 `tools/verify.sh` is the shell consumer of the Python validation and native

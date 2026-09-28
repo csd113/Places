@@ -548,7 +548,7 @@ mod tests {
 
     fn materials() -> MaterialTable {
         let level_fixture = r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "door_geo",
             "name": "Door Geometry",
             "spawn": { "x": 1.0, "z": 1.0 },

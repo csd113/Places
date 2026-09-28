@@ -93,8 +93,9 @@ frozen historical capture record of the former renderer, kept for comparison.
 
 ## The demo
 
-`assets/levels/places_demo.json` is the official showcase. It is one continuous
-route through everything the project currently does:
+`assets/levels/places_demo.json` is the official showcase's authoring source.
+It compiles to `assets/levels/places_demo.placesmap`, the package the player
+loads. It is one continuous route through everything the project currently does:
 
 ```text
 office reception  →  workroom  →  doorways and windows
@@ -118,6 +119,19 @@ PLACES_LEVEL=places_demo cargo run         # straight into the demo
 PLACES_LEVEL=model_zoo cargo run           # straight into the Model Zoo
 PLACES_LEVEL=places_demo ./Places/places    # from a packaged build
 ```
+
+The player loads only compiled packages. After editing a source, recompile it
+before launching:
+
+```sh
+cargo build --release
+./target/release/places-compile build assets/levels/places_demo.json
+PLACES_LEVEL=places_demo ./target/release/places
+```
+
+`places-compile` reuses a package whose source, asset identities and compiler
+version are unchanged; `--force` rebuilds. See
+[docs/PACKAGE_FORMAT.md](docs/PACKAGE_FORMAT.md).
 
 Route, if you want it: from the spawn, walk forward through the doorway into the
 workroom, keep straight through the second doorway and down the stairs, follow
@@ -248,13 +262,13 @@ Places/
     places                  the executable
     assets/                 catalog.json, levels/, models, textures, decals
         catalog.json
-        levels/places_demo.json
-        levels/model_zoo.json
+        levels/places_demo.placesmap   compiled showcase (source .json kept for authors)
+        levels/model_zoo.placesmap     compiled generated zoo
         core/ environment/ entities/ diagnostic/
-    levels/                 drop-in level packs (*.json and *.zip); created on first run
+    levels/                 drop-in compiled packages (*.placesmap); created on first run
     import/                 files waiting to be imported; created on first run
     settings.json           written on first run
-    cache/                  lightmap cache; created on demand
+    cache/                  developer/audit lightmap cache (never created by the player)
 ```
 
 Build one with:
@@ -279,7 +293,7 @@ $CARGO_MANIFEST_DIR/assets             development builds only, never a release 
 
 A release binary therefore cannot read the source tree it was built from, and a
 missing asset root is reported loudly with the full list of locations checked
-rather than silently degrading. `assets/levels/` is scanned for shipped levels
+rather than silently degrading. `assets/levels/` is scanned for shipped packages
 and `levels/` for drop-in ones; both appear in the same Level Select menu. The
 writable side — `settings.json`, `levels/`, `import/` and `cache/` — always
 lives below the package root (the parent of `assets/`), or below
@@ -351,7 +365,7 @@ optional per-face materials and openings cut out of them.
 
 ```jsonc
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "my_level",
   "name": "My Level",
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },
@@ -387,11 +401,19 @@ optional per-face materials and openings cut out of them.
 }
 ```
 
-Drop a level into `levels/` (optionally in a `.zip` pack with its own textures,
-see `assets/README.md`) or `assets/levels/`, and it appears in the Level Select
-menu. A level that fails validation is skipped and reported on the console
-rather than crashing the game. `assets/levels/README.md` indexes the one shipped
-level and explains where the regression fixtures live.
+Compile the source, then drop the resulting `.placesmap` into `levels/` (or use
+the in-game Import action) and it appears in the Level Select menu:
+
+```sh
+./target/release/places-compile build my_level.json
+./target/release/places-compile validate my_level.placesmap
+```
+
+Raw `.json`/`.zip` sources are never playable rows: the Import action points at
+the exact compiler command instead. A package that fails to open or validate is
+skipped and reported on the console rather than crashing the game.
+`assets/levels/README.md` indexes the shipped levels and explains where the
+regression fixtures live.
 
 **Creating or modifying a map?** `docs/MAP_AUTHORING_GUIDE.md` is the canonical
 authoring reference: the currently implemented level format, asset catalog,
@@ -427,14 +449,19 @@ Notable supported details:
 * **Crouching halves the body.** `C` toggles a 0.9 m stance with a 0.8 m eye
   offset; the feet stay anchored, and standing up is refused when a ceiling,
   frame or prop underside is in the way.
-* **Objects and volumes can act.** Props and entities opt into a map-authored
-  `interaction`; looking at one and pressing `E` (rebindable) runs a bounded,
-  typed action batch — `toggle_label` floats a display name over that placed
-  instance alone, and `reset_to_start` returns the player to the level's spawn.
-  `area_triggers[]` adds enter volumes with swept fast-fall detection, cooldowns
-  and `once`; the Pit's carpet holes use them. Every placed instance has a
-  stable id, so two copies of one model stay independent. Animation and audio
-  actions are reserved and rejected by validation until they exist.
+* **Objects and volumes can act.** Every authored object carries typed
+  components: an `interactable` object can be aimed at and pressing `E`
+  (rebindable) runs the entity's own event bindings — a bounded, typed action
+  batch such as `toggle_label`, `toggle`, `set_light`, `play_animation`,
+  `start_sequence`, `spawn_entity` or `reset_to_start`. `volumes[]` add
+  `enter_volume`/`exit_volume` edges with swept fast-fall detection. Bindings
+  may carry conditions, `once` and cooldowns, and actions feed further events,
+  so a switch → door → timer → sequence chain is map data. Timers, sequences
+  and spawn templates/points/groups are authored records too; a group with
+  `at_most_one_active` is the reusable encounter rule. Every placed instance
+  has a stable id, so two copies of one model stay independent. `play_sound`
+  and `change_material` are parsed and validated only where their component and
+  resource exist; see `docs/MAP_AUTHORING_GUIDE.md`.
 * **Ceilings** are flat by default; `{"kind": "gable", "ridge": "x",
   "ridge_rise": 2.0}` adds a pitched ceiling, and gable-end walls follow the
   slope unless they author their own height.
@@ -444,17 +471,24 @@ Notable supported details:
 ```text
 src/                 the game crate (`places`)
     assets.rs        the catalog: ids, classes, themes, resource paths
-    level.rs         the level format, geometry rules and the walkable floor
-    loader.rs        level discovery, validation, packs, materials resolution
+    level.rs         the authored level format (components, bindings, actions, sequences, spawns)
+    entities/        the component-oriented entity runtime (identity, components,
+                     events, timers, sequences, spawns, the world tick)
+    loader.rs        package discovery and validation, materials resolution
+    package/         the compiled map format: reader/writer, records, KTX2, player loader
+    compiler.rs      the offline compiler's build pipeline
+    bin/places-compile.rs  the offline compiler CLI
     lighting/        the bake: partition areas, baselines, fixture pools, visibility
     render/          the renderer: common/ (renderer-neutral preparation),
                      wgpu/ (the renderer: device/surface lifecycle and every
                      current feature), and the narrow Renderer facade
     materials/       PNG decode, texture cache, material and decal resolution
-    game.rs          player state, movement and collision
+    game.rs          player state, movement, collision and the world tick
+    door.rs          the door phase machine, lock state and live collider
+    interact.rs      interaction targeting and the world-anchored labels
     ui.rs            the menu, level select and settings screens
 assets/              the shipped content (catalog, levels, models, textures, decals)
-levels/              drop-in custom levels and level packs
+levels/              drop-in compiled packages (.placesmap)
 tools/               asset, texture, prop and level generators and validators
 docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
 docs/screenshots/    the images in this README

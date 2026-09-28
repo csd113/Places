@@ -122,6 +122,7 @@ pub struct MaterialRenderState {
 
 impl MaterialRenderState {
     /// Derives every per-material parameter from a resolved table.
+    #[must_use]
     pub fn from_table(table: &MaterialTable) -> Self {
         let mut state = Self::default();
         for entry in table.entries() {

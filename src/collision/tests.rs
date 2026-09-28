@@ -145,7 +145,7 @@ fn test_variable_height_wall_collision() {
 fn level_with_wall(openings_json: &str, props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "collision_test",
             "name": "Collision Test",
             "spawn": {{ "x": 5.0, "z": 5.0 }},
@@ -220,7 +220,7 @@ fn test_window_with_sill_blocks_the_player() {
 fn recessed_level(offset_y: f32) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "recess",
             "name": "Recess",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -295,7 +295,7 @@ fn test_below_zero_rooms_and_gable_rooms_collide_at_their_own_geometry() {
     // where the walkable surface resolves.
     let sunken = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "sunken",
             "name": "Sunken",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -332,7 +332,7 @@ fn test_below_zero_rooms_and_gable_rooms_collide_at_their_own_geometry() {
     // so its collision box reaches the ridge and blocks from that floor.
     let gable = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable_collision",
             "name": "Gable Collision",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -716,7 +716,7 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
 fn a_solid_glass_opening_blocks_and_a_visual_pane_does_not() {
     let level = crate::level::LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "glass_collision",
             "name": "Glass Collision",
             "spawn": { "x": 2.0, "z": 2.0 },

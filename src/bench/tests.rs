@@ -122,6 +122,7 @@ fn a_huge_warmup_counter_never_overflows_or_records() {
         limit_remaining: None,
         recorded: 0,
         last_begin: None,
+        loop_ms: 0.0,
         frames: Vec::new(),
         reported_swap_interval: None,
         quality_cycle: Vec::new(),
@@ -148,6 +149,7 @@ fn frame_limits_and_completion_are_exact() {
         limit_remaining: Some(2),
         recorded: 0,
         last_begin: None,
+        loop_ms: 0.0,
         frames: Vec::new(),
         reported_swap_interval: None,
         quality_cycle: Vec::new(),
@@ -160,4 +162,59 @@ fn frame_limits_and_completion_are_exact() {
     }
     assert_eq!(bench.frames.len(), 2);
     assert!(bench.is_complete());
+}
+
+/// AUD-006: excluded loading intervals advance the cadence baseline every
+/// loop, so the first steady-state sample after a load reports the adjacent
+/// loop instead of the whole gap.
+#[test]
+fn excluded_loading_intervals_do_not_become_one_long_cadence_sample() {
+    let mut bench = Bench {
+        config: BenchConfig {
+            enabled: true,
+            ..BenchConfig::default()
+        },
+        csv: None,
+        warmup_remaining: 0,
+        limit_remaining: None,
+        recorded: 0,
+        last_begin: None,
+        loop_ms: 0.0,
+        frames: Vec::new(),
+        reported_swap_interval: None,
+        quality_cycle: Vec::new(),
+        graphics_cycle: Vec::new(),
+        window_cycle: Vec::new(),
+    };
+    let t0 = Instant::now();
+    let ms = std::time::Duration::from_millis;
+    // One ready loop: sampled.
+    bench.begin_frame(t0);
+    bench.record_frame(t0, t0, t0, t0, t0 + ms(16), RenderStats::default());
+    // Then loading loops keep advancing the cadence baseline, including a GPU
+    // upload stall inside the last loading loop.
+    for step in [32_u64, 48, 64, 3064] {
+        bench.begin_frame(t0 + ms(step));
+    }
+    // The next ready loop is adjacent to the last loading loop: its cadence is
+    // 16 ms, not the 3 s loading interval.
+    bench.begin_frame(t0 + ms(3080));
+    bench.record_frame(
+        t0 + ms(3080),
+        t0 + ms(3080),
+        t0 + ms(3088),
+        t0 + ms(3096),
+        t0 + ms(3100),
+        RenderStats::default(),
+    );
+    assert_eq!(bench.frames.len(), 2);
+    let after_load = bench
+        .frames
+        .last()
+        .map_or(0.0, |frame| frame.timings.loop_ms);
+    assert_eq!(after_load, 16.0, "the sample reports the adjacent loop");
+    assert!(
+        after_load < 3000.0,
+        "the loading gap must not become one cadence sample"
+    );
 }

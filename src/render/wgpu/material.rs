@@ -494,30 +494,39 @@ pub struct WorldMaterials {
     stats: WorldMaterialStats,
 }
 
+/// One resolved material identity: the surface key, its family, and the mirror
+/// plane when the surface is planar-reflective.
+pub type MaterialIdentity = (MaterialKey, SurfaceKind, Option<usize>);
+
 /// The distinct material identities one draw set uses, in first-use order,
 /// together with each draw's slot into that list.
 ///
 /// Two draws with the same `(kind, material index, shine override)` share one
-/// slot — the same GPU uniform and the same pair of bind groups. Two draws that
-/// differ in any field never collapse, so a per-surface shine override always
-/// gets its own material and a fixture face can never collide with a wall that
-/// happens to carry the same numeric slot.
+/// slot — the same GPU uniform and the same pair of bind groups — unless they
+/// are planar-reflective ranges on different mirror planes: the plane is part
+/// of the identity, so a material used on two planes gets one entry per plane
+/// and each entry's reflection mode and capture exclusion are exact. Two draws
+/// that differ in any field never collapse, so a per-surface shine override
+/// always gets its own material and a fixture face can never collide with a
+/// wall that happens to carry the same numeric slot.
 ///
 /// GPU-free on purpose: the dedupe rule is unit-testable without a device, and
 /// `WorldMaterials::resolve` uses exactly this assignment.
 #[must_use]
 pub fn material_identities(
     draws: &[super::world::WorldDraw],
-) -> (Vec<(MaterialKey, SurfaceKind)>, Vec<usize>) {
-    let mut seen: HashMap<MaterialKey, usize> = HashMap::new();
-    let mut entries: Vec<(MaterialKey, SurfaceKind)> = Vec::new();
+    routing: &crate::render::common::reflections::ReflectionRouting,
+) -> (Vec<MaterialIdentity>, Vec<usize>) {
+    let mut seen: HashMap<MaterialIdentity, usize> = HashMap::new();
+    let mut entries: Vec<MaterialIdentity> = Vec::new();
     let mut per_draw: Vec<usize> = Vec::with_capacity(draws.len());
     for draw in draws {
         let key = MaterialKey::new(draw.kind, draw.material, draw.shine);
-        let slot = seen.get(&key).copied().unwrap_or_else(|| {
-            entries.push((key, draw.kind));
+        let identity = (key, draw.kind, routing.plane_of_range(draw.range));
+        let slot = seen.get(&identity).copied().unwrap_or_else(|| {
+            entries.push(identity);
             let slot = entries.len().saturating_sub(1);
-            seen.insert(key, slot);
+            seen.insert(identity, slot);
             slot
         });
         per_draw.push(slot);
@@ -577,12 +586,12 @@ impl WorldMaterials {
                 }
             }
         }
-        let (keys, per_draw) = material_identities(draws);
+        let (keys, per_draw) = material_identities(draws, inputs.routing);
         let response_allowed = level.draws_surface_response();
         let mut entries: Vec<GpuMaterial> = Vec::with_capacity(keys.len());
         let mut animations: Vec<Option<crate::render::common::animation::EmissionAnimation>> =
             Vec::with_capacity(keys.len());
-        for (key, kind) in &keys {
+        for (key, kind, plane) in &keys {
             let resolved = resolve_surface_material(
                 key.surface_key(),
                 inputs.materials,
@@ -695,7 +704,7 @@ impl WorldMaterials {
                     entry.applied_reflection_mode = 0;
                     entry.write_reflection_mode(queue, 0);
                 }
-                entry.reflection_plane = inputs.routing.plane_of(usize::from(key.material));
+                entry.reflection_plane = *plane;
             }
             animations.push(animation);
         }
@@ -1194,6 +1203,7 @@ mod tests {
             kind: SurfaceKind::Wall,
             material,
             shine,
+            range: 0,
             pass,
         }
     }
@@ -1208,7 +1218,8 @@ mod tests {
             draw(1, None, BatchPass::Opaque),
             draw(0, Some(shine), BatchPass::Translucent),
         ];
-        let (keys, per_draw) = material_identities(&draws);
+        let routing = crate::render::common::reflections::ReflectionRouting::default();
+        let (keys, per_draw) = material_identities(&draws, &routing);
         assert_eq!(keys.len(), 3, "one entry per distinct identity");
         assert_eq!(keys[0].0, MaterialKey::new(SurfaceKind::Wall, 0, None));
         assert_eq!(
@@ -1228,9 +1239,43 @@ mod tests {
             draw(3, Some(SurfaceShine::from_unit(0.51)), BatchPass::Opaque),
             draw(3, Some(SurfaceShine::from_unit(0.50)), BatchPass::Opaque),
         ];
-        let (keys, per_draw) = material_identities(&draws);
+        let routing = crate::render::common::reflections::ReflectionRouting::default();
+        let (keys, per_draw) = material_identities(&draws, &routing);
         assert_eq!(keys.len(), 2);
         assert_eq!(per_draw, vec![0, 1, 0]);
+    }
+
+    #[test]
+    fn one_material_on_two_planes_resolves_two_material_states() {
+        // AUD-003: the same material on two mirror planes must keep both plane
+        // identities, so the frame's planar gate and the capture's self-
+        // exclusion are exact per draw instead of following the material.
+        let routing = crate::render::common::reflections::ReflectionRouting {
+            plane_for_range: vec![Some(0), Some(1), None],
+            ..crate::render::common::reflections::ReflectionRouting::default()
+        };
+        let mut draws = vec![
+            draw(4, None, BatchPass::Opaque),
+            draw(4, None, BatchPass::Opaque),
+            draw(4, None, BatchPass::Opaque),
+        ];
+        draws[1].range = 1;
+        draws[2].range = 2;
+        let (keys, per_draw) = material_identities(&draws, &routing);
+        assert_eq!(keys.len(), 3, "plane identity is part of the material key");
+        assert_eq!(per_draw, vec![0, 1, 2]);
+        assert_eq!(keys[0].2, Some(0));
+        assert_eq!(keys[1].2, Some(1));
+        assert_eq!(keys[2].2, None);
+        // The capture exclusion reads the draw's own slot: with plane 0 active,
+        // exactly the first draw's material state is excluded, never the
+        // second plane's.
+        let active = Some(0usize);
+        let excluded: Vec<bool> = per_draw
+            .iter()
+            .map(|slot| keys[*slot].2 == active)
+            .collect();
+        assert_eq!(excluded, vec![true, false, false]);
     }
 
     // ------------------------------------------------- reflections

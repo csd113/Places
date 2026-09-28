@@ -39,6 +39,19 @@ fn bake(level: &LevelDef) -> LevelLighting {
     LevelLighting::bake(level)
 }
 
+/// Parses a level about to be validated.
+///
+/// The shared `lighting_audit::level_json` helper still writes the historical
+/// `format_version: 2` header; [`crate::loader::validate_level`] accepts only
+/// the current version, so this parses the JSON and stamps
+/// [`crate::level::LEVEL_FORMAT_VERSION`] before returning it. The header is the
+/// only difference: parsing (and therefore every authored field) is unchanged.
+fn parse_current(json: &str) -> LevelDef {
+    let mut level = parse(json);
+    level.format_version = crate::level::LEVEL_FORMAT_VERSION;
+    level
+}
+
 /// Per-channel effective power of one baked fixture.
 fn fixture_power(light: &crate::lighting::BakedLight) -> [f32; 3] {
     let power = light.intensity() * light.height_factor;
@@ -136,7 +149,7 @@ fn group_a_larger_area_lowers_the_baseline_and_stays_continuous() {
 fn group_a_room_area_extremes_stay_inside_the_budget() {
     // 1000 x 1000 m is well inside the raised floor-area budget and must still
     // bake; the raised budget is 16x the historical 1 000 000 m^2 one.
-    let level = parse(&level_json(
+    let level = parse_current(&level_json(
         &room(0.0, 0.0, 1000.0, 1000.0, 3.5),
         &light(500.0, 500.0, None),
     ));
@@ -152,7 +165,7 @@ fn group_a_room_area_extremes_stay_inside_the_budget() {
     let rooms: Vec<String> = (0..17)
         .map(|_| room(0.0, 0.0, 1000.0, 1000.0, 3.5))
         .collect();
-    let over = parse(&level_json(&rooms.join(","), &light(500.0, 500.0, None)));
+    let over = parse_current(&level_json(&rooms.join(","), &light(500.0, 500.0, None)));
     assert!(over.estimate_geometry().floor_area_m2 > MAX_LEVEL_FLOOR_AREA_M2);
     let error = crate::loader::validate_level(&over).expect_err("over-budget level must reject");
     assert!(error.contains("floor area"), "unexpected error: {error}");
@@ -379,7 +392,7 @@ fn group_d_loader_rejects_invalid_intensities() {
         let separator = if field.is_empty() { "" } else { ", " };
         format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "intensity",
                 "name": "Intensity",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -462,7 +475,7 @@ fn group_e_ceiling_height_correction_is_monotonic_bounded_and_safe() {
 fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
     let mut previous = f32::INFINITY;
     for height in [0.5_f32, 1.0, 2.6, 3.5, 4.0, 8.0, 20.0, 50.0] {
-        let level = parse(&level_json(
+        let level = parse_current(&level_json(
             &room(0.0, 0.0, 16.0, 16.0, height),
             &format!("{},{}", light(5.3, 5.3, None), light(10.7, 10.7, None)),
         ));
@@ -487,17 +500,17 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
     }
 
     // Heights outside the supported envelope are rejected by the loader.
-    let too_tall = parse(&level_json(
+    let too_tall = parse_current(&level_json(
         &room(0.0, 0.0, 16.0, 16.0, 50.1),
         &light(8.0, 8.0, None),
     ));
     assert!(crate::loader::validate_level(&too_tall).is_err());
-    let zero = parse(&level_json(
+    let zero = parse_current(&level_json(
         &room(0.0, 0.0, 16.0, 16.0, 0.0),
         &light(8.0, 8.0, None),
     ));
     assert!(crate::loader::validate_level(&zero).is_err());
-    let negative = parse(&level_json(
+    let negative = parse_current(&level_json(
         &room(0.0, 0.0, 16.0, 16.0, -1.0),
         &light(8.0, 8.0, None),
     ));
@@ -650,7 +663,7 @@ fn group_f_rotation_swaps_the_panel_pool_orientation() {
 fn overlap_level(rooms: &str, lights: &str) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "overlap",
             "name": "Overlap",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -813,7 +826,7 @@ fn two_room_opening(opening_json: &str, bright_on_left: bool, wall_x: f32) -> (L
     };
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "opening",
             "name": "Opening",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1035,7 +1048,7 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
     // and an internal wall must not silently rewrite the room-wide baseline.
     let json = format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "unconnected",
             "name": "Unconnected",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1103,7 +1116,7 @@ fn group_h_two_openings_between_the_same_rooms_stay_bounded() {
     let mut with_two = level.clone();
     with_two.walls[0].openings = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "two",
             "name": "Two",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1176,7 +1189,7 @@ fn group_i_propagation_is_one_hop_only() {
             .join(",");
         parse(&format!(
             r#"{{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "hops",
                 "name": "Hops",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1340,7 +1353,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     // all of them.
     let level = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "materials",
             "name": "Materials",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1400,7 +1413,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     // texture is multiplied by the vertex colour, which is exactly the light.
     let dark = bake(&parse(&format!(
         r#"{{
-            "format_version": 2, "id": "dark", "name": "Dark", "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "format_version": 3, "id": "dark", "name": "Dark", "spawn": {{ "x": 0.0, "z": 0.0 }},
             "rooms": [{}], "ceiling_lights": [{}]
         }}"#,
         room(0.0, 0.0, 10.0, 10.0, 3.0),
@@ -1425,7 +1438,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
 fn prop_level(props_json: &str, lights_json: &str) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "props",
             "name": "Props",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1569,7 +1582,7 @@ fn group_n_extreme_prop_offsets_are_lit_without_correction_or_rejection() {
 fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
     let level = parse(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "outside",
             "name": "Outside",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1629,7 +1642,7 @@ fn empty_level() -> LevelDef {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 1,
+        format_version: crate::level::LEVEL_FORMAT_VERSION,
         id: "empty".into(),
         name: "Empty".into(),
         author: String::new(),
@@ -1656,7 +1669,12 @@ fn empty_level() -> LevelDef {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -1713,6 +1731,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         enabled: true,
         emission: None,
         align: Default::default(),
+        bindings: Vec::new(),
     });
     let lighting = bake(&zero_room);
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1775,7 +1794,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         props: vec![PropDef {
             id: None,
             display_name: None,
-            interaction: None,
+            components: Vec::new(),
+            bindings: Vec::new(),
             model: "core:chair".into(),
             x: 1.0,
             y: 0.0,
@@ -1820,6 +1840,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         enabled: true,
         emission: None,
         align: Default::default(),
+        bindings: Vec::new(),
     });
     let lighting = bake(&lights_only);
     assert_eq!(lighting.lights().len(), 1);
@@ -1849,6 +1870,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         enabled: true,
         emission: None,
         align: Default::default(),
+        bindings: Vec::new(),
     });
     let lighting = bake(&broken);
     assert!(lighting.lights().is_empty());

@@ -69,8 +69,12 @@ impl ReflectionPlane {
 pub struct ReflectionRouting {
     /// The distinct mirror planes the level's geometry produced.
     pub planes: Vec<ReflectionPlane>,
-    /// Per material index: the plane index its planar reflection reads.
-    pub plane_for_material: Vec<Option<u16>>,
+    /// Per mesh range: the plane index its planar reflection reads, if any.
+    ///
+    /// Parallel to [`super::LevelMesh::ranges`]. The plane is a property of the
+    /// surface, so a material used on two different planes keeps both routes
+    /// instead of the last one overwriting the first.
+    pub plane_for_range: Vec<Option<u16>>,
     /// Per material index: whether its reflection is probe-based.
     pub probe_for_material: Vec<bool>,
     /// Centroid of every probe-reflective surface, in world metres.
@@ -78,11 +82,11 @@ pub struct ReflectionRouting {
 }
 
 impl ReflectionRouting {
-    /// The plane a material reflects on, if it is a planar material.
+    /// The plane one mesh range reflects on, if it is a planar material.
     #[must_use]
-    pub fn plane_of(&self, material: usize) -> Option<usize> {
-        self.plane_for_material
-            .get(material)
+    pub fn plane_of_range(&self, range: usize) -> Option<usize> {
+        self.plane_for_range
+            .get(range)
             .copied()
             .flatten()
             .map(usize::from)
@@ -106,7 +110,7 @@ pub fn routing_from_mesh(
     material_count: usize,
 ) -> ReflectionRouting {
     let mut routing = ReflectionRouting {
-        plane_for_material: vec![None; material_count],
+        plane_for_range: vec![None; mesh.ranges.len()],
         probe_for_material: vec![false; material_count],
         ..ReflectionRouting::default()
     };
@@ -115,7 +119,7 @@ pub fn routing_from_mesh(
     // wall between them. Each cluster's representative is its area-weighted
     // centroid.
     let mut clusters: Vec<ProbeCluster> = Vec::new();
-    for range in &mesh.ranges {
+    for (range_index, range) in mesh.ranges.iter().enumerate() {
         let material = usize::from(range.key.material);
         let Some(reflection) = reflections.get(material).copied() else {
             continue;
@@ -133,8 +137,11 @@ pub fn routing_from_mesh(
                 ];
                 // The reflective area of a thin surface: a floor patch is wide
                 // and flat, a panel is wide and tall. Taking the largest pair of
-                // extents keeps both from vanishing.
-                let area = (span[0] * span[2]).max(span[0] * span[1]);
+                // extents keeps both from vanishing — including a wall whose
+                // thin axis is X or Y, which is why all three pairs are needed.
+                let area = (span[0] * span[2])
+                    .max(span[0] * span[1])
+                    .max(span[1] * span[2]);
                 add_probe_sample(&mut clusters, centre, area);
                 if let Some(entry) = routing.probe_for_material.get_mut(material) {
                     *entry = true;
@@ -153,7 +160,7 @@ pub fn routing_from_mesh(
             continue;
         };
         let index = merge_plane(&mut routing.planes, normal, offset, range.bounds);
-        if let Some(entry) = routing.plane_for_material.get_mut(material) {
+        if let Some(entry) = routing.plane_for_range.get_mut(range_index) {
             *entry = Some(index);
         }
     }
@@ -598,5 +605,126 @@ mod tests {
         assert!(!reflections.planar_enabled());
         reflections.set_quality(ReflectionQuality::Full);
         assert!(reflections.planar_enabled(), "Full enables the planar pass");
+    }
+
+    // ----------------------------------------------------- routing regression
+
+    use crate::render::common::mesh::{LevelMeshBatches, SurfaceKey, SurfaceKind, Vertex};
+
+    /// One vertex with an explicit geometric frame.
+    fn vertex(pos: [f32; 3], normal: [f32; 3]) -> Vertex {
+        Vertex {
+            pos,
+            normal,
+            ..Vertex::UNLIT
+        }
+    }
+
+    /// A quad at height `y` facing +Y, authored as a floor.
+    fn horizontal_range(material: u16, y: f32) -> super::super::LevelMeshRange {
+        let corners = [[0.0, y, 2.0], [1.0, y, 2.0], [1.0, y, 0.0], [0.0, y, 0.0]];
+        let vertices = [0usize, 1, 2, 0, 2, 3]
+            .into_iter()
+            .map(|index| vertex(corners[index], [0.0, 1.0, 0.0]))
+            .collect();
+        super::super::LevelMeshRange {
+            key: SurfaceKey::new(SurfaceKind::Floor, material),
+            vertices,
+            indices: vec![0, 1, 2, 3, 4, 5],
+            bounds: crate::spatial::Aabb {
+                min: [0.0, y, 0.0],
+                max: [1.0, y, 2.0],
+            },
+        }
+    }
+
+    /// One range with explicit bounds, for the area-estimate tests: the vertices
+    /// only need to exist, the probe path reads the bounds.
+    fn bounded_range(material: u16, min: [f32; 3], max: [f32; 3]) -> super::super::LevelMeshRange {
+        let mut range = horizontal_range(material, min[1]);
+        range.bounds = crate::spatial::Aabb { min, max };
+        range
+    }
+
+    fn test_mesh(ranges: Vec<super::super::LevelMeshRange>) -> super::super::LevelMesh {
+        let vertex_count = ranges.iter().map(|range| range.vertices.len()).sum();
+        let index_count = ranges.iter().map(|range| range.indices.len()).sum();
+        super::super::LevelMesh {
+            ranges,
+            batches: LevelMeshBatches::default(),
+            vertex_count,
+            index_count,
+        }
+    }
+
+    #[test]
+    fn one_planar_material_keeps_every_plane_it_appears_on() {
+        // The audited counterexample: two disjoint floor patches of the same
+        // planar material at different heights. Both ranges must keep their own
+        // plane route; the last one may not overwrite the first.
+        let reflections = vec![MaterialReflection::new(ReflectionMode::Planar, 0.6)];
+        let mesh = test_mesh(vec![horizontal_range(0, 0.0), horizontal_range(0, 1.5)]);
+        let routing = routing_from_mesh(&mesh, &reflections, 1);
+        assert_eq!(routing.planes.len(), 2, "two distinct mirror planes");
+        assert_eq!(routing.plane_of_range(0), Some(0));
+        assert_eq!(routing.plane_of_range(1), Some(1));
+        // The planes differ by elevation, not by normal: both point up and
+        // their offsets are 1.5 m apart.
+        let (normal0, normal1) = (routing.planes[0].normal, routing.planes[1].normal);
+        assert!(
+            normal0
+                .iter()
+                .zip(normal1)
+                .all(|(a, b)| (a - b).abs() < 1.0e-6)
+        );
+        assert!(((routing.planes[0].offset - routing.planes[1].offset).abs() - 1.5).abs() < 1.0e-4);
+
+        // A probe material never routes to a plane, even when it shares the
+        // table with the planar one.
+        let mixed = vec![
+            MaterialReflection::new(ReflectionMode::Planar, 0.6),
+            MaterialReflection::new(ReflectionMode::Probe, 0.6),
+        ];
+        let mixed_mesh = test_mesh(vec![horizontal_range(0, 0.0), horizontal_range(1, 1.5)]);
+        let mixed_routing = routing_from_mesh(&mixed_mesh, &mixed, 2);
+        assert_eq!(mixed_routing.plane_of_range(0), Some(0));
+        assert_eq!(mixed_routing.plane_of_range(1), None);
+        assert!(mixed_routing.probe_for_material[1]);
+    }
+
+    #[test]
+    fn a_thin_vertical_range_still_contributes_a_probe() {
+        // AUD-004: an X-constant wall with 2 x 3 metres of surface used to
+        // compute max(dx*dz, dx*dy) == 0 and contribute nothing.
+        let reflections = vec![MaterialReflection::new(ReflectionMode::Probe, 0.6)];
+        let wall = test_mesh(vec![bounded_range(0, [0.0, 0.0, 0.0], [0.0, 2.0, 3.0])]);
+        let routing = routing_from_mesh(&wall, &reflections, 1);
+        assert_eq!(
+            routing.probe_points.len(),
+            1,
+            "the YZ-oriented reflective wall must produce a probe"
+        );
+        let point = routing.probe_points[0];
+        for (value, expected) in point.iter().zip([0.0, 1.0, 1.5]) {
+            assert!((value - expected).abs() < 1.0e-4, "{point:?}");
+        }
+
+        // The equivalent horizontal (XZ) and vertical (XY) patches still work.
+        for (min, max) in [
+            ([0.0, 0.0, 0.0], [2.0, 0.0, 3.0]),
+            ([0.0, 0.0, 0.0], [2.0, 3.0, 0.0]),
+        ] {
+            let mesh = test_mesh(vec![bounded_range(0, min, max)]);
+            let routing = routing_from_mesh(&mesh, &reflections, 1);
+            assert_eq!(routing.probe_points.len(), 1, "{min:?}..{max:?}");
+        }
+
+        // A line-like range has no area and still contributes nothing.
+        let line = test_mesh(vec![bounded_range(0, [0.0, 0.0, 0.0], [2.0, 0.0, 0.0])]);
+        let routing = routing_from_mesh(&line, &reflections, 1);
+        assert!(
+            routing.probe_points.is_empty(),
+            "a zero-area range must not create a probe"
+        );
     }
 }

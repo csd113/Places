@@ -1,73 +1,71 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use zip::ZipArchive;
 
 use glam::Vec3;
 
 use crate::assets::AssetCatalog;
+use crate::entities::sequences::{
+    MAX_LEVEL_SEQUENCES, MAX_SEQUENCE_ANIMATION_TIMEOUT_S, MAX_SEQUENCE_STEPS, MAX_SEQUENCE_WAIT_S,
+    SequenceDef, SequenceStepDef,
+};
+use crate::entities::spawn::{
+    MAX_LEVEL_SPAWN_GROUPS, MAX_LEVEL_SPAWN_POINTS, MAX_LEVEL_SPAWN_TEMPLATES,
+};
 use crate::level::{
-    BASEBOARD_DEFAULT_HEIGHT_M, BASEBOARD_DEFAULT_THICKNESS_M, BaseboardDef, LevelDef,
-    LevelSurfaces, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES, WALL_SLICE_EPS, WallAxis, WallDef,
-    wall_solid_slices_profiled,
+    ActionDef, BASEBOARD_DEFAULT_HEIGHT_M, BASEBOARD_DEFAULT_THICKNESS_M, BaseboardDef,
+    ComponentDef, ConditionDef, EventBindingDef, EventKindName, LevelDef, LevelSurfaces,
+    MAX_ACTIONS_PER_SOURCE, MAX_BINDINGS_PER_ENTITY, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES,
+    TriggerVolumeDef, WALL_SLICE_EPS, WallAxis, WallDef, wall_solid_slices_profiled,
 };
 use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
-/// The official demo, embedded so the game still boots when no level files are
-/// installed on disk. `Places Demo` is the only level shipped with the game.
-const FALLBACK_DEMO_JSON: &str = include_str!("../assets/levels/places_demo.json");
+/// The official demo, embedded as a compiled package so the game still boots
+/// when no level files are installed on disk. `Places Demo` is the only level
+/// shipped with the game; the embedded copy is the same package the repository
+/// ships, so the fallback cannot drift from the installed content.
+const FALLBACK_DEMO_PACKAGE: &[u8] = include_bytes!("../assets/levels/places_demo.placesmap");
 
 /// Stable id of the one official level, used by discovery and the runtime.
 pub const DEMO_LEVEL_ID: &str = "places_demo";
 
-const MAX_ZIP_ENTRIES: usize = 500;
-const MAX_ZIP_ENTRY_SIZE: u64 = 10 * 1024 * 1024; // 10 MB per file
-const MAX_ZIP_TOTAL_SIZE: u64 = 50 * 1024 * 1024; // 50 MB total uncompressed
-
-/// Reads one ZIP entry with a hard output cap.
+/// The compiled demo package embedded in the executable.
 ///
-/// The ZIP header's declared uncompressed size is attacker-controlled and is
-/// never trusted: a small deflate stream can declare `size = 1024` and expand
-/// to gigabytes. The reader is capped with [`Read::take`] instead, and a read
-/// that reaches the cap is an error. The declared size is still used for the
-/// capacity hint, clamped to the cap.
-fn read_zip_entry_capped<R: Read>(
-    reader: &mut R,
-    declared_size: u64,
-    limit: u64,
-    name: &str,
-) -> Result<Vec<u8>, String> {
-    let capacity = usize::try_from(declared_size.min(limit)).unwrap_or(0);
-    let mut bytes = Vec::with_capacity(capacity);
-    let read = reader
-        .take(limit.saturating_add(1))
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("Failed to read {name}: {e}"))?;
-    if u64::try_from(read).unwrap_or(u64::MAX) > limit {
-        return Err(format!(
-            "ZIP entry {name} exceeds the {}MB decompression limit",
-            limit / (1024 * 1024)
-        ));
-    }
-    Ok(bytes)
+/// Exposed so the loading worker can decode the fallback world's records from
+/// the same bytes discovery probes, with no second copy of the package.
+#[must_use]
+pub const fn embedded_demo_package() -> &'static [u8] {
+    FALLBACK_DEMO_PACKAGE
 }
 
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LevelSourceType {
-    Official,
-    CustomJson,
-    PackZip,
+    /// A compiled package below the read-only bundled `assets/levels/`
+    /// directory.
+    Bundled,
+    /// A compiled package installed in the writable drop-in `levels/`
+    /// directory (or copied there by the Import action).
+    Installed,
     /// The demo compiled into the executable, used when no installed copy of
-    /// Places Demo exists on disk. Selecting it loads the embedded JSON, so the
-    /// demo is always offered no matter what is installed.
+    /// Places Demo exists on disk, so the demo is always offered no matter what
+    /// is installed.
     Embedded,
+}
+
+/// Menu precedence of a source: bundled packages first, then installed ones,
+/// then the embedded fallback.
+const fn source_rank(source_type: LevelSourceType) -> u8 {
+    match source_type {
+        LevelSourceType::Bundled => 0,
+        LevelSourceType::Installed => 1,
+        LevelSourceType::Embedded => 2,
+    }
 }
 
 /// Discovered level entry for level selection menu.
@@ -120,154 +118,6 @@ pub struct ResolvedFixtureSheet {
     pub origin: crate::materials::TextureOrigin,
     /// Decoded pixels, shared with the session cache.
     pub image: Arc<RawImage>,
-}
-
-/// Raw contents extracted safely from a ZIP level pack.
-///
-/// Texture bytes are reference-counted so that the several alias keys a pack
-/// may use (`textures/x.png`, `x.png`, ...) share a single physical buffer
-/// instead of duplicating it.
-#[derive(Default, Debug)]
-pub struct RawPackContents {
-    pub level_json: String,
-    pub materials_json: Option<String>,
-    pub textures: HashMap<String, Arc<[u8]>>,
-}
-
-/// Reads and parses only the `level.json` entry from a ZIP pack without
-/// decompressing any textures or other assets.
-///
-/// Used for cheap level discovery: probing a pack must not extract its full
-/// contents just to learn its id/name/author.
-/// # Errors
-///
-/// Returns a message when the archive is not a readable ZIP, has no
-/// `level.json`, or its `level.json` is oversized or not valid UTF-8.
-pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> {
-    let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
-
-    if archive.len() > MAX_ZIP_ENTRIES {
-        return Err(format!(
-            "ZIP archive exceeds maximum entry count of {MAX_ZIP_ENTRIES}"
-        ));
-    }
-
-    // Match `extract_zip` semantics: normalize separators and let the last
-    // level.json entry win if a pack contains more than one.
-    let mut target: Option<usize> = None;
-    for i in 0..archive.len() {
-        let entry = archive
-            .by_index(i)
-            .map_err(|e| format!("Corrupt ZIP entry {i}: {e}"))?;
-        if entry.is_dir() {
-            continue;
-        }
-        let name = entry.name().replace('\\', "/");
-        let file_name = name.rsplit('/').next().unwrap_or(&name);
-        if file_name.eq_ignore_ascii_case("level.json") {
-            target = Some(i);
-        }
-    }
-
-    let index = target.ok_or_else(|| "ZIP level pack missing required 'level.json'".to_string())?;
-    let mut entry = archive
-        .by_index(index)
-        .map_err(|e| format!("Corrupt ZIP entry {index}: {e}"))?;
-    let declared = entry.size();
-    let bytes = read_zip_entry_capped(&mut entry, declared, MAX_ZIP_ENTRY_SIZE, "level.json")?;
-    String::from_utf8(bytes).map_err(|e| format!("level.json is not valid UTF-8: {e}"))
-}
-
-/// Safely extracts a ZIP level pack with path traversal and size limits enforcement.
-/// # Errors
-///
-/// Returns a message when the archive is not a readable ZIP, an entry escapes
-/// the extraction boundary, an entry or the pack exceeds the size limits, or the
-/// pack has no `level.json`.
-pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String> {
-    let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
-
-    if archive.len() > MAX_ZIP_ENTRIES {
-        return Err(format!(
-            "ZIP archive exceeds maximum entry count of {MAX_ZIP_ENTRIES}"
-        ));
-    }
-
-    let mut pack = RawPackContents::default();
-    let mut total_uncompressed: u64 = 0;
-
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("Corrupt ZIP entry {i}: {e}"))?;
-        if file.is_dir() {
-            continue;
-        }
-
-        // Security: Path traversal validation
-        let raw_name = file.name().to_string();
-        if raw_name.contains("..") || raw_name.starts_with('/') || raw_name.starts_with('\\') {
-            return Err(format!(
-                "Unsafe path traversal detected in ZIP entry: {raw_name}"
-            ));
-        }
-        if file.enclosed_name().is_none() {
-            return Err(format!(
-                "Path in ZIP is outside extraction boundary: {raw_name}"
-            ));
-        }
-
-        // Security: exclude executable or script extensions. File extensions
-        // are compared case-insensitively, so `PATCH.EXE` is rejected too.
-        if Path::new(&raw_name).extension().is_some_and(|extension| {
-            ["exe", "sh", "bat", "so", "dylib", "dll", "bin", "wasm"]
-                .iter()
-                .any(|blocked| extension.eq_ignore_ascii_case(blocked))
-        }) {
-            continue;
-        }
-
-        let declared = file.size();
-        let bytes = read_zip_entry_capped(&mut file, declared, MAX_ZIP_ENTRY_SIZE, &raw_name)?;
-        total_uncompressed =
-            total_uncompressed.saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
-        if total_uncompressed > MAX_ZIP_TOTAL_SIZE {
-            return Err("Total uncompressed size of ZIP exceeds 50MB limit".into());
-        }
-
-        let normalized = raw_name.replace('\\', "/");
-        let file_name = normalized.rsplit('/').next().unwrap_or(&normalized);
-
-        if file_name.eq_ignore_ascii_case("level.json") {
-            pack.level_json = String::from_utf8(bytes)
-                .map_err(|e| format!("level.json is not valid UTF-8: {e}"))?;
-        } else if file_name.eq_ignore_ascii_case("materials.json") {
-            pack.materials_json = Some(
-                String::from_utf8(bytes)
-                    .map_err(|e| format!("materials.json is not valid UTF-8: {e}"))?,
-            );
-        } else if normalized.contains("textures/")
-            || Path::new(&normalized)
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
-        {
-            // Share one physical buffer across every alias key.
-            let blob: Arc<[u8]> = Arc::from(bytes);
-            pack.textures.insert(normalized.clone(), Arc::clone(&blob));
-            if let Some(tex_sub) = normalized.split("textures/").nth(1) {
-                pack.textures
-                    .insert(format!("textures/{tex_sub}"), Arc::clone(&blob));
-                pack.textures.insert(tex_sub.to_string(), Arc::clone(&blob));
-            }
-            pack.textures.insert(file_name.to_string(), blob);
-        }
-    }
-
-    if pack.level_json.is_empty() {
-        return Err("ZIP level pack missing required 'level.json'".into());
-    }
-
-    Ok(pack)
 }
 
 /// Neutral fallback colour used for unknown prop models, `#8a8a8a`.
@@ -459,8 +309,14 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_prop_lights(level)?;
     validate_doors(level)?;
     validate_effects(level)?;
-    validate_instance_ids(level)?;
-    validate_area_triggers(level)?;
+    let mut index = validate_instance_ids(level)?;
+    index.sequence_owners = collect_sequence_owners(level);
+    validate_volumes(level)?;
+    validate_timers(level)?;
+    validate_spawns(level, &index)?;
+    validate_bindings(level, &index)?;
+    validate_sequences(level, &index)?;
+    validate_zero_delay_cycles(level, &index)?;
     validate_routes(level)?;
     validate_floats(level)?;
     validate_decals(level)?;
@@ -2033,94 +1889,326 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// Stable instance identities and the map-authored actions that reference them.
+/// Largest authored lifetime a `lifetime` component may declare, in seconds.
 ///
-/// Placed props, light fixtures and area triggers share one id namespace per
-/// level. An id is authored or deterministically defaulted (see
+/// A bound, not a tuning knob: a lifetime exists to remove a temporary or
+/// spawned entity, and one that can outlive an hour-long session is a typo
+/// (or an entity that never expires) that would pin its spawn slot for the
+/// whole run. The runtime reaps the entity at expiry.
+pub const MAX_LIFETIME_SECONDS: f32 = 3600.0;
+
+/// Every authored id an action or condition can address, with the capability
+/// facts those checks need.
+///
+/// One instance namespace covers props, doors, ceiling fixtures, trigger
+/// volumes, timers and spawn points, exactly as the runtime addresses them;
+/// sequences, spawn templates and spawn groups are separate resource
+/// namespaces. See [`validate_instance_ids`].
+#[derive(Default)]
+struct LevelIndex<'a> {
+    /// Entity instance ids, in authored order, mapped to their capability
+    /// facts.
+    entities: HashMap<String, EntityFacts<'a>>,
+    /// Spawn template ids and the facts a template-born instance carries.
+    spawn_templates: HashMap<String, EntityFacts<'a>>,
+    /// Authored sequence ids.
+    sequences: HashSet<String>,
+    /// Authored spawn group ids.
+    spawn_groups: HashSet<String>,
+    /// Authored spawn point ids.
+    spawn_points: HashSet<String>,
+    /// Sequence id -> every entity the sequence can run on, discovered from
+    /// the authored `start_sequence` sites.
+    sequence_owners: HashMap<String, Vec<String>>,
+}
+
+impl<'a> LevelIndex<'a> {
+    /// The facts of one addressable entity: a placed record, or the instances
+    /// a spawn template creates.
+    fn facts_of(&self, id: &str) -> Option<&EntityFacts<'a>> {
+        self.entities
+            .get(id)
+            .or_else(|| self.spawn_templates.get(id))
+    }
+}
+
+/// What one authored record can do, derived from its kind and components.
+///
+/// The action, condition and binding checks read only these facts, so a target
+/// that resolves always has a known capability set and every failure names the
+/// record and the missing capability.
+#[allow(clippy::struct_excessive_bools)] // independent capability bits, not mutually exclusive states
+#[derive(Default)]
+struct EntityFacts<'a> {
+    /// Diagnostic kind name, e.g. `prop` or `trigger volume`.
+    kind: &'static str,
+    /// True for a placed prop (the only record with a toggleable label).
+    is_prop: bool,
+    /// True for a door leaf.
+    is_door: bool,
+    /// True for a ceiling/wall fixture record.
+    is_light_fixture: bool,
+    /// True for an authored timer.
+    is_timer: bool,
+    /// True for an authored trigger volume.
+    is_volume: bool,
+    /// True for an authored spawn point.
+    is_spawn_point: bool,
+    /// True for a spawn template (its instances carry the template's facts).
+    is_spawn_template: bool,
+    /// The entity carries an `interactable` component.
+    has_interactable: bool,
+    /// The authored `interactable` starts enabled.
+    interactable_enabled: bool,
+    /// The entity carries an `animation` component.
+    has_animation: bool,
+    /// The entity carries a `light` component.
+    has_light: bool,
+    /// The entity's light (or fixture) can be switched at runtime.
+    light_switchable: bool,
+    /// The entity carries a `material` component.
+    has_material: bool,
+    /// The entity carries an `audio` component.
+    has_audio: bool,
+    /// State names the entity authors.
+    state_names: HashSet<&'a str>,
+    /// Variant names of the entity's `material` component, in authored order.
+    material_variants: Vec<&'a str>,
+}
+
+impl EntityFacts<'_> {
+    /// A record of `kind` with no authored capabilities.
+    fn of(kind: &'static str) -> Self {
+        Self {
+            kind,
+            ..Self::default()
+        }
+    }
+
+    /// True when an action can turn this entity's light on and off.
+    const fn light_capable(&self) -> bool {
+        self.is_light_fixture || self.has_light
+    }
+}
+
+/// Stable instance identities, component values and resource namespaces.
+///
+/// Every placed record shares one instance-id namespace per level: props,
+/// doors, ceiling fixtures, trigger volumes, timers and spawn points. An id is
+/// authored or deterministically defaulted (see
 /// [`crate::level::LevelDef::prop_instance_ids`]); duplicates and malformed
-/// values are named errors, as are interaction actions that reference an
-/// unknown instance or an action the engine does not implement yet.
-fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
-    // Instance counts reach the tens of thousands on a generated level, so
-    // uniqueness and target lookup are hash sets: a linear `contains` per
-    // instance is quadratic.
+/// values are named errors. Sequence, spawn-template and spawn-group ids are
+/// separate resource namespaces with the same uniqueness contract within
+/// their own kind.
+///
+/// The same pass validates every authored component on the records that carry
+/// them and builds the capability index the binding checks read.
+#[allow(clippy::too_many_lines)] // one cohesive id + capability pass
+fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
+    let mut index = LevelIndex::default();
 
     let prop_ids = level.prop_instance_ids();
-    let known: HashSet<&str> = prop_ids.iter().map(String::as_str).collect();
     for (i, id) in prop_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, &mut first, id, &format!("Prop {i}"))?;
+        validate_instance_id(&mut seen, &mut first, id, &format!("Prop {i}"), "instance")?;
     }
     let light_ids = level.light_instance_ids();
-    let light_known: HashSet<&str> = light_ids
-        .iter()
-        .zip(level.ceiling_lights.iter())
-        .filter(|(_, fixture)| fixture.switchable)
-        .map(|(id, _)| id.as_str())
-        .collect();
     for (i, id) in light_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, &mut first, id, &format!("Ceiling light {i}"))?;
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            id,
+            &format!("Ceiling light {i}"),
+            "instance",
+        )?;
     }
     let door_ids = level.door_instance_ids();
-    let door_known: HashSet<&str> = door_ids.iter().map(String::as_str).collect();
     for (i, id) in door_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, &mut first, id, &format!("Door {i}"))?;
+        validate_instance_id(&mut seen, &mut first, id, &format!("Door {i}"), "instance")?;
     }
-    let trigger_ids = level.area_trigger_instance_ids();
-    for (i, id) in trigger_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, &mut first, id, &format!("Area trigger {i}"))?;
+    let volume_ids = volume_instance_ids(level);
+    for (i, id) in volume_ids.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            id,
+            &format!("Trigger volume {i}"),
+            "instance",
+        )?;
     }
-    let targets = ActionTargets {
-        props: &known,
-        doors: &door_known,
-        lights: &light_known,
-    };
+    for (i, timer) in level.timers.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            timer.id.as_str(),
+            &format!("Timer {i}"),
+            "instance",
+        )?;
+    }
+    for (i, point) in level.spawn_points.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            point.id.as_str(),
+            &format!("Spawn point {i}"),
+            "instance",
+        )?;
+    }
+    // Water volumes and effect emitters become entities with synthesized ids:
+    // an authored id that shadows one would make the volume/emitter
+    // unreachable to `enable`/`disable`.
+    let water_ids = level.water_instance_ids();
+    for (i, id) in water_ids.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            id,
+            &format!("Water volume {i}"),
+            "instance",
+        )?;
+    }
+    let effect_ids: Vec<String> = level
+        .effects
+        .iter()
+        .enumerate()
+        .map(|(i, effect)| {
+            effect
+                .id
+                .as_deref()
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map_or_else(|| format!("effect_{}", i.saturating_add(1)), str::to_string)
+        })
+        .collect();
+    for (i, id) in effect_ids.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            id,
+            &format!("Effect {i}"),
+            "instance",
+        )?;
+    }
 
+    // Resource namespaces: sequences, spawn templates and spawn groups are
+    // addressed by resource name, so duplicates are errors within each kind
+    // (an id shared across kinds is unambiguous).
+    let mut sequence_seen: HashSet<&str> = HashSet::new();
+    let mut sequence_first: HashMap<&str, String> = HashMap::new();
+    for (i, sequence) in level.sequences.iter().enumerate() {
+        validate_instance_id(
+            &mut sequence_seen,
+            &mut sequence_first,
+            sequence.id.as_str(),
+            &format!("Sequence {i}"),
+            "sequence",
+        )?;
+        index.sequences.insert(sequence.id.trim().to_string());
+    }
+    let mut template_seen: HashSet<&str> = HashSet::new();
+    let mut template_first: HashMap<&str, String> = HashMap::new();
+    for (i, template) in level.spawn_templates.iter().enumerate() {
+        let context = format!("Spawn template {i}");
+        validate_instance_id(
+            &mut template_seen,
+            &mut template_first,
+            template.id.as_str(),
+            &context,
+            "spawn template",
+        )?;
+        let mut facts = EntityFacts::of("spawn template");
+        facts.is_spawn_template = true;
+        validate_components(&context, &template.components, &mut facts)?;
+        index
+            .spawn_templates
+            .insert(template.id.trim().to_string(), facts);
+    }
+    let mut group_seen: HashSet<&str> = HashSet::new();
+    let mut group_first: HashMap<&str, String> = HashMap::new();
+    for (i, group) in level.spawn_groups.iter().enumerate() {
+        validate_instance_id(
+            &mut group_seen,
+            &mut group_first,
+            group.id.as_str(),
+            &format!("Spawn group {i}"),
+            "spawn group",
+        )?;
+        index.spawn_groups.insert(group.id.trim().to_string());
+    }
+
+    // Capability facts for every placed record, in authored order.
     for (i, prop) in level.props.iter().enumerate() {
+        let Some(id) = prop_ids.get(i) else {
+            continue;
+        };
+        let context = format!("Prop {i} (`{id}`)");
         if let Some(name) = prop.display_name.as_deref()
             && name.trim().is_empty()
         {
             return Err(format!(
-                "Prop {i} display_name must not be blank when specified"
+                "{context} display_name must not be blank when specified"
             ));
         }
-        let Some(interaction) = &prop.interaction else {
+        let mut facts = EntityFacts::of("prop");
+        facts.is_prop = true;
+        validate_components(&context, &prop.components, &mut facts)?;
+        index.entities.insert(id.clone(), facts);
+    }
+    for (i, door) in level.doors.iter().enumerate() {
+        let Some(id) = door_ids.get(i) else {
             continue;
         };
-        if let Some(prompt) = interaction.prompt.as_deref()
-            && prompt.trim().is_empty()
-        {
-            return Err(format!(
-                "Prop {i} interaction prompt must not be blank when specified"
-            ));
-        }
-        if let Some(reach) = interaction.reach
-            && !(reach.is_finite()
-                && reach > 0.0
-                && reach <= crate::interact::MAX_INTERACTION_REACH_M)
-        {
-            return Err(format!(
-                "Prop {i} interaction reach ({reach:?} m) must be between 0 and {} metres",
-                crate::interact::MAX_INTERACTION_REACH_M
-            ));
-        }
-        validate_action_list(
-            &format!("Prop {i} interaction"),
-            &interaction.actions,
-            prop_ids.get(i).map(String::as_str),
-            &targets,
-        )?;
+        let context = format!("Door {i} (`{id}`)");
+        let mut facts = EntityFacts::of("door");
+        facts.is_door = true;
+        validate_components(&context, &door.components, &mut facts)?;
+        index.entities.insert(id.clone(), facts);
     }
-    Ok(())
+    for (i, fixture) in level.ceiling_lights.iter().enumerate() {
+        let Some(id) = light_ids.get(i) else {
+            continue;
+        };
+        let mut facts = EntityFacts::of("ceiling light");
+        facts.is_light_fixture = true;
+        facts.light_switchable = fixture.switchable;
+        index.entities.insert(id.clone(), facts);
+    }
+    for (i, _volume) in level.volumes.iter().enumerate() {
+        let Some(id) = volume_ids.get(i) else {
+            continue;
+        };
+        let mut facts = EntityFacts::of("trigger volume");
+        facts.is_volume = true;
+        index.entities.insert(id.clone(), facts);
+    }
+    for timer in &level.timers {
+        let id = timer.id.trim();
+        let mut facts = EntityFacts::of("timer");
+        facts.is_timer = true;
+        index.entities.insert(id.to_string(), facts);
+    }
+    for point in &level.spawn_points {
+        let id = point.id.trim();
+        index.spawn_points.insert(id.to_string());
+        let mut facts = EntityFacts::of("spawn point");
+        facts.is_spawn_point = true;
+        index.entities.insert(id.to_string(), facts);
+    }
+    Ok(index)
 }
 
-/// Validates one instance id and records it for duplicate detection.
+/// Validates one authored id and records it for duplicate detection.
+///
+/// `namespace` names the uniqueness contract the id belongs to (`instance`,
+/// `sequence`, `spawn template`, `spawn group`), so a duplicate error says
+/// exactly which set of names it collided with.
 fn validate_instance_id<'a>(
     seen: &mut HashSet<&'a str>,
     first: &mut HashMap<&'a str, String>,
     id: &'a str,
     context: &str,
+    namespace: &str,
 ) -> Result<(), String> {
     let trimmed = id.trim();
     if !crate::assets::is_valid_asset_id(trimmed) {
@@ -2131,192 +2219,1566 @@ fn validate_instance_id<'a>(
     if !seen.insert(trimmed) {
         let first = first
             .get(trimmed)
-            .map_or_else(|| "an earlier instance".to_string(), String::clone);
+            .map_or_else(|| "an earlier record".to_string(), String::clone);
         return Err(format!(
-            "{context} id `{trimmed}` duplicates `{first}`; instance ids must be unique"
+            "{context} id `{trimmed}` duplicates `{first}`; {namespace} ids must be unique \
+             per level"
         ));
     }
     first.insert(trimmed, context.to_string());
     Ok(())
 }
 
-/// Every entity id an action may address, grouped by the entity kind that
-/// defines which actions are valid.
-struct ActionTargets<'a> {
-    /// Placed prop/entity instance ids: labels, animations and poses.
-    props: &'a HashSet<&'a str>,
-    /// Door entity ids: `open`, `close` and `toggle`.
-    doors: &'a HashSet<&'a str>,
-    /// Switchable light fixture ids: `toggle`.
-    lights: &'a HashSet<&'a str>,
+/// The stable instance id of one authored trigger volume: its own id when
+/// authored, else `trigger_<n>` with `n` the 1-based authored position.
+fn volume_id(index: usize, volume: &TriggerVolumeDef) -> String {
+    volume
+        .id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map_or_else(
+            || format!("trigger_{}", index.saturating_add(1)),
+            str::to_string,
+        )
 }
 
-/// One source's action list: bounded, non-empty and composed only of
-/// implemented actions with resolvable targets.
-fn validate_action_list(
+/// Every trigger volume's stable instance id, in authored order.
+fn volume_instance_ids(level: &LevelDef) -> Vec<String> {
+    level
+        .volumes
+        .iter()
+        .enumerate()
+        .map(|(index, volume)| volume_id(index, volume))
+        .collect()
+}
+
+/// Validates one record's components and records the capabilities they grant.
+///
+/// A component kind that only makes sense once per entity may appear at most
+/// once; `state` is the one repeatable kind, and then only with a distinct,
+/// non-empty name. Every authored value is checked here, so a component that
+/// could never behave is a named error instead of a runtime no-op.
+fn validate_components<'a>(
     context: &str,
-    actions: &[crate::level::ActionDef],
-    implicit_target: Option<&str>,
-    targets: &ActionTargets<'_>,
+    components: &'a [ComponentDef],
+    facts: &mut EntityFacts<'a>,
 ) -> Result<(), String> {
-    if actions.is_empty() {
-        return Err(format!("{context} must declare at least one action"));
+    let mut singles: HashSet<&'static str> = HashSet::new();
+    let mut state_names: HashSet<&'a str> = HashSet::new();
+    for (i, component) in components.iter().enumerate() {
+        match component {
+            ComponentDef::State { name, .. } => {
+                let name = name.trim();
+                if name.is_empty() {
+                    return Err(format!(
+                        "{context} `state` component {i} must name a non-empty state"
+                    ));
+                }
+                if !state_names.insert(name) {
+                    return Err(format!(
+                        "{context} declares two `state` components named `{name}`; state \
+                         names must be unique per entity"
+                    ));
+                }
+            }
+            other @ (ComponentDef::Interactable { .. }
+            | ComponentDef::Animation { .. }
+            | ComponentDef::Audio { .. }
+            | ComponentDef::Light { .. }
+            | ComponentDef::Material { .. }
+            | ComponentDef::Lifetime { .. }
+            | ComponentDef::Steam { .. }
+            | ComponentDef::Water { .. }
+            | ComponentDef::NavAgent { .. }
+            | ComponentDef::NavObstacle { .. }) => {
+                let kind = other.kind();
+                if !singles.insert(kind) {
+                    return Err(format!(
+                        "{context} declares more than one `{kind}` component; only `state` \
+                         components may repeat, with distinct names"
+                    ));
+                }
+            }
+        }
+        validate_component_value(context, i, component, facts)?;
     }
-    if actions.len() > crate::level::MAX_ACTIONS_PER_SOURCE {
-        return Err(format!(
-            "{context} declares {} actions; the limit is {}",
-            actions.len(),
-            crate::level::MAX_ACTIONS_PER_SOURCE
-        ));
-    }
-    for (j, action) in actions.iter().enumerate() {
-        validate_action(context, j, action, implicit_target, targets)?;
+    facts.state_names = state_names;
+    Ok(())
+}
+
+/// One component's authored values, and the capability it grants.
+#[allow(clippy::too_many_lines)] // one match arm per component kind
+fn validate_component_value<'a>(
+    context: &str,
+    i: usize,
+    component: &'a ComponentDef,
+    facts: &mut EntityFacts<'a>,
+) -> Result<(), String> {
+    match component {
+        ComponentDef::Interactable {
+            prompt,
+            reach,
+            enabled,
+            label,
+        } => {
+            if prompt
+                .as_deref()
+                .is_some_and(|prompt| prompt.trim().is_empty())
+            {
+                return Err(format!(
+                    "{context} `interactable` component {i} prompt must not be blank when \
+                     specified"
+                ));
+            }
+            if label
+                .as_deref()
+                .is_some_and(|label| label.trim().is_empty())
+            {
+                return Err(format!(
+                    "{context} `interactable` component {i} label must not be blank when \
+                     specified"
+                ));
+            }
+            if let Some(reach) = reach
+                && !(reach.is_finite()
+                    && *reach > 0.0
+                    && *reach <= crate::interact::MAX_INTERACTION_REACH_M)
+            {
+                return Err(format!(
+                    "{context} `interactable` component {i} reach ({reach:?} m) must be \
+                     between 0 and {} metres",
+                    crate::interact::MAX_INTERACTION_REACH_M
+                ));
+            }
+            facts.has_interactable = true;
+            facts.interactable_enabled = *enabled;
+        }
+        ComponentDef::Animation { clip, .. } => {
+            if clip.trim().is_empty() {
+                return Err(format!(
+                    "{context} `animation` component {i} clip must not be blank"
+                ));
+            }
+            facts.has_animation = true;
+        }
+        ComponentDef::Audio { sound, .. } => {
+            if sound.trim().is_empty() {
+                return Err(format!(
+                    "{context} `audio` component {i} sound must not be blank"
+                ));
+            }
+            facts.has_audio = true;
+        }
+        ComponentDef::Light {
+            emission_scale,
+            switchable,
+            ..
+        } => {
+            if !emission_scale.is_finite() || *emission_scale < 0.0 {
+                return Err(format!(
+                    "{context} `light` component {i} emission_scale ({emission_scale:?}) \
+                     must be a finite number that is not negative"
+                ));
+            }
+            if *switchable {
+                return Err(format!(
+                    "{context} `light` component {i} sets switchable on a prop: only a \
+                     ceiling fixture has prepared switchable lightmap layers, so a prop \
+                     light is a static emitter (author `enabled` for its initial state)"
+                ));
+            }
+            facts.has_light = true;
+        }
+        ComponentDef::Material { variants, current } => {
+            if variants.is_empty() {
+                return Err(format!(
+                    "{context} `material` component {i} must declare at least one variant"
+                ));
+            }
+            let mut names: HashSet<&str> = HashSet::new();
+            for (j, variant) in variants.iter().enumerate() {
+                let name = variant.name.trim();
+                if name.is_empty() {
+                    return Err(format!(
+                        "{context} `material` component {i} variant {j} must name a \
+                         non-empty variant"
+                    ));
+                }
+                if !names.insert(name) {
+                    return Err(format!(
+                        "{context} `material` component {i} declares variant `{name}` twice; \
+                         variant names must be unique"
+                    ));
+                }
+                if !variant.emission_scale.is_finite() || variant.emission_scale < 0.0 {
+                    return Err(format!(
+                        "{context} `material` component {i} variant `{name}` emission_scale \
+                         ({:?}) must be a finite number that is not negative",
+                        variant.emission_scale
+                    ));
+                }
+                facts.material_variants.push(name);
+            }
+            if let Some(current) = current {
+                let current = current.trim();
+                if current.is_empty() {
+                    return Err(format!(
+                        "{context} `material` component {i} current must not be blank when \
+                         specified"
+                    ));
+                }
+                if !names.contains(current) {
+                    return Err(format!(
+                        "{context} `material` component {i} current `{current}` is not one \
+                         of its variants"
+                    ));
+                }
+            }
+            facts.has_material = true;
+        }
+        ComponentDef::Lifetime { seconds } => {
+            if !seconds.is_finite() || *seconds <= 0.0 || *seconds > MAX_LIFETIME_SECONDS {
+                return Err(format!(
+                    "{context} `lifetime` component {i} seconds ({seconds:?}) must be a \
+                     finite number between 0 and {MAX_LIFETIME_SECONDS}"
+                ));
+            }
+        }
+        ComponentDef::NavAgent { radius, speed_mps } => {
+            let valid =
+                radius.is_finite() && *radius > 0.0 && speed_mps.is_finite() && *speed_mps > 0.0;
+            if !valid {
+                return Err(format!(
+                    "{context} `nav_agent` component {i} radius and speed_mps must be \
+                     finite and positive"
+                ));
+            }
+        }
+        ComponentDef::State { .. }
+        | ComponentDef::Steam { .. }
+        | ComponentDef::Water { .. }
+        | ComponentDef::NavObstacle { .. } => {}
     }
     Ok(())
 }
 
-/// Resolves one required entity id, producing a named error with the action
-/// kind when it is blank or unknown.
-fn resolve_action_target<'a>(
-    context: &str,
-    index: usize,
-    action_kind: &str,
-    target: &'a str,
-    known: &HashSet<&'a str>,
-) -> Result<&'a str, String> {
-    let resolved = target.trim();
-    if resolved.is_empty() {
-        return Err(format!(
-            "{context} action {index} (`{action_kind}`) target must not be blank"
-        ));
-    }
-    if !known.contains(resolved) {
-        return Err(format!(
-            "{context} action {index} (`{action_kind}`) targets unknown entity `{resolved}`"
-        ));
-    }
-    Ok(resolved)
+/// One record's authored bindings and the label its diagnostics use.
+struct AuthoredBindings<'a> {
+    /// Stable instance id the record's own actions act on (a spawn template id
+    /// for template-born instances).
+    id: String,
+    /// Authored record label, e.g. `Prop 3`.
+    label: String,
+    /// The bindings, in authored order.
+    bindings: &'a [EventBindingDef],
 }
 
-/// One action: implemented, and every explicit target resolvable.
-fn validate_action(
+/// Every record that carries bindings, in authored order: props, doors,
+/// fixtures, volumes, timers, spawn points and spawn templates. Effects are
+/// validated separately because an effect id is optional and not part of the
+/// instance namespace.
+fn authored_bindings(level: &LevelDef) -> Vec<AuthoredBindings<'_>> {
+    let mut records = Vec::new();
+    let prop_ids = level.prop_instance_ids();
+    for (i, prop) in level.props.iter().enumerate() {
+        if prop.bindings.is_empty() {
+            continue;
+        }
+        if let Some(id) = prop_ids.get(i) {
+            records.push(AuthoredBindings {
+                id: id.clone(),
+                label: format!("Prop {i}"),
+                bindings: &prop.bindings,
+            });
+        }
+    }
+    let light_ids = level.light_instance_ids();
+    for (i, fixture) in level.ceiling_lights.iter().enumerate() {
+        if fixture.bindings.is_empty() {
+            continue;
+        }
+        if let Some(id) = light_ids.get(i) {
+            records.push(AuthoredBindings {
+                id: id.clone(),
+                label: format!("Ceiling light {i}"),
+                bindings: &fixture.bindings,
+            });
+        }
+    }
+    let door_ids = level.door_instance_ids();
+    for (i, door) in level.doors.iter().enumerate() {
+        if door.bindings.is_empty() {
+            continue;
+        }
+        if let Some(id) = door_ids.get(i) {
+            records.push(AuthoredBindings {
+                id: id.clone(),
+                label: format!("Door {i}"),
+                bindings: &door.bindings,
+            });
+        }
+    }
+    let volume_ids = volume_instance_ids(level);
+    for (i, volume) in level.volumes.iter().enumerate() {
+        if volume.bindings.is_empty() {
+            continue;
+        }
+        if let Some(id) = volume_ids.get(i) {
+            records.push(AuthoredBindings {
+                id: id.clone(),
+                label: format!("Trigger volume {i}"),
+                bindings: &volume.bindings,
+            });
+        }
+    }
+    for (i, timer) in level.timers.iter().enumerate() {
+        if timer.bindings.is_empty() {
+            continue;
+        }
+        records.push(AuthoredBindings {
+            id: timer.id.trim().to_string(),
+            label: format!("Timer {i}"),
+            bindings: &timer.bindings,
+        });
+    }
+    for (i, point) in level.spawn_points.iter().enumerate() {
+        if point.bindings.is_empty() {
+            continue;
+        }
+        records.push(AuthoredBindings {
+            id: point.id.trim().to_string(),
+            label: format!("Spawn point {i}"),
+            bindings: &point.bindings,
+        });
+    }
+    for (i, template) in level.spawn_templates.iter().enumerate() {
+        if template.bindings.is_empty() {
+            continue;
+        }
+        records.push(AuthoredBindings {
+            id: template.id.trim().to_string(),
+            label: format!("Spawn template {i}"),
+            bindings: &template.bindings,
+        });
+    }
+    records
+}
+
+/// Every authored binding, on every record that carries one.
+fn validate_bindings(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
+    for record in authored_bindings(level) {
+        let Some(facts) = index.facts_of(&record.id) else {
+            continue;
+        };
+        let context = format!("{} (`{}`)", record.label, record.id);
+        validate_entity_bindings(&context, &record.id, record.bindings, facts, index)?;
+    }
+    for (i, effect) in level.effects.iter().enumerate() {
+        if effect.bindings.is_empty() {
+            continue;
+        }
+        let facts = EntityFacts::of("effect");
+        let label = effect
+            .id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map_or_else(
+                || format!("Effect {i}"),
+                |id| format!("Effect {i} (`{id}`)"),
+            );
+        validate_entity_bindings(&label, "the effect", &effect.bindings, &facts, index)?;
+    }
+    Ok(())
+}
+
+/// One record's bindings: bounded, and every one can actually fire on it.
+fn validate_entity_bindings(
     context: &str,
-    index: usize,
-    action: &crate::level::ActionDef,
-    implicit_target: Option<&str>,
-    targets: &ActionTargets<'_>,
+    actor: &str,
+    bindings: &[EventBindingDef],
+    facts: &EntityFacts<'_>,
+    index: &LevelIndex<'_>,
 ) -> Result<(), String> {
-    let prop_ids = targets.props;
-    match action {
-        crate::level::ActionDef::ToggleLabel { target } => {
-            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
-                return Err(format!(
-                    "{context} action {index} (`toggle_label`) target must not be blank"
-                ));
-            }
-            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
-            let Some(resolved) = explicit.or(implicit_target) else {
-                return Err(format!(
-                    "{context} action {index} (`toggle_label`) needs a `target`: an area \
-                     trigger is not a placed object with a label"
-                ));
-            };
-            // A label belongs to any interactable: a placed prop/entity or a
-            // door leaf.
-            if !prop_ids.contains(resolved) && !targets.doors.contains(resolved) {
-                return Err(format!(
-                    "{context} action {index} (`toggle_label`) targets unknown instance \
-                     `{resolved}`"
-                ));
-            }
-        }
-        crate::level::ActionDef::ResetToStart => {}
-        crate::level::ActionDef::PlayAnimation { target, clip, .. } => {
-            validate_animation_action(
-                context,
-                index,
-                "play_animation",
-                target.as_deref(),
-                clip.as_deref(),
-                implicit_target,
-                prop_ids,
-            )?;
-        }
-        crate::level::ActionDef::ToggleAnimation { target, clip } => {
-            validate_animation_action(
-                context,
-                index,
-                "toggle_animation",
-                target.as_deref(),
-                clip.as_deref(),
-                implicit_target,
-                prop_ids,
-            )?;
-        }
-        crate::level::ActionDef::OpenDoor { target } => {
-            resolve_action_target(context, index, "open", target, targets.doors)?;
-        }
-        crate::level::ActionDef::CloseDoor { target } => {
-            resolve_action_target(context, index, "close", target, targets.doors)?;
-        }
-        crate::level::ActionDef::Toggle { target } => {
-            let resolved = target.trim();
-            if resolved.is_empty() {
-                return Err(format!(
-                    "{context} action {index} (`toggle`) target must not be blank"
-                ));
-            }
-            if !targets.doors.contains(resolved) && !targets.lights.contains(resolved) {
-                return Err(format!(
-                    "{context} action {index} (`toggle`) targets unknown entity `{resolved}`; \
-                     a toggle target is a door or a switchable light fixture"
-                ));
-            }
-        }
-        crate::level::ActionDef::PlayAudio { .. } => {
+    if bindings.len() > MAX_BINDINGS_PER_ENTITY {
+        return Err(format!(
+            "{context} declares {} bindings; the limit is {MAX_BINDINGS_PER_ENTITY}",
+            bindings.len()
+        ));
+    }
+    for (i, binding) in bindings.iter().enumerate() {
+        if let Some(id) = binding.id.as_deref()
+            && id.trim().is_empty()
+        {
             return Err(format!(
-                "{context} action {index} (`{}`) is not implemented yet; it is reserved as \
-                 a documented integration point and a map must not load with a silent no-op",
-                action.kind()
+                "{context} binding {i} id must not be blank when specified"
+            ));
+        }
+        let binding_context = binding
+            .id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map_or_else(
+                || format!("{context} binding {i}"),
+                |id| format!("{context} binding {i} (`{id}`)"),
+            );
+        if !binding.cooldown_seconds.is_finite() || binding.cooldown_seconds < 0.0 {
+            return Err(format!(
+                "{binding_context} cooldown_seconds must be a finite number that is not \
+                 negative (found {:?})",
+                binding.cooldown_seconds
+            ));
+        }
+        match binding.on {
+            EventKindName::EnterVolume | EventKindName::ExitVolume => {
+                if !facts.is_volume {
+                    return Err(format!(
+                        "{binding_context} listens for `{}`, but {context} is not an \
+                         authored trigger volume",
+                        binding.on.name()
+                    ));
+                }
+            }
+            EventKindName::AnimationComplete => {
+                if !facts.has_animation {
+                    return Err(format!(
+                        "{binding_context} listens for `animation_complete`, but {context} \
+                         has no `animation` component"
+                    ));
+                }
+            }
+            EventKindName::Interact => {
+                if !facts.has_interactable || !facts.interactable_enabled {
+                    return Err(format!(
+                        "{binding_context} listens for `interact`, but {context} has no \
+                         enabled `interactable` component; a disabled interactable can \
+                         never emit the event"
+                    ));
+                }
+            }
+            // A `timer` event may come from an authored timer *or* from a
+            // sequence's `emit` step, which uses the same vocabulary as one
+            // generic cue channel; any record may listen for it. The same
+            // holds for the remaining kinds, which an `emit` step can publish.
+            EventKindName::Timer
+            | EventKindName::ObjectState
+            | EventKindName::SequenceComplete
+            | EventKindName::Spawn
+            | EventKindName::AiState
+            | EventKindName::Caught => {}
+        }
+        validate_conditions(&binding_context, &binding.when, index)?;
+        validate_action_list(
+            &binding_context,
+            &binding.actions,
+            &ImplicitTarget::Actor(actor, facts),
+            index,
+        )?;
+    }
+    Ok(())
+}
+
+/// Every condition in one binding: resolvable, and of the right kind.
+fn validate_conditions(
+    context: &str,
+    conditions: &[ConditionDef],
+    index: &LevelIndex<'_>,
+) -> Result<(), String> {
+    for (i, condition) in conditions.iter().enumerate() {
+        let condition_context = format!("{context} condition {i} (`{}`)", condition.kind());
+        let target = condition.target().trim();
+        if target.is_empty() {
+            return Err(format!("{condition_context} target must not be blank"));
+        }
+        let Some(facts) = index.entities.get(target) else {
+            return Err(format!(
+                "{condition_context} targets unknown entity `{target}`"
+            ));
+        };
+        match condition {
+            ConditionDef::State { name, .. } => {
+                let name = name.trim();
+                if name.is_empty() {
+                    return Err(format!("{condition_context} names no state"));
+                }
+                if !facts.state_names.contains(name) {
+                    return Err(format!(
+                        "{condition_context} reads state `{name}` on `{target}`, which does \
+                         not author that state"
+                    ));
+                }
+            }
+            ConditionDef::Locked { .. }
+            | ConditionDef::Unlocked { .. }
+            | ConditionDef::DoorOpen { .. }
+            | ConditionDef::DoorClosed { .. } => {
+                if !facts.is_door {
+                    return Err(format!(
+                        "{condition_context} targets `{target}`, a {}; locked/unlocked and \
+                         door state conditions need a door",
+                        facts.kind
+                    ));
+                }
+            }
+            ConditionDef::SequenceRunning { .. }
+            | ConditionDef::SequenceIdle { .. }
+            | ConditionDef::Enabled { .. }
+            | ConditionDef::Disabled { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+/// The implicit target an action acts on when it omits `target`.
+enum ImplicitTarget<'a> {
+    /// A binding's own record; a spawn template binding passes the template's
+    /// component facts, which are the facts its instances are born with.
+    Actor(&'a str, &'a EntityFacts<'a>),
+    /// Every entity a sequence step can run on, discovered statically; empty
+    /// when no `start_sequence` names the sequence on an authored entity.
+    Owners(&'a [String]),
+}
+
+/// One action's diagnostic identity: where it was authored and which action it
+/// is.
+struct ActionContext<'a> {
+    /// Owning record context, e.g. ``Prop 3 (`switch`) binding 0``.
+    context: &'a str,
+    /// Position of the action in its binding or step list.
+    index: usize,
+    /// Serialized action tag, e.g. `open`.
+    kind: &'a str,
+}
+
+/// The `context` action `index` (`kind`) prefix every action error starts with.
+fn action_context_label(action_context: &ActionContext<'_>) -> String {
+    format!(
+        "{} action {} (`{}`)",
+        action_context.context, action_context.index, action_context.kind
+    )
+}
+
+/// One source's action list: bounded, non-empty and composed only of
+/// implemented actions with resolvable, capability-compatible targets.
+fn validate_action_list(
+    context: &str,
+    actions: &[ActionDef],
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+) -> Result<(), String> {
+    if actions.is_empty() {
+        return Err(format!("{context} must declare at least one action"));
+    }
+    if actions.len() > MAX_ACTIONS_PER_SOURCE {
+        return Err(format!(
+            "{context} declares {} actions; the limit is {MAX_ACTIONS_PER_SOURCE}",
+            actions.len()
+        ));
+    }
+    for (i, action) in actions.iter().enumerate() {
+        let action_context = ActionContext {
+            context,
+            index: i,
+            kind: action.kind(),
+        };
+        validate_action(&action_context, action, implicit, index)?;
+    }
+    Ok(())
+}
+
+/// One action: every target resolves and the action fits the target's
+/// capabilities.
+#[allow(clippy::too_many_lines)] // one match arm per action kind
+fn validate_action(
+    action_context: &ActionContext<'_>,
+    action: &ActionDef,
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+) -> Result<(), String> {
+    match action {
+        ActionDef::ResetToStart => {}
+        ActionDef::Open { target }
+        | ActionDef::Close { target }
+        | ActionDef::Lock { target }
+        | ActionDef::Unlock { target } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a door target",
+            |facts| facts.is_door,
+        )?,
+        ActionDef::Toggle { target } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a door, or a switchable ceiling fixture",
+            |facts| facts.is_door || (facts.light_capable() && facts.light_switchable),
+        )?,
+        ActionDef::Enable { target } | ActionDef::Disable { target } => {
+            validate_explicit_target(action_context, target.as_deref(), index)?;
+        }
+        ActionDef::SetLight { target, .. } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a switchable light (a ceiling fixture with `switchable: true`); a \
+             non-switchable light is baked once and cannot change",
+            |facts| facts.light_capable() && facts.light_switchable,
+        )?,
+        ActionDef::PlayAnimation { target, clip, .. }
+        | ActionDef::ToggleAnimation { target, clip } => {
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a target with an `animation` component",
+                |facts| facts.has_animation,
+            )?;
+            if clip.as_deref().is_some_and(|clip| clip.trim().is_empty()) {
+                return Err(format!(
+                    "{} clip must not be blank when specified",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::PlaySound { target, sound, .. } => {
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a target with an `audio` component",
+                |facts| facts.has_audio,
+            )?;
+            if sound.as_ref().is_some_and(|sound| sound.trim().is_empty()) {
+                return Err(format!(
+                    "{} `sound` must not be blank when specified",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::StopSound { target } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a target with an `audio` component",
+            |facts| facts.has_audio,
+        )?,
+        ActionDef::ChangeMaterial { target, variant } => {
+            let variant = variant.trim();
+            if variant.is_empty() {
+                return Err(format!(
+                    "{} needs a non-empty material variant name",
+                    action_context_label(action_context)
+                ));
+            }
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a runtime instance of a spawn template with a `material` component (a \
+                 baked static prop's material is prepared geometry and cannot change)",
+                |facts| facts.is_spawn_template && facts.has_material,
+            )?;
+            check_action_variant(action_context, target.as_deref(), implicit, index, variant)?;
+        }
+        ActionDef::MoveObject {
+            target,
+            x,
+            y,
+            z,
+            speed,
+        } => {
+            if !x.is_finite() || !z.is_finite() || y.is_some_and(|y| !y.is_finite()) {
+                return Err(format!(
+                    "{} coordinates must be finite numbers",
+                    action_context_label(action_context)
+                ));
+            }
+            if let Some(speed) = speed
+                && (!speed.is_finite() || *speed <= 0.0)
+            {
+                return Err(format!(
+                    "{} speed must be a finite positive number of metres per second",
+                    action_context_label(action_context)
+                ));
+            }
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a runtime instance of a spawn template (a baked static prop and a door \
+                 cannot move; drive a door with `open`/`close`/`toggle`)",
+                |facts| facts.is_spawn_template,
+            )?;
+        }
+        ActionDef::SetState { target, name, .. } => {
+            let name = name.trim();
+            if name.is_empty() {
+                return Err(format!(
+                    "{} needs a non-empty state name",
+                    action_context_label(action_context)
+                ));
+            }
+            let requirement = format!(
+                "an authored state named `{name}` (or a timer/trigger-volume target: the \
+                 runtime owns those states); a `set_state` may only change a state the \
+                 target already authors"
+            );
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                &requirement,
+                |facts| facts.state_names.contains(name) || facts.is_timer || facts.is_volume,
+            )?;
+        }
+        ActionDef::ToggleLabel { target } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a placed prop target (only a placed prop shows a label)",
+            |facts| facts.is_prop,
+        )?,
+        ActionDef::StartSequence { sequence, target } => {
+            let sequence = sequence.trim();
+            if sequence.is_empty() {
+                return Err(format!(
+                    "{} needs a non-empty sequence id",
+                    action_context_label(action_context)
+                ));
+            }
+            if !index.sequences.contains(sequence) {
+                return Err(format!(
+                    "{} references unknown sequence `{sequence}`",
+                    action_context_label(action_context)
+                ));
+            }
+            for_each_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                |_subject, _facts| Ok(()),
+            )?;
+        }
+        ActionDef::StopSequence { target } => {
+            for_each_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                |_subject, _facts| Ok(()),
+            )?;
+        }
+        ActionDef::StartTimer {
+            target, seconds, ..
+        } => {
+            check_action_target(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                "a timer target",
+                |facts| facts.is_timer,
+            )?;
+            if let Some(seconds) = seconds
+                && (!seconds.is_finite() || *seconds <= 0.0)
+            {
+                return Err(format!(
+                    "{} seconds override must be a finite positive number of seconds",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+        ActionDef::StopTimer { target } => check_action_target(
+            action_context,
+            target.as_deref(),
+            implicit,
+            index,
+            "a timer target",
+            |facts| facts.is_timer,
+        )?,
+        ActionDef::SpawnEntity {
+            template,
+            point,
+            group,
+            name,
+        } => {
+            let spawn = SpawnAction {
+                template: template.as_deref(),
+                point: point.as_deref(),
+                group: group.as_deref(),
+                name: name.as_deref(),
+            };
+            validate_spawn_action(action_context, &spawn, implicit, index)?;
+        }
+        ActionDef::DespawnEntity { target } => {
+            let target = target.trim();
+            if target.is_empty() {
+                return Err(format!(
+                    "{} target must not be blank",
+                    action_context_label(action_context)
+                ));
+            }
+            if !index.entities.contains_key(target) && !index.spawn_groups.contains(target) {
+                return Err(format!(
+                    "{} targets `{target}`; `despawn_entity` needs an authored entity id \
+                     or spawn group id",
+                    action_context_label(action_context)
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Resolves one action's optional target and runs `check` on every entity it
+/// can act on.
+///
+/// An explicit target must resolve to an authored record or spawn template; an
+/// omitted target is the acting record for a binding, or every owner a
+/// sequence can run on for a sequence step. A sequence step whose sequence is
+/// never started on any authored entity has nothing to act on and is rejected.
+fn for_each_action_target(
+    action_context: &ActionContext<'_>,
+    target: Option<&str>,
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+    mut check: impl FnMut(&str, &EntityFacts<'_>) -> Result<(), String>,
+) -> Result<(), String> {
+    if let Some(raw) = target {
+        let resolved = raw.trim();
+        if resolved.is_empty() {
+            return Err(format!(
+                "{} target must not be blank",
+                action_context_label(action_context)
+            ));
+        }
+        let Some(facts) = index.facts_of(resolved) else {
+            return Err(format!(
+                "{} targets unknown entity `{resolved}`",
+                action_context_label(action_context)
+            ));
+        };
+        return check(resolved, facts);
+    }
+    match implicit {
+        ImplicitTarget::Actor(actor, facts) => check(actor, facts),
+        ImplicitTarget::Owners(owners) => {
+            if owners.is_empty() {
+                return Err(format!(
+                    "{} needs a `target`: the sequence is not started on any authored entity",
+                    action_context_label(action_context)
+                ));
+            }
+            for owner in *owners {
+                let Some(facts) = index.facts_of(owner) else {
+                    return Err(format!(
+                        "{} runs on unknown entity `{owner}`",
+                        action_context_label(action_context)
+                    ));
+                };
+                check(owner, facts)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+/// One action's target capability: every resolved target must satisfy
+/// `satisfies`, and the failure names the record and what the action needs.
+fn check_action_target(
+    action_context: &ActionContext<'_>,
+    target: Option<&str>,
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+    requirement: &str,
+    satisfies: impl Fn(&EntityFacts<'_>) -> bool,
+) -> Result<(), String> {
+    for_each_action_target(action_context, target, implicit, index, |subject, facts| {
+        if satisfies(facts) {
+            return Ok(());
+        }
+        Err(format!(
+            "{} targets `{subject}`, a {}; `{}` requires {requirement}",
+            action_context_label(action_context),
+            facts.kind,
+            action_context.kind
+        ))
+    })
+}
+
+/// One `change_material` target's variant: the named variant must be one the
+/// target's `material` component declares, or the runtime selection no-ops.
+fn check_action_variant(
+    action_context: &ActionContext<'_>,
+    target: Option<&str>,
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+    variant: &str,
+) -> Result<(), String> {
+    for_each_action_target(action_context, target, implicit, index, |subject, facts| {
+        if facts.material_variants.contains(&variant) {
+            return Ok(());
+        }
+        Err(format!(
+            "{} targets `{subject}`, a {}; its `material` component declares no variant \
+             `{variant}`",
+            action_context_label(action_context),
+            facts.kind
+        ))
+    })
+}
+
+/// An action whose omitted target is always legal: an explicit target, when
+/// present, must still resolve.
+fn validate_explicit_target(
+    action_context: &ActionContext<'_>,
+    target: Option<&str>,
+    index: &LevelIndex<'_>,
+) -> Result<(), String> {
+    let Some(raw) = target else {
+        return Ok(());
+    };
+    let resolved = raw.trim();
+    if resolved.is_empty() {
+        return Err(format!(
+            "{} target must not be blank",
+            action_context_label(action_context)
+        ));
+    }
+    if !index.entities.contains_key(resolved) && !index.spawn_templates.contains_key(resolved) {
+        return Err(format!(
+            "{} targets unknown entity `{resolved}`",
+            action_context_label(action_context)
+        ));
+    }
+    Ok(())
+}
+
+/// The authored fields of one `spawn_entity` action.
+struct SpawnAction<'a> {
+    /// Spawn template id override.
+    template: Option<&'a str>,
+    /// Spawn point to instantiate at.
+    point: Option<&'a str>,
+    /// Spawn group override.
+    group: Option<&'a str>,
+    /// Runtime name for the spawned instance.
+    name: Option<&'a str>,
+}
+
+/// A `spawn_entity` action: the point resolves, the template exists and any
+/// named group exists.
+///
+/// A template without a point can never resolve, because a template alone has
+/// no world position; only the spawn point carries one. With neither field the
+/// acting record must itself be a spawn point, whose authored template is
+/// used.
+fn validate_spawn_action(
+    action_context: &ActionContext<'_>,
+    spawn: &SpawnAction<'_>,
+    implicit: &ImplicitTarget<'_>,
+    index: &LevelIndex<'_>,
+) -> Result<(), String> {
+    let label = action_context_label(action_context);
+    let template = spawn.template.map(str::trim).filter(|id| !id.is_empty());
+    if spawn.template.is_some() && template.is_none() {
+        return Err(format!(
+            "{label} `template` must not be blank when specified"
+        ));
+    }
+    if let Some(template) = template
+        && !index.spawn_templates.contains_key(template)
+    {
+        return Err(format!(
+            "{label} references unknown spawn template `{template}`"
+        ));
+    }
+    if let Some(group) = spawn.group {
+        let group = group.trim();
+        if group.is_empty() {
+            return Err(format!("{label} `group` must not be blank when specified"));
+        }
+        if !index.spawn_groups.contains(group) {
+            return Err(format!("{label} references unknown spawn group `{group}`"));
+        }
+    }
+    if let Some(name) = spawn.name
+        && name.trim().is_empty()
+    {
+        return Err(format!(
+            "{label} runtime `name` must not be blank when specified"
+        ));
+    }
+    let point = spawn.point.map(str::trim).filter(|id| !id.is_empty());
+    if spawn.point.is_some() && point.is_none() {
+        return Err(format!("{label} `point` must not be blank when specified"));
+    }
+    if let Some(point) = point {
+        if !index.spawn_points.contains(point) {
+            return Err(format!("{label} targets unknown spawn point `{point}`"));
+        }
+        return Ok(());
+    }
+    if template.is_some() {
+        return Err(format!(
+            "{label} names a `template` without a `point`; a template alone has no world \
+             position, so name the authored spawn point to spawn at"
+        ));
+    }
+    for_each_action_target(action_context, None, implicit, index, |subject, facts| {
+        if facts.is_spawn_point {
+            return Ok(());
+        }
+        Err(format!(
+            "{label} targets `{subject}`, a {}; a spawn without a `point` may only come \
+             from a spawn point",
+            facts.kind
+        ))
+    })
+}
+
+/// Adds `owner` to `sequence`'s owner list when both are known.
+///
+/// Returns true when the list changed, so the fixpoint can stop early.
+fn record_sequence_owner(
+    owners: &mut HashMap<String, Vec<String>>,
+    sequence: &str,
+    owner: &str,
+) -> bool {
+    let sequence = sequence.trim();
+    let Some(list) = owners.get_mut(sequence) else {
+        return false; // an unknown sequence is a named error elsewhere
+    };
+    if list.iter().any(|existing| existing == owner) {
+        return false;
+    }
+    list.push(owner.to_string());
+    true
+}
+
+/// Every entity each sequence can run on, gathered from the authored
+/// `start_sequence` sites.
+///
+/// A binding starts a sequence on its own record when the action omits the
+/// target; a sequence step starts one on the sequence's own owner. The sites
+/// form a bounded fixpoint, so a sequence that starts another with an omitted
+/// target propagates its own owners.
+fn collect_sequence_owners(level: &LevelDef) -> HashMap<String, Vec<String>> {
+    let mut owners: HashMap<String, Vec<String>> = HashMap::new();
+    for sequence in &level.sequences {
+        owners.entry(sequence.id.trim().to_string()).or_default();
+    }
+    let mut deferred: Vec<(String, String)> = Vec::new();
+    for record in authored_bindings(level) {
+        for binding in record.bindings {
+            for action in &binding.actions {
+                if let ActionDef::StartSequence { sequence, target } = action {
+                    match target.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
+                        Some(target) => {
+                            record_sequence_owner(&mut owners, sequence, target);
+                        }
+                        None => {
+                            record_sequence_owner(&mut owners, sequence, &record.id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for sequence in &level.sequences {
+        let from = sequence.id.trim().to_string();
+        for step in &sequence.steps {
+            if let SequenceStepDef::Action {
+                action:
+                    ActionDef::StartSequence {
+                        sequence: to,
+                        target,
+                    },
+            } = step
+            {
+                match target.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
+                    Some(target) => {
+                        record_sequence_owner(&mut owners, to, target);
+                    }
+                    None => {
+                        deferred.push((from.clone(), to.trim().to_string()));
+                    }
+                }
+            }
+        }
+    }
+    let mut passes = 0usize;
+    while !deferred.is_empty() && passes <= owners.len() {
+        let mut changed = false;
+        for (from, to) in &deferred {
+            let source = owners.get(from).cloned().unwrap_or_default();
+            for owner in source {
+                changed |= record_sequence_owner(&mut owners, to, &owner);
+            }
+        }
+        if !changed {
+            break;
+        }
+        passes = passes.saturating_add(1);
+    }
+    owners
+}
+
+/// Authored sequences: bounded steps, finite and ranged delays, and every step
+/// action resolvable against the sequence's owners.
+///
+/// A `wait_animation` step's clip is only checked to be a non-empty name: a
+/// model's clip set is not known to the loader, so the step's `timeout` is the
+/// runtime bound that keeps a missing clip from stranding the sequence.
+#[allow(clippy::too_many_lines)] // one match arm per step kind
+fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
+    if level.sequences.len() > MAX_LEVEL_SEQUENCES {
+        return Err(format!(
+            "Level contains too many sequences: {} (limit: {MAX_LEVEL_SEQUENCES})",
+            level.sequences.len()
+        ));
+    }
+    for (i, sequence) in level.sequences.iter().enumerate() {
+        let id = sequence.id.trim();
+        let context = format!("Sequence {i} (`{id}`)");
+        if sequence.steps.is_empty() {
+            return Err(format!("{context} declares no steps"));
+        }
+        if sequence.steps.len() > MAX_SEQUENCE_STEPS {
+            return Err(format!(
+                "{context} declares {} steps; the limit is {MAX_SEQUENCE_STEPS}",
+                sequence.steps.len()
+            ));
+        }
+        let owners: &[String] = index.sequence_owners.get(id).map_or(&[], Vec::as_slice);
+        for (j, step) in sequence.steps.iter().enumerate() {
+            let step_context = format!("{context} step {j} (`{}`)", step.kind());
+            match step {
+                SequenceStepDef::Action { action } => {
+                    let action_context = ActionContext {
+                        context: &step_context,
+                        index: 0,
+                        kind: action.kind(),
+                    };
+                    validate_action(
+                        &action_context,
+                        action,
+                        &ImplicitTarget::Owners(owners),
+                        index,
+                    )?;
+                }
+                SequenceStepDef::Wait { seconds } => {
+                    if !seconds.is_finite() || *seconds < 0.0 || *seconds > MAX_SEQUENCE_WAIT_S {
+                        return Err(format!(
+                            "{step_context} seconds ({seconds:?}) must be a finite number \
+                             between 0 and {MAX_SEQUENCE_WAIT_S}"
+                        ));
+                    }
+                }
+                SequenceStepDef::Move { x, y, z, speed } => {
+                    if !x.is_finite()
+                        || !z.is_finite()
+                        || y.is_some_and(|y| !y.is_finite())
+                        || !speed.is_finite()
+                        || *speed <= 0.0
+                    {
+                        return Err(format!(
+                            "{step_context} position and speed must be finite, and speed \
+                             positive"
+                        ));
+                    }
+                }
+                SequenceStepDef::Face { yaw_degrees } => {
+                    if !yaw_degrees.is_finite() {
+                        return Err(format!("{step_context} yaw must be a finite number"));
+                    }
+                }
+                SequenceStepDef::WaitAnimation { clip, timeout } => {
+                    if clip.as_deref().is_some_and(|clip| clip.trim().is_empty()) {
+                        return Err(format!(
+                            "{step_context} clip must not be blank when specified"
+                        ));
+                    }
+                    if !timeout.is_finite()
+                        || *timeout < 0.0
+                        || *timeout > MAX_SEQUENCE_ANIMATION_TIMEOUT_S
+                    {
+                        return Err(format!(
+                            "{step_context} timeout ({timeout:?}) must be a finite number \
+                             between 0 and {MAX_SEQUENCE_ANIMATION_TIMEOUT_S}"
+                        ));
+                    }
+                }
+                SequenceStepDef::Emit { key, .. } => {
+                    if key.as_deref().is_some_and(|key| key.trim().is_empty()) {
+                        return Err(format!(
+                            "{step_context} key must not be blank when specified"
+                        ));
+                    }
+                }
+                SequenceStepDef::SetState { name, .. } => {
+                    let name = name.trim();
+                    if name.is_empty() {
+                        return Err(format!("{step_context} must name a non-empty state"));
+                    }
+                    for owner in owners {
+                        if let Some(facts) = index.facts_of(owner)
+                            && !facts.state_names.contains(name)
+                            && !facts.is_timer
+                            && !facts.is_volume
+                        {
+                            return Err(format!(
+                                "{step_context} writes state `{name}` on `{owner}`, a {}, \
+                                 which does not author it; a sequence state write may only \
+                                 change a state its owner already authors",
+                                facts.kind
+                            ));
+                        }
+                    }
+                }
+                SequenceStepDef::Stop => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Authored spawn templates, points and groups: resolvable, finite and
+/// bounded.
+///
+/// An `at_most_one_active` group is deliberately allowed to be shared by
+/// several spawn points: that is the encounter mechanism (several candidate
+/// spots, one live member), and the runtime refuses a second live member, so
+/// no check is needed here.
+fn validate_spawns(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
+    if level.spawn_templates.len() > MAX_LEVEL_SPAWN_TEMPLATES {
+        return Err(format!(
+            "Level contains too many spawn templates: {} (limit: {MAX_LEVEL_SPAWN_TEMPLATES})",
+            level.spawn_templates.len()
+        ));
+    }
+    if level.spawn_points.len() > MAX_LEVEL_SPAWN_POINTS {
+        return Err(format!(
+            "Level contains too many spawn points: {} (limit: {MAX_LEVEL_SPAWN_POINTS})",
+            level.spawn_points.len()
+        ));
+    }
+    if level.spawn_groups.len() > MAX_LEVEL_SPAWN_GROUPS {
+        return Err(format!(
+            "Level contains too many spawn groups: {} (limit: {MAX_LEVEL_SPAWN_GROUPS})",
+            level.spawn_groups.len()
+        ));
+    }
+    for (i, template) in level.spawn_templates.iter().enumerate() {
+        let id = template.id.trim();
+        let context = format!("Spawn template {i} (`{id}`)");
+        if template.model.trim().is_empty() {
+            return Err(format!("{context} must reference a non-empty model id"));
+        }
+        if !template.scale.is_finite() || template.scale <= 0.0 {
+            return Err(format!("{context} scale must be a finite positive number"));
+        }
+        if let Some(seconds) = template.lifetime_seconds
+            && (!seconds.is_finite() || seconds <= 0.0)
+        {
+            return Err(format!(
+                "{context} lifetime_seconds must be a finite positive number when specified"
+            ));
+        }
+    }
+    for (i, point) in level.spawn_points.iter().enumerate() {
+        let id = point.id.trim();
+        let context = format!("Spawn point {i} (`{id}`)");
+        if !point.x.is_finite()
+            || !point.z.is_finite()
+            || !point.yaw_degrees.is_finite()
+            || point.y.is_some_and(|y| !y.is_finite())
+        {
+            return Err(format!("{context} position and yaw must be finite numbers"));
+        }
+        let template = point.template.trim();
+        if template.is_empty() {
+            return Err(format!(
+                "{context} must reference a non-empty spawn template id"
+            ));
+        }
+        if !index.spawn_templates.contains_key(template) {
+            return Err(format!(
+                "{context} references unknown spawn template `{template}`"
+            ));
+        }
+        if let Some(group) = point.group.as_deref() {
+            let group = group.trim();
+            if group.is_empty() {
+                return Err(format!("{context} group must not be blank when specified"));
+            }
+            if !index.spawn_groups.contains(group) {
+                return Err(format!(
+                    "{context} references unknown spawn group `{group}`"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Authored timers: a positive, finite period.
+fn validate_timers(level: &LevelDef) -> Result<(), String> {
+    for (i, timer) in level.timers.iter().enumerate() {
+        let id = timer.id.trim();
+        let context = format!("Timer {i} (`{id}`)");
+        if !timer.seconds.is_finite() || timer.seconds <= 0.0 {
+            return Err(format!(
+                "{context} seconds must be a finite positive number of seconds"
             ));
         }
     }
     Ok(())
 }
 
-/// A pose/animation action: a non-blank clip and a resolvable placed target.
-fn validate_animation_action(
-    context: &str,
+/// Upper bound on the depth of the zero-delay cycle search.
+///
+/// A deeper chain is left to the runtime's chain budget rather than rejecting
+/// a map the compiler cannot see whole.
+const MAX_CYCLE_DEPTH: usize = 26;
+/// Upper bound on the nodes one zero-delay cycle search may visit.
+const MAX_CYCLE_VISITS: usize = 100_000;
+
+/// One node of the zero-delay causality graph.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum CycleNode {
+    /// One binding on one owner: its position in the record's list and the
+    /// owner's instance id.
+    Binding { owner: String, index: usize },
+    /// An authored sequence.
+    Sequence { id: String },
+}
+
+impl CycleNode {
+    /// Diagnostic label naming the node.
+    fn label(&self) -> String {
+        match self {
+            Self::Binding { owner, index } => format!("binding {index} on `{owner}`"),
+            Self::Sequence { id } => format!("sequence `{id}`"),
+        }
+    }
+}
+
+/// One binding node's cycle-relevant fields.
+struct CycleBinding<'a> {
+    /// Instance id the binding lives on.
+    owner: String,
+    /// Position of the binding in its record's list.
     index: usize,
-    kind: &str,
-    target: Option<&str>,
-    clip: Option<&str>,
-    implicit_target: Option<&str>,
-    prop_ids: &HashSet<&str>,
-) -> Result<(), String> {
-    if target.is_some_and(|raw| raw.trim().is_empty()) {
-        return Err(format!(
-            "{context} action {index} (`{kind}`) target must not be blank"
-        ));
+    /// Event kind the binding listens for.
+    on: EventKindName,
+    /// True when the binding itself may re-enter; a `once`, a cooldown or a
+    /// condition can stop a repetition, so the search does not traverse it.
+    traversable: bool,
+    /// The binding's actions, in order.
+    actions: &'a [ActionDef],
+}
+
+/// True when a sequence can complete without a delayed step and therefore
+/// emits `sequence_complete` in the same immediate chain.
+fn sequence_completes_immediately(sequence: &SequenceDef) -> bool {
+    for step in &sequence.steps {
+        if step.is_delayed() {
+            return false;
+        }
+        if matches!(step, SequenceStepDef::Stop) {
+            return true;
+        }
     }
-    if clip.map(str::trim).is_none_or(str::is_empty) {
-        return Err(format!(
-            "{context} action {index} (`{kind}`) needs a clip name"
-        ));
+    !sequence.looped
+}
+
+/// Rejects the obvious zero-delay cycles: a binding that starts a sequence
+/// whose first steps (before any wait, move, face, animation wait or timer)
+/// start a sequence again, or complete and re-enter the same binding.
+///
+/// The search is deliberately conservative: a binding with a `when` condition,
+/// `once` or a cooldown is not traversed (each of those can stop the
+/// repetition), `emit`, `start_timer` and automatic sequence completion are
+/// treated as consuming time, and the walk is bounded by [`MAX_CYCLE_DEPTH`]
+/// and [`MAX_CYCLE_VISITS`], so a chain the compiler cannot see whole is left
+/// to the runtime's own chain budget instead of rejecting a legitimate map.
+#[allow(clippy::too_many_lines)] // one linear graph construction pass
+fn validate_zero_delay_cycles(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
+    let sequence_by_id: HashMap<&str, &SequenceDef> = level
+        .sequences
+        .iter()
+        .map(|sequence| (sequence.id.trim(), sequence))
+        .collect();
+    let records = authored_bindings(level);
+    let mut infos: Vec<CycleBinding<'_>> = Vec::new();
+    for record in &records {
+        for (i, binding) in record.bindings.iter().enumerate() {
+            infos.push(CycleBinding {
+                owner: record.id.clone(),
+                index: i,
+                on: binding.on,
+                traversable: !binding.once
+                    && binding.cooldown_seconds <= 0.0
+                    && binding.when.is_empty(),
+                actions: &binding.actions,
+            });
+        }
     }
-    let explicit = target.map(str::trim).filter(|id| !id.is_empty());
-    let Some(resolved) = explicit.or(implicit_target) else {
-        return Err(format!(
-            "{context} action {index} (`{kind}`) needs a `target`: an area trigger is not \
-             a placed entity that can be posed"
-        ));
-    };
-    if !prop_ids.contains(resolved) {
-        return Err(format!(
-            "{context} action {index} (`{kind}`) targets unknown instance `{resolved}`"
-        ));
+    let mut completion_bindings: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (i, info) in infos.iter().enumerate() {
+        if info.on == EventKindName::SequenceComplete {
+            completion_bindings
+                .entry(info.owner.as_str())
+                .or_default()
+                .push(i);
+        }
+    }
+    let mut edges: HashMap<CycleNode, Vec<CycleNode>> = HashMap::new();
+    let mut order: Vec<CycleNode> = Vec::new();
+    for info in &infos {
+        let node = CycleNode::Binding {
+            owner: info.owner.clone(),
+            index: info.index,
+        };
+        order.push(node.clone());
+        let mut out = Vec::new();
+        if info.traversable {
+            for action in info.actions {
+                if let ActionDef::StartSequence { sequence, .. } = action {
+                    let sequence = sequence.trim();
+                    if sequence_by_id.contains_key(sequence) {
+                        out.push(CycleNode::Sequence {
+                            id: sequence.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        edges.insert(node, out);
+    }
+    for sequence in &level.sequences {
+        let id = sequence.id.trim();
+        let node = CycleNode::Sequence { id: id.to_string() };
+        order.push(node.clone());
+        let mut out = Vec::new();
+        for step in &sequence.steps {
+            if step.is_delayed() || matches!(step, SequenceStepDef::Stop) {
+                break;
+            }
+            if let SequenceStepDef::Action {
+                action: ActionDef::StartSequence { sequence: to, .. },
+            } = step
+            {
+                let to = to.trim();
+                if sequence_by_id.contains_key(to) {
+                    out.push(CycleNode::Sequence { id: to.to_string() });
+                }
+            }
+        }
+        if sequence_completes_immediately(sequence)
+            && let Some(owners) = index.sequence_owners.get(id)
+        {
+            for owner in owners {
+                if let Some(list) = completion_bindings.get(owner.as_str()) {
+                    for binding_index in list {
+                        if let Some(info) = infos.get(*binding_index)
+                            && info.traversable
+                        {
+                            out.push(CycleNode::Binding {
+                                owner: info.owner.clone(),
+                                index: info.index,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        edges.insert(node, out);
+    }
+    let mut state: HashMap<CycleNode, u8> = HashMap::new();
+    let mut visits = MAX_CYCLE_VISITS;
+    for node in &order {
+        if state.get(node).copied().unwrap_or(0) != 0 {
+            continue;
+        }
+        let mut stack: Vec<CycleNode> = Vec::new();
+        if let Some(cycle) = cycle_dfs(node, 0, &edges, &mut state, &mut stack, &mut visits) {
+            let path = cycle
+                .iter()
+                .map(CycleNode::label)
+                .collect::<Vec<String>>()
+                .join(" -> ");
+            return Err(format!(
+                "Zero-delay cycle: {path}. Each edge runs without consuming a wait, timer \
+                 or animation, so the chain would recurse without end; add a delayed step, \
+                 a timer, a `once`, a cooldown or a `when` condition."
+            ));
+        }
     }
     Ok(())
+}
+
+/// Depth-first cycle search over the zero-delay graph.
+///
+/// White nodes are unvisited, grey nodes are on the current path and black
+/// nodes are finished. A grey neighbour is a cycle; the path from its first
+/// occurrence to the current node is returned. The search stops without a
+/// verdict once the depth or visit budget runs out, so it never rejects a map
+/// it could not see whole.
+fn cycle_dfs(
+    node: &CycleNode,
+    depth: usize,
+    edges: &HashMap<CycleNode, Vec<CycleNode>>,
+    state: &mut HashMap<CycleNode, u8>,
+    stack: &mut Vec<CycleNode>,
+    visits: &mut usize,
+) -> Option<Vec<CycleNode>> {
+    if *visits == 0 || depth > MAX_CYCLE_DEPTH {
+        return None;
+    }
+    *visits = visits.saturating_sub(1);
+    state.insert(node.clone(), 1);
+    stack.push(node.clone());
+    if let Some(neighbours) = edges.get(node) {
+        for next in neighbours {
+            match state.get(next).copied().unwrap_or(0) {
+                1 => {
+                    let position = stack.iter().position(|item| item == next).unwrap_or(0);
+                    let mut cycle = stack.get(position..).unwrap_or_default().to_vec();
+                    if let Some(first) = cycle.first().cloned() {
+                        cycle.push(first);
+                    }
+                    return Some(cycle);
+                }
+                0 => {
+                    if let Some(cycle) =
+                        cycle_dfs(next, depth.saturating_add(1), edges, state, stack, visits)
+                    {
+                        return Some(cycle);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    stack.pop();
+    state.insert(node.clone(), 2);
+    None
 }
 
 /// Floating props: a floating hull cannot be solid, its authored motion must
@@ -2683,80 +4145,61 @@ fn route_path_is_clear(
     Ok(())
 }
 
-/// Authored area triggers: count, geometry, vertical bounds, cooldown and
-/// actions.
+/// Authored trigger volumes: count, geometry, vertical bounds and room
+/// containment.
 ///
 /// A trigger is a real volume with an effect, so the checks mirror the water
-/// volumes and ladders: the footprint must be finite and positive, the resolved
-/// top strictly above the resolved bottom, the cooldown finite and not
-/// negative, and the actions implemented with resolvable targets.
-fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
-    if u64::try_from(level.area_triggers.len()).unwrap_or(u64::MAX)
+/// volumes and ladders: the footprint must be finite and positive, the
+/// resolved top strictly above the resolved bottom, and the volume must
+/// overlap a room section. What each volume's `enter_volume`/`exit_volume`
+/// bindings do is validated with every other binding.
+fn validate_volumes(level: &LevelDef) -> Result<(), String> {
+    if level.timers.len() > crate::level::MAX_LEVEL_TIMERS {
+        return Err(format!(
+            "Level contains too many timers: {} (limit: {})",
+            level.timers.len(),
+            crate::level::MAX_LEVEL_TIMERS
+        ));
+    }
+    if u64::try_from(level.volumes.len()).unwrap_or(u64::MAX)
         > crate::level::MAX_LEVEL_AREA_TRIGGERS
     {
         return Err(format!(
-            "Level contains too many area triggers: {} (limit: {})",
-            level.area_triggers.len(),
+            "Level contains too many trigger volumes: {} (limit: {})",
+            level.volumes.len(),
             crate::level::MAX_LEVEL_AREA_TRIGGERS
         ));
     }
-    let prop_ids = level.prop_instance_ids();
-    let known: HashSet<&str> = prop_ids.iter().map(String::as_str).collect();
-    let door_ids = level.door_instance_ids();
-    let doors: HashSet<&str> = door_ids.iter().map(String::as_str).collect();
-    let light_ids = level.light_instance_ids();
-    let lights: HashSet<&str> = light_ids
-        .iter()
-        .zip(level.ceiling_lights.iter())
-        .filter(|(_, fixture)| fixture.switchable)
-        .map(|(id, _)| id.as_str())
-        .collect();
-    let targets = ActionTargets {
-        props: &known,
-        doors: &doors,
-        lights: &lights,
-    };
-    for (i, trigger) in level.area_triggers.iter().enumerate() {
-        if !trigger.x.is_finite()
-            || !trigger.z.is_finite()
-            || !trigger.width.is_finite()
-            || !trigger.depth.is_finite()
-            || !trigger.cooldown_seconds.is_finite()
+    for (i, volume) in level.volumes.iter().enumerate() {
+        let context = format!("Trigger volume {i} (`{}`)", volume_id(i, volume));
+        if !volume.x.is_finite()
+            || !volume.z.is_finite()
+            || !volume.width.is_finite()
+            || !volume.depth.is_finite()
         {
             return Err(format!(
-                "Area trigger {i} position, size and cooldown must be finite numbers"
+                "{context} position and size must be finite numbers"
             ));
         }
-        if trigger.width <= 0.0 || trigger.depth <= 0.0 {
-            return Err(format!("Area trigger {i} width and depth must be positive"));
+        if volume.width <= 0.0 || volume.depth <= 0.0 {
+            return Err(format!("{context} width and depth must be positive"));
         }
-        if trigger.cooldown_seconds < 0.0 {
-            return Err(format!(
-                "Area trigger {i} cooldown_seconds cannot be negative"
-            ));
-        }
-        for (name, value) in [("bottom_y", trigger.bottom_y), ("top_y", trigger.top_y)] {
+        for (name, value) in [("bottom_y", volume.bottom_y), ("top_y", volume.top_y)] {
             if value.is_some_and(|value| !value.is_finite()) {
                 return Err(format!(
-                    "Area trigger {i} {name} must be a finite number when specified"
+                    "{context} {name} must be a finite number when specified"
                 ));
             }
         }
-        let (bottom, top) = trigger.resolved_y_bounds(level);
+        let (bottom, top) = volume.resolved_y_bounds(level);
         if !bottom.is_finite() || !top.is_finite() || top <= bottom {
             return Err(format!(
-                "Area trigger {i} top_y ({top:.2} m) must be above its bottom_y ({bottom:.2} m)"
+                "{context} top_y ({top:.2} m) must be above its bottom_y ({bottom:.2} m)"
             ));
         }
-        if !rect_overlaps_room(level, trigger.bounds()) {
-            return Err(format!("Area trigger {i} lies outside every room section"));
+        if !rect_overlaps_room(level, volume.bounds()) {
+            return Err(format!("{context} lies outside every room section"));
         }
-        validate_action_list(
-            &format!("Area trigger {i}"),
-            &trigger.actions,
-            None,
-            &targets,
-        )?;
     }
     Ok(())
 }
@@ -2794,7 +4237,10 @@ fn validate_doors(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// One door's own dimensions, swing, state and interaction contract.
+/// One door's own dimensions, swing, state and lock contract.
+///
+/// The leaf's authored prompt and reach live in its `interactable` component
+/// and are validated by [`validate_instance_ids`] with every other component.
 fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), String> {
     if !door.x.is_finite()
         || !door.y.is_finite()
@@ -2847,19 +4293,9 @@ fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), St
             crate::level::MAX_DOOR_SPEED_DEGREES
         ));
     }
-    if let Some(prompt) = door.prompt.as_deref()
-        && prompt.trim().is_empty()
-    {
-        return Err(format!("Door {i} prompt must not be blank when specified"));
-    }
-    if let Some(reach) = door.reach
-        && !(reach.is_finite() && reach > 0.0 && reach <= crate::interact::MAX_INTERACTION_REACH_M)
-    {
-        return Err(format!(
-            "Door {i} interaction reach ({reach:?} m) must be between 0 and {} metres",
-            crate::interact::MAX_INTERACTION_REACH_M
-        ));
-    }
+    // A door's authored prompt and reach now live in its `interactable`
+    // component and are validated with every other component by
+    // [`validate_instance_ids`].
     Ok(())
 }
 
@@ -3640,63 +5076,112 @@ impl LevelManager {
         self.entries.get(idx)
     }
 
-    /// Re-scans directories for installed levels.
+    /// Re-scans directories for installed compiled packages.
     ///
-    /// A file that does not parse or does not validate is skipped with one
-    /// warning naming the file and the reason, so a malformed drop-in level is
-    /// diagnosable instead of silently absent.
+    /// Only `.placesmap` files are playable. Authoring sources (`*.json`,
+    /// `*.zip`) are noted once per path and never appear in the menu: the
+    /// player does not compile maps. A package that does not open or validate
+    /// is skipped with one warning naming the file and the reason.
+    ///
+    /// Precedence: a bundled package in `assets/levels/` wins over an installed
+    /// package with the same level id, and within one directory the
+    /// deterministic `(name, id)` order decides. A duplicate id is reported,
+    /// never silently replacing a row.
     pub fn refresh(&mut self) {
         let mut discovered = Vec::new();
-
-        // 1. Official levels in assets_dir
-        if let Ok(dir) = fs::read_dir(&self.assets_dir) {
-            for entry in dir.flatten() {
-                let p = entry.path();
-                if p.extension().is_some_and(|ext| ext == "json") {
-                    match Self::probe_level_file(&p, LevelSourceType::Official) {
-                        Ok(meta) => discovered.push(meta),
-                        Err(error) => Self::report_skipped_level(&p, &error),
-                    }
-                }
+        Self::scan_package_dir(&self.assets_dir, LevelSourceType::Bundled, &mut discovered);
+        Self::scan_package_dir(
+            &self.levels_dir,
+            LevelSourceType::Installed,
+            &mut discovered,
+        );
+        for dir in [&self.assets_dir, &self.levels_dir] {
+            Self::note_authoring_sources(dir);
+        }
+        discovered.sort_by(|a, b| {
+            source_rank(a.source_type)
+                .cmp(&source_rank(b.source_type))
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        let mut unique: Vec<LevelEntry> = Vec::with_capacity(discovered.len());
+        for entry in discovered {
+            if let Some(existing) = unique.iter().find(|existing| existing.id == entry.id) {
+                crate::logging::warn_once(
+                    format!("level-duplicate:{}", entry.path.display()),
+                    format!(
+                        "[levels] {} has the same id '{}' as {}; keeping {}",
+                        entry.path.display(),
+                        entry.id,
+                        existing.path.display(),
+                        existing.path.display()
+                    ),
+                );
+                continue;
             }
+            unique.push(entry);
         }
 
-        // 2. Installed community / custom levels in levels_dir
-        if let Ok(dir) = fs::read_dir(&self.levels_dir) {
-            for entry in dir.flatten() {
-                let p = entry.path();
-                if p.extension().is_some_and(|ext| ext == "json") {
-                    match Self::probe_level_file(&p, LevelSourceType::CustomJson) {
-                        Ok(meta) => discovered.push(meta),
-                        Err(error) => Self::report_skipped_level(&p, &error),
-                    }
-                } else if p.extension().is_some_and(|ext| ext == "zip") {
-                    match Self::probe_zip_file(&p) {
-                        Ok(meta) => discovered.push(meta),
-                        Err(error) => Self::report_skipped_level(&p, &error),
-                    }
-                }
-            }
-        }
-
-        // Deterministic menu order: `read_dir` order is filesystem-dependent.
-        discovered.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
-
-        // Places Demo is always offered. When no installed `places_demo.json`
-        // was discovered (no asset tree, or the installed copy is malformed),
-        // the embedded copy is exposed as an ordinary entry so the Level Select
+        // Places Demo is always offered. When no installed package was
+        // discovered (no asset tree, or the installed copy is malformed), the
+        // embedded package is exposed as an ordinary entry so the Level Select
         // menu and `PLACES_LEVEL=places_demo` both keep working.
-        if !discovered.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
-            discovered.push(LevelEntry {
+        if !unique.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
+            unique.push(LevelEntry {
                 id: DEMO_LEVEL_ID.to_string(),
                 name: "Places Demo".to_string(),
                 author: "Places Team".to_string(),
                 source_type: LevelSourceType::Embedded,
-                path: self.assets_dir.join("places_demo.json"),
+                path: PathBuf::new(),
             });
         }
 
-        self.entries = discovered;
+        self.entries = unique;
+    }
+
+    /// Adds every `*.placesmap` directly below `dir` to `discovered`.
+    fn scan_package_dir(
+        dir: &Path,
+        source_type: LevelSourceType,
+        discovered: &mut Vec<LevelEntry>,
+    ) {
+        let Ok(read_dir) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if !crate::package::is_package_path(&path) {
+                continue;
+            }
+            match Self::probe_package_file(&path, source_type) {
+                Ok(meta) => discovered.push(meta),
+                Err(error) => Self::report_skipped_level(&path, &error),
+            }
+        }
+    }
+
+    /// Reports authoring sources that are intentionally not playable.
+    fn note_authoring_sources(dir: &Path) {
+        let Ok(read_dir) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if path
+                .extension()
+                .is_some_and(|ext| ext == "json" || ext == "zip")
+            {
+                crate::logging::warn_once(
+                    format!("level-source:{}", path.display()),
+                    format!(
+                        "[levels] {} is an authoring source and is not playable; compile it with \
+                         `places-compile build {}`",
+                        path.display(),
+                        path.display()
+                    ),
+                );
+            }
+        }
     }
 
     /// Reports one unreadable level file once per path.
@@ -3707,84 +5192,89 @@ impl LevelManager {
         );
     }
 
-    /// Reads a standalone level JSON with a hard byte cap before parsing.
-    fn read_standalone_level(path: &Path) -> Result<String, String> {
-        let metadata =
-            fs::metadata(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-        if metadata.len() > crate::level::MAX_LEVEL_JSON_BYTES {
-            return Err(format!(
-                "{} is {} bytes, over the {} byte level limit",
-                path.display(),
-                metadata.len(),
-                crate::level::MAX_LEVEL_JSON_BYTES
-            ));
-        }
-        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))
-    }
-
-    fn probe_level_file(path: &Path, source_type: LevelSourceType) -> Result<LevelEntry, String> {
-        let content = Self::read_standalone_level(path)?;
-        let level = LevelDef::from_json(&content).map_err(|e| e.to_string())?;
-        validate_level(&level)?;
+    /// Reads one package's manifest and semantics for discovery.
+    fn probe_package_file(path: &Path, source_type: LevelSourceType) -> Result<LevelEntry, String> {
+        let opened = crate::package::world::open(path)?;
         Ok(LevelEntry {
-            id: level.id,
-            name: level.name,
-            author: level.author,
+            id: opened.level.id,
+            name: opened.level.name,
+            author: opened.level.author,
             source_type,
             path: path.to_path_buf(),
         })
     }
 
-    fn probe_zip_file(path: &Path) -> Result<LevelEntry, String> {
-        // Lightweight probe: read only level.json, no texture extraction.
-        let file = fs::File::open(path).map_err(|e| e.to_string())?;
-        let level_json = read_zip_level_json(file)?;
-        let level = LevelDef::from_json(&level_json).map_err(|e| e.to_string())?;
-        validate_level(&level)?;
-        Ok(LevelEntry {
-            id: level.id,
-            name: level.name,
-            author: level.author,
-            source_type: LevelSourceType::PackZip,
-            path: path.to_path_buf(),
-        })
-    }
-
-    /// Loads the official demo, or the embedded copy when it is not installed.
+    /// Loads the official demo, or the embedded package when it is not
+    /// installed.
     ///
     /// `Places Demo` is the only level bundled with the game, so it is also the
     /// default level the game boots into. External/user levels are unaffected:
     /// they are discovered alongside it and can be selected from the menu.
+    ///
     /// # Errors
     ///
     /// Returns a message when the demo cannot be loaded, or when neither an
-    /// installed nor an embedded demo parses and validates.
+    /// installed nor an embedded demo package opens and validates.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        if let Some(entry) = self.entries.iter().find(|e| e.id == DEMO_LEVEL_ID) {
-            self.load_level(entry)
-        } else {
-            // Direct fallback: the embedded demo JSON still resolves its
-            // materials through the shipped catalog (and degrades loudly to the
-            // diagnostic texture when no assets are installed at all).
-            let mut level = LevelDef::from_json(FALLBACK_DEMO_JSON)
-                .map_err(|e| format!("Failed to parse embedded Places Demo: {e}"))?;
-            validate_level(&level)?;
-            prepare_level(&mut level, self.prop_catalog.assets(), None);
-            let materials = self.resolve_level_materials(&level, None);
-            let light_sheets = self.resolve_level_fixture_sheets(&level, None);
-            Ok(LoadedLevel {
-                catalog: Arc::new(self.prop_catalog.clone()),
-                level,
-                materials,
-                light_sheets,
-                entry: LevelEntry {
-                    id: DEMO_LEVEL_ID.into(),
-                    name: "Places Demo".into(),
-                    author: "Places Team".into(),
-                    source_type: LevelSourceType::Official,
-                    path: self.assets_dir.join("places_demo.json"),
-                },
-            })
+        let Some(entry) = self.entries.iter().find(|e| e.id == DEMO_LEVEL_ID) else {
+            return self.load_embedded_demo();
+        };
+        match self.load_level(entry) {
+            Ok(loaded) => Ok(loaded),
+            Err(error) => {
+                if entry.source_type == LevelSourceType::Embedded {
+                    return Err(error);
+                }
+                // A broken installed copy must not turn into a failed boot:
+                // the embedded package is the recovery copy.
+                crate::logging::warn(format!(
+                    "[levels] installed Places Demo failed to load ({error}); using the embedded copy"
+                ));
+                self.load_embedded_demo()
+            }
+        }
+    }
+
+    /// Loads the compiled demo embedded in the executable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error only if the embedded package does not open; it is
+    /// compiled into the binary, so that is a build defect, not player input.
+    fn load_embedded_demo(&self) -> Result<LoadedLevel, String> {
+        let opened = crate::package::world::open_bytes(FALLBACK_DEMO_PACKAGE)
+            .map_err(|error| format!("embedded Places Demo package is invalid: {error}"))?;
+        Ok(self.assembled_level(
+            LevelEntry {
+                id: DEMO_LEVEL_ID.into(),
+                name: "Places Demo".into(),
+                author: "Places Team".into(),
+                source_type: LevelSourceType::Embedded,
+                path: PathBuf::new(),
+            },
+            opened,
+        ))
+    }
+
+    /// Resolves materials and fixture sheets for a validated package's level.
+    ///
+    /// The package carries the authoring-prepared semantics and the prepared
+    /// world records; only the texture pixels come from the installed asset
+    /// bundle, which the manifest identifies by content hash.
+    fn assembled_level(
+        &self,
+        entry: LevelEntry,
+        opened: crate::package::world::OpenedPackage,
+    ) -> LoadedLevel {
+        let level = opened.level;
+        let materials = self.resolve_level_materials(&level, None);
+        let light_sheets = self.resolve_level_fixture_sheets(&level, None);
+        LoadedLevel {
+            catalog: Arc::new(self.prop_catalog.clone()),
+            level,
+            materials,
+            light_sheets,
+            entry,
         }
     }
 
@@ -3838,88 +5328,36 @@ impl LevelManager {
         resolve_fixture_sheets(level, self.prop_catalog.assets(), pack, &mut cache)
     }
 
-    /// Unified level loader loading any standalone JSON or packaged ZIP level.
+    /// Loads a validated compiled level package.
     ///
     /// Missing or corrupt texture files resolve to the diagnostic material and
     /// a logged error; a level never fails to load because of one bad PNG.
+    ///
     /// # Errors
     ///
-    /// Returns a message when the level file or pack cannot be read or
-    /// validated.
+    /// Returns a message when the package cannot be opened, its manifest or
+    /// semantics fail validation, or the entry names a missing file.
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         match entry.source_type {
-            LevelSourceType::Official | LevelSourceType::CustomJson => {
-                let content = Self::read_standalone_level(&entry.path)?;
-
-                let mut level = LevelDef::from_json(&content)
-                    .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;
-                validate_level(&level)?;
-                prepare_level(&mut level, self.prop_catalog.assets(), None);
-                let materials = self.resolve_level_materials(&level, None);
-                let light_sheets = self.resolve_level_fixture_sheets(&level, None);
-
-                Ok(LoadedLevel {
-                    catalog: Arc::new(self.prop_catalog.clone()),
-                    level,
-                    materials,
-                    light_sheets,
-                    entry: entry.clone(),
-                })
+            LevelSourceType::Bundled | LevelSourceType::Installed => {
+                let opened = crate::package::world::open(&entry.path)?;
+                Ok(self.assembled_level(entry.clone(), opened))
             }
-            LevelSourceType::Embedded => {
-                let mut level = LevelDef::from_json(FALLBACK_DEMO_JSON)
-                    .map_err(|e| format!("Failed to parse the embedded Places Demo: {e}"))?;
-                validate_level(&level)?;
-                prepare_level(&mut level, self.prop_catalog.assets(), None);
-                let materials = self.resolve_level_materials(&level, None);
-                let light_sheets = self.resolve_level_fixture_sheets(&level, None);
-
-                Ok(LoadedLevel {
-                    catalog: Arc::new(self.prop_catalog.clone()),
-                    level,
-                    materials,
-                    light_sheets,
-                    entry: entry.clone(),
-                })
-            }
-            LevelSourceType::PackZip => {
-                let file = fs::File::open(&entry.path)
-                    .map_err(|e| format!("Failed to open {}: {e}", entry.path.display()))?;
-                let pack = extract_zip(file)?;
-                let mut level = LevelDef::from_json(&pack.level_json)
-                    .map_err(|e| format!("Invalid level.json in {}: {e}", entry.path.display()))?;
-                validate_level(&level)?;
-
-                let pack_materials = PackMaterials::new(
-                    entry.path.to_string_lossy().to_string(),
-                    pack.materials_json.as_deref(),
-                    pack.textures,
-                );
-                prepare_level(
-                    &mut level,
-                    self.prop_catalog.assets(),
-                    Some(&pack_materials),
-                );
-                let materials = self.resolve_level_materials(&level, Some(&pack_materials));
-                let light_sheets = self.resolve_level_fixture_sheets(&level, Some(&pack_materials));
-
-                Ok(LoadedLevel {
-                    catalog: Arc::new(self.prop_catalog.clone()),
-                    level,
-                    materials,
-                    light_sheets,
-                    entry: entry.clone(),
-                })
-            }
+            LevelSourceType::Embedded => self.load_embedded_demo(),
         }
     }
 
-    /// Imports an external .json or .zip file into the installed levels directory.
+    /// Imports an external `.placesmap` package into the installed levels
+    /// directory.
+    ///
+    /// Raw authoring sources are rejected with the explicit compiler command:
+    /// the player never compiles a map.
+    ///
     /// # Errors
     ///
-    /// Returns a message when the source file does not exist, is neither a
-    /// `.json` level nor a `.zip` pack, or cannot be validated and copied into
-    /// the installed levels directory.
+    /// Returns a message when the source file does not exist, is not a package,
+    /// cannot be validated, or cannot be copied into the installed levels
+    /// directory.
     pub fn import_file(&mut self, source_path: &Path) -> Result<LevelEntry, String> {
         if !source_path.exists() {
             return Err(format!(
@@ -3927,46 +5365,30 @@ impl LevelManager {
                 source_path.display()
             ));
         }
-
-        let ext = source_path
+        let extension = source_path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-
-        // 1. Dry-run validate before copying
+        if !crate::package::is_package_path(source_path) {
+            if extension == "json" || extension == "zip" {
+                return Err(format!(
+                    "{} is an authoring source. Compile it first with \
+                     `places-compile build {}` and import the resulting .placesmap",
+                    source_path.display(),
+                    source_path.display()
+                ));
+            }
+            return Err(format!(
+                "Unsupported file format '.{extension}'. Supported format: .placesmap"
+            ));
+        }
+        // Validate before copying: a malformed package never lands in the
+        // playable directory.
+        let opened = crate::package::world::open(source_path)?;
         let file_name = source_path
             .file_name()
             .ok_or_else(|| "Invalid file name".to_string())?;
-
-        let (level_id, level_name, author, source_type) = if ext == "json" {
-            let content = Self::read_standalone_level(source_path)?;
-            let level =
-                LevelDef::from_json(&content).map_err(|e| format!("Invalid level JSON: {e}"))?;
-            validate_level(&level)?;
-            (
-                level.id,
-                level.name,
-                level.author,
-                LevelSourceType::CustomJson,
-            )
-        } else if ext == "zip" {
-            // Validate cheaply from level.json only; textures are not needed to
-            // decide whether the pack is acceptable.
-            let file = fs::File::open(source_path)
-                .map_err(|e| format!("Failed to open {}: {e}", source_path.display()))?;
-            let level_json = read_zip_level_json(file)?;
-            let level = LevelDef::from_json(&level_json)
-                .map_err(|e| format!("Invalid level.json in ZIP: {e}"))?;
-            validate_level(&level)?;
-            (level.id, level.name, level.author, LevelSourceType::PackZip)
-        } else {
-            return Err(format!(
-                "Unsupported file format '.{ext}'. Supported formats: .json, .zip"
-            ));
-        };
-
-        // 2. Copy file to levels_dir
         fs::create_dir_all(&self.levels_dir)
             .map_err(|e| format!("Failed to create levels directory: {e}"))?;
         let target_path = self.levels_dir.join(file_name);
@@ -3974,47 +5396,57 @@ impl LevelManager {
             fs::copy(source_path, &target_path)
                 .map_err(|e| format!("Failed to copy file to {}: {e}", target_path.display()))?;
         }
-
         self.refresh();
-
         Ok(LevelEntry {
-            id: level_id,
-            name: level_name,
-            author,
-            source_type,
+            id: opened.level.id,
+            name: opened.level.name,
+            author: opened.level.author,
+            source_type: LevelSourceType::Installed,
             path: target_path,
         })
     }
 
-    /// Scans `import_dir` and candidate locations for unimported .json or .zip files and imports them.
+    /// Imports every unimported `.placesmap` from `import/` (and the nested
+    /// `levels/import/`).
+    ///
+    /// Raw authoring sources found there are reported with their compiler
+    /// command and skipped.
+    ///
     /// # Errors
     ///
-    /// Returns a message when a candidate file in `import/` is invalid; files
-    /// that import cleanly are reported through the returned count.
+    /// Returns a message when a candidate package is malformed; files that
+    /// import cleanly are reported through the returned count.
     pub fn import_available(&mut self) -> Result<usize, String> {
         let _ = fs::create_dir_all(&self.import_dir);
         let _ = fs::create_dir_all(&self.levels_dir);
-
         let mut imported_count: usize = 0;
         let nested_import = self.levels_dir.join("import");
         let candidate_dirs = [self.import_dir.clone(), nested_import];
-
         for dir in &candidate_dirs {
-            if let Ok(entries) = fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    let ext = path
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("")
-                        .to_lowercase();
-                    if (ext == "json" || ext == "zip") && self.import_file(&path).is_ok() {
-                        imported_count = imported_count.saturating_add(1);
-                    }
+            let Ok(entries) = fs::read_dir(dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if crate::package::is_package_path(&path) {
+                    self.import_file(&path)?;
+                    imported_count = imported_count.saturating_add(1);
+                } else if path
+                    .extension()
+                    .is_some_and(|ext| ext == "json" || ext == "zip")
+                {
+                    crate::logging::warn_once(
+                        format!("import-source:{}", path.display()),
+                        format!(
+                            "[levels] {} is an authoring source; compile it with \
+                             `places-compile build {}` and import the .placesmap",
+                            path.display(),
+                            path.display()
+                        ),
+                    );
                 }
             }
         }
-
         Ok(imported_count)
     }
 }

@@ -11,6 +11,7 @@ The current workflow uses the following tools:
 | tool | what it does |
 | --- | --- |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
+| `loading.py` | measures isolated cold/warm startup and loading with the `PLACES_LOAD_TRACE` trace; reports separately named startup, package-loading, first-usable-scene and settings-transition metrics |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
 | `capture_baseline_views.sh` | renders the canonical frozen reference view set (High and Low profiles), captured from the preserved GLES2 renderer, for comparison against a current build |
 | `capture_expanded_views.sh` | renders the supplementary capture view set (geometry, materials, lightmaps, reflections, props, decals, fog) for comparison between two builds |
@@ -57,6 +58,23 @@ Flags:
 
 Every run holds the level, assets, camera, frame count and swap interval fixed,
 so only the flag you changed differs between two labels.
+
+## Loading and transitions
+
+`loading.py` runs the release binary with `PLACES_LOAD_TRACE` and reports the
+trace's separately named metrics: `binary_startup_ms` (the window-ready mark),
+`package_loading` (one window per request, from `request` to its completion,
+cancellation or failure), `first_usable_scene_ms` (the first
+`scene_presented`), and `settings_transition` (from a `settings_change` to its
+immediate apply or to the world commit a rebuild required). Missing
+observations are reported as unavailable, never as zero.
+
+Steady-state rendering is measured by a different instrument: the per-frame CSV
+and `BENCH_SUMMARY` start only after a world is installed and the effective
+settings have committed, and the cadence baseline advances on every loop
+iteration, sampled or not. An excluded loading or transition interval is
+therefore never charged to the next steady-state sample as one long frame; the
+transition itself is reported through the trace above.
 
 ## Capture views
 

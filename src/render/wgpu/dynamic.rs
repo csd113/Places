@@ -18,14 +18,13 @@
 
 use std::sync::Arc;
 
-use super::environment::{EnvironmentBindings, static_environment};
+use super::environment::EnvironmentBindings;
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
-use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
+use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::{MaterialEmission, TextureOrigin};
 use crate::quality::{QualityLevel, TextureClass};
-use crate::render::common::atmosphere::FogState;
 use crate::render::common::dynamic::{DynamicMesh, DynamicScene};
 use crate::render::common::materials::BatchPass;
 use crate::spatial::Aabb;
@@ -104,8 +103,9 @@ pub struct WgpuDynamic {
 }
 
 /// The renderer state a dynamic upload needs: the shared texture cache, the
-/// material and environment layouts, the level's lightmap atlas and the
-/// reflection views the environment binds.
+/// material and environment layouts, the level's lightmap atlas, the level's
+/// environment template (lightmap selection and fog) and the reflection views
+/// the environment binds.
 pub struct DynamicUploadContext<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
@@ -113,14 +113,15 @@ pub struct DynamicUploadContext<'a> {
     pub material_layout: &'a wgpu::BindGroupLayout,
     pub environment_layout: &'a wgpu::BindGroupLayout,
     pub lightmaps: &'a LightmapAtlas,
-    pub lightmap_enabled: bool,
+    /// The level environment every object's uniform starts from: unit light
+    /// scale, the resident lightmap selection and the fog constants.
+    pub environment: EnvironmentUniform,
     /// The level's probe cubemaps, in bake order.
     pub probes: &'a [&'a wgpu::TextureView],
     pub planar: &'a wgpu::TextureView,
     pub probe_fallback: &'a wgpu::TextureView,
     pub planar_fallback: &'a wgpu::TextureView,
     pub level: QualityLevel,
-    pub fog: FogState,
 }
 
 impl WgpuDynamic {
@@ -199,7 +200,7 @@ impl WgpuDynamic {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                static_environment(ctx.lightmap_enabled, ctx.fog)
+                ctx.environment
                     .with_model(object.transform())
                     .with_light_scale(object.light_scale()),
             );
@@ -209,7 +210,7 @@ impl WgpuDynamic {
             let mut materials = Vec::with_capacity(mesh.submeshes.len());
             let mut emissive = Vec::with_capacity(mesh.submeshes.len());
             for submesh in &mesh.submeshes {
-                let emission = object.emission().unwrap_or(submesh.emission);
+                let emission = object.emission_for(submesh.emission);
                 let mask_texture = submesh
                     .mask
                     .and_then(|index| mesh.textures.get(index).cloned());
@@ -317,20 +318,22 @@ impl WgpuDynamic {
     /// Writes every object's transform and baked-light probe into its
     /// environment uniform, and refreshes the world bounds the cull reads.
     ///
-    /// Called once per frame; a still object writes nothing (the uniform
-    /// compares equal).
+    /// `environment` is the level's current template (the lightmap selection,
+    /// the fog constants and no active mirror); each object installs its model
+    /// matrix and probe scale on top, so a light switch reaches the objects'
+    /// uniforms the next time they sync. Called once per frame; a still object
+    /// writes nothing (the uniform compares equal).
     pub fn sync(
         &mut self,
         queue: &wgpu::Queue,
         scene: &DynamicScene,
-        lightmap_enabled: bool,
-        fog: FogState,
+        environment: EnvironmentUniform,
     ) {
         for (slot, object) in self.objects.iter_mut().enumerate() {
             let Some(live) = scene.objects().get(slot) else {
                 continue;
             };
-            let uniform = static_environment(lightmap_enabled, fog)
+            let uniform = environment
                 .with_model(live.transform())
                 .with_light_scale(live.light_scale());
             object.environment.update(queue, uniform);

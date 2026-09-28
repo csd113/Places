@@ -30,6 +30,7 @@
 //! (lightmaps, reflections, props, dynamics, fixtures, emission, decals, fog,
 //! post-processing and the HUD).
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use sdl3::video::Window;
@@ -47,7 +48,7 @@ use super::postprocess::{EMISSIVE_FORMAT, PostProcess, SCENE_FORMAT};
 use super::props::{PropUpload, WgpuProps};
 use super::reflections::{
     CaptureFrame, ProbeCube, ReflectionTargets, planar_size_for, planar_view_projection,
-    probe_bake_position, probe_face_size, probe_face_view_projection,
+    probe_bake_position, probe_face_size, probe_face_view_projection, probe_mip_edge,
 };
 use super::surface::{
     self, CLEAR_COLOR, CLEAR_COLOR_SRGB, DEPTH_FORMAT, SurfaceRecovery, SurfaceStatus,
@@ -56,7 +57,7 @@ use super::surface::{
 use super::texture::{TextureCache, TextureFiltering};
 use super::ui::UiRenderer;
 use super::world::{
-    WgpuWorldGeometry, WorldDrawTotals, WorldPipeline, WorldTextures,
+    EnvironmentUniform, WgpuWorldGeometry, WorldDrawTotals, WorldPipeline, WorldTextures,
     environment_bind_group_layout, prepare_world_frame,
 };
 use crate::game::LocomotionSnapshot;
@@ -73,7 +74,9 @@ use crate::render::common::api::{
 };
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::character::{CharacterScene, EntityFrame};
-use crate::render::common::dynamic::{DynamicId, DynamicScene, DynamicUpdate, SpawnOrientation};
+use crate::render::common::dynamic::{
+    DynamicId, DynamicObject, DynamicScene, DynamicUpdate, SpawnOrientation,
+};
 use crate::render::common::effects::EffectScene;
 use crate::render::common::materials::MaterialRenderState;
 use crate::render::common::postprocess::PostSettings;
@@ -159,6 +162,10 @@ struct PreparedInstall {
     props: Option<PropUpload>,
     prop_cursor: usize,
     phase: UploadPhase,
+    /// Packaged reflection captures, when the world was prepared offline.
+    probes: crate::package::world::ProbeCaptures,
+    /// True when `probes` must be uploaded instead of baking captures.
+    precompiled_probes: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -322,8 +329,8 @@ pub struct WgpuRenderer {
     /// Rust drops fields in declaration order, so this releases the frame first
     /// on an unclean shutdown (`PLACES_BENCH_NOSWAP`, a mid-frame fatal error).
     pending_frame: Option<wgpu::SurfaceTexture>,
-    surface: wgpu::Surface<'static>,
-    capabilities: wgpu::SurfaceCapabilities,
+    surface: Option<wgpu::Surface<'static>>,
+    capabilities: Option<wgpu::SurfaceCapabilities>,
     config: wgpu::SurfaceConfiguration,
     adapter: wgpu::Adapter,
     device: wgpu::Device,
@@ -437,6 +444,9 @@ pub struct WgpuRenderer {
     reflections_enabled: bool,
     /// The level's reflection routing and gates (neutral data).
     reflections: Reflections,
+    /// Packaged reflection captures for the installed world, when it came from
+    /// a compiled package.
+    packaged_probes: Option<crate::package::world::ProbeCaptures>,
     /// The level's probe cubemaps and planar target.
     reflection_targets: ReflectionTargets,
     /// The world pipeline set both reflection captures run through: no
@@ -449,6 +459,11 @@ pub struct WgpuRenderer {
     /// The nearest probe cubemap selected for the last rendered frame, as an
     /// index into the level's probe list.
     active_probe: usize,
+    /// The top mip level of the resident probe chain, from the packaged
+    /// payload (0 while live captures carry level 0 only). Packed into the
+    /// environment uniform so the shader's roughness selection never samples a
+    /// level that does not exist.
+    probe_max_mip: u32,
     /// Capture passes submitted since the level loaded, for the neutral stats.
     reflection_passes: usize,
     /// Whether the CPU frustum test is applied to the world draw ranges.
@@ -477,6 +492,12 @@ pub struct WgpuRenderer {
     /// `set_dynamic_demo` and the level's doors through `spawn_doors`; the GPU
     /// side lives in `world_dynamic`.
     dynamic: DynamicScene,
+    /// The engine's runtime spawn keys and the live dynamic object each one
+    /// holds, so a key can replace, move, re-material and despawn its object
+    /// without the engine ever naming a [`DynamicId`]. Cleared wherever the
+    /// neutral scene is wiped (a level change or a demo respawn), because the
+    /// objects it maps are gone with it.
+    runtime_objects: HashMap<u64, DynamicId>,
     /// The installed level's doors: their placement and code-built models.
     /// Built at level install, consumed by [`Self::spawn_doors`] whenever the
     /// neutral scene is cleared (a level change or a demo respawn).
@@ -486,8 +507,9 @@ pub struct WgpuRenderer {
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
     switchable_lights: Vec<SwitchableLight>,
-    /// The CPU atlas pages, kept so a light switch can re-fill the charts the
-    /// fixture influences and re-upload only their pages.
+    /// The prepared CPU pages, kept so a runtime light switch can rebuild the
+    /// environment uniform's page count and switchable selection without a
+    /// bake.
     lightmap_cpu: Option<crate::lighting::lightmap::LevelLightmaps>,
     /// The id of the level currently resident. Installing a different
     /// level clears the neutral dynamic scene; a quality rebuild of the same
@@ -519,6 +541,8 @@ pub struct WgpuRenderer {
     /// static path needs it only while building; a moving object samples it as
     /// it moves.
     dynamic_lighting: Option<crate::lighting::LevelLighting>,
+    /// The prepared irradiance field moving objects and characters sample.
+    dynamic_field: Option<std::sync::Arc<crate::lighting::probes::ProbeField>>,
     /// The frame state of the last submitted `render_scene`, so the one-shot
     /// capture can re-encode the same view. `None` until a frame has been
     /// rendered, and after a level or size change that invalidated the state.
@@ -585,7 +609,112 @@ impl WgpuRenderer {
             )
         })?;
         let device_lost = Self::watch_device_loss(&device);
+        let (width, height) = window.size_in_pixels();
+        Ok(Self::assemble(
+            instance,
+            Some(wgpu_surface),
+            Some(capabilities),
+            adapter,
+            adapter_info,
+            device,
+            queue,
+            format,
+            present_mode,
+            alpha_mode,
+            DrawableSize::new(width, height),
+            device_lost,
+        ))
+    }
 
+    /// Builds a window-free renderer for the offline probe capture.
+    ///
+    /// The engine never calls this: the player always owns a surface. The
+    /// compiler uses it to install a prepared world and render its reflection
+    /// probes with the exact pipelines the player will use, so the packaged
+    /// cubemaps are the proven capture result rather than a second
+    /// implementation. There is no swapchain, so `present`, `render_scene` and
+    /// recovery are never called; installation, probe capture and read-back
+    /// only touch the device and queue.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when no native adapter or device is available.
+    pub fn new_headless(drawable_size: DrawableSize) -> Result<Self, String> {
+        if !surface::native_backend_is_compiled() {
+            return Err(format!(
+                "the wgpu renderer was requested, but this build has no {} backend compiled \
+                 (enabled backends: {:?})",
+                surface::native_backend_label(),
+                wgpu::Instance::enabled_backend_features()
+            ));
+        }
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: surface::native_backends(),
+            ..wgpu::InstanceDescriptor::new_without_display_handle()
+        });
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            force_fallback_adapter: false,
+            compatible_surface: None,
+            apply_limit_buckets: false,
+        }))
+        .map_err(|error| {
+            format!(
+                "no {adapter_label} adapter for the offline probe capture: {error}",
+                adapter_label = surface::native_backend_label()
+            )
+        })?;
+        let adapter_info = adapter.get_info();
+        Self::check_native_backend(&adapter_info)?;
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("places-wgpu-compiler"),
+            ..Default::default()
+        }))
+        .map_err(|error| {
+            format!(
+                "wgpu could not create a device on '{}' ({}): {error}",
+                adapter_info.name,
+                surface::native_backend_label()
+            )
+        })?;
+        let device_lost = Self::watch_device_loss(&device);
+        // A synthetic presentation configuration: pipelines that name the
+        // surface format must exist, but no surface is ever configured or
+        // presented. Probe captures render to the fixed reflection format.
+        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        Ok(Self::assemble(
+            instance,
+            None,
+            None,
+            adapter,
+            adapter_info,
+            device,
+            queue,
+            format,
+            wgpu::PresentMode::Fifo,
+            wgpu::CompositeAlphaMode::Opaque,
+            drawable_size,
+            device_lost,
+        ))
+    }
+
+    /// Completes renderer construction from an initialized device.
+    #[allow(clippy::too_many_arguments)] // one cohesive construction seam
+    #[allow(clippy::too_many_lines)] // one cohesive construction seam
+    fn assemble(
+        instance: wgpu::Instance,
+        surface: Option<wgpu::Surface<'static>>,
+        capabilities: Option<wgpu::SurfaceCapabilities>,
+        adapter: wgpu::Adapter,
+        adapter_info: wgpu::AdapterInfo,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        format: wgpu::TextureFormat,
+        present_mode: wgpu::PresentMode,
+        alpha_mode: wgpu::CompositeAlphaMode,
+        drawable_size: DrawableSize,
+        device_lost: Arc<Mutex<Option<String>>>,
+    ) -> Self {
         // The texture layout, samplers and fallback sheet the world draws
         // bind. One fallback upload at construction; levels add their own.
         // Anisotropic filtering is a downlevel capability, not a device
@@ -606,8 +735,6 @@ impl WgpuRenderer {
         let (planar_fallback, planar_fallback_view) = fallback_planar(&device, &queue);
         let lightmaps = LightmapAtlas::upload(&device, &queue, None);
 
-        let (width, height) = window.size_in_pixels();
-        let drawable_size = DrawableSize::new(width, height);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -621,7 +748,7 @@ impl WgpuRenderer {
         };
 
         let renderer = Self {
-            surface: wgpu_surface,
+            surface,
             capabilities,
             config,
             adapter,
@@ -672,9 +799,11 @@ impl WgpuRenderer {
             reflections_enabled: true,
             reflections: Reflections::default(),
             reflection_targets: ReflectionTargets::default(),
+            packaged_probes: None,
             capture_pipeline: None,
             active_plane: None,
             active_probe: 0,
+            probe_max_mip: 0,
             reflection_passes: 0,
             culling: true,
             quality: QualityLevel::default(),
@@ -687,6 +816,7 @@ impl WgpuRenderer {
             fatal: None,
             device_lost,
             dynamic: DynamicScene::new(),
+            runtime_objects: HashMap::new(),
             effects: EffectScene::new(),
             world_effects: None,
             effects_pipeline: None,
@@ -700,11 +830,12 @@ impl WgpuRenderer {
             characters: CharacterScene::new(),
             world_characters: None,
             dynamic_lighting: None,
+            dynamic_field: None,
             last_frame: None,
             adapter_info,
         };
         renderer.log_startup();
-        Ok(renderer)
+        renderer
     }
 
     /// Requests the adapter, preferring real hardware and never a fallback.
@@ -824,7 +955,11 @@ impl WgpuRenderer {
     /// synchronized FIFO path, `0` for immediate).
     pub fn set_swap_interval(&mut self, want_vsync: bool) -> i32 {
         self.vsync = want_vsync;
-        let mode = surface::select_present_mode(&self.capabilities, want_vsync);
+        let Some(capabilities) = self.capabilities.as_ref() else {
+            // A headless (compiler) renderer has no presentation mode.
+            return 1;
+        };
+        let mode = surface::select_present_mode(capabilities, want_vsync);
         if mode != self.config.present_mode {
             self.config.present_mode = mode;
             self.needs_configure = true;
@@ -884,18 +1019,166 @@ impl WgpuRenderer {
         // emitters advanced. Their billboards are synced in `render_scene`,
         // where the frame's camera exists.
         self.effects.update(self.animation_seconds);
-        let update = self
-            .dynamic
-            .update(delta_seconds, self.dynamic_lighting.as_ref());
+        let update = self.dynamic.update_with_field(
+            delta_seconds,
+            self.dynamic_lighting.as_ref(),
+            self.dynamic_field.as_deref(),
+        );
+        let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
-            dynamic.sync(
-                &self.queue,
-                &self.dynamic,
-                self.lightmaps_resident,
-                self.fog,
-            );
+            dynamic.sync(&self.queue, &self.dynamic, environment);
         }
         update
+    }
+
+    /// Spawns one runtime entity's model as a dynamic object.
+    ///
+    /// `key` is the engine's stable runtime token: spawning with a live key
+    /// despawns the object that key held first, so a respawn replaces rather
+    /// than accumulates, and the key's new object can then be moved with
+    /// [`Self::set_runtime_transform`] and re-materialed with
+    /// [`Self::set_runtime_emission`]. `model` is a catalogue registry id
+    /// (such as `core:crate`) or a direct model path; it resolves through the
+    /// same catalogue and asset cache the placed-prop and floating paths use.
+    ///
+    /// Returns `false` when the model cannot be resolved or the scene's object
+    /// or mesh budget is exhausted. An unresolvable model is reported once per
+    /// model path, exactly like the static prop fallback; this never panics.
+    pub fn spawn_runtime_model(
+        &mut self,
+        key: u64,
+        model: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> bool {
+        if self.check_device_lost() {
+            return false;
+        }
+        // A live key is replaced, not stacked: its previous object is dropped
+        // before the new one resolves, so a failed resolution cannot leave two
+        // objects claiming the same key.
+        let replaced = self
+            .runtime_objects
+            .remove(&key)
+            .is_some_and(|previous| self.dynamic.despawn(previous));
+        // The catalogue maps a registry id to its model path; a string the
+        // catalogue does not know is tried as a model path directly, so the
+        // call serves both the engine's registry ids and raw paths.
+        let path = self
+            .prop_catalog
+            .get(model)
+            .model
+            .filter(|path| !path.is_empty());
+        let path = path.as_deref().unwrap_or(model);
+        let asset = match self.prop_assets.resolve(path) {
+            Ok(asset) => asset,
+            Err(error) => {
+                self.prop_assets.report_failure(path, &error);
+                if replaced {
+                    self.upload_dynamic();
+                }
+                return false;
+            }
+        };
+        let Some(id) = self
+            .dynamic
+            .spawn(&asset, position, yaw_degrees, scale, 0.0)
+        else {
+            if replaced {
+                self.upload_dynamic();
+            }
+            return false;
+        };
+        self.runtime_objects.insert(key, id);
+        self.upload_dynamic();
+        true
+    }
+
+    /// Despawns the runtime object a key spawned, if it is still live.
+    ///
+    /// Returns whether the key held a live object. The GPU side is re-uploaded
+    /// without it, so the object stops drawing on the next frame. Doors and
+    /// demonstration objects are not addressed by runtime keys and are never
+    /// touched.
+    pub fn despawn_runtime_model(&mut self, key: u64) -> bool {
+        if self.check_device_lost() {
+            return false;
+        }
+        let Some(id) = self.runtime_objects.remove(&key) else {
+            return false;
+        };
+        let removed = self.dynamic.despawn(id);
+        if removed {
+            self.upload_dynamic();
+        }
+        removed
+    }
+
+    /// Moves a live runtime object to `position`, yawed by `yaw_degrees` about
+    /// its own model axis.
+    ///
+    /// The object keeps the mesh, scale and material it spawned with, and the
+    /// write costs no geometry work: it lands in the neutral transform and the
+    /// frame's [`Self::update_dynamic`] sync publishes it through the object's
+    /// environment uniform. Returns whether the key held a live object and the
+    /// transform was accepted (a non-finite position or yaw is refused, like
+    /// every other dynamic transform).
+    pub fn set_runtime_transform(
+        &mut self,
+        key: u64,
+        position: [f32; 3],
+        yaw_degrees: f32,
+    ) -> bool {
+        let Some(id) = self.runtime_objects.get(&key).copied() else {
+            return false;
+        };
+        let Some(scale) = self.dynamic.get(id).map(DynamicObject::scale) else {
+            return false;
+        };
+        self.dynamic.set_transform(id, position, yaw_degrees, scale)
+    }
+
+    /// Selects the emission scale of a live runtime object.
+    ///
+    /// This is the runtime material-variant effect: the scale multiplies
+    /// whichever emission each of the object's primitives resolves (its own,
+    /// or the object-wide override set through the neutral scene), so `0.0`
+    /// switches the object's emission off and `1.0` restores it. The GPU
+    /// materials are rebuilt, which is a variant-change cost, not a frame
+    /// cost. Returns whether the key held a live object and the scale was
+    /// accepted; a non-finite or negative scale is refused.
+    pub fn set_runtime_emission(&mut self, key: u64, scale: f32) -> bool {
+        if self.check_device_lost() {
+            return false;
+        }
+        let Some(id) = self.runtime_objects.get(&key).copied() else {
+            return false;
+        };
+        // Selecting the variant that is already live is not a material change:
+        // report success without rebuilding every dynamic material. The
+        // total-order comparison keeps a NaN from looking equal.
+        let unchanged = self
+            .dynamic
+            .get(id)
+            .is_some_and(|object| object.emission_scale().total_cmp(&scale).is_eq());
+        if unchanged {
+            return true;
+        }
+        if !self.dynamic.set_emission_scale(id, scale) {
+            return false;
+        }
+        self.upload_dynamic();
+        true
+    }
+
+    /// Number of live runtime-spawned objects: the spawn budget's used slots.
+    ///
+    /// Doors and the washer-drum demonstration are not runtime-spawned and are
+    /// not counted.
+    #[must_use]
+    pub fn runtime_spawn_count(&self) -> usize {
+        self.runtime_objects.len()
     }
 
     /// Spawns the level's dynamic demonstration objects and uploads them.
@@ -907,6 +1190,9 @@ impl WgpuRenderer {
             return 0;
         }
         self.dynamic.clear_all();
+        // The wipe removed every runtime-spawned object with the scene; their
+        // keys must not resolve to a new object later.
+        self.runtime_objects.clear();
         self.door_objects.clear();
         self.world_dynamic = None;
         // The wipe removed every door object too; respawn them from the
@@ -1085,16 +1371,17 @@ impl WgpuRenderer {
 
     /// Applies the frame's fixture switches: illumination and face emission.
     ///
-    /// A switchable fixture is excluded from its room's baked baseline, so
-    /// toggling it re-fills exactly the charts its pool reaches and
-    /// re-uploads only their pages; its luminous face is scaled by the same
-    /// state, so a light that is off does not keep glowing. Both writes are
-    /// bounded by one fixture's reach and one material uniform, and an empty
-    /// list costs nothing.
+    /// A switchable fixture's illumination is a prepared layer group, so
+    /// toggling it only rewrites the environment uniform's enabled mask: the
+    /// shader adds exactly the pairs of the groups that are on. Its luminous
+    /// face is scaled by the same state, so a light that is off does not keep
+    /// glowing. Both writes are bounded by one material uniform and one
+    /// environment uniform, and an empty list costs nothing.
     pub fn apply_light_toggles(&mut self, toggles: &[(usize, bool)]) {
         if toggles.is_empty() || self.switchable_lights.is_empty() {
             return;
         }
+        let mut changed = false;
         for (fixture_index, enabled) in toggles {
             let Some(binding) = self
                 .switchable_lights
@@ -1109,19 +1396,19 @@ impl WgpuRenderer {
                 let scale = if *enabled { 1.0 } else { 0.0 };
                 materials.set_emission_scale(&self.queue, binding.material_slot, scale);
             }
-            // 2. The baked light and the charts its pool reaches.
+            // 2. The baked lighting the environment mask is derived from.
             let Some(lighting) = self.dynamic_lighting.as_mut() else {
                 continue;
             };
-            if !lighting.set_light_enabled(binding.light_index, *enabled) {
-                continue;
-            }
-            let Some(cpu) = self.lightmap_cpu.as_mut() else {
-                continue;
-            };
-            let pages = cpu.refill_light(lighting, binding.light_index);
-            if !pages.is_empty() {
-                let _ = self.lightmaps.rewrite_pages(&self.queue, &pages, cpu);
+            changed |= lighting.set_light_enabled(binding.light_index, *enabled);
+        }
+        // The prepared CPU pages and the GPU layers never change; the static
+        // environment uniform carries the live mask every static world, prop
+        // and capture draw reads.
+        if changed {
+            let uniform = self.level_environment();
+            if let Some(environment) = self.environment.as_mut() {
+                environment.update(&self.queue, uniform);
             }
         }
     }
@@ -1155,6 +1442,22 @@ impl WgpuRenderer {
     /// it uploads the GPU side only when it is missing, and any other level is
     /// ignored because the install path owns it. Returns the number of live
     /// emitters.
+    /// Enables or disables one authored effect emitter at runtime.
+    ///
+    /// The billboards are rebuilt every frame from the neutral scene, but the
+    /// GPU-side draw groups are an upload-time snapshot of the scene's
+    /// material grouping, so a toggle re-uploads the effect buffers. A toggle
+    /// is a rare gameplay event, not a per-frame path.
+    pub fn set_effect_enabled(&mut self, authored_index: usize, enabled: bool) -> bool {
+        if !self.effects.set_enabled(authored_index, enabled) {
+            return false;
+        }
+        if self.world_effects.is_some() {
+            self.upload_effects();
+        }
+        true
+    }
+
     pub fn set_level_effects(&mut self, level: &crate::level::LevelDef) -> usize {
         if self.check_device_lost() {
             return 0;
@@ -1227,6 +1530,7 @@ impl WgpuRenderer {
         // target is created after it; this keeps that behaviour stable across a
         // later re-upload instead of depending on the target's creation timing.
         let planar = &self.planar_fallback_view;
+        let environment = self.level_environment();
         let mut ctx = DynamicUploadContext {
             device: &self.device,
             queue: &self.queue,
@@ -1234,13 +1538,12 @@ impl WgpuRenderer {
             material_layout: &self.material_layout,
             environment_layout: &self.environment_layout,
             lightmaps: &self.lightmaps,
-            lightmap_enabled: self.lightmaps_resident,
+            environment,
             probes: &probe_views,
             planar,
             probe_fallback: &self.probe_fallback_view,
             planar_fallback: &self.planar_fallback_view,
             level: self.quality,
-            fog: self.fog,
         };
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
     }
@@ -1257,12 +1560,13 @@ impl WgpuRenderer {
         delta_seconds: f32,
         locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
-    ) -> usize {
+    ) -> crate::render::CharacterUpdate {
         let update = self.characters.update(delta_seconds, locomotion, frames);
+        let environment = self.level_environment();
         if let Some(characters) = self.world_characters.as_mut() {
-            characters.sync(&self.queue, &self.characters);
+            characters.sync(&self.queue, &self.characters, environment);
         }
-        update.moved
+        update
     }
 
     /// The number of live characters in the current level.
@@ -1303,6 +1607,7 @@ impl WgpuRenderer {
         // bound to the live planar target would sample the texture it renders
         // into.
         let planar = &self.planar_fallback_view;
+        let environment = self.level_environment();
         let mut ctx = CharacterUploadContext {
             device: &self.device,
             queue: &self.queue,
@@ -1310,13 +1615,12 @@ impl WgpuRenderer {
             material_layout: &self.material_layout,
             environment_layout: &self.environment_layout,
             lightmaps: &self.lightmaps,
-            lightmap_enabled: self.lightmaps_resident,
+            environment,
             probes: &probe_views,
             planar,
             probe_fallback: &self.probe_fallback_view,
             planar_fallback: &self.planar_fallback_view,
             level: self.quality,
-            fog: self.fog,
         };
         self.world_characters = Some(WgpuCharacters::upload(&mut ctx, &self.characters));
         if let Some(characters) = self.world_characters.as_ref() {
@@ -1447,11 +1751,34 @@ impl WgpuRenderer {
             props: None,
             prop_cursor: 0,
             phase: UploadPhase::Atlas,
+            probes: crate::package::world::ProbeCaptures::default(),
+            precompiled_probes: false,
         });
     }
 
     pub fn cancel_prepared_install(&mut self) {
         self.prepared_install = None;
+    }
+
+    /// Installs a world whose reflection probes were captured by the compiler.
+    ///
+    /// The player path: probes are uploaded from the package and never baked.
+    /// The install otherwise behaves exactly like [`Self::install_prepared`],
+    /// so a level change keeps the same staging, supersession and cache rules.
+    pub fn install_prepared_precompiled(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: Arc<LevelBuild>,
+        assets: crate::props::PropAssets,
+        characters: CharacterScene,
+        preserve_playback: bool,
+        probes: crate::package::world::ProbeCaptures,
+    ) {
+        self.install_prepared(loaded, build, assets, characters, preserve_playback);
+        if let Some(pending) = self.prepared_install.as_mut() {
+            pending.probes = probes;
+            pending.precompiled_probes = true;
+        }
     }
 
     /// Advances one upload family, or a bounded batch of prop buffers.
@@ -1578,6 +1905,8 @@ impl WgpuRenderer {
             world_textures,
             world_materials,
             props,
+            probes,
+            precompiled_probes,
             ..
         } = pending;
         let (Some(atlas), Some(world), Some(world_textures), Some(world_materials), Some(props)) =
@@ -1611,6 +1940,7 @@ impl WgpuRenderer {
             true,
             std::time::Instant::now(),
             Some((characters, uploaded)),
+            precompiled_probes.then_some(probes),
         );
         if preserve_playback {
             self.animation_seconds = animation_seconds;
@@ -1622,6 +1952,7 @@ impl WgpuRenderer {
     }
 
     #[allow(clippy::too_many_lines)] // one cohesive level upload: upload and install
+    #[allow(clippy::too_many_arguments)] // one install seam: world, quality and staged GPU state
     fn install_level_prepared(
         &mut self,
         loaded: &LoadedLevel,
@@ -1630,6 +1961,7 @@ impl WgpuRenderer {
         upload_atlas: bool,
         started: std::time::Instant,
         prepared: Option<(CharacterScene, UploadedLevel)>,
+        precompiled_probes: Option<crate::package::world::ProbeCaptures>,
     ) -> Arc<LevelBuild> {
         let (characters, uploaded) = prepared.map_or((None, None), |(characters, uploaded)| {
             (Some(characters), Some(uploaded))
@@ -1753,11 +2085,12 @@ impl WgpuRenderer {
         // of each other. The neutral batches stay in `build`, so the lightmap
         // bake and its occlusion are untouched.
         self.characters = characters.unwrap_or_else(|| {
-            CharacterScene::spawn_characters(
+            CharacterScene::spawn_characters_with_field(
                 &loaded.level,
                 &self.prop_catalog,
                 &mut self.prop_assets,
                 &build.lighting,
+                build.probes.as_deref(),
             )
         });
         let claimed_characters = self.characters.claimed_models().to_vec();
@@ -1814,6 +2147,7 @@ impl WgpuRenderer {
         self.material_animations = animations;
         self.animation_seconds = 0.0;
         self.dynamic_lighting = Some(build.lighting.clone());
+        self.dynamic_field.clone_from(&build.probes);
         // The GPU side of the previous level's dynamic scene dies with it. The
         // neutral scene is level content too: a quality rebuild of the same
         // level keeps its objects, but a
@@ -1821,6 +2155,9 @@ impl WgpuRenderer {
         // neutral scene and it is re-uploaded against the new resources.
         if self.level_id.as_deref() != Some(loaded.level.id.as_str()) {
             self.dynamic.clear_all();
+            // A key spawned against the previous level must never resolve to
+            // an object of the new one.
+            self.runtime_objects.clear();
             self.effects.clear_all();
             self.world_effects = None;
             self.level_id = Some(loaded.level.id.clone());
@@ -1839,25 +2176,47 @@ impl WgpuRenderer {
         // dropped before the probe bake so the bake cannot draw stale
         // characters; `upload_characters_gpu` rebuilds it after the probes.
         self.world_characters = None;
+        // The prepared CPU pages and the live lighting field the environment's
+        // lightmap selection is derived from, installed before the group-3
+        // bindings are created so they carry the level's real page and
+        // switchable state.
+        self.lightmap_cpu = build.lightmaps.as_deref().cloned();
+        // The packaged chain's top level is the shader's roughness bound; a
+        // developer install bakes level 0 only and leaves it at zero. Set
+        // before the environment bindings are created so the first uniform
+        // already carries it.
+        self.probe_max_mip = packaged_probe_max_mip(
+            precompiled_probes.as_ref(),
+            self.reflection_targets
+                .probes()
+                .first()
+                .map(|probe| probe.face_size),
+        );
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
         self.world_textures = Some(world_textures);
         self.world_materials = Some(world_materials);
-        // Runtime light switches: the CPU atlas pages (so a switch can re-fill
-        // just the charts a fixture reaches) and each switchable fixture's
-        // bindings, refreshed with every install. This runs after the world and
-        // its materials exist, because the face slot is a property of the
-        // uploaded draw set.
-        self.lightmap_cpu = build.lightmaps.as_deref().cloned();
+        // Each switchable fixture's runtime bindings, refreshed with every
+        // install. This runs after the world and its materials exist, because
+        // the face slot is a property of the uploaded draw set; the light
+        // enable state itself lives in `dynamic_lighting`.
         self.prepare_switchable_lights(&loaded.level);
         // The decal pass runs inside the scene body, so its pipeline (and the
         // reflection-format one) must exist before any probe bake.
         self.ensure_world_pipeline();
         self.upload_decals(&build.mesh, &loaded.level);
-        // The probes bake last, when the world, its textures, its materials and
-        // its decals are all resident: six full scene submissions per probe.
-        self.bake_reflection_probes();
+        // Reflection probes are already captured for a compiled world; a
+        // developer-tool install (the offline compiler itself) bakes them here,
+        // when the world, its textures, its materials and its decals are all
+        // resident.
+        if let Some(probes) = precompiled_probes {
+            self.packaged_probes = Some(probes.clone());
+            self.upload_packaged_probes(&probes);
+        } else {
+            self.packaged_probes = None;
+            self.bake_reflection_probes();
+        }
         // Characters and dynamic objects upload after the probe bake for the
         // same reason: their group-3 environments sample the probe cubemaps,
         // and binding those while they are being captured is a validation
@@ -1910,6 +2269,51 @@ impl WgpuRenderer {
         self.decals = Some(decals);
     }
 
+    /// The environment uniform's lightmap selection: pages per layer group,
+    /// the switchable group count and the live on/off mask, from the resident
+    /// CPU pages and the current baked lighting.
+    ///
+    /// Bit `g` is set when switchable group `g`'s light is active. The mask is
+    /// four bits because the shader's packed word is; the atlas upload rejects
+    /// a set with more groups, so a group beyond the mask cannot exist on the
+    /// resident path.
+    fn lightmap_selection(&self) -> (u32, u32, u32) {
+        let Some(cpu) = self.lightmap_cpu.as_ref() else {
+            return (0, 0, 0);
+        };
+        let page_count = u32::try_from(cpu.pages.len()).unwrap_or(u32::MAX);
+        let switchable_count = u32::try_from(cpu.switchable.len()).unwrap_or(u32::MAX);
+        let mut mask = 0u32;
+        for (group, contribution) in cpu.switchable.iter().enumerate() {
+            if group >= 4 {
+                break;
+            }
+            let active = self
+                .dynamic_lighting
+                .as_ref()
+                .and_then(|lighting| lighting.lights().get(contribution.light_index))
+                .is_some_and(crate::lighting::BakedLight::is_active);
+            if active {
+                mask |= 1u32 << group;
+            }
+        }
+        (page_count, switchable_count, mask)
+    }
+
+    /// The level environment every shared uniform is derived from: unit light
+    /// scale, the resident lightmap selection, the resident probe chain's top
+    /// mip, the fog constants and no active mirror.
+    ///
+    /// The static world, the props and every per-object dynamic/character
+    /// uniform build from this, so a light switch and a probe chain change
+    /// reach all of them at once.
+    fn level_environment(&self) -> EnvironmentUniform {
+        let (page_count, switchable_count, mask) = self.lightmap_selection();
+        static_environment(self.lightmaps_resident, self.fog)
+            .with_lightmaps(page_count, switchable_count, mask)
+            .with_probe_mips(self.probe_max_mip)
+    }
+
     /// Creates the group-3 environment bindings from the current atlas, probe
     /// cubemaps and planar target.
     fn create_environment(&self) -> EnvironmentBindings {
@@ -1933,7 +2337,7 @@ impl WgpuRenderer {
             planar,
             &self.probe_fallback_view,
             &self.planar_fallback_view,
-            static_environment(self.lightmaps_resident, self.fog),
+            self.level_environment(),
         )
     }
 
@@ -2282,6 +2686,7 @@ impl WgpuRenderer {
                 false,
             );
         }
+        let environment_template = self.level_environment();
         if let Some(environment) = self.environment.as_mut() {
             let uniform = captured.then_some(plane_index).flatten().and_then(|index| {
                 self.reflections.routing.planes.get(index).map(|plane| {
@@ -2297,10 +2702,8 @@ impl WgpuRenderer {
                 })
             });
             let uniform = match uniform {
-                Some((matrix, plane)) => {
-                    static_environment(self.lightmaps_resident, self.fog).with_planar(matrix, plane)
-                }
-                None => static_environment(self.lightmaps_resident, self.fog),
+                Some((matrix, plane)) => environment_template.with_planar(matrix, plane),
+                None => environment_template,
             };
             environment.update(&self.queue, uniform);
         }
@@ -2880,6 +3283,53 @@ impl WgpuRenderer {
         );
     }
 
+    /// Uploads a compiled world's packaged probe chains into the resident
+    /// cubemaps.
+    ///
+    /// The points and shapes were validated against the emitted geometry when
+    /// the package loaded; a mismatch here is a programming error and is
+    /// reported rather than silently left black. Every packaged level is
+    /// written, so the shader's roughness selection reads the compiler's
+    /// offline prefilter instead of the live-capture fallback.
+    fn upload_packaged_probes(&self, probes: &crate::package::world::ProbeCaptures) {
+        let resident = self.reflection_targets.probes();
+        if resident.is_empty() {
+            return;
+        }
+        let face_size = resident.first().map_or(0, |probe| probe.face_size);
+        let Some(capture) = probes.for_face_size(face_size) else {
+            logging::warn(format!(
+                "[wgpu] package has no {face_size}-texel reflection captures for the resident targets"
+            ));
+            return;
+        };
+        if capture.chains.len() != resident.len() {
+            logging::warn(format!(
+                "[wgpu] package has {} probe capture(s) for {} resident probe(s)",
+                capture.chains.len(),
+                resident.len()
+            ));
+            return;
+        }
+        let mut levels = 0_u32;
+        for (probe, chain) in resident.iter().zip(&capture.chains) {
+            match upload_probe_chain(probe, &self.queue, chain) {
+                Ok(written) => levels = levels.max(written),
+                Err(error) => {
+                    logging::warn(format!(
+                        "[wgpu] a packaged reflection probe was not uploaded: {error}"
+                    ));
+                    return;
+                }
+            }
+        }
+        logging::info(format!(
+            "[wgpu] uploaded {} packaged reflection probe(s) at {face_size} texels, \
+             {levels} mip level(s)",
+            capture.chains.len()
+        ));
+    }
+
     /// Bakes every wanted probe cubemap: six full scene submissions per probe.
     ///
     /// Runs once per level load, after the world, its textures and its materials
@@ -3342,6 +3792,58 @@ impl WgpuRenderer {
         read_back_rgba(&self.device, &self.queue, &texture, width, height, format)
     }
 
+    /// Recreates the probe targets for `quality` and re-captures them.
+    ///
+    /// The offline compiler calls this after installing a world at Full to
+    /// produce the Medium captures from the same prepared scene.
+    pub fn reprepare_reflection_probes(&mut self, quality: ReflectionQuality) {
+        self.apply_reflection_targets(quality);
+        self.bake_reflection_probes();
+    }
+
+    /// Re-runs the probe capture for the currently installed world and
+    /// reflection quality.
+    ///
+    /// The offline compiler calls this after installation (and after changing
+    /// the reflection quality) to produce the cubemaps it packages. The player
+    /// never calls it: a package always carries its captures.
+    pub fn capture_reflection_probes(&mut self) {
+        self.bake_reflection_probes();
+    }
+
+    /// Reads every resident probe cubemap back as RGBA8 faces.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a face buffer cannot be mapped or read.
+    pub fn read_back_probe_faces(
+        &self,
+    ) -> Result<Vec<super::reflections::ProbeFaceReadback>, String> {
+        let mut probes = Vec::with_capacity(self.reflection_targets.probes().len());
+        for probe in self.reflection_targets.probes() {
+            let face_size = probe.face_size;
+            let mut faces = Vec::with_capacity(6);
+            for face in 0..6 {
+                faces.push(read_back_cube_face(
+                    &self.device,
+                    &self.queue,
+                    probe.texture(),
+                    face_size,
+                    0,
+                    face,
+                )?);
+            }
+            probes.push(super::reflections::ProbeFaceReadback {
+                position: probe.position,
+                face_size,
+                faces: faces
+                    .try_into()
+                    .map_err(|_| "probe read-back did not produce six faces".to_string())?,
+            });
+        }
+        Ok(probes)
+    }
+
     /// The fatal error that stopped the renderer, if any.
     #[must_use]
     pub fn fatal_error(&self) -> Option<&str> {
@@ -3368,7 +3870,9 @@ impl WgpuRenderer {
             self.pending_frame = None;
             self.config.width = self.drawable_size.width;
             self.config.height = self.drawable_size.height;
-            self.surface.configure(&self.device, &self.config);
+            if let Some(surface) = self.surface.as_ref() {
+                surface.configure(&self.device, &self.config);
+            }
             self.needs_configure = false;
         }
     }
@@ -3401,7 +3905,11 @@ impl WgpuRenderer {
     /// At most one recovery attempt is made per call: a status that survives
     /// its own recovery skips the frame rather than looping.
     fn acquire_frame(&mut self) -> Acquired {
-        match self.surface.get_current_texture() {
+        let Some(surface) = self.surface.as_ref() else {
+            // Headless (compiler) renderer: no frame is ever acquired.
+            return Acquired::Skip;
+        };
+        match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture)
             | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => Acquired::Frame(texture),
             wgpu::CurrentSurfaceTexture::Timeout => self.recover(SurfaceStatus::Timeout),
@@ -3451,7 +3959,10 @@ impl WgpuRenderer {
         );
         self.needs_configure = true;
         self.ensure_ready();
-        match self.surface.get_current_texture() {
+        let Some(surface) = self.surface.as_ref() else {
+            return Acquired::Skip;
+        };
+        match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture)
             | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => Acquired::Frame(texture),
             wgpu::CurrentSurfaceTexture::Timeout
@@ -3477,15 +3988,15 @@ impl WgpuRenderer {
         // SAFETY: the window outlives the renderer (see `surface::create`).
         match unsafe { surface::create(&self.instance, window) } {
             Ok(recreated) => {
-                self.surface = recreated;
-                self.capabilities = self.surface.get_capabilities(&self.adapter);
-                if !self.capabilities.formats.contains(&self.config.format)
-                    && let Some(format) = surface::select_surface_format(&self.capabilities)
+                let capabilities = recreated.get_capabilities(&self.adapter);
+                if !capabilities.formats.contains(&self.config.format)
+                    && let Some(format) = surface::select_surface_format(&capabilities)
                 {
                     self.config.format = format;
                 }
-                self.config.present_mode =
-                    surface::select_present_mode(&self.capabilities, self.vsync);
+                self.config.present_mode = surface::select_present_mode(&capabilities, self.vsync);
+                self.capabilities = Some(capabilities);
+                self.surface = Some(recreated);
                 self.needs_configure = true;
                 self.ensure_ready();
                 logging::info(format!(
@@ -3529,6 +4040,67 @@ impl WgpuRenderer {
     }
 }
 
+/// The top mip level the shader may select for the installed probes.
+///
+/// The packaged chain's highest level when the resident face size has a
+/// capture; zero when the probes are live-baked or no chain matches, which
+/// keeps the shader's two-tap rough fallback.
+fn packaged_probe_max_mip(
+    captures: Option<&crate::package::world::ProbeCaptures>,
+    resident_face_size: Option<u32>,
+) -> u32 {
+    let (Some(captures), Some(face_size)) = (captures, resident_face_size) else {
+        return 0;
+    };
+    captures
+        .for_face_size(face_size)
+        .map_or(0, |capture| capture.levels.saturating_sub(1))
+}
+
+/// Writes one packaged probe's mip chain into its resident cubemap.
+///
+/// Returns the number of levels written. Every level must carry six faces of
+/// its halved edge; a malformed chain is an error rather than a partial silent
+/// upload.
+fn upload_probe_chain(
+    probe: &ProbeCube,
+    queue: &wgpu::Queue,
+    chain: &[[Vec<u8>; 6]],
+) -> Result<u32, String> {
+    if chain.is_empty() {
+        return Err("packaged probe chain has no levels".to_string());
+    }
+    for (level, faces) in chain.iter().enumerate() {
+        let level_u32 =
+            u32::try_from(level).map_err(|_| "probe mip level is too large".to_string())?;
+        let Some(edge) = probe_mip_edge(probe.face_size, level_u32) else {
+            return Err(format!(
+                "probe chain has level {level}, past the {}-texel base",
+                probe.face_size
+            ));
+        };
+        if level_u32 >= probe.mip_levels {
+            return Err(format!(
+                "the resident probe has no mip level {level} for the payload"
+            ));
+        }
+        let expected = usize::try_from(edge)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(usize::try_from(edge).unwrap_or(usize::MAX))
+            .saturating_mul(4);
+        for (face, data) in faces.iter().enumerate() {
+            if data.len() != expected {
+                return Err(format!(
+                    "probe level {level} face {face} holds {} bytes, expected {expected}",
+                    data.len()
+                ));
+            }
+            probe.write_face(queue, level_u32, face, data);
+        }
+    }
+    u32::try_from(chain.len()).map_err(|_| "probe chain is too long".to_string())
+}
+
 /// Copies one world-format texture into a staging buffer and returns its
 /// compacted top-down RGBA rows.
 ///
@@ -3537,6 +4109,98 @@ impl WgpuRenderer {
 /// image after mapping. A `Bgra8*` source has its red and blue channels swapped
 /// back to RGBA order. The texture must have been rendered and submitted
 /// already; this function submits only the copy and the buffer read-back.
+///
+/// Reads one cube face of one mip level back as tightly packed RGBA8.
+fn read_back_cube_face(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture: &wgpu::Texture,
+    face_size: u32,
+    level: u32,
+    face: u32,
+) -> Result<Vec<u8>, String> {
+    let level_edge = probe_mip_edge(face_size, level)
+        .ok_or_else(|| format!("probe has no mip level {level}"))?;
+    let unpadded_bytes_per_row = level_edge.saturating_mul(4);
+    let padded_bytes_per_row = unpadded_bytes_per_row
+        .div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
+        .saturating_mul(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("places-wgpu-probe-readback"),
+        size: u64::from(padded_bytes_per_row).saturating_mul(u64::from(level_edge)),
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("places-wgpu-probe-copy"),
+    });
+    encoder.copy_texture_to_buffer(
+        wgpu::TexelCopyTextureInfo {
+            texture,
+            mip_level: level,
+            origin: wgpu::Origin3d {
+                x: 0,
+                y: 0,
+                z: face,
+            },
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &buffer,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(padded_bytes_per_row),
+                rows_per_image: Some(level_edge),
+            },
+        },
+        wgpu::Extent3d {
+            width: level_edge,
+            height: level_edge,
+            depth_or_array_layers: 1,
+        },
+    );
+    queue.submit([encoder.finish()]);
+
+    let slice = buffer.slice(..);
+    let (sender, receiver) = std::sync::mpsc::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        // A closed receiver means the caller gave up; there is nothing to
+        // report it to.
+        let _ = sender.send(result);
+    });
+    device
+        .poll(wgpu::PollType::wait_indefinitely())
+        .map_err(|error| format!("wgpu could not wait for the probe read-back: {error}"))?;
+    receiver
+        .recv()
+        .map_err(|_| "the wgpu probe read-back callback was lost".to_string())?
+        .map_err(|error| format!("wgpu could not map the probe buffer: {error}"))?;
+
+    let height_usize = usize::try_from(level_edge).unwrap_or(usize::MAX);
+    let row_usize = usize::try_from(unpadded_bytes_per_row).unwrap_or(usize::MAX);
+    let padded_usize = usize::try_from(padded_bytes_per_row).unwrap_or(usize::MAX);
+    let mut rgba = vec![0_u8; row_usize.saturating_mul(height_usize)];
+    {
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|error| format!("wgpu could not read the mapped probe buffer: {error}"))?;
+        for row in 0..height_usize {
+            let source = row.saturating_mul(padded_usize);
+            let target = row.saturating_mul(row_usize);
+            let (Some(from), Some(to)) = (
+                mapped.get(source..source.saturating_add(row_usize)),
+                rgba.get_mut(target..target.saturating_add(row_usize)),
+            ) else {
+                break;
+            };
+            to.copy_from_slice(from);
+        }
+    }
+    buffer.unmap();
+    Ok(rgba)
+}
+
+/// Reads the whole presented target back as an RGBA8 image.
 fn read_back_rgba(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -3632,9 +4296,15 @@ fn read_back_rgba(
 mod tests {
     // Test code: the delta fixtures are hand-built values, so unwraps and
     // infallible indexing are idiomatic here.
-    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects
+    )]
 
     use super::*;
+    use crate::render::ProbeFaceReadback;
 
     fn graphics_config(
         quality: QualityLevel,
@@ -3916,6 +4586,107 @@ mod tests {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// The packaged chain's top level reaches the environment; every other
+    /// combination keeps the live-capture fallback.
+    #[test]
+    fn packaged_probe_mips_follow_the_capture_face_size() {
+        let capture = |face_edge: u32, levels: u32| crate::package::world::ProbeCapture {
+            face_edge,
+            levels,
+            points: vec![[1.0, 2.0, 3.0]],
+            chains: Vec::new(),
+        };
+        let captures = crate::package::world::ProbeCaptures {
+            medium: Some(capture(48, 6)),
+            full: Some(capture(64, 7)),
+        };
+        assert_eq!(packaged_probe_max_mip(Some(&captures), Some(64)), 6);
+        assert_eq!(packaged_probe_max_mip(Some(&captures), Some(48)), 5);
+        // A resident face size with no packaged capture keeps level zero.
+        assert_eq!(packaged_probe_max_mip(Some(&captures), Some(32)), 0);
+        // A live bake (no packaged captures) keeps level zero.
+        assert_eq!(packaged_probe_max_mip(None, Some(64)), 0);
+        assert_eq!(packaged_probe_max_mip(Some(&captures), None), 0);
+    }
+
+    /// A GPU round trip of the packaged upload: every mip level written into a
+    /// resident cubemap must read back exactly.
+    ///
+    /// Ignored by default: it needs a real adapter. Run with:
+    ///
+    /// ```text
+    /// cargo test --lib -- --ignored packaged_probe_chain_uploads
+    /// ```
+    #[test]
+    #[ignore = "requires a GPU adapter"]
+    fn a_packaged_probe_chain_uploads_and_reads_back_every_level() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            force_fallback_adapter: false,
+            compatible_surface: None,
+            apply_limit_buckets: false,
+        }))
+        .expect("a GPU adapter");
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("places-probe-chain-test"),
+            ..Default::default()
+        }))
+        .expect("a device");
+
+        let face_size = 8_u32;
+        let probe = ProbeCube::create(
+            &device,
+            [0.0, 0.0, 0.0],
+            face_size,
+            ProbeFaceReadback::packaged_mip_levels(face_size),
+        );
+        let levels = ProbeFaceReadback::packaged_mip_levels(face_size);
+        let mut chain: Vec<[Vec<u8>; 6]> = Vec::new();
+        let mut colours: Vec<[u8; 4]> = Vec::new();
+        for level in 0..levels {
+            let edge = probe_mip_edge(face_size, level).expect("a level edge");
+            let colour = [
+                10 + u8::try_from(level).unwrap() * 40,
+                20,
+                200 - u8::try_from(level).unwrap() * 30,
+                255,
+            ];
+            colours.push(colour);
+            let mut face = Vec::new();
+            for _ in 0..edge * edge {
+                face.extend_from_slice(&colour);
+            }
+            chain.push(std::array::from_fn(|_| face.clone()));
+        }
+        assert_eq!(
+            upload_probe_chain(&probe, &queue, &chain).expect("upload"),
+            levels
+        );
+        for (level, colour) in colours.iter().enumerate() {
+            let edge = probe_mip_edge(face_size, u32::try_from(level).unwrap()).unwrap();
+            for face in 0..6_u32 {
+                let data = read_back_cube_face(
+                    &device,
+                    &queue,
+                    probe.texture(),
+                    face_size,
+                    u32::try_from(level).unwrap(),
+                    face,
+                )
+                .expect("read back");
+                assert_eq!(
+                    data.len(),
+                    usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 4
+                );
+                assert!(
+                    data.as_chunks::<4>().0.iter().all(|px| px == colour),
+                    "level {level} face {face} must read back its uploaded colour"
+                );
             }
         }
     }

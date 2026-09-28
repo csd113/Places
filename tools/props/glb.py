@@ -598,16 +598,73 @@ class ReadMesh:
         return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))
 
 
+def _require_non_negative_int(value: Any, what: str) -> int:
+    """A glTF byte field: an integer >= 0, never a bool or a float."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise GltfError(f"{what} must be a non-negative integer, got {value!r}")
+    return value
+
+
 def _read_accessor(gltf: Dict[str, Any], blob: bytes, index: int) -> List[tuple]:
     accessor = gltf["accessors"][index]
-    count = accessor["count"]
+    count = _require_non_negative_int(accessor["count"], f"accessor {index} count")
+    if count == 0:
+        raise GltfError(
+            f"accessor {index} declares zero elements; an accessor must hold at least one"
+        )
     components = TYPE_COUNTS[accessor["type"]]
     component_type = accessor["componentType"]
     component_size = COMPONENT_SIZES[component_type]
+    element_size = components * component_size
     normalized = bool(accessor.get("normalized"))
     view = gltf["bufferViews"][accessor["bufferView"]]
-    base = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
-    stride = view.get("byteStride") or components * component_size
+    view_offset = _require_non_negative_int(
+        view.get("byteOffset", 0), f"accessor {index} bufferView byteOffset"
+    )
+    view_length = _require_non_negative_int(
+        view["byteLength"], f"accessor {index} bufferView byteLength"
+    )
+    # A bufferView's byteLength is relative to its own byteOffset: the view is
+    # blob[view_offset : view_offset + view_length], and the binary chunk
+    # continuing past it does not make a crossing accessor valid.
+    view_end = view_offset + view_length
+    if view_end > len(blob):
+        raise GltfError(
+            f"accessor {index} bufferView [{view_offset}, {view_end}) extends past the "
+            f"{len(blob)}-byte binary chunk; the GLB is truncated"
+        )
+    accessor_offset = _require_non_negative_int(
+        accessor.get("byteOffset", 0), f"accessor {index} byteOffset"
+    )
+    declared_stride = view.get("byteStride")
+    if declared_stride is None:
+        stride = element_size
+    else:
+        stride = _require_non_negative_int(
+            declared_stride, f"accessor {index} bufferView byteStride"
+        )
+        if count > 1:
+            # A zero stride would read the same bytes for every element; glTF
+            # requires at least the element size (and a multiple of 4) when
+            # byteStride is authored at all.
+            if stride < element_size:
+                raise GltfError(
+                    f"accessor {index} declares byteStride {stride} smaller than its "
+                    f"{element_size}-byte elements"
+                )
+            if stride % 4 != 0:
+                raise GltfError(
+                    f"accessor {index} declares byteStride {stride}; glTF requires a multiple of 4"
+                )
+    # The accessor's byteOffset is relative to the view: every element it
+    # addresses has to fit inside the declared view.
+    relative_end = accessor_offset + (count - 1) * stride + element_size
+    if relative_end > view_length:
+        raise GltfError(
+            f"accessor {index} declares {count} elements but its bufferView is too small "
+            f"({relative_end} bytes needed, {view_length} declared)"
+        )
+    base = view_offset + accessor_offset
 
     fmt = {COMPONENT_FLOAT: "f", COMPONENT_USHORT: "H", COMPONENT_UBYTE: "B", COMPONENT_UINT: "I"}[component_type]
     out: List[tuple] = []

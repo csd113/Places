@@ -2376,6 +2376,7 @@ fn read_joints(
     for element in 0..view.count {
         let base = element
             .checked_mul(view.stride)
+            .and_then(|skip| skip.checked_add(view.offset))
             .ok_or_else(|| GltfError::new("JOINTS_0 element offset overflows"))?;
         let mut values = [0u16; 4];
         for (component, slot) in values.iter_mut().enumerate() {
@@ -2434,6 +2435,7 @@ fn read_weights(
     for element in 0..view.count {
         let base = element
             .checked_mul(view.stride)
+            .and_then(|skip| skip.checked_add(view.offset))
             .ok_or_else(|| GltfError::new("WEIGHTS_0 element offset overflows"))?;
         let mut values = [0.0f32; 4];
         for (component, slot) in values.iter_mut().enumerate() {
@@ -3081,7 +3083,11 @@ fn read_f32_le(data: &[u8], offset: usize) -> Result<f32, GltfError> {
 }
 
 struct AccessorView<'a> {
+    /// The accessor's bufferView: exactly `binary[view_offset..view_end]`.
     data: &'a [u8],
+    /// Byte offset of the first element within `data`: the accessor's own
+    /// `byteOffset` (`data` already starts at the view's `byteOffset`).
+    offset: usize,
     stride: usize,
     element_size: usize,
     count: usize,
@@ -3139,11 +3145,12 @@ fn accessor_view<'a>(
     let element_size = component_size
         .checked_mul(components)
         .ok_or_else(|| GltfError::new("accessor element size overflows"))?;
-    let (data, stride) = accessor_data(json, binary, accessor, index, element_size, count)?;
+    let data = accessor_data(json, binary, accessor, index, element_size, count)?;
 
     Ok(AccessorView {
-        data,
-        stride,
+        data: data.bytes,
+        offset: data.offset,
+        stride: data.stride,
         element_size,
         count,
         component_type,
@@ -3181,7 +3188,36 @@ fn component_size(component_type: u32) -> Result<usize, GltfError> {
     }
 }
 
-/// The binary slice an accessor addresses, plus its element stride in bytes.
+/// One bufferView's slice, plus the addressing an accessor applies inside it.
+struct AccessorData<'a> {
+    /// The whole bufferView: `binary[view_offset..view_offset + view_length]`.
+    bytes: &'a [u8],
+    /// The accessor's `byteOffset` within `bytes`.
+    offset: usize,
+    /// The element stride in bytes (`byteStride`, or the element size).
+    stride: usize,
+}
+
+/// A JSON byte offset or stride that must be a non-negative integer when
+/// present.
+///
+/// glTF byte offsets and strides are unsigned integers. A present negative,
+/// fractional or out-of-range value is malformed and is rejected instead of
+/// being silently treated as absent (which would decode the wrong bytes).
+fn json_byte_field(
+    value: Option<&serde_json::Value>,
+    what: &str,
+) -> Result<Option<usize>, GltfError> {
+    value.map_or(Ok(None), |value| {
+        json_usize(value).map(Some).ok_or_else(|| {
+            GltfError::new(format!(
+                "{what} must be a non-negative integer, got {value}"
+            ))
+        })
+    })
+}
+
+/// The binary slice an accessor addresses, plus its element stride and offset.
 fn accessor_data<'a>(
     json: &serde_json::Value,
     binary: &'a [u8],
@@ -3189,7 +3225,12 @@ fn accessor_data<'a>(
     index: usize,
     element_size: usize,
     count: usize,
-) -> Result<(&'a [u8], usize), GltfError> {
+) -> Result<AccessorData<'a>, GltfError> {
+    if count == 0 {
+        return Err(GltfError::new(format!(
+            "accessor {index} declares zero elements; an accessor must hold at least one"
+        )));
+    }
     let view_index = accessor
         .get("bufferView")
         .and_then(json_usize)
@@ -3202,70 +3243,82 @@ fn accessor_data<'a>(
         .get(view_index)
         .ok_or_else(|| GltfError::new(format!("bufferView {view_index} does not exist")))?;
 
-    let view_offset = view.get("byteOffset").and_then(json_usize).unwrap_or(0);
+    // A bufferView's `byteLength` is relative to its own `byteOffset`, so the
+    // view is exactly `binary[view_offset..view_end]`. Checking that view end
+    // (not the accessor's end) is what rejects a crossing accessor even when
+    // the binary chunk continues past the declared view.
+    let view_offset = json_byte_field(
+        view.get("byteOffset"),
+        &format!("bufferView {view_index} byteOffset"),
+    )?
+    .unwrap_or(0);
     let view_length = view
         .get("byteLength")
         .and_then(json_usize)
         .ok_or_else(|| GltfError::new("bufferView has no byteLength"))?;
-    let accessor_offset = accessor.get("byteOffset").and_then(json_usize).unwrap_or(0);
-    let start = view_offset
-        .checked_add(accessor_offset)
-        .ok_or_else(|| GltfError::new("accessor byte offset overflows"))?;
-    let end = start
+    let view_end = view_offset
         .checked_add(view_length)
         .ok_or_else(|| GltfError::new("bufferView length overflows"))?;
-    if end > binary.len() {
+    if view_end > binary.len() {
         return Err(GltfError::new(
             "bufferView extends past the end of the binary chunk; the GLB is truncated",
         ));
     }
 
-    let stride = view
-        .get("byteStride")
-        .and_then(json_usize)
-        .unwrap_or(element_size);
-    // A zero stride is only meaningful for a single element (the GLB spec
-    // requires >= 4 when `byteStride` is authored at all). With more than one
-    // element it would make the size check below pass for any `count`, so it is
-    // rejected here rather than trusted.
-    if stride == 0 && count > 1 {
-        return Err(GltfError::new(format!(
-            "accessor {index} declares a zero byteStride with {count} elements"
-        )));
+    let accessor_offset = json_byte_field(
+        accessor.get("byteOffset"),
+        &format!("accessor {index} byteOffset"),
+    )?
+    .unwrap_or(0);
+    let declared_stride = json_byte_field(
+        view.get("byteStride"),
+        &format!("bufferView {view_index} byteStride"),
+    )?;
+    let stride = declared_stride.unwrap_or(element_size);
+    if count > 1
+        && let Some(declared) = declared_stride
+    {
+        // A zero stride would read the same bytes for every element; glTF
+        // requires at least the element size (and a multiple of 4) when
+        // `byteStride` is authored at all.
+        if declared == 0 {
+            return Err(GltfError::new(format!(
+                "accessor {index} declares a zero byteStride with {count} elements"
+            )));
+        }
+        if declared < element_size {
+            return Err(GltfError::new(format!(
+                "accessor {index} declares byteStride {declared} smaller than its \
+                 {element_size}-byte elements"
+            )));
+        }
+        if !declared.is_multiple_of(4) {
+            return Err(GltfError::new(format!(
+                "accessor {index} declares byteStride {declared}; glTF requires a multiple of 4"
+            )));
+        }
     }
-    let required = if count == 0 {
-        // No elements are read, so even an empty bufferView is acceptable.
-        0
-    } else {
-        count
-            .saturating_sub(1)
-            .checked_mul(stride)
-            .and_then(|size| size.checked_add(element_size))
-            .ok_or_else(|| GltfError::new("accessor byte length overflows"))?
-    };
-    // `end == start + view_length`, so the view length is the budget the
-    // accessor's elements must fit in.
-    if required > view_length {
+    // The accessor's `byteOffset` is relative to the view: every element it
+    // addresses has to fit inside the declared view. The arithmetic is
+    // checked so malformed metadata cannot wrap into an in-bounds read.
+    let relative_end = count
+        .checked_sub(1)
+        .and_then(|last| last.checked_mul(stride))
+        .and_then(|span| accessor_offset.checked_add(span))
+        .and_then(|end| end.checked_add(element_size))
+        .ok_or_else(|| GltfError::new("accessor byte length overflows"))?;
+    if relative_end > view_length {
         return Err(GltfError::new(format!(
             "accessor {index} declares {count} elements but its bufferView is too small"
         )));
     }
-    // Belt and braces against a count that the element size cannot physically
-    // fit, so no reader can reserve or loop past the buffer it was given.
-    let element_size = element_size.max(1);
-    #[allow(clippy::arithmetic_side_effects)] // `element_size >= 1` is checked above
-    let max_count = view_length / element_size;
-    if count > max_count {
-        return Err(GltfError::new(format!(
-            "accessor {index} declares {count} elements but its bufferView holds at most {max_count}"
-        )));
-    }
-    Ok((
-        binary
-            .get(start..end)
+    Ok(AccessorData {
+        bytes: binary
+            .get(view_offset..view_end)
             .ok_or_else(|| GltfError::new("accessor data is truncated"))?,
+        offset: accessor_offset,
         stride,
-    ))
+    })
 }
 
 fn read_vec(
@@ -3283,6 +3336,7 @@ fn read_vec(
     for element in 0..view.count {
         let base = element
             .checked_mul(view.stride)
+            .and_then(|skip| skip.checked_add(view.offset))
             .ok_or_else(|| GltfError::new("accessor element offset overflows"))?;
         let mut values = Vec::with_capacity(view.components);
         for component in 0..view.components {
@@ -3336,6 +3390,7 @@ fn read_indices(
     for element in 0..view.count {
         let offset = element
             .checked_mul(view.stride)
+            .and_then(|skip| skip.checked_add(view.offset))
             .ok_or_else(|| GltfError::new("accessor element offset overflows"))?;
         out.push(match view.component_type {
             COMPONENT_UBYTE => u32::from(

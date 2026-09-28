@@ -112,43 +112,6 @@ pub struct PropAssets {
 pub(crate) type ModelInput = Result<Arc<[u8]>, String>;
 
 impl PropAssets {
-    /// Snapshots each used file once per preparation, including failures. Exact byte
-    /// comparison detects edits even when length and modification time are unchanged.
-    pub(crate) fn refresh_inputs(&mut self, paths: &[String]) -> Vec<(String, ModelInput)> {
-        self.retain_request_paths(paths);
-        paths
-            .iter()
-            .map(|path| {
-                let input = self.read_input(path);
-                if let Some(previous) = self.inputs.get(path)
-                    && previous == &input
-                {
-                    // Retain one byte snapshot across prepared keys and parsed
-                    // assets; the fresh read is needed only to detect edits.
-                    return (path.clone(), previous.clone());
-                }
-                self.models.remove(path);
-                self.reported_failures.retain(|old| old != path);
-                self.reported_budget_warnings.retain(|old| old != path);
-                self.inputs.insert(path.clone(), input.clone());
-                (path.clone(), input)
-            })
-            .collect()
-    }
-
-    /// The prepared-build LRU retains geometry across visits. This parsing
-    /// cache retains only this request's inputs, avoiding cumulative clones of
-    /// unrelated models into every prepared world.
-    fn retain_request_paths(&mut self, paths: &[String]) {
-        let used: std::collections::HashSet<&str> = paths.iter().map(String::as_str).collect();
-        self.inputs.retain(|path, _| used.contains(path.as_str()));
-        self.models.retain(|path, _| used.contains(path.as_str()));
-        self.reported_failures
-            .retain(|path| used.contains(path.as_str()));
-        self.reported_budget_warnings
-            .retain(|path| used.contains(path.as_str()));
-    }
-
     fn read_input(&self, model_path: &str) -> ModelInput {
         let root = self
             .root

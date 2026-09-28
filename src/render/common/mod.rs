@@ -21,9 +21,11 @@ pub mod effects;
 pub mod fixtures;
 pub mod framebuffer;
 pub mod geometry;
+pub mod light_transport;
 pub mod materials;
 pub mod mesh;
 pub mod postprocess;
+pub mod probe_filter;
 pub mod props;
 pub mod reflections;
 pub mod stats;
@@ -64,7 +66,8 @@ pub use mesh::{
     dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
-pub use props::PropMeshBatch;
+pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_cube};
+pub use props::{PropMeshBatch, PropSubmeshBatch};
 
 /// Near and far plane of the scene projection, in metres.
 ///

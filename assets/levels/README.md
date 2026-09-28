@@ -1,17 +1,29 @@
 # Shipped levels
 
-`places_demo.json` and the generated `model_zoo.json` are the two levels bundled
-with the game. Both are discovered at startup, appear in the Level Select menu,
-and are packaged by `tools/package.sh`. Boot straight into one with
-`PLACES_LEVEL=places_demo` or `PLACES_LEVEL=model_zoo` (a bundled level shows
-its `id`, the display name works in the menu).
+`places_demo.placesmap` and the generated `model_zoo.placesmap` are the two
+compiled packages bundled with the game. Both are discovered at startup, appear
+in the Level Select menu, and are copied by `tools/package.sh`. Boot straight
+into one with `PLACES_LEVEL=places_demo` or `PLACES_LEVEL=model_zoo` (a bundled
+level shows its `id`, the display name works in the menu).
 
-`assets/levels/` is the shipped-level directory: every `*.json` here is
-packaged. Nothing here is hard-coded, so adding a file adds a menu entry and
-removing one removes it. Drop-in user levels live in `levels/` at the repository
-root and are discovered alongside the demo without being packaged;
-`tests/fixtures/levels/` holds the engine regression fixtures and is never
-packaged.
+`assets/levels/` is the shipped-level directory: every `*.placesmap` here is
+discovered and packaged. Nothing here is hard-coded, so adding a package adds a
+menu entry and removing one removes it. Drop-in user packages live in `levels/`
+at the repository root and are discovered alongside the bundled levels without
+being packaged; `tests/fixtures/levels/` holds the engine regression fixtures
+and is never packaged.
+
+The `.json` files here are the **authoring sources**. They are kept so authors
+can edit and recompile them; the player never reads them. Every source maps to
+its sibling package:
+
+```sh
+./target/release/places-compile build assets/levels/places_demo.json
+./target/release/places-compile build assets/levels/model_zoo.json
+```
+
+A build reuses the existing package when the source and its asset identities are
+unchanged; pass `--force` to rebuild. See `docs/PACKAGE_FORMAT.md`.
 
 ## The shipped levels
 
@@ -26,23 +38,23 @@ The demo is the technical reference for the door and effect authoring contract:
 
 - `hall_door` — a white painted interior door (`kind: interior`), manually
   interactable, with the wall opening authored separately on its wall.
-- `hall_switch` — a `home:wall_switch` prop whose one press plays the lever clip,
-  toggles `hall_door` and toggles the door's floating label (`toggle_animation`,
-  `toggle`, `toggle_label` in one batch).
+- `hall_switch` — a `home:wall_switch` prop carrying `interactable` and
+  `animation` components; its `on: interact` binding plays the lever clip and
+  toggles `hall_door` (`toggle_animation` and `toggle` in one action batch).
 - `sauna_door` — a sauna leaf (`kind: sauna`): cedar stiles and rails around a
   clear glass panel, with a wooden round handle.
-- `study_door` — an externally controlled door (`manual_interaction: false`)
-  that starts open and is moved only by map actions, so it is never an
-  interaction target; the `study_door_approach` and `study_door_return` area
-  triggers open it from either side.
+- `study_door` — an externally controlled door (no `interactable` component and
+  no binding) that starts open and is moved only by map actions, so it is never
+  an interaction target; the `study_door_approach` and `study_door_return`
+  trigger volumes drive it from either side.
 - `sauna_steam_a` / `sauna_steam_b` — `effects[]` steam emitters inside the
   sauna; presentation-only, bounded particle plumes.
 - the windows and the transfer grille — `glass` panes that also author
   `"solid": true`, so the pane blocks the player as well as reading transparent.
 
-`levels/level0_pit.json` is the reference for an area-trigger-driven door: the
+`levels/level0_pit.json` is the reference for a volume-driven door: the
 `pit_gate` leaf is externally controlled and driven by the `pit_gate_approach`
-(open) and `pit_gate_passed` (close) triggers.
+(open) and `pit_gate_passed` (close) trigger volumes.
 
 ### Regenerating the Model Zoo
 
@@ -111,9 +123,13 @@ PLACES_LEVEL=home_showcase cargo run
 
 ## Packaging
 
-The packaged content ships the official demo and the generated Model Zoo. Both
-resolve the complete catalog: every model, texture and material in
-`assets/catalog.json` is available to `Places Demo`, the Model Zoo, the engine
-and user-created levels. To find "where is every asset", read the catalog-driven
-Model Zoo: it is generated from `assets/catalog.json`, so it cannot fall behind
-it.
+The packaged content ships the compiled official demo and the compiled,
+generated Model Zoo. Both resolve the complete catalog: every model, texture and
+material in `assets/catalog.json` is available to `Places Demo`, the Model Zoo,
+the engine and user-created levels. To find "where is every asset", read the
+catalog-driven Model Zoo: it is generated from `assets/catalog.json`, so it
+cannot fall behind it.
+
+Regenerating the zoo means regenerating the JSON source with
+`tools/levels/build_model_zoo.py` and then recompiling the package with
+`places-compile build`, exactly like any other edited map.

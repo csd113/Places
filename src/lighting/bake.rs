@@ -22,7 +22,7 @@
 //! reports one room, and surfaces keep sampling through the room they belong to.
 
 use super::color::LightColor;
-use super::light::{LightFalloff, LightSource};
+use super::light::{LightFalloff, LightShape, LightSource};
 use super::math::{
     ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline, smooth_falloff,
 };
@@ -38,6 +38,7 @@ use crate::level::{
     CeilingProfileDef, LevelDef, LevelSurfaces, LightFixtureDef, LightMount, MAX_PROP_LIGHTS,
     WallAxis,
 };
+use crate::package::binary::{Reader, Writer};
 
 /// Baked illumination information for one room.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1812,11 +1813,11 @@ impl LevelLighting {
     /// Enables or disables one baked light at runtime.
     ///
     /// Returns whether the state changed. A disabled light contributes nothing
-    /// to any later sample, so the caller re-fills the charts within its reach
-    /// ([`crate::lighting::lightmap::LevelLightmaps::refill_light`]) and
-    /// re-uploads them. Only a `switchable` fixture is a valid target: its
-    /// contribution is a local pool, never part of a room baseline, so the
-    /// change is confined to its own reach.
+    /// to any later sample, so the caller refreshes the resident lightmap
+    /// selection uniform it derives from this state. Only a `switchable`
+    /// fixture is a valid target: its prepared illumination contribution ships
+    /// as its own layer group, so toggling it changes what the shader sums
+    /// without a runtime bake.
     pub fn set_light_enabled(&mut self, light_index: usize, enabled: bool) -> bool {
         let Some(light) = self.lights.get_mut(light_index) else {
             return false;
@@ -2806,6 +2807,552 @@ impl LevelLighting {
             average_baseline: total / count,
         }
     }
+
+    /// Encodes the complete bake for the compiled map package.
+    ///
+    /// The runtime keeps baked-lighting sampling from this record: a position
+    /// the prepared irradiance field cannot resolve falls back to
+    /// [`LevelLighting::sample`], and the field's room labels are assigned
+    /// against the same `room_index_at_height` this bake exposes. A switchable
+    /// fixture's prepared illumination ships as its own lightmap layer group;
+    /// this record still carries the light so the runtime light-state API and
+    /// the vertex-lit variant read one source of truth. The package therefore
+    /// carries the built result rather than a level from which a player would
+    /// have to bake it again.
+    pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        writer.bytes(&COMPILED_MAGIC);
+        writer.u16(COMPILED_VERSION);
+        write_rooms(writer, &self.rooms)?;
+        write_lights(writer, &self.lights)?;
+        write_blends(writer, &self.blends)?;
+        write_room_zones(writer, &self.room_zones)?;
+        self.visibility.write_compiled(writer)?;
+        write_u32_lists(writer, &self.room_lights)?;
+        write_u32_list(writer, &self.all_lights)?;
+        write_fixture_lights(writer, &self.fixture_lights)?;
+        writer.f32(self.default_ceiling_y);
+        writer.u8(self.sampling_taps);
+        Ok(())
+    }
+
+    /// Decodes and validates a compiled bake.
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+        if reader.bytes(4)? != COMPILED_MAGIC {
+            return Err("lighting record has the wrong magic".to_string());
+        }
+        let version = reader.u16()?;
+        if version != COMPILED_VERSION {
+            return Err(format!(
+                "lighting record version {version} is not supported (this build reads {COMPILED_VERSION})"
+            ));
+        }
+        let rooms = read_rooms(reader)?;
+        let lights = read_lights(reader, rooms.len())?;
+        let blends = read_blends(reader, Some(&rooms), None)?;
+        let room_zones = read_room_zones(reader, &rooms)?;
+        let visibility = Visibility::read_compiled(reader)?;
+        let room_lights = read_u32_lists(reader, rooms.len(), lights.len())?;
+        let all_lights = read_u32_list(reader, lights.len())?;
+        let fixture_lights = read_fixture_lights(reader, lights.len())?;
+        let default_ceiling_y = read_finite(reader, "default ceiling height")?;
+        let sampling_taps = reader.u8()?;
+        if !reader.is_empty() {
+            return Err(format!(
+                "lighting record has {} trailing bytes",
+                reader.remaining()
+            ));
+        }
+        let room_index = RoomIndex::new(&rooms);
+        let light_index = LightIndex::new(&lights);
+        Ok(Self {
+            rooms,
+            room_index,
+            lights,
+            light_index,
+            blends,
+            room_zones,
+            visibility,
+            room_lights,
+            all_lights,
+            fixture_lights,
+            default_ceiling_y,
+            sampling_taps,
+        })
+    }
+}
+
+/// Magic identifying a compiled lighting record.
+const COMPILED_MAGIC: [u8; 4] = *b"PLLT";
+
+/// Version of the compiled lighting record layout.
+pub(super) const COMPILED_VERSION: u16 = 1;
+
+/// Largest room count a compiled record may declare.
+const MAX_COMPILED_ROOMS: u64 = 100_000;
+
+/// Largest light count a compiled record may declare.
+const MAX_COMPILED_LIGHTS: u64 = 1_000_000;
+
+/// Largest opening-blend count per room.
+const MAX_COMPILED_BLENDS_PER_ROOM: u64 = 100_000;
+
+/// Largest zone cell count in one room.
+const MAX_COMPILED_ZONE_CELLS: u64 = 1 << 22;
+
+fn read_finite(reader: &mut Reader<'_>, what: &str) -> Result<f32, String> {
+    let value = reader.f32()?;
+    if !value.is_finite() {
+        return Err(format!("{what} is non-finite"));
+    }
+    Ok(value)
+}
+
+fn write_color(writer: &mut Writer, color: LightColor) {
+    writer.f32(color.r);
+    writer.f32(color.g);
+    writer.f32(color.b);
+}
+
+fn read_color(reader: &mut Reader<'_>, what: &str) -> Result<LightColor, String> {
+    Ok(LightColor {
+        r: read_finite(reader, what)?,
+        g: read_finite(reader, what)?,
+        b: read_finite(reader, what)?,
+    })
+}
+
+fn write_optional_u32(writer: &mut Writer, value: Option<u32>) {
+    match value {
+        None => writer.u8(0),
+        Some(value) => {
+            writer.u8(1);
+            writer.u32(value);
+        }
+    }
+}
+
+fn read_optional_u32(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
+    match reader.u8()? {
+        0 => Ok(None),
+        1 => Ok(Some(reader.u32()?)),
+        other => Err(format!("invalid optional marker {other}")),
+    }
+}
+
+fn write_rooms(writer: &mut Writer, rooms: &[RoomLighting]) -> Result<(), String> {
+    let count = u32::try_from(rooms.len()).map_err(|_| "too many rooms to encode".to_string())?;
+    writer.u32(count);
+    for room in rooms {
+        writer.f32(room.x0);
+        writer.f32(room.x1);
+        writer.f32(room.z0);
+        writer.f32(room.z1);
+        writer.f32(room.floor_y);
+        writer.f32(room.height_m);
+        match room.profile {
+            CeilingProfileDef::Flat => writer.u8(0),
+            CeilingProfileDef::Gable { ridge, ridge_rise } => {
+                writer.u8(1);
+                writer.u8(match ridge {
+                    WallAxis::X => 0,
+                    WallAxis::Z => 1,
+                });
+                writer.f32(ridge_rise);
+            }
+        }
+        writer.f32(room.area_m2);
+        let fixtures = u32::try_from(room.fixture_count)
+            .map_err(|_| "room fixture count is too large".to_string())?;
+        writer.u32(fixtures);
+        write_color(writer, room.effective_power);
+        write_color(writer, room.baseline);
+    }
+    Ok(())
+}
+
+fn read_rooms(reader: &mut Reader<'_>) -> Result<Vec<RoomLighting>, String> {
+    let count = reader.count(MAX_COMPILED_ROOMS, "room count")?;
+    let mut rooms = Vec::with_capacity(count.min(4096));
+    for _ in 0..count {
+        let x0 = read_finite(reader, "room x0")?;
+        let x1 = read_finite(reader, "room x1")?;
+        let z0 = read_finite(reader, "room z0")?;
+        let z1 = read_finite(reader, "room z1")?;
+        let floor_y = read_finite(reader, "room floor")?;
+        let height_m = read_finite(reader, "room height")?;
+        let profile = match reader.u8()? {
+            0 => CeilingProfileDef::Flat,
+            1 => {
+                let ridge = match reader.u8()? {
+                    0 => WallAxis::X,
+                    1 => WallAxis::Z,
+                    other => return Err(format!("unknown ridge axis {other}")),
+                };
+                CeilingProfileDef::Gable {
+                    ridge,
+                    ridge_rise: read_finite(reader, "ridge rise")?,
+                }
+            }
+            other => return Err(format!("unknown ceiling profile {other}")),
+        };
+        let area_m2 = read_finite(reader, "room area")?;
+        let fixture_count = usize::try_from(reader.u32()?)
+            .map_err(|_| "room fixture count is too large".to_string())?;
+        let effective_power = read_color(reader, "room power")?;
+        let baseline = read_color(reader, "room baseline")?;
+        rooms.push(RoomLighting {
+            x0,
+            x1,
+            z0,
+            z1,
+            floor_y,
+            height_m,
+            profile,
+            area_m2,
+            fixture_count,
+            effective_power,
+            baseline,
+        });
+    }
+    Ok(rooms)
+}
+
+fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String> {
+    let count = u32::try_from(lights.len()).map_err(|_| "too many lights to encode".to_string())?;
+    writer.u32(count);
+    for light in lights {
+        match light.source.shape {
+            LightShape::Point => writer.u8(0),
+            LightShape::Rect {
+                half_width,
+                half_depth,
+            } => {
+                writer.u8(1);
+                writer.f32(half_width);
+                writer.f32(half_depth);
+            }
+            LightShape::Line { length } => {
+                writer.u8(2);
+                writer.f32(length);
+            }
+        }
+        writer.f32_3(light.source.position);
+        writer.f32(light.source.rotation_degrees);
+        write_color(writer, light.source.color);
+        writer.f32(light.source.intensity);
+        writer.f32(light.source.range);
+        writer.u8(match light.source.falloff {
+            LightFalloff::Smooth => 0,
+            LightFalloff::Linear => 1,
+            LightFalloff::Constant => 2,
+        });
+        writer.bool(light.source.enabled);
+        writer.f32(light.height_factor);
+        write_optional_u32(
+            writer,
+            light
+                .room
+                .map(|room| u32::try_from(room).unwrap_or(u32::MAX)),
+        );
+        writer.bool(light.directional);
+        write_optional_u32(
+            writer,
+            light
+                .owner_prop
+                .map(|owner| u32::try_from(owner).unwrap_or(u32::MAX)),
+        );
+    }
+    Ok(())
+}
+
+fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLight>, String> {
+    let count = reader.count(MAX_COMPILED_LIGHTS, "light count")?;
+    let mut lights = Vec::with_capacity(count.min(16384));
+    for _ in 0..count {
+        let shape = match reader.u8()? {
+            0 => LightShape::Point,
+            1 => LightShape::Rect {
+                half_width: read_finite(reader, "rect half width")?,
+                half_depth: read_finite(reader, "rect half depth")?,
+            },
+            2 => LightShape::Line {
+                length: read_finite(reader, "line length")?,
+            },
+            other => return Err(format!("unknown light shape {other}")),
+        };
+        let position = reader.f32_3()?;
+        if !position.iter().all(|value| value.is_finite()) {
+            return Err("light position is non-finite".to_string());
+        }
+        let rotation_degrees = read_finite(reader, "light rotation")?;
+        let color = read_color(reader, "light colour")?;
+        let intensity = read_finite(reader, "light intensity")?;
+        let range = read_finite(reader, "light range")?;
+        let falloff = match reader.u8()? {
+            0 => LightFalloff::Smooth,
+            1 => LightFalloff::Linear,
+            2 => LightFalloff::Constant,
+            other => return Err(format!("unknown light falloff {other}")),
+        };
+        let enabled = reader.bool()?;
+        let height_factor = read_finite(reader, "light height factor")?;
+        let room = read_optional_u32(reader)?;
+        if let Some(room) = room
+            && usize::try_from(room).map_or(true, |room| room >= room_count)
+        {
+            return Err("light room index is out of range".to_string());
+        }
+        let directional = reader.bool()?;
+        let owner_prop = read_optional_u32(reader)?;
+        lights.push(BakedLight {
+            source: LightSource {
+                shape,
+                position,
+                rotation_degrees,
+                color,
+                intensity,
+                range,
+                falloff,
+                enabled,
+            },
+            height_factor,
+            room: room.map(|room| usize::try_from(room).unwrap_or(usize::MAX)),
+            directional,
+            owner_prop: owner_prop.map(|owner| usize::try_from(owner).unwrap_or(usize::MAX)),
+        });
+    }
+    Ok(lights)
+}
+
+fn write_blends(writer: &mut Writer, blends: &[Vec<OpeningBlend>]) -> Result<(), String> {
+    let count = u32::try_from(blends.len()).map_err(|_| "too many blend rooms".to_string())?;
+    writer.u32(count);
+    for room in blends {
+        let entries =
+            u32::try_from(room.len()).map_err(|_| "too many blends in one room".to_string())?;
+        writer.u32(entries);
+        for blend in room {
+            writer.f32(blend.x);
+            writer.f32(blend.z);
+            writer.f32(blend.base_y);
+            writer.f32(blend.top_y);
+            writer.u32(blend.site);
+            write_color(writer, blend.neighbor_baseline);
+            write_color(writer, blend.own_baseline);
+            write_optional_u32(writer, blend.own_zone);
+        }
+    }
+    Ok(())
+}
+
+fn read_blends(
+    reader: &mut Reader<'_>,
+    rooms: Option<&[RoomLighting]>,
+    zone_counts: Option<&[usize]>,
+) -> Result<Vec<Vec<OpeningBlend>>, String> {
+    let count = reader.count(MAX_COMPILED_ROOMS, "blend room count")?;
+    if let Some(rooms) = rooms
+        && count != rooms.len()
+    {
+        return Err(format!(
+            "blend record lists {count} rooms but the bake has {}",
+            rooms.len()
+        ));
+    }
+    let mut blends = Vec::with_capacity(count.min(4096));
+    for _ in 0..count {
+        let entries = reader.count(MAX_COMPILED_BLENDS_PER_ROOM, "blend count")?;
+        let mut room = Vec::with_capacity(entries.min(4096));
+        for _ in 0..entries {
+            let x = read_finite(reader, "blend x")?;
+            let z = read_finite(reader, "blend z")?;
+            let base_y = read_finite(reader, "blend base")?;
+            let top_y = read_finite(reader, "blend top")?;
+            let site = reader.u32()?;
+            let neighbor_baseline = read_color(reader, "blend neighbour")?;
+            let own_baseline = read_color(reader, "blend own")?;
+            let own_zone = read_optional_u32(reader)?;
+            if let (Some(counts), Some(zone)) = (zone_counts, own_zone) {
+                let in_range = counts
+                    .get(usize::try_from(site).unwrap_or(usize::MAX))
+                    .is_some_and(|zones| usize::try_from(zone).is_ok_and(|zone| zone < *zones));
+                if !in_range {
+                    return Err("blend zone index is out of range".to_string());
+                }
+            }
+            room.push(OpeningBlend {
+                x,
+                z,
+                base_y,
+                top_y,
+                site,
+                neighbor_baseline,
+                own_baseline,
+                own_zone,
+            });
+        }
+        blends.push(room);
+    }
+    Ok(blends)
+}
+
+fn write_room_zones(writer: &mut Writer, zones: &[Option<RoomZones>]) -> Result<(), String> {
+    let count = u32::try_from(zones.len()).map_err(|_| "too many zone rooms".to_string())?;
+    writer.u32(count);
+    for room in zones {
+        let Some(zones) = room else {
+            writer.u8(0);
+            continue;
+        };
+        writer.u8(1);
+        writer.blob_f32s(&zones.edges_x)?;
+        writer.blob_f32s(&zones.edges_z)?;
+        writer.blob_u32s(&zones.zone_of_cell)?;
+        let entries = u32::try_from(zones.zones.len())
+            .map_err(|_| "too many zones in one room".to_string())?;
+        writer.u32(entries);
+        for zone in &zones.zones {
+            write_color(writer, zone.baseline);
+            writer.f32(zone.area_m2);
+            write_color(writer, zone.power);
+            let fixtures = u32::try_from(zone.fixture_count)
+                .map_err(|_| "zone fixture count is too large".to_string())?;
+            writer.u32(fixtures);
+        }
+    }
+    Ok(())
+}
+
+fn read_room_zones(
+    reader: &mut Reader<'_>,
+    rooms: &[RoomLighting],
+) -> Result<Vec<Option<RoomZones>>, String> {
+    let count = reader.count(MAX_COMPILED_ROOMS, "zone room count")?;
+    if count != rooms.len() {
+        return Err(format!(
+            "zone record lists {count} rooms but the bake has {}",
+            rooms.len()
+        ));
+    }
+    let mut all = Vec::with_capacity(count.min(4096));
+    for _ in 0..count {
+        if reader.u8()? == 0 {
+            all.push(None);
+            continue;
+        }
+        let edges_x = reader.f32s(MAX_COMPILED_ZONE_CELLS)?;
+        let edges_z = reader.f32s(MAX_COMPILED_ZONE_CELLS)?;
+        let zone_of_cell = reader.u32s(MAX_COMPILED_ZONE_CELLS)?;
+        let entries = reader.count(MAX_COMPILED_ZONE_CELLS, "zone count")?;
+        let mut zones = Vec::with_capacity(entries.min(4096));
+        for _ in 0..entries {
+            zones.push(ZoneLight {
+                baseline: read_color(reader, "zone baseline")?,
+                area_m2: read_finite(reader, "zone area")?,
+                power: read_color(reader, "zone power")?,
+                fixture_count: usize::try_from(reader.u32()?)
+                    .map_err(|_| "zone fixture count is too large".to_string())?,
+            });
+        }
+        let cells = u64::try_from(edges_x.len().saturating_sub(1))
+            .unwrap_or(u64::MAX)
+            .saturating_mul(u64::try_from(edges_z.len().saturating_sub(1)).unwrap_or(u64::MAX));
+        if u64::try_from(zone_of_cell.len()).unwrap_or(u64::MAX) != cells {
+            return Err("zone cell count does not match its edge lists".to_string());
+        }
+        if zone_of_cell
+            .iter()
+            .any(|zone| usize::try_from(*zone).map_or(true, |zone| zone >= zones.len()))
+        {
+            return Err("zone cell index is out of range".to_string());
+        }
+        all.push(Some(RoomZones {
+            edges_x,
+            edges_z,
+            zone_of_cell,
+            zones,
+        }));
+    }
+    Ok(all)
+}
+
+fn write_u32_list(writer: &mut Writer, values: &[u32]) -> Result<(), String> {
+    let count = u32::try_from(values.len()).map_err(|_| "list is too long".to_string())?;
+    writer.u32(count);
+    for value in values {
+        writer.u32(*value);
+    }
+    Ok(())
+}
+
+fn read_u32_list(reader: &mut Reader<'_>, max_index: usize) -> Result<Vec<u32>, String> {
+    let count = reader.count(MAX_COMPILED_LIGHTS, "index list")?;
+    let mut values = Vec::with_capacity(count.min(16384));
+    for _ in 0..count {
+        let value = reader.u32()?;
+        if usize::try_from(value).map_or(true, |value| value >= max_index.max(1)) {
+            return Err("index list entry is out of range".to_string());
+        }
+        values.push(value);
+    }
+    Ok(values)
+}
+
+fn write_u32_lists(writer: &mut Writer, lists: &[Vec<u32>]) -> Result<(), String> {
+    let count = u32::try_from(lists.len()).map_err(|_| "too many index lists".to_string())?;
+    writer.u32(count);
+    for list in lists {
+        write_u32_list(writer, list)?;
+    }
+    Ok(())
+}
+
+fn read_u32_lists(
+    reader: &mut Reader<'_>,
+    list_count: usize,
+    max_index: usize,
+) -> Result<Vec<Vec<u32>>, String> {
+    let count = reader.count(MAX_COMPILED_ROOMS, "index list count")?;
+    if count != list_count {
+        return Err(format!(
+            "index record lists {count} rooms but the bake has {list_count}"
+        ));
+    }
+    let mut lists = Vec::with_capacity(count.min(4096));
+    for _ in 0..count {
+        lists.push(read_u32_list(reader, max_index)?);
+    }
+    Ok(lists)
+}
+
+fn write_fixture_lights(writer: &mut Writer, fixtures: &[Option<usize>]) -> Result<(), String> {
+    let count = u32::try_from(fixtures.len()).map_err(|_| "too many fixtures".to_string())?;
+    writer.u32(count);
+    for fixture in fixtures {
+        write_optional_u32(
+            writer,
+            fixture.map(|index| u32::try_from(index).unwrap_or(u32::MAX)),
+        );
+    }
+    Ok(())
+}
+
+fn read_fixture_lights(
+    reader: &mut Reader<'_>,
+    max_light: usize,
+) -> Result<Vec<Option<usize>>, String> {
+    let count = reader.count(MAX_COMPILED_LIGHTS, "fixture light count")?;
+    let mut fixtures = Vec::with_capacity(count.min(16384));
+    for _ in 0..count {
+        let value = read_optional_u32(reader)?;
+        if let Some(value) = value
+            && usize::try_from(value).map_or(true, |value| value >= max_light)
+        {
+            return Err("fixture light index is out of range".to_string());
+        }
+        fixtures.push(value.map(|value| usize::try_from(value).unwrap_or(usize::MAX)));
+    }
+    Ok(fixtures)
 }
 
 /// Dynamic-range audit of the baked light, over real lightmap texels.

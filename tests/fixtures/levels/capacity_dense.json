@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "capacity_dense",
   "name": "Capacity: Dense Content (dev)",
   "author": "Places Team",
@@ -69922,16 +69922,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_1",
@@ -69943,16 +69957,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_up",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_up",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_up",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_2",
@@ -69964,16 +69992,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_forward",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_forward",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_forward",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_3",
@@ -69985,16 +70027,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_stand",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_stand",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_4",
@@ -70006,16 +70062,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_floor",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_floor",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_floor",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_5",
@@ -70027,16 +70097,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_chair",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_chair",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_chair",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_6",
@@ -70048,16 +70132,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "walk",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_7",
@@ -70069,16 +70167,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "idle",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "idle",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_8",
@@ -70090,16 +70202,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "walk",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_9",
@@ -70111,16 +70237,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "run",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "run",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "run",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_10",
@@ -70132,16 +70272,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_up",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_up",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_up",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_11",
@@ -70153,16 +70307,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_arms_forward",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_arms_forward",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_forward",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_12",
@@ -70174,16 +70342,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_floor",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_floor",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_floor",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_13",
@@ -70195,16 +70377,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "pose_sit_chair",
-            "loop": false
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_sit_chair",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_sit_chair",
+              "loop": false
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_14",
@@ -70216,16 +70412,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "walk",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_15",
@@ -70237,16 +70447,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "walk",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_16",
@@ -70258,16 +70482,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "run",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "run",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "run",
+              "loop": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "dense_actor_17",
@@ -70279,16 +70517,30 @@
         1.8,
         0.7
       ],
-      "interaction": {
-        "prompt": "Animate",
-        "actions": [
-          {
-            "action": "play_animation",
-            "clip": "idle",
-            "loop": true
-          }
-        ]
-      }
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Animate"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "idle",
+              "loop": true
+            }
+          ]
+        }
+      ]
     }
   ],
   "decals": [

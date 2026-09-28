@@ -136,6 +136,11 @@ mod bake;
 mod color;
 mod light;
 pub mod lightmap;
+pub mod probes;
+pub mod transport;
+
+/// Compiled lighting record version, for the package codec and fingerprints.
+pub(crate) const LIGHTING_RECORD_VERSION: u16 = bake::COMPILED_VERSION;
 mod math;
 mod occlusion;
 pub(crate) use occlusion::set_preparation_assets;

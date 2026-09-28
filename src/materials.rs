@@ -7,7 +7,7 @@
 //! [`MaterialTable`] whose entries carry the decoded image, the world tiling
 //! period and the static tint the renderer multiplies in.
 //!
-//! ```
+//! ```text
 //! material id            core:carpet_beige_01        (levels store this)
 //!     ↓                  assets/catalog.json
 //! logical texture id     core:tex_carpet_beige_01

@@ -2610,7 +2610,7 @@ mod tests {
         // crouched one passes, and head collision resolves its underside.
         let raised = LevelDef::from_json(
             r#"{
-                "format_version": 2,
+                "format_version": 3,
                 "id": "raised_arc",
                 "name": "Raised Arc",
                 "spawn": { "x": 1.0, "z": 1.0 },

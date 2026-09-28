@@ -14,7 +14,7 @@ use crate::test_support::{assert_exact, assert_exact_named};
 #[test]
 fn test_parse_single_room_level() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "test_room",
         "name": "Test Room",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -30,7 +30,7 @@ fn test_parse_single_room_level() {
 #[test]
 fn test_parse_multi_room_level_with_walls() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "multi_room",
         "name": "Connected Rooms",
         "spawn": { "x": 2.0, "z": 2.0, "yaw_degrees": 90.0 },
@@ -53,7 +53,7 @@ fn test_parse_multi_room_level_with_walls() {
 #[test]
 fn test_parse_variable_wall_properties() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "variable_walls",
         "name": "Variable Walls Test",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -96,7 +96,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     // and a 400x400 m room must not cost any more: the baked-lighting grid
     // is capped per axis, so geometry never scales with floor area.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "big",
         "name": "Big",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -116,7 +116,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     assert_eq!(estimate.floor_area_m2, 10_000);
 
     let huge = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "huge",
         "name": "Huge",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -128,7 +128,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     // A small room that needs no lighting resolution stays a single quad.
     let small = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "small",
             "name": "Small",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -148,7 +148,7 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 1,
+        format_version: LEVEL_FORMAT_VERSION,
         id: "extreme".into(),
         name: "Extreme".into(),
         author: String::new(),
@@ -189,7 +189,12 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
-        area_triggers: Vec::new(),
+        volumes: Vec::new(),
+        timers: Vec::new(),
+        sequences: Vec::new(),
+        spawn_templates: Vec::new(),
+        spawn_points: Vec::new(),
+        spawn_groups: Vec::new(),
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
@@ -407,7 +412,7 @@ fn test_wall_solid_slices_z_axis_wall() {
 #[test]
 fn test_estimate_geometry_accounts_for_openings_and_props() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "estimate",
         "name": "Estimate",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -448,7 +453,7 @@ fn test_estimate_geometry_accounts_for_openings_and_props() {
 fn test_collision_aabbs_for_z_axis_wall_follow_depth() {
     // A wall running along Z: the slice spans must follow depth, not width.
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "z_wall",
         "name": "Z Wall",
         "spawn": { "x": 5.0, "z": 5.0 },
@@ -476,7 +481,7 @@ fn test_collision_aabbs_for_z_axis_wall_follow_depth() {
 #[test]
 fn test_collision_aabbs_include_solid_props_only() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "props",
         "name": "Props",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -503,7 +508,7 @@ fn test_collision_aabbs_include_solid_props_only() {
 fn test_a_room_without_elevation_gets_flat_ceiling_and_the_default_height() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "minimal_room",
             "name": "Minimal Room",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -523,7 +528,7 @@ fn test_a_room_without_elevation_gets_flat_ceiling_and_the_default_height() {
 fn test_room_elevation_moves_floor_and_ceiling_together() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "raised",
             "name": "Raised",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -624,7 +629,7 @@ fn test_malformed_gable_profiles_degrade_to_the_eave_plane() {
 fn test_gable_room_helpers_report_the_ridge() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 5.0, "z": 4.0 },
@@ -645,7 +650,7 @@ fn test_gable_room_helpers_report_the_ridge() {
 fn test_floor_region_offsets_resolve_inside_outside_and_last_wins() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "regions",
             "name": "Regions",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -674,7 +679,7 @@ fn test_floor_region_offsets_resolve_inside_outside_and_last_wins() {
 fn test_floor_grid_cuts_at_region_edges_and_carries_offsets() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "grid",
             "name": "Grid",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -705,7 +710,7 @@ fn test_floor_grid_cuts_at_region_edges_and_carries_offsets() {
 fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     let deep = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "deep",
             "name": "Deep",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -730,7 +735,7 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     // A step the controller can walk is deliberately not a wall.
     let shallow = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "shallow",
             "name": "Shallow",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -753,7 +758,7 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
 fn test_walkable_floor_matches_the_surface_queries() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "walkable",
             "name": "Walkable",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -790,7 +795,7 @@ fn test_walkable_floor_matches_the_surface_queries() {
 fn test_estimate_geometry_accounts_for_regions_and_gables() {
     let plain = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "plain",
             "name": "Plain",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -802,7 +807,7 @@ fn test_estimate_geometry_accounts_for_regions_and_gables() {
 
     let complex = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "complex",
             "name": "Complex",
             "spawn": { "x": 5.0, "z": 5.0 },
@@ -836,7 +841,7 @@ fn test_estimate_geometry_accounts_for_regions_and_gables() {
 /// A level with a shine override on every surface carrier.
 fn shine_level_json() -> &'static str {
     r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "shine",
         "name": "Shine",
         "spawn": { "x": 4.0, "z": 4.0 },
@@ -894,7 +899,7 @@ fn every_authored_shine_survives_a_json_round_trip() {
 fn a_level_without_shine_keeps_every_override_empty() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2, "id": "plain", "name": "Plain",
+            "format_version": 3, "id": "plain", "name": "Plain",
             "spawn": { "x": 0.0, "z": 0.0 },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ]
         }"#,
@@ -947,7 +952,7 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
     // A face with a different material does not inherit the wall's override:
     // its own material default applies.
     let json = r#"{
-        "format_version": 2, "id": "faces", "name": "Faces",
+        "format_version": 3, "id": "faces", "name": "Faces",
         "spawn": { "x": 0.0, "z": 0.0 },
         "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
         "walls": [
@@ -981,7 +986,7 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
 #[test]
 fn test_ramp_offset_is_linear_and_signed() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "ramps",
         "name": "Ramps",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1020,7 +1025,7 @@ fn test_ramp_offset_is_linear_and_signed() {
 #[test]
 fn test_staircase_offset_steps_over_its_risers() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "stairs",
         "name": "Stairs",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1047,7 +1052,7 @@ fn test_staircase_offset_steps_over_its_risers() {
 #[test]
 fn test_walkable_floor_follows_ramps_and_stairs() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "walkable_architecture",
         "name": "Walkable Architecture",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1091,7 +1096,7 @@ fn test_walkable_floor_follows_ramps_and_stairs() {
 #[test]
 fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
     let json = r#"{
-        "format_version": 2,
+        "format_version": 3,
         "id": "solids",
         "name": "Solids",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1151,7 +1156,7 @@ fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
 fn test_water_volumes_resolve_surface_bottom_and_the_dry_default() {
     let dry_level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "dry",
             "name": "Dry",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1169,7 +1174,7 @@ fn test_water_volumes_resolve_surface_bottom_and_the_dry_default() {
 
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "wet",
             "name": "Wet",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1221,7 +1226,7 @@ fn test_water_volumes_resolve_surface_bottom_and_the_dry_default() {
 fn alignment_catalog() -> crate::assets::AssetCatalog {
     crate::assets::AssetCatalog::from_json_str(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "assets": [
                 { "id": "test:tex_ceiling", "asset_class": "environment",
                   "asset_type": "texture", "source": "file",
@@ -1252,7 +1257,7 @@ fn alignment_table(level: &LevelDef) -> crate::materials::MaterialTable {
 fn alignment_level(fixture: &str, ceiling_material: &str, ceiling: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "align",
             "name": "Align",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1400,7 +1405,7 @@ fn test_grid_alignment_counts_and_periods_match() {
 fn level_from_json_with_defaults(defaults: &str, fixture: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 2,
+            "format_version": 3,
             "id": "align_defaults",
             "name": "Align Defaults",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1472,11 +1477,25 @@ fn test_action_defs_parse_as_tagged_objects() {
         serde_json::from_str(r#"{ "action": "reset_to_start" }"#).expect("reset_to_start parses");
     assert_eq!(reset, ActionDef::ResetToStart);
 
-    // The reserved integration points parse so validation can name them; they
-    // are not implemented and must never load silently.
-    let audio: ActionDef = serde_json::from_str(r#"{ "action": "play_audio", "sound": "beep" }"#)
-        .expect("the reserved audio action parses");
-    assert_eq!(audio.kind(), "play_audio");
+    // The v3 action set replaced the reserved `play_audio` tag with
+    // `play_sound`; the removed tag is an unknown action now, never a silently
+    // accepted alias.
+    assert!(
+        serde_json::from_str::<ActionDef>(r#"{ "action": "play_audio", "sound": "beep" }"#)
+            .is_err(),
+        "the removed play_audio tag must not parse"
+    );
+    let sound: ActionDef = serde_json::from_str(r#"{ "action": "play_sound", "sound": "beep" }"#)
+        .expect("the play_sound action parses");
+    assert_eq!(
+        sound,
+        ActionDef::PlaySound {
+            target: None,
+            sound: Some("beep".into()),
+            looped: false
+        }
+    );
+    assert_eq!(sound.kind(), "play_sound");
     let animation: ActionDef =
         serde_json::from_str(r#"{ "action": "play_animation", "clip": "wave" }"#)
             .expect("the reserved animation action parses");
@@ -1499,7 +1518,7 @@ fn test_action_defs_parse_as_tagged_objects() {
 fn test_prop_instance_ids_default_deterministically() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "ids",
             "name": "Ids",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1526,7 +1545,7 @@ fn test_prop_instance_ids_default_deterministically() {
 
     let light_level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "light_ids",
             "name": "Light Ids",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1544,13 +1563,13 @@ fn test_prop_instance_ids_default_deterministically() {
     );
 }
 
-/// Area triggers resolve authored ids, default ids, authored vertical bounds
-/// and floor-derived bounds, and `contains` is a real volume test.
+/// Area trigger volumes resolve authored ids, default ids, authored vertical
+/// bounds and floor-derived bounds, and `contains` is a real volume test.
 #[test]
 fn test_area_triggers_resolve_ids_and_bounds() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "triggers",
             "name": "Triggers",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1559,25 +1578,25 @@ fn test_area_triggers_resolve_ids_and_bounds() {
             "floor_regions": [
                 { "x": 6.0, "z": 6.0, "width": 2.0, "depth": 2.0, "offset_y": -1.0 }
             ],
-            "area_triggers": [
+            "volumes": [
                 { "id": "authored", "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0,
                   "bottom_y": -1.0, "top_y": -0.1,
-                  "actions": [{ "action": "reset_to_start" }] },
+                  "bindings": [{ "on": "enter_volume",
+                                 "actions": [{ "action": "reset_to_start" }] }] },
                 { "x": 6.0, "z": 6.0, "width": 2.0, "depth": 2.0,
-                  "actions": [{ "action": "reset_to_start" }] }
+                  "bindings": [{ "on": "enter_volume",
+                                 "actions": [{ "action": "reset_to_start" }] }] }
             ]
         }"#,
     )
     .expect("the trigger level parses");
-    assert_eq!(
-        level.area_trigger_instance_ids(),
-        vec!["authored", "trigger_2"]
-    );
+    assert_eq!(level.volume_instance_ids(), vec!["authored", "trigger_2"]);
 
-    let triggers = AreaTriggers::from_level(&level);
-    assert_eq!(triggers.len(), 2);
-    let first = triggers.get(0).expect("the authored trigger");
-    assert_eq!(first.id, "authored");
+    let world = crate::entities::EntityWorld::from_level(&level);
+    let volumes: Vec<_> = world.components().volumes.iter().collect();
+    assert_eq!(volumes.len(), 2);
+    let (first_handle, first) = volumes[0];
+    assert_eq!(world.id_of(first_handle), Some("authored"));
     assert!((first.bottom_y - (-1.0)).abs() < 1e-6);
     assert!((first.top_y - (-0.1)).abs() < 1e-6);
     assert!(first.contains(1.5, 1.5, -0.5));
@@ -1586,7 +1605,7 @@ fn test_area_triggers_resolve_ids_and_bounds() {
 
     // The second trigger's vertical bounds default to the floor under its
     // centre (the recess at -2.0) plus the documented 2.0 m height.
-    let second = triggers.get(1).expect("the defaulted trigger");
+    let (_, second) = volumes[1];
     assert!(
         (second.bottom_y - (-2.0)).abs() < 1e-6,
         "{}",
@@ -1595,35 +1614,53 @@ fn test_area_triggers_resolve_ids_and_bounds() {
     assert!((second.top_y - 0.0).abs() < 1e-6, "{}", second.top_y);
 }
 
-/// A trigger with an inverted authored band or malformed size is skipped at
-/// resolution time, exactly like a malformed water volume or ladder; the
-/// loader rejects it before a real level ever reaches here.
+/// A trigger with a non-finite footprint or an inverted authored band is
+/// skipped at resolution time, exactly like a malformed water volume or ladder;
+/// the loader rejects it before a real level ever reaches here. (A zero-area
+/// footprint is no longer filtered at resolution — validation owns that check —
+/// so the malformed case here is a non-finite one.)
 #[test]
 fn test_malformed_area_triggers_are_skipped_at_resolution() {
-    let level = LevelDef::from_json(
+    let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "bad_triggers",
             "name": "Bad Triggers",
             "spawn": { "x": 1.0, "z": 1.0 },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
-            "area_triggers": [
-                { "x": 1.0, "z": 1.0, "width": 0.0, "depth": 1.0,
+            "volumes": [
+                { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
                   "bottom_y": 0.0, "top_y": 1.0,
-                  "actions": [{ "action": "reset_to_start" }] },
+                  "bindings": [{ "on": "enter_volume",
+                                 "actions": [{ "action": "reset_to_start" }] }] },
                 { "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0,
                   "bottom_y": 1.0, "top_y": 0.0,
-                  "actions": [{ "action": "reset_to_start" }] },
+                  "bindings": [{ "on": "enter_volume",
+                                 "actions": [{ "action": "reset_to_start" }] }] },
                 { "x": 3.0, "z": 3.0, "width": 1.0, "depth": 1.0,
                   "bottom_y": 0.0, "top_y": 1.0,
-                  "actions": [{ "action": "reset_to_start" }] }
+                  "bindings": [{ "on": "enter_volume",
+                                 "actions": [{ "action": "reset_to_start" }] }] }
             ]
         }"#,
     )
     .expect("the malformed trigger level parses");
-    let triggers = AreaTriggers::from_level(&level);
-    assert_eq!(triggers.len(), 1, "only the last trigger is well formed");
-    assert_eq!(triggers.get(0).expect("one trigger").id, "trigger_3");
+    // A non-finite footprint cannot come from strict JSON, so it is authored
+    // directly on the first record.
+    level.volumes[0].width = f32::INFINITY;
+    let world = crate::entities::EntityWorld::from_level(&level);
+    assert_eq!(
+        world.components().volumes.len(),
+        1,
+        "only the last trigger is well formed"
+    );
+    let (handle, _) = world
+        .components()
+        .volumes
+        .iter()
+        .next()
+        .expect("one trigger");
+    assert_eq!(world.id_of(handle), Some("trigger_3"));
 }
 
 /// A `float` block is optional decoration on the prop schema: every old map
@@ -1634,7 +1671,7 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
     // An untouched prop schema: no `float` key anywhere.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "float_defaults",
             "name": "Float Defaults",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1664,7 +1701,7 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
     // The same defaults apply when the block is parsed inside a level.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "float_defaults",
             "name": "Float Defaults",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1690,7 +1727,7 @@ fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
     // half of the rule is testable.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "disc_test",
             "name": "Disc Test",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1737,7 +1774,7 @@ fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
 fn test_round_primitives_parse_with_sensible_defaults() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "round_parse",
             "name": "Round Parse",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1782,7 +1819,7 @@ fn test_round_primitives_parse_with_sensible_defaults() {
 fn test_ceiling_tile_frame_round_trips_and_rotates() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "tile_frame",
             "name": "Tile Frame",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1817,7 +1854,7 @@ fn test_ceiling_tile_frame_round_trips_and_rotates() {
 fn test_ceiling_uvs_follow_the_room_tile_frame() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "tile_uv",
             "name": "Tile Uv",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1876,7 +1913,7 @@ fn test_ceiling_uvs_follow_the_room_tile_frame() {
 fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 2,
+            "format_version": 3,
             "id": "tile_decal",
             "name": "Tile Decal",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1922,7 +1959,7 @@ fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
 fn raised_region_keeps_its_height_through_the_room_edge_tolerance() {
     let level = LevelDef::from_json(
         r#"{
-        "format_version": 2, "id": "join", "name": "Join", "spawn": {"x": 1, "z": 1},
+        "format_version": 3, "id": "join", "name": "Join", "spawn": {"x": 1, "z": 1},
         "rooms": [
             {"x": 0, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -1.5},
             {"x": 4, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -0.9}

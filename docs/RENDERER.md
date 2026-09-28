@@ -414,7 +414,7 @@ pub struct MaterialKey {
 }
 ```
 
-`material_identities(draws)` assigns each draw its slot in first-use order, and `WorldMaterials` creates one `GpuMaterial` per slot. The key is not a source material id alone: the surface kind separates a fixture luminous face from a wall that happens to share a numeric slot, and a per-surface shine override changes the resolved roughness and therefore always earns its own state. `MaterialIndex::MATERIAL_NONE` is a valid key component (the plain state, fallback texture). Material GPU records are created once per level load and dropped with the level; normal-map textures are owned by the texture cache (renderer-lifetime for catalog assets, level-scoped for pack assets) and kept alive additionally by the material's `Arc`.
+`material_identities(draws, routing)` assigns each draw its slot in first-use order, and `WorldMaterials` creates one `GpuMaterial` per slot. The key is not a source material id alone: the surface kind separates a fixture luminous face from a wall that happens to share a numeric slot, a per-surface shine override changes the resolved roughness and therefore always earns its own state, and a planar range's mirror plane is part of the key, so one material used on two floors keeps two reflection states (and two capture-exclusion identities). `MaterialIndex::MATERIAL_NONE` is a valid key component (the plain state, fallback texture). Material GPU records are created once per level load and dropped with the level; normal-map textures are owned by the texture cache (renderer-lifetime for catalog assets, level-scoped for pack assets) and kept alive additionally by the material's `Arc`.
 
 `MaterialUniform`, 80 bytes, `#[repr(C)]` + `bytemuck::Pod`; WGSL declares the same field order:
 
@@ -494,16 +494,92 @@ The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, 
 
 ## 7. Lighting, lightmaps and shadows
 
-### 7.1 No realtime lights
+### 7.1 Prepared lighting, no realtime lights
 
-The renderer has no light selection, no light array, no attenuation curve in a shader and no shadow map. Every fixture contribution is baked once per level load on the CPU by `src/lighting/**`, and the world fragment stage contains exactly one light expression:
+The renderer has no light selection, no light array, no attenuation curve in a
+shader and no shadow map. Every fixture contribution is solved **offline** by
+`places-compile` (the transport solver in `src/lighting/transport.rs`) and
+packaged; the player decodes prepared data and samples it. The world fragment
+stage contains exactly one light expression:
 
 ```wgsl
-light = atlas_sample(when the atlas is on) else vec3(1.0);
-light *= light_scale;   // the dynamic-object probe, 1 for static geometry
+light = prepared_light(when the atlas is on) else vec3(1.0);
+light *= light_scale;   // the prepared probe field, 1 for static geometry
 ```
 
-Ambient, baselines and pools exist **only in the CPU bake**. The shader has no ambient, no light position and no attenuation input, so "changing the lighting at runtime" means re-baking.
+The prepared light is linear HDR and directional: each texel stores an
+irradiance term and a dominant-lobe amplitude plus an octahedral axis, and the
+shader reconstructs
+
+```wgsl
+light(n) = max(0, irradiance + direction * (2 * max(0, dot(n, axis)) - 1));
+```
+
+then runs the display tone map (`soft_clip`: values up to 0.8 pass through;
+brighter values compress with a C1 exponential shoulder) before multiplying
+the surface. The directional factor integrates to zero over the sphere, so a
+texel cannot gain energy from its dominant direction; opposing lights cancel
+to the mean. The stored light is albedo-free: the fragment stage multiplies
+the base colour exactly once.
+
+**What is still runtime.** Sampling the prepared data (including the probe
+field and the switchable-light mask), the dynamic-object probe refresh, the
+camera and UI, doors/interactions, planar mirrors and particle emission. No
+player path bakes static light, plans charts, captures probes or generates
+static navigation.
+
+### 7.1.1 What the compiler solves
+
+`src/lighting/transport.rs` builds a deterministic BVH over the prepared
+triangles (walls, floors, ceilings, architecture, prop fallback boxes; decals
+and fixture housings are excluded, so a fixture cannot shadow itself), resolves
+the level's `LightSource`s as point/rect/line emitters, and then:
+
+1. **Direct**: each light is sampled on its authored shape with a per-axis tap
+   pattern, every tap shadow-tested; the visible tap fraction is the soft
+   shadow. Ceiling fixtures keep the historical horizontal-reach falloff, so a
+   tall chamber's floor stays lit; the receiver's normal supplies the incidence
+   in the reconstruction.
+2. **Bounce**: uniform-hemisphere ray samples per texel read the previous pass's
+   solved surfaces through a side/surface-aware cache (a cache cell can only
+   answer with a receiver of the hit triangle, so light never crosses a wall or
+   a storey). One pass is one diffuse bounce; Medium runs one, Full two, and the
+   estimator is unbiassed (no truncated point-light list).
+3. **Denoise**: a chart-space luma-guided 3x3 pass removes gather noise without
+   crossing a real lighting edge, then the chart gutters are dilated.
+
+Probes for the `off` variant and the fallback remain the historical
+display-space model; see §7.3.
+
+### 7.1.2 Irradiance field for moving objects
+
+Compiled variants carry a prepared `blobs/<sha>.irradiance` field (a uniform 3D
+grid over the mapped world). Every probe stores the same compact HDR lobe as a
+lightmap texel plus the room it occupies; the compiler solves it from the same
+transport pass as the atlas. Moving objects and characters read it at runtime
+with a trilinear interpolation restricted to the sample's own room, so light
+does not bleed through floors, ceilings or full-height walls; an unresolvable
+position falls back to the vertex-lit sample instead of going black. The GPU
+receives the sampled display value through the per-object `light_scale`
+uniform — no per-frame bake and no ray is cast at runtime.
+
+### 7.1.3 Changeable lights
+
+A `switchable` ceiling fixture's contribution is solved into its **own layer
+group** in the HDR atlas. The environment uniform carries the group count and a
+live mask; toggling a switch updates the mask and the fixture's emissive face
+material, and the shader immediately sums a different prepared set. There is no
+runtime chart re-fill, no per-switch bake and no combinatorial scenario atlas.
+A level may prepare at most four switchable fixtures; the illumination change
+is a real transport change, not an emissive-only tint.
+
+The moving-object irradiance field (§7.1.2) is solved from the non-switchable
+transport only: a switchable fixture contributes nothing to that field in any
+state, so a moving object or character is never lit by a switchable fixture
+even while it is on and its static surfaces are lit. Toggling updates the
+static atlas layers, not the field. Per-state field layers are deliberately not
+prepared; until they are, treat a switchable fixture as a static-surface light
+where moving-object lighting is concerned.
 
 ### 7.2 Light sources
 
@@ -514,7 +590,12 @@ A level authors lights in two places; both become the same neutral `LightSource`
 
 A `LightSource` is a shape (`Point`, `Rect`, `Line` — a line is a thin rect), a world position, a colour, an intensity clamped to `0..=8`, a range clamped to `0.05..=64` m (default 6 m) and a falloff (`Smooth` — the `(1-t)²(1+2t)` cushion — `Linear` or `Constant`). It is active when enabled, with a positive intensity and a non-black colour. There is no maximum active count because nothing is dynamic: the bake visits them all.
 
-### 7.3 The baked equation
+### 7.3 The vertex-lit equation (preserved `off` variant and fallback)
+
+This is the historical display-space model. It is still the exact contract of
+the `off` variant and of every build that falls back after a plan/fill failure,
+and its unit tests remain the vertex-lit parity gate. The prepared HDR atlas
+does **not** use it.
 
 Per sample point and channel:
 
@@ -566,7 +647,39 @@ still blocks a far emitter tap.
 
 The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality level, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
 
-The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the loading worker restores versioned `cache/lightmaps/v10-<hash>.lmc` entries. Each entry is a bounded, checksummed envelope published by same-directory atomic rename. The atlas is **one `texture_2d_array` of up to eight 1024² pages** (eight 512² pages at the Low profile); the vertex's `lightmap_page` byte is the layer index, so the same shader expression addresses any page count without a per-page branch. Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples the array at the layer only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** through the same rule the vertex bake's face sampling uses: strict containment wins at the bias-shifted sample point, and a texel that only touches a boundary falls back to the patch's own room with its position clamped into it. Abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, so a single per-run hint would make the baked light switch room at the arbitrary run seam; the strict-first order keeps the light following the world, while the room hint keeps a boundary face lit by the room it actually opens into instead of whichever overlapping neighbour the loose tie-break preferred (the defect that left The Pit's shaft walls at ambient). Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). The page budget is eight; the packer is a deterministic best-short-side-fit MaxRects allocator, and the shipped demo and The Pit pack into two and four pages respectively, where the pre-rework skyline allocator needed a fifth page for The Pit (recorded during the capacity change; the same level needs six 512-texel pages, which the expanded Low page budget can hold). A level that genuinely needs more than eight pages keeps the neutral build's vertex-lit mesh and reports the named `PageOverflow` failure — a partial or black atlas is never drawn. The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide; it also folds in a fingerprint of the lighting model's constants (`model_fingerprint`), so recalibrating the bake invalidates cached atlases even when the level and configuration are unchanged. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
+The prepared atlas is **one `texture_2d_array` of up to eight 1024² pages**
+(eight 512² pages at the Low profile); the vertex's `lightmap_page` byte is the
+base page index, so the same shader expression addresses any page count
+without a per-page branch. Every page contributes two layers: a linear HDR
+`Rgba16Float` irradiance plane and a dominant-lobe plane whose alpha is the
+octahedral axis coordinate (`VK_FORMAT_R16G16B16A16_SFLOAT` in the package).
+Each switchable fixture's prepared contribution adds one more pair per page
+after the base group; the environment uniform's page count and mask select what
+is summed. `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and
+`lightmap_page` as a plain float. `surface_light()` samples the selected layer
+pairs only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, reconstructs
+the HDR lobe, tone maps it, then multiplies by `light_scale`; `LIGHTMAP_NONE`
+keeps the vertex-lit colour exactly. Sheen, reflection and emission are all
+scaled by that same light factor, so a dark room darkens them.
+
+Charts are planned inline while the mesh is emitted with the deterministic
+best-short-side-fit MaxRects allocator; a plan or fill failure keeps the
+historical vertex-lit mesh, and a level that genuinely needs more than eight
+pages reports the named `PageOverflow` failure — a partial or black atlas is
+never drawn. The compiler content key follows the effective configuration,
+never the overall quality label, so `Low + Lightmaps Full` reuses the same Full
+entry as `High + Lightmaps Full` while Medium and Full never collide; it folds
+in the occluder fingerprint, a fingerprint of the vertex-lit model's constants
+(`model_fingerprint`) and the transport solver's revision, so recalibrating
+either model or upgrading the solver invalidates prepared data even when the
+level and configuration are unchanged.
+
+Quality is a compile-time choice: **Medium** runs one diffuse bounce with two
+emitter taps per axis at 12 texels/m; **Full** runs two bounces with three taps
+at 16 texels/m. `off` ships no atlas and the historical vertex-lit mesh. There
+is no runtime atlas re-fill, and the old `cache/lightmaps/*.lmc` disk store is
+gone with the runtime bake; the compiler reuses whole packages by fingerprint
+instead.
 
 ### 7.5 The sheen
 
@@ -590,23 +703,77 @@ material with neither normal map nor sheen, and for the whole scene under Low
 
 ### 7.6 Shadows
 
-There is no GPU shadow system: no shadow render target, no shadow camera or projection matrix, no depth texture sampled as data, no comparison sampler, no PCF kernel, no caster list and no per-light shadow pass. Every shadow in Places is a surface losing a baked pool: opaque wall solids block pools with every opening kind (door, window, vent) cutting the hole it really cuts; room floors contribute zero-thickness interfaces and ceilings solid bodies, which stops light crossing a storey; each static prop's real (or placeholder) model is ground into oriented boxes that block pools and darken the prop's own contact area; alpha and blend state are never consulted, so a cut-out grille pane and a translucent glass pane transmit light exactly like the opening they fill; trim (baseboards, thresholds) does not block, while structural pieces (half walls, columns, archways, guardrails, stairs) do; dynamic objects cast no baked shadow, by design. The trim exemption is geometric, not an oversight: a 12 mm threshold step shadows only the floor it covers, and a 9 cm baseboard hugs its wall so every floor point is already on the fixture's side of it — a thin occluder box would change nothing outside the board's own footprint, which the visibility tests pin (`a_threshold_height_step_shadows_only_its_own_footprint`, `a_baseboard_against_its_wall_does_not_shadow_the_open_floor`).
+There is no GPU shadow system: no shadow render target, no shadow camera or
+projection matrix, no depth texture sampled as data, no comparison sampler, no
+PCF kernel, no caster list and no per-light shadow pass. In the **prepared
+path** every shadow is a direct shadow ray (per emitter tap) or a bounce ray
+that fails to reach the cache, both cast offline against the static triangles:
+walls block with every opening kind (door, window, vent) cutting the hole it
+really cuts; floors and ceilings are real surfaces, so light cannot cross a
+storey; a static prop's triangles occlude; fixture housings deliberately do
+not, so an emitter never shadows itself. Movable entities are absent from the
+transport scene, so they leave no silhouette.
+
+In the preserved **vertex-lit model** every shadow is a surface losing a baked
+pool, tested against the box solids: alpha and blend state are never consulted,
+so a cut-out grille pane and a translucent glass pane transmit light exactly
+like the opening they fill; trim (baseboards, thresholds) does not block, while
+structural pieces (half walls, columns, archways, guardrails, stairs) do; the
+trim exemption is geometric, not an oversight: a 12 mm threshold step shadows
+only the floor it covers, and a 9 cm baseboard hugs its wall so every floor
+point is already on the fixture's side of it — a thin occluder box would change
+nothing outside the board's own footprint, which the visibility tests pin
+(`a_threshold_height_step_shadows_only_its_own_footprint`,
+`a_baseboard_against_its_wall_does_not_shadow_the_open_floor`).
 
 ### 7.7 Resources
 
-No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. The lightmap is one level-scoped `texture_2d_array` (up to eight RGBA8 layers; the effective lightmap configuration determines page dimensions) plus a 1×1 white fallback array; both are uploaded once per bake and dropped with the level. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
+No lighting resource is created per frame. The only new per-frame upload is the
+camera uniform (matrix **and** eye), written with `Queue::write_buffer` and
+skipped entirely while both are unchanged. No light buffer, light array, shadow
+target, shadow sampler or lighting bind group exists. The prepared lightmap is
+one level-scoped `texture_2d_array` (`Rgba16Float`; two layers per page, plus
+one pair per switchable fixture) uploaded once at install and dropped with the
+level. The prepared probe field is CPU memory sampled by the dynamic-object
+update; the reflection probes are at most two cubemaps (6 faces of 64²/48² raw
+RGBA8 with their offline prefiltered mip chains) uploaded from the package. For
+a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry
+and light are identical and only the response gate differs; for an atlas build
+the variant selects density, page size, tap and bounce budgets at compile time
+(§7.4).
 
 ## 8. Reflections
 
 Reflections are opt-in per material and weighted by the sheen the material already authors, so a rough or dull surface suppresses its reflection instead of mirroring. They are a player setting (Settings → Graphics → Reflections, plus the `PLACES_NO_REFLECTIONS=1` startup override); turning them off removes the planar pass, the probe bake and the reflection texture binds from the frame without a level reload.
 
-**Probes.** Baked once per level load, after the decal upload, with the full scene body (static, props, dynamics, decals). Face size is 64 texels at High, 48 at Medium and 32 at Low; the nearest probe to the visible reflective surface is selected per frame, and a black cube is the fallback when no probe exists. Two conventions are pinned. Face row order: a cube face captured into a render target has its first row at the top, while conventional cube-map sampling expects the captured image bottom-up, so the probe projection negates NDC `y` (storing the bottom-up image) and the capture pipeline uses the reversed front face to compensate for the winding flip. Bake position: the routing's centroid is lifted `+1.2 m` (`PROBE_LIFT_M`). Both are verified by `render::wgpu::reflections::tests::the_cube_round_trip_matches_the_reference_face_convention`, a GPU round-trip test (ignored by default) that captures a world-space quad with the real capture matrices and samples it back, checking layer selection, the `s` axis and the `t` axis.
+**Probes.** Captured **offline** by `places-compile` with the same scene body
+the player installs (static, props, dynamics, decals) and **prefiltered offline
+into a roughness mip chain** by `src/render/common/probe_filter.rs`: level 0 is
+the capture, level `L` is a cone average whose roughness is
+`L / (levels - 1)` (48-texel faces carry 6 levels, 64-texel faces 7). The
+package carries the whole chain; the player uploads it and the shader selects
+`roughness * probe_max_mip`, so a polished floor reads a nearly sharp capture
+and a rough one a wide prefiltered lobe. Live captures (a developer probe
+re-bake) keep one valid level and use the bounded two-tap fallback. The nearest
+probe to the visible reflective surface is selected per frame, and a black cube
+is the fallback when no probe exists. Two conventions are pinned. Face row
+order: a cube face captured into a render target has its first row at the top,
+while conventional cube-map sampling expects the captured image bottom-up, so
+the probe projection negates NDC `y` (storing the bottom-up image) and the
+capture pipeline uses the reversed front face to compensate for the winding
+flip. Bake position: the routing's centroid is lifted `+1.2 m`
+(`PROBE_LIFT_M`). Both are verified by
+`render::wgpu::reflections::tests::the_cube_round_trip_matches_the_reference_face_convention`,
+a GPU round-trip test (ignored by default) that captures a world-space quad
+with the real capture matrices and samples it back, checking layer selection,
+the `s` axis and the `t` axis. The mip chain never regenerates at load, on a
+graphics change or per frame.
 
-**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the mirror's own static batches (`material_plane == capture_plane`), without which the deck would fill its own reflection image. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
+**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the active plane's own static batches: the routing records the plane per mesh range, the material identity includes that plane, and each draw's material state is excluded exactly when its own plane is the capture plane. A material used on two disjoint floor patches therefore keeps two routes — selecting one reflects and excludes its ranges without treating the other plane's ranges as part of it. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
 
 ## 9. Props, dynamics, doors, fixtures and emission
 
-**Props / GLB models.** The neutral build's `PropMeshBatch` list is uploaded verbatim: world-space, per-vertex-lit vertices, one draw per primitive, model sheets through the texture cache with clamp wrap and the player's filter. Materials are plain-opaque with the primitive's emission (and its mask); props never use normal maps, alpha modes or reflections.
+**Props / GLB models.** The neutral build's `PropMeshBatch` list is uploaded verbatim: world-space, per-vertex-lit vertices, one draw per primitive, model sheets through the texture cache with clamp wrap and the player's filter. Materials are plain-opaque with the primitive's emission (and its mask); props never use normal maps, alpha modes or reflections. Under every quality variant the prop path keeps this CPU vertex-lit bake (`LIGHTMAP_NONE`), not the HDR atlas: the light is position- and room-dependent through the vertex-lit model, but it does not carry the transport solver's HDR, multibounce or dominant-direction response the static surfaces receive.
 
 **Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed only when an object moves. Opaque dynamic primitives splice in after the static opaque class; a dynamic submesh may instead declare a **blended** alpha contract, in which case it draws after the sorted static translucent surfaces, with depth writes off and depth testing against the opaque pass, so a moving glass pane composites over the static world. Dynamic objects are outside the static batches and the bake and cast no shadow. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
 
@@ -696,32 +863,34 @@ Every graphics setter is a cheap recording: `set_quality`, `set_lightmap_quality
 |---|---|
 | Texture Filtering only | none: the recorded preset selects which bind group a draw binds at bind time |
 | Bloom only | none: the value gates the per-frame post settings |
-| Reflections only | retire/create probe cubemaps and the planar target, rebake probes, rebuild the environment bind groups |
-| Lightmaps only | worker prepared-build lookup; on a miss prepare geometry/lighting and restore or fill the atlas, then stage GPU installation |
+| Reflections only | retire/create probe cubemaps and the planar target, upload the package's captures for the new face size, rebuild the environment bind groups |
+| Lightmaps only | worker decoded-variant lookup; on a miss decode the package's variant records (geometry, lighting, atlas, collision, probes), then stage GPU installation |
 | Quality only (lightmap configuration unchanged) | reuse a matching immutable prepared build when retained; fit/upload resources for the new GPU quality budget |
 | Combined | one latest request and one completed installation |
 
 Startup, level changes and CPU-dependent graphics changes use `loading::Loader`.
-Its single worker reads level/assets, prepares geometry and lighting, restores
-or fills lightmaps, and builds collision and character state. The main thread
-continues polling events and presenting the loading UI or previous world.
-Generation checks reject superseded results, and cancellation is cooperative
-between preparation stages and lightmap charts.
+Its single worker decodes compiled map packages: it resolves texture pixels
+through the installed asset bundle and decodes the package's prepared records
+(geometry, props, baked lighting, lightmap atlas, collision, probe captures) for
+the requested lightmap quality. It never bakes light, plans charts, fills an
+atlas, emits geometry or captures probes; the main thread continues polling
+events and presenting the loading UI or previous world. Generation checks reject
+superseded results, and cancellation is cooperative between decode stages.
 
 The renderer retains an `Arc<LevelBuild>`; the worker also retains an LRU of up
-to three immutable builds within a 192 MiB retained-data budget. Keys include
-actual level/material/catalog/model inputs and effective Lightmaps quality.
-Oversized builds remain usable but are not retained in that cache. A cache hit
-reuses geometry, lighting and atlas data; collision and character playback state
-are still prepared for the request. File-backed texture revisions use content
-keys so changed pixels cannot reuse an older GPU upload.
+to three decoded variants within a 192 MiB retained-data budget. Keys are the
+package's content identity and the effective Lightmaps quality. Oversized
+variants remain usable but are not retained in that cache. A cache hit reuses
+geometry, lighting, atlas, compiled collision and probe captures; character
+playback state is still built for the request. File-backed texture revisions use
+content keys so changed pixels cannot reuse an older GPU upload.
 
 GPU ownership remains on the main thread. `install_prepared` starts a pending
 installation and `advance_prepared_install` advances its upload phases; prop
 batches are processed with a cooperative time budget. Only a completed
 installation replaces the active world. Cancellation discards pending resources.
-Individual atlas uploads, material preparation, character uploads and final
-reflection setup can still take longer than a frame; this lifecycle does not
+Individual atlas uploads, material preparation, character uploads and packaged
+probe uploads can still take longer than a frame; this lifecycle does not
 promise a hard latency bound. Measurements belong in dated reports, not this
 execution contract.
 
