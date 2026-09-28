@@ -27,7 +27,7 @@ directions (the wrapped edges are gated by `tools/textures/seam_repair.py
 --check`; see [Texture seam repair](#texture-seam-repair) below). They stay
 pale and near-neutral, because the material `tint` and the baked lighting
 multiply into the sampled texel; the carpet is the deliberate exception (its
-material has no tint), so it is painted at the historical warm-brown albedo.
+material has no tint), so it is painted at the warm-brown albedo.
 
 * `wallpaper_yellow_01` — pale-printed stock: fine vertical striation, a
   pinstripe pair and a half-drop dot motif on a 25 cm cell, plus a low-frequency
@@ -63,17 +63,16 @@ listed here: they belong to no theme and live under `../../core/`.
 ## Texture seam repair
 
 The 1024x1024 sheets are the authoritative artwork; the 128x128 generators in
-`tools/textures/office_art.py` are the original painters. The
-unstained yellow paper, the panel ceiling and its stained variant already
-wrapped cleanly; the stained wallpaper and both carpets carried a real
-wrapped-edge step on both axes and were repaired via
+`tools/textures/office_art.py` are placeholder painters whose output is not
+shipped. All six sheets wrap cleanly on both axes: the stained wallpaper and
+both carpets use tuned cross-fade bands, applied with
 
 ```sh
 python3 tools/textures/seam_repair.py --repair <path-to-sheet.png>
 ```
 
-`tools/textures/seam_repair.py` is the reproducible source of truth for that
-repair: it keeps the colour type, the exact dimensions and the ancillary
+`tools/textures/seam_repair.py` is the reproducible source of truth for those
+bands: it keeps the colour type, the exact dimensions and the ancillary
 chunks, and documents the tuned cross-fade band and roll offset for each sheet
 in its docstring. `--report` prints, per axis and channel, the wrapped edge
 step against the sheet's own interior adjacent-pixel step; `--check` gates

@@ -19,6 +19,11 @@ The animation bake has six independent grounded clip jobs; it never duplicates a
 search or changes sample counts. Resize jobs reuse source pixels in the initializer
 and preserve the original box coverage and integer rounding.
 
+The player's level preparation shares that budget: catalog texture decode runs
+up to four concurrent workers, clamped by the `--workers` value the compiler
+stores as the process preparation budget, so `--workers 1` keeps a tool run
+serial. The runtime never exceeds the one shared allocation.
+
 Generators compute their complete selected batch before publication; encoded files
 are replaced atomically by the parent. This prevents truncated files and worker-error
 partial batches. Multi-file publication is not a filesystem transaction: an I/O
@@ -87,7 +92,8 @@ bounded representative check, not proof of every possible imported asset.
 `places-compile build` runs the offline transport solver
 (`src/lighting/transport.rs`) for every `medium`/`full` variant: direct
 emitter sampling with soft shadows, one or two visibility-tested diffuse
-bounces, a directional dominant-axis per-texel encoding, and a prepared
+bounces, a moment per-texel encoding (an irradiance mean plus the signed
+vector sum of the per-channel first moments), and a prepared
 irradiance field for moving objects (solved from the non-switchable emitters;
 a switchable fixture's contribution is prepared only as its extra atlas layer
 pair). The result is packaged as linear
@@ -175,6 +181,8 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 | `tools/levels/build_capacity_fixtures.py` | Two capacity fixture layouts; tests | S/catalog; fixture JSONs | D; bounded layout synthesis |
 | `tools/levels/build_fixture_levels.py` | Showcase/stress layouts; tests | S/catalog; fixture JSONs | D; bounded layout synthesis |
 | `tools/levels/build_model_zoo.py` | Catalog inspection and zoo regeneration | S/E; zoo JSON and cache | B; cached spawn inspection, shared budget |
+| `target/release/places --repair-geometry` | Read-only wall-joint repair planner; one level; `--plan` writes the machine-readable plan (same classification as `--check-geometry`) | S; one level | serial |
+| `tools/levels/repair_alignment.py` | Verifies/applies a wall-joint repair plan byte-faithfully with an atomic replace, checker post-validation and idempotence proof (`--check` / `--apply`) | S; one level | serial |
 | `tools/props/animate_spooner_man.py` | Canonical cat clip baking and --check | S/P; guarded canonical GLB | A; six spawn clip jobs, parent export |
 | `tools/props/build.py` | Catalog prop build/check; verify.sh and authoring | S/P; catalog GLBs | A build jobs; D cheap checks |
 | `tools/props/cat_motion.py` | IK and grounded clip sampling; animation baker | S/P; pose arrays | A; initialized model per worker |
@@ -224,7 +232,7 @@ The inventory covers maintained entry points and their execution contracts.
 `tools/verify.sh` is the shell consumer of the Python validation and native
 suites; no other active CI configuration is tracked. Historical functional
 results, equivalence measurements and limitations are recorded in the
-[integrated handoff](reports/feature-expansion-handoff.md) and
+[feature-expansion report](reports/feature-expansion-handoff.md) and
 [tooling results](reports/run09-tooling-results.json). Those records describe
 specific runs, not current gate status.
 

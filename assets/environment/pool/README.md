@@ -30,14 +30,13 @@ The 1024x1024 sheets are the authoritative artwork, not the 128 px painter
 output: `tools/textures/build.py` skips a sheet whose shipped dimensions
 differ from its painter's output, so a plain run leaves them untouched and only
 `--force` would replace the shipped sheets with the 128 px output. The wall
-tile's left-to-right wrap step measured about three times its own interior
-variation (a visible vertical seam where the tile grid re-met itself); it was
-repaired in place with
-`python3 tools/textures/seam_repair.py --repair assets/environment/pool/textures/walls/pool_tile_wall_01.png`
-and the wrapped edge is now gated by both the Rust surface-tiling test and
+tile's left-to-right wrap uses a tuned repair where the raw wrap step measured
+about three times its own interior variation (a visible vertical seam where the
+tile grid re-met itself), applied with
+`python3 tools/textures/seam_repair.py --repair assets/environment/pool/textures/walls/pool_tile_wall_01.png`;
+the wrapped edge is gated by both the Rust surface-tiling test and
 `python3 tools/textures/seam_repair.py --check`. The tool pins this sheet's
-repair parameters, so `--repair` reproduces the shipped file deterministically
-from the pre-repair artwork.
+repair parameters, so `--repair` reproduces the shipped file deterministically.
 
 The fixture faces are external artwork too: `core:pool_light_round` ships
 `textures/lights/pool_light_round_01.png` (128x128) as its recessed downlight
@@ -111,10 +110,11 @@ decal texture, and the renderer corrects the in-plane orientation so the
 artwork reads exactly as it does in an image viewer (verified for a floor and a
 wall placement; `render::decal_uv_rect_full` is pinned by a unit test).
 
-## Known renderer behaviour observed while verifying this pack
+## Renderer behaviour
 
-Two defects found while placing this content were fixed during integration and
-are now covered by tests: wall-mounted decals were mirrored (`render::tests::external_decal_sheets_pin_their_world_orientation`)
-and the generated decal atlas drew its patterns in transposed cells, so
-`core:decal_arrow_01` sampled an empty cell and `core:decal_stripes_01` sampled
-the arrow (`render::tests::generated_decal_atlas_cells_match_their_sheet_slots`).
+Wall-mounted decals keep their world orientation
+(`render::tests::external_decal_sheets_pin_their_world_orientation`), and the
+generated decal atlas places each pattern in the cell that matches its sheet
+slot, so `core:decal_arrow_01` samples the arrow and `core:decal_stripes_01`
+the stripes
+(`render::tests::generated_decal_atlas_cells_match_their_sheet_slots`).

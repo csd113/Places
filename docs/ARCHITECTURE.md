@@ -74,7 +74,7 @@ backend module that names it.
 | `src/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | backend |
 | `src/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | backend |
 | `src/render/wgpu/material.rs` | Material system: material uniform/layout, identity cache, normal-map and emission-mask resolution, per-draw material slots, per-frame reflection modes and animation scales | backend |
-| `src/render/wgpu/lightmap.rs` | Lightmap atlas: prepared HDR page pairs as `Rgba16Float` layers (irradiance + dominant lobe) with the white fallback | backend |
+| `src/render/wgpu/lightmap.rs` | Lightmap atlas: prepared HDR page pairs as `Rgba16Float` layers (irradiance + direction moment, alphas reserved) with the white fallback | backend |
 | `src/render/wgpu/environment.rs` | Group-3 environment: baked-light switch and scale, fog, atlas pages, probe cubemap(s) and planar image, per-probe bind groups and the capture fallbacks | backend |
 | `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps with offline-prefiltered roughness chains (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
 | `src/render/common/probe_filter.rs` | Offline cone prefilter for captured cubemaps (level roughness `L / (levels - 1)`) | preparation |
@@ -99,10 +99,10 @@ where the bytes live:
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
 | `src/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
 | `src/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
-| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), level packs, material resolution |
+| `src/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), material resolution |
 | `src/nav/` | Navigation: the offline bake (`bake.rs`, compiler-only) and the runtime mesh (`query.rs`: nearest/path/segment queries over the baked grid, door portals, region statistics). `mod.rs` owns the agent profile and the live door-state trait |
 | `src/ai/` | The shared AI framework: typed `AiDef` behaviors, `AiWorld` (state machine, staggered sight from real collision and hearing from gameplay stimuli, navigation-assisted flee/pursue/catch) and the locomotion/animation bridge (`movement.rs`, `perception.rs`) |
-| `src/loading.rs` | Serialized package decode (one bounded worker), cancellation, immutable decoded-variant cache |
+| `src/loading.rs` | One bounded preparation worker: the level's assets and its compiled variant are read concurrently, with request cancellation and an immutable decoded-variant cache |
 | `src/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
 | `src/compiler.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
 | `src/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key) - compiler and audits only |
@@ -119,7 +119,7 @@ where the bytes live:
 | `assets/environment/**`, `assets/core/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
 | `assets/levels/` | Shipped compiled map packages (`.placesmap`) and their authoring sources |
 | `levels/` | Drop-in compiled packages (`.placesmap`), created on first run |
-| `cache/` | Retired: no runtime lightmap cache exists; the compiler reuses whole packages by fingerprint |
+| `cache/` | Tooling cache: the Model Zoo generator stores model bounds and clip inspection results here; the player never creates it |
 | `tools/` | Deterministic asset, texture, prop and level generators and validators, including `tools/levels/build_model_zoo.py` (the catalog-driven zoo generator) and `tools/levels/build_capacity_fixtures.py` |
 
 The bake lives in `src/lighting/`; the renderer never computes light. The
@@ -339,7 +339,7 @@ surface is:
 - **Dynamic objects and effects:** `set_dynamic_demo`, `update_dynamic`,
   `dynamic_scene`, `sync_doors`, `set_level_effects`.
 - **Animated characters:** `update_characters(delta_seconds,
-  LocomotionSnapshot)`, `character_count`, `character_scene`.
+  LocomotionSnapshot)`, `character_count`.
 - **Diagnostics:** neutral counters and logs (`render_stats`, `level_stats`,
   batch breakdowns, `prop_asset_stats`, `fatal_error`).
 - **Windowing hooks:** `set_swap_interval`.

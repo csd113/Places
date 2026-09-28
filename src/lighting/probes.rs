@@ -7,13 +7,14 @@
 //! object's position, which is a handful of loads — no bake, no ray, no
 //! visibility query.
 //!
-//! Each probe stores the same compact linear HDR lobe a lightmap texel stores
-//! (an irradiance mean, a per-channel dominant-lobe amplitude and an
-//! octahedral axis), plus the room it belongs to. Interpolation only mixes
-//! probes of the sample's own room, so light cannot bleed through a floor,
-//! ceiling or full-height wall between rooms, and a sample whose neighbourhood
-//! has no probe of its room falls back to the nearest one, then to the caller's
-//! own sampling (the vertex-lit model), so an object is never left black.
+//! Each probe stores the same compact linear HDR values a lightmap texel
+//! stores (an irradiance mean, the vector sum of the per-channel first moments
+//! and the reserved axis pair), plus the room it belongs to. Interpolation only
+//! mixes probes of the sample's own room, so light cannot bleed through a
+//! floor, ceiling or full-height wall between rooms, and a sample whose
+//! neighbourhood has no probe of its room falls back to the nearest one, then
+//! to the caller's own sampling (the vertex-lit model), so an object is never
+//! left black.
 //!
 //! Probes are baked from the same transport solve as the lightmap atlas: air
 //! points receive every visible emitter's direct contribution plus one
@@ -35,13 +36,19 @@
     clippy::too_many_lines
 )]
 
-use crate::lighting::lightmap::{LightmapTexel, oct_decode};
+use crate::lighting::lightmap::LightmapTexel;
 
 /// Magic of the compiled probe-field record.
 pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PLPF";
 
 /// Version of the compiled probe-field record.
-pub const PROBE_FIELD_RECORD_VERSION: u16 = 1;
+///
+/// * `1` — the dominant-axis encoding (a per-channel amplitude plus an
+///   octahedral axis).
+/// * `2` — the linear moment representation: `direction` is the vector sum of
+///   the per-channel first moments and the axis pair is reserved. A version-1
+///   field is rejected.
+pub const PROBE_FIELD_RECORD_VERSION: u16 = 2;
 
 /// Preferred probe spacing, in metres.
 pub const PROBE_SPACING_M: f32 = 1.5;
@@ -60,9 +67,9 @@ pub const MAX_PROBE_FIELD_BYTES: u64 = 256 * 1024 * 1024;
 pub struct ProbeSample {
     /// Isotropic irradiance mean, linear HDR.
     pub irradiance: [f32; 3],
-    /// Per-channel amplitude of the dominant directional lobe.
+    /// Vector sum of the per-channel first moments, linear HDR, signed.
     pub direction: [f32; 3],
-    /// Octahedral `(x, y)` coordinates in `0..=1` of the dominant direction.
+    /// Reserved: writers store `[0.5, 0.5]`, consumers ignore it.
     pub axis: [f32; 2],
     /// Owning room index, or `-1` for a probe in no room (never sampled).
     pub room: i32,
@@ -209,8 +216,6 @@ impl ProbeField {
         let mut total = [0.0_f32; 3];
         let mut moment = [0.0_f32; 3];
         let mut weight_sum = 0.0_f32;
-        let mut best_axis = [0.5, 0.5];
-        let mut best_energy = 0.0_f32;
         for dz in 0..2 {
             for dy in 0..2 {
                 for dx in 0..2 {
@@ -249,11 +254,6 @@ impl ProbeField {
                             *slot += weight * value;
                         }
                     }
-                    let energy: f32 = probe.direction.iter().map(|value| value.abs()).sum();
-                    if energy > best_energy {
-                        best_energy = energy;
-                        best_axis = probe.axis;
-                    }
                 }
             }
         }
@@ -270,7 +270,9 @@ impl ProbeField {
             return Some(LightmapTexel {
                 irradiance: total,
                 direction: moment,
-                axis: best_axis,
+                // The axis is reserved; the moment is the whole directional
+                // payload now.
+                axis: [0.5, 0.5],
             });
         }
         // Bounded fallback: the nearest valid probe of the requested room
@@ -309,9 +311,13 @@ impl ProbeField {
 
     /// The display-space light a moving object reads at a world position.
     ///
-    /// The moving-object path has no surface normal, so it reads the field's
-    /// mean term through the same tone map the static shader applies; this is
-    /// the value the object's per-instance light uniform carries.
+    /// The moving-object path has no surface normal, so it reads the stored
+    /// isotropic term — the orientation-free component the static shader
+    /// reconstructs around. The value goes through the same tone map the
+    /// static shader applies; this is the value the object's per-instance
+    /// light uniform carries. (The full reconstruction's sphere mean is
+    /// `I * (1 - |g| / (2k))`; the dynamic path deliberately uses the
+    /// isotropic term, exactly as it did before the moment representation.)
     #[must_use]
     pub fn sample_display(&self, position: [f32; 3], room: Option<usize>) -> Option<[f32; 3]> {
         let texel = self.sample(position, room)?;
@@ -323,12 +329,31 @@ impl ProbeField {
         }
     }
 
-    /// The unit dominant direction of the field at a position, for callers
-    /// that want the directional term.
+    /// The unit direction of the field's accumulated first moment at a
+    /// position.
+    ///
+    /// The stored `direction` is the vector sum of the per-channel first
+    /// moments; its normalised direction is the single axis that best explains
+    /// the field, the quantity the historical octahedral axis carried. A
+    /// field with no net moment returns `None`.
     #[must_use]
     pub fn sample_direction(&self, position: [f32; 3], room: Option<usize>) -> Option<[f32; 3]> {
         let texel = self.sample(position, room)?;
-        Some(oct_decode(texel.axis))
+        let length = texel.direction[2]
+            .mul_add(
+                texel.direction[2],
+                texel.direction[1]
+                    .mul_add(texel.direction[1], texel.direction[0] * texel.direction[0]),
+            )
+            .sqrt();
+        if !length.is_finite() || length <= 1.0e-9 {
+            return None;
+        }
+        Some([
+            texel.direction[0] / length,
+            texel.direction[1] / length,
+            texel.direction[2] / length,
+        ])
     }
 
     /// Encodes the field as the binary record the package carries.
@@ -478,7 +503,8 @@ impl ProbeField {
 }
 
 impl ProbeSample {
-    /// The probe with non-finite values zeroed, negative terms clamped and the
+    /// The probe with non-finite values zeroed, the irradiance clamped
+    /// non-negative, the signed moment kept with its sign, and the reserved
     /// axis folded into `0..=1`.
     #[must_use]
     pub fn normalized(self) -> Self {
@@ -495,7 +521,7 @@ impl ProbeSample {
                 0.0
             };
             out.direction[channel] = if direction.is_finite() {
-                direction.max(0.0)
+                direction
             } else {
                 0.0
             };
@@ -639,6 +665,19 @@ mod tests {
         assert!(ProbeField::read(b"nope").is_err());
     }
 
+    /// The record version bumped with the linear moment representation, so a
+    /// stale version-1 field must be rejected rather than decoded as if its
+    /// `direction` were a dominant-lobe amplitude.
+    #[test]
+    fn a_version_1_probe_field_is_rejected() {
+        let bytes = field().write().expect("field writes");
+        assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 2);
+        let mut stale = bytes;
+        stale[4] = 1;
+        stale[5] = 0;
+        assert!(ProbeField::read(&stale).is_err());
+    }
+
     #[test]
     fn interpolation_mixes_only_the_requested_room_and_falls_back() {
         let field = field();
@@ -660,6 +699,34 @@ mod tests {
         assert!(field.sample([9.0, 0.0, 0.0], Some(3)).is_none());
         // With no room constraint the nearest probe answers.
         assert!(field.sample([2.5, 0.0, 0.0], None).is_some());
+    }
+
+    #[test]
+    fn the_display_and_direction_paths_follow_the_moment_representation() {
+        let field = field();
+        let position = [1.0, 0.0, 0.0];
+        let sample = field.sample(position, Some(3)).expect("room 3 samples");
+        assert_eq!(sample.axis, [0.5, 0.5], "the axis is reserved");
+        // The display value is the sphere mean of the reconstruction, which is
+        // exactly the isotropic term through the same tone map.
+        let display = field
+            .sample_display(position, Some(3))
+            .expect("the display path samples");
+        let expected = crate::lighting::transport::soft_clip(sample.irradiance);
+        for channel in 0..3 {
+            assert!(
+                (display[channel] - expected[channel]).abs() < 1.0e-6,
+                "display channel {channel}: {} vs {}",
+                display[channel],
+                expected[channel]
+            );
+        }
+        // The direction is the normalised moment vector (not a decoded axis).
+        let direction = field
+            .sample_direction(position, Some(3))
+            .expect("the direction path samples");
+        assert!((direction[0] - 1.0).abs() < 1.0e-6, "{direction:?}");
+        assert!(direction[1].abs() < 1.0e-6 && direction[2].abs() < 1.0e-6);
     }
 
     #[test]

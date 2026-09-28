@@ -170,3 +170,71 @@ fn retention_budget_preserves_under_budget_deduplication() {
     assert!(Arc::ptr_eq(&image, &cache.get("sheet").expect("retained")));
     assert_eq!(cache.decoded_count(), 1);
 }
+
+/// The parallel prefetch must insert exactly what the serial reference does,
+/// and a later read of the same bytes must reuse the prefetched image rather
+/// than decode again. One missing reference supplies nothing either way.
+#[test]
+fn prefetch_is_identical_serial_and_parallel() {
+    use std::fs;
+
+    let root = std::env::temp_dir().join(format!("places-texture-prefetch-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("scratch root");
+    let colours = [
+        ("a.png", [10_u8, 20, 30, 255]),
+        ("b.png", [40, 50, 60, 255]),
+        ("c.png", [70, 80, 90, 255]),
+    ];
+    for (name, colour) in colours {
+        let bytes = encode_png(&solid_image(4, 4, colour)).expect("encode fixture");
+        fs::write(root.join(name), bytes).expect("write fixture");
+    }
+    let references: Vec<(String, String)> = vec![
+        ("a.png".to_string(), "a.png".to_string()),
+        ("b.png".to_string(), "b.png".to_string()),
+        ("c.png".to_string(), "c.png".to_string()),
+        ("a.png".to_string(), "a.png".to_string()),
+        ("missing.png".to_string(), "missing.png".to_string()),
+    ];
+
+    let mut serial = TextureCache::new();
+    serial.prefetch_catalog(&root, &references);
+    // The serial reference inserts the three decodable images once each.
+    assert_eq!(serial.decoded_count(), 3);
+
+    let mut seen = std::collections::HashSet::new();
+    let jobs: Vec<&(String, String)> = references
+        .iter()
+        .filter(|(logical, _)| seen.insert(logical.as_str()))
+        .collect();
+    assert_eq!(jobs.len(), 4);
+    let mut parallel = TextureCache::new();
+    parallel.decode_references(&root, &jobs, 3);
+    assert_eq!(parallel.decoded_count(), 3);
+
+    for (name, colour) in colours {
+        let expected = solid_image(4, 4, colour);
+        let from_serial = serial.get(name).expect("serial prefetched");
+        let from_parallel = parallel.get(name).expect("parallel prefetched");
+        assert_eq!(from_serial.as_ref(), &expected, "{name}");
+        assert_eq!(from_parallel.as_ref(), &expected, "{name}");
+    }
+    assert!(serial.get("missing.png").is_none());
+    assert!(parallel.get("missing.png").is_none());
+    assert!(
+        serial
+            .load_relative(&root, "missing.png", "missing.png")
+            .is_err()
+    );
+
+    // A resolution pass that reads the same bytes finds the prefetched image.
+    let (image, key) = serial
+        .load_relative(&root, "a.png", "a.png")
+        .expect("prefetched read");
+    assert_eq!(serial.decoded_count(), 3, "no second decode");
+    assert!(Arc::ptr_eq(&image, &serial.get("a.png").expect("cached")));
+    assert!(key.contains("a.png"));
+
+    let _ = fs::remove_dir_all(&root);
+}

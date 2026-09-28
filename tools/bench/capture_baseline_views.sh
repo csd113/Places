@@ -24,7 +24,7 @@
 #   PLACES_BIN            executable to capture (default target/release/places)
 #   PLACES_CAPTURE_DIR    output root; the script writes <root>/high and <root>/low
 #   PLACES_QUALITY        capture only `high` or `low` instead of both
-#                         (`full` is the historical alias of `high`)
+#                         (`full` is an accepted alias of `high`)
 #   PLACES_BASELINE_STATE scratch state root (default target/renderer-baseline-state)
 set -eu
 
@@ -150,7 +150,7 @@ case "${PLACES_QUALITY:-both}" in
         capture_profile low "$OUT/low" || status=1
         ;;
     *)
-        echo "capture_baseline_views: PLACES_QUALITY must be 'high', 'low' or unset ('full' is the historical alias of 'high')" >&2
+        echo "capture_baseline_views: PLACES_QUALITY must be 'high', 'low' or unset ('full' is an accepted alias of 'high')" >&2
         exit 2
         ;;
 esac

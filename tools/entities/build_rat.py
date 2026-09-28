@@ -28,7 +28,7 @@ Usage::
 
 The script is deterministic (fixed seeds, no clock, no randomness outside the
 seeded texture painter) and uses Blender for the offline surface union.  It resolves the repository root from
-its own location, so it works both from ``target/entity-specialists/rat/`` and
+its own location, so it works both from ``target/entity-previews/rat/`` and
 after being moved to ``tools/entities/``.
 """
 
@@ -83,7 +83,7 @@ except ValueError:  # pragma: no cover - only when run from outside the repo
 
 DEFAULT_OUT = Path("assets") / "entities" / "rat" / "model" / "rat.glb"
 TEXTURE_DIR = Path("assets") / "entities" / "rat" / "textures"
-DEV_DIR = Path("target") / "entity-specialists" / "rat"
+DEV_DIR = Path("target") / "entity-previews" / "rat"
 TEXTURE_NAME = "rat_fur_01.png"
 REPORT_NAME = "REPORT.md"
 PREVIEW_NAME = "rat_preview.png"
@@ -2045,8 +2045,8 @@ def write_report(
     add("  plus a front and a top view), which rasterises this mesh and texture")
     add("  only.")
     add("* The catalog `size` above is computed, not yet validated against a")
-    add("  catalog entry: the lead adds the asset entry and runs the prop/tool")
-    add("  validators.")
+    add("  catalog entry: the catalog entry is added and validated by the")
+    add("  prop/tool validators.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

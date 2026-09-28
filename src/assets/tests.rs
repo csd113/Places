@@ -724,14 +724,14 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
 
 /// The renderer's shared untextured sheet is a real committed PNG.
 ///
-/// It used to be synthesized from a hard-coded pixel array in `src/render.rs`;
-/// it is now an ordinary catalogued texture, so it is covered by the same
-/// validator and test set as every shipped sheet. This test is the guard that
-/// the file (not a code fallback) is the sheet's source: it fails if the PNG
-/// disappears, stops being opaque white, or stops being a legal sheet. The
+/// The white sheet is a committed PNG; the renderer never generates it from
+/// source code. It is an ordinary catalogued texture, so it is covered by the
+/// same validator and test set as every shipped sheet. This test is the guard
+/// that the file (not a code fallback) is the sheet's source: it fails if the
+/// PNG disappears, stops being opaque white, or stops being a legal sheet. The
 /// exact resolution is texture policy (the production sheet is authored at the
 /// 1024 hard budget), so the test pins the flat-fill properties and the
-/// dimension contract rather than a historical placeholder size.
+/// dimension contract rather than a fixed placeholder size.
 #[test]
 fn the_shared_white_sheet_is_a_committed_opaque_white_png() {
     let catalog = shipped_catalog();

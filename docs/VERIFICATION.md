@@ -36,6 +36,10 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::
 cargo test --workspace --all-features
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check
+cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json
+cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 8
+cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
+cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
@@ -44,6 +48,12 @@ python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
+
+The two `places-compile build` steps are the incremental gate: a current
+package is reused (`rebuilt: false`, bytes untouched), and a source or
+fingerprint change publishes an atomically replaced package before `validate`
+checks it. Snapshot the two `.placesmap` hashes when a change could affect the
+compiler, so a silent rewrite is visible in the evidence.
 
 The package suite runs the texture CLI `--check`; the gate does not invoke it twice.
 
@@ -75,6 +85,24 @@ It exits `0` when the level has no confirmed defects and `1` when it does
 (`--strict` also fails on warnings); `2` means the level could not be read or
 parsed. See `docs/MAP_AUTHORING_GUIDE.md` §31 for every check, the intent
 annotations and the honest limitations.
+
+A confirmed wall/doorway plane shift (`wall-joint-step`) is repaired offline
+with the planner and the order-preserving applier; the Rust suite additionally
+pins the five maintained sources against the `wall-joint-*` rules:
+
+```sh
+cargo run --release -- --repair-geometry --level assets/levels/places_demo.json \
+    --plan target/demo-plan.json
+python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --check
+python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --apply
+```
+
+The applier refuses a source that changed since planning, validates the result
+with the checker, and re-plans to prove a second pass makes no edits; the
+player never repairs or snaps geometry at load time. Any repaired map must be
+recompiled and rebaked (`places-compile build --force`) before shipping, because
+the prepared mesh, lighting, collision, navigation and probes all depend on the
+repaired surfaces.
 
 Alongside the gate, the GPU diagnostics run explicitly (they are ignored by
 default because they need an adapter or write measurement files):
@@ -160,7 +188,7 @@ The trace must show the compiled level committed with no `[lightmaps] fill`
 step, and the state root must contain only writable player state (`levels/`,
 `import/`, `settings.json`, `cache/`). The texture generator skips shipped images whose dimensions differ
 from its placeholder painter. Never use `--force` as a validation step. Use
-`python3 tools/props/generate_spooner_man.py` for the documented entity-only
+`python3 tools/props/animate_spooner_man.py` for the documented entity-only
 workflow. PNG artwork is loaded from committed assets at runtime.
 
 ## 4. Runtime and visual gate

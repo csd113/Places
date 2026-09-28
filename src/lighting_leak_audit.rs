@@ -33,6 +33,15 @@ struct Solid {
 }
 
 /// Every solid patch of every authored wall, exactly as the mesh emits it.
+/// Every solid the bake occludes with: every authored wall's solid slices plus
+/// the solid architecture (half walls, columns, arc walls, pillars, archway
+/// piers and guardrails), exactly as the mesh, collision and the bake's
+/// occluder set see them.
+///
+/// The reference must model the same solids as the bake: a bench or a screen
+/// the bake blocks light with would otherwise read as an excess pool at every
+/// floor sample it shadows, and the audit would report the level's own
+/// furniture as a leak.
 fn wall_solids(level: &LevelDef) -> Vec<Solid> {
     let surfaces = LevelSurfaces::new(level);
     let mut out = Vec::new();
@@ -68,6 +77,12 @@ fn wall_solids(level: &LevelDef) -> Vec<Solid> {
             };
             out.push(Solid { min, max });
         }
+    }
+    for solid in level.architecture_solids() {
+        out.push(Solid {
+            min: solid.min,
+            max: solid.max,
+        });
     }
     out
 }

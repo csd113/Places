@@ -2178,11 +2178,11 @@ type SkirtFaceCorners = (f32, Vec<([f32; 3], [f32; 3])>);
 /// including on the triangle-shaped skirt a flush-landing end produces, where
 /// `orient` may reverse the corner order before the folded triangle is emitted.
 ///
-/// The gradient used to be classified positionally (`p2`/`p3` are the top
-/// corners). A flush end collapses two corners onto one another; when the
-/// winding normalisation reversed the corner order, the fold dropped the other
-/// duplicate and the surviving corner kept the *top* flag, rotating the
-/// gradient 90 degrees: the skirt's shade then changed along the junction with
+/// Positional classification breaks when a flush end collapses two corners
+/// onto one another (`p2`/`p3` are assumed to be the top corners): if the
+/// winding normalisation reverses the corner order, the fold drops the other
+/// duplicate and the surviving corner keeps the *top* flag, rotating the
+/// gradient 90 degrees — the skirt's shade then changes along the junction with
 /// the floor instead of up the face, a thin artificial step exactly where the
 /// skirt meets the adjacent surface.
 #[test]

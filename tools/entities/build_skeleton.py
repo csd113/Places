@@ -80,7 +80,7 @@ from tex import Texture, decode_png, write_png  # noqa: E402
 
 DEFAULT_GLB = REPO_ROOT / "assets" / "entities" / "skeleton" / "model" / "skeleton.glb"
 DEFAULT_TEXTURE = REPO_ROOT / "assets" / "entities" / "skeleton" / "textures" / "bone_01.png"
-DEFAULT_PREVIEW = REPO_ROOT / "target" / "entity-specialists" / "skeleton" / "skeleton_preview.png"
+DEFAULT_PREVIEW = REPO_ROOT / "target" / "entity-previews" / "skeleton" / "skeleton_preview.png"
 CHAIR_GLB = REPO_ROOT / "assets" / "environment" / "office" / "props" / "models" / "chair.glb"
 
 GENERATOR = "tools/entities/build_skeleton.py"

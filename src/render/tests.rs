@@ -3348,6 +3348,201 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
     );
 }
 
+// -------------------------------------- perpendicular wall cap ownership
+
+/// Two perpendicular 8 m walls 0.3 m thick sharing the square at the origin,
+/// both with an exposed top at y = 1.0 in a 3 m room: the Pit's cap-corner
+/// case in miniature. `first` selects the authored order ("x" or "z").
+fn l_corner_level(first: &str) -> LevelDef {
+    let x_wall = r#"{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 1.0 }"#;
+    let z_wall = r#"{ "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 1.0 }"#;
+    let (first, second) = if first == "x" {
+        (x_wall, z_wall)
+    } else {
+        (z_wall, x_wall)
+    };
+    let json = format!(
+        r#"{{
+            "format_version": 3,
+            "id": "l_corner",
+            "name": "L Corner",
+            "spawn": {{ "x": 4.0, "z": 4.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
+            "walls": [ {first}, {second} ]
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("valid L-corner json")
+}
+
+/// As [`l_corner_level`], but both walls are raised: their bases form the
+/// exposed plane at y = 1.0 and their tops reach y = 3.0.
+fn raised_l_corner_level() -> LevelDef {
+    let json = r#"{
+        "format_version": 3,
+        "id": "raised_l_corner",
+        "name": "Raised L Corner",
+        "spawn": { "x": 4.0, "z": 4.0 },
+        "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 }],
+        "walls": [
+            { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "y": 1.0, "height": 2.0 },
+            { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0, "y": 1.0, "height": 2.0 }
+        ]
+    }"#;
+    LevelDef::from_json(json).expect("valid raised L-corner json")
+}
+
+/// Every wall triangle lying flat at `plane` and facing `up`, in draw order.
+fn caps_at(mesh: &LevelMesh, plane: f32, up: bool) -> Vec<[Vertex; 3]> {
+    mesh.triangles_for(SurfaceKind::Wall)
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| {
+            triangle
+                .iter()
+                .all(|vertex| (vertex.pos[1] - plane).abs() <= 1.0e-3)
+                && (glam::Vec3::from(triangle[0].normal).y > 0.9) == up
+        })
+        .copied()
+        .collect()
+}
+
+/// True when the XZ projection of `(x, z)` lies inside one cap triangle.
+fn cap_triangle_contains(triangle: &[Vertex; 3], x: f32, z: f32) -> bool {
+    let [first, second, third] = *triangle;
+    let side = |from: [f32; 3], to: [f32; 3]| -> f32 {
+        let (across, along) = (to[0] - from[0], to[2] - from[2]);
+        across.mul_add(z - from[2], -along * (x - from[0]))
+    };
+    let (side_ab, side_bc, side_ca) = (
+        side(first.pos, second.pos),
+        side(second.pos, third.pos),
+        side(third.pos, first.pos),
+    );
+    (side_ab >= -1.0e-6 && side_bc >= -1.0e-6 && side_ca >= -1.0e-6)
+        || (side_ab <= 1.0e-6 && side_bc <= 1.0e-6 && side_ca <= 1.0e-6)
+}
+
+/// Corner-square sample points, in metres from the shared origin: a 5 x 5
+/// grid inside the 0.3 x 0.3 m corner, kept clear of the cap quads' own
+/// diagonals (whose shared edge belongs to both triangles of one quad) and of
+/// the square's edges.
+const CORNER_SAMPLES_M: [f32; 5] = [0.05, 0.1, 0.15, 0.2, 0.25];
+
+/// The one cap triangle covering `(x, z)`, asserting there is exactly one:
+/// two would be coplanar duplicate surfaces, zero a hole where caps meet.
+fn assert_exactly_one_cap_at(caps: &[[Vertex; 3]], x: f32, z: f32) -> [Vertex; 3] {
+    let covering: Vec<[Vertex; 3]> = caps
+        .iter()
+        .filter(|triangle| cap_triangle_contains(triangle, x, z))
+        .copied()
+        .collect();
+    assert_eq!(
+        covering.len(),
+        1,
+        "({x}, {z}) must be covered by exactly one cap, got {}",
+        covering.len()
+    );
+    covering[0]
+}
+
+#[test]
+fn perpendicular_walls_share_exactly_one_top_cap_at_their_corner() {
+    // The two walls overlap their 0.3 x 0.3 m footprint at the origin with
+    // both tops exposed at y = 1.0. Emitting each wall's whole cap put two
+    // coplanar quads over the corner; the later unit's cap must subtract the
+    // earlier unit's footprint instead.
+    let level = l_corner_level("x");
+    let mesh = build_level_geometry(&level);
+    let caps = caps_at(&mesh, 1.0, true);
+    assert!(!caps.is_empty(), "the L-corner walls must emit top caps");
+
+    // No hole and no duplicate: every sample of the shared corner square is
+    // covered exactly once, by the first-authored X wall's long cap.
+    for x in CORNER_SAMPLES_M {
+        for z in CORNER_SAMPLES_M {
+            let owner = assert_exactly_one_cap_at(&caps, x, z);
+            let max_x = owner.iter().map(|v| v.pos[0]).fold(f32::MIN, f32::max);
+            assert!(max_x >= 7.9, "the earlier X wall must own the corner");
+        }
+    }
+    // The exposed remainder of each wall is still capped away from the
+    // corner: the subtraction must not take the whole cap with it. The
+    // samples stay off the cap quads' own diagonals, whose shared edge
+    // belongs to both triangles of one quad by construction.
+    assert_exactly_one_cap_at(&caps, 4.0, 0.1);
+    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+
+    // Reversing the authored order flips the owner, not the coverage: the
+    // Z wall now keeps the corner.
+    let reversed = build_level_geometry(&l_corner_level("z"));
+    let caps = caps_at(&reversed, 1.0, true);
+    for x in CORNER_SAMPLES_M {
+        for z in CORNER_SAMPLES_M {
+            let owner = assert_exactly_one_cap_at(&caps, x, z);
+            let max_z = owner.iter().map(|v| v.pos[2]).fold(f32::MIN, f32::max);
+            assert!(max_z >= 7.9, "the earlier Z wall must own the corner");
+        }
+    }
+}
+
+#[test]
+fn a_coalesced_unit_keeps_the_cap_corner_under_its_earliest_member() {
+    // Walls 0 and 2 are the same X plane and coalesce into one unit; only
+    // wall 2 reaches the corner. The Z wall (index 1) is authored between
+    // them, so a per-authored-wall rule that only subtracted wall 0 would
+    // leave two caps over the corner. The frozen rule orders the unit by its
+    // earliest member (0), so the Z wall subtracts the unit's footprint and
+    // exactly one cap survives.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "coalesced_corner",
+            "name": "Coalesced Corner",
+            "spawn": { "x": 4.0, "z": 4.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }],
+            "walls": [
+                { "x": 2.0, "z": 0.0, "width": 6.0, "depth": 0.3, "height": 1.0 },
+                { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 1.0 },
+                { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 1.0,
+                  "material": "core:wallpaper_stained_01" }
+            ]
+        }"#,
+    )
+    .expect("valid coalesced-corner json");
+    let mesh = build_level_geometry(&level);
+    let caps = caps_at(&mesh, 1.0, true);
+    for x in CORNER_SAMPLES_M {
+        for z in CORNER_SAMPLES_M {
+            let owner = assert_exactly_one_cap_at(&caps, x, z);
+            let max_x = owner.iter().map(|v| v.pos[0]).fold(f32::MIN, f32::max);
+            assert!(max_x >= 7.9, "the coalesced X unit must own the corner");
+        }
+    }
+    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+}
+
+#[test]
+fn perpendicular_walls_share_exactly_one_bottom_cap_at_their_corner() {
+    // The bottom-cap half of the rule: two raised walls whose bases coincide
+    // at y = 1.0. The later wall's underside must subtract the earlier
+    // footprint exactly like the top cap does, or the corner carries two
+    // coplanar down-facing quads.
+    let mesh = build_level_geometry(&raised_l_corner_level());
+    let caps = caps_at(&mesh, 1.0, false);
+    assert!(!caps.is_empty(), "the raised walls must emit bottom caps");
+    for x in CORNER_SAMPLES_M {
+        for z in CORNER_SAMPLES_M {
+            let owner = assert_exactly_one_cap_at(&caps, x, z);
+            let max_x = owner.iter().map(|v| v.pos[0]).fold(f32::MIN, f32::max);
+            assert!(max_x >= 7.9, "the earlier X wall must own the base corner");
+        }
+    }
+    // The exposed remainder of each base is still capped away from the corner.
+    assert_exactly_one_cap_at(&caps, 4.0, 0.1);
+    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+}
+
 #[test]
 fn an_empty_material_id_emits_a_bare_key_not_an_arbitrary_material() {
     let level = LevelDef::from_json(
@@ -7543,6 +7738,7 @@ fn the_shipped_rat_walks_and_runs_with_declared_reference_speeds() {
             ("idle", Some("idle")),
             ("walk", Some("walk")),
             ("run", Some("run")),
+            ("dead", Some("dead")),
         ]
     );
     let reference = |name: &str| -> Option<f32> {
@@ -7557,7 +7753,12 @@ fn the_shipped_rat_walks_and_runs_with_declared_reference_speeds() {
     assert!((walk_reference - 0.1985).abs() < 1.0e-3, "{walk_reference}");
     assert!((run_reference - 0.5731).abs() < 1.0e-3, "{run_reference}");
     for animation in &model.animations {
-        assert!(animation.looped, "every rat clip loops");
+        assert_eq!(
+            animation.looped,
+            animation.name != "dead",
+            "the locomotion clips loop and the one-shot death clip does not: {}",
+            animation.name
+        );
     }
 
     let paw_weight = |vertex: usize| -> f32 {

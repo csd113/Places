@@ -4,13 +4,21 @@
 //! buffer, drawing the one diagnostic pattern every resolution failure shares,
 //! and sharing decoded content within a level and bounded session retention.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
 use crate::assets::MAX_TEXTURE_DIMENSION;
+
+/// Most CPUs one level's catalog-image prefetch may use.
+///
+/// Catalog PNGs are independent files, so decoding a few concurrently hides
+/// most of the decode behind one worker. The cap keeps a level resolve inside
+/// the shared CPU budget: the loading worker is already one thread, and the
+/// main thread is presenting the preparation screen at the same time.
+pub const MAX_LEVEL_DECODE_WORKERS: usize = 4;
 
 /// Edge length of the generated missing-texture pattern, in texels.
 const MISSING_TEXTURE_SIZE: u32 = 64;
@@ -414,6 +422,98 @@ impl TextureCache {
         Ok((image, key))
     }
 
+    /// Decodes a level's catalog images concurrently and inserts them in order.
+    ///
+    /// Every reference is read and content-keyed exactly like
+    /// [`Self::load_relative`], so the later serial resolution pass re-reads
+    /// the same bytes and finds the decoded image in the cache; an image whose
+    /// file changed in between is decoded again by that pass, so a prefetch can
+    /// never serve stale pixels. A reference that fails to read or decode
+    /// inserts nothing: the serial resolver still reports the error with its
+    /// own material context.
+    ///
+    /// `references` are `(logical key, path relative to `root`)` pairs in
+    /// first-use order; duplicate logical keys decode once. Results are
+    /// inserted in that order, so the cache state is deterministic regardless
+    /// of which worker finishes first.
+    pub fn prefetch_catalog(&mut self, root: &Path, references: &[(String, String)]) {
+        let mut seen = HashSet::new();
+        let jobs: Vec<&(String, String)> = references
+            .iter()
+            .filter(|(logical, _)| seen.insert(logical.as_str()))
+            .collect();
+        if jobs.is_empty() {
+            return;
+        }
+        let workers = level_decode_workers(jobs.len());
+        self.decode_references(root, &jobs, workers);
+    }
+
+    /// Decodes `jobs` with exactly `workers` threads (1 = serial reference) and
+    /// inserts the results in job order.
+    ///
+    /// Each worker fills its own map; the parent then inserts every result in
+    /// reference order, so the shared cache never depends on completion order.
+    fn decode_references(&mut self, root: &Path, jobs: &[&(String, String)], workers: usize) {
+        if workers <= 1 {
+            for (logical, relative) in jobs {
+                if let Ok((key, image)) = decode_relative_image(root, logical, relative) {
+                    self.insert_prefetched(logical, key, image);
+                }
+            }
+            return;
+        }
+        let chunk = jobs.len().div_ceil(workers);
+        let mut decoded: HashMap<&str, Result<(String, RawImage), String>> = HashMap::new();
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for chunk_jobs in jobs.chunks(chunk) {
+                handles.push(scope.spawn(move || {
+                    chunk_jobs
+                        .iter()
+                        .map(|(logical, relative)| {
+                            (
+                                logical.as_str(),
+                                decode_relative_image(root, logical, relative),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                }));
+            }
+            for handle in handles {
+                if let Ok(part) = handle.join() {
+                    decoded.extend(part);
+                }
+            }
+        });
+        for (logical, _) in jobs {
+            // A worker that panicked leaves its references out; the serial
+            // resolver decodes them exactly as it would have without a
+            // prefetch.
+            if let Some(Ok((key, image))) = decoded.remove(logical.as_str()) {
+                self.insert_prefetched(logical, key, image);
+            }
+        }
+    }
+
+    /// Inserts an already-decoded image under the same revision rules as
+    /// [`Self::decode_encoded`].
+    fn insert_prefetched(&mut self, logical: &str, key: String, image: RawImage) {
+        if self
+            .revisions
+            .get(logical)
+            .is_some_and(|previous| previous != &key)
+            && let Some(previous) = self.revisions.remove(logical)
+        {
+            self.images.remove(&previous);
+        }
+        if self.images.contains_key(&key) {
+            return;
+        }
+        self.insert(key.clone(), image);
+        self.revisions.insert(logical.to_string(), key);
+    }
+
     /// Number of successful decodes this session (tests and diagnostics).
     #[must_use]
     pub const fn decoded_count(&self) -> usize {
@@ -442,6 +542,43 @@ impl TextureCache {
 
 #[cfg(test)]
 mod tests;
+
+/// Widest useful parallel decode for `jobs` catalog images.
+///
+/// Bounded by the process-wide preparation budget when one is set (the offline
+/// compiler stores its `--workers` there, so `--workers 1` stays serial), then
+/// by [`MAX_LEVEL_DECODE_WORKERS`] and the job count. Tests stay serial: a unit
+/// test asserts values, not throughput.
+fn level_decode_workers(jobs: usize) -> usize {
+    if cfg!(test) {
+        return 1;
+    }
+    let budget = crate::perf::prepare_workers().unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, std::num::NonZeroUsize::get)
+            .saturating_sub(1)
+            .max(1)
+    });
+    jobs.clamp(1, MAX_LEVEL_DECODE_WORKERS).min(budget.max(1))
+}
+
+/// Reads and decodes one catalog PNG without touching a cache.
+///
+/// Returns the content key [`TextureCache::decode_encoded`] computes for the
+/// same bytes, so the prefetched image is found by whichever resolution call
+/// next reads those bytes.
+fn decode_relative_image(
+    root: &Path,
+    logical: &str,
+    relative: &str,
+) -> Result<(String, RawImage), String> {
+    let path = root.join(relative);
+    let bytes =
+        fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    let key = texture_content_key(logical, &bytes);
+    let image = decode_png(&bytes)?;
+    Ok((key, image))
+}
 
 /// Encoded-content identity shared by CPU decoding and GPU texture lookup.
 pub(super) fn texture_content_key(logical: &str, bytes: &[u8]) -> String {

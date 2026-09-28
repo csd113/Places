@@ -14,11 +14,12 @@
 //   targets directly; only the surface-facing entry points (`fs_main`,
 //   `fs_cutout`) convert once with `srgb_to_linear` for the sRGB surface;
 // * take `light` from the prepared HDR lightmap array when one is resident:
-//   each page is a pair of linear `Rgba16Float` layers (irradiance and a
-//   directional moment) reconstructed at the material normal as
-//   `max(0, irradiance + direction * normal)`, plus every enabled switchable
-//   fixture's contribution pair, then compressed by the shared display tone
-//   map; the historical vertex-lit colour is used otherwise;
+//   each page is a pair of linear `Rgba16Float` layers (irradiance and the
+//   signed direction moment) reconstructed at the material normal as
+//   `max(0, irradiance + (irradiance / max(k, 1e-6)) * dot(direction, normal))`
+//   with `k = irradiance.r + irradiance.g + irradiance.b`, plus every enabled
+//   switchable fixture's contribution pair, then compressed by the shared
+//   display tone map; the historical vertex-lit colour is used otherwise;
 // * decode the material's normal map (when the material binds one) into the
 //   world-space material normal the sheen and reflection terms use;
 // * classify alpha: opaque, alpha-tested (`fs_cutout`) and straight-alpha
@@ -251,36 +252,31 @@ fn soft_clip(color: vec3<f32>) -> vec3<f32> {
     );
 }
 
-// Unpacks the octahedral pair stored in the plane alphas back to a unit
-// direction. A zero amplitude ignores the axis entirely, so a degenerate pair
-// is harmless.
-fn decode_octahedral(axis: vec2<f32>) -> vec3<f32> {
-    let p = clamp(axis, vec2<f32>(0.0), vec2<f32>(1.0)) * 2.0 - 1.0;
-    let z = 1.0 - abs(p.x) - abs(p.y);
-    if (z < 0.0) {
-        let sign_x = select(-1.0, 1.0, p.x >= 0.0);
-        let sign_y = select(-1.0, 1.0, p.y >= 0.0);
-        return vec3<f32>((1.0 - abs(p.y)) * sign_x, (1.0 - abs(p.x)) * sign_y, z);
-    }
-    return vec3<f32>(p.x, p.y, z);
-}
-
 // One lightmap page pair sampled at `uv`: the irradiance plane at `layer` and
-// the dominant-lobe plane at `layer + 1u`, reconstructed at `normal`.
+// the direction-moment plane at `layer + 1u`, reconstructed at `normal`.
 //
-// The bake stores the transport solve as two linear HDR values per texel plus
-// an octahedral dominant axis in the plane alphas: `irradiance` is the mean
-// term, `direction` the lobe's per-channel amplitude, and
-// `irradiance + direction * (2 * max(0, dot(normal, axis)) - 1)` is exact at
-// the dominant light's direction, zero (clamped) for a surface facing away,
-// and mean-exact over the sphere. That is what gives a normal-mapped or curved
-// surface a real directional response instead of one uniform value.
+// The bake stores the transport solve as two linear HDR values per texel: the
+// mean irradiance `I` and the vector sum `g` of the per-channel moment
+// vectors, both already in world space. Both planes interpolate linearly, and
+// the nonlinear step below is a function of the *scalar* `dot(g, n)` and the
+// *scalar* `|g|` of the interpolated moment — never of encoded coordinates —
+// so a bilinear blend stays smooth across texel boundaries:
+//
+//     k     = I.r + I.g + I.b
+//     light = max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)))
+//
+// A texel with no directional content (`g` zero) reconstructs to `I` alone; a
+// single shared direction of any colour reconstructs its cosine lobe exactly
+// (`2 * I * max(0, cos)`); a near-cancelling moment collapses smoothly to the
+// mean; the result is bounded by `2 * I` and never draws negative light. The
+// alpha channels of both planes are reserved and ignored.
 fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
-    let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer);
-    let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u);
-    let axis = decode_octahedral(vec2<f32>(irradiance.a, direction.a));
-    let lobe = 2.0 * max(0.0, dot(normal, axis)) - 1.0;
-    return max(vec3<f32>(0.0), irradiance.rgb + direction.rgb * lobe);
+    let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer).rgb;
+    let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u).rgb;
+    let k = irradiance.r + irradiance.g + irradiance.b;
+    let lobe = 2.0 * max(0.0, dot(direction, normal)) - length(direction);
+    let directional = irradiance / max(k, 1.0e-6) * lobe;
+    return max(vec3<f32>(0.0), irradiance + select(vec3<f32>(0.0), directional, k > 1.0e-6));
 }
 
 // The reference's `light` term for one fragment, per channel.
@@ -295,7 +291,7 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 //     light *= u_light_scale;
 //
 // Places binds the prepared pages as one `texture_2d_array` whose layer pairs
-// are irradiated/direction planes, so the same expression generalises: the
+// are irradiance/direction planes, so the same expression generalises: the
 // vertex's page byte selects the base pair, the uniform's switchable count and
 // mask add each enabled fixture's prepared pair, and the reconstructed HDR sum
 // runs through the display tone map. There is no light loop over fixtures, no

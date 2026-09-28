@@ -65,8 +65,8 @@ offset, TB offset)::
 Each sheet was checked against ``--report``: it passes both metric families
 with margin, the worst-case wrapped step stays at or below 40/255, and the
 repaired bands keep the local variance of the untouched sheet (no flat smear,
-no repeated band).  The pool wall tile was repaired with band 64 and offset 64
-(the generic defaults it shipped with).  Files not listed use band 64, residual
+no repeated band).  The pool wall tile uses band 64, offset 64
+(the generic defaults).  Files not listed use band 64, residual
 band 12, radius 32 and offset = half the sheet on both axes; override with
 ``--band``/``--residual-band``/``--radius``/``--offset``.
 

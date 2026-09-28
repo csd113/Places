@@ -995,9 +995,9 @@ pub enum EventKindName {
     Spawn,
     /// An animation on the entity completed.
     AnimationComplete,
-    /// Reserved for the navigation/AI upgrade.
+    /// An AI agent changed state.
     AiState,
-    /// Reserved for the navigation/AI upgrade.
+    /// An AI agent caught its prey.
     Caught,
 }
 

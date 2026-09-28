@@ -351,19 +351,19 @@ One diagnostic line per level load (never per frame):
 
 ### 6.1 Source model and resolution
 
-A level references material ids; the engine resolves them through the catalog (or a level pack) into a `MaterialTable`. The rendering-facing properties are:
+A level references material ids; the engine resolves them through the catalog into a `MaterialTable`. The rendering-facing properties are:
 
 | Property | Authored | Default | Consumer |
 |---|---|---|---|
-| base texture | catalog/pack `texture` | the diagnostic magenta pattern when unresolved | base-colour sample |
-| tint | catalog/pack `tint` | `[1,1,1]` | the level build bakes it into the vertex colour |
-| `tile_metres` | catalog/pack | 2.0 m | the build's world UVs |
-| `shine` | catalog/pack | `0.4` (`DEFAULT_ROUGHNESS = 0.6` internally) | sheen, reflection |
-| `specular` / `specular_color` | catalog/pack | none / white | sheen colour |
-| `normal_texture`, `normal_strength` | catalog/pack | none / 1.0 (cap 2.0) | material normal |
-| `alpha_mode`, `opacity`, `alpha_cutoff` | catalog/pack | opaque / 1.0 / 0.5 | pass classification, alpha |
-| `reflection_mode`, `reflection_strength` | catalog/pack | none / 0.45 | reflection eligibility and weight |
-| `emissive`, `emissive_intensity`, `emissive_mask` | catalog/pack | none | emission term and masks |
+| base texture | catalog `texture` | the diagnostic magenta pattern when unresolved | base-colour sample |
+| tint | catalog `tint` | `[1,1,1]` | the level build bakes it into the vertex colour |
+| `tile_metres` | catalog | 2.0 m | the build's world UVs |
+| `shine` | catalog | `0.4` (`DEFAULT_ROUGHNESS = 0.6` internally) | sheen, reflection |
+| `specular` / `specular_color` | catalog | none / white | sheen colour |
+| `normal_texture`, `normal_strength` | catalog | none / 1.0 (cap 2.0) | material normal |
+| `alpha_mode`, `opacity`, `alpha_cutoff` | catalog | opaque / 1.0 / 0.5 | pass classification, alpha |
+| `reflection_mode`, `reflection_strength` | catalog | none / 0.45 | reflection eligibility and weight |
+| `emissive`, `emissive_intensity`, `emissive_mask` | catalog | none | emission term and masks |
 
 `shine` is the author's glossiness (`0.0` matte, `1.0` extremely glossy); the
 engine stores the shader-facing inverse, `roughness = 1 - shine`.
@@ -508,19 +508,22 @@ light *= light_scale;   // the prepared probe field, 1 for static geometry
 ```
 
 The prepared light is linear HDR and directional: each texel stores an
-irradiance term and a dominant-lobe amplitude plus an octahedral axis, and the
-shader reconstructs
+irradiance term `I` and the direction-moment vector `g` the compiler solves
+(§7.4), and the shader reconstructs, with `k = I.r + I.g + I.b`,
 
 ```wgsl
-light(n) = max(0, irradiance + direction * (2 * max(0, dot(n, axis)) - 1));
+light(n) = max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)));
 ```
 
 then runs the display tone map (`soft_clip`: values up to 0.8 pass through;
 brighter values compress with a C1 exponential shoulder) before multiplying
-the surface. The directional factor integrates to zero over the sphere, so a
-texel cannot gain energy from its dominant direction; opposing lights cancel
-to the mean. The stored light is albedo-free: the fragment stage multiplies
-the base colour exactly once.
+the surface. The directional term is the calibrated sharp cosine evaluated
+from the *interpolated* moment vector: exact for one shared direction
+(`2 * I * max(0, cos)`), zero for a receiver facing away, and collapsing
+smoothly to the isotropic mean where opposing lights cancel the moment. It
+integrates to `1/4` of the peak over the sphere, so the reconstructed field
+mean stays exactly `I`. The stored light is albedo-free: the fragment stage
+multiplies the base colour exactly once.
 
 **What is still runtime.** Sampling the prepared data (including the probe
 field and the switchable-light mask), the dynamic-object probe refresh, the
@@ -545,8 +548,10 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    answer with a receiver of the hit triangle, so light never crosses a wall or
    a storey). One pass is one diffuse bounce; Medium runs one, Full two, and the
    estimator is unbiassed (no truncated point-light list).
-3. **Denoise**: a chart-space luma-guided 3x3 pass removes gather noise without
-   crossing a real lighting edge, then the chart gutters are dilated.
+3. **Denoise**: a chart-space luma-guided 3x3 pass (gated on the smooth
+   irradiance luminance, so direction noise cannot lock itself in) removes
+   gather noise without crossing a real lighting edge, then the chart gutters
+   are dilated.
 
 Probes for the `off` variant and the fallback remain the historical
 display-space model; see §7.3.
@@ -554,9 +559,10 @@ display-space model; see §7.3.
 ### 7.1.2 Irradiance field for moving objects
 
 Compiled variants carry a prepared `blobs/<sha>.irradiance` field (a uniform 3D
-grid over the mapped world). Every probe stores the same compact HDR lobe as a
-lightmap texel plus the room it occupies; the compiler solves it from the same
-transport pass as the atlas. Moving objects and characters read it at runtime
+grid over the mapped world). Every probe stores the same irradiance +
+direction-moment pair as a lightmap texel plus the room it occupies; the
+compiler solves it from the same transport pass as the atlas. Moving objects
+and characters read it at runtime
 with a trilinear interpolation restricted to the sample's own room, so light
 does not bleed through floors, ceilings or full-height walls; an unresolvable
 position falls back to the vertex-lit sample instead of going black. The GPU
@@ -651,14 +657,16 @@ The prepared atlas is **one `texture_2d_array` of up to eight 1024² pages**
 (eight 512² pages at the Low profile); the vertex's `lightmap_page` byte is the
 base page index, so the same shader expression addresses any page count
 without a per-page branch. Every page contributes two layers: a linear HDR
-`Rgba16Float` irradiance plane and a dominant-lobe plane whose alpha is the
-octahedral axis coordinate (`VK_FORMAT_R16G16B16A16_SFLOAT` in the package).
+`Rgba16Float` irradiance plane and a direction-moment plane holding the signed
+vector sum of the per-channel moment vectors; both planes' alpha channels are
+reserved (`VK_FORMAT_R16G16B16A16_SFLOAT` in the package).
 Each switchable fixture's prepared contribution adds one more pair per page
 after the base group; the environment uniform's page count and mask select what
 is summed. `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and
 `lightmap_page` as a plain float. `surface_light()` samples the selected layer
 pairs only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, reconstructs
-the HDR lobe, tone maps it, then multiplies by `light_scale`; `LIGHTMAP_NONE`
+the HDR light from the sampled irradiance and direction moment (§7.1), tone maps
+it, then multiplies by `light_scale`; `LIGHTMAP_NONE`
 keeps the vertex-lit colour exactly. Sheen, reflection and emission are all
 scaled by that same light factor, so a dark room darkens them.
 
@@ -677,9 +685,8 @@ level and configuration are unchanged.
 Quality is a compile-time choice: **Medium** runs one diffuse bounce with two
 emitter taps per axis at 12 texels/m; **Full** runs two bounces with three taps
 at 16 texels/m. `off` ships no atlas and the historical vertex-lit mesh. There
-is no runtime atlas re-fill, and the old `cache/lightmaps/*.lmc` disk store is
-gone with the runtime bake; the compiler reuses whole packages by fingerprint
-instead.
+is no runtime atlas re-fill and no runtime lightmap disk store; the compiler
+reuses whole packages by fingerprint instead.
 
 ### 7.5 The sheen
 
@@ -777,15 +784,15 @@ graphics change or per frame.
 
 **Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed only when an object moves. Opaque dynamic primitives splice in after the static opaque class; a dynamic submesh may instead declare a **blended** alpha contract, in which case it draws after the sorted static translucent surfaces, with depth writes off and depth testing against the opaque pass, so a moving glass pane composites over the static world. Dynamic objects are outside the static batches and the bake and cast no shadow. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
 
-**Doors.** A level's `doors[]` frame and leaf are built in code (`render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The interior leaf is a white painted slab with two raised panels per face and a round brass handle on both sides; the sauna leaf is cedar stiles and rails around a clear glass panel. The sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults.
+**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The interior leaf is a white painted slab with two raised panels per face and a round brass handle on both sides; the sauna leaf is cedar stiles and rails around a clear glass panel. The sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults.
 
-**Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
+**Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`src/render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
 
-The backend (`render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level schema's worst case** (64 emitters × 128 particles = 8192 billboards, 32768 vertices, 49152 indices), writes only the used vertex range per frame, and draws one contiguous range per distinct effect material in deterministic emitter order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front (a soft plume a few tens of centimetres deep cannot show the order), are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with no effects costs nothing; the load-time line reports emitters, particles, draws and sheets.
+The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level schema's worst case** (64 emitters × 128 particles = 8192 billboards, 32768 vertices, 49152 indices), writes only the used vertex range per frame, and draws one contiguous range per distinct effect material in deterministic emitter order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front (a soft plume a few tens of centimetres deep cannot show the order), are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with no effects costs nothing; the load-time line reports emitters, particles, draws and sheets.
 
-**Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`render/common/water.rs`): the material's `alpha_mode: "blend"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
+**Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`src/render/common/water.rs`): the material's `alpha_mode: "blend"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
 
-**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
+**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
 
 **Entity cues, live transforms and routes.** A map-authored route or a
 `play_animation` action addresses a character by its placed-instance id

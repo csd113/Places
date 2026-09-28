@@ -1984,8 +1984,8 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     known component and event kinds, 1..8 typed actions per binding with
     resolvable capability-fit targets, real trigger volumes, well-formed
     timers, sequences and spawn definitions. ``play_sound``/``stop_sound`` are
-    parsed but unimplemented and are rejected by name; ``play_audio`` no longer
-    exists as a tag at all.
+    parsed but unimplemented and are rejected by name; ``play_audio`` and
+    unknown tags are rejected.
     """
     index = _index_level_entities(level, where, errors)
 

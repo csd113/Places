@@ -3693,7 +3693,7 @@ impl EntityWorld {
         }
     }
 
-    /// Every navigation agent, for the navigation upgrade.
+    /// Every navigation agent, for the navigation bake.
     #[must_use]
     pub fn nav_agents(&self) -> Vec<(EntityHandle, NavAgent)> {
         self.components
@@ -3703,7 +3703,7 @@ impl EntityWorld {
             .collect()
     }
 
-    /// Every navigation obstacle, for the navigation upgrade.
+    /// Every navigation obstacle, for the navigation bake.
     #[must_use]
     pub fn nav_obstacles(&self) -> Vec<(EntityHandle, NavObstacle)> {
         self.components
@@ -3713,7 +3713,7 @@ impl EntityWorld {
             .collect()
     }
 
-    /// The navigation shape of every door leaf, for the navigation upgrade.
+    /// The navigation shape of every door leaf, for the navigation bake.
     #[must_use]
     pub fn door_blockers(&self) -> Vec<(String, bool, DoorCollider)> {
         self.doors
@@ -3830,6 +3830,18 @@ fn door_pose_hits_player(candidate: &DoorCollider, player_feet: Vec3, body_heigh
 }
 
 /// True when a candidate door pose enters static collision.
+///
+/// The leaf is sampled on its **centre plane** along the run (five points at
+/// three heights). The leaf's two faces are deliberately not sampled: the
+/// documented authoring fixes the hinge on the opening's edge, so as the leaf
+/// turns, its own thickness near the hinge sweeps through the frame's rebate
+/// and, at the end of the swing, lies against the jamb wall the hinge is
+/// fixed to. Face samples report that as a collision at every real swing
+/// angle, which froze the shipped demo doors; a blocker thick enough to stop
+/// a leaf (walls, props and jambs here are all several centimetres thick)
+/// still crosses the centre plane, and the worst case is a leaf whose face
+/// grazes a parallel wall by half its own thickness — the same place a real
+/// door comes to rest.
 fn door_pose_hits_static(
     index: &CollisionIndex,
     walls: &[WallAabb],
@@ -3842,28 +3854,26 @@ fn door_pose_hits_static(
         .max(0.0)
         .mul_add(1.0, candidate.hinge_y);
     let middle = candidate.height.mul_add(0.5, candidate.hinge_y);
-    for t in [0.0_f32, 0.5, 1.0] {
-        for side in [-1.0_f32, 1.0] {
-            let (px, pz) = candidate.point_at(t, side);
-            for y in [low, middle, high] {
-                let mut blocked = false;
-                index.for_each_point(px, pz, walls, |wall| {
-                    if blocked {
-                        return;
-                    }
-                    if y > wall.min_y + crate::collision::STEP_EPS
-                        && y < wall.max_y - crate::collision::STEP_EPS
-                        && px > wall.min_x
-                        && px < wall.max_x
-                        && pz > wall.min_z
-                        && pz < wall.max_z
-                    {
-                        blocked = true;
-                    }
-                });
+    for t in [0.125_f32, 0.25, 0.5, 0.75, 1.0] {
+        let (px, pz) = candidate.point_at(t, 0.0);
+        for y in [low, middle, high] {
+            let mut blocked = false;
+            index.for_each_point(px, pz, walls, |wall| {
                 if blocked {
-                    return true;
+                    return;
                 }
+                if y > wall.min_y + crate::collision::STEP_EPS
+                    && y < wall.max_y - crate::collision::STEP_EPS
+                    && px > wall.min_x + crate::collision::STEP_EPS
+                    && px < wall.max_x - crate::collision::STEP_EPS
+                    && pz > wall.min_z + crate::collision::STEP_EPS
+                    && pz < wall.max_z - crate::collision::STEP_EPS
+                {
+                    blocked = true;
+                }
+            });
+            if blocked {
+                return true;
             }
         }
     }
@@ -4335,6 +4345,80 @@ mod tests {
         assert_eq!(
             world.doors().get(0).expect("door").phase(),
             DoorPhase::Opening
+        );
+    }
+
+    /// A leaf hinged on its opening edge swings through its full arc, and a
+    /// real wall in the sweep still stops it.
+    ///
+    /// The documented authoring puts the hinge exactly on the jamb, so the
+    /// hinge's own thickness disc overlaps the wall solid. The static sweep
+    /// must ignore that disc: sampling it reports every rotated pose as
+    /// blocked and freezes the leaf, which is exactly what the shipped demo
+    /// doors did before the fix.
+    #[test]
+    fn a_leaf_hinged_on_the_opening_edge_swings_and_a_real_wall_still_blocks_it() {
+        let wall = r#"{ "x": 3.0, "z": 4.85, "width": 4.0, "depth": 0.3, "y": 0.0,
+                        "height": 3.0,
+                        "openings": [ { "kind": "door", "offset": 1.0, "width": 1.0,
+                                        "height": 2.1, "sill": 0.0 } ] }"#;
+        let door = r#"{ "id": "leaf", "x": 4.0, "y": 0.0, "z": 5.0,
+                        "rotation_degrees": 0.0, "width": 1.0, "height": 2.1,
+                        "thickness": 0.045, "open_direction": "left",
+                        "swing_degrees": 90.0, "initial_state": "closed" }"#;
+
+        let swing = |extra_wall: Option<&str>| -> EntityWorld {
+            let walls_json = extra_wall.map_or_else(
+                || format!(r"[ {wall} ]"),
+                |extra| format!(r"[ {wall}, {extra} ]"),
+            );
+            let level = base_level(&format!(r#""walls": {walls_json},"doors": [ {door} ]"#));
+            let mut world = EntityWorld::from_level(&level);
+            assert!(world.doors_mut().request_open("leaf"));
+            let walls = level.collision_aabbs();
+            let index = CollisionIndex::build(&walls);
+            let floor = WalkableFloor::from_level(&level);
+            let feet = Vec3::new(10.0, 0.0, 10.0);
+            let ctx = WorldContext {
+                delta_seconds: 1.0 / 60.0,
+                feet_from: feet,
+                feet,
+                eye: feet + Vec3::Y,
+                body_height: 1.8,
+                walls: &walls,
+                index: &index,
+                floor: &floor,
+                nav: None,
+            };
+            for _ in 0..180 {
+                world.update_doors(&ctx);
+            }
+            world
+        };
+
+        let world = swing(None);
+        let leaf = world.doors().get(0).expect("door");
+        assert_eq!(
+            leaf.phase(),
+            DoorPhase::Open,
+            "the leaf reaches its open end instead of freezing on the jamb"
+        );
+        let collider = leaf.collider();
+        assert!(
+            collider.dir_z < -0.99 && collider.dir_x.abs() < 0.02,
+            "the left swing opens toward -Z: ({}, {})",
+            collider.dir_x,
+            collider.dir_z
+        );
+
+        let world = swing(Some(
+            r#"{ "x": 3.5, "z": 4.4, "width": 3.0, "depth": 0.3, "y": 0.0,
+                 "height": 3.0 }"#,
+        ));
+        assert_eq!(
+            world.doors().get(0).expect("door").phase(),
+            DoorPhase::Opening,
+            "a wall across the sweep holds the leaf short of its open end"
         );
     }
 

@@ -1347,7 +1347,7 @@ fn accessor_data_decodes_a_mat4_with_a_nonzero_offset_and_exact_end() {
 #[test]
 fn accessor_data_rejects_a_zero_count() {
     // Fixture 9: glTF accessors hold at least one element; an empty accessor
-    // used to be accepted as an empty tuple list.
+    // is rejected, not accepted as a tuple list.
     let binary = accessor_fixture_binary();
     let json = vec3_accessor_document(0, 48, 0, 0, None);
     let error = read_vec(&json, &binary, 0, 3).expect_err("a zero count must fail");

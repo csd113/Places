@@ -60,15 +60,6 @@ impl Renderer {
         WgpuRenderer::new_headless(drawable).map(|renderer| Self { renderer })
     }
 
-    /// Re-captures the resident world's reflection probes.
-    ///
-    /// The offline compiler calls this after installation, and again after
-    /// changing the reflection quality, so both packaged face sizes are the
-    /// proven capture result.
-    pub fn capture_reflection_probes(&mut self) {
-        self.renderer.capture_reflection_probes();
-    }
-
     /// Recreates the probe targets at `quality` and re-captures them.
     pub fn reprepare_reflection_probes(&mut self, quality: ReflectionQuality) {
         self.renderer.reprepare_reflection_probes(quality);
@@ -429,27 +420,10 @@ impl Renderer {
             .set_runtime_character_transform(instance_id, position, yaw_degrees)
     }
 
-    /// True when a runtime actor with this id is live.
-    #[must_use]
-    pub fn has_runtime_character(&self, instance_id: &str) -> bool {
-        self.renderer.has_runtime_character(instance_id)
-    }
-
     /// The number of live animated characters in the current level.
     #[must_use]
     pub const fn character_count(&self) -> usize {
         self.renderer.character_count()
-    }
-
-    /// The current character scene, for the developer log.
-    #[must_use]
-    pub const fn character_scene(&self) -> &CharacterScene {
-        self.renderer.character_scene()
-    }
-
-    /// Mutable access to the current character scene (gameplay and tests).
-    pub const fn character_scene_mut(&mut self) -> &mut CharacterScene {
-        self.renderer.character_scene_mut()
     }
 
     /// The current dynamic scene, for the developer log.

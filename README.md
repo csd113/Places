@@ -52,8 +52,8 @@ The engine is deliberately small and the content is deliberately editable:
   ceiling profile (flat or gable); `floor_regions` recess or raise rectangular
   parts of a room, which is how the empty pool basin and the region staircases
   are built.
-* **External artwork.** Surface materials, decal sheets, light fixture faces and
-  (optionally) level pack textures are ordinary PNGs under `assets/`. Replace
+* **External artwork.** Surface materials, decal sheets and light fixture
+  faces are ordinary PNGs under `assets/`. Replace
   the file, restart, see the new pixels — no Rust change and no recompilation.
 * **A real catalog.** Levels never store a file path. They name a logical id
   (`core:desk`, `core:pool_tile_deck_01`, `spooner-man`) and `assets/catalog.json`
@@ -268,7 +268,7 @@ Places/
     levels/                 drop-in compiled packages (*.placesmap); created on first run
     import/                 files waiting to be imported; created on first run
     settings.json           written on first run
-    cache/                  developer/audit lightmap cache (never created by the player)
+    cache/                  tooling cache (Model Zoo inspection; never created by the player)
 ```
 
 Build one with:
@@ -340,11 +340,11 @@ the PNG under `assets/environment/<theme>/textures/` (or a decal sheet under
 `assets/environment/pool/decals/`, `assets/core/decals/`, or a light fixture's
 face under `assets/environment/<theme>/textures/lights/`) and restart the game.
 
-Every surface, decal and fixture PNG is an ordinary editable file; the ones
-under `tools/` regenerate the shipped set deterministically, but hand-painted
-artwork is just as valid. Add a new surface material without touching Rust: add
-the PNG, add a `texture` entry and a `material` entry to the catalog, then name
-the material from a level. A material may also name a `normal_texture` (a
+Every surface, decal and fixture PNG is an ordinary editable file; the painters
+and builders under `tools/` regenerate the shipped set deterministically, but
+hand-painted artwork is just as valid. Add a new surface material without
+touching Rust: add the PNG, add a `texture` entry and a `material` entry to the
+catalog, then name the material from a level. A material may also name a `normal_texture` (a
 tangent-space normal map, generated or hand-painted like any other sheet), a
 `specular` strength and a `shine` glossiness for its sheen (a level may override
 the glossiness per surface), and an `alpha_mode` with an optional `opacity` for
@@ -365,7 +365,7 @@ optional per-face materials and openings cut out of them.
 
 ```jsonc
 {
-  "format_version": 2,
+  "format_version": 3,
   "id": "my_level",
   "name": "My Level",
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },
@@ -490,6 +490,7 @@ src/                 the game crate (`places`)
 assets/              the shipped content (catalog, levels, models, textures, decals)
 levels/              drop-in compiled packages (.placesmap)
 tools/               asset, texture, prop and level generators and validators
+tests/               the Python suites and their fixtures
 docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
 docs/screenshots/    the images in this README
 docs/renderer-baseline/  frozen 25-view reference captures (Full and Low) and their record

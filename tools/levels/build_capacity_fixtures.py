@@ -394,7 +394,7 @@ DENSE_ANIMATED: List[Tuple[str, str]] = [
     ("rat", "run"),
     # Independent copies of shared models: nine more actors, all animated on
     # their own route with their own pose, so the character budget and the
-    # per-instance isolation are exercised well past the historical cap of 8.
+    # per-instance isolation are exercised well past the previous cap of eight.
     ("mannequin", "pose_arms_up"),
     ("mannequin", "pose_arms_forward"),
     ("skeleton", "pose_sit_floor"),
@@ -583,7 +583,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
 
     # Animated cast: independent instances of the four rigs, all placed on the
     # reserved corridors and each on its own short route along its corridor.
-    # They demonstrate a character count well past the historical cap of eight,
+    # They demonstrate a character count well past the previous cap of eight,
     # with per-instance pose state.
     animated_routes: List[Dict] = []
     for index, (model, clip) in enumerate(DENSE_ANIMATED):

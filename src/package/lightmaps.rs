@@ -29,7 +29,12 @@ use crate::package::ktx2::{self, Ktx2Rgba16f};
 use super::{MAX_LIGHTMAP_PAGE_EDGE, MAX_LIGHTMAP_PAGES};
 
 /// Version of the lightmap metadata record.
-pub const LIGHTMAPS_RECORD_VERSION: u16 = 2;
+///
+/// * `2` — the HDR transport atlas with the octahedral dominant-axis encoding.
+/// * `3` — the linear moment representation: `direction` is the vector sum of
+///   the per-channel first moments and the planes' alpha channels are reserved.
+///   Version-2 data is rejected.
+pub const LIGHTMAPS_RECORD_VERSION: u16 = 3;
 
 /// The lightmap metadata that travels beside the KTX2 pages.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -276,7 +281,9 @@ fn decode_page(
     {
         let irradiance = [f16_at(irr, 0), f16_at(irr, 2), f16_at(irr, 4)];
         let direction = [f16_at(dir, 0), f16_at(dir, 2), f16_at(dir, 4)];
-        // The octahedral axis rides in the planes' alpha channels.
+        // The axis pair rides in the planes' alpha channels and is reserved:
+        // writers store `[0.5, 0.5]` and the reconstruction ignores it, but the
+        // record keeps its three-field shape.
         let axis = [f16_at(irr, 6), f16_at(dir, 6)];
         texels.push(
             LightmapTexel {
@@ -390,7 +397,8 @@ fn encode_page(page: &LightmapPage, layers: &mut Vec<Vec<u8>>) -> Result<(), Str
     let mut irradiance = Vec::with_capacity(texels.saturating_mul(8));
     let mut direction = Vec::with_capacity(texels.saturating_mul(8));
     for texel in &page.texels {
-        // The two planes' alpha channels carry the octahedral direction axis.
+        // The two planes' alpha channels carry the reserved axis pair; writers
+        // store `[0.5, 0.5]` and the reconstruction ignores it.
         push_f16_rgba(&mut irradiance, texel.irradiance, texel.axis[0]);
         push_f16_rgba(&mut direction, texel.direction, texel.axis[1]);
     }
@@ -472,5 +480,30 @@ mod tests {
         assert!((texel.irradiance[1] - 0.25).abs() < 1e-3);
         assert!((texel.direction[2] - 0.75).abs() < 1e-3);
         assert!((texel.direction[0] - 0.5).abs() < 1e-3);
+    }
+
+    /// The record version bumped with the linear moment representation, so a
+    /// stale version-2 record must be rejected by name before any page is
+    /// decoded as if its `direction` were a dominant-lobe amplitude.
+    #[test]
+    fn a_version_2_lightmap_record_is_rejected() {
+        let atlas = crate::lighting::lightmap::LevelLightmaps {
+            pages: vec![LightmapPage {
+                width: 1,
+                height: 1,
+                texels: vec![LightmapTexel::ZERO],
+            }],
+            charts: Vec::new(),
+            stats: crate::lighting::lightmap::LightmapStats::default(),
+            cache_key: "version-test".to_string(),
+            padding: 1,
+            switchable: Vec::new(),
+        };
+        let (meta, ktx2) = write_lightmaps(&atlas).expect("the test atlas writes");
+        let text = String::from_utf8(meta).expect("the record is JSON text");
+        assert!(text.contains("\"record_version\":3"), "{text}");
+        let stale = text.replace("\"record_version\":3", "\"record_version\":2");
+        let error = read_lightmaps(stale.as_bytes(), &ktx2).expect_err("version 2 is stale");
+        assert!(error.contains("version 2"), "{error}");
     }
 }

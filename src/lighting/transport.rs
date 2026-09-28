@@ -13,13 +13,20 @@
 //!    lights (area-weighted radiosity samples); every receiver gathers the
 //!    nearby VPLs through an XZ grid, each gather visibility-tested. One or two
 //!    gathers are supported, giving colored indirect illumination.
-//! 3. **Directional encoding.** Every contribution is stored as a first-order
-//!    lobe: `irradiance += 0.5 w`, `direction += 0.5 w * omega`, where `omega`
-//!    points from the receiver toward the light. The shader reconstructs
-//!    `light(n) = max(0, irradiance + dot(direction, n))`, which is exact at
-//!    the lobe's peak (`n = omega`), dark for a receiver facing away, and
-//!    mean-exact over the sphere, so tiled and curved surfaces react to their
-//!    real normals instead of receiving one isotropic value.
+//! 3. **Directional encoding.** Every contribution is stored as a mean plus a
+//!    first moment: `irradiance += 0.5 w`, `moment += 0.5 w * omega`, where
+//!    `omega` points from the receiver toward the light. The compact stored
+//!    form sums the per-channel moments into one vector `g = sum_c m_c`
+//!    ([`LightmapTexel::direction`]) and reconstructs the calibrated sharp
+//!    cosine
+//!    `light_c(n) = max(0, I_c + (I_c / sum I) * (2 * max(0, dot(g, n)) - |g|))`,
+//!    which is exact for any number of contributions sharing one direction
+//!    (`2 * I_c * max(0, cos)`), evaluates its nonlinear step on the scalar
+//!    `dot(g, n)` of the interpolated moment (so a hardware interpolation
+//!    between texels cannot sweep a discontinuous parameterisation), and
+//!    collapses to the isotropic mean where the moment cancels, so tiled and
+//!    curved surfaces react to their real normals instead of receiving one
+//!    isotropic value.
 //!
 //! Units and normalization
 //! ------------------------
@@ -201,7 +208,16 @@ pub fn solver_fingerprint() -> u64 {
 
 /// Bumped whenever the transport equations, bounce sampling or filtering
 /// change in a way that alters solved values.
-pub const SOLVER_REVISION: u64 = 1;
+///
+/// * `1` — the initial offline transport solve.
+/// * `2` — the linear moment representation: the stored direction is the
+///   vector sum of the per-channel first moments and the octahedral dominant
+///   axis is gone, so every value a version-1 solver produced is invalid.
+/// * `3` — the moment reconstruction is the calibrated sharp cosine
+///   (`2 * max(0, dot(g, n)) - |g|`), which also changes the radiance the
+///   bounce passes and the probe field read back, so version-2 pages are
+///   invalid.
+pub const SOLVER_REVISION: u64 = 3;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1132,6 +1148,11 @@ impl TransportScene {
         );
         if bounces > 0 && !emitters.is_empty() {
             let mut bounce_count = 0usize;
+            // The cache is derived from the receiver positions alone, which do
+            // not move between passes; only the solved values it is read
+            // against change. Build it once for every bounce pass.
+            let cache = RadianceCache::build(&receivers);
+            *cache_cells = cache.occupied_cells();
             for pass_index in 0..bounces {
                 // Each pass traces uniform-hemisphere rays against the previous
                 // pass's solved light, so one pass is one diffuse bounce and
@@ -1139,8 +1160,6 @@ impl TransportScene {
                 // response is not baked into the ray density, so summing every
                 // traced sample with its own solid-angle weight cannot lose the
                 // energy a truncated point-light list lost.
-                let cache = RadianceCache::build(&receivers);
-                *cache_cells = cache.occupied_cells();
                 let gained = self.bounce_pass(
                     &receivers,
                     &accumulators,
@@ -1189,7 +1208,7 @@ impl TransportScene {
         // Controlled filtering: a chart-space luma-guided 3x3 pass on the
         // accumulated values removes the per-texel gather noise a point VPL
         // set leaves without blurring across a change in received light.
-        let filtered = filter_accumulators(charts, &receivers, &accumulators);
+        let filtered = filter_accumulators(charts, &accumulators);
         let mut out = Vec::with_capacity(charts.len());
         let mut offset = 0usize;
         for (_, chart) in charts {
@@ -1424,62 +1443,35 @@ fn accumulate_lobe(accumulator: &mut Accumulator, weight: [f32; 3], direction: [
     }
 }
 
-/// Compresses an accumulated field into the stored dominant-direction form.
+/// Compresses an accumulated field into the stored moment form.
 ///
-/// The dominant axis is the principal axis of `P = sum_c m_c m_c^T` (the
-/// direction that best explains the accumulated moment), found by power
-/// iteration seeded with `sum_c m_c`. Each channel's amplitude is its moment
-/// projected onto that axis; a field with no dominant direction (opposing
-/// lights of equal strength) cancels to a zero seed and a zero amplitude, so
-/// the reconstruction falls back to the mean alone.
+/// The stored `direction` is the vector sum of the per-channel moments
+/// `g = sum_c m_c`; the stored `irradiance` is the accumulated mean and the
+/// reserved `axis` is written `[0.5, 0.5]`. The reconstruction
+/// `max(0, I_c + (I_c / sum I) * (2 * max(0, dot(g, n)) - |g|))` is exact for a
+/// single shared direction of any colour and evaluates its nonlinear step on
+/// the scalar `dot(g, n)`, so a texel that gathers several directions (`g`
+/// partially cancels) reconstructs to the mean plus a smaller directional term
+/// instead of picking one dominant lobe.
 fn compress(accumulator: &Accumulator) -> LightmapTexel {
-    let mut seed = [0.0_f32; 3];
+    let mut direction = [0.0_f32; 3];
     for channel in 0..3 {
         if let Some(moment) = accumulator.moment.get(channel) {
             for axis in 0..3 {
                 if let Some(value) = moment.get(axis) {
-                    if let Some(slot) = seed.get_mut(axis) {
+                    if let Some(slot) = direction.get_mut(axis) {
                         *slot += value;
                     }
                 }
             }
         }
     }
-    let mut direction = normalize_or(seed, [0.0, 0.0, 1.0]);
-    if length(seed) > 1.0e-6 {
-        for _ in 0..3 {
-            let mut next = [0.0_f32; 3];
-            for channel in 0..3 {
-                let Some(moment) = accumulator.moment.get(channel) else {
-                    continue;
-                };
-                let projection = dot(*moment, direction);
-                for axis in 0..3 {
-                    if let (Some(slot), Some(value)) = (next.get_mut(axis), moment.get(axis)) {
-                        *slot += projection * value;
-                    }
-                }
-            }
-            direction = normalize_or(next, direction);
-        }
-    }
-    let mut amplitude = [0.0_f32; 3];
-    for channel in 0..3 {
-        if let Some(moment) = accumulator.moment.get(channel) {
-            amplitude[channel] = dot(*moment, direction).max(0.0);
-        }
-    }
     LightmapTexel {
         irradiance: accumulator.irradiance,
-        direction: amplitude,
-        axis: crate::lighting::lightmap::oct_encode(direction),
+        direction,
+        axis: [0.5, 0.5],
     }
     .normalized()
-}
-
-/// The light an accumulated field reconstructs at `normal`.
-fn reconstruct(accumulator: &Accumulator, normal: [f32; 3]) -> [f32; 3] {
-    compress(accumulator).light_at(normal)
 }
 
 /// Per-channel luminance weights used only for thresholds and filtering.
@@ -1637,11 +1629,16 @@ fn uniform_sphere_sample(u1: f32, u2: f32) -> [f32; 3] {
 /// Every chart is planar, so the filter only has to guard against a
 /// discontinuity in the solved values themselves, which is what a doorway into
 /// a dark room or a hard shadow boundary looks like. A texel only mixes with a
-/// neighbour whose luminance is close to its own, so the filter removes gather
-/// noise without crossing a real lighting edge.
+/// neighbour whose irradiance luminance is close to its own, so the filter
+/// removes gather noise without crossing a real lighting edge.
+///
+/// The similarity metric compares the neighbour's *irradiance* luminance, not
+/// a reconstruction of its directional light. The stored values are linear in
+/// the accumulator, so the irradiance is a smooth, edge-preserving signal; the
+/// old metric compared a nonlinear reconstruction at each texel's own normal,
+/// which let direction noise veto legitimate smoothing and lock the noise in.
 fn filter_accumulators(
     charts: &[(LightmapPatch, Chart)],
-    receivers: &[TransportReceiver],
     values: &[Accumulator],
 ) -> Vec<LightmapTexel> {
     let count = values.len();
@@ -1662,11 +1659,7 @@ fn filter_accumulators(
                 let Some(center) = values.get(index) else {
                     continue;
                 };
-                let Some(receiver) = receivers.get(index) else {
-                    continue;
-                };
-                let center_light = reconstruct(center, receiver.normal);
-                let center_luma = channel_luminance(center_light);
+                let center_luma = channel_luminance(center.irradiance);
                 let mut total_weight = 1.0_f32;
                 let mut a = center.irradiance;
                 let mut b = center.moment;
@@ -1686,11 +1679,7 @@ fn filter_accumulators(
                     let Some(source) = values.get(neighbour) else {
                         continue;
                     };
-                    let Some(source_receiver) = receivers.get(neighbour) else {
-                        continue;
-                    };
-                    let source_light = reconstruct(source, source_receiver.normal);
-                    let diff = (channel_luminance(source_light) - center_luma).abs();
+                    let diff = (channel_luminance(source.irradiance) - center_luma).abs();
                     let weight = 1.0 / (1.0 + 8.0 * diff);
                     if weight <= 1.0e-4 {
                         continue;

@@ -929,11 +929,6 @@ impl Character {
         &self.animator
     }
 
-    /// Mutable access to the pose evaluator.
-    pub const fn animator_mut(&mut self) -> &mut CharacterAnimator {
-        &mut self.animator
-    }
-
     /// Moves the character to a live base position and yaw (radians).
     ///
     /// Rebuilds the same placement matrix `prop_instance_matrix` produced and
@@ -1924,13 +1919,6 @@ impl CharacterAnimator {
         let finished = self.cue_finished;
         self.cue_finished = false;
         finished
-    }
-
-    /// The current morph weight delta over the model's default, for one target.
-    #[must_use]
-    pub fn morph_weight_delta(&self, index: usize) -> f32 {
-        self.morphs.get(index).copied().unwrap_or(0.0)
-            - self.morph_defaults.get(index).copied().unwrap_or(0.0)
     }
 
     /// Advances an explicit pose cue and returns whether the pose changed.

@@ -37,10 +37,11 @@ directory.
   ceiling, a staircase built from floor regions that climbs to an elevated room
   at `floor_y: 2.0`, a room with a walkable recess and a blocked deep recess, a
   gable room with eave and ridge fixtures, RGB-lit corners and decals.
-* The `texture_diagnostic` level is retired, together with the other
-  non-demo bundled levels. Its diagnostic materials and textures stay in the
-  catalog: the external-texture loading tests still use them, and user levels
-  can reference them like any other catalogued asset.
+* The diagnostic materials and textures stay catalogued and resolvable like any
+  other catalogued asset, so tests and user levels can reference them. The
+  renderer loads `core:tex_diagnostic_alt_01` directly in a test that proves
+  the non-square, non-power-of-two path; the remaining diagnostic textures are
+  available for the same kind of checks.
 
 The RGB-lighting, decal, external-asset and vertical-geometry diagnostic
-content still loads and resolves unchanged.
+content loads and resolves through the catalog.

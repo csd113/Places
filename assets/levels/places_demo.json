@@ -127,6 +127,21 @@
       "material": "home:carpet_cream_01",
       "ceiling_material": "home:ceiling_plaster_01",
       "comment": "Narrow enclosed Home loop: 1.4 m clear, with long dark sight lines and two blind turns."
+    },
+    {
+      "x": 26.0,
+      "z": 7.0,
+      "width": 7.0,
+      "depth": 4.0,
+      "height": 3.6,
+      "floor_y": -0.9,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01",
+      "ceiling_tile_origin": [
+        29.0,
+        10.0
+      ],
+      "comment": "The pool's shower bay: a tiled wet room east of the deck, level with the sauna (-0.9) and reached by two 0.3 m steps at the wall-12 passage. The curved screen at the middle shelters three shower positions on the north wall."
     }
   ],
   "walls": [
@@ -343,7 +358,17 @@
       "depth": 4.3,
       "y": -1.5,
       "height": 4.2,
-      "material": "core:pool_tile_wall_01"
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 2.55,
+          "width": 1.2,
+          "height": 2.4,
+          "sill": 0.0
+        }
+      ],
+      "comment": "Pool/shower divider: a 1.2 m passage at deck height opens onto the two 0.3 m steps up into the shower bay; the step surfaces continue through the wall so the doorway floor is flush with the bay."
     },
     {
       "x": 25.85,
@@ -382,8 +407,18 @@
       "width": 7.0,
       "depth": 0.3,
       "y": -0.9,
-      "height": 3.0,
-      "material": "home:sauna_wood_01"
+      "height": 3.6,
+      "material": "home:sauna_wood_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 4.95,
+          "width": 1.6,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ],
+      "comment": "Sauna north wall, raised to the shower bay's ceiling so the two rooms seal: it now carries the shower-side sauna door as well as a cedar-clad face."
     },
     {
       "x": 26.15,
@@ -606,7 +641,7 @@
     },
     {
       "x": 53.0,
-      "z": 14.7,
+      "z": 14.85,
       "width": 12.0,
       "depth": 0.3,
       "y": -0.9,
@@ -720,6 +755,29 @@
       "depth": 0.26,
       "material": "home:wall_paint_offwhite_01",
       "y": -0.9
+    },
+    {
+      "x": 25.85,
+      "z": 6.85,
+      "width": 7.3,
+      "depth": 0.3,
+      "y": -1.5,
+      "height": 4.2,
+      "material": "core:pool_tile_wall_01",
+      "faces": {
+        "north": "core:wallpaper_stained_01"
+      },
+      "comment": "Shower-bay north wall, carrying the three shower risers; its outer face is never seen."
+    },
+    {
+      "x": 32.85,
+      "z": 6.85,
+      "width": 0.3,
+      "depth": 4.3,
+      "y": -1.5,
+      "height": 4.2,
+      "material": "core:pool_tile_wall_01",
+      "comment": "Shower-bay east wall; continues the wall-17 line north past the sauna."
     }
   ],
   "floor_patches": [
@@ -1188,6 +1246,42 @@
       "depth": 5.47,
       "material": "home:tile_home_01",
       "comment": "Kitchen tile, ending at the two knee walls; the tile/hardwood transition is the cased opening marked by the threshold below."
+    },
+    {
+      "x": 26.15,
+      "z": 7.15,
+      "width": 6.7,
+      "depth": 2.75,
+      "material": "core:pool_tile_deck_01",
+      "comment": "The bay's wet zone: the pool deck tile at a raised gloss. Keeping the ordinary tile holds the demo to the pool's single planar mirror instead of adding a second half-resolution reflection pass.",
+      "shine": 0.72
+    },
+    {
+      "x": 28.1,
+      "z": 7.5,
+      "width": 0.4,
+      "depth": 0.4,
+      "material": "core:metal_brushed_01",
+      "shine": 0.5,
+      "comment": "Floor drain under a shower position."
+    },
+    {
+      "x": 29.2,
+      "z": 7.5,
+      "width": 0.4,
+      "depth": 0.4,
+      "material": "core:metal_brushed_01",
+      "shine": 0.5,
+      "comment": "Floor drain under a shower position."
+    },
+    {
+      "x": 30.3,
+      "z": 7.5,
+      "width": 0.4,
+      "depth": 0.4,
+      "material": "core:metal_brushed_01",
+      "shine": 0.5,
+      "comment": "Floor drain under a shower position."
     }
   ],
   "floor_regions": [
@@ -1291,11 +1385,31 @@
       "x": 58.0,
       "z": 11.0,
       "width": 6.75,
-      "depth": 3.75,
+      "depth": 3.9,
       "offset_y": 2.1,
       "material": "home:hardwood_walnut_02",
       "edge_material": "home:wall_paint_offwhite_01",
       "comment": "The walkable second floor and balcony: walnut boards 2.6 m above the lower floor, reached by the staircase at its west end."
+    },
+    {
+      "x": 24.2,
+      "z": 9.2,
+      "width": 0.8,
+      "depth": 1.8,
+      "offset_y": 0.3,
+      "material": "core:pool_tile_deck_01",
+      "edge_material": "core:pool_tile_wall_01",
+      "comment": "First 0.3 m step up from the pool deck (-1.5 to -1.2) at the shower-bay passage. Its south edge meets the sauna landing's own region line, so the north approach reads as two 0.3 m risers."
+    },
+    {
+      "x": 25.0,
+      "z": 9.2,
+      "width": 1.0,
+      "depth": 1.8,
+      "offset_y": 0.6,
+      "material": "core:pool_tile_deck_01",
+      "edge_material": "core:pool_tile_wall_01",
+      "comment": "Second 0.3 m step up to the shower bay's own floor (-0.9): its far edge reaches the wall-12 centreline, so the walkable surface is flush through the passage. Its south edge meets the sauna landing's own region line, so the north approach reads as two 0.3 m risers."
     }
   ],
   "water": [
@@ -1598,8 +1712,8 @@
     },
     {
       "fixture": "core:fluorescent_panel_01",
-      "x": 31.0,
-      "z": 13.0,
+      "x": 29.5,
+      "z": 12.6,
       "rotation_degrees": 0.0,
       "brightness": 0.9,
       "color": [
@@ -1609,7 +1723,7 @@
       ],
       "id": "sauna_light",
       "switchable": true,
-      "comment": "Sauna lamp. Switchable: it contributes a local pool only (never a room baseline), so toggling it re-fills just its own lightmap charts and turns its face off through the same switch that drives the sauna door."
+      "comment": "Sauna lamp, moved over the room's centre in front of the benches. Switchable: it contributes a local pool only, so toggling it re-fills just its own layers."
     },
     {
       "fixture": "core:fluorescent_panel_01",
@@ -1787,6 +1901,68 @@
         0.84,
         0.65
       ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 28.3,
+      "z": 8.2,
+      "rotation_degrees": 0.0,
+      "brightness": 0.8,
+      "color": [
+        0.55,
+        0.78,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 8.2,
+      "rotation_degrees": 0.0,
+      "brightness": 0.8,
+      "color": [
+        0.55,
+        0.78,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 30.5,
+      "z": 8.2,
+      "rotation_degrees": 0.0,
+      "brightness": 0.8,
+      "color": [
+        0.55,
+        0.78,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 28.0,
+      "z": 10.2,
+      "rotation_degrees": 0.0,
+      "brightness": 0.8,
+      "color": [
+        0.55,
+        0.78,
+        1.0
+      ],
+      "comment": "Lights the drying bench and the passage back to the pool."
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 27.0,
+      "z": 13.5,
+      "rotation_degrees": 0.0,
+      "brightness": 0.3,
+      "color": [
+        1.0,
+        0.85,
+        0.66
+      ],
+      "comment": "Warm fill over the sauna's south-west corner: the Home's round flush mount, so the room keeps one sauna panel and one domestic fill."
     }
   ],
   "props": [
@@ -2881,39 +3057,6 @@
       }
     },
     {
-      "id": "sauna_bench_a",
-      "display_name": "Sauna Bench",
-      "model": "home:cabinet_base",
-      "x": 30.0,
-      "y": 0.0,
-      "z": 11.7,
-      "rotation_degrees": 0.0,
-      "scale": 0.5,
-      "size": [
-        0.3,
-        0.45,
-        0.3
-      ],
-      "solid": true,
-      "comment": "Sauna bench pair: a plain low box in the sauna corner, at the far end from the door."
-    },
-    {
-      "id": "sauna_bench_b",
-      "display_name": "Sauna Bench",
-      "model": "home:cabinet_base",
-      "x": 30.0,
-      "y": 0.0,
-      "z": 14.4,
-      "rotation_degrees": 0.0,
-      "scale": 0.5,
-      "size": [
-        0.3,
-        0.45,
-        0.3
-      ],
-      "solid": true
-    },
-    {
       "id": "hall_switch",
       "display_name": "Hall Light Switch",
       "model": "home:wall_switch",
@@ -3076,12 +3219,13 @@
     {
       "x": 24.8,
       "y": -1.5,
-      "z": 10.0,
+      "z": 8.5,
       "width": 0.8,
       "height": 1.4,
       "rotation_degrees": 90.0,
       "material": "core:decal_stripes_01",
-      "surface": "floor"
+      "surface": "floor",
+      "comment": "Deck stripe marking at the sauna approach; nudged north so the new shower-bay steps do not split its surface."
     },
     {
       "x": 8.35,
@@ -3160,6 +3304,123 @@
       "comment": "Lower floor to the balcony: eight risers of 0.2625 m on 0.30 m treads, climbing east out of the entrance's sight line and landing flush on the walnut upper floor."
     }
   ],
+  "half_walls": [
+    {
+      "x": 26.9,
+      "z": 10.4,
+      "width": 1.8,
+      "depth": 0.5,
+      "height": 0.42,
+      "material": "core:pool_tile_wall_01",
+      "cap_material": "core:pool_tile_deck_01",
+      "comment": "Tiled drying bench against the sauna wall, clear of the walkway."
+    },
+    {
+      "x": 26.4,
+      "z": 11.1,
+      "width": 4.2,
+      "depth": 0.6,
+      "height": 0.72,
+      "material": "home:sauna_wood_01",
+      "cap_material": "home:sauna_wood_01",
+      "y": -0.9,
+      "comment": "Upper cedar bench against the sauna's north wall: 0.72 m high, a 0.36 m step up from the lower tier, and clear of both doors."
+    },
+    {
+      "x": 26.5,
+      "z": 11.66,
+      "width": 4.0,
+      "depth": 0.49,
+      "height": 0.36,
+      "material": "home:sauna_wood_01",
+      "cap_material": "home:sauna_wood_01",
+      "y": -0.9,
+      "comment": "Lower cedar bench in front of the upper tier: a 0.36 m step from the sauna floor."
+    }
+  ],
+  "arc_walls": [
+    {
+      "x": 29.4,
+      "z": 6.6,
+      "radius": 2.4,
+      "thickness": 0.22,
+      "height": 2.1,
+      "start_degrees": 135.0,
+      "sweep_degrees": 90.0,
+      "segments": 12,
+      "material": "core:pool_tile_wall_01",
+      "inner_material": "core:pool_tile_wall_01",
+      "outer_material": "core:pool_tile_wall_01",
+      "cap_material": "core:metal_brushed_01",
+      "end_material": "core:pool_tile_wall_01",
+      "comment": "Curved shower screen: a 90-degree tiled arc bulging south, its concave face sheltering the three shower positions; the walk-in is around either end. Twelve segments keep the sagitta at 5 mm while halving the chart count."
+    }
+  ],
+  "pillars": [
+    {
+      "x": 28.3,
+      "z": 7.35,
+      "radius": 0.05,
+      "height": 1.95,
+      "segments": 8,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Chrome shower riser against the north wall."
+    },
+    {
+      "x": 29.4,
+      "z": 7.35,
+      "radius": 0.05,
+      "height": 1.95,
+      "segments": 8,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Chrome shower riser against the north wall."
+    },
+    {
+      "x": 30.5,
+      "z": 7.35,
+      "radius": 0.05,
+      "height": 1.95,
+      "segments": 8,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Chrome shower riser against the north wall."
+    },
+    {
+      "x": 28.3,
+      "z": 7.77,
+      "radius": 0.1,
+      "height": 0.05,
+      "segments": 8,
+      "y": 1.0,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Shower head disc at the arm's end, above head height."
+    },
+    {
+      "x": 29.4,
+      "z": 7.77,
+      "radius": 0.1,
+      "height": 0.05,
+      "segments": 8,
+      "y": 1.0,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Shower head disc at the arm's end, above head height."
+    },
+    {
+      "x": 30.5,
+      "z": 7.77,
+      "radius": 0.1,
+      "height": 0.05,
+      "segments": 8,
+      "y": 1.0,
+      "material": "core:metal_brushed_01",
+      "cap_material": "core:metal_brushed_01",
+      "comment": "Shower head disc at the arm's end, above head height."
+    }
+  ],
   "archways": [
     {
       "x": 52.98,
@@ -3218,7 +3479,7 @@
     {
       "x": 58.0,
       "z": 14.2,
-      "length": 0.55,
+      "length": 0.7,
       "rotation_degrees": 270.0,
       "height": 0.95,
       "post_spacing": 1.2,
@@ -3253,6 +3514,39 @@
       "height": 0.012,
       "rotation_degrees": 90.0,
       "material": "home:threshold_wood_01"
+    },
+    {
+      "x": 28.3,
+      "z": 7.56,
+      "length": 0.42,
+      "thickness": 0.06,
+      "height": 0.05,
+      "rotation_degrees": 270.0,
+      "y": 1.02,
+      "material": "core:metal_brushed_01",
+      "comment": "Shower arm from the riser to the head."
+    },
+    {
+      "x": 29.4,
+      "z": 7.56,
+      "length": 0.42,
+      "thickness": 0.06,
+      "height": 0.05,
+      "rotation_degrees": 270.0,
+      "y": 1.02,
+      "material": "core:metal_brushed_01",
+      "comment": "Shower arm from the riser to the head."
+    },
+    {
+      "x": 30.5,
+      "z": 7.56,
+      "length": 0.42,
+      "thickness": 0.06,
+      "height": 0.05,
+      "rotation_degrees": 270.0,
+      "y": 1.02,
+      "material": "core:metal_brushed_01",
+      "comment": "Shower arm from the riser to the head."
     }
   ],
   "baseboards": [
@@ -3285,8 +3579,8 @@
     },
     {
       "x": 53.3,
-      "z": 14.72,
-      "length": 0.798,
+      "z": 14.87,
+      "length": 0.948,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 90.0
@@ -3342,14 +3636,14 @@
     {
       "x": 64.7,
       "z": 11.748666666666665,
-      "length": 2.971333333333334,
+      "length": 3.1213,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 270.0
     },
     {
       "x": 64.68,
-      "z": 14.7,
+      "z": 14.85,
       "length": 3.7866666666666666,
       "material": "home:baseboard_white_01",
       "y": -0.9,
@@ -3358,7 +3652,7 @@
     },
     {
       "x": 60.89133333333334,
-      "z": 14.7,
+      "z": 14.85,
       "length": 3.784666666666667,
       "material": "home:baseboard_white_01",
       "y": -0.9,
@@ -3367,7 +3661,7 @@
     },
     {
       "x": 57.104666666666674,
-      "z": 14.7,
+      "z": 14.85,
       "length": 3.7846666666666664,
       "material": "home:baseboard_white_01",
       "y": -0.9,
@@ -3392,7 +3686,7 @@
     },
     {
       "x": 64.68,
-      "z": 14.7,
+      "z": 14.85,
       "length": 3.33,
       "material": "home:baseboard_wood_01",
       "y": 1.2,
@@ -3401,7 +3695,7 @@
     },
     {
       "x": 61.348000000000006,
-      "z": 14.7,
+      "z": 14.85,
       "length": 3.3280000000000003,
       "material": "home:baseboard_wood_01",
       "y": 1.2,
@@ -3411,7 +3705,7 @@
     {
       "x": 64.7,
       "z": 11.02,
-      "length": 3.7,
+      "length": 3.85,
       "material": "home:baseboard_wood_01",
       "y": 1.2,
       "rotation_degrees": 270.0
@@ -3585,6 +3879,72 @@
       "rotation_degrees": 180,
       "material": "home:baseboard_white_01",
       "comment": "Home corridor skirting ends at the joined wall faces."
+    },
+    {
+      "x": 26.15,
+      "z": 11.15,
+      "length": 4.95,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 0.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting west of the shower doorway."
+    },
+    {
+      "x": 32.85,
+      "z": 14.85,
+      "length": 6.7,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 180.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting along the sauna's south wall."
+    },
+    {
+      "x": 26.15,
+      "z": 12.5,
+      "length": 1.35,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 90.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting north of the pool-side sauna door."
+    },
+    {
+      "x": 26.15,
+      "z": 14.85,
+      "length": 0.75,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 90.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting south of the pool-side sauna door."
+    },
+    {
+      "x": 32.85,
+      "z": 11.15,
+      "length": 1.25,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 270.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting north of the corridor opening."
+    },
+    {
+      "x": 32.85,
+      "z": 14.0,
+      "length": 0.85,
+      "height": 0.09,
+      "thickness": 0.018,
+      "rotation_degrees": 270.0,
+      "y": -0.9,
+      "material": "home:baseboard_wood_01",
+      "comment": "Cedar skirting south of the corridor opening."
     }
   ],
   "geometry_intent": [
@@ -4081,37 +4441,70 @@
       "swing_degrees": 88.0,
       "initial_state": "open",
       "comment": "Externally controlled door: it starts open and only a map action moves it, so it is never an interaction target."
+    },
+    {
+      "id": "sauna_shower_door",
+      "x": 31.1,
+      "y": 0.0,
+      "z": 11.0,
+      "rotation_degrees": 0.0,
+      "width": 1.6,
+      "height": 2.1,
+      "thickness": 0.05,
+      "open_direction": "right",
+      "swing_degrees": 88.0,
+      "open_speed_degrees": 90.0,
+      "initial_state": "closed",
+      "kind": "sauna",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Sauna door"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
+      "comment": "The sauna leaf between the shower bay and the sauna, on the wall-15 opening: the same sauna-door prefab as the pool-side leaf, hinged west and swinging into the sauna clear of the benches. Both floors are at -0.9, so the threshold is flush."
     }
   ],
   "effects": [
     {
       "id": "sauna_steam_a",
       "kind": "steam",
-      "x": 31.0,
-      "y": 0.0,
-      "z": 12.6,
-      "width": 0.9,
-      "depth": 0.6,
-      "height": 1.5,
+      "x": 27.6,
+      "y": 0.78,
+      "z": 11.45,
+      "width": 0.8,
+      "depth": 0.5,
+      "height": 1.3,
       "count": 20,
-      "size": 0.34,
-      "drift": 0.16,
+      "size": 0.32,
+      "drift": 0.14,
       "lifetime_seconds": 3.2,
-      "comment": "Light haze rising off the bench corner."
+      "comment": "Haze rising off the upper bench's west end."
     },
     {
       "id": "sauna_steam_b",
       "kind": "steam",
-      "x": 31.0,
-      "y": 0.0,
-      "z": 13.6,
-      "width": 0.9,
-      "depth": 0.6,
-      "height": 1.7,
+      "x": 29.4,
+      "y": 0.78,
+      "z": 11.45,
+      "width": 0.8,
+      "depth": 0.5,
+      "height": 1.5,
       "count": 24,
-      "size": 0.38,
-      "drift": 0.2,
-      "lifetime_seconds": 3.6
+      "size": 0.34,
+      "drift": 0.18,
+      "lifetime_seconds": 3.6,
+      "comment": "Haze over the upper bench's east half; the plume stays below the ceiling."
     }
   ],
   "volumes": [

@@ -7,7 +7,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from tools.bench.loading import read_trace, trace_metrics
+from tools.bench.loading import (
+    install_packages,
+    package_identity,
+    parse_window_size,
+    read_trace,
+    trace_metrics,
+)
 from tools.bench.lightmap_report import parse_logs
 
 
@@ -16,6 +22,39 @@ def event(kind, at, request=1, detail=""):
 
 
 class LoadingMetricsTests(unittest.TestCase):
+    def test_window_size_option_parses_and_rejects_bad_values(self):
+        import argparse
+
+        self.assertEqual(parse_window_size("640x360"), (640, 360))
+        self.assertEqual(parse_window_size("1512x850"), (1512, 850))
+        for bad in ["640", "640X360", "0x360", "640x0", "-640x360", "640x360x2", "", " 640x 360"]:
+            with self.assertRaises(argparse.ArgumentTypeError, msg=bad):
+                parse_window_size(bad)
+
+    def test_install_package_copies_into_the_run_state_and_records_identity(self):
+        import hashlib
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / "private_map.placesmap"
+            package.write_bytes(b"PLPM-test-bytes")
+            destination = root / "state" / "levels"
+            destination.mkdir(parents=True)
+            identities = install_packages([package], destination)
+            self.assertEqual(identities, [{
+                "path": str(package),
+                "sha256": hashlib.sha256(b"PLPM-test-bytes").hexdigest(),
+            }])
+            self.assertEqual((destination / "private_map.placesmap").read_bytes(),
+                             b"PLPM-test-bytes")
+            with self.assertRaises(ValueError):
+                install_packages([root / "missing.placesmap"], destination)
+            with self.assertRaises(ValueError):
+                package_identity(root / "authoring_source.json")
+            self.assertEqual(package_identity(package)["sha256"],
+                             hashlib.sha256(b"PLPM-test-bytes").hexdigest())
+
     def test_missing_trace_is_unavailable_not_zero(self):
         result = trace_metrics([])
         self.assertFalse(result["trace_available"])

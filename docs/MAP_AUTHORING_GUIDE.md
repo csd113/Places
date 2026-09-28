@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json`, the native captures under `target/agent-work/places-map-first-2026-09-27/runs/05/20260927T-j05-captures3/` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 revision (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -738,8 +738,8 @@ the wall count: those queries go through the collision index
 (`src/collision_index.rs`), and `zoo_audit` pins the indexed result equal to the
 linear scan over the real fixture. Notes that remain load-time costs: the
 lightmap fill is linear in chart texels × nearby fixtures, and the prop vertex
-expansion samples lighting per vertex. See the feature-expansion handoff for
-the full measurements.
+expansion samples lighting per vertex. See `docs/reports/feature-expansion-handoff.md`
+for the historical measurements.
 
 ---
 
@@ -1634,6 +1634,22 @@ Rules that matter:
   warning when a primitive's sagitta exceeds 2 cm, and `segments` up to 128 are
   accepted.
 
+Places Demo's communal shower bay is the shipped use of both primitives, and
+the pattern to copy: a tiled wet room east of the pool hall (`x 26..33`,
+`z 7..11`, floor `-0.9`, reached from the deck by two 0.3 m `floor_regions`
+steps through a 1.2 m passage), a single 90-degree `arc_walls` entry
+(centre `29.4, 6.6`, radius 2.4, thickness 0.22, height 2.1, `segments 12`,
+pool wall tile with a brushed-metal cap) whose concave face shelters three
+shower positions, and three thin full-circle `pillars` (radius 0.05) as the
+chrome risers with `thresholds` arms and disc heads above them. A
+`floor_patches` band of the deck tile at a raised `shine` carries the wet
+sheen (the demo keeps the pool's single planar mirror), three small
+brushed-metal patches read as drains, a tiled `half_walls` bench sits against
+the sauna wall, and four `core:pool_light_round` fixtures light the bay. Every
+part reuses an existing material and none of it is a new asset: the curve is
+data, its collision comes from the same geometry, and the bay connects to the
+sauna through a second `sauna` door whose floor is flush on both sides.
+
 ---
 
 ## 11. Materials
@@ -2029,11 +2045,10 @@ that authors them. Two consequences are still useful to a map author:
 
 ### Community packages
 
-Level packs (`.zip` with `materials.json`) are retired. A community map is
-compiled into a `.placesmap` package like any other: the package carries the
-prepared world and its dependency identities, and the player never reads
-authoring sources or pack textures. Pack material definitions (`pack:` ids) have
-no producer in the current workflow.
+Level packs are not supported; a level is compiled to a `.placesmap` package.
+The package carries the prepared world and its dependency identities, and the
+player never reads authoring sources or pack textures. Pack material
+definitions (`pack:` ids) have no producer in the current workflow.
 
 To ship custom artwork with a map, register it in `assets/catalog.json` like any
 other texture or prop. Self-contained community packages with embedded texture
@@ -2054,7 +2069,7 @@ listed at the end of this section — they are exceptions, not the authoring pat
 | Property | Value |
 | --- | --- |
 | File format | **PNG only.** Signature-checked; RGB, RGBA, grayscale, grayscale+alpha and palette (with/without `tRNS`) all normalise to 8-bit RGBA; 16-bit is stripped to 8-bit. |
-| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for every PNG (surfaces, decals, fixtures, pack textures, embedded GLB images): `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
+| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for every PNG (surfaces, decals, fixtures, embedded GLB images): `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
 | Preferred edge | **256 px** — a soft tooling/policy warning, not a runtime error. |
 | Surface sheets | **Square** (both edges equal) per shipped-asset policy; the runtime accepts another shape, but a `tile_metres` cell would stretch. |
 | Decal sheets | **Power-of-two on both edges** (mipmapped fitted sampling; POT is the shipped-asset policy). |
@@ -2088,7 +2103,7 @@ resident, so the player, camera and game state are preserved:
 | Decal sheet | 1024 | 512 | 256 |
 | Prop sheet (GLB) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
-| Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 9 texels/m |
+| Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 10 texels/m |
 | Shadow penumbra taps | 2 per axis (5) | 2 per axis (5) | 1 per axis (hard) |
 | Prop occlusion grid | 0.075 m | 0.11 m | 0.15 m |
 
@@ -2617,12 +2632,14 @@ emissive material never casts light; a fixture face never lights a room by itsel
 
 When a map is compiled with lightmaps `medium` or `full`, its illumination is
 solved **offline** by the transport solver: direct emitter sampling with soft
-shadows, one or two real diffuse bounces, a directional per-texel encoding and
-a prepared irradiance field for moving objects. The stored values are linear
-HDR; authored colours and brightness still mean what they meant, and the
-surface albedo multiplies the result exactly once. A `switchable` fixture's
-contribution is prepared as its own selectable layer, so a toggle changes real
-illumination without a rebake. See `docs/RENDERER.md` §7.1 for the encoding and
+shadows, one or two real diffuse bounces, a moment per-texel encoding
+(an irradiance mean plus the signed vector sum of the per-channel moments, so
+neighbouring texels always interpolate smoothly) and a prepared irradiance
+field for moving objects. The stored values are linear HDR; authored colours
+and brightness still mean what they meant, and the surface albedo multiplies
+the result exactly once. A `switchable` fixture's contribution is prepared as
+its own selectable layer, so a toggle changes real illumination without a
+rebake. See `docs/RENDERER.md` §7.1 for the encoding and
 `docs/PACKAGE_FORMAT.md` §5–6.1 for the payloads.
 
 The vertex-lit model below is the exact contract of the `off` variant and of
@@ -2700,7 +2717,8 @@ storage change, not an authoring one.
 
 * Density follows the quality level: **High** bakes 16 texels per metre onto up to
   four 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
-  pages, **Low** 9 texels per metre onto four 512-texel pages.
+  pages, **Low** 10 texels per metre onto four 512-texel pages (`places_demo`
+  packs three of them).
   Every level bakes the same set of surfaces; faces longer than one chart are split
   automatically (chart span cap 63.75 m). The packer is a deterministic
   best-short-side-fit MaxRects allocator: `places_demo` fits two High pages and
@@ -2752,7 +2770,7 @@ storage change, not an authoring one.
   their colour keeps the baked light folded in, exactly as before. Glass panes and
   stairs are lightmapped like the wall around them.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
-  `target/agent-work/atlases/` for inspection.
+  `target/diagnostics/atlases/` for inspection.
 
 #### Static props occlude the bake
 
@@ -2912,8 +2930,8 @@ Fixture geometry is code. To add a family, touch each of these:
    `cargo test --workspace --all-features`.
 
 Restyling the panel family means adding a catalog fixture entry with its own PNG,
-exactly like the shipped families; `pack:` fixture ids belonged to the retired pack
-workflow.
+exactly like the shipped families; fixture faces resolve from catalog `light`
+entries by fixture id.
 
 ---
 
@@ -3327,6 +3345,36 @@ collinear walls (same plane, thickness and overlapping length and height spans) 
 one emission unit and clips hidden caps, but the correct authoring is a single wall.
 Never place two walls with the same footprint.
 
+### Doorway Sliver Off The Wall Plane
+
+**Symptom:** a narrow wall section beside a doorway protrudes past, sits behind or
+fails to meet the adjoining wall face; the junction shades or lights as a step.
+
+**Cause:** a wall section was placed with its thickness on the wrong line — often the
+min-corner placed where the centre-line belongs, so both of its faces sit half a
+thickness off the wall it should continue.
+
+**Authoring rule:** continue the same wall line. The geometry checker reports a
+`wall-joint-step` error with the measured shift and the authoritative wall, and
+`--repair-geometry` plus `tools/levels/repair_alignment.py --apply` moves the losing
+wall (and its skirting and tucked floor edges) back onto that line. Do not fix it by
+moving the main wall or by widening a threshold.
+
+### Equal-Top Wall Corners
+
+**Symptom:** flicker or a moiré pattern on the top of a wall where two walls meet,
+seen from above in an open multi-storey space.
+
+**Cause:** two perpendicular walls end at the same height with their top caps exposed
+(their tops are below the local ceiling), so the corner square used to be emitted
+twice.
+
+**Authoring rule:** none — this is handled by the emitter. A later-authored wall's
+top or bottom cap subtracts every earlier wall's footprint at the same plane, so
+exactly one wall owns each cap rectangle and no hole appears. The geometry checker
+still reports any residual coincident pair as `duplicate-surface`; a clean rebuild
+must show zero. Authoring walls at a shared height is correct and expected.
+
 ### Wall End Caps Colliding With Perpendicular Walls
 
 **Symptom:** an internal wall end flickers or shows a hidden face at a T-junction.
@@ -3732,8 +3780,10 @@ none of them is optional for a change that ships content.
 | `PLACES_LEVEL=<id> cargo run` | Boots straight into the compiled level and prints validation errors verbatim | **Yes, once per map** |
 | `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`PLACES_CAPTURE_FRAME=n` waits for frame n first) | Useful |
 | `cargo run --release -- --check-geometry --level <path-or-id>` | The read-only map geometry checker: confirmed defects and heuristic warnings over the engine's own geometry and collision interpretation (§31) | Recommended for every map change |
+| `./target/release/places --repair-geometry --level <path-or-id> --plan <json>` | The read-only wall-joint repair planner: confirmed shifts, authority evidence, coupled edits and a post-check summary (§31) | After a `wall-joint-step` finding |
+| `python3 tools/levels/repair_alignment.py --plan <json> --check` / `--apply` | Verifies and applies a wall-joint repair plan byte-faithfully and atomically; refuses a concurrent change, validates with the checker and proves idempotence | When the plan is approved |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
-| `PLACES_DUMP_LIGHTMAPS=1 ./target/release/places-compile build <source>.json` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` (the compiler owns the bake) | Useful |
+| `PLACES_DUMP_LIGHTMAPS=1 ./target/release/places-compile build <source>.json` | Writes the baked atlas pages as PNGs under `target/diagnostics/atlases/` (the compiler owns the bake) | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
 | `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, current list | Useful |
 
@@ -3780,7 +3830,7 @@ capture and diagnosis.
 | `PLACES_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
 | `PLACES_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
 | `PLACES_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
-| `PLACES_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
+| `PLACES_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/diagnostics/atlases/`. |
 | `PLACES_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur for this run (overrides the Bloom setting). |
 | `PLACES_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds, for this run (overrides the Reflections setting). |
 | `PLACES_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |
@@ -3898,9 +3948,12 @@ the error in full.
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
 - [ ] `cargo test --workspace --all-features` passes.
 - [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
-- [ ] `--check-geometry` reports no confirmed defects; every remaining heuristic
-      warning is either repaired or covered by a narrow `geometry_intent`
-      annotation with a note (§31).
+- [ ] `--check-geometry` reports no confirmed defects; a confirmed
+      `wall-joint-step` is repaired with `--repair-geometry` plus
+      `tools/levels/repair_alignment.py --apply` (with the coupled
+      `coupled-review` items resolved deliberately), and every remaining
+      heuristic warning is either repaired or covered by a narrow
+      `geometry_intent` annotation with a note (§31).
 - [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at High and
       at `PLACES_QUALITY=low` (and/or `medium`) if reflections or material
       response matter.
@@ -3919,12 +3972,11 @@ section is the field-by-field contract; every name below is verified against
 `EventKindName`, `TriggerVolumeDef`) and `src/entities/`
 (`TimerDef`, `SequenceDef`, `Spawn*Def`).
 
-> **Format note.** This is the v3 contract. The v2 `interaction`,
-> `area_triggers` and `manual_interaction` keys are gone; a v2 source either
-> converts with `python3 tools/levels/convert_v3.py --all` or fails to parse
-> its behaviour. A binding's `actions` are the old interaction batch, a
-> volume's `bindings` are the old trigger batch, and a door's own press is an
-> `interact` binding with `{ "action": "toggle" }`.
+> **Format note.** This is the v3 contract and the only current level format.
+> The converter's input is the previous schema: a source that still carries the
+> previous keys either converts with `python3 tools/levels/convert_v3.py --all`
+> or fails to parse its behaviour. A door's own press is an `interact` binding
+> with `{ "action": "toggle" }`.
 
 ### Identity and namespaces
 
@@ -4499,6 +4551,15 @@ Two kinds ship:
   `home:baseboard_wood_01` frame; the panel is
   `core:glass_window_clear_01` and draws in the blended pass.
 
+Places Demo ships both kinds and two `sauna`
+leaves: `sauna_door` in the pool-deck wall (hinge `26.08, 0, 12.5`, rotation
+270, authored open) and `sauna_shower_door` in the shower-bay wall (hinge
+`31.1, 0, 11.0`, rotation 0, authored closed), both swinging into the sauna
+clear of the two-tier cedar benches. The shower-side leaf is the pattern for a
+second doorway into one room: its wall opening is authored on wall 15 exactly
+like any other, and both leaves share the one door state machine, collider and
+action set.
+
 The leaf's collider follows the same angle the renderer draws, so what stops the
 player and what is seen can never disagree. A resting leaf costs nothing; only a
 moving leaf is advanced. `reset_to_start` returns every door to its authored
@@ -4769,6 +4830,58 @@ position. Checks include:
 | `missing-wall` | warning | A room perimeter run has no wall solid and no authored opening. |
 | `room-leak` | warning | A room's walkable space reaches the *void* (outside every room). |
 | `spawn-outside-room` | warning | The spawn is outside every room (the floor falls back to y = 0). |
+| `wall-joint-step` | error | Two end-to-end wall slices of equal thickness are shifted by the same amount (rigid, > 1 mm, ≤ 0.25 m): a doorway side sliver or wall section placed half a thickness off the adjoining wall face. Auto-repairable. |
+| `wall-joint-step-review` | warning | A rigid shift above the automatic limit, an ambiguous authority, or a small coplanar gap not filled by either wall's own solid: manual review, never moved automatically. |
+| `wall-joint-thickness-step` | warning | One thickness face is aligned and the other is not: a valid thickness transition or a misplaced sliver. Manual review. |
+| `wall-joint-emitted-mismatch` | error | The emitted mesh disagrees with the source decomposition at a joint (for example a coalesced wall snapped onto another plane, or an un-declared step). A generator defect. |
+
+**Wall-joint checks.** Besides the checks above, the checker verifies wall-plane
+continuity at doorway and wall junctions. The target is *intended architectural
+continuity*, not universal coplanarity: jambs, reveals, trim, thickness
+transitions, parallel partitions and deliberate offsets are preserved. A **wall
+joint** is a pair of solid wall slices (the same decomposition the emitter uses,
+openings removed) that are on the same axis, end-to-end (touching within 5 cm,
+or separated by at most 35 cm), vertically overlapping by at least 30 cm, not
+overlapping along their length by more than half the shorter slice (an overlay
+such as a notice board is not a joint), the same thickness within 1 mm (the
+emitter's own coincidence tolerance), and shifted so that both thickness planes
+move by the same rigid amount. A joint only qualifies when both plane deltas are
+within 35 cm, so unrelated parallel walls are never paired.
+
+The wall that keeps its plane is the one with more directly touching coplanar
+neighbours (a verified continuous wall); ties go to the longer solid span, then
+to the lower authored index. A tie on both is review-only. Nearness, width or
+matching material alone never establishes continuity, and the *main* wall is
+never moved to accommodate a bad sliver. Tolerances: plane 1 mm, adjacency 5 cm
+(strict) / 35 cm (review), vertical overlap 30 cm, largest automatic shift
+25 cm, repairs quantised to 0.1 mm.
+
+**Repairing a joint.** A confirmed `wall-joint-step` is repaired with the
+read-only planner and the order-preserving applier, both offline:
+
+```sh
+# 1. Plan (read-only; never writes the map).
+./target/release/places --repair-geometry --level assets/levels/places_demo.json \
+    --plan target/demo-plan.json
+
+# 2. Verify the plan against the file on disk (hash and old values).
+python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --check
+
+# 3. Apply atomically, then re-check and prove a second plan is empty.
+python3 tools/levels/repair_alignment.py --plan target/demo-plan.json --apply
+./target/release/places --check-geometry --level assets/levels/places_demo.json
+```
+
+A high-confidence repair moves only the authored wall that lost the authority
+decision by the measured rigid shift, plus the wall's own coupled elements:
+skirting parallel to the moved face moves with it, a run end tucked into the
+face moves, and a floor region that tucks under the face is extended. Anything
+else within 15 cm of the moved faces is reported as `coupled-review` and never
+moved automatically. The applier refuses a file whose hash or field values
+changed since planning, writes through a temporary file with an atomic replace,
+validates the result with the checker, restores the original bytes on any
+failure, and proves idempotence by re-planning. Repairs are an offline
+authoring action: the player never snaps or repairs geometry at load time.
 
 **Intent annotations.** A heuristic warning that is deliberate is suppressed by
 a narrow `geometry_intent[]` rectangle with the check id and a note — never by
@@ -4904,10 +5017,26 @@ runtime bake, repair or fallback.
   box (rotated footprints are covered conservatively), and the compiler's
   `NavWalkProxy` input can add walkable surfaces for future collision proxies.
 * **Stairs and slopes.** A neighbour connects when the surface rises at most
-  `step_height`, or when both cells lie on one continuous slope and the rise
-  per metre is at most `max_slope` (default `2.6667`, the worst authored stair
-  pitch `MAX_STAIR_RISER_M / MIN_STAIR_TREAD_M`; ramps are bounded lower). A
-  cliff between two flat cells never connects.
+  `step_height`, or when both cells lie on one **continuous slope** — a cell
+  whose surface gradient is consistent across it, as a ramp or a staircase's
+  pitch line is — and the rise per metre is at most `max_slope` (default
+  `2.6667`, the worst authored stair pitch
+  `MAX_STAIR_RISER_M / MIN_STAIR_TREAD_M`; ramps are bounded lower). A
+  discrete riser (a floor-region step, a stair's first nosing, a ledge) is
+  never a continuous slope, so the class's own `step_height` alone decides it:
+  the Demo's 0.3 m landing steps connect the 0.3 m and 0.4 m walkers and
+  refuse the 0.2 m rat, and the 0.2625 m home staircase connects every body
+  whose step reaches its riser. A cliff between two flat cells never connects.
+  The shared mover in `src/ai/movement.rs` advances in
+  `NAV_MOVE_SUBSTEP_M` (0.10 m) substeps and allows a rise of
+  `step_height + max_slope * substep` in one substep. That per-substep budget
+  is at least the bake's step rule, so a link the bake writes is walkable
+  along its own axis; one documented corner case remains: a *diagonal* link
+  whose straight substep crosses a concave dip the bake sampled as two
+  separate risers can still be refused by the mover (the Demo's pool-landing
+  corner has two such undirected pairs out of 117730 directed links, on cells
+  no class can plan onto). Routing is the bake's decision, and a refused
+  substep is a `Blocked` move, never a fall or a teleport.
 * **Doors are portals, not walls.** The cells a leaf sweeps are recorded as
   that door's portal. A closed or locked door blocks them for a route; an open
   door passes; an agent whose `ai` sets `can_open_doors: true` plans through an
@@ -5037,7 +5166,7 @@ template, the group, the tags and the sequence are all ordinary data.
   summaries the frame loop reports (unplaced agents, refused spawns, door
   requests).
 
-### 33.7 Interfaces Job 06 extends
+### 33.7 Navigation and AI interfaces
 
 * Stair/ramp walkability is one rule: `nav::neighbour_rule` (step or
   continuous slope) plus the movement invariant
@@ -5053,7 +5182,7 @@ template, the group, the tags and the sequence are all ordinary data.
 
 ## Known Implementation Caveats
 
-These are current, documented limitations or in-flight conditions that affect map
+These are current, documented limitations that affect map
 authoring. They are not invitations to change the engine as part of an authoring task.
 
 1. **Quality settings apply live.** Graphics changes rebuild affected GPU resources and use the lightmap cache or background bake where needed. `PLACES_QUALITY` selects a profile for one run.
@@ -5084,10 +5213,9 @@ authoring. They are not invitations to change the engine as part of an authoring
 11. **`floor_patches` are dimension-unvalidated.** They are capped at 2000 entries,
     but a malformed patch is skipped at build time rather than rejected. Keep them
     well-formed and inside a room.
-12. **A pack cannot shadow a catalog material id**, and a pack material that ships its
-    own PNG currently drops `reflection_mode`/`reflection_strength` (rule a
-    reflective pack surface to reuse a catalog texture). See
-    [Level packs: `materials.json`](#level-packs-materialsjson).
+12. **`pack:` material ids are not resolvable.** No current workflow produces a
+    pack `materials.json`, so a level cannot define materials beyond the catalog;
+    ship custom artwork through `assets/catalog.json`.
 13. **A prop light's `shape` does not infer.** Omitting `shape` makes the light a
     point and ignores `half_width`/`half_depth`/`length`. `tools/assets/validate.py`
     currently infers a shape from those fields, so a level can pass the tool and

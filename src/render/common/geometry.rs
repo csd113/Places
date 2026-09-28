@@ -349,6 +349,10 @@ struct WallState<'a> {
     /// The authored wall indices this unit emits, excluded from the
     /// cross-section coverage test (a wall never covers its own faces).
     members: Vec<usize>,
+    /// The unit's earliest authored member: its ordering key for cross-wall
+    /// cap ownership. A unit with a lower key keeps the coplanar overlap; a
+    /// later one's cap subtracts the earlier footprint.
+    first_member: usize,
     /// The wall's body geometry.
     wall: &'a WallDef,
     /// The body key: the fallback for slices with no material run.
@@ -400,6 +404,7 @@ fn emit_wall_unit(
     let state = WallState {
         unit,
         members: unit.members(),
+        first_member: unit.first_member(),
         wall,
         wall_key,
         axis,
@@ -652,7 +657,7 @@ fn emit_wall_length_face(
 /// wall or window sill, and the underside of a raised wall or door header.
 ///
 /// A cap is only the part of the slice's horizontal face that is actually
-/// exposed. Two things can own the same plane instead:
+/// exposed. Three things can own the same plane instead:
 ///
 /// * the unit's own solid volume: the step between two stacked cells of a
 ///   coalesced group is an interior face, not two caps back to back;
@@ -660,11 +665,17 @@ fn emit_wall_length_face(
 ///   boundary and jointly cover the wall footprint, so a sill whose top lands
 ///   on that plane is buried under a real floor surface. Emitting it anyway
 ///   puts two coplanar faces at the same depth, which is the doorway threshold
-///   flicker this function exists to prevent.
+///   flicker this function exists to prevent;
+/// * an earlier-authored wall unit whose solid reaches the same plane: where
+///   two perpendicular walls share a corner square at one top (or one bottom),
+///   the earlier unit keeps the overlap and this one subtracts its footprint,
+///   so the corner square carries exactly one cap instead of two coplanar ones
+///   z-fighting. Ordering is by the unit's earliest authored member, so it is
+///   deterministic and independent of emission or worker order.
 ///
-/// Both are subtracted as rectangles, so a cap covered over only part of its
-/// span keeps exactly the exposed remainder instead of disappearing whole or
-/// surviving underneath the covering surface.
+/// All three are subtracted as rectangles, so a cap covered over only part of
+/// its span keeps exactly the exposed remainder instead of disappearing whole
+/// or surviving underneath the covering surface.
 fn emit_wall_caps(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -732,12 +743,51 @@ fn emit_wall_caps(
             .map(|other| (other.start, other.end, state.t0, state.t1))
             .collect()
     };
+    // Footprints of every earlier-authored unit's solid slices that reach the
+    // cap's plane, in the same (along, across) space as the cap. A coplanar
+    // top (or bottom) is owned by whichever unit came first; this unit's cap
+    // subtracts the earlier wall's length and thickness span so the shared
+    // rectangle carries exactly one cap. Only the two planes' own reach
+    // participates: a wall that merely rises past this plane does not cover
+    // it.
+    let earlier_wall_covered = |plane: f32, top: bool| -> Vec<(f32, f32, f32, f32)> {
+        let mut covered = Vec::new();
+        for coverage in context.coverages {
+            // The unit's own solids are `self_covered`; a later unit's cap
+            // subtracts this one instead.
+            if coverage.owner >= state.first_member {
+                continue;
+            }
+            for &(start, end, bottom, other_top) in &coverage.solids {
+                let coplanar = if top {
+                    (other_top - plane).abs() <= WALL_COINCIDENCE_EPS
+                } else {
+                    (bottom - plane).abs() <= WALL_COINCIDENCE_EPS
+                };
+                if !coplanar {
+                    continue;
+                }
+                // World (x, z) footprint of the other slice: its length span
+                // along its own axis, its full thickness across.
+                let (x0, x1, z0, z1) = match coverage.axis {
+                    WallAxis::X => (start, end, coverage.thickness.0, coverage.thickness.1),
+                    WallAxis::Z => (coverage.thickness.0, coverage.thickness.1, start, end),
+                };
+                covered.push(match state.axis {
+                    WallAxis::X => (x0 - state.origin_x, x1 - state.origin_x, z0, z1),
+                    WallAxis::Z => (z0 - state.origin_z, z1 - state.origin_z, x0, x1),
+                });
+            }
+        }
+        covered
+    };
 
     // A wall that reaches the ceiling over this span needs no top face, which
     // is what keeps gable-end walls from growing a flat cap above the slope.
     if slice.top < ceiling_along(slice_mid) - 1e-3 {
         let mut covered = self_covered(slice.top, true);
         covered.extend(floor_covered(slice.top));
+        covered.extend(earlier_wall_covered(slice.top, true));
         for rect in subtract_rectangles(cap, &covered) {
             emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true, rect);
         }
@@ -748,6 +798,7 @@ fn emit_wall_caps(
     if slice.bottom > floor_along(slice_mid) + 1e-3 {
         let mut covered = self_covered(slice.bottom, false);
         covered.extend(floor_covered(slice.bottom));
+        covered.extend(earlier_wall_covered(slice.bottom, false));
         for rect in subtract_rectangles(cap, &covered) {
             emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false, rect);
         }

@@ -493,9 +493,13 @@ static FILL_WORKERS: AtomicUsize = AtomicUsize::new(0);
 ///
 /// The offline compiler calls this with its `--workers` value so a tool run
 /// honours the shared CPU allocation; `1` forces the serial reference path.
-/// Values above the transport solve's bound are clamped.
+/// Values above the transport solve's bound are clamped. The same value caps
+/// nested preparation work (for example level texture decode) through
+/// [`crate::perf::set_prepare_workers`], so one command never exceeds its one
+/// shared budget.
 pub fn set_fill_workers(workers: usize) {
     FILL_WORKERS.store(workers.clamp(1, MAX_TRANSPORT_WORKERS), Ordering::Relaxed);
+    crate::perf::set_prepare_workers(workers);
 }
 
 /// Ordinary tests and inline bakes remain serial. The runtime loader owns the
@@ -858,7 +862,7 @@ fn elapsed_millis(started: std::time::Instant) -> f64 {
     started.elapsed().as_secs_f64() * 1000.0
 }
 
-/// Writes every atlas page of a fresh bake under `target/agent-work/atlases/`
+/// Writes every atlas page of a fresh bake under `target/diagnostics/atlases/`
 /// when `PLACES_DUMP_LIGHTMAPS=1` is set in the environment.
 ///
 /// A developer dump, not a shipping path; the write failure is a one-line
@@ -884,7 +888,7 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
     } else {
         id
     };
-    let dir = crate::assets::state_path("target/agent-work/atlases");
+    let dir = crate::assets::state_path("target/diagnostics/atlases");
     for (index, page) in lightmaps.pages.iter().enumerate() {
         let path = dir.join(format!("{id}_page{index}.png"));
         if let Err(error) = write_page_png(page, &path) {
@@ -896,7 +900,7 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
     }
 }
 
-/// Writes every atlas page of `lightmaps` under `target/agent-work/atlases/`
+/// Writes every atlas page of `lightmaps` under `target/diagnostics/atlases/`
 /// when `PLACES_DUMP_LIGHTMAPS=1` is set.
 ///
 /// Public so the renderer can dump an asynchronously filled atlas exactly as

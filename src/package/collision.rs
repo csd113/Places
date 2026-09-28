@@ -301,7 +301,7 @@ mod tests {
         let statics = compiled_collision(&level);
         let rebuilt = CollisionWorld::from_compiled(&level, statics, None);
         let from_level = CollisionWorld::from_level(&level);
-        // `CollisionWorld` no longer derives `PartialEq`: its `EntityWorld`
+        // `CollisionWorld` does not derive `PartialEq`: its `EntityWorld`
         // owns live runtime state. Compare every static sampler plus the entity
         // component tables both construction paths resolve.
         assert_eq!(rebuilt.walls, from_level.walls);

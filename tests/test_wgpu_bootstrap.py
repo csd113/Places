@@ -798,7 +798,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                         target_request is not None
                         and event["event"] == "phase"
                         and event["request"] == target_request
-                        and event["detail"] == "Decoding compiled world"
+                        and event["detail"] == "Assembling compiled world"
                     ):
                         try:
                             path = os.path.join(state, "levels", f"{target_id}.placesmap")
@@ -1244,8 +1244,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(len(dynamic_counts), 2, output)
         self.assertEqual(
             dynamic_counts[0][:2],
-            (8, 12),
-            "the demo's drum, floating duck, three door frames and three door leaves",
+            (10, 16),
+            "the demo's drum, floating duck, four door frames and four door leaves",
         )
         self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
         self.assertEqual(

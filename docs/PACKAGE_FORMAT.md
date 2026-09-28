@@ -105,7 +105,9 @@ never triggers procedural geometry generation.
   are errors.
 * `compiler_fingerprint` is a **developer rebuild identity** — source bytes,
   dependency hashes, record versions, the variant list, the compiler version,
-  the lighting-model fingerprint and the transport-solver fingerprint. It is
+  the geometry revision (`render::GEOMETRY_REVISION`, bumped whenever emitted
+  static geometry changes for an unchanged source), the lighting-model
+  fingerprint and the transport-solver fingerprint. It is
   not a runtime validity check: a package whose fingerprint is stale still
   loads if its records satisfy this contract. `places-compile verify` compares
   the recorded fingerprint with the source and assets as they are now. A change
@@ -267,8 +269,13 @@ the reference humanoid plus every distinct `nav_agent` body the level authors.
 A cell marked walkable for a class is physically traversable by exactly that
 body: clearance, headroom and step/slope are all evaluated at bake time, and a
 neighbour connects within one step or along a continuous slope within the
-class bound. Staircases connect through the slope rule; a ledge or floor rim
-never does.
+class bound. Bit 1 of a cell's flags marks a **continuous** slope: the surface
+gradient is consistent across the cell, as a ramp or a staircase's pitch line
+is. A discrete riser — a floor-region step, a stair's first nosing, a ledge —
+puts a half-cell sample across a jump, so it is never a slope and the class's
+own `step_height` alone decides whether it connects. A stair's pitch line is
+continuous, so a class climbs a flight whose risers fit its step; a floor rim
+never connects.
 
 Door leaves are dynamic and are never baked as static obstacles. The cells a
 leaf sweeps between its closed and open poses are recorded as that door's
@@ -284,7 +291,7 @@ the load by name; there is no runtime bake and no repair path.
 `blobs/<sha>.lightmaps.json` holds the chart record:
 
 ```json
-{ "record_version": 2, "page_edge": 1024, "page_count": 2, "padding": 2,
+{ "record_version": 3, "page_edge": 1024, "page_count": 2, "padding": 2,
   "content_key": "v12-…",
   "stats": { "charts": 1062, "pages": 2, "texels": …, "page_texels": …,
              "bake_millis": …, "cache_hit": false },
@@ -297,19 +304,24 @@ the load by name; there is no runtime bake and no repair path.
 
 The pages are one uncompressed KTX 2.0 file: `VK_FORMAT_R16G16B16A16_SFLOAT`,
 no supercompression, two 2D array layers per page (the page's irradiance plane
-then its dominant-lobe plane), the default `rd` orientation, and the standard
+then its direction-moment plane), the default `rd` orientation, and the standard
 four-sample RGBSDA half-float descriptor. RGBA16F is the portable linear HDR
 reference the renderer uploads directly; the alpha channels of the two planes
-carry the octahedral dominant direction axis. Every page of the base solve is
-followed by one page set per entry in `switchable_lights`, in order: the
-shader sums exactly the sets the live light mask selects, so a runtime switch
-changes real illumination without a runtime bake.
+are **reserved** (writers store `0.5`) and consumers ignore them. Every page of
+the base solve is followed by one page set per entry in `switchable_lights`, in
+order: the shader sums the reconstructed sets the live light mask selects, so a
+runtime switch changes real illumination without a runtime bake.
 
-Each texel stores the offline transport solve in linear HDR: an irradiance term
-and a per-channel dominant-lobe amplitude, reconstructed as
-`max(0, irradiance + direction * (2 * max(0, dot(n, axis)) - 1))`. Surface
-albedo is never folded into these values; the fragment shader multiplies the
-base colour exactly once.
+Each texel stores the offline transport solve in linear HDR: an irradiance mean
+`I` and the vector sum `g` of the per-channel first moments, reconstructed as
+`max(0, I + (I / max(I.r + I.g + I.b, 1e-6)) * (2 * max(0, dot(g, n)) - |g|))`.
+The form is exact for any number of contributions sharing one direction of any
+colour (`2 * I * max(0, cos)`), evaluates its only nonlinear step on the
+*scalar* `dot(g, n)` of the interpolated moment vector (so a hardware bilinear
+interpolation cannot produce the octahedral-axis seam of record version 2),
+collapses smoothly to the isotropic mean where the moment cancels, and is
+bounded by `2 * I`. Surface albedo is never folded into these values; the
+fragment shader multiplies the base colour exactly once.
 
 The current writer emits exactly one mip level; the reader carries up to 16
 levels so a future prefiltered payload can add them without a new container.
@@ -352,7 +364,7 @@ materials ask for.
 characters sample every frame instead of re-baking light:
 
 ```text
-magic "PLPF" | version u16 = 1
+magic "PLPF" | version u16 = 2
 origin f32 x 3 | cell_m f32 | dims u32 x 3 | count u32
 probes count x {
   irradiance f32 x 3 | direction f32 x 3 | axis f32 x 2 | room i32
@@ -364,13 +376,14 @@ transport solve as the lightmap atlas (every visible non-switchable emitter plus
 one ray-traced diffuse gather). Switchable fixtures are excluded from the field
 in every state: their contribution is prepared only as atlas layers, so
 moving objects and characters are never lit by them and a toggle does not
-change the field. Each probe carries the same compact HDR lobe a
-lightmap texel carries and the room it occupies; interpolation only mixes
-probes of the sample's own room, so light cannot bleed through a floor,
-ceiling or full-height wall, and an unresolvable position falls back to the
-vertex-lit model instead of going black. A probe in no room, or inside a wall,
-is never sampled. Generating the field is compile-time work; reading it is a
-handful of interpolated loads.
+change the field. Each probe carries the same compact linear HDR values a
+lightmap texel carries (`irradiance` and the signed moment vector `direction`;
+the `axis` pair is reserved and ignored) and the room it occupies; interpolation
+only mixes probes of the sample's own room, so light cannot bleed through a
+floor, ceiling or full-height wall, and an unresolvable position falls back to
+the vertex-lit model instead of going black. A probe in no room, or inside a
+wall, is never sampled. Generating the field is compile-time work; reading it is
+a handful of interpolated loads.
 
 ## 7. Limits
 

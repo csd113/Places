@@ -7,7 +7,12 @@
 //! places --check-geometry --level assets/levels/places_demo.json
 //! places --check-geometry --level levels/level0_pit.json --json report.json
 //! places --check-geometry --level places_demo --markers-obj markers.obj
+//! places --repair-geometry --level places_demo --plan plan.json
 //! ```
+//!
+//! The repair planner is read-only: it shares the exact [`wall_joints`]
+//! classification the checker reports and emits a machine-readable edit plan
+//! for `tools/levels/repair_alignment.py` to apply.
 //!
 //! It builds the level exactly the way the game does — the loader validation,
 //! the level preparation pass (fixture/decal snapping and automatic trim), the
@@ -36,7 +41,7 @@
 //! are only flagged when they read as a leak into the *void*. It sees the
 //! asset-less mesh (prop placeholders, no GLB geometry) and does not validate
 //! prop models, textures or the rendered image. It reports findings, not
-//! fixes.
+//! fixes; the repair planner only *plans* them and never writes a source.
 //!
 //! Exit statuses: `0` no confirmed defects, `1` confirmed defects, `2` usage or
 //! file/parse failure.
@@ -52,6 +57,7 @@ use crate::level::{
     ArcWallDef, ArchitectureBox, LevelDef, LevelSurfaces, PillarDef, RoomDef, WallAxis, WallDef,
     wall_solid_slices_profiled,
 };
+use crate::materials::MaterialTable;
 use crate::render::{LevelMesh, SurfaceKey, SurfaceKind, Vertex};
 
 /// Stable format id written into the machine-readable report.
@@ -91,6 +97,571 @@ const CURVE_COARSE_SAGITTA_M: f32 = 0.02;
 const MAX_FINDINGS_PER_CHECK: usize = 200;
 /// Cell size of the triangle spatial hash, in metres.
 const SPATIAL_CELL_M: f32 = 1.0;
+
+/// Two thickness faces at or below this offset are the same plane, in metres.
+///
+/// It matches the emitter's own `WALL_COINCIDENCE_EPS = 1e-3`; at or under it
+/// the emitter resolves the faces as one.
+pub const JOINT_PLANE_TOL_M: f32 = 1.0e-3;
+/// Maximum length gap between two slices that still counts as a touching joint
+/// for the automatic class, in metres.
+pub const JOINT_ADJACENCY_M: f32 = 0.05;
+/// Maximum length gap for a review-only joint candidate, in metres — a
+/// doorway drawn as two walls.
+pub const JOINT_NEAR_ADJACENCY_M: f32 = 0.35;
+/// Largest automatic correction of one wall plane, in metres.
+///
+/// Half of the thickest wall (0.4 m) plus margin; typical architectural
+/// reveals are at most 0.05 m. Above it a joint is review only.
+pub const JOINT_MAX_AUTO_SHIFT_M: f32 = 0.25;
+/// Minimum vertical overlap for a joint, in metres.
+pub const JOINT_MIN_Y_M: f32 = 0.30;
+/// Minimum solid slice length to consider, in metres.
+pub const JOINT_MIN_LENGTH_M: f32 = 0.05;
+/// Parallel-face angular tolerance for emitted triangles, in degrees.
+pub const JOINT_ANGULAR_TOL_DEG: f32 = 0.5;
+
+/// Quantises a repair value to `1.0e-4 m`, so repaired sources stay decimal.
+#[must_use]
+pub fn quantise(value: f32) -> f32 {
+    (value * 1.0e4).round() / 1.0e4
+}
+
+/// One candidate (or confirmed) wall-plane joint between two authored walls.
+///
+/// Both the checker and the repair planner read this classification, so a
+/// finding and its planned repair can never disagree about what is broken.
+#[derive(Clone, Debug, Serialize)]
+pub struct WallJoint {
+    /// Authored wall index of the side that keeps its plane (the authority) on
+    /// `step`/`near-step` joints; the lower index on classes without a mover.
+    pub first: usize,
+    /// Authored wall index of the side that follows `shift` (the mover) on
+    /// `step`/`near-step` joints.
+    pub second: usize,
+    /// `"x"` or `"z"`: the axis the walls run along.
+    pub axis: &'static str,
+    /// `"step"`, `"thickness-step"` or `"near-step"`.
+    pub kind: &'static str,
+    /// First wall's two thickness planes (low, high).
+    pub first_low: f32,
+    pub first_high: f32,
+    /// Second wall's two thickness planes (low, high).
+    pub second_low: f32,
+    pub second_high: f32,
+    /// Signed delta to add to the *second* wall on the across axis.
+    pub shift: f32,
+    /// Positive length separation between the two slices (0 when they touch or
+    /// overlap).
+    pub gap_m: f32,
+    /// Positive length overlap between the two slices (0 when they are apart).
+    pub overlap_m: f32,
+    /// Vertical overlap between the two solid slices, in metres.
+    pub y_overlap_m: f32,
+    /// `"chain"`, `"length"` or `"index"`: why this side is the authority.
+    pub authority: &'static str,
+    /// Count of other coplanar wall slices touching the first slice.
+    pub first_support: usize,
+    /// Count of other coplanar wall slices touching the second slice.
+    pub second_support: usize,
+    /// True only for an unambiguous `step` within the automatic shift limit.
+    pub auto_repairable: bool,
+    /// World anchor at the joint, in metres.
+    pub position: [f32; 3],
+}
+
+/// One wall's solid decomposition in world coordinates along its length axis.
+#[derive(Clone, Debug)]
+struct WallSlices {
+    index: usize,
+    axis: WallAxis,
+    /// Across-thickness planes `(low, high)`.
+    planes: (f32, f32),
+    /// World coordinate of local slice offset 0 (the footprint's min corner).
+    origin: f32,
+    slices: Vec<crate::level::WallSlice>,
+}
+
+impl WallSlices {
+    /// Total solid length of every slice of this wall, in metres.
+    fn solid_span(&self) -> f32 {
+        self.slices
+            .iter()
+            .map(|slice| slice.end - slice.start)
+            .sum()
+    }
+
+    /// World length interval of one slice.
+    fn span_of(&self, slice: &crate::level::WallSlice) -> (f32, f32) {
+        (self.origin + slice.start, self.origin + slice.end)
+    }
+}
+
+/// One classified joint plus the slice spans the emitted verification samples.
+#[derive(Clone, Debug)]
+struct WallJointCandidate {
+    joint: WallJoint,
+    /// World length interval of the joint's first slice.
+    first_span: (f32, f32),
+    /// World length interval of the joint's second slice.
+    second_span: (f32, f32),
+    /// Absolute Y interval shared by the two slices.
+    y: (f32, f32),
+}
+
+/// Replays the engine's own wall decomposition for every authored wall, the
+/// same way `authored_colliders` does (profile breaks and the clear-ceiling
+/// closure), so lintels and headers participate in the classification.
+fn level_wall_slices(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<WallSlices> {
+    let mut out = Vec::new();
+    for (index, wall) in level.walls.iter().enumerate() {
+        let breaks = surfaces.wall_profile_breaks(wall);
+        let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
+        let slices = wall_solid_slices_profiled(wall, clear, &breaks);
+        let (min_x, max_x) = (
+            wall.x.min(wall.x + wall.width),
+            wall.x.max(wall.x + wall.width),
+        );
+        let (min_z, max_z) = (
+            wall.z.min(wall.z + wall.depth),
+            wall.z.max(wall.z + wall.depth),
+        );
+        let (planes, origin) = match wall.axis() {
+            WallAxis::X => ((min_z, max_z), min_x),
+            WallAxis::Z => ((min_x, max_x), min_z),
+        };
+        out.push(WallSlices {
+            index,
+            axis: wall.axis(),
+            planes,
+            origin,
+            slices,
+        });
+    }
+    out
+}
+
+/// Positive separation and overlap of two length intervals, in metres.
+fn interval_relationship(a: (f32, f32), b: (f32, f32)) -> (f32, f32) {
+    let gap = (a.0.max(b.0) - a.1.min(b.1)).max(0.0);
+    let overlap = (a.1.min(b.1) - a.0.max(b.0)).max(0.0);
+    (gap, overlap)
+}
+
+/// Counts other walls' solid slices that are exactly coplanar with `wall` and
+/// touch `span`, the evidence the authority rule compares.
+fn slice_support(
+    walls: &[WallSlices],
+    wall: &WallSlices,
+    span: (f32, f32),
+    y: (f32, f32),
+) -> usize {
+    let mut count = 0usize;
+    for other in walls {
+        if other.index == wall.index || other.axis != wall.axis {
+            continue;
+        }
+        if (other.planes.0 - wall.planes.0).abs() > JOINT_PLANE_TOL_M
+            || (other.planes.1 - wall.planes.1).abs() > JOINT_PLANE_TOL_M
+        {
+            continue;
+        }
+        for slice in &other.slices {
+            if slice.end - slice.start < JOINT_MIN_LENGTH_M {
+                continue;
+            }
+            let other_span = other.span_of(slice);
+            let (gap, overlap) = interval_relationship(span, other_span);
+            if gap > JOINT_ADJACENCY_M {
+                continue;
+            }
+            let half = 0.5 * (span.1 - span.0).min(other_span.1 - other_span.0);
+            if overlap > half + 1.0e-4 {
+                continue;
+            }
+            let y_overlap = y.1.min(slice.top) - y.0.max(slice.bottom);
+            if y_overlap < JOINT_MIN_Y_M {
+                continue;
+            }
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// True when a solid slice of either joint wall fills the length gap between
+/// the two slices over their shared height.
+///
+/// A gap whose span is already solid at the same height is an internal slice
+/// boundary (a lintel meeting the wall body behind it), not a doorway drawn as
+/// two walls, so it must not be reported as a review candidate.
+fn gap_is_covered(
+    first: &WallSlices,
+    second: &WallSlices,
+    first_span: (f32, f32),
+    second_span: (f32, f32),
+    y: (f32, f32),
+) -> bool {
+    let (low, high) = if first_span.1 <= second_span.0 {
+        (first_span.1, second_span.0)
+    } else if second_span.1 <= first_span.0 {
+        (second_span.1, first_span.0)
+    } else {
+        return true;
+    };
+    for wall in [first, second] {
+        for slice in &wall.slices {
+            let span = wall.span_of(slice);
+            if span.0 > low + JOINT_PLANE_TOL_M || span.1 < high - JOINT_PLANE_TOL_M {
+                continue;
+            }
+            let y_overlap = y.1.min(slice.top) - y.0.max(slice.bottom);
+            if y_overlap > JOINT_PLANE_TOL_M {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// The kind one pair of wall planes implies, or `None` when the pair is not a
+/// candidate of this class at all.
+fn plane_kind(d_low: f32, d_high: f32) -> Option<&'static str> {
+    let max_shift = d_low.abs().max(d_high.abs());
+    if max_shift > JOINT_NEAR_ADJACENCY_M {
+        return None;
+    }
+    let rigid = (d_low - d_high).abs() <= JOINT_PLANE_TOL_M;
+    if rigid {
+        if max_shift <= JOINT_PLANE_TOL_M {
+            Some("coplanar")
+        } else if max_shift <= JOINT_MAX_AUTO_SHIFT_M {
+            Some("step")
+        } else {
+            Some("near-step")
+        }
+    } else if d_low.abs().min(d_high.abs()) <= JOINT_PLANE_TOL_M {
+        // One face aligned, the other offset: a thickness transition or a
+        // misplaced sliver. Both look identical to a rigid rule, so it is a
+        // review-only class.
+        Some("thickness-step")
+    } else {
+        None
+    }
+}
+
+/// True when the two walls' plane pair counts as coplanar.
+fn is_coplanar(kind: &str) -> bool {
+    kind == "coplanar"
+}
+
+/// Builds a joint candidate's world anchor from the two slice spans.
+const fn joint_position(axis: WallAxis, along: f32, across: f32, y: f32) -> [f32; 3] {
+    match axis {
+        WallAxis::X => [along, y, across],
+        WallAxis::Z => [across, y, along],
+    }
+}
+
+/// One length-adjacent pair of solid slices between two walls.
+#[derive(Clone, Copy, Debug)]
+struct SlicePair {
+    first: crate::level::WallSlice,
+    second: crate::level::WallSlice,
+    first_span: (f32, f32),
+    second_span: (f32, f32),
+    gap: f32,
+    overlap: f32,
+    y_overlap: f32,
+}
+
+/// Collects every slice pair of two walls that passes the joint filters.
+///
+/// `coplanar` additionally admits length-separated pairs (a doorway drawn as
+/// two walls); a shifted pair must actually touch.
+fn slice_pairs(first: &WallSlices, second: &WallSlices, coplanar: bool) -> Vec<SlicePair> {
+    let mut out = Vec::new();
+    for slice_first in &first.slices {
+        if slice_first.end - slice_first.start < JOINT_MIN_LENGTH_M {
+            continue;
+        }
+        let first_span = first.span_of(slice_first);
+        for slice_second in &second.slices {
+            if slice_second.end - slice_second.start < JOINT_MIN_LENGTH_M {
+                continue;
+            }
+            let second_span = second.span_of(slice_second);
+            let (gap, overlap) = interval_relationship(first_span, second_span);
+            if gap > JOINT_NEAR_ADJACENCY_M {
+                continue;
+            }
+            // End-to-end only: an overlay (a board sitting on a face) fails.
+            let half = 0.5 * (first_span.1 - first_span.0).min(second_span.1 - second_span.0);
+            if overlap > half + 1.0e-4 {
+                continue;
+            }
+            if !coplanar && gap > JOINT_ADJACENCY_M {
+                continue;
+            }
+            let y_overlap =
+                slice_first.top.min(slice_second.top) - slice_first.bottom.max(slice_second.bottom);
+            if y_overlap < JOINT_MIN_Y_M {
+                continue;
+            }
+            out.push(SlicePair {
+                first: *slice_first,
+                second: *slice_second,
+                first_span,
+                second_span,
+                gap,
+                overlap,
+                y_overlap,
+            });
+        }
+    }
+    out
+}
+
+/// The deterministic joint candidates of one level, with their slice spans.
+///
+/// This is the single classification the checker and the repair planner share:
+/// [`wall_joints`] strips the internal slice detail, the checker keeps it for
+/// the emitted-mesh verification and the planner for its coupled edits.
+#[allow(clippy::too_many_lines)] // one joint pass over every wall pair
+fn compute_wall_joints(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<WallJointCandidate> {
+    let walls = level_wall_slices(level, surfaces);
+    let mut out: Vec<WallJointCandidate> = Vec::new();
+    for (first_index, first) in walls.iter().enumerate() {
+        for second in walls.iter().skip(first_index.saturating_add(1)) {
+            if first.axis != second.axis {
+                continue;
+            }
+            let d_low = second.planes.0 - first.planes.0;
+            let d_high = second.planes.1 - first.planes.1;
+            let Some(kind) = plane_kind(d_low, d_high) else {
+                continue;
+            };
+            let coplanar = is_coplanar(kind);
+            let pairs = slice_pairs(first, second, coplanar);
+            let touching = pairs.iter().any(|pair| pair.gap <= JOINT_ADJACENCY_M);
+            if coplanar && touching {
+                // The walls share a plane and touch somewhere: a correct shared
+                // edge. A gapped lintel pair between the same walls is an
+                // internal slice boundary, not a doorway.
+                continue;
+            }
+            let mut eligible: Vec<&SlicePair> = pairs
+                .iter()
+                .filter(|pair| {
+                    if coplanar {
+                        pair.gap > JOINT_ADJACENCY_M
+                            && !gap_is_covered(
+                                first,
+                                second,
+                                pair.first_span,
+                                pair.second_span,
+                                (
+                                    pair.first.bottom.max(pair.second.bottom),
+                                    pair.first.top.min(pair.second.top),
+                                ),
+                            )
+                    } else {
+                        true
+                    }
+                })
+                .collect();
+            eligible.sort_by(|a, b| {
+                a.y_overlap
+                    .total_cmp(&b.y_overlap)
+                    .then_with(|| a.first_span.0.total_cmp(&b.first_span.0))
+                    .then_with(|| a.second_span.0.total_cmp(&b.second_span.0))
+            });
+            let Some(best) = eligible.last().copied().copied() else {
+                continue;
+            };
+            let (span_first, span_second) = (best.first_span, best.second_span);
+            let (y_low, y_high) = (
+                best.first.bottom.max(best.second.bottom),
+                best.first.top.min(best.second.top),
+            );
+            let (gap, overlap) = (best.gap, best.overlap);
+            let y_overlap = y_high - y_low;
+            let (
+                first_wall,
+                second_wall,
+                authority,
+                first_support,
+                second_support,
+                shift,
+                ambiguous,
+            ) = if coplanar || is_thickness_step(kind) {
+                // No mover: report in authored index order, no rigid delta.
+                (
+                    first.index,
+                    second.index,
+                    "index",
+                    0usize,
+                    0usize,
+                    0.0,
+                    false,
+                )
+            } else {
+                let y = (y_low, y_high);
+                let first_support = slice_support(&walls, first, span_first, y);
+                let second_support = slice_support(&walls, second, span_second, y);
+                let (winner, authority, repairable) = if first_support != second_support {
+                    let winner = if first_support > second_support {
+                        first.index
+                    } else {
+                        second.index
+                    };
+                    (winner, "chain", true)
+                } else if relative_difference(first.solid_span(), second.solid_span()) > 0.01 {
+                    let winner = if first.solid_span() > second.solid_span() {
+                        first.index
+                    } else {
+                        second.index
+                    };
+                    (winner, "length", true)
+                } else {
+                    // Equal support and equal solid span: the authority is
+                    // ambiguous, so the joint is review only.
+                    (first.index.min(second.index), "index", false)
+                };
+                // The mover is always `second`; `shift` is the delta that
+                // lands its low plane on the winner's low plane.
+                if winner == second.index {
+                    let shift = second.planes.0 - first.planes.0;
+                    (
+                        second.index,
+                        first.index,
+                        authority,
+                        first_support,
+                        second_support,
+                        shift,
+                        !repairable,
+                    )
+                } else {
+                    let shift = first.planes.0 - second.planes.0;
+                    (
+                        first.index,
+                        second.index,
+                        authority,
+                        first_support,
+                        second_support,
+                        shift,
+                        !repairable,
+                    )
+                }
+            };
+            // A coplanar gap is a review-only near-step candidate; an
+            // ambiguous authority is never an automatic step either.
+            let kind = if coplanar || (ambiguous && kind == "step") {
+                "near-step"
+            } else {
+                kind
+            };
+            let auto = kind == "step";
+            let along = anchor_along(span_first, span_second);
+            let across = f32::midpoint(
+                first.planes.0.min(second.planes.0),
+                first.planes.1.max(second.planes.1),
+            );
+            let y_mid = f32::midpoint(y_low, y_high);
+            let (first_low, first_high, second_low, second_high) = if first_wall == first.index {
+                (
+                    first.planes.0,
+                    first.planes.1,
+                    second.planes.0,
+                    second.planes.1,
+                )
+            } else {
+                (
+                    second.planes.0,
+                    second.planes.1,
+                    first.planes.0,
+                    first.planes.1,
+                )
+            };
+            out.push(WallJointCandidate {
+                joint: WallJoint {
+                    first: first_wall,
+                    second: second_wall,
+                    axis: match first.axis {
+                        WallAxis::X => "x",
+                        WallAxis::Z => "z",
+                    },
+                    kind,
+                    first_low: quantise(first_low),
+                    first_high: quantise(first_high),
+                    second_low: quantise(second_low),
+                    second_high: quantise(second_high),
+                    shift: quantise(shift),
+                    gap_m: gap,
+                    overlap_m: overlap,
+                    y_overlap_m: y_overlap,
+                    authority,
+                    first_support,
+                    second_support,
+                    auto_repairable: auto,
+                    position: joint_position(first.axis, along, across, y_mid),
+                },
+                first_span: span_first,
+                second_span: span_second,
+                y: (y_low, y_high),
+            });
+        }
+    }
+    // Deterministic order: by the unordered wall pair.
+    out.sort_by_key(|candidate| {
+        (
+            candidate.joint.first.min(candidate.joint.second),
+            candidate.joint.first.max(candidate.joint.second),
+        )
+    });
+    out
+}
+
+/// True for the review-only thickness transition class.
+fn is_thickness_step(kind: &str) -> bool {
+    kind == "thickness-step"
+}
+
+/// Relative difference of two positive spans, 0 when both are 0.
+fn relative_difference(a: f32, b: f32) -> f32 {
+    let largest = a.abs().max(b.abs());
+    if largest <= f32::EPSILON {
+        return 0.0;
+    }
+    (a - b).abs() / largest
+}
+
+/// The anchor along the length axis: the middle of the gap for separated
+/// slices, the meeting point for touching ones and the overlap centre for
+/// overlapping ones.
+fn anchor_along(a: (f32, f32), b: (f32, f32)) -> f32 {
+    if a.1 <= b.0 + JOINT_ADJACENCY_M {
+        f32::midpoint(a.1, b.0)
+    } else if b.1 <= a.0 + JOINT_ADJACENCY_M {
+        f32::midpoint(b.1, a.0)
+    } else {
+        f32::midpoint(a.1.min(b.1), a.0.max(b.0))
+    }
+}
+
+/// The deterministic wall-plane joint candidates of one level.
+///
+/// The checker and the repair planner both call this function, so a finding
+/// and its planned repair can never disagree. It replays the engine's own
+/// solid slicing, so openings, lintels and sloped ceiling profiles participate.
+#[must_use]
+pub fn wall_joints(level: &LevelDef) -> Vec<WallJoint> {
+    let surfaces = LevelSurfaces::new(level);
+    compute_wall_joints(level, &surfaces)
+        .into_iter()
+        .map(|candidate| candidate.joint)
+        .collect()
+}
 
 /// How serious a finding is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -417,6 +988,7 @@ pub fn check_level(level: &LevelDef, source: &str, validated: bool) -> CheckRepo
     checker.check_mesh(&mesh);
     let triangles = collect_triangles(&mesh);
     checker.check_duplicate_surfaces(&triangles);
+    checker.check_wall_joints(&surfaces, &triangles, &materials);
 
     let colliders = authored_colliders(level, &surfaces);
     let engine_boxes = level.collision_aabbs();
@@ -1236,6 +1808,483 @@ fn dominant_axis(normal: [f32; 3]) -> (usize, f32) {
         }
     }
     (axis, best)
+}
+
+// ---------------------------------------------------------------------------
+// Wall-plane joints
+// ---------------------------------------------------------------------------
+
+/// Wall length-face triangles bucketed by their across-plane coordinate, so
+/// the emitted verification never scans every face for a joint.
+struct WallTriangleIndex {
+    /// `(across plane, triangle index)` for X-axis wall faces (normal ±Z).
+    planes_x: Vec<(f32, usize)>,
+    /// `(across plane, triangle index)` for Z-axis wall faces (normal ±X).
+    planes_z: Vec<(f32, usize)>,
+}
+
+impl WallTriangleIndex {
+    fn build(triangles: &[Tri]) -> Self {
+        let parallel = JOINT_ANGULAR_TOL_DEG.to_radians().cos();
+        let mut planes_x = Vec::new();
+        let mut planes_z = Vec::new();
+        for (index, triangle) in triangles.iter().enumerate() {
+            if triangle.key.kind != SurfaceKind::Wall {
+                continue;
+            }
+            if triangle.normal[2].abs() >= parallel {
+                planes_x.push((triangle.points[0][2], index));
+            } else if triangle.normal[0].abs() >= parallel {
+                planes_z.push((triangle.points[0][0], index));
+            }
+        }
+        planes_x.sort_by(|a, b| a.0.total_cmp(&b.0));
+        planes_z.sort_by(|a, b| a.0.total_cmp(&b.0));
+        Self { planes_x, planes_z }
+    }
+
+    fn planes(&self, axis: WallAxis) -> &[(f32, usize)] {
+        match axis {
+            WallAxis::X => &self.planes_x,
+            WallAxis::Z => &self.planes_z,
+        }
+    }
+
+    /// The entries whose plane falls in `[low, high]`.
+    fn within(&self, axis: WallAxis, low: f32, high: f32) -> &[(f32, usize)] {
+        let planes = self.planes(axis);
+        let start = planes.partition_point(|(plane, _)| *plane < low);
+        let end = planes.partition_point(|(plane, _)| *plane <= high);
+        planes.get(start..end).unwrap_or_default()
+    }
+}
+
+/// The source field a wall's across coordinate is authored as.
+const fn across_field(axis: WallAxis) -> &'static str {
+    match axis {
+        WallAxis::X => "z",
+        WallAxis::Z => "x",
+    }
+}
+
+/// The axis of a serialized joint.
+fn wall_axis_of(name: &str) -> WallAxis {
+    if name == "z" {
+        WallAxis::Z
+    } else {
+        WallAxis::X
+    }
+}
+
+/// The two length-face names of a wall on this axis.
+const fn wall_face_names(axis: WallAxis) -> [&'static str; 2] {
+    match axis {
+        WallAxis::X => ["north", "south"],
+        WallAxis::Z => ["west", "east"],
+    }
+}
+
+/// A sample 1 cm inside a wall's junction end, on the side facing `other`.
+fn inside_end(span: (f32, f32), other: (f32, f32)) -> f32 {
+    let own_centre = f32::midpoint(span.0, span.1);
+    let other_centre = f32::midpoint(other.0, other.1);
+    if other_centre >= own_centre {
+        (span.1 - 0.01).max(span.0)
+    } else {
+        (span.0 + 0.01).min(span.1)
+    }
+}
+
+/// True when a point in the `(length, y)` projection lies inside a triangle,
+/// with `tolerance` metres of slack at the edges.
+fn projected_point_in_triangle(
+    triangle: &Tri,
+    length_axis: usize,
+    point: [f32; 2],
+    tolerance: f32,
+) -> bool {
+    let project = |value: [f32; 3]| match length_axis {
+        0 => [value[0], value[1]],
+        _ => [value[2], value[1]],
+    };
+    let a = project(triangle.points[0]);
+    let b = project(triangle.points[1]);
+    let c = project(triangle.points[2]);
+    let local = |value: [f32; 2]| [value[0] - a[0], value[1] - a[1]];
+    let p = local(point);
+    let b = local(b);
+    let c = local(c);
+    let cross = |o: [f32; 2], u: [f32; 2], v: [f32; 2]| {
+        (u[0] - o[0]).mul_add(v[1] - o[1], -((u[1] - o[1]) * (v[0] - o[0])))
+    };
+    let ab = cross([0.0, 0.0], b, p);
+    let bc = cross(b, c, p);
+    let ca = cross(c, [0.0, 0.0], p);
+    let edge_scale = [b, c].iter().fold(1.0_f32, |largest, value| {
+        largest.max(value[0].abs().max(value[1].abs()))
+    });
+    let epsilon = tolerance.mul_add(edge_scale, 1.0e-6);
+    (ab >= -epsilon && bc >= -epsilon && ca >= -epsilon)
+        || (ab <= epsilon && bc <= epsilon && ca <= epsilon)
+}
+
+/// The human explanation of one wall joint: both indices, both plane spans,
+/// the signed shift, the contact measurements and the repair safety reason.
+fn wall_joint_message(joint: &WallJoint) -> String {
+    let axis_label = joint.axis;
+    let axis = wall_axis_of(axis_label);
+    let field = across_field(axis);
+    let first_span = format!(
+        "walls[{}].{field} {:.3}..{:.3}",
+        joint.first, joint.first_low, joint.first_high
+    );
+    let second_span = format!(
+        "walls[{}].{field} {:.3}..{:.3}",
+        joint.second, joint.second_low, joint.second_high
+    );
+    let evidence = match joint.authority {
+        "chain" => format!(
+            "coplanar chain support {} vs {}",
+            joint.first_support, joint.second_support
+        ),
+        "length" => format!(
+            "equal support ({} vs {}), longer solid span",
+            joint.first_support, joint.second_support
+        ),
+        _ => format!(
+            "ambiguous authority: equal support ({} vs {}) and equal solid span",
+            joint.first_support, joint.second_support
+        ),
+    };
+    match joint.kind {
+        "step" => format!(
+            "walls {} and {} meet end-to-end along {axis_label} (length gap {:.3} m, overlap {:.3} m, \
+             y overlap {:.3} m): {first_span} vs {second_span} is a rigid {:+.3} m thickness-plane \
+             shift; authority {evidence}; safe repair: add {:+.4} to walls[{}].{field}",
+            joint.first,
+            joint.second,
+            joint.gap_m,
+            joint.overlap_m,
+            joint.y_overlap_m,
+            joint.shift,
+            joint.shift,
+            joint.second,
+        ),
+        "thickness-step" => format!(
+            "walls {} and {} meet end-to-end along {axis_label} (length gap {:.3} m, y overlap {:.3} m): \
+             {first_span} (thickness {:.3}) vs {second_span} (thickness {:.3}) share one plane but \
+             not the other; a valid thickness transition or a misplaced sliver; manual review, \
+             never moved automatically",
+            joint.first,
+            joint.second,
+            joint.gap_m,
+            joint.y_overlap_m,
+            joint.first_high - joint.first_low,
+            joint.second_high - joint.second_low,
+        ),
+        _ if joint.shift.abs() <= JOINT_PLANE_TOL_M => format!(
+            "walls {} and {} run coplanar along {axis_label} ({first_span}) but are separated by a \
+             {:.3} m length gap no solid of either wall covers; a doorway drawn as two walls or \
+             an unintended gap; manual review, never automatic",
+            joint.first, joint.second, joint.gap_m,
+        ),
+        _ if joint.shift.abs() > JOINT_MAX_AUTO_SHIFT_M => format!(
+            "walls {} and {} meet end-to-end along {axis_label} (length gap {:.3} m, y overlap {:.3} m): \
+             {first_span} vs {second_span} is a rigid {:+.3} m shift, beyond the automatic limit \
+             {:.3} m; would move walls[{}].{field}; manual review, never automatic",
+            joint.first,
+            joint.second,
+            joint.gap_m,
+            joint.y_overlap_m,
+            joint.shift,
+            JOINT_MAX_AUTO_SHIFT_M,
+            joint.second,
+        ),
+        _ => format!(
+            "walls {} and {} meet end-to-end along {axis_label} (length gap {:.3} m, y overlap {:.3} m): \
+             {first_span} vs {second_span} is a rigid {:+.3} m shift with {evidence}; would move \
+             walls[{}].{field}; manual review, never automatic",
+            joint.first, joint.second, joint.gap_m, joint.y_overlap_m, joint.shift, joint.second,
+        ),
+    }
+}
+
+impl Checker<'_> {
+    /// Confirmed wall-plane steps, review-only joint candidates and the
+    /// emitted-mesh cross-check for every one of them.
+    fn check_wall_joints(
+        &mut self,
+        surfaces: &LevelSurfaces<'_>,
+        triangles: &[Tri],
+        materials: &MaterialTable,
+    ) {
+        let candidates = compute_wall_joints(self.level, surfaces);
+        if candidates.is_empty() {
+            return;
+        }
+        let walls = level_wall_slices(self.level, surfaces);
+        let index = WallTriangleIndex::build(triangles);
+        for candidate in &candidates {
+            let joint = &candidate.joint;
+            let (check, severity) = match joint.kind {
+                "step" => ("wall-joint-step", Severity::Error),
+                "thickness-step" => ("wall-joint-thickness-step", Severity::Warning),
+                _ => ("wall-joint-step-review", Severity::Warning),
+            };
+            self.push(
+                check,
+                severity,
+                format!("wall {} / wall {}", joint.first, joint.second),
+                wall_joint_message(joint),
+                joint.position,
+            );
+            self.check_joint_emitted(candidate, &walls, &index, triangles, materials);
+        }
+    }
+
+    /// The resolved material indices a wall's two length faces can emit.
+    fn resolved_wall_materials(&self, materials: &MaterialTable, index: usize) -> Vec<u16> {
+        let mut out: Vec<u16> = Vec::new();
+        let Some(wall) = self.level.walls.get(index) else {
+            return out;
+        };
+        for name in wall_face_names(wall.axis()) {
+            if let Some(reference) = wall.face_ref(name)
+                && let Some(material) = materials.index_of(reference.id)
+                && !out.contains(&material)
+            {
+                out.push(material);
+            }
+        }
+        if let Some(material) = materials.index_of(&self.level.defaults.wall)
+            && !out.contains(&material)
+        {
+            out.push(material);
+        }
+        out
+    }
+
+    /// For every joint candidate the emitted mesh must show a triangle on each
+    /// declared thickness plane at 1 cm inside each junction end, and no wall
+    /// face may sit on an undeclared plane near the junction.
+    #[allow(clippy::too_many_lines)] // one joint's sampling pass, kept together
+    fn check_joint_emitted(
+        &mut self,
+        candidate: &WallJointCandidate,
+        walls: &[WallSlices],
+        index: &WallTriangleIndex,
+        triangles: &[Tri],
+        materials: &MaterialTable,
+    ) {
+        let joint = &candidate.joint;
+        let axis = wall_axis_of(joint.axis);
+        let length_axis = match axis {
+            WallAxis::X => 0usize,
+            WallAxis::Z => 2,
+        };
+        let declared = [
+            joint.first_low,
+            joint.first_high,
+            joint.second_low,
+            joint.second_high,
+        ];
+        let first_materials = self.resolved_wall_materials(materials, joint.first);
+        let second_materials = self.resolved_wall_materials(materials, joint.second);
+        let first_sample = inside_end(candidate.first_span, candidate.second_span);
+        let second_sample = inside_end(candidate.second_span, candidate.first_span);
+        let sampled = [
+            (
+                joint.first,
+                first_sample,
+                (joint.first_low, joint.first_high),
+                &first_materials,
+            ),
+            (
+                joint.second,
+                second_sample,
+                (joint.second_low, joint.second_high),
+                &second_materials,
+            ),
+        ];
+        for (wall, sample, planes, allowed) in sampled {
+            for plane in [planes.0, planes.1] {
+                let mut missing: Option<f32> = None;
+                for fraction in [0.25_f32, 0.5, 0.75] {
+                    let y = candidate
+                        .y
+                        .0
+                        .mul_add(1.0 - fraction, candidate.y.1 * fraction);
+                    let point = match axis {
+                        WallAxis::X => [sample, y, plane],
+                        WallAxis::Z => [plane, y, sample],
+                    };
+                    if point_in_wall_solids(walls, point, wall) {
+                        // Another authored solid legitimately covers the
+                        // missing face at this sample.
+                        continue;
+                    }
+                    let found = index
+                        .within(axis, plane - JOINT_PLANE_TOL_M, plane + JOINT_PLANE_TOL_M)
+                        .iter()
+                        .any(|(_, slot)| {
+                            let Some(triangle) = triangles.get(*slot) else {
+                                return false;
+                            };
+                            allowed.contains(&triangle.key.material)
+                                && projected_point_in_triangle(
+                                    triangle,
+                                    length_axis,
+                                    [sample, y],
+                                    0.01,
+                                )
+                        });
+                    if !found {
+                        missing = Some(y);
+                        break;
+                    }
+                }
+                if let Some(y) = missing {
+                    self.push(
+                        "wall-joint-emitted-mismatch",
+                        Severity::Error,
+                        format!("wall {wall}"),
+                        format!(
+                            "the emitted mesh has no wall face on the declared plane {plane:.3} at \
+                             the wall {wall} junction end (sample {sample:.3}, y {y:.3}); the \
+                             source decomposition and the built mesh disagree",
+                        ),
+                        match axis {
+                            WallAxis::X => [sample, y, plane],
+                            WallAxis::Z => [plane, y, sample],
+                        },
+                    );
+                }
+            }
+        }
+
+        // No emitted wall face may sit on an undeclared plane near the joint.
+        let anchor = anchor_along(candidate.first_span, candidate.second_span);
+        let low = declared
+            .iter()
+            .fold(f32::INFINITY, |value, plane| value.min(*plane))
+            - JOINT_MAX_AUTO_SHIFT_M
+            - JOINT_PLANE_TOL_M;
+        let high = declared
+            .iter()
+            .fold(f32::NEG_INFINITY, |value, plane| value.max(*plane))
+            + JOINT_MAX_AUTO_SHIFT_M
+            + JOINT_PLANE_TOL_M;
+        let mut reported: Vec<f32> = Vec::new();
+        let mut allowed: Vec<u16> = first_materials.clone();
+        allowed.extend(second_materials.iter().copied());
+        for (plane, slot) in index.within(axis, low, high) {
+            let Some(triangle) = triangles.get(*slot) else {
+                continue;
+            };
+            if !allowed.contains(&triangle.key.material) {
+                continue;
+            }
+            let (along_low, along_high) = triangle_projection_span(triangle, length_axis);
+            let (y_low, y_high) = triangle_y_span(triangle);
+            if along_high < anchor - 0.05
+                || along_low > anchor + 0.05
+                || y_high < candidate.y.0
+                || y_low > candidate.y.1
+            {
+                continue;
+            }
+            let nearest = declared
+                .iter()
+                .fold(f32::INFINITY, |value, declared_plane| {
+                    value.min((*plane - *declared_plane).abs())
+                });
+            if nearest <= JOINT_PLANE_TOL_M || nearest > JOINT_MAX_AUTO_SHIFT_M {
+                continue;
+            }
+            let quantised = quantise(*plane);
+            if reported.contains(&quantised) {
+                continue;
+            }
+            reported.push(quantised);
+            self.push(
+                "wall-joint-emitted-mismatch",
+                Severity::Error,
+                format!("wall {} / wall {}", joint.first, joint.second),
+                format!(
+                    "an emitted wall face at {:.3} lies {nearest:.3} m from every declared \
+                     thickness plane at the wall {} / wall {} junction; the mesh carries a step \
+                     the source does not declare",
+                    plane, joint.first, joint.second,
+                ),
+                match axis {
+                    WallAxis::X => [anchor, candidate.y.0, *plane],
+                    WallAxis::Z => [*plane, candidate.y.0, anchor],
+                },
+            );
+        }
+    }
+}
+
+/// The along-length span of a triangle in the joint's length axis.
+fn triangle_projection_span(triangle: &Tri, length_axis: usize) -> (f32, f32) {
+    let mut low = f32::INFINITY;
+    let mut high = f32::NEG_INFINITY;
+    for point in triangle.points {
+        let value = match length_axis {
+            0 => point[0],
+            _ => point[2],
+        };
+        low = low.min(value);
+        high = high.max(value);
+    }
+    (low, high)
+}
+
+/// The Y span of a triangle.
+fn triangle_y_span(triangle: &Tri) -> (f32, f32) {
+    let mut low = f32::INFINITY;
+    let mut high = f32::NEG_INFINITY;
+    for point in triangle.points {
+        low = low.min(point[1]);
+        high = high.max(point[1]);
+    }
+    (low, high)
+}
+
+/// True when a world point lies inside any authored wall's solid slice,
+/// ignoring one wall index (the wall whose face is expected there).
+///
+/// This is the documented exception for a legitimately covered face: a
+/// perpendicular return wall or a second slab sharing the footprint hides the
+/// face by construction, and the emitter then omits it.
+fn point_in_wall_solids(walls: &[WallSlices], point: [f32; 3], exclude: usize) -> bool {
+    for wall in walls {
+        if wall.index == exclude {
+            continue;
+        }
+        let across = match wall.axis {
+            WallAxis::X => point[2],
+            WallAxis::Z => point[0],
+        };
+        if across < wall.planes.0 - JOINT_PLANE_TOL_M || across > wall.planes.1 + JOINT_PLANE_TOL_M
+        {
+            continue;
+        }
+        let along = match wall.axis {
+            WallAxis::X => point[0],
+            WallAxis::Z => point[2],
+        };
+        let covered = wall.slices.iter().any(|slice| {
+            along >= wall.origin + slice.start - JOINT_PLANE_TOL_M
+                && along <= wall.origin + slice.end + JOINT_PLANE_TOL_M
+                && point[1] >= slice.bottom - JOINT_PLANE_TOL_M
+                && point[1] <= slice.top + JOINT_PLANE_TOL_M
+        });
+        if covered {
+            return true;
+        }
+    }
+    false
 }
 
 // ---------------------------------------------------------------------------
@@ -2251,6 +3300,1218 @@ pub fn main(options: &CliOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Repair planner (`--repair-geometry`)
+// ---------------------------------------------------------------------------
+
+/// Stable format id written into the machine-readable repair plan.
+pub const REPAIR_FORMAT: &str = "places-geometry-repair-plan";
+/// Repair plan schema version.
+pub const REPAIR_VERSION: u32 = 1;
+
+/// The CLI options of `--repair-geometry`.
+#[derive(Clone, Debug)]
+pub struct RepairCliOptions {
+    /// Level path or id (`places_demo`, `assets/levels/places_demo.json`, ...).
+    pub level: String,
+    /// Write the machine-readable plan here, in addition to the human one.
+    pub plan: Option<PathBuf>,
+    /// Print the machine-readable plan to stdout instead of the human plan.
+    pub json: bool,
+}
+
+impl Default for RepairCliOptions {
+    fn default() -> Self {
+        Self {
+            level: "places_demo".to_string(),
+            plan: None,
+            json: false,
+        }
+    }
+}
+
+/// Parses the process arguments, or `None` when this is not a repair run.
+///
+/// # Errors
+///
+/// Returns a usage message for an unknown argument or a missing value.
+pub fn repair_options_from_args(args: &[String]) -> Result<Option<RepairCliOptions>, String> {
+    if !args.iter().any(|arg| arg == "--repair-geometry") {
+        return Ok(None);
+    }
+    let mut options = RepairCliOptions::default();
+    let mut index = 0usize;
+    while let Some(arg) = args.get(index) {
+        match arg.as_str() {
+            "--repair-geometry" => {}
+            "--level" => {
+                index = index.saturating_add(1);
+                options.level = args
+                    .get(index)
+                    .cloned()
+                    .ok_or_else(|| "--level needs a value".to_string())?;
+            }
+            "--plan" => {
+                index = index.saturating_add(1);
+                options.plan = Some(PathBuf::from(
+                    args.get(index)
+                        .cloned()
+                        .ok_or_else(|| "--plan needs a value".to_string())?,
+                ));
+            }
+            "--json" => options.json = true,
+            other if other.starts_with("--") => {
+                return Err(format!("unknown repair argument `{other}`"));
+            }
+            other => options.level = other.to_string(),
+        }
+        index = index.saturating_add(1);
+    }
+    Ok(Some(options))
+}
+
+/// The machine-readable repair plan.
+#[derive(Debug, Serialize)]
+struct RepairPlan {
+    format: &'static str,
+    version: u32,
+    level: RepairPlanLevel,
+    findings: Vec<WallJoint>,
+    edits: Vec<RepairPlanEdit>,
+    review: Vec<RepairPlanReview>,
+    post_check: RepairPlanPostCheck,
+}
+
+/// Where the plan's source came from and what it hashed to.
+#[derive(Debug, Serialize)]
+struct RepairPlanLevel {
+    id: String,
+    source: String,
+    sha256: String,
+}
+
+/// One field edit, addressed by JSON pointer into the level source.
+#[derive(Debug, Serialize)]
+struct RepairPlanEdit {
+    pointer: String,
+    old: f32,
+    new: f32,
+    reason: &'static str,
+    finding: usize,
+    coupled: &'static str,
+}
+
+/// One reviewed, never-applied coupling or refused repair.
+#[derive(Debug, Serialize)]
+struct RepairPlanReview {
+    kind: &'static str,
+    pointer: String,
+    message: String,
+}
+
+/// The post-repair checker summary.
+#[derive(Debug, Serialize)]
+struct RepairPlanPostCheck {
+    errors: usize,
+    warnings: usize,
+}
+
+/// One authored numeric field an edit writes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EditField {
+    X,
+    Z,
+    Length,
+    Width,
+    Depth,
+}
+
+impl EditField {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::X => "x",
+            Self::Z => "z",
+            Self::Length => "length",
+            Self::Width => "width",
+            Self::Depth => "depth",
+        }
+    }
+}
+
+/// The authored array element one edit addresses.
+#[derive(Clone, Copy, Debug)]
+enum EditTarget {
+    Wall { index: usize, field: EditField },
+    Baseboard { index: usize, field: EditField },
+    FloorRegion { index: usize, field: EditField },
+}
+
+impl EditTarget {
+    fn pointer(self) -> String {
+        match self {
+            Self::Wall { index, field } => format!("/walls/{index}/{}", field.name()),
+            Self::Baseboard { index, field } => format!("/baseboards/{index}/{}", field.name()),
+            Self::FloorRegion { index, field } => {
+                format!("/floor_regions/{index}/{}", field.name())
+            }
+        }
+    }
+
+    fn write(self, level: &mut LevelDef, value: f32) -> bool {
+        match self {
+            Self::Wall { index, field } => {
+                let Some(wall) = level.walls.get_mut(index) else {
+                    return false;
+                };
+                match field {
+                    EditField::X => wall.x = value,
+                    EditField::Z => wall.z = value,
+                    EditField::Length | EditField::Width | EditField::Depth => return false,
+                }
+                true
+            }
+            Self::Baseboard { index, field } => {
+                let Some(board) = level.baseboards.get_mut(index) else {
+                    return false;
+                };
+                match field {
+                    EditField::X => board.x = value,
+                    EditField::Z => board.z = value,
+                    EditField::Length => board.length = value,
+                    EditField::Width | EditField::Depth => return false,
+                }
+                true
+            }
+            Self::FloorRegion { index, field } => {
+                let Some(region) = level.floor_regions.get_mut(index) else {
+                    return false;
+                };
+                match field {
+                    EditField::X => region.x = value,
+                    EditField::Z => region.z = value,
+                    EditField::Width => region.width = value,
+                    EditField::Depth => region.depth = value,
+                    EditField::Length => return false,
+                }
+                true
+            }
+        }
+    }
+
+    fn same(self, other: Self) -> bool {
+        match (self, other) {
+            (
+                Self::Wall { index, field },
+                Self::Wall {
+                    index: other_index,
+                    field: other_field,
+                },
+            )
+            | (
+                Self::Baseboard { index, field },
+                Self::Baseboard {
+                    index: other_index,
+                    field: other_field,
+                },
+            )
+            | (
+                Self::FloorRegion { index, field },
+                Self::FloorRegion {
+                    index: other_index,
+                    field: other_field,
+                },
+            ) => index == other_index && field == other_field,
+            _ => false,
+        }
+    }
+}
+
+/// One planned field edit before it is serialized.
+#[derive(Clone, Debug)]
+struct PlannedEdit {
+    target: EditTarget,
+    old: f32,
+    new: f32,
+    reason: &'static str,
+    finding: usize,
+    coupled: &'static str,
+}
+
+impl PlannedEdit {
+    fn to_plan(&self) -> RepairPlanEdit {
+        RepairPlanEdit {
+            pointer: self.target.pointer(),
+            old: self.old,
+            new: self.new,
+            reason: self.reason,
+            finding: self.finding,
+            coupled: self.coupled,
+        }
+    }
+}
+
+/// Applies every planned edit to a cloned level.
+///
+/// # Errors
+///
+/// Returns the first target that no longer resolves.
+fn apply_planned_edits(level: &mut LevelDef, edits: &[PlannedEdit]) -> Result<(), String> {
+    for edit in edits {
+        if !edit.target.write(level, edit.new) {
+            return Err(format!(
+                "planned edit {} no longer resolves in the source",
+                edit.target.pointer()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Hex SHA-256 of the source bytes, the plan's concurrent-change guard.
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
+/// Error finding counts keyed by `check|id`, for the no-new-error proof.
+fn error_fingerprints(report: &CheckReport) -> BTreeMap<String, usize> {
+    let mut out: BTreeMap<String, usize> = BTreeMap::new();
+    for finding in &report.findings {
+        if finding.severity != Severity::Error {
+            continue;
+        }
+        let entry = out
+            .entry(format!("{}|{}", finding.check, finding.id))
+            .or_insert(0);
+        *entry = entry.saturating_add(1);
+    }
+    out
+}
+
+/// A world footprint with an optional absolute Y range, for the coupled-review
+/// scan.
+struct ElementFootprint {
+    label: String,
+    pointer: String,
+    x: (f32, f32),
+    z: (f32, f32),
+    y: Option<(f32, f32)>,
+}
+
+/// Adds one authored rectangle: `[x, z, width, depth]` with signed extents.
+fn footprint_rect(
+    out: &mut Vec<ElementFootprint>,
+    label: String,
+    pointer: String,
+    rect: [f32; 4],
+    y: Option<(f32, f32)>,
+) {
+    let [x, z, width, depth] = rect;
+    if !x.is_finite() || !z.is_finite() || !width.is_finite() || !depth.is_finite() {
+        return;
+    }
+    out.push(ElementFootprint {
+        label,
+        pointer,
+        x: (x.min(x + width), x.max(x + width)),
+        z: (z.min(z + depth), z.max(z + depth)),
+        y,
+    });
+}
+
+/// Adds one centre-anchored, conservatively rotated rectangle.
+fn footprint_centred(
+    out: &mut Vec<ElementFootprint>,
+    label: String,
+    pointer: String,
+    centre: [f32; 2],
+    half: [f32; 2],
+    rotation_degrees: f32,
+    y: Option<(f32, f32)>,
+) {
+    let [x, z] = centre;
+    let [half_x, half_z] = half;
+    if !x.is_finite() || !z.is_finite() || !half_x.is_finite() || !half_z.is_finite() {
+        return;
+    }
+    let (sin, cos) = if rotation_degrees.is_finite() {
+        rotation_degrees.to_radians().sin_cos()
+    } else {
+        (0.0, 1.0)
+    };
+    let extent_x = half_x.mul_add(cos.abs(), half_z * sin.abs());
+    let extent_z = half_x.mul_add(sin.abs(), half_z * cos.abs());
+    out.push(ElementFootprint {
+        label,
+        pointer,
+        x: (x - extent_x, x + extent_x),
+        z: (z - extent_z, z + extent_z),
+        y,
+    });
+}
+
+/// Adds a line-segment footprint (`start` to `end`) inflated by `pad`.
+fn footprint_segment(
+    out: &mut Vec<ElementFootprint>,
+    label: String,
+    pointer: String,
+    start: (f32, f32),
+    end: (f32, f32),
+    pad: f32,
+    y: Option<(f32, f32)>,
+) {
+    if [start.0, start.1, end.0, end.1, pad]
+        .iter()
+        .any(|value| !value.is_finite())
+    {
+        return;
+    }
+    out.push(ElementFootprint {
+        label,
+        pointer,
+        x: (start.0.min(end.0) - pad, start.0.max(end.0) + pad),
+        z: (start.1.min(end.1) - pad, start.1.max(end.1) + pad),
+        y,
+    });
+}
+
+/// The end point of a run from `start` along `direction` for `length`.
+fn segment_end(start: (f32, f32), direction: (f32, f32), length: f32) -> (f32, f32) {
+    (
+        direction.0.mul_add(length, start.0),
+        direction.1.mul_add(length, start.1),
+    )
+}
+
+/// Every non-wall, non-trim authored element that can sit near a wall face.
+///
+/// Baseboards and floor regions are excluded: their coupling rules are
+/// deterministic, not review-only.
+#[allow(clippy::too_many_lines)] // one inventory of every placeable family
+fn element_footprints(level: &LevelDef) -> Vec<ElementFootprint> {
+    let mut out = Vec::new();
+    for (index, prop) in level.props.iter().enumerate() {
+        let size = prop.resolved_size(crate::level::PROP_FALLBACK_SIZE);
+        footprint_centred(
+            &mut out,
+            format!("prop {index} ({})", prop.model),
+            format!("/props/{index}"),
+            [prop.x, prop.z],
+            [size[0] * 0.5, size[2] * 0.5],
+            prop.rotation_degrees,
+            None,
+        );
+    }
+    for (index, door) in level.doors.iter().enumerate() {
+        footprint_centred(
+            &mut out,
+            format!("door {index} ({})", door.id),
+            format!("/doors/{index}"),
+            [door.x, door.z],
+            [door.width * 0.5, door.width * 0.5],
+            door.rotation_degrees,
+            None,
+        );
+    }
+    for (index, decal) in level.decals.iter().enumerate() {
+        footprint_centred(
+            &mut out,
+            format!("decal {index}"),
+            format!("/decals/{index}"),
+            [decal.x, decal.z],
+            decal.half_extents(),
+            decal.rotation_degrees,
+            None,
+        );
+    }
+    for (index, threshold) in level.thresholds.iter().enumerate() {
+        let start = (threshold.x, threshold.z);
+        let end = segment_end(start, threshold.direction(), threshold.length);
+        footprint_segment(
+            &mut out,
+            format!("threshold {index}"),
+            format!("/thresholds/{index}"),
+            start,
+            end,
+            threshold.thickness() * 0.5,
+            None,
+        );
+    }
+    for (index, light) in level.ceiling_lights.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("light {index}"),
+            format!("/ceiling_lights/{index}"),
+            [light.x, light.z, 0.0, 0.0],
+            None,
+        );
+    }
+    for (index, stair) in level.stairs.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("stair {index}"),
+            format!("/stairs/{index}"),
+            [stair.x, stair.z, stair.width, stair.depth],
+            None,
+        );
+    }
+    for (index, volume) in level.volumes.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("volume {index} ({})", volume.id.as_deref().unwrap_or("?")),
+            format!("/volumes/{index}"),
+            [volume.x, volume.z, volume.width, volume.depth],
+            match (volume.bottom_y, volume.top_y) {
+                (Some(bottom), Some(top)) => Some((bottom, top)),
+                _ => None,
+            },
+        );
+    }
+    for (index, water) in level.water.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("water {index}"),
+            format!("/water/{index}"),
+            [water.x, water.z, water.width, water.depth],
+            Some((water.surface_y - 0.5, water.surface_y)),
+        );
+    }
+    for (index, ladder) in level.ladders.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("ladder {index}"),
+            format!("/ladders/{index}"),
+            [ladder.x, ladder.z, ladder.width, ladder.depth],
+            Some((ladder.bottom_y, ladder.top_y)),
+        );
+    }
+    for (index, ramp) in level.ramps.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("ramp {index}"),
+            format!("/ramps/{index}"),
+            [ramp.x, ramp.z, ramp.width, ramp.depth],
+            None,
+        );
+    }
+    for (index, patch) in level.floor_patches.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("floor patch {index}"),
+            format!("/floor_patches/{index}"),
+            [patch.x, patch.z, patch.width, patch.depth],
+            None,
+        );
+    }
+    for (index, effect) in level.effects.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("effect {index} ({})", effect.id.as_deref().unwrap_or("?")),
+            format!("/effects/{index}"),
+            [effect.x, effect.z, effect.width, effect.depth],
+            None,
+        );
+    }
+    for (index, piece) in level.half_walls.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("half wall {index}"),
+            format!("/half_walls/{index}"),
+            [piece.x, piece.z, piece.width, piece.depth],
+            None,
+        );
+    }
+    for (index, piece) in level.columns.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("column {index}"),
+            format!("/columns/{index}"),
+            [piece.x, piece.z, piece.width, piece.depth],
+            None,
+        );
+    }
+    for (index, piece) in level.archways.iter().enumerate() {
+        footprint_rect(
+            &mut out,
+            format!("archway {index}"),
+            format!("/archways/{index}"),
+            [piece.x, piece.z, piece.width, piece.depth],
+            None,
+        );
+    }
+    for (index, piece) in level.guardrails.iter().enumerate() {
+        let radians = piece.rotation_degrees.to_radians();
+        let start = (piece.x, piece.z);
+        let end = segment_end(start, (radians.cos(), -radians.sin()), piece.length);
+        footprint_segment(
+            &mut out,
+            format!("guardrail {index}"),
+            format!("/guardrails/{index}"),
+            start,
+            end,
+            0.05,
+            None,
+        );
+    }
+    for (index, piece) in level.arc_walls.iter().enumerate() {
+        footprint_centred(
+            &mut out,
+            format!("arc wall {index}"),
+            format!("/arc_walls/{index}"),
+            [piece.x, piece.z],
+            [piece.outer_radius(), piece.outer_radius()],
+            0.0,
+            None,
+        );
+    }
+    for (index, piece) in level.pillars.iter().enumerate() {
+        footprint_centred(
+            &mut out,
+            format!("pillar {index}"),
+            format!("/pillars/{index}"),
+            [piece.x, piece.z],
+            [piece.radius, piece.radius],
+            0.0,
+            None,
+        );
+    }
+    out
+}
+
+/// A mover wall's geometry in the joint's `(along, across)` frame.
+struct MoverGeometry {
+    /// World `(low, high)` along the length axis.
+    along: (f32, f32),
+    /// Authored across planes `(low, high)` before the move.
+    planes: (f32, f32),
+    /// The axis the wall runs along.
+    axis: WallAxis,
+    /// Signed shift to add on the across axis.
+    delta: f32,
+    /// Absolute `(low, high)` Y of the mover wall.
+    y: (f32, f32),
+}
+
+impl MoverGeometry {
+    fn of(level: &LevelDef, joint: &WallJoint) -> Option<Self> {
+        let wall = level.walls.get(joint.second)?;
+        let axis = wall_axis_of(joint.axis);
+        let (min_x, max_x) = (
+            wall.x.min(wall.x + wall.width),
+            wall.x.max(wall.x + wall.width),
+        );
+        let (min_z, max_z) = (
+            wall.z.min(wall.z + wall.depth),
+            wall.z.max(wall.z + wall.depth),
+        );
+        let (along, planes) = match axis {
+            WallAxis::X => ((min_x, max_x), (min_z, max_z)),
+            WallAxis::Z => ((min_z, max_z), (min_x, max_x)),
+        };
+        let height = wall
+            .height
+            .filter(|value| value.is_finite())
+            .unwrap_or(crate::level::DEFAULT_CEILING_HEIGHT_M);
+        Some(Self {
+            along,
+            planes,
+            axis,
+            delta: joint.shift,
+            y: (wall.y, wall.y + height),
+        })
+    }
+
+    /// The authored across-coordinate field.
+    const fn across_field(&self) -> EditField {
+        match self.axis {
+            WallAxis::X => EditField::Z,
+            WallAxis::Z => EditField::X,
+        }
+    }
+
+    /// The authored extent field on the across axis.
+    const fn extent_field(&self) -> EditField {
+        match self.axis {
+            WallAxis::X => EditField::Depth,
+            WallAxis::Z => EditField::Width,
+        }
+    }
+
+    /// The along/across spans of a world rectangle in this mover's frame.
+    const fn spans(&self, footprint: &ElementFootprint) -> ((f32, f32), (f32, f32)) {
+        match self.axis {
+            WallAxis::X => (footprint.x, footprint.z),
+            WallAxis::Z => (footprint.z, footprint.x),
+        }
+    }
+}
+
+/// True when two spans overlap within `margin`.
+fn spans_overlap(a: (f32, f32), b: (f32, f32), margin: f32) -> bool {
+    a.0 <= b.1 + margin && b.0 <= a.1 + margin
+}
+
+/// True when a footprint lies within `tolerance` of either moved face plane
+/// and along the mover's length span.
+fn footprint_touches_face(
+    mover: &MoverGeometry,
+    footprint: &ElementFootprint,
+    tolerance: f32,
+) -> bool {
+    let (along, across) = mover.spans(footprint);
+    if !spans_overlap(along, mover.along, tolerance) {
+        return false;
+    }
+    let near = across.0 <= mover.planes.1 + tolerance && across.1 >= mover.planes.0 - tolerance;
+    if !near {
+        return false;
+    }
+    footprint
+        .y
+        .is_none_or(|y| y.0 <= mover.y.1 + tolerance && y.1 >= mover.y.0 - tolerance)
+}
+
+/// The deterministic coupled edits for one automatic wall shift, plus the
+/// review entries for elements that must not be moved automatically.
+#[allow(clippy::too_many_lines)] // one linear pass over the coupled element rules
+fn coupled_edits(
+    level: &LevelDef,
+    candidate: &WallJointCandidate,
+    finding: usize,
+) -> (Vec<PlannedEdit>, Vec<RepairPlanReview>) {
+    let mut edits: Vec<PlannedEdit> = Vec::new();
+    let mut review: Vec<RepairPlanReview> = Vec::new();
+    let joint = &candidate.joint;
+    let Some(mover) = MoverGeometry::of(level, joint) else {
+        return (edits, review);
+    };
+    if let Some(wall) = level.walls.get(joint.second) {
+        let old = match mover.axis {
+            WallAxis::X => wall.z,
+            WallAxis::Z => wall.x,
+        };
+        edits.push(PlannedEdit {
+            target: EditTarget::Wall {
+                index: joint.second,
+                field: mover.across_field(),
+            },
+            old,
+            new: quantise(old + mover.delta),
+            reason: "wall-joint-step",
+            finding,
+            coupled: "wall",
+        });
+    }
+
+    // Baseboards: a parallel run moves with the face, an end butting into the
+    // face follows it, a diagonal run is review only.
+    for (index, board) in level.baseboards.iter().enumerate() {
+        let (dx, dz) = board.direction();
+        let axis_aligned = dx.abs() <= 1.0e-3 || dz.abs() <= 1.0e-3;
+        let (dir_along, dir_across) = match mover.axis {
+            WallAxis::X => (dx, dz),
+            WallAxis::Z => (dz, dx),
+        };
+        if !axis_aligned {
+            if board_touches(board, &mover) {
+                review.push(RepairPlanReview {
+                    kind: "coupled-review",
+                    pointer: format!("/baseboards/{index}"),
+                    message: format!(
+                        "baseboard {index} runs diagonally and touches the moved wall {} face; \
+                         move it by {:.4} m on {} by hand",
+                        joint.second,
+                        mover.delta,
+                        mover.across_field().name()
+                    ),
+                });
+            }
+            continue;
+        }
+        if dir_across.abs() >= 0.999 && dir_along.abs() <= 0.001 {
+            // Perpendicular: the near end moves, the other end stays.
+            let (start_across, start_along) = match mover.axis {
+                WallAxis::X => (board.z, board.x),
+                WallAxis::Z => (board.x, board.z),
+            };
+            let far_across = dir_across.mul_add(board.length, start_across);
+            let in_span =
+                start_along >= mover.along.0 - 0.05 && start_along <= mover.along.1 + 0.05;
+            if !in_span {
+                continue;
+            }
+            let start_near = (start_across - mover.planes.0).abs() <= 0.05
+                || (start_across - mover.planes.1).abs() <= 0.05;
+            let far_near = (far_across - mover.planes.0).abs() <= 0.05
+                || (far_across - mover.planes.1).abs() <= 0.05;
+            if start_near && far_near {
+                review.push(RepairPlanReview {
+                    kind: "coupled-review",
+                    pointer: format!("/baseboards/{index}"),
+                    message: format!(
+                        "baseboard {index} has both ends within 0.05 m of the moved wall {} faces; \
+                         review its run by hand",
+                        joint.second
+                    ),
+                });
+                continue;
+            }
+            if start_near {
+                let new_start = quantise(start_across + mover.delta);
+                let new_length = quantise(dir_across.mul_add(-mover.delta, board.length));
+                if new_length > 0.0 {
+                    push_unique(
+                        &mut edits,
+                        PlannedEdit {
+                            target: EditTarget::Baseboard {
+                                index,
+                                field: mover.across_field(),
+                            },
+                            old: start_across,
+                            new: new_start,
+                            reason: "wall-joint-step",
+                            finding,
+                            coupled: "baseboard-end",
+                        },
+                    );
+                    push_unique(
+                        &mut edits,
+                        PlannedEdit {
+                            target: EditTarget::Baseboard {
+                                index,
+                                field: EditField::Length,
+                            },
+                            old: board.length,
+                            new: new_length,
+                            reason: "wall-joint-step",
+                            finding,
+                            coupled: "baseboard-end",
+                        },
+                    );
+                } else {
+                    review.push(RepairPlanReview {
+                        kind: "coupled-review",
+                        pointer: format!("/baseboards/{index}"),
+                        message: format!(
+                            "baseboard {index}'s near end would need a non-positive length after \
+                             the {:.4} m move; review it by hand",
+                            mover.delta
+                        ),
+                    });
+                }
+            } else if far_near {
+                let new_length = quantise(dir_across.mul_add(mover.delta, board.length));
+                if new_length > 0.0 {
+                    push_unique(
+                        &mut edits,
+                        PlannedEdit {
+                            target: EditTarget::Baseboard {
+                                index,
+                                field: EditField::Length,
+                            },
+                            old: board.length,
+                            new: new_length,
+                            reason: "wall-joint-step",
+                            finding,
+                            coupled: "baseboard-end",
+                        },
+                    );
+                } else {
+                    review.push(RepairPlanReview {
+                        kind: "coupled-review",
+                        pointer: format!("/baseboards/{index}"),
+                        message: format!(
+                            "baseboard {index}'s near end would need a non-positive length after \
+                             the {:.4} m move; review it by hand",
+                            mover.delta
+                        ),
+                    });
+                }
+            }
+        } else if dir_along.abs() >= 0.999 && dir_across.abs() <= 0.001 {
+            // Parallel: the whole run moves across with the contact face.
+            let across = match mover.axis {
+                WallAxis::X => board.z,
+                WallAxis::Z => board.x,
+            };
+            let contact_near =
+                (across - mover.planes.0).abs() <= 0.05 || (across - mover.planes.1).abs() <= 0.05;
+            let (run_low, run_high) = {
+                let start = match mover.axis {
+                    WallAxis::X => board.x,
+                    WallAxis::Z => board.z,
+                };
+                let end = dir_along.mul_add(board.length, start);
+                (start.min(end), start.max(end))
+            };
+            if contact_near && spans_overlap((run_low, run_high), mover.along, 1.0e-3) {
+                push_unique(
+                    &mut edits,
+                    PlannedEdit {
+                        target: EditTarget::Baseboard {
+                            index,
+                            field: mover.across_field(),
+                        },
+                        old: across,
+                        new: quantise(across + mover.delta),
+                        reason: "wall-joint-step",
+                        finding,
+                        coupled: "baseboard-parallel",
+                    },
+                );
+            }
+        }
+    }
+
+    // Floor regions: a tucked edge follows the face, keeping a 5 cm tuck.
+    for (index, region) in level.floor_regions.iter().enumerate() {
+        let (x0, x1, z0, z1) = region.bounds();
+        let (edge_low, edge_high, along) = match mover.axis {
+            WallAxis::X => (z0, z1, (x0, x1)),
+            WallAxis::Z => (x0, x1, (z0, z1)),
+        };
+        if !spans_overlap(along, mover.along, 0.05) {
+            continue;
+        }
+        let origin = match mover.axis {
+            WallAxis::X => region.z,
+            WallAxis::Z => region.x,
+        };
+        let extent = match mover.axis {
+            WallAxis::X => region.depth,
+            WallAxis::Z => region.width,
+        };
+        for (plane_old, is_low_face) in [(mover.planes.0, true), (mover.planes.1, false)] {
+            let plane_new = plane_old + mover.delta;
+            let (edge, is_high_edge) = if is_low_face {
+                (edge_high, true)
+            } else {
+                (edge_low, false)
+            };
+            let in_window = if is_low_face {
+                edge >= plane_old - 0.02 && edge <= plane_new + 0.15
+            } else {
+                edge >= plane_new - 0.15 && edge <= plane_old + 0.02
+            };
+            if !in_window {
+                continue;
+            }
+            let target = if is_low_face {
+                plane_new + 0.05
+            } else {
+                plane_new - 0.05
+            };
+            let grows = if is_low_face {
+                target > edge
+            } else {
+                target < edge
+            };
+            if !grows {
+                continue;
+            }
+            let extent_moves_edge = if is_high_edge {
+                extent >= 0.0
+            } else {
+                extent < 0.0
+            };
+            if !extent_moves_edge {
+                review.push(RepairPlanReview {
+                    kind: "coupled-review",
+                    pointer: format!("/floor_regions/{index}"),
+                    message: format!(
+                        "floor region {index}'s edge at {edge:.3} tucks through the moved wall {} \
+                         face but its signed extent cannot express the new edge {target:.3}; \
+                         review it by hand",
+                        joint.second
+                    ),
+                });
+                continue;
+            }
+            push_unique(
+                &mut edits,
+                PlannedEdit {
+                    target: EditTarget::FloorRegion {
+                        index,
+                        field: mover.extent_field(),
+                    },
+                    old: extent,
+                    new: quantise(target - origin),
+                    reason: "wall-joint-step",
+                    finding,
+                    coupled: "floor-tuck",
+                },
+            );
+        }
+    }
+
+    // Everything else solid near the moved faces is review only.
+    for footprint in element_footprints(level) {
+        if footprint_touches_face(&mover, &footprint, 0.15) {
+            review.push(RepairPlanReview {
+                kind: "coupled-review",
+                pointer: footprint.pointer,
+                message: format!(
+                    "{} lies within 0.15 m of the moved wall {} face; review before applying",
+                    footprint.label, joint.second
+                ),
+            });
+        }
+    }
+
+    (edits, review)
+}
+
+/// True when a non-axis-aligned baseboard plausibly reaches the moved wall.
+fn board_touches(board: &crate::level::BaseboardDef, mover: &MoverGeometry) -> bool {
+    let (start_along, start_across) = match mover.axis {
+        WallAxis::X => (board.x, board.z),
+        WallAxis::Z => (board.z, board.x),
+    };
+    let near_across =
+        start_across >= mover.planes.0 - 0.15 && start_across <= mover.planes.1 + 0.15;
+    let near_along = start_along >= mover.along.0 - 0.15 && start_along <= mover.along.1 + 0.15;
+    near_across && near_along
+}
+
+/// Pushes an edit unless the same target is already planned.
+fn push_unique(edits: &mut Vec<PlannedEdit>, edit: PlannedEdit) {
+    if edits
+        .iter()
+        .any(|existing| existing.target.same(edit.target))
+    {
+        return;
+    }
+    edits.push(edit);
+}
+
+/// Planner state accumulated across candidate repairs.
+struct PlannerState<'a> {
+    catalog: &'a crate::assets::AssetCatalog,
+    source: &'a str,
+    fingerprints: BTreeMap<String, usize>,
+    edits: Vec<PlannedEdit>,
+    review: Vec<RepairPlanReview>,
+}
+
+impl PlannerState<'_> {
+    /// Tries one automatic repair; returns the edited level when the
+    /// post-check proves it safe.
+    fn attempt(
+        &mut self,
+        current: &LevelDef,
+        candidate: &WallJointCandidate,
+        finding: usize,
+    ) -> Option<LevelDef> {
+        let (planned, coupled_review) = coupled_edits(current, candidate, finding);
+        let mut attempt = current.clone();
+        if let Err(error) = apply_planned_edits(&mut attempt, &planned) {
+            self.review.push(RepairPlanReview {
+                kind: "coupled-review",
+                pointer: format!("walls[{}]", candidate.joint.second),
+                message: format!("repair refused before applying: {error}"),
+            });
+            return None;
+        }
+        let mut prepared = attempt.clone();
+        crate::loader::prepare_level(&mut prepared, self.catalog, None);
+        if let Err(error) = crate::loader::validate_level(&prepared) {
+            self.review.push(RepairPlanReview {
+                kind: "coupled-review",
+                pointer: format!("walls[{}]", candidate.joint.second),
+                message: format!("repair refused: the loader now rejects the level: {error}"),
+            });
+            return None;
+        }
+        let after = check_level(&prepared, self.source, true);
+        let pair_id = format!(
+            "wall {} / wall {}",
+            candidate.joint.first, candidate.joint.second
+        );
+        let step_gone = !after
+            .findings
+            .iter()
+            .any(|finding| finding.check == "wall-joint-step" && finding.id == pair_id);
+        let after_errors = error_fingerprints(&after);
+        let no_new_error = after_errors
+            .iter()
+            .all(|(key, count)| self.fingerprints.get(key).copied().unwrap_or(0) >= *count);
+        if !step_gone || !no_new_error {
+            self.review.extend(coupled_review);
+            self.review.push(RepairPlanReview {
+                kind: "coupled-review",
+                pointer: format!("walls[{}]", candidate.joint.second),
+                message: format!(
+                    "repair refused: the post-check still reports {} error(s) or a new one",
+                    after.error_count()
+                ),
+            });
+            return None;
+        }
+        self.fingerprints = after_errors;
+        self.edits.extend(planned);
+        self.review.extend(coupled_review);
+        Some(attempt)
+    }
+}
+
+/// Runs the planner end to end and returns the plan without printing it.
+///
+/// # Errors
+///
+/// Returns a usage, file or parse error, which the caller reports as status
+/// `2`.
+fn build_repair_plan(options: &RepairCliOptions) -> Result<(RepairPlan, PathBuf), String> {
+    let (path, text) = resolve_source(&options.level)?;
+    let sha256 = sha256_hex(text.as_bytes());
+    let authored = LevelDef::from_json(&text)
+        .map_err(|error| format!("{} does not parse: {error}", path.display()))?;
+    if let Err(error) = crate::loader::validate_level(&authored) {
+        return Err(format!("{} does not validate: {error}", path.display()));
+    }
+    let catalog = crate::assets::AssetCatalog::load_default();
+    let source = path.display().to_string();
+    let mut prepared = authored.clone();
+    crate::loader::prepare_level(&mut prepared, &catalog, None);
+    let surfaces = LevelSurfaces::new(&prepared);
+    let candidates = compute_wall_joints(&prepared, &surfaces);
+    let findings: Vec<WallJoint> = candidates
+        .iter()
+        .map(|candidate| candidate.joint.clone())
+        .collect();
+    let baseline = check_level(&prepared, &source, true);
+    let mut current = authored;
+    let mut state = PlannerState {
+        catalog: &catalog,
+        source: &source,
+        fingerprints: error_fingerprints(&baseline),
+        edits: Vec::new(),
+        review: Vec::new(),
+    };
+    for (index, candidate) in candidates.iter().enumerate() {
+        if !candidate.joint.auto_repairable {
+            continue;
+        }
+        if let Some(attempt) = state.attempt(&current, candidate, index) {
+            current = attempt;
+        }
+    }
+    let (edits, review) = (state.edits, state.review);
+
+    let mut final_prepared = current;
+    crate::loader::prepare_level(&mut final_prepared, &catalog, None);
+    let post = check_level(&final_prepared, &source, true);
+    let plan = RepairPlan {
+        format: REPAIR_FORMAT,
+        version: REPAIR_VERSION,
+        level: RepairPlanLevel {
+            id: prepared.id.clone(),
+            source,
+            sha256,
+        },
+        findings,
+        edits: edits.iter().map(PlannedEdit::to_plan).collect(),
+        review,
+        post_check: RepairPlanPostCheck {
+            errors: post.error_count(),
+            warnings: post.warning_count(),
+        },
+    };
+    Ok((plan, path))
+}
+
+/// The human-readable repair plan.
+fn repair_plan_human(plan: &RepairPlan) -> String {
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "geometry repair plan: {} ({})",
+        plan.level.id, plan.level.source
+    );
+    if plan.findings.is_empty() {
+        let _ = writeln!(out, "  no wall-plane joints found; nothing to do");
+        return out;
+    }
+    for (index, finding) in plan.findings.iter().enumerate() {
+        let _ = writeln!(
+            out,
+            "  finding {index}: {} wall {} / wall {}: {:.3} vs {:.3} ({}), shift {:+.4}, \
+             authority {}",
+            finding.kind,
+            finding.first,
+            finding.second,
+            finding.first_low,
+            finding.second_low,
+            finding.axis,
+            finding.shift,
+            finding.authority,
+        );
+    }
+    for edit in &plan.edits {
+        let _ = writeln!(
+            out,
+            "    edit {}: {} -> {} ({})",
+            edit.pointer, edit.old, edit.new, edit.coupled
+        );
+    }
+    for entry in &plan.review {
+        let _ = writeln!(
+            out,
+            "  review {} {}: {}",
+            entry.kind, entry.pointer, entry.message
+        );
+    }
+    let _ = writeln!(
+        out,
+        "  post-check: {} error(s), {} warning(s)",
+        plan.post_check.errors, plan.post_check.warnings
+    );
+    out
+}
+
+/// Runs the repair planner and prints its plan.
+///
+/// # Errors
+///
+/// Returns a usage or file error, which the caller reports as status `2`.
+// This is the CLI's own reporting path; there is no logger in a headless run.
+#[allow(clippy::print_stdout)]
+pub fn run_repair(options: &RepairCliOptions) -> Result<i32, String> {
+    let (plan, _path) = build_repair_plan(options)?;
+    let machine = serde_json::to_string_pretty(&plan)
+        .map_err(|error| format!("cannot serialize the repair plan: {error}"))?;
+    if let Some(path) = &options.plan {
+        std::fs::write(path, format!("{machine}\n"))
+            .map_err(|error| format!("cannot write {}: {error}", path.display()))?;
+    }
+    if options.json {
+        println!("{machine}");
+    } else {
+        print!("{}", repair_plan_human(&plan));
+    }
+    Ok(i32::from(!plan.findings.is_empty()))
+}
+
+/// Rewrites `--repair-geometry` runs as the process exit point.
+///
+/// # Errors
+///
+/// Returns the usage or IO error, reported as status `2`.
+// `std::process::exit` is the correct way for a CLI mode to end the process
+// from inside `main`; this one narrow allow keeps the crate-wide `exit` lint
+// for every other path.
+#[allow(clippy::exit, clippy::print_stderr)]
+pub fn repair_main(options: &RepairCliOptions) -> Result<(), Box<dyn std::error::Error>> {
+    match run_repair(options) {
+        Ok(status) => std::process::exit(status),
+        Err(error) => {
+            eprintln!("geometry repair: {error}");
+            std::process::exit(2);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Test code: fixture parsing, exact float compares, unwraps and indexing
@@ -2307,6 +4568,67 @@ mod tests {
             .findings
             .iter()
             .any(|finding| finding.check == check && finding.severity == severity)
+    }
+
+    /// A minimal one-room level around the given wall JSON fragments.
+    fn joint_level(walls: &[String]) -> LevelDef {
+        joint_level_room(
+            walls,
+            r#"{ "x": -3.0, "z": -1.0, "width": 14.0, "depth": 4.5, "height": 3.0 }"#,
+        )
+    }
+
+    /// A minimal level around the given wall fragments and explicit room.
+    fn joint_level_room(walls: &[String], room: &str) -> LevelDef {
+        let walls = walls.join(", ");
+        let text = format!(
+            r#"{{
+                "format_version": 3,
+                "id": "joint_fixture",
+                "name": "Joint Fixture",
+                "author": "Places Team",
+                "spawn": {{ "x": 2.0, "z": 1.0, "yaw_degrees": 0.0 }},
+                "defaults": {{ "wall": "core:wallpaper_yellow_01", "floor": "core:carpet_beige_01", "ceiling": "core:ceiling_panel_01" }},
+                "walls": [{walls}],
+                "rooms": [{room}]
+            }}"#
+        );
+        LevelDef::from_json(&text).expect("the joint fixture parses")
+    }
+
+    /// An X-axis wall fragment (width is the length, depth the thickness).
+    fn x_wall(x: f32, z: f32, width: f32, depth: f32) -> String {
+        format!(
+            r#"{{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth}, "y": 0.0, "height": 3.0 }}"#
+        )
+    }
+
+    /// A Z-axis wall fragment (depth is the length, width the thickness).
+    fn z_wall(x: f32, z: f32, width: f32, depth: f32) -> String {
+        format!(
+            r#"{{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth}, "y": 0.0, "height": 3.0 }}"#
+        )
+    }
+
+    /// One emitted X-axis wall face triangle (normal ±Z).
+    fn x_axis_triangle(z: f32, a: [f32; 2], b: [f32; 2], c: [f32; 2], material: u16) -> Tri {
+        let points = [[a[0], a[1], z], [b[0], b[1], z], [c[0], c[1], z]];
+        let cross = cross3(sub3(points[1], points[0]), sub3(points[2], points[0]));
+        Tri {
+            key: SurfaceKey::new(SurfaceKind::Wall, material),
+            points,
+            normal: normalized3(cross),
+            centroid: [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, z],
+            area: 0.5 * length3(cross),
+        }
+    }
+
+    /// One emitted X-axis wall face quad as two triangles.
+    fn x_axis_quad(z: f32, x0: f32, x1: f32, y0: f32, y1: f32, material: u16) -> Vec<Tri> {
+        vec![
+            x_axis_triangle(z, [x0, y0], [x1, y0], [x1, y1], material),
+            x_axis_triangle(z, [x0, y0], [x1, y1], [x0, y1], material),
+        ]
     }
 
     /// True when a plan point lies inside a convex polygon.
@@ -2417,17 +4739,540 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_has_no_confirmed_defects() {
-        let (_, report) = fixture(
+    fn the_shipped_demo_reports_only_the_confirmed_wall_step() {
+        let (level, report) = fixture(
             include_str!("../assets/levels/places_demo.json"),
             "places_demo",
         );
         assert!(report.validated);
+        // Job 06's confirmed defect: wall 37 is half a thickness off the
+        // corridor's coplanar chain (walls 16/19/31). Agent C's source repair
+        // removes the joint; this test accepts either state and never any
+        // other confirmed defect.
+        let joints = wall_joints(&level);
+        if !joints.is_empty() {
+            assert_eq!(joints.len(), 1, "{joints:#?}");
+            let joint = &joints[0];
+            assert_eq!((joint.first, joint.second), (31, 37), "{joint:#?}");
+            assert_eq!(joint.kind, "step");
+            assert!(joint.auto_repairable, "{joint:#?}");
+            assert!((joint.shift - 0.15).abs() <= 1.0e-4, "{joint:#?}");
+            assert_eq!(joint.authority, "chain");
+        }
+        for finding in &report.findings {
+            if finding.severity == Severity::Error {
+                assert_eq!(
+                    finding.check, "wall-joint-step",
+                    "unexpected confirmed defect: {finding:?}"
+                );
+            }
+        }
         assert_eq!(
             report.error_count(),
-            0,
-            "the shipped demo must not carry confirmed geometry defects: {:#?}",
+            joints.len(),
+            "one error per wall joint: {:#?}",
             counts(&report)
+        );
+    }
+
+    #[test]
+    fn a_rigid_wall_step_is_an_auto_repairable_error() {
+        let mut level = joint_level(&[
+            x_wall(1.0, 2.15, 4.0, 0.3),
+            x_wall(5.0, 2.0, 4.0, 0.3),
+            x_wall(-2.85, 2.15, 3.85, 0.3),
+        ]);
+        let joints = wall_joints(&level);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!((joint.first, joint.second), (0, 1), "{joint:#?}");
+        assert_eq!(joint.kind, "step");
+        assert_eq!(joint.axis, "x");
+        assert!(joint.auto_repairable, "{joint:#?}");
+        assert_eq!(joint.authority, "chain");
+        assert_eq!((joint.first_support, joint.second_support), (1, 0));
+        assert!((joint.first_low - 2.15).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.first_high - 2.45).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.second_low - 2.0).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.second_high - 2.3).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.shift - 0.15).abs() <= 1.0e-4, "{joint:#?}");
+        assert_eq!(joint.gap_m, 0.0);
+        assert_eq!(joint.overlap_m, 0.0);
+        assert!((joint.y_overlap_m - 3.0).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.position[0] - 5.0).abs() <= 1.0e-3, "{joint:#?}");
+
+        let report = check_level(&level, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step", Severity::Error),
+            "{:#?}",
+            report.findings
+        );
+        assert!(
+            !has(&report, "wall-joint-emitted-mismatch", Severity::Error),
+            "a step whose faces are emitted is not a generator defect: {:#?}",
+            report.findings
+        );
+        let finding = report
+            .findings
+            .iter()
+            .find(|finding| finding.check == "wall-joint-step")
+            .expect("the step finding");
+        assert_eq!(finding.id, "wall 0 / wall 1");
+        assert!(
+            finding.message.contains("walls[1].z"),
+            "{}",
+            finding.message
+        );
+        assert!(finding.message.contains("+0.1500"), "{}", finding.message);
+        assert!(finding.message.contains("authority"), "{}", finding.message);
+        assert!(
+            finding.message.contains("chain support 1 vs 0"),
+            "{}",
+            finding.message
+        );
+
+        // The classifier's own shift repairs the joint exactly.
+        let wall = level.walls.get_mut(1).expect("the mover wall");
+        wall.z += joint.shift;
+        assert!(wall_joints(&level).is_empty(), "{:#?}", wall_joints(&level));
+        let repaired = check_level(&level, "joint_fixture", true);
+        assert_eq!(repaired.error_count(), 0, "{:#?}", repaired.findings);
+    }
+
+    #[test]
+    fn the_authority_can_be_either_side() {
+        // The mover has the lower index here: the authority is wall 1 and the
+        // delta moves wall 0 onto its plane.
+        let level = joint_level(&[
+            x_wall(5.0, 2.0, 4.0, 0.3),
+            x_wall(1.0, 2.15, 4.0, 0.3),
+            x_wall(-2.85, 2.15, 3.85, 0.3),
+        ]);
+        let joints = wall_joints(&level);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!((joint.first, joint.second), (1, 0), "{joint:#?}");
+        assert!((joint.shift - 0.15).abs() <= 1.0e-4, "{joint:#?}");
+        assert!(joint.auto_repairable, "{joint:#?}");
+        let report = check_level(&level, "joint_fixture", true);
+        let finding = report
+            .findings
+            .iter()
+            .find(|finding| finding.check == "wall-joint-step")
+            .expect("the step finding");
+        assert!(
+            finding.message.contains("walls[0].z"),
+            "{}",
+            finding.message
+        );
+    }
+
+    #[test]
+    fn a_doorway_lintel_participates_in_the_joint() {
+        let lintel_wall =
+            r#"{ "x": 1.0, "z": 2.0, "width": 5.0, "depth": 0.3, "y": 0.0, "height": 3.0,
+            "openings": [ { "kind": "door", "offset": 3.0, "width": 2.0, "height": 2.1 } ] }"#
+                .to_string();
+        let level = joint_level(&[lintel_wall, x_wall(6.0, 2.15, 4.0, 0.3)]);
+        let joints = wall_joints(&level);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!(joint.kind, "step");
+        assert_eq!(joint.authority, "length", "{joint:#?}");
+        assert_eq!((joint.first, joint.second), (0, 1), "{joint:#?}");
+        // The authority (the lintel wall, 5.0 m solid against 4.0 m) keeps
+        // z 2.000; the shorter wall is proud at 2.150 and moves back.
+        assert!((joint.shift + 0.15).abs() <= 1.0e-4, "{joint:#?}");
+        assert!((joint.y_overlap_m - 0.9).abs() <= 1.0e-3, "{joint:#?}");
+        assert!((joint.position[0] - 6.0).abs() <= 1.0e-3, "{joint:#?}");
+        let report = check_level(&level, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step", Severity::Error),
+            "{:#?}",
+            report.findings
+        );
+        assert!(
+            !has(&report, "wall-joint-emitted-mismatch", Severity::Error),
+            "the lintel's own faces are emitted: {:#?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn a_coplanar_gap_is_a_review_warning_and_a_covered_gap_is_not() {
+        let gap = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.25, 2.0, 4.0, 0.3)]);
+        let joints = wall_joints(&gap);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!(joint.kind, "near-step");
+        assert_eq!(joint.shift, 0.0);
+        assert!(!joint.auto_repairable);
+        assert!((joint.gap_m - 0.25).abs() <= 1.0e-4, "{joint:#?}");
+        let report = check_level(&gap, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step-review", Severity::Warning),
+            "{:#?}",
+            report.findings
+        );
+        assert_eq!(report.error_count(), 0, "{:#?}", report.findings);
+        let finding = report
+            .findings
+            .iter()
+            .find(|finding| finding.check == "wall-joint-step-review")
+            .expect("the review finding");
+        assert!(finding.message.contains("0.250"), "{}", finding.message);
+        assert!(finding.message.contains("gap"), "{}", finding.message);
+
+        // The same geometry with the gap already solid behind it (a lintel
+        // meeting the wall body) is not a doorway drawn as two walls.
+        let covered_wall =
+            r#"{ "x": 1.0, "z": 2.0, "width": 3.0, "depth": 0.3, "y": 0.0, "height": 3.0,
+            "openings": [ { "kind": "door", "offset": 2.0, "width": 1.0, "height": 2.1 } ] }"#
+                .to_string();
+        let covered = joint_level(&[covered_wall, x_wall(3.25, 2.0, 3.0, 0.3)]);
+        assert!(
+            wall_joints(&covered).is_empty(),
+            "{:#?}",
+            wall_joints(&covered)
+        );
+        let report = check_level(&covered, "joint_fixture", true);
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|finding| finding.check.starts_with("wall-joint")),
+            "{:#?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn a_correct_shared_edge_and_a_perpendicular_corner_are_not_joints() {
+        let shared = joint_level(&[
+            r#"{ "x": 1.0, "z": 2.0, "width": 4.0, "depth": 0.3, "y": 0.0, "height": 3.0, "material": "core:wallpaper_yellow_01" }"#.to_string(),
+            r#"{ "x": 5.0, "z": 2.0, "width": 4.0, "depth": 0.3, "y": 0.0, "height": 3.0, "material": "home:wallpaper_offwhite_01" }"#.to_string(),
+        ]);
+        assert!(
+            wall_joints(&shared).is_empty(),
+            "{:#?}",
+            wall_joints(&shared)
+        );
+        let report = check_level(&shared, "joint_fixture", true);
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|finding| finding.check.starts_with("wall-joint")),
+            "{:#?}",
+            report.findings
+        );
+
+        let corner = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), z_wall(5.0, 2.0, 0.3, 4.0)]);
+        assert!(
+            wall_joints(&corner).is_empty(),
+            "{:#?}",
+            wall_joints(&corner)
+        );
+    }
+
+    #[test]
+    fn a_thickness_transition_is_review_only() {
+        let level = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.0, 2.0, 4.0, 0.2)]);
+        let joints = wall_joints(&level);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!(joint.kind, "thickness-step");
+        assert!(!joint.auto_repairable);
+        assert_eq!(joint.shift, 0.0);
+        let report = check_level(&level, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-thickness-step", Severity::Warning),
+            "{:#?}",
+            report.findings
+        );
+        assert_eq!(report.error_count(), 0, "{:#?}", report.findings);
+        let finding = report
+            .findings
+            .iter()
+            .find(|finding| finding.check == "wall-joint-thickness-step")
+            .expect("the review finding");
+        assert!(
+            finding.message.contains("thickness 0.300"),
+            "{}",
+            finding.message
+        );
+        assert!(finding.message.contains("0.200"), "{}", finding.message);
+    }
+
+    #[test]
+    fn ambiguous_authority_and_oversized_shifts_are_review_only() {
+        let ambiguous = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.0, 2.15, 4.0, 0.3)]);
+        let joints = wall_joints(&ambiguous);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        assert_eq!(joints[0].kind, "near-step");
+        assert_eq!(joints[0].authority, "index");
+        assert!(!joints[0].auto_repairable);
+        let report = check_level(&ambiguous, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step-review", Severity::Warning),
+            "{:#?}",
+            report.findings
+        );
+        assert_eq!(report.error_count(), 0, "{:#?}", report.findings);
+
+        let oversized = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.0, 2.28, 4.0, 0.3)]);
+        let joints = wall_joints(&oversized);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        assert_eq!(joints[0].kind, "near-step");
+        assert!(!joints[0].auto_repairable);
+        assert!(
+            (joints[0].shift.abs() - 0.28).abs() <= 1.0e-4,
+            "{joints:#?}"
+        );
+
+        // Past the near-adjacency bound the pair is not a joint at all.
+        let far = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.0, 2.5, 4.0, 0.3)]);
+        assert!(wall_joints(&far).is_empty(), "{:#?}", wall_joints(&far));
+    }
+
+    #[test]
+    fn large_coordinates_and_small_features_keep_the_classification() {
+        let level = joint_level_room(
+            &[
+                x_wall(2001.0, 2002.15, 4.0, 0.3),
+                x_wall(2005.0, 2002.0, 4.0, 0.3),
+                x_wall(1997.15, 2002.15, 3.85, 0.3),
+            ],
+            r#"{ "x": 1997.0, "z": 2001.0, "width": 14.0, "depth": 4.5, "height": 3.0 }"#,
+        );
+        let joints = wall_joints(&level);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        assert!((joints[0].shift - 0.15).abs() <= 1.0e-4, "{joints:#?}");
+        assert!(
+            (joints[0].position[0] - 2005.0).abs() <= 1.0e-3,
+            "{joints:#?}"
+        );
+
+        let small = joint_level(&[
+            x_wall(0.9, 2.0, 0.1, 0.1),
+            x_wall(1.0, 2.0, 0.1, 0.1),
+            x_wall(1.1, 2.15, 0.1, 0.1),
+        ]);
+        let joints = wall_joints(&small);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        assert_eq!(joints[0].kind, "step", "{joints:#?}");
+        assert!(
+            (joints[0].shift.abs() - 0.15).abs() <= 1.0e-4,
+            "{joints:#?}"
+        );
+        let report = check_level(&small, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step", Severity::Error),
+            "{:#?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn the_plane_tolerance_boundary_is_one_millimetre() {
+        // `JOINT_PLANE_TOL_M` is inclusive for "the same plane": 1.0 mm is a
+        // correct shared edge (no finding), while 1.1 mm is a rigid step. Both
+        // levels carry the same chain supporter so only the boundary moves.
+        let within = joint_level(&[
+            x_wall(1.0, 3.0, 4.0, 0.3),
+            x_wall(5.0, 3.001, 4.0, 0.3),
+            x_wall(-2.85, 3.0, 3.85, 0.3),
+        ]);
+        assert!(
+            wall_joints(&within).is_empty(),
+            "{:#?}",
+            wall_joints(&within)
+        );
+        let report = check_level(&within, "joint_fixture", true);
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|finding| finding.check.starts_with("wall-joint")),
+            "1.0 mm is the same plane: {:#?}",
+            report.findings
+        );
+
+        let beyond = joint_level(&[
+            x_wall(1.0, 3.0, 4.0, 0.3),
+            x_wall(5.0, 3.0011, 4.0, 0.3),
+            x_wall(-2.85, 3.0, 3.85, 0.3),
+        ]);
+        let joints = wall_joints(&beyond);
+        assert_eq!(joints.len(), 1, "{joints:#?}");
+        let joint = &joints[0];
+        assert_eq!(joint.kind, "step", "{joint:#?}");
+        assert!(joint.auto_repairable, "{joint:#?}");
+        assert_eq!(joint.authority, "chain", "{joint:#?}");
+        assert!(
+            (joint.shift.abs() - 0.0011).abs() <= 1.0e-5,
+            "1.1 mm must survive as a step: {joint:#?}"
+        );
+        let report = check_level(&beyond, "joint_fixture", true);
+        assert!(
+            has(&report, "wall-joint-step", Severity::Error),
+            "{:#?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn the_maintained_clean_levels_have_no_wall_joints() {
+        for (name, text) in [
+            (
+                "geometry_intentional",
+                include_str!("../tests/fixtures/levels/geometry_intentional.json"),
+            ),
+            ("model_zoo", include_str!("../assets/levels/model_zoo.json")),
+            (
+                "home_showcase",
+                include_str!("../tests/fixtures/levels/home_showcase.json"),
+            ),
+            (
+                "level0_pit",
+                include_str!("../tests/fixtures/levels/level0_pit.json"),
+            ),
+        ] {
+            let level = LevelDef::from_json(text).expect(name);
+            let joints = wall_joints(&level);
+            assert!(joints.is_empty(), "{name}: {joints:#?}");
+        }
+    }
+
+    #[test]
+    fn the_emitted_matcher_flags_a_missing_or_undeclared_joint_face() {
+        let level = joint_level(&[x_wall(1.0, 2.15, 4.0, 0.3), x_wall(5.0, 2.0, 4.0, 0.3)]);
+        let surfaces = LevelSurfaces::new(&level);
+        let candidates = compute_wall_joints(&level, &surfaces);
+        assert_eq!(candidates.len(), 1, "{candidates:#?}");
+        let candidate = &candidates[0];
+        let walls = level_wall_slices(&level, &surfaces);
+        let materials = crate::render::logical_materials(&level);
+        let material = materials
+            .index_of("core:wallpaper_yellow_01")
+            .expect("the default wall material resolves");
+
+        // Every declared plane is present except wall 1's low plane.
+        let mut triangles = Vec::new();
+        triangles.extend(x_axis_quad(2.15, 1.0, 5.0, 0.0, 3.0, material));
+        triangles.extend(x_axis_quad(2.45, 1.0, 5.0, 0.0, 3.0, material));
+        triangles.extend(x_axis_quad(2.3, 5.0, 9.0, 0.0, 3.0, material));
+        let index = WallTriangleIndex::build(&triangles);
+        let mut checker = Checker::new(&level);
+        checker.check_joint_emitted(candidate, &walls, &index, &triangles, &materials);
+        assert_eq!(checker.findings.len(), 1, "{:#?}", checker.findings);
+        assert_eq!(checker.findings[0].check, "wall-joint-emitted-mismatch");
+        assert!(
+            checker.findings[0].message.contains("2.000"),
+            "{}",
+            checker.findings[0].message
+        );
+
+        // The complete mesh has no mismatch.
+        triangles.extend(x_axis_quad(2.0, 5.0, 9.0, 0.0, 3.0, material));
+        let index = WallTriangleIndex::build(&triangles);
+        let mut checker = Checker::new(&level);
+        checker.check_joint_emitted(candidate, &walls, &index, &triangles, &materials);
+        assert!(checker.findings.is_empty(), "{:#?}", checker.findings);
+
+        // A face at a plane the source never declares is a generator defect.
+        triangles.extend(x_axis_quad(2.08, 4.9, 5.1, 0.25, 2.75, material));
+        let index = WallTriangleIndex::build(&triangles);
+        let mut checker = Checker::new(&level);
+        checker.check_joint_emitted(candidate, &walls, &index, &triangles, &materials);
+        assert_eq!(checker.findings.len(), 1, "{:#?}", checker.findings);
+        assert!(
+            checker.findings[0].message.contains("2.080"),
+            "{}",
+            checker.findings[0].message
+        );
+    }
+
+    #[test]
+    fn the_planner_repairs_the_fixture_with_the_coupled_edits() {
+        let options = RepairCliOptions {
+            level: "tests/fixtures/levels/repair/wall_step_x.json".to_string(),
+            plan: None,
+            json: false,
+        };
+        let (plan, _path) = build_repair_plan(&options).expect("the fixture plans");
+        assert_eq!(plan.findings.len(), 1, "{:#?}", plan.findings);
+        let pointers: Vec<&str> = plan
+            .edits
+            .iter()
+            .map(|edit| edit.pointer.as_str())
+            .collect();
+        assert_eq!(
+            pointers,
+            [
+                "/walls/1/z",
+                "/baseboards/0/z",
+                "/baseboards/1/length",
+                "/floor_regions/0/depth",
+            ],
+            "{:#?}",
+            plan.edits
+        );
+        assert_eq!(plan.edits[0].old, 2.0);
+        assert_eq!(plan.edits[0].new, 2.15);
+        assert_eq!(plan.edits[3].old, 1.55);
+        assert_eq!(plan.edits[3].new, 1.7);
+        assert!(plan.review.is_empty(), "{:#?}", plan.review);
+        assert_eq!(plan.post_check.errors, 0);
+
+        // Review-only findings plan no edits at all.
+        let review_options = RepairCliOptions {
+            level: "tests/fixtures/levels/repair/gap_review.json".to_string(),
+            plan: None,
+            json: false,
+        };
+        let (plan, _path) = build_repair_plan(&review_options).expect("the gap fixture plans");
+        assert_eq!(plan.findings.len(), 1, "{:#?}", plan.findings);
+        assert!(plan.findings[0].kind == "near-step", "{:#?}", plan.findings);
+        assert!(!plan.findings[0].auto_repairable, "{:#?}", plan.findings);
+        assert!(plan.edits.is_empty(), "{:#?}", plan.edits);
+    }
+
+    #[test]
+    fn repair_arguments_are_stable() {
+        let args: Vec<String> = [
+            "--repair-geometry",
+            "--level",
+            "places_demo",
+            "--plan",
+            "target/agent-work/plan.json",
+            "--json",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+        let options = repair_options_from_args(&args)
+            .expect("parses")
+            .expect("repair mode");
+        assert_eq!(options.level, "places_demo");
+        assert!(options.json);
+        assert_eq!(
+            options.plan.as_deref(),
+            Some(std::path::Path::new("target/agent-work/plan.json"))
+        );
+        assert!(
+            repair_options_from_args(&["--level".to_string()])
+                .expect("no mode")
+                .is_none()
+        );
+        assert!(
+            repair_options_from_args(&["--repair-geometry".to_string(), "--bogus".to_string()])
+                .is_err()
+        );
+        assert!(
+            options_from_args(&args)
+                .expect("the checker must not claim a repair run")
+                .is_none()
         );
     }
 

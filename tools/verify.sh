@@ -15,6 +15,7 @@ cargo run --quiet --release --bin places-compile -- validate assets/levels/model
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
+python3 -m unittest tests.test_geometry_repair
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap

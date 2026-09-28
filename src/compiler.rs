@@ -59,7 +59,7 @@ use crate::package::{FORMAT_VERSION, PACKAGE_EXTENSION};
 use crate::quality::LightmapQuality;
 use crate::quality::{QualityLevel, ReflectionQuality};
 use crate::render::{
-    LightmapBuildOptions, fill_lightmaps_cancellable, logical_materials,
+    GEOMETRY_REVISION, LightmapBuildOptions, fill_lightmaps_cancellable, logical_materials,
     prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
 };
 
@@ -1440,6 +1440,23 @@ fn lighting_fingerprint(
     variants: &[LightmapQuality],
     dependencies: &[PackageDependency],
 ) -> Result<String, String> {
+    lighting_fingerprint_with_revision(level, variants, dependencies, GEOMETRY_REVISION)
+}
+
+/// [`lighting_fingerprint`] with an explicit geometry revision.
+///
+/// Crate-visible so the fingerprint tests can prove a revision bump changes
+/// the stage key without editing the level source.
+///
+/// # Errors
+///
+/// Returns an error when the stripped level cannot be serialized.
+pub(crate) fn lighting_fingerprint_with_revision(
+    level: &LevelDef,
+    variants: &[LightmapQuality],
+    dependencies: &[PackageDependency],
+    geometry_revision: u32,
+) -> Result<String, String> {
     use std::fmt::Write as _;
     let mut stripped = level.clone();
     strip_navigation_components(&mut stripped);
@@ -1471,6 +1488,11 @@ fn lighting_fingerprint(
         crate::lighting::transport::solver_fingerprint(),
         crate::lighting::model_fingerprint()
     );
+    // The prepared geometry is a function of the emitter as well as of the
+    // source, and the lightmaps are baked against that geometry. A geometry
+    // revision therefore invalidates both stages together instead of letting
+    // a stale mesh and its old lightmaps be reused.
+    let _ = writeln!(canonical, "geometry {geometry_revision}");
     for quality in variants {
         let _ = writeln!(canonical, "variant {}", quality.name());
     }
@@ -1581,6 +1603,19 @@ fn fingerprint(
     variants: &[LightmapQuality],
     dependencies: &[PackageDependency],
 ) -> String {
+    fingerprint_with_revision(source_sha256, variants, dependencies, GEOMETRY_REVISION)
+}
+
+/// [`fingerprint`] with an explicit geometry revision.
+///
+/// Crate-visible so the fingerprint tests can prove a revision bump changes
+/// the package key without editing the level source.
+pub(crate) fn fingerprint_with_revision(
+    source_sha256: &str,
+    variants: &[LightmapQuality],
+    dependencies: &[PackageDependency],
+    geometry_revision: u32,
+) -> String {
     use std::fmt::Write as _;
     let mut canonical = String::with_capacity(1024);
     canonical.push_str(COMPILER_NAME);
@@ -1615,6 +1650,10 @@ fn fingerprint(
         crate::lighting::transport::solver_fingerprint(),
         crate::lighting::model_fingerprint()
     );
+    // The emitted static geometry is a function of the emitter as well as of
+    // the source, so the geometry revision is part of the package identity
+    // even when the source bytes did not move.
+    let _ = writeln!(canonical, "geometry {geometry_revision}");
     for quality in variants {
         let _ = writeln!(canonical, "variant {}", quality.name());
     }

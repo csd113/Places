@@ -8,14 +8,17 @@
 //! and its directional-moment plane the odd layer after it, in page order;
 //! each switchable fixture's prepared contribution follows the base group in
 //! the same pair layout. The world fragment stage reconstructs
-//! `max(0, irradiance + direction * (2 * max(0, dot(n, axis)) - 1))`, where the
-//! octahedral `axis` rides in the two planes' alpha channels, and selects the
-//! pair from the vertex's page byte plus the environment uniform's page and
-//! switchable counts. This module owns that contract:
+//! `max(0, irradiance + (irradiance / max(k, 1e-6)) * dot(direction, normal))`
+//! with `k = irradiance.r + irradiance.g + irradiance.b`; the direction plane
+//! holds the signed vector sum of the per-channel moment vectors (world space),
+//! and selects the pair from the vertex's page byte plus the environment
+//! uniform's page and switchable counts. The two planes' alpha channels are
+//! reserved (`0.5`) and ignored by the reconstruction. This module owns that
+//! contract:
 //!
 //! * the prepared pages as raw, non-sRGB `Rgba16Float` array layers (linear HDR
-//!   half floats: irradiance `(r, g, b, axis.x)`, dominant lobe
-//!   `(r, g, b, axis.y)`, the package's exact plane layout);
+//!   half floats: irradiance `(r, g, b, 0.5)` and direction moment
+//!   `(r, g, b, 0.5)`, the package's exact plane layout);
 //! * the clamped-linear sampler the pages are read with;
 //! * the 1x1 white-irradiance fallback bound while no atlas is resident, so the
 //!   world shader always has a complete texture even though its
@@ -105,39 +108,66 @@ pub struct LightmapUploadStats {
 
 /// One atlas page's bytes as two `Rgba16Float` planes, irradiance first.
 ///
-/// Each texel is four little-endian half floats: the RGB light values and one
-/// octahedral axis coordinate in the alpha channel (`axis.x` in the irradiance
-/// plane, `axis.y` in the dominant-lobe plane), the same plane layout the
-/// package writer stores. `width * height` texels per plane, row-major. A
-/// truncated page is padded with the neutral texel (white irradiance, zero
-/// lobe, neutral axis), so an upload can never read uninitialized bytes.
+/// Each texel is four little-endian half floats: three RGB light values and a
+/// reserved alpha of `0.5`. The irradiance plane holds the mean term, the
+/// direction-moment plane the signed vector sum of the per-channel moment
+/// vectors — half floats are signed, so negative components are stored as-is —
+/// the same plane layout the package writer stores. `width * height` texels per
+/// plane, row-major. A truncated page is padded with the neutral texel (white
+/// irradiance, zero direction, reserved alpha), so an upload can never read
+/// uninitialized bytes.
 #[must_use]
 pub fn page_rgba16f(page: &LightmapPage) -> Vec<u8> {
     let texels = usize::try_from(page.width.saturating_mul(page.height)).unwrap_or(usize::MAX);
     let plane_bytes = texels.saturating_mul(8);
     let mut bytes = Vec::with_capacity(plane_bytes.saturating_mul(2));
     for texel in page.texels.iter().take(texels) {
-        push_half_rgba(&mut bytes, texel.irradiance, texel.axis[0]);
+        push_half_rgba(&mut bytes, texel.irradiance);
     }
     while bytes.len() < plane_bytes {
-        push_half_rgba(&mut bytes, [1.0; 3], 0.5);
+        push_half_rgba(&mut bytes, [1.0; 3]);
     }
     for texel in page.texels.iter().take(texels) {
-        push_half_rgba(&mut bytes, texel.direction, texel.axis[1]);
+        push_half_rgba(&mut bytes, texel.direction);
     }
     while bytes.len() < plane_bytes.saturating_mul(2) {
-        push_half_rgba(&mut bytes, [0.0; 3], 0.5);
+        push_half_rgba(&mut bytes, [0.0; 3]);
     }
     bytes
 }
 
-/// Appends one RGB light value and one octahedral axis coordinate as four
-/// little-endian halves.
-fn push_half_rgba(out: &mut Vec<u8>, color: [f32; 3], axis: f32) {
+/// The reserved alpha both planes store: consumers ignore it, writers pin it so
+/// the byte layout is deterministic.
+const RESERVED_ALPHA: f32 = 0.5;
+
+/// Appends one RGB value and the reserved alpha as four little-endian halves.
+fn push_half_rgba(out: &mut Vec<u8>, color: [f32; 3]) {
     for value in color {
         out.extend_from_slice(&crate::package::ktx2::f32_to_f16_bits(value).to_le_bytes());
     }
-    out.extend_from_slice(&crate::package::ktx2::f32_to_f16_bits(axis).to_le_bytes());
+    out.extend_from_slice(&crate::package::ktx2::f32_to_f16_bits(RESERVED_ALPHA).to_le_bytes());
+}
+
+/// The fallback array's bytes: alternating white-irradiance and zero-direction
+/// layers, every texel carrying the reserved alpha.
+///
+/// One `edge x edge` layer per array layer, row-major, two planes per page pair
+/// like [`page_rgba16f`]; the shader's gate skips these samples, but a sample
+/// that did read them would reconstruct `max(0, white + 0)`, the unit factor.
+#[must_use]
+fn white_array_bytes(edge: u32, layers: u32) -> Vec<u8> {
+    let texels = usize::try_from(edge.saturating_mul(edge)).unwrap_or(0);
+    let layer_count = usize::try_from(layers).unwrap_or(0);
+    let mut bytes = Vec::with_capacity(texels.saturating_mul(layer_count).saturating_mul(8));
+    let mut white = true;
+    for _ in 0..layers {
+        let color = if white { [1.0; 3] } else { [0.0; 3] };
+        for _ in 0..texels {
+            push_half_rgba(&mut bytes, color);
+        }
+        white = !white;
+    }
+    bytes
 }
 
 /// The pure upload plan: what [`LightmapAtlas::upload`] will bind and report.
@@ -286,8 +316,9 @@ impl LightmapAtlas {
     }
 
     /// Creates a `layers`-deep array of `edge`-texel fallback layers: white
-    /// irradiance in the even layers and zero direction in the odd ones, so a
-    /// sample the shader's gate would skip still reconstructs the unit factor.
+    /// irradiance in the even layers and zero direction in the odd ones, with
+    /// the reserved `0.5` alpha in both, so a sample the shader's gate would
+    /// skip still reconstructs the unit factor.
     fn upload_white_array(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -308,21 +339,7 @@ impl LightmapAtlas {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        let texels = usize::try_from(edge.saturating_mul(edge)).unwrap_or(0);
-        let layer_count = usize::try_from(layers).unwrap_or(0);
-        let mut bytes = Vec::with_capacity(texels.saturating_mul(layer_count).saturating_mul(8));
-        let mut white = true;
-        for _ in 0..layers {
-            let (color, tag) = if white {
-                ([1.0; 3], 1.0)
-            } else {
-                ([0.0; 3], 0.0)
-            };
-            for _ in 0..texels {
-                push_half_rgba(&mut bytes, color, tag);
-            }
-            white = !white;
-        }
+        let bytes = white_array_bytes(edge, layers);
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
@@ -444,7 +461,7 @@ mod tests {
 
     use super::*;
     use crate::lighting::lightmap::{LightmapTexel, SwitchableLightmaps};
-    use crate::package::ktx2::f32_to_f16_bits;
+    use crate::package::ktx2::{f16_bits_to_f32, f32_to_f16_bits};
 
     fn page(width: u32, height: u32, texels: Vec<LightmapTexel>) -> LightmapPage {
         LightmapPage {
@@ -476,7 +493,7 @@ mod tests {
     }
 
     #[test]
-    fn hdr_pages_encode_irradiance_then_direction_in_half_floats() {
+    fn hdr_pages_encode_irradiance_and_the_signed_moment_in_half_floats() {
         let page = page(
             2,
             1,
@@ -484,6 +501,7 @@ mod tests {
                 LightmapTexel {
                     irradiance: [1.0, 0.5, 0.0],
                     direction: [0.0, -1.0, 0.25],
+                    // Reserved: the writer must ignore it and store 0.5.
                     axis: [0.25, 0.75],
                 },
                 LightmapTexel::ZERO,
@@ -493,32 +511,98 @@ mod tests {
         // Two texels per plane, two planes, four halves each.
         assert_eq!(bytes.len(), 2 * 8 * 2);
         let half = |offset: usize| u16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
-        // Irradiance plane, texel 0: (1.0, 0.5, 0.0) and the octahedral x
-        // 0.25, in IEEE binary16 little-endian.
+        // Irradiance plane, texel 0: (1.0, 0.5, 0.0) and the reserved alpha
+        // 0.5, in IEEE binary16 little-endian. The texel's `axis` field is
+        // ignored: the stored alpha is always the reserved constant.
         assert_eq!(half(0), 0x3C00);
         assert_eq!(half(2), 0x3800);
         assert_eq!(half(4), 0x0000);
-        assert_eq!(half(6), 0x3400);
-        // Irradiance plane, texel 1: black with the neutral x 0.5.
+        assert_eq!(half(6), 0x3800);
+        // Irradiance plane, texel 1: black with the reserved alpha.
         assert_eq!(half(8), 0x0000);
         assert_eq!(half(12), 0x0000);
         assert_eq!(half(14), 0x3800);
-        // Dominant-lobe plane, texel 0: (0.0, -1.0, 0.25) and the octahedral y
-        // 0.75, then the zero texel with the neutral y.
+        // Direction-moment plane, texel 0: the signed moment (0.0, -1.0, 0.25)
+        // — the negative channel is a negative half — and the reserved alpha,
+        // then the zero-moment texel with the same reserved alpha.
         assert_eq!(half(16), 0x0000);
         assert_eq!(half(18), 0xBC00);
         assert_eq!(half(20), 0x3400);
-        assert_eq!(half(22), 0x3A00);
+        assert_eq!(half(22), 0x3800);
         assert_eq!(half(24), 0x0000);
         assert_eq!(half(30), 0x3800);
         // The same bytes the package writer's half conversion produces.
         let mut expected: Vec<u8> = Vec::new();
         for value in [
-            1.0_f32, 0.5, 0.0, 0.25, 0.0, 0.0, 0.0, 0.5, 0.0, -1.0, 0.25, 0.75, 0.0, 0.0, 0.0, 0.5,
+            1.0_f32, 0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, -1.0, 0.25, 0.5, 0.0, 0.0, 0.0, 0.5,
         ] {
             expected.extend_from_slice(&f32_to_f16_bits(value).to_le_bytes());
         }
         assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn a_signed_direction_moment_round_trips_through_the_half_floats() {
+        // The moment vector is signed; the half conversion must preserve every
+        // sign. That is what the old positive-only amplitude could not carry.
+        let moment = [-4.5_f32, -0.125, 3.75];
+        let page = page(
+            1,
+            1,
+            vec![LightmapTexel {
+                irradiance: [0.25; 3],
+                direction: moment,
+                axis: [0.5, 0.5],
+            }],
+        );
+        let bytes = page_rgba16f(&page);
+        assert_eq!(bytes.len(), 16);
+        for (channel, expected) in moment.into_iter().enumerate() {
+            let offset = 8 + channel * 2;
+            let bits = u16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
+            assert_eq!(f16_bits_to_f32(bits), expected, "channel {channel}");
+            assert_eq!(
+                bits & 0x8000 != 0,
+                expected < 0.0,
+                "channel {channel} must keep its sign"
+            );
+        }
+        // Both planes' reserved alphas.
+        assert_eq!(u16::from_le_bytes([bytes[6], bytes[7]]), 0x3800);
+        assert_eq!(u16::from_le_bytes([bytes[14], bytes[15]]), 0x3800);
+    }
+
+    #[test]
+    fn the_white_fallback_is_unit_irradiance_zero_direction_and_reserved_alpha() {
+        // The pair the shader binds while no atlas is resident: every even
+        // layer is white irradiance, every odd layer zero direction, both with
+        // the reserved 0.5 alpha, so a sample that did read it reconstructs
+        // `max(0, white + 0)`, the unit factor.
+        let bytes = white_array_bytes(2, 6);
+        assert_eq!(bytes.len(), 2 * 2 * 6 * 8);
+        let half = |offset: usize| u16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
+        for layer in 0..6 {
+            let layer_base = layer * 2 * 2 * 8;
+            for texel in 0..4 {
+                let offset = layer_base + texel * 8;
+                let tag = format!("layer {layer} texel {texel}");
+                let rgb = if layer % 2 == 0 { 0x3C00 } else { 0x0000 };
+                assert_eq!(half(offset), rgb, "{tag} r");
+                assert_eq!(half(offset + 2), rgb, "{tag} g");
+                assert_eq!(half(offset + 4), rgb, "{tag} b");
+                assert_eq!(half(offset + 6), 0x3800, "{tag} reserved alpha");
+            }
+        }
+        // The real 1x1 pair, decoded back: white irradiance and a zero moment,
+        // so the shader's reconstruction is exactly the unit factor.
+        let pair = white_array_bytes(1, 2);
+        assert_eq!(pair.len(), 16);
+        let sample =
+            |offset: usize| f16_bits_to_f32(u16::from_le_bytes([pair[offset], pair[offset + 1]]));
+        assert_eq!([sample(0), sample(2), sample(4)], [1.0; 3]);
+        assert_eq!([sample(8), sample(10), sample(12)], [0.0; 3]);
+        assert_eq!(sample(6), 0.5);
+        assert_eq!(sample(14), 0.5);
     }
 
     #[test]
@@ -535,12 +619,12 @@ mod tests {
         let bytes = page_rgba16f(&page);
         assert_eq!(bytes.len(), 2 * 8 * 2);
         let half = |offset: usize| u16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
-        // The missing irradiance texel is white with the neutral axis x.
+        // The missing irradiance texel is white with the reserved alpha.
         assert_eq!(half(8), 0x3C00);
         assert_eq!(half(10), 0x3C00);
         assert_eq!(half(12), 0x3C00);
         assert_eq!(half(14), 0x3800);
-        // The missing dominant-lobe texel is zero, neutral axis y included.
+        // The missing direction texel is zero with the reserved alpha.
         assert_eq!(half(24), 0x0000);
         assert_eq!(half(30), 0x3800);
     }

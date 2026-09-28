@@ -17,7 +17,10 @@ use crate::door::Doors;
 use crate::entities::id::EntityStore;
 use crate::game::CollisionWorld;
 use crate::level::LevelDef;
-use crate::nav::{NavBakeInput, NavBakeOptions, NavMesh, bake, reference_class};
+use crate::nav::{
+    NAV_MAX_SLOPE, NavBakeInput, NavBakeOptions, NavMesh, NavScratch, PathQuery, PathResult, bake,
+    reference_class,
+};
 
 /// Builds a room with a partial dividing wall; agents are registered directly.
 fn fixture() -> (LevelDef, CollisionWorld, Doors) {
@@ -765,5 +768,313 @@ fn a_wanderer_with_no_route_still_returns_to_its_post() {
     assert!(
         moved > 0.01,
         "the wanderer must still move within its own room, moved {moved}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The shared mover on the Demo's new steps
+// ---------------------------------------------------------------------------
+
+/// The shipped Demo with its real bake, collision world and live doors, for
+/// driving the shared [`AgentMove`] through the authored geometry.
+struct DemoFixture {
+    collision: CollisionWorld,
+    doors: Doors,
+    index: CollisionIndex,
+    mesh: NavMesh,
+}
+
+impl DemoFixture {
+    fn new() -> Self {
+        let source = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/levels/places_demo.json"
+        ))
+        .expect("the demo source is readable");
+        let level = LevelDef::from_json(&source).expect("the demo source parses");
+        let mut warnings = Vec::new();
+        let (bytes, _report) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
+            .expect("the demo navigation bakes");
+        assert!(
+            warnings.is_empty(),
+            "the demo has no navigation placement warnings: {warnings:?}"
+        );
+        let grid = crate::package::navigation::read_navigation(&bytes).expect("the record decodes");
+        let mesh = NavMesh::from_record(grid).expect("the mesh validates");
+        let collision = CollisionWorld::from_level(&level);
+        let doors = Doors::from_level(&level);
+        let index = CollisionIndex::build(&collision.walls);
+        Self {
+            collision,
+            doors,
+            index,
+            mesh,
+        }
+    }
+
+    /// The baked class index of one body profile.
+    fn class(&self, profile: &NavAgentProfile) -> usize {
+        self.mesh
+            .class_index(&profile.class())
+            .expect("the demo bakes this body")
+    }
+}
+
+/// What one traversal through the shared mover did.
+struct MoverTraversal {
+    /// Every feet height the mover visited, in order.
+    ys: Vec<f32>,
+    /// Frames simulated.
+    frames: usize,
+    /// The mover consumed the whole route.
+    reached: bool,
+}
+
+impl MoverTraversal {
+    /// True when the mover stood at `y` (within `tolerance`) at any point.
+    fn saw_y(&self, y: f32, tolerance: f32) -> bool {
+        self.ys.iter().any(|sample| (sample - y).abs() <= tolerance)
+    }
+
+    fn min_y(&self) -> f32 {
+        self.ys.iter().copied().fold(f32::INFINITY, f32::min)
+    }
+
+    fn max_y(&self) -> f32 {
+        self.ys.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+    }
+
+    fn last_y(&self) -> f32 {
+        self.ys.last().copied().unwrap_or(f32::NAN)
+    }
+}
+
+/// Drives the shared [`AgentMove`] along a complete baked route exactly the
+/// way the AI path follower does: target the current waypoint, advance on
+/// arrival, fixed 60 Hz steps, no teleporting. Every frame asserts the body
+/// stays on a walkable baked cell of its class and never falls through the
+/// surface under it.
+fn drive_shared_mover(
+    fixture: &DemoFixture,
+    class: usize,
+    start: Vec3,
+    goal: Vec3,
+    profile: &NavAgentProfile,
+    speed_mps: f32,
+    max_frames: usize,
+) -> MoverTraversal {
+    let mut scratch = NavScratch::new();
+    let result = fixture.mesh.path(
+        &PathQuery {
+            class,
+            start,
+            goal,
+            can_open_doors: false,
+            max_expansions: 65536,
+            doors: &crate::nav::NoDoors,
+        },
+        &mut scratch,
+    );
+    let PathResult::Path(path) = result else {
+        panic!("the demo traversal {start:?} -> {goal:?} must bake a route");
+    };
+    assert!(path.complete, "the traversal route must be complete");
+    let mut mover = AgentMove {
+        position: start,
+        yaw_degrees: 0.0,
+        radius: profile.radius,
+        height: profile.height,
+        step_height: profile.step_height,
+        max_slope: profile.max_slope,
+        speed_mps,
+    };
+    let leaves = fixture.doors.colliders();
+    let mut current = 0usize;
+    let mut ys = Vec::with_capacity(max_frames.min(4096));
+    let mut frames = 0usize;
+    let mut previous = start;
+    for _ in 0..max_frames {
+        let Some(waypoint) = path.waypoints.get(current).copied() else {
+            break;
+        };
+        frames = frames.saturating_add(1);
+        match mover.step_with_leaves(
+            waypoint,
+            1.0 / 60.0,
+            &fixture.collision.walls,
+            &fixture.index,
+            &fixture.collision.floor,
+            &leaves,
+        ) {
+            MoveStep::Moved { .. } => {
+                let moved =
+                    glam::Vec2::new(mover.position.x - previous.x, mover.position.z - previous.z)
+                        .length();
+                assert!(
+                    moved <= speed_mps / 60.0 + 1.0e-3,
+                    "the mover teleported {moved} m in one frame at {:?}",
+                    mover.position
+                );
+                assert_on_baked_navigation(fixture, class, mover.position, profile.height);
+                ys.push(mover.position.y);
+                previous = mover.position;
+                if waypoint.distance(mover.position) < movement::ARRIVE_RADIUS_M {
+                    current = current.saturating_add(1);
+                }
+            }
+            MoveStep::Arrived => {
+                current = current.saturating_add(1);
+            }
+            MoveStep::Blocked => {
+                panic!(
+                    "the shared mover was blocked at {:?} targeting {waypoint:?}",
+                    mover.position
+                );
+            }
+        }
+        if current >= path.waypoints.len() {
+            break;
+        }
+    }
+    MoverTraversal {
+        ys,
+        frames,
+        reached: current >= path.waypoints.len(),
+    }
+}
+
+/// Asserts the mover stays on its class's baked navigation: a walkable cell
+/// of the class is within half a metre, and no static box blocks the body
+/// where it stands. The mover may legally skim a cell corner the half-cell
+/// clearance sampler stepped past, so the check is the nearest-cell contract
+/// the encounter tests use, not an exact cell membership.
+fn assert_on_baked_navigation(fixture: &DemoFixture, class: usize, position: Vec3, height: f32) {
+    let Some(point) = fixture
+        .mesh
+        .nearest(class, position, 0.6, 1.0, &crate::nav::NoDoors, false)
+    else {
+        panic!("the mover left baked navigation at {position:?}");
+    };
+    assert!(
+        point.position.distance(position) < 0.6,
+        "the mover left baked navigation at {position:?} (nearest {:?})",
+        point.position
+    );
+    for wall in &fixture.collision.walls {
+        let inside = position.x > wall.min_x - 1.0e-3
+            && position.x < wall.max_x + 1.0e-3
+            && position.z > wall.min_z - 1.0e-3
+            && position.z < wall.max_z + 1.0e-3
+            && wall.blocks_body(position.y, height);
+        assert!(
+            !inside,
+            "the mover entered {wall:?} at {position:?} in the demo traversal"
+        );
+    }
+}
+
+/// The shared mover walks the real Demo's two 0.3 m shower steps from the
+/// pool deck into the bay and back: it climbs the heights, stays on baked
+/// cells, never falls through and finishes in bounded time.
+#[test]
+fn the_shared_mover_climbs_the_demo_shower_steps_and_returns() {
+    let fixture = DemoFixture::new();
+    let profile = NavAgentProfile {
+        radius: 0.2,
+        height: 0.45,
+        step_height: 0.3,
+        max_slope: NAV_MAX_SLOPE,
+        can_open_doors: false,
+    };
+    let class = fixture.class(&profile);
+    let deck = Vec3::new(23.4, -1.5, 10.0);
+    let bay = Vec3::new(29.4, -0.9, 9.8);
+
+    let out = drive_shared_mover(&fixture, class, deck, bay, &profile, 1.0, 60 * 60);
+    assert!(out.reached, "the mover must reach the bay in bounded time");
+    assert!(
+        out.frames < 60 * 40,
+        "the 7 m shower route takes well under 40 s, took {} frames",
+        out.frames
+    );
+    assert!(
+        (out.max_y() + 0.9).abs() < 0.05,
+        "the mover tops out on the bay floor at -0.9, got {}",
+        out.max_y()
+    );
+    assert!(
+        out.saw_y(-1.2, 0.03),
+        "the mover must stand on the first step (-1.2), ys {:?}",
+        out.ys
+    );
+    assert!(out.saw_y(-0.9, 0.03), "the mover must stand in the bay");
+    assert!(
+        out.min_y() >= -1.5 - 1.0e-3,
+        "the mover never falls through the deck, min y {}",
+        out.min_y()
+    );
+
+    let back = drive_shared_mover(&fixture, class, bay, deck, &profile, 1.0, 60 * 60);
+    assert!(back.reached, "the mover must return to the deck");
+    assert!(back.frames < 60 * 40, "the return takes under 40 s");
+    assert!(
+        (back.last_y() + 1.5).abs() < 0.05,
+        "the return ends on the deck at -1.5, got {}",
+        back.last_y()
+    );
+    assert!(
+        back.saw_y(-1.2, 0.03),
+        "the return uses the first step (-1.2)"
+    );
+    assert!(
+        back.max_y() <= -0.85,
+        "the return never rises above the bay floor, got {}",
+        back.max_y()
+    );
+    assert!(back.min_y() >= -1.5 - 1.0e-3);
+}
+
+/// The shared mover climbs the real Demo's 8 x 0.2625 m Home staircase and
+/// actually displaces onto the balcony (1.2).
+#[test]
+fn the_shared_mover_climbs_the_demo_home_staircase_to_the_balcony() {
+    let fixture = DemoFixture::new();
+    let profile = NavAgentProfile {
+        radius: 0.2,
+        height: 0.45,
+        step_height: 0.3,
+        max_slope: NAV_MAX_SLOPE,
+        can_open_doors: false,
+    };
+    let class = fixture.class(&profile);
+    let lower = Vec3::new(54.5, -0.9, 12.0);
+    let balcony = Vec3::new(60.0, 1.2, 12.5);
+
+    let climb = drive_shared_mover(&fixture, class, lower, balcony, &profile, 1.0, 60 * 120);
+    assert!(climb.reached, "the mover must finish the stair route");
+    assert!(
+        climb.frames < 60 * 90,
+        "the stair route takes well under 90 s, took {} frames",
+        climb.frames
+    );
+    assert!(
+        (climb.last_y() - 1.2).abs() < 0.05,
+        "the mover ends on the balcony at 1.2, got {}",
+        climb.last_y()
+    );
+    assert!(
+        climb.ys.iter().any(|y| (-0.6..0.0).contains(y)),
+        "the mover climbs the lower flight, ys {:?}",
+        climb.ys
+    );
+    assert!(
+        climb.ys.iter().any(|y| (0.3..1.0).contains(y)),
+        "the mover climbs the upper flight, ys {:?}",
+        climb.ys
+    );
+    assert!(
+        climb.min_y() >= -0.9 - 1.0e-3,
+        "the mover never falls below the lower floor, min y {}",
+        climb.min_y()
     );
 }

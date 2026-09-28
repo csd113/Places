@@ -4360,3 +4360,73 @@ fn an_ai_only_edit_reuses_the_prepared_lighting() {
     );
     let _ = fs::remove_dir_all(&dir);
 }
+
+/// The emitted-geometry revision is part of both build fingerprints, so an
+/// emitter change that leaves the source bytes untouched still invalidates the
+/// package: the stale mesh and the lightmaps baked against it are rebuilt
+/// instead of being silently reused.
+#[test]
+fn the_geometry_revision_is_part_of_both_build_fingerprints() {
+    let level = LevelDef::from_json(
+        r#"{ "format_version": 3, "id": "revision", "name": "Revision",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }] }"#,
+    )
+    .expect("valid revision level");
+    let variants = [crate::quality::LightmapQuality::Off];
+    let dependencies: Vec<crate::package::manifest::PackageDependency> = Vec::new();
+    let revision = crate::render::GEOMETRY_REVISION;
+
+    let compiler_now =
+        crate::compiler::fingerprint_with_revision("00", &variants, &dependencies, revision);
+    let compiler_next =
+        crate::compiler::fingerprint_with_revision("00", &variants, &dependencies, revision + 1);
+    assert_ne!(
+        compiler_now, compiler_next,
+        "a geometry revision bump must change the package fingerprint"
+    );
+
+    let lighting_now = crate::compiler::lighting_fingerprint_with_revision(
+        &level,
+        &variants,
+        &dependencies,
+        revision,
+    )
+    .expect("the lighting stage input serialises");
+    let lighting_next = crate::compiler::lighting_fingerprint_with_revision(
+        &level,
+        &variants,
+        &dependencies,
+        revision + 1,
+    )
+    .expect("the lighting stage input serialises");
+    assert_ne!(
+        lighting_now, lighting_next,
+        "a geometry revision bump must change the lighting stage fingerprint"
+    );
+
+    // The same revision and inputs stay byte-stable, so nothing about the
+    // bump weakens the reuse tests above.
+    assert_eq!(
+        compiler_now,
+        crate::compiler::fingerprint_with_revision("00", &variants, &dependencies, revision),
+        "the package fingerprint is a pure function of its inputs"
+    );
+    assert_eq!(
+        lighting_now,
+        crate::compiler::lighting_fingerprint_with_revision(
+            &level,
+            &variants,
+            &dependencies,
+            revision
+        )
+        .expect("the lighting stage input serialises"),
+        "the stage fingerprint is a pure function of its inputs"
+    );
+
+    // The shipped revision is the one the fix introduced, not a placeholder.
+    assert_eq!(
+        revision, 2,
+        "the current geometry revision is documented as 2"
+    );
+}

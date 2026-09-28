@@ -100,6 +100,15 @@ pub const NAV_BAKE_MARGIN_M: f32 = 0.60;
 /// Cell flag bit: the surface under this cell is part of a continuous slope.
 pub const CELL_SLOPED: u8 = 1 << 1;
 
+/// How far a cell's two opposite half-samples may disagree about the surface's
+/// gradient and still count as one straight slope, in metres.
+///
+/// A plane mirrors exactly; a discrete riser at either half-sample breaks the
+/// mirror by its whole rise. The tolerance is the same 2 cm the flat/slope
+/// decision uses, so a cell that is only gently crowned or a couple of
+/// millimetres off a plane's arithmetic still reads as a slope.
+const SLOPE_LINEARITY_M: f32 = 0.02;
+
 /// Headroom value meaning "no overhead was found above this surface".
 pub const HEADROOM_UNBOUNDED_CM: u16 = u16::MAX;
 
@@ -534,17 +543,33 @@ impl BakeScene<'_> {
     }
 
     /// True when the cell's surface is part of a continuous slope.
+    ///
+    /// A cell is a slope only when the surface's gradient is consistent across
+    /// it: along each axis the two half-cell samples must mirror each other
+    /// around the cell's own height, which is what a plane (a ramp, a
+    /// staircase's pitch line, a sloped proxy) does. A discrete riser — a
+    /// floor-region step, a stair's first nosing, an authored ledge — puts one
+    /// sample on the far side of a jump, so the cell is *not* a slope and the
+    /// step rule alone decides which classes may cross it. Treating such a
+    /// cell as a slope let a small-bodied class climb risers several times its
+    /// step height (the bake's slope branch only bounds rise over run).
     fn slope_flag(&self, x: f32, z: f32, cell_m: f32, surface: f32) -> u8 {
         let half = cell_m * 0.5;
-        let samples = [(x - half, z), (x + half, z), (x, z - half), (x, z + half)];
-        for (sx, sz) in samples {
-            let mid = self
-                .floor
+        let sample = |sx: f32, sz: f32| {
+            self.floor
                 .walk_height_at(sx, sz)
-                .or_else(|| self.proxy_y(sx, sz));
-            if let Some(mid) = mid
-                && (mid - surface).abs() > 0.02
-            {
+                .or_else(|| self.proxy_y(sx, sz))
+        };
+        for (dx, dz) in [(half, 0.0_f32), (0.0, half)] {
+            let (Some(plus), Some(minus)) = (sample(x + dx, z + dz), sample(x - dx, z - dz)) else {
+                continue;
+            };
+            let up = plus - surface;
+            let down = surface - minus;
+            if up.max(down) <= SLOPE_LINEARITY_M {
+                continue;
+            }
+            if (up - down).abs() <= SLOPE_LINEARITY_M {
                 return CELL_SLOPED;
             }
         }

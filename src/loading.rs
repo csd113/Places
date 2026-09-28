@@ -3,11 +3,12 @@
 //!
 //! The player performs no static preparation. A request names a package and a
 //! lightmap quality; the worker resolves the level's texture *pixels* through
-//! the installed content bundle, decodes the package's prepared records
+//! the installed content bundle and decodes the package's prepared records
 //! (geometry, prop batches, baked lighting, lightmap atlas, collision, probe
-//! captures) and hands the frame loop a world it can install. Geometry
-//! emission, the lighting bake, chart planning, atlas filling, probe capture
-//! and static collision derivation all happen offline in `places-compile`.
+//! captures) concurrently, then hands the frame loop a world it can install.
+//! Geometry emission, the lighting bake, chart planning, atlas filling, probe
+//! capture and static collision derivation all happen offline in
+//! `places-compile`.
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread::JoinHandle;
@@ -20,6 +21,13 @@ use crate::props::PropAssets;
 use crate::quality::LightmapQuality;
 use crate::render::{CharacterScene, LevelBuild};
 
+/// Where one preparation stands, for the loading screen and the load trace.
+///
+/// `Reading` spans the level's own assets *and* its compiled variant: the two
+/// come from different files and caches and are read concurrently, so the
+/// variant's read/decode overlaps the material and texture resolution. The
+/// `Geometry` boundary is published once both halves are done, before the
+/// records are assembled into an installable world.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Phase {
@@ -539,6 +547,30 @@ fn remember_build(
     identities.push_back((key, Arc::downgrade(records)));
 }
 
+/// The prepared records a previous preparation of `key` can satisfy, if any.
+///
+/// Weak identities keep an oversized displayed world reusable after a
+/// different preparation is cancelled, without retaining its geometry.
+fn reusable_records(
+    key: &PackageKey,
+    builds: &mut BuildCache,
+    identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
+) -> Option<Arc<PreparedRecords>> {
+    identities.retain(|(_, records)| records.strong_count() != 0);
+    builds.get(key).or_else(|| {
+        identities
+            .iter()
+            .find_map(|(previous, records)| (previous == key).then(|| records.upgrade()).flatten())
+    })
+}
+
+/// Propagates a worker-panic join failure as an ordinary preparation error.
+fn joined_variant(
+    joined: std::thread::Result<Result<crate::package::world::LoadedVariant, String>>,
+) -> Result<crate::package::world::LoadedVariant, String> {
+    joined.map_err(|_| "level preparation worker panicked".to_string())?
+}
+
 /// Decodes one request into an installable world, reusing the worker cache.
 #[allow(clippy::too_many_lines)] // one cohesive decode-to-world pipeline
 fn prepare_world(
@@ -561,14 +593,41 @@ fn prepare_world(
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+    // An installable entry's variant cache key is known before the read, so a
+    // repeated load can skip the compiled-variant read entirely.
+    let mut planned: Option<(PackageKey, Option<Arc<PreparedRecords>>)> = None;
+    // The variant records, already read while the level's own assets resolved.
+    let mut prefetched_variant: Option<crate::package::world::LoadedVariant> = None;
     let loaded = match request.source {
+        Source::Entry(entry, _) => {
+            manager.refresh_catalog();
+            let key = PackageKey::for_entry(&entry, request.lightmaps)?;
+            let reusable = reusable_records(&key, builds, identities);
+            let loaded = if reusable.is_some() {
+                manager.load_level(&entry)?
+            } else {
+                // The level's texture pixels and the compiled variant come from
+                // different files and caches, so read them concurrently: a load
+                // pays the longer half instead of their sum. Phase::Reading
+                // spans both halves; the Geometry boundary follows the join.
+                let (loaded, variant) = std::thread::scope(|scope| {
+                    let reader =
+                        scope.spawn(|| load_entry_variant(&entry, request.lightmaps, assets));
+                    let loaded = manager.load_level(&entry);
+                    (loaded, reader.join())
+                });
+                // A failed level keeps its own error; the variant read reports
+                // only when the level itself was readable.
+                let loaded = loaded?;
+                prefetched_variant = Some(joined_variant(variant)?);
+                loaded
+            };
+            planned = Some((key, reusable));
+            loaded
+        }
         Source::Default => {
             manager.refresh_catalog();
             manager.load_default()?
-        }
-        Source::Entry(entry, _) => {
-            manager.refresh_catalog();
-            manager.load_level(&entry)?
         }
         Source::Retained(loaded, _) => *loaded,
     };
@@ -588,13 +647,13 @@ fn prepare_world(
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    let key = PackageKey::for_entry(&loaded.entry, request.lightmaps)?;
-    identities.retain(|(_, records)| records.strong_count() != 0);
-    let reusable = builds.get(&key).or_else(|| {
-        identities
-            .iter()
-            .find_map(|(previous, records)| (previous == &key).then(|| records.upgrade()).flatten())
-    });
+    let (key, reusable) = if let Some(planned) = planned {
+        planned
+    } else {
+        let key = PackageKey::for_entry(&loaded.entry, request.lightmaps)?;
+        let reusable = reusable_records(&key, builds, identities);
+        (key, reusable)
+    };
     let cache_hit = reusable.is_some();
     let records = if let Some(records) = reusable {
         crate::logging::info(format_args!(
@@ -609,7 +668,10 @@ fn prepare_world(
             loaded.level.id,
             request.lightmaps.name()
         ));
-        let variant = load_entry_variant(&loaded.entry, request.lightmaps, assets)?;
+        let variant = match prefetched_variant {
+            Some(variant) => variant,
+            None => load_entry_variant(&loaded.entry, request.lightmaps, assets)?,
+        };
         crate::package::world::validate_probe_captures(
             &variant.mesh,
             &loaded.materials,

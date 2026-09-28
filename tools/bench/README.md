@@ -69,12 +69,56 @@ cancellation or failure), `first_usable_scene_ms` (the first
 immediate apply or to the world commit a rebuild required). Missing
 observations are reported as unavailable, never as zero.
 
+The run window defaults to the pinned 640x360 logical size; `--window-size WxH`
+overrides it. A window the compositor reports as occluded never presents, so the
+trace has no `scene_presented` and the harness fails honestly instead of
+reporting bogus metrics; on an unattended desktop, pass a size that is fully
+visible (for example `--window-size 1512x850`). The chosen size is recorded in
+`timings.json` so runs at different sizes are never compared blindly.
+
+Every run gets its own isolated writable state root. A private/local compiled
+package below `levels/` is installed into that state root with
+`--install-package PATH` (repeatable); each package's sha256 is recorded under
+`installed_packages` in `timings.json`, so a private level is measured through
+the same isolated harness as a bundled one:
+
+```sh
+python3 tools/bench/loading.py --binary target/release/places \
+    --out target/agent-work/loading-private --levels level0_pit \
+    --install-package levels/level0_pit.placesmap --window-size 1512x850
+```
+
 Steady-state rendering is measured by a different instrument: the per-frame CSV
 and `BENCH_SUMMARY` start only after a world is installed and the effective
 settings have committed, and the cadence baseline advances on every loop
 iteration, sampled or not. An excluded loading or transition interval is
 therefore never charged to the next steady-state sample as one long frame; the
 transition itself is reported through the trace above.
+
+### Comparing two builds
+
+Startup measurements drift with the machine, so alternate the two binaries
+across rounds and compare medians of the same window size, levels and quality
+rather than one long batch per build:
+
+```sh
+# repeat with -r2, -r3, alternating baseline and candidate each round
+python3 tools/bench/loading.py --binary target/agent-work/baseline/places \
+    --out target/agent-work/load-baseline-r1 --levels places_demo model_zoo \
+    --repeat 1 --window-size 1512x850
+python3 tools/bench/loading.py --binary target/release/places \
+    --out target/agent-work/load-new-r1 --levels places_demo model_zoo \
+    --repeat 1 --window-size 1512x850
+```
+
+`timings.json` names the binary's sha256 in every run, so a comparison can never
+silently mix builds. The phase marks in the trace depend on what the loading
+screen observed, and a phase shorter than a frame may legitimately be missing;
+the harness reports a missing mark as unavailable, never as zero. Level assets
+and the compiled variant are read concurrently, so `Reading level and assets`
+spans both reads and the following boundary (`Assembling compiled world`) is
+published once both halves are done. A startup comparison must state the window
+size, the quality override, and whether the run was cold or warm.
 
 ## Capture views
 

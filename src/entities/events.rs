@@ -40,9 +40,9 @@ pub enum EventKind {
     Spawn,
     /// An animation on the subject completed.
     AnimationComplete,
-    /// Reserved for the navigation/AI upgrade (Job 05).
+    /// An AI agent changed state.
     AiState,
-    /// Reserved for the navigation/AI upgrade (Job 05).
+    /// An AI agent caught its prey.
     Caught,
 }
 

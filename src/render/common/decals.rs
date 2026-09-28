@@ -84,8 +84,8 @@ pub const DECAL_SLOT_SIZE: i32 = 128;
 const DECAL_SLOT_GUTTER: i32 = 8;
 /// Every generated decal sheet id the renderer can draw, in slot order.
 ///
-/// The floor arrow, the hazard stripes and the Pool safety sign are no longer
-/// among these: they are external PNG artwork (`source: "file"` catalog decals)
+/// The floor arrow, the hazard stripes and the Pool safety sign are not among
+/// these: they are external PNG artwork (`source: "file"` catalog decals)
 /// drawn from their own sheets. Three of the atlas cells are therefore unused
 /// and stay transparent.
 pub const DECAL_MATERIALS: [&str; 1] = [DECAL_TEST_MATERIAL];

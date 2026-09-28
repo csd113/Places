@@ -1514,6 +1514,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "developer measurement: prints per-level occlusion box counts"]
     #[allow(clippy::print_stdout)] // developer measurement output, like the audit report
     fn measure_demo_level_box_totals() {
         for (path, label) in [

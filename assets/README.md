@@ -292,32 +292,17 @@ Adding a new appearance is a three-step asset change: the PNG, the catalog
 texture entry and the light entry naming it — plus the mesh family in
 `src/lighting/tuning.rs::fixture_profile`, which is still code.
 
-### Level packs and custom textures
-A `.zip` level pack can ship its own surface art without touching the catalog.
-Put the PNGs under `textures/` next to `level.json` and map material ids in
-`materials.json`:
+### Custom textures
 
-```json
-{
-  "materials": {
-    "pack:wall": { "texture": "textures/my_wall.png", "tile_metres": 3.0,
-                   "tint": [1.0, 1.0, 1.0] },
-    "pack:carpet": { "texture": "core:tex_carpet_beige_01" }
-  }
-}
-```
+A community map ships custom artwork through the catalog, not through the
+package. Add the PNG under `assets/`, register a `texture` entry and a
+`material` entry in `assets/catalog.json`, then name the material from a level
+(see `docs/MAP_AUTHORING_GUIDE.md` §6 and §34).
 
-* The object form is `{ "texture": …, "tile_metres": …, "tint": … }`; the string
-  form is the texture path shorthand.
-* A `pack:` material with no mapping falls back to `textures/<name>.png` inside
-  the pack.
-* A mapping may name a logical catalog texture id (anything with a `:`) to
-  reuse shipped artwork; the pack's own `tile_metres`/`tint` still apply.
-* Pack textures are decoded with the pack's namespace in the cache key, so two
-  packs shipping `textures/wall.png` never share an image; the GPU copies are
-  freed when the next level loads.
-* A mapping that names a file the pack does not contain is a named error in
-  the console, not a silent substitution.
+Level packs (`.zip` with `materials.json`) are not supported: a level is
+compiled into a `.placesmap` package, and the loader and compiler resolve every
+material, decal and fixture through the catalog, so `pack:` ids have no
+producer (see `docs/PACKAGE_FORMAT.md` and `docs/ASSET_SPECIFICATION.md` §11).
 
 ### Adding a new surface material
 
@@ -400,6 +385,17 @@ assets/
 Directory neatness is the lowest priority behind the catalog contract: the
 catalog is what the runtime reads, so files may move freely as long as the
 catalog follows.
+
+## Area READMEs
+
+* [`core/README.md`](core/README.md) — shared, theme-neutral props and materials
+* [`diagnostic/README.md`](diagnostic/README.md) — architecture-test artwork
+* [`entities/README.md`](entities/README.md) — rigged character models
+* [`environment/README.md`](environment/README.md) — the environment themes
+* [`environment/office/README.md`](environment/office/README.md) — the Office pack
+* [`environment/pool/README.md`](environment/pool/README.md) — the Pool pack
+* [`environment/home/README.md`](environment/home/README.md) — the Home pack
+* [`levels/README.md`](levels/README.md) — the shipped level
 
 ## Prop and entity conventions
 
@@ -626,7 +622,7 @@ went. The engine fixtures used by the test suite live in
   `interaction` that toggles their floating label with `E`; the two pool chairs
   are separate instances of one model. See
   `docs/MAP_AUTHORING_GUIDE.md` §29.
-* `tests/fixtures/levels/entity_showcase.json` — the run-04 entity fixture:
+* `tests/fixtures/levels/entity_showcase.json` — the entity fixture:
   two independently routed rats (walk and run at their measured reference
   speeds), a mannequin cycling its three poses, a skeleton cycling its chair
   and floor sits beside a real `core:chair`, and label interactions on every

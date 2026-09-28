@@ -1,0 +1,51 @@
+{
+  "format_version": 3,
+  "id": "repair_clean",
+  "name": "Repair Clean",
+  "author": "Places Team",
+  "spawn": {
+    "x": 2.0,
+    "z": 1.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "walls": [
+    {
+      "x": 1.0,
+      "z": 2.0,
+      "width": 4.0,
+      "depth": 0.3,
+      "y": 0.0,
+      "height": 3.0
+    },
+    {
+      "x": 5.0,
+      "z": 2.0,
+      "width": 4.0,
+      "depth": 0.3,
+      "y": 0.0,
+      "height": 3.0
+    },
+    {
+      "x": 9.0,
+      "z": -0.3,
+      "width": 0.3,
+      "depth": 2.6,
+      "y": 0.0,
+      "height": 3.0
+    }
+  ],
+  "rooms": [
+    {
+      "x": 1.0,
+      "z": 0.0,
+      "width": 8.0,
+      "depth": 2.0,
+      "height": 3.0
+    }
+  ]
+}

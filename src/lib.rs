@@ -2176,7 +2176,7 @@ impl FrameLoop<'_> {
                 let label = match phase {
                     loading::Phase::Queued => "Waiting for previous preparation",
                     loading::Phase::Reading => "Reading level and assets",
-                    loading::Phase::Geometry => "Decoding compiled world",
+                    loading::Phase::Geometry => "Assembling compiled world",
                     loading::Phase::Lightmaps => "Decoding lightmaps",
                     loading::Phase::Collision => "Decoding collision",
                     loading::Phase::Characters => "Preparing characters",
@@ -2776,6 +2776,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match geometry_check::options_from_args(&args) {
         Ok(Some(options)) => return geometry_check::main(&options),
+        Ok(None) => {}
+        Err(error) => geometry_check::exit_usage(&error),
+    }
+    match geometry_check::repair_options_from_args(&args) {
+        Ok(Some(options)) => return geometry_check::repair_main(&options),
         Ok(None) => {}
         Err(error) => geometry_check::exit_usage(&error),
     }

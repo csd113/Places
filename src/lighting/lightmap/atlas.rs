@@ -613,7 +613,7 @@ fn encode_display(value: f32) -> u8 {
 /// Writes one page as a PNG under `path`, creating parent directories.
 ///
 /// Used by the developer atlas dump (`PLACES_DUMP_LIGHTMAPS=1`), which puts its
-/// files under `target/agent-work/atlases/`.
+/// files under `target/diagnostics/atlases/`.
 /// # Errors
 ///
 /// Returns a message when the page cannot be encoded or the file cannot be

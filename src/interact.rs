@@ -247,22 +247,6 @@ impl Interactables {
         Self { items }
     }
 
-    /// Replaces every entry.
-    pub fn replace(&mut self, items: Vec<Interactable>) {
-        self.items = items;
-    }
-
-    /// Appends one entry.
-    pub fn push(&mut self, item: Interactable) {
-        self.items.push(item);
-    }
-
-    /// Every entry, mutably. Used by the entity runtime to republish a routed
-    /// or swinging instance's live pose.
-    pub fn items_mut(&mut self) -> &mut [Interactable] {
-        &mut self.items
-    }
-
     /// Republishes a door target's live aim bound, anchor and phase prompt.
     ///
     /// `door_index` identifies the door and `phase` decides the default prompt;

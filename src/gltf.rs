@@ -37,8 +37,8 @@
 //! morph-weight overrides, a second used skin, texture transforms and every
 //! extension except `KHR_materials_emissive_strength` - produces a descriptive
 //! [`GltfError`] so a malformed asset degrades into the loader's placeholder
-//! box instead of panicking or looping. See the module tests and the handoff
-//! report for the exact supported/unsupported feature table.
+//! box instead of panicking or looping. See the module tests for the exact
+//! supported/unsupported feature table.
 
 use std::collections::{HashMap, HashSet};
 
@@ -1857,7 +1857,7 @@ fn apply_clip_metadata(json: &serde_json::Value, animations: &mut [PropAnimation
     else {
         return;
     };
-    // The run-03 spooner-man marker carries the walk reference speed at the
+    // The spooner-man marker carries the walk reference speed at the
     // top level; a per-clip entry overrides it.
     let marker_walk_speed = marker
         .get("walk_reference_speed")

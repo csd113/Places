@@ -109,7 +109,7 @@ def main() -> int:
     parser.add_argument(
         "--quality",
         default=None,
-        help="low, medium or high (default: the settings file; 'full' is the historical alias of 'high')",
+        help="low, medium or high (default: the settings file; 'full' is an accepted alias of 'high')",
     )
     parser.add_argument("--no-lightmaps", action="store_true", help="force the vertex-lit path")
     parser.add_argument(
@@ -155,7 +155,7 @@ def main() -> int:
                 "args": vars(args),
                 "runs": runs,
                 "summary": summary,
-                # Kept for readers of the earlier flat shape.
+                # Also accepts the flat JSON shape.
                 "median": {field: stats["median"] for field, stats in summary.items()},
             },
             handle,

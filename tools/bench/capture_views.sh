@@ -44,7 +44,7 @@ case "${PLACES_QUALITY:-high}" in
     medium) SUFFIX="${SUFFIX}_medium" ;;
     high | full) ;;
     *)
-        echo "capture_views: PLACES_QUALITY must be 'low', 'medium', 'high' or unset ('full' is the historical alias of 'high')" >&2
+        echo "capture_views: PLACES_QUALITY must be 'low', 'medium', 'high' or unset ('full' is an accepted alias of 'high')" >&2
         exit 2
         ;;
 esac

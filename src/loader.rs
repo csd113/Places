@@ -4601,6 +4601,18 @@ pub fn resolve_fixture_sheets(
     cache: &mut TextureCache,
 ) -> Vec<ResolvedFixtureSheet> {
     let root = crate::assets::resolve_asset_root();
+    // Decode the distinct fixture sheets ahead of the serial pass, exactly like
+    // a level's own materials: each family's sheet is one independent PNG, and
+    // a level with many fixtures of one family then pays its decode once.
+    if let Some(root) = root.as_deref() {
+        let references: Vec<(String, String)> = level
+            .ceiling_lights
+            .iter()
+            .filter_map(|light| catalog.fixture_sheet_path(&light.fixture))
+            .map(|path| (path.to_string(), path.to_string()))
+            .collect();
+        cache.prefetch_catalog(root, &references);
+    }
     // Resolve one sheet per family used, then one per switchable fixture (its
     // own face), each at the material index the geometry emitter assigns it.
     let mut family_sheets: Vec<Option<ResolvedFixtureSheet>> =

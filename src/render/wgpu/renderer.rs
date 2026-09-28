@@ -1675,27 +1675,10 @@ impl WgpuRenderer {
         )
     }
 
-    /// True when a runtime actor with this id is live.
-    #[must_use]
-    pub fn has_runtime_character(&self, instance_id: &str) -> bool {
-        self.characters.runtime_character(instance_id).is_some()
-    }
-
     /// The number of live characters in the current level.
     #[must_use]
     pub const fn character_count(&self) -> usize {
         self.characters.len()
-    }
-
-    /// The character scene, for diagnostics and tests.
-    #[must_use]
-    pub const fn character_scene(&self) -> &CharacterScene {
-        &self.characters
-    }
-
-    /// Mutable access to the neutral character scene (gameplay and tests).
-    pub const fn character_scene_mut(&mut self) -> &mut CharacterScene {
-        &mut self.characters
     }
 
     /// Uploads the current neutral character scene's GPU resources.
@@ -2178,7 +2161,6 @@ impl WgpuRenderer {
         // so an install may call it even when the setting itself did not change.
         self.apply_reflection_targets(self.graphics_requested.reflections);
         self.active_plane = None;
-        self.reflection_passes = 0;
         let world_materials = uploaded_materials.unwrap_or_else(|| {
             WorldMaterials::resolve(
                 &self.device,
@@ -2743,6 +2725,10 @@ impl WgpuRenderer {
     /// one clip-space correction.
     #[allow(clippy::too_many_lines)] // one cohesive frame submission: prepare, encode and present
     pub fn render_scene(&mut self, camera: RenderCamera) {
+        // Per-frame submission counters: RenderStats and the bench CSV report
+        // this frame's reflection captures, which is what the documented
+        // "submissions the frame spent on reflections" field means.
+        self.reflection_passes = 0;
         if self.check_device_lost() {
             return;
         }
@@ -3920,16 +3906,6 @@ impl WgpuRenderer {
     /// produce the Medium captures from the same prepared scene.
     pub fn reprepare_reflection_probes(&mut self, quality: ReflectionQuality) {
         self.apply_reflection_targets(quality);
-        self.bake_reflection_probes();
-    }
-
-    /// Re-runs the probe capture for the currently installed world and
-    /// reflection quality.
-    ///
-    /// The offline compiler calls this after installation (and after changing
-    /// the reflection quality) to produce the cubemaps it packages. The player
-    /// never calls it: a package always carries its captures.
-    pub fn capture_reflection_probes(&mut self) {
         self.bake_reflection_probes();
     }
 

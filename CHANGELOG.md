@@ -1,5 +1,134 @@
 ## Unreleased — final architecture: doors, interactions, effects and content cutover
 
+### Wall and doorway alignment: checker, offline repair and the cap ownership fix
+
+- **The geometry checker now proves wall-joint continuity.** Four checks cover
+  the class where a doorway side sliver or a continued wall section sits half a
+  thickness off the adjoining wall face: `wall-joint-step` (confirmed rigid
+  plane shift, error), `wall-joint-step-review` and `wall-joint-thickness-step`
+  (review warnings) and `wall-joint-emitted-mismatch` (the emitted mesh
+  disagrees with the source decomposition — a generator defect). Checking and
+  repair share one classification (`wall_joints`) and one set of tolerances
+  (plane 1 mm, adjacency 5/35 cm, vertical overlap 30 cm, automatic shift
+  ≤ 25 cm), so they can never disagree about what is broken. A joint is only
+  considered between equal-thickness end-to-end slices; overlays, decorative
+  boards, reveals, thickness transitions, parallel partitions and correct
+  coplanar segments are not flagged.
+- **A confirmed step is repaired offline through an explicit plan/apply path.**
+  `places --repair-geometry --level <source> --plan <json>` is read-only and
+  records the measured shift, the authoritative wall (most directly touching
+  coplanar neighbours, then longer span, then lower index), the coupled skirting
+  and floor-tuck edits and a post-check summary.
+  `python3 tools/levels/repair_alignment.py --plan <json> --check|--apply`
+  verifies the input hash and every old value, applies only the planned edits
+  with an atomic replace, validates the result with the checker, restores the
+  original bytes on any failure and proves a second pass makes no edits. The
+  player never snaps or repairs geometry.
+- **Equal-top wall corners emit exactly one cap.** A later-authored wall's top
+  (or bottom) cap now subtracts every earlier wall's footprint at the same
+  plane, so the shared corner square is owned by exactly one wall with no hole;
+  this removed The Pit's 16 `duplicate-surface` errors and 8 cap-corner
+  slivers, and left the demo, zoo, home and intentional-level prepared blobs
+  byte-identical.
+- **The compiler fingerprint covers geometry generation.**
+  `render::GEOMETRY_REVISION` (2) is folded into both `compiler_fingerprint`
+  and `lighting_fingerprint`, so a package prepared before this emitter change
+  is detected as stale and rebuilt instead of silently reused; previously a
+  generator change was invisible to `places-compile verify`.
+- **Places Demo's misaligned Home south wall is repaired.** Wall 37 was a rigid
+  0.15 m shift off the corridor's continuous wall chain (walls 16/19/31), which
+  exposed a 0.15 m end-cap sliver and an unclosed notch at the corridor→home
+  doorway and mis-shaded the junction. The wall moved to z 14.85..15.15, with
+  its eight coupled skirtings and the balcony floor edge; the one reviewed
+  guardrail end was extended deliberately. All five maintained packages were
+  then rebuilt and rebaked in all three lightmap variants from the final
+  sources (demo `8e3b6028…`, zoo `9b8b90ee…`, pit `bbc547e7…`, home
+  `a258e781…`, intentional `ac0bc592…`), validated and published, and the fresh
+  player loads them with no runtime preparation.
+
+### Lighting: prepared-lightmap representation repair and complete rebake
+
+- **The dominant-axis lightmap encoding is replaced by the moment
+  representation.** Each texel now stores the mean irradiance `I` and the
+  vector sum `g` of the per-channel first moments `m_c = 0.5 * Σ w_c ω`; the
+  shader reconstructs
+  `max(0, I + (I / ΣI) * (2 * max(0, dot(g, n)) - |g|))`. The previous encoding
+  stored a per-channel dominant-lobe amplitude plus an octahedral axis, and the
+  hardware bilinearly interpolated the axis *coordinates*: adjacent texels could
+  land on opposite sides of an octahedral seam, so the nonlinear
+  `2 * max(0, dot(n, axis)) - 1` reconstruction painted a dark/bright contour at
+  every texel boundary — the "circuit board" line art, visible texel grids and
+  false gradients across the premade levels. The new form evaluates its
+  nonlinear step on the scalar `dot(g, n)` of the interpolated moment vector,
+  so interpolation cannot fold across a seam; it is exact for a single shared
+  direction of any colour (`2 * I * max(0, cos)`), collapses smoothly to the
+  isotropic mean where opposing lights cancel, is bounded by `2 * I` and keeps
+  the authored peak/terminator calibration. The planes' alpha channels are
+  reserved.
+- **Version bumps invalidate stale prepared lighting**: solver revision 1 -> 2,
+  lightmap record 2 -> 3, probe field record 1 -> 2. Every maintained premade
+  level (`places_demo`, `model_zoo`, `level0_pit`, `home_showcase`,
+  `geometry_intentional`) was rebuilt in all three lightmap variants from the
+  current sources with the corrected solver.
+- The bounce-cache denoise metric now gates on the smooth irradiance luminance;
+  switchable contributions sum exactly in the stored domain.
+
+### Repository, dead-code, test and documentation cleanup
+
+- **Dead public API removed** where nothing called it: `capture_reflection_probes`
+  (facade and backend copies; the compiler uses `reprepare_reflection_probes`),
+  `has_runtime_character`, `character_scene`, `character_scene_mut`,
+  `Character::animator_mut`, `CharacterAnimator::morph_weight_delta` and
+  `Interactables::{replace, push, items_mut}`. Every declared dependency stays:
+  all ten are reachable from the player or the offline compiler, and there are no
+  stale feature gates.
+- **The Pit stays covered on a fresh checkout.** `levels/level0_pit.json` is a
+  local drop-in, so its two game tests read the tracked, byte-identical fixture
+  `tests/fixtures/levels/level0_pit.json` when the drop-in is not installed. The
+  print-only `measure_demo_level_box_totals` developer measurement is ignored by
+  the normal suite again.
+- **Developer dumps use a stable path.** `PLACES_DUMP_LIGHTMAPS=1` writes
+  `target/diagnostics/atlases/`, and the chart-size dump writes
+  `target/diagnostics/chart-sizes-*.txt` (previously under `target/agent-work/`).
+- **Asset tree documented, not churned.** `assets/README.md` indexes every area
+  README, the Home pack has its own README, and the three not-yet-registered
+  entity models (`carved-pumpkin`, `pumpkin-skeleton`, `sheet-ghost`) are
+  recorded as available catalog candidates. OS junk (`.DS_Store`,
+  `__pycache__`, `.pytest_cache`) was removed. No catalog id, model, texture
+  byte or map source changed, so no package required a rebuild.
+- **Development narration removed** from source comments, tool help and the
+  guides; the architecture, authoring, packaging and verification docs describe
+  the current contract in the present tense, and every path and command example
+  was re-checked against the tree.
+
+### Demo pool wing: the curved shower bay, the finished sauna and the door sweep
+
+- **Curved communal shower bay** in Places Demo: a tiled wet room east of the
+  pool hall (`x 26..33`, `z 7..11`, floor -0.9) reached by two authored 0.3 m
+  deck steps, with one 90-degree `arc_walls` screen sheltering three shower
+  positions built from thin `pillars` risers, `thresholds` arms and disc heads,
+  a wet-gloss `floor_patches` band, drain patches, a tiled bench and four pool
+  luminaires. No new asset: every surface is an existing catalog material and
+  the curve's collision comes from its own tessellation.
+- **Sauna finished**: the two crate stools became a two-tier cedar bench (a
+  0.36 m step between tiers, both walkable from the floor), the room gained
+  cedar skirting, a second warm fixture, repitched steam over the benches, and
+  a second `sauna` door from the shower bay. Both sauna leaves share the one
+  door state machine, collider and action set; both floors are flush at -0.9.
+- **Door sweep repair** (`src/entities/mod.rs`): the static sweep sampled the
+  leaf's hinge-edge thickness corners, which overlap the jamb the hinge is
+  fixed to at every rotated pose, so every map-authored door froze in
+  `opening`/`closing` and never moved. The sweep now samples the leaf's centre
+  plane along the run (a blocker only ever hits the centre plane), and the
+  wall-15 opening's jambs clear the deck-step region edges so the level's
+  geometry check stays clean.
+- **Navigation slope classification** (`src/nav/bake.rs`): a cell is flagged
+  as a continuous slope only when its surface gradient is consistent across
+  the cell. A discrete riser used to read as a slope, so a class could route
+  over risers several times its `step_height` (the 0.2 m rat crossed the 0.3 m
+  landing steps). The Demo's steps now connect the walkers and refuse the rat,
+  and the bake's neighbour rule stays inside what the shared mover can walk.
+
 ### Reusable entities: typed components, events, sequences and spawns
 
 - New **component-oriented entity runtime** (`src/entities/`): every authored

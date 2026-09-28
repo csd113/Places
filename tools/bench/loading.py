@@ -136,6 +136,44 @@ def read_trace(path: Path) -> tuple[list[dict], str | None]:
     return events, error
 
 
+def parse_window_size(value: str) -> tuple[int, int]:
+    """Parse a ``WxH`` logical window size; both edges must be positive."""
+    match = re.fullmatch(r"(\d+)x(\d+)", value.strip())
+    if match is None:
+        raise argparse.ArgumentTypeError(
+            f"window size must be WxH with positive integers, got {value!r}")
+    width, height = int(match.group(1)), int(match.group(2))
+    if width < 1 or height < 1:
+        raise argparse.ArgumentTypeError(f"window size must be positive, got {value!r}")
+    return width, height
+
+
+def package_identity(path: Path) -> dict:
+    """Identity of one installed compiled package, for the run record."""
+    if path.suffix != ".placesmap":
+        raise ValueError(f"not a compiled package: {path}")
+    if not path.is_file():
+        raise ValueError(f"package does not exist: {path}")
+    return {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
+def install_packages(packages: list[Path], levels_dir: Path) -> list[dict]:
+    """Copies named compiled packages into one isolated run's ``levels/``.
+
+    The maintained-map inventory includes private local packages below
+    ``levels/`` that are installed the same way a player installs a downloaded
+    package; passing each one here keeps a measured private level in the same
+    isolated state root as the bundled levels. Each package's sha256 is part of
+    the run record so a result always names the exact bytes it measured.
+    """
+    identities = []
+    for package in packages:
+        identity = package_identity(package)
+        shutil.copy2(package, levels_dir / package.name)
+        identities.append(identity)
+    return identities
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
@@ -145,13 +183,25 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("--workers", type=int, choices=(1, 2, 3), help="runtime chart workers; defaults to the bounded hardware choice")
+    parser.add_argument("--install-package", type=Path, action="append", default=[],
+                        metavar="PATH",
+                        help="install this compiled .placesmap into every isolated run's "
+                             "levels/ directory; repeatable, for private/local maintained maps")
+    parser.add_argument("--window-size", type=parse_window_size, default=parse_window_size("640x360"),
+                        metavar="WxH",
+                        help="logical window size written into the run settings (default 640x360); "
+                             "if macOS occludes the window no scene is ever presented and the run "
+                             "fails honestly, so pick a size that is fully visible when needed")
     args = parser.parse_args()
     if args.repeat < 1:
         parser.error("--repeat must be positive")
     binary, root, out = args.binary.resolve(), args.root.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     report = {"binary": str(binary), "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
-              "root": str(root), "platform": platform.platform(), "cache_definition": "application only; OS/GPU caches untouched", "runs": []}
+              "root": str(root), "platform": platform.platform(), "window_size": f"{args.window_size[0]}x{args.window_size[1]}",
+              "cache_definition": "application only; OS/GPU caches untouched",
+              "installed_packages": [package_identity(package) for package in args.install_package],
+              "runs": []}
     for level in args.levels:
         for repeat in range(args.repeat):
             state = out / f"{level}-{repeat}-state"
@@ -159,7 +209,8 @@ def main() -> int:
             for source in [root / "levels/level0_pit.json", *sorted((root / "tests/fixtures/levels").glob("capacity_*.json"))]:
                 if source.is_file():
                     shutil.copy2(source, state / "levels" / source.name)
-            (state / "settings.json").write_text(json.dumps({"bindings": {"forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D", "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"}, "window_mode": "windowed", "window_width": 640, "window_height": 360, "quality": "high", "vsync": True}))
+            install_packages(args.install_package, state / "levels")
+            (state / "settings.json").write_text(json.dumps({"bindings": {"forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D", "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"}, "window_mode": "windowed", "window_width": args.window_size[0], "window_height": args.window_size[1], "quality": "high", "vsync": True}))
             for cache in ("cold", "warm"):
                 env = {k: v for k, v in os.environ.items() if not k.startswith("PLACES_")}
                 env.update(PLACES_STATE_ROOT=str(state), PLACES_ASSET_ROOT=str(root / "assets"),

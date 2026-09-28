@@ -11,6 +11,40 @@ use crate::ui::{add_rect, draw_text};
 /// Update interval for the performance statistics (roughly twice per second).
 pub const PERF_UPDATE_INTERVAL: Duration = Duration::from_millis(500);
 
+// ------------------------------------------------------ preparation CPU budget
+
+/// Process-wide CPU budget for nested preparation work (texture decode and
+/// similar independent jobs).
+///
+/// `0` means "derive from the host"; `1` means every nested stage runs
+/// serially. The offline compiler stores its `--workers` allocation here, so
+/// one command's nested stages stay inside the one shared budget.
+static PREPARE_WORKERS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Records the shared preparation CPU budget for this process.
+///
+/// `0` restores the derived default. Consumers clamp to their own bounds.
+pub fn set_prepare_workers(workers: usize) {
+    PREPARE_WORKERS.store(workers, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The shared preparation CPU budget, or `None` when the host decides.
+///
+/// An explicit [`set_prepare_workers`] value wins; the documented
+/// `PLACES_TOOL_WORKERS` allocation is the environment fallback, so a tool run
+/// and a player run in the same shell see the same cap.
+#[must_use]
+pub fn prepare_workers() -> Option<usize> {
+    let stored = PREPARE_WORKERS.load(std::sync::atomic::Ordering::Relaxed);
+    if stored > 0 {
+        return Some(stored);
+    }
+    std::env::var("PLACES_TOOL_WORKERS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+}
+
 // ------------------------------------------------------------- startup trace
 
 /// Maximum number of startup marks the trace keeps.

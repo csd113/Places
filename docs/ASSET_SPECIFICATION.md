@@ -58,8 +58,8 @@ introducing it.
 
 1. **Production visual assets are real files in the repository.** Every
    texture, decal, fixture face, normal map and material image is a committed
-   PNG under `assets/`, referenced through `assets/catalog.json` by logical id
-   (or, for level packs, by path inside the pack). The one deliberate
+   PNG under `assets/`, referenced through `assets/catalog.json` by logical id.
+   The one deliberate
    exception is a prop or entity texture: it is a PNG byte stream embedded in
    the model's `.glb` container (see §8). It is still committed artwork, but it
    is not a standalone `.png` file.
@@ -140,6 +140,8 @@ assets/
       glass/*.png                    glass surface sheets
       floors/*.png                   generic floor sheets
       walls/*.png                    generic wall sheets
+      effects/*.png                  effect surface sheets
+      metal/*.png                    metal surface sheets
       normals/*.png                  tangent-space normal maps
       white_01.png                   shared untextured fallback sheet (§12.2)
   environment/
@@ -150,9 +152,12 @@ assets/
         floors/*.png                 floor surface sheets
         ceilings/*.png               ceiling surface sheets
         lights/*.png                 light fixture faces
+        doors/*.png                  door leaf surface sheets
+        water/*.png                  water surface sheets
       decals/*.png                   theme decal sheets
   entities/
     <id>/model/<id>.glb              entities (embedded textures)
+    <id>/textures/*.png              authoring source sheets kept beside the model
   diagnostic/
     textures/*.png                   engine test artwork; never used by shipped levels
 ```
@@ -174,7 +179,9 @@ Rules:
   to the surface they were painted for. The directory is organisational; the
   catalog's `surface` field is documentation/validation only, and what the
   renderer reads is the material's `texture`, `tile_metres`, `tint` and
-  alpha/response fields. A level may use any material on any surface.
+  alpha/response fields. A level may use any material on any surface. Door,
+  water, effect and metal sheets follow the same convention in their own
+  `textures/` subdirectories.
 * **Fixture faces live in `textures/lights/`.** They are catalog `light`
   entries, not `texture` entries; the fixture PNG is the `model` of the light.
 * **Decal sheets live in `decals/`** — `assets/environment/<theme>/decals/`
@@ -223,7 +230,6 @@ currently nothing enforces a minimum for any class.
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
-| Level-pack texture | `textures/*.png` in a `.zip` pack | 1:1 for tiling surfaces | any | none enforced | per pack material | yes for surface materials | same surface UV rules | no tooling validates pack contents |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
 | Documentation capture | `docs/screenshots/01-office.png` | 30:17 (960×544) | 960×544 | — | frame image | no | n/a | docs only |
@@ -605,7 +611,7 @@ respect. They are not tiles: they are fitted to a model's own UV map.
   skins (`JOINTS_0`/`WEIGHTS_0`, one skin per model) and optional LINEAR/STEP
   animation clips, no morph targets. A skinned model's static prop batch draws
   its bind pose; a placed skinned model is re-posed every frame by the
-  character path (see [MAP_AUTHORING_GUIDE.md §16](../MAP_AUTHORING_GUIDE.md#16-props-and-models)).
+  character path (see [MAP_AUTHORING_GUIDE.md §16](MAP_AUTHORING_GUIDE.md#16-props-and-models)).
 * **Textures are embedded PNG bufferViews inside the GLB.** External images
   and `data:` URIs are rejected with the message "external or data-URI images
   are not supported; embed the PNG in the GLB". A `.png` file next to a model
@@ -697,7 +703,7 @@ normal runtime texture         256x256 native
 * A model may declare animation clips without a skin (`home:wall_switch`): it
   parses as a rigid animated prop, every primitive is bound to its owning node
   with weight one, and the character path poses it. See
-  [MAP_AUTHORING_GUIDE.md section 16](../MAP_AUTHORING_GUIDE.md#16-props-and-models).
+  [MAP_AUTHORING_GUIDE.md section 16](MAP_AUTHORING_GUIDE.md#16-props-and-models).
 
 
 ### 8.6 Replacing a model texture
@@ -823,28 +829,17 @@ to the base texture in this document as part of the same change.
 
 ## 11. Level-pack textures
 
-A `.zip` level pack may ship its own surface art next to its `level.json`:
+Level packs are not supported. A level is compiled into a `.placesmap` package,
+and every texture it uses is a catalogued PNG under `assets/` (see §2). A
+`materials.json` mapping `pack:` ids and pack-local `textures/*.png` files have
+no producer in the current workflow: the loader and compiler resolve materials
+through the catalog only, so `pack:` material and fixture ids do not resolve.
 
-* PNGs under `textures/` inside the pack;
-* a `materials.json` mapping `pack:` material ids to those paths (or to
-  catalog texture ids, which reuses shipped artwork).
-
-Pack textures use the same decoder, so the format rules are enforced: PNG,
-≤1024 px per edge, any accepted colour type. The layout rules are the
-author's responsibility — tileable if the material repeats, square for tiling
-surfaces — because the decoder cannot know how a sheet will be sampled. A pack
-mapping that names a missing file is a named console error, not a silent
-substitution.
-
-A pack's `materials.json` supports the same fields as a catalog material
-definition, including `emissive`, `emissive_intensity`, `emissive_mask`,
-`normal_texture`, `normal_strength`, `specular`, `shine`, `alpha_mode`,
-`opacity`, `alpha_cutoff` and the reflection fields. Pack decals are a
-limitation: a `pack:` decal id produces no geometry, because the decal pass
-resolves only built-in patterns and catalog file decals.
-
-There is no tooling that validates pack contents against this specification;
-the pack author is responsible for the same contracts.
+A community map ships custom artwork by registering it in `assets/catalog.json`
+like any other texture or prop. Self-contained packages with embedded texture
+payloads are part of the package format (`kind: "embedded"` dependencies), but
+the current compiler builds maps against the installed asset bundle; see
+[PACKAGE_FORMAT.md](PACKAGE_FORMAT.md).
 
 ---
 
@@ -907,8 +902,7 @@ are excluded from shipped levels and from the dimension-contract test below.
 
 * every environment surface sheet (walls, floors, ceilings);
 * the core surface sheets used as surfaces: glass, linoleum, metal, plastic
-  panels, grille and the normal maps;
-* any level-pack surface texture used by a repeating material.
+  panels, grille and the normal maps.
 
 **Non-tileable classes** (never gated, never expected to wrap):
 
@@ -974,7 +968,7 @@ a runtime edge budget per texture class:
 | Decal sheet | 1024 | 512 | 256 |
 | Prop sheet (embedded) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
-| Lightmap atlas page | 1024 @ 16 texels/m | 1024 @ 12 texels/m | 512 @ 9 texels/m |
+| Lightmap atlas page | 1024 @ 16 texels/m | 1024 @ 12 texels/m | 512 @ 10 texels/m |
 
 * Downscaling happens **once, at upload / level-load time**, through an
   integer-factor box filter that applies the same factor to both edges, so
@@ -1091,7 +1085,6 @@ the style wants it.
 * Prop texture use comes from the model's UVs; the engine reads the decoded
   image's actual width/height.
 * Emissive mask dimensions are never compared to anything.
-* Level-pack textures are read from the pack at the size they are.
 
 The renderer does **not** derive surface texel density from the sheet: it
 always maps `tile_metres` metres to one full sheet, so surface sheets are
@@ -1360,15 +1353,14 @@ a surface sheet must be square, found 1024x2048
 Known enforcement gaps (checked here, not automated):
 
 * no minimum source resolution for any class;
-* pool surface squareness and opacity (squareness is now covered by the new
-  test; opacity is not asserted for pool sheets, though they are opaque in
-  fact);
-* decal non-POT is only a tooling warning for the small sheets (the new Rust
+* pool surface squareness and opacity (squareness is covered by the
+  surface-squareness test; opacity is not asserted for pool sheets, though they
+  are opaque in fact);
+* decal non-POT is only a tooling warning for the small sheets (the Rust
   test makes it a test failure for shipped decals);
 * `tile_metres` is not compared against the painted repeat period;
 * surface and decal orientation, and the "pale albedo" convention, are not
   machine-checked (fixture orientation is pinned by render tests);
-* level-pack contents are not validated;
 * no dead-asset detection (unreferenced files, unused catalog entries);
 * the `--preferred` warning does not fail a build;
 * there is no CI, so every check above is run manually.
@@ -1440,10 +1432,9 @@ without checking the implementation.
 16. **Fixture painters and source images have different sizes.** The shipped
     fluorescent panel is 1024×512; its painter remains 256×128. Consult the
     catalog and this specification when replacing artwork.
-17. **Pack materials are richer than pack textures.** A pack's `materials.json`
-    supports emissive, mask, normal, alpha and reflection fields exactly like a
-    catalog definition; a `pack:` decal id, however, produces no geometry —
-    pack decals are silently unsupported.
+17. **Pack material parsing is dormant.** `src/materials/pack.rs` still parses a
+    pack `materials.json`, but the loader and compiler pass no pack, so no
+    `pack:` id resolves from any level source.
 
 ---
 

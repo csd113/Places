@@ -349,6 +349,186 @@ use super::{
     content_key, content_key_with_extra, page_png_bytes, read_page_texel,
 };
 
+/// A unit vector, for the moment-reconstruction tests.
+fn unit3(vector: [f32; 3]) -> [f32; 3] {
+    let squared = vector[2].mul_add(
+        vector[2],
+        vector[1].mul_add(vector[1], vector[0] * vector[0]),
+    );
+    let length = squared.sqrt();
+    [vector[0] / length, vector[1] / length, vector[2] / length]
+}
+
+/// The dot product, for the moment-reconstruction tests.
+fn dot3(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[2].mul_add(b[2], a[1].mul_add(b[1], a[0] * b[0]))
+}
+
+/// The reconstruction formula, pinned on one shared direction: every
+/// contribution stores `irradiance_c = 0.5 * w_c` and
+/// `direction = sum_c 0.5 * w_c * omega`, so `light_at(n)` must equal the
+/// exact physical lobe `w_c * max(0, dot(n, omega))` per channel: the peak is
+/// `2 * I_c`, the sphere mean is `I_c`, and a receiver facing away is dark.
+#[test]
+fn the_sharp_moment_reconstruction_is_exact_for_one_shared_direction() {
+    let weight = [0.8_f32, 0.4, 0.2];
+    let omega = unit3([0.3, 0.7, -0.2]);
+    let irradiance = [0.5 * weight[0], 0.5 * weight[1], 0.5 * weight[2]];
+    let k: f32 = irradiance.iter().sum();
+    // `g = sum_c m_c = k * omega` when every channel shares one direction.
+    let direction = [k * omega[0], k * omega[1], k * omega[2]];
+    let texel = LightmapTexel {
+        irradiance,
+        direction,
+        axis: [0.5, 0.5],
+    };
+    for normal in [
+        omega,
+        [-omega[0], -omega[1], -omega[2]],
+        [0.0, 1.0, 0.0],
+        unit3([0.6, -0.8, 0.0]),
+    ] {
+        let light = texel.light_at(normal);
+        for channel in 0..3 {
+            let expected = (weight[channel] * dot3(normal, omega)).max(0.0);
+            assert!(
+                (light[channel] - expected).abs() < 1.0e-5,
+                "channel {channel} at {normal:?}: {} vs {expected}",
+                light[channel]
+            );
+        }
+    }
+}
+
+/// The seam regression, pinned on the exact failure the diagnosis recorded:
+/// the demo office wall carried two adjacent texels whose dominant directions
+/// both decoded to about `(0.05, -0.10, -0.99)` but whose *octahedral*
+/// coordinates landed on opposite sides of the seam (`axis.x = 0.928` next to
+/// `0.048`). The hardware interpolated the stored values, so the old shader
+/// swept the decoded axis across the whole square and painted a dark contour
+/// at every texel boundary. The linear moment representation reconstructs
+/// smoothly across the same pair.
+#[test]
+fn the_moment_representation_is_smooth_across_the_historical_octahedral_seam() {
+    let weight = 0.6_f32;
+    let k = 3.0 * 0.5 * weight;
+    let texel = |omega: [f32; 3]| LightmapTexel {
+        irradiance: [0.5 * weight; 3],
+        direction: [k * omega[0], k * omega[1], k * omega[2]],
+        axis: [0.5, 0.5],
+    };
+    let a = texel(unit3([0.050, -0.100, -0.990]));
+    let b = texel(unit3([-0.050, -0.100, -0.990]));
+    let normal = [0.0, 0.0, -1.0];
+    let light_a = a.light_at(normal);
+    let light_b = b.light_at(normal);
+    for channel in 0..3 {
+        let ca = light_a[channel];
+        let cb = light_b[channel];
+        assert!(ca.is_finite() && cb.is_finite());
+        assert!(
+            (ca - cb).abs() < 1.0e-4,
+            "the two texels must reconstruct almost identically: {ca} vs {cb}"
+        );
+        assert!((0.0..=2.0_f32.mul_add(a.irradiance[channel], 1.0e-5)).contains(&ca));
+        assert!((0.0..=2.0_f32.mul_add(b.irradiance[channel], 1.0e-5)).contains(&cb));
+    }
+    // The interpolated middle texel (exactly what the hardware reconstructs
+    // between the two samples) sits between them, not in a dip.
+    let mid = LightmapTexel {
+        irradiance: [
+            f32::midpoint(a.irradiance[0], b.irradiance[0]),
+            f32::midpoint(a.irradiance[1], b.irradiance[1]),
+            f32::midpoint(a.irradiance[2], b.irradiance[2]),
+        ],
+        direction: [
+            f32::midpoint(a.direction[0], b.direction[0]),
+            f32::midpoint(a.direction[1], b.direction[1]),
+            f32::midpoint(a.direction[2], b.direction[2]),
+        ],
+        axis: [0.5, 0.5],
+    };
+    let light_mid = mid.light_at(normal);
+    for channel in 0..3 {
+        let low = light_a[channel].min(light_b[channel]);
+        let high = light_a[channel].max(light_b[channel]);
+        // The sharp cosine is maximized when the interpolated moment is
+        // aligned with the normal, so the midpoint can exceed its endpoints by
+        // a fraction of a percent; the historical artifact dipped by ~50 % of
+        // the peak, three orders of magnitude away from this bound.
+        assert!(
+            (low - 2.0e-3..=high + 2.0e-3).contains(&light_mid[channel]),
+            "the interpolated texel must not dip below its neighbours: {} vs [{low}, {high}]",
+            light_mid[channel]
+        );
+    }
+    // A constant field reconstructs to its isotropic value at every normal.
+    let flat = LightmapTexel {
+        irradiance: [0.4, 0.2, 0.1],
+        direction: [0.0; 3],
+        axis: [0.5, 0.5],
+    };
+    for normal in [[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]] {
+        assert_eq!(flat.light_at(normal), [0.4, 0.2, 0.1]);
+    }
+}
+
+/// The stored form is linear, so layering a switchable fixture's prepared
+/// contribution onto the base solve is an exact component-wise sum: the
+/// irradiance and the signed moment vectors add, and the reserved axis is
+/// copied from the base texel.
+#[test]
+fn plus_is_an_exact_component_wise_sum_for_switchable_layers() {
+    let base = LightmapTexel {
+        irradiance: [0.40, 0.25, 0.10],
+        direction: [0.20, -0.30, 0.05],
+        axis: [0.25, 0.75],
+    };
+    let contribution = LightmapTexel {
+        irradiance: [0.05, 0.10, 0.20],
+        direction: [-0.15, 0.40, -0.05],
+        axis: [0.5, 0.5],
+    };
+    let sum = base.plus(contribution);
+    for channel in 0..3 {
+        let expected = base.irradiance[channel] + contribution.irradiance[channel];
+        assert!(
+            (sum.irradiance[channel] - expected).abs() < 1.0e-6,
+            "irradiance channel {channel}: {} vs {expected}",
+            sum.irradiance[channel]
+        );
+        let expected = base.direction[channel] + contribution.direction[channel];
+        assert!(
+            (sum.direction[channel] - expected).abs() < 1.0e-6,
+            "direction channel {channel}: {} vs {expected}",
+            sum.direction[channel]
+        );
+    }
+    assert_eq!(sum.axis, base.axis, "the reserved axis stays the base's");
+    // A negative moment component must survive the sum: the sign carries the
+    // direction of the field, and clamping it would darken the far side.
+    let opposed = base.plus(LightmapTexel {
+        direction: [-0.40, 0.0, 0.0],
+        ..LightmapTexel::ZERO
+    });
+    assert_eq!(opposed.direction[0], -0.20);
+}
+
+/// `normalized` keeps the signed moment (the old representation clamped it
+/// non-negative) and only drops non-finite components.
+#[test]
+fn normalized_keeps_the_signed_moment() {
+    let texel = LightmapTexel {
+        irradiance: [-1.0, f32::NAN, 0.5],
+        direction: [-0.3, f32::INFINITY, 0.7],
+        axis: [-0.25, f32::NAN],
+    }
+    .normalized();
+    assert_eq!(texel.irradiance, [0.0, 0.0, 0.5]);
+    assert_eq!(texel.direction, [-0.3, 0.0, 0.7]);
+    assert_eq!(texel.axis, [0.0, 0.5]);
+}
+
 #[test]
 fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
@@ -1756,7 +1936,7 @@ fn measure_demo_chart_statistics() {
                 let (w, h) = config.chart_texels(patch);
                 dump.push_str(&format!("{w} {h}\n"));
             }
-            let path = format!("target/agent-work/chart-sizes-{}.txt", profile.name());
+            let path = format!("target/diagnostics/chart-sizes-{}.txt", profile.name());
             std::fs::write(&path, dump).expect("chart size dump");
             println!("    wrote {path} (chart texels, emission order)");
         }

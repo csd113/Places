@@ -2,11 +2,15 @@
 //!
 //! The lightmap path stores the offline transport solve
 //! ([`crate::lighting::transport`]) per texel in a linear HDR atlas. Every texel
-//! carries two values: an *irradiance* term and a *directional* moment, which
-//! the fragment shader reconstructs as
-//! `light(n) = max(0, irradiance + dot(direction, n))`. The surface texture is
-//! multiplied by that reconstructed light exactly once; albedo never appears in
-//! the stored light.
+//! carries an *irradiance* mean and the vector sum of the per-channel first
+//! moments, which the fragment shader reconstructs as the calibrated sharp
+//! cosine
+//! `light_c(n) = max(0, I_c + (I_c / sum I) * (2 * max(0, dot(g, n)) - |g|))`.
+//! The nonlinear step runs on the scalar `dot(g, n)` of the interpolated moment
+//! vector, so the hardware interpolation between texels cannot sweep a
+//! discontinuous parameterisation (the seam bug of the old octahedral-axis
+//! encoding). The surface texture is multiplied by that reconstructed light
+//! exactly once; albedo never appears in the stored light.
 //!
 //! ```text
 //! mesh emitter                     transport solver (bake time)
@@ -43,29 +47,34 @@ pub use atlas::{
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
 pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats, SwitchableLightmaps};
 
-/// The two linear HDR values one lightmap texel stores.
+/// The two stored linear HDR terms of one lightmap texel.
 ///
-/// `irradiance` is the isotropic term and `direction` the dominant lobe's
-/// per-channel amplitude, in the same linear HDR "display light" units the
-/// offline transport solver produces; `axis` is that lobe's incoming direction,
-/// octahedrally packed into two `0..=1` coordinates. The shader reconstructs
-/// `max(0, irradiance + direction * (2 * max(0, dot(n, decode(axis))) - 1))`:
-/// exact at the dominant light's direction, dark for a surface facing away,
-/// and mean-exact over the sphere (the directional factor integrates to zero),
-/// so a normal-mapped or curved surface sees a real directional response
-/// instead of one uniform value.
+/// `irradiance` is the isotropic mean term (`0.5 * sum_c w_c`) in the linear
+/// HDR "display light" units the offline transport solver produces.
+/// `direction` is the **vector sum of the per-channel first moments**,
+/// `g = sum_c m_c` with `m_c = 0.5 * sum_contributions w_c * omega`, where
+/// `omega` is the unit world-space direction from the receiver toward the
+/// contribution; the components are signed. `axis` is **reserved**: writers
+/// store `[0.5, 0.5]` and consumers ignore it (the two `Rgba16Float` planes
+/// keep their alpha channels for format stability).
 ///
-/// The per-channel amplitude keeps a colored room's bounce directional in the
-/// same proportions as its isotropic term, and a field with no dominant
-/// direction (two opposing lights, a fully diffuse room) has a zero amplitude
-/// and reconstructs to `irradiance` alone.
+/// The shader and [`Self::light_at`] reconstruct the calibrated sharp cosine
+/// from the *interpolated* moment vector:
+/// `max(0, I_c + (I_c / sum_c I_c) * (2 * max(0, dot(g, n)) - |g|))`.
+/// That form is exact for any number of contributions sharing one direction of
+/// any colour (`2 * I_c * max(0, cos)`), evaluates its nonlinear step on the
+/// scalar `dot(g, n)` so interpolation cannot fold across an encoding seam,
+/// collapses smoothly to the isotropic mean where opposing contributions
+/// cancel the moment, is never negative before the clamp (`|g| <= sum I`) and
+/// is bounded by `2 * irradiance_c`, so a normal-mapped or curved surface sees
+/// a real directional response instead of one uniform value.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LightmapTexel {
-    /// Isotropic irradiance term, linear HDR, never negative.
+    /// Isotropic irradiance mean term, linear HDR, never negative.
     pub irradiance: [f32; 3],
-    /// Per-channel amplitude of the dominant directional lobe.
+    /// Vector sum of the per-channel first moments, linear HDR, signed.
     pub direction: [f32; 3],
-    /// Octahedral `(x, y)` coordinates in `0..=1` of the dominant direction.
+    /// Reserved: writers store `[0.5, 0.5]`, consumers ignore it.
     pub axis: [f32; 2],
 }
 
@@ -91,11 +100,10 @@ impl LightmapTexel {
         }
         for (channel, slot) in out.direction.iter_mut().enumerate() {
             let value = self.direction.get(channel).copied().unwrap_or(0.0);
-            *slot = if value.is_finite() {
-                value.max(0.0)
-            } else {
-                0.0
-            };
+            // A moment vector is signed: it keeps its sign and only drops
+            // non-finite components, which could otherwise poison every later
+            // interpolation.
+            *slot = if value.is_finite() { value } else { 0.0 };
         }
         for (slot, value) in out.axis.iter_mut().zip(self.axis) {
             *slot = if value.is_finite() {
@@ -108,19 +116,48 @@ impl LightmapTexel {
     }
 
     /// The reconstructed light at `normal`, in linear HDR units.
+    ///
+    /// The moment form: `k` is the sum of the irradiance channels, `g` the
+    /// stored first-moment vector and `|g|` its length. The dominant lobe is
+    /// evaluated from the *interpolated* moment vector and applied as the
+    /// calibrated sharp cosine:
+    ///
+    /// ```text
+    /// light_c = max(0, I_c + (I_c / k) * (2 * max(0, dot(g, n)) - |g|))
+    /// ```
+    ///
+    /// The nonlinear step is a function of the scalar `dot(g, n)`, so every
+    /// interpolated quantity stays linear and no interpolation can fold across
+    /// an encoding seam. A zero moment returns the isotropic term; a single
+    /// shared direction is exact (`2 * I * max(0, cos)`); a near-cancelling
+    /// moment collapses to the mean. The result is never negative before the
+    /// clamp because `|g| <= k`, and it is bounded by `2 * I_c`. A black texel
+    /// (`k` near zero) reconstructs to its irradiance alone.
     #[must_use]
     pub fn light_at(self, normal: [f32; 3]) -> [f32; 3] {
-        let direction = oct_decode(self.axis);
-        let cosine = normal[2].mul_add(
-            direction[2],
-            normal[1].mul_add(direction[1], normal[0] * direction[0]),
+        let k = self.irradiance[0] + self.irradiance[1] + self.irradiance[2];
+        let moment = normal[2].mul_add(
+            self.direction[2],
+            normal[1].mul_add(self.direction[1], normal[0] * self.direction[0]),
         );
-        let lobe = cosine.max(0.0).mul_add(2.0, -1.0);
+        let length = self.direction[2]
+            .mul_add(
+                self.direction[2],
+                self.direction[1].mul_add(self.direction[1], self.direction[0] * self.direction[0]),
+            )
+            .sqrt();
+        let lobe = 2.0_f32.mul_add(moment.max(0.0), -length);
         let mut out = [0.0_f32; 3];
         for (channel, slot) in out.iter_mut().enumerate() {
             let a = self.irradiance.get(channel).copied().unwrap_or(0.0);
-            let d = self.direction.get(channel).copied().unwrap_or(0.0);
-            let value = d.mul_add(lobe, a);
+            // The asymmetric condition (rather than `k <= 1e-6`) mirrors the
+            // shader's `select(..., k > 1e-6)` exactly: a non-finite `k` also
+            // falls back to the isotropic term.
+            let value = if k > 1.0e-6 {
+                (a / k).mul_add(lobe, a)
+            } else {
+                a
+            };
             *slot = if value.is_finite() {
                 value.max(0.0)
             } else {
@@ -130,22 +167,15 @@ impl LightmapTexel {
         out
     }
 
-    /// Per-channel sum of two texels.
+    /// The exact component-wise sum of two texels.
     ///
-    /// Used to layer a switchable fixture's prepared contribution on top of
-    /// the base solve. Two dominant lobes cannot be summed in this compact
-    /// representation, so the result keeps the stronger lobe's axis and adds
-    /// the amplitudes; the same bounded approximation the solver makes when a
-    /// texel gathers several directions.
+    /// Used to layer one prepared contribution onto another in the stored
+    /// (pre-reconstruction) domain, such as a switchable fixture's prepared
+    /// set on top of the base solve. The stored representation is linear in
+    /// both fields, so adding the irradiance and signed moment vectors is
+    /// lossless; `axis` is reserved and copied from `self`.
     #[must_use]
     pub fn plus(self, other: Self) -> Self {
-        let self_energy = self.direction.iter().map(|value| value.abs()).sum::<f32>();
-        let other_energy = other.direction.iter().map(|value| value.abs()).sum::<f32>();
-        let axis = if other_energy > self_energy {
-            other.axis
-        } else {
-            self.axis
-        };
         Self {
             irradiance: [
                 self.irradiance[0] + other.irradiance[0],
@@ -157,7 +187,7 @@ impl LightmapTexel {
                 self.direction[1] + other.direction[1],
                 self.direction[2] + other.direction[2],
             ],
-            axis,
+            axis: self.axis,
         }
         .normalized()
     }
@@ -169,75 +199,6 @@ impl LightmapTexel {
             && self.direction.iter().all(|value| value.is_finite())
             && self.axis.iter().all(|value| value.is_finite())
     }
-}
-
-/// Packs a unit direction into two `0..=1` octahedral coordinates.
-///
-/// The standard octahedral map: the sphere is projected onto the octahedron
-/// `|x| + |y| + |z| = 1` and unfolded into the unit square. A zero or
-/// non-finite direction maps to the centre (the `+Z` pole), which is harmless
-/// because a zero amplitude ignores the axis entirely.
-#[must_use]
-pub fn oct_encode(direction: [f32; 3]) -> [f32; 2] {
-    if !direction.iter().all(|value| value.is_finite()) {
-        return [0.5, 0.5];
-    }
-    let norm = direction[0].abs() + direction[1].abs() + direction[2].abs();
-    if !norm.is_finite() || norm <= 1.0e-9 {
-        return [0.5, 0.5];
-    }
-    let mut x = direction[0] / norm;
-    let mut y = direction[1] / norm;
-    if direction[2] < 0.0 {
-        let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
-        let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
-        let old_x = x;
-        x = (1.0 - y.abs()) * sign_x;
-        y = (1.0 - old_x.abs()) * sign_y;
-    }
-    // `x` and `y` are in `-1..=1`; fold into `0..=1` for the half-float plane.
-    [x.midpoint(1.0), y.midpoint(1.0)]
-}
-
-/// Unpacks the two octahedral coordinates back to a unit direction.
-#[must_use]
-pub fn oct_decode(axis: [f32; 2]) -> [f32; 3] {
-    let x = if axis[0].is_finite() {
-        axis[0].clamp(0.0, 1.0).mul_add(2.0, -1.0)
-    } else {
-        0.0
-    };
-    let y = if axis[1].is_finite() {
-        axis[1].clamp(0.0, 1.0).mul_add(2.0, -1.0)
-    } else {
-        0.0
-    };
-    let z = 1.0 - x.abs() - y.abs();
-    let decoded = if z < 0.0 {
-        let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
-        let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
-        let old_x = x;
-        [(1.0 - y.abs()) * sign_x, (1.0 - old_x.abs()) * sign_y, z]
-    } else {
-        [x, y, z]
-    };
-    // Interpolated coordinates are not exactly on the unit sphere, so the
-    // decode normalises; a degenerate pair falls back to the +Z pole, which a
-    // zero amplitude ignores anyway.
-    let length = decoded[2]
-        .mul_add(
-            decoded[2],
-            decoded[1].mul_add(decoded[1], decoded[0] * decoded[0]),
-        )
-        .sqrt();
-    if !length.is_finite() || length <= 1.0e-9 {
-        return [0.0, 0.0, 1.0];
-    }
-    [
-        decoded[0] / length,
-        decoded[1] / length,
-        decoded[2] / length,
-    ]
 }
 
 /// Why a lightmap build did not produce a usable atlas.
@@ -620,10 +581,11 @@ impl LightmapConfig {
     ///
     /// The densities are the highest that fit the page budget on the shipped
     /// demo with the deterministic packer: `Full` 16 texels/m (matches the
-    /// shared cap exactly) and `Low` 9 texels/m, both measured on `places_demo`
-    /// well inside the four-page budget. A density that does not fit the budget
-    /// is worse than a lower one: the whole level falls back to vertex
-    /// lighting.
+    /// shared cap exactly) and `Low` 10 texels/m, both measured on
+    /// `places_demo` inside its page budget (`Low` packs the demo into three
+    /// 512-texel pages at 10 texels/m; the eight-page budget still holds). A
+    /// density that does not fit the budget is worse than a lower one: the
+    /// whole level falls back to vertex lighting.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
         match profile {
@@ -635,7 +597,7 @@ impl LightmapConfig {
                 bytes_per_texel: 16,
             },
             crate::quality::QualityProfile::Low => Self {
-                texels_per_metre: 9.0,
+                texels_per_metre: 10.0,
                 page_edge: 512,
                 max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
                 padding: 1,

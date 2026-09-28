@@ -813,6 +813,48 @@ fn fall_back_to_missing(
     entry.reflection = MaterialReflection::NONE;
 }
 
+/// Catalog images a material table will decode, in first-use order.
+///
+/// Exactly the catalog references the serial resolution pass asks the cache
+/// for (each entry's albedo plus any catalog emissive mask or normal map), so
+/// the prefetch never decodes an image this level does not use. Pack images
+/// are not listed: they decode from the pack's own bytes through its cache.
+fn catalog_image_references(
+    table: &MaterialTable,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+) -> Vec<(String, String)> {
+    let mut references: Vec<(String, String)> = Vec::new();
+    let mut push_catalog = |texture_id: &str| {
+        if let Some(path) = catalog.texture_path(texture_id) {
+            references.push((texture_id.to_string(), path.to_string()));
+        }
+    };
+    for entry in &table.entries {
+        if entry.origin == TextureOrigin::Catalog {
+            push_catalog(&entry.texture_key);
+        }
+        let definition = pack.and_then(|pack| pack.definition(&entry.id));
+        for (field, authored) in [
+            (
+                "emissive_mask",
+                definition.and_then(|definition| definition.emissive_mask.as_deref()),
+            ),
+            (
+                "normal_texture",
+                definition.and_then(|definition| definition.normal_texture.as_deref()),
+            ),
+        ] {
+            if let Some(AuthoredTexture::Catalog { texture_id, .. }) =
+                authored_texture(&entry.id, field, authored, catalog, pack)
+            {
+                push_catalog(&texture_id);
+            }
+        }
+    }
+    references
+}
+
 /// Resolves every material a level references into decoded images.
 ///
 /// Built-in materials resolve through the catalog and are decoded once into
@@ -831,6 +873,15 @@ pub fn resolve_materials(
 ) -> MaterialTable {
     let mut table = MaterialTable::logical(level, catalog, pack);
     let missing = Arc::new(missing_texture());
+    // Catalog images are independent PNG files, so decode them ahead of the
+    // serial pass with a bounded worker pool. The pass below re-reads the same
+    // bytes (its content-change contract is unchanged) and finds the decoded
+    // images in the cache instead of paying the PNG cost one material at a
+    // time.
+    if let Some(root) = asset_root {
+        let references = catalog_image_references(&table, catalog, pack);
+        cache.prefetch_catalog(root, &references);
+    }
     // Split the borrow so an entry can be updated while the shared texture list
     // is interned into.
     let MaterialTable {

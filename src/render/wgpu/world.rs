@@ -3501,12 +3501,13 @@ mod tests {
             "environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page))",
             "let page = u32(in.lightmap_page + 0.5);",
             "let pages = environment.lightmap_page_count;",
-            "fn decode_octahedral(axis: vec2<f32>) -> vec3<f32>",
-            "let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer);",
-            "let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u);",
-            "let axis = decode_octahedral(vec2<f32>(irradiance.a, direction.a));",
-            "let lobe = 2.0 * max(0.0, dot(normal, axis)) - 1.0;",
-            "max(vec3<f32>(0.0), irradiance.rgb + direction.rgb * lobe)",
+            "fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32>",
+            "let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer).rgb;",
+            "let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u).rgb;",
+            "let k = irradiance.r + irradiance.g + irradiance.b;",
+            "let lobe = 2.0 * max(0.0, dot(direction, normal)) - length(direction);",
+            "let directional = irradiance / max(k, 1.0e-6) * lobe;",
+            "max(vec3<f32>(0.0), irradiance + select(vec3<f32>(0.0), directional, k > 1.0e-6))",
             "environment.lightmap_switchable & 0xFu",
             "(environment.lightmap_switchable >> 8u) & 0xFu",
             "pages * 2u * (group + 1u) + page * 2u",
@@ -3515,6 +3516,12 @@ mod tests {
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
+        // The octahedral decode and the interpolated-axis reconstruction are
+        // gone: the stored moment planes are linear, and the only nonlinear
+        // step runs on the scalar `dot(g, n)` and `|g|` of the interpolated
+        // moment, never on encoded coordinates.
+        assert!(!WORLD_SHADER_SRC.contains("decode_octahedral"));
+        assert!(!WORLD_SHADER_SRC.contains("2.0 * max(0.0, dot(normal, axis)) - 1.0"));
         // The multiply happens in display space, where the reference did it,
         // and the sheen is scaled by the same factor, so a dark room darkens
         // the sheen.
@@ -3674,35 +3681,33 @@ mod tests {
         0.8 + shoulder * (1.0 - (-(value - 0.8) / shoulder).exp())
     }
 
-    /// The CPU mirror of the shader's octahedral decode.
-    fn decode_octahedral(axis: [f32; 2]) -> [f32; 3] {
-        let x = axis[0].clamp(0.0, 1.0) * 2.0 - 1.0;
-        let y = axis[1].clamp(0.0, 1.0) * 2.0 - 1.0;
-        let z = 1.0 - x.abs() - y.abs();
-        if z < 0.0 {
-            let sign_x = if x >= 0.0 { 1.0 } else { -1.0 };
-            let sign_y = if y >= 0.0 { 1.0 } else { -1.0 };
-            return [(1.0 - y.abs()) * sign_x, (1.0 - x.abs()) * sign_y, z];
-        }
-        [x, y, z]
-    }
-
     /// The CPU mirror of the shader's `decode_lightmap` over the layer array:
-    /// the irradiance plane at `layer` with the octahedral x in its alpha, the
-    /// dominant-lobe plane after it with the octahedral y in its alpha, and
-    /// `max(0, irradiance + direction * (2 * max(0, n . axis) - 1))`. `layers`
-    /// is the array's flat per-layer sample list, exactly as the texture holds
-    /// it.
+    /// the irradiance plane at `layer` and the direction-moment plane after it,
+    /// with `k = I.r + I.g + I.b` and
+    /// `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - |g|))`; the
+    /// planes' alpha channels are reserved and ignored. `layers` is the array's
+    /// flat per-layer sample list, exactly as the texture holds it.
     fn decode_lightmap(layer: usize, normal: [f32; 3], layers: &[[f32; 4]]) -> [f32; 3] {
         let irradiance = layers.get(layer).copied().unwrap_or([0.0; 4]);
         let direction = layers
             .get(layer.saturating_add(1))
             .copied()
             .unwrap_or([0.0; 4]);
-        let axis = decode_octahedral([irradiance[3], direction[3]]);
-        let cosine = normal[0] * axis[0] + normal[1] * axis[1] + normal[2] * axis[2];
-        let lobe = 2.0 * cosine.max(0.0) - 1.0;
-        std::array::from_fn(|channel| (irradiance[channel] + direction[channel] * lobe).max(0.0))
+        let k = irradiance[0] + irradiance[1] + irradiance[2];
+        let dot = normal[0] * direction[0] + normal[1] * direction[1] + normal[2] * direction[2];
+        let length = (direction[0] * direction[0]
+            + direction[1] * direction[1]
+            + direction[2] * direction[2])
+            .sqrt();
+        let lobe = 2.0 * dot.max(0.0) - length;
+        std::array::from_fn(|channel| {
+            let directional = if k > 1.0e-6 {
+                irradiance[channel] / k * lobe
+            } else {
+                0.0
+            };
+            (irradiance[channel] + directional).max(0.0)
+        })
     }
 
     /// A CPU mirror of the shader's `surface_light`, for the layer/addressing,
@@ -3757,28 +3762,27 @@ mod tests {
     fn the_light_seam_reconstructs_and_selects_groups_like_the_reference() {
         // The exact layer layout `LevelLightmaps::irradiance_layer` produces
         // for two pages and two switchable groups: each page is an irradiance
-        // plane then a dominant-lobe plane, base pages first (irradiance at 0
-        // and 2), group 0's page planes at 4/6, group 1's at 8/10. The alpha
-        // channels carry the octahedral axis, `[0.5, 0.5]` for the +Z pole
-        // (which a zero amplitude ignores) and `[0.5, 1.0]` for +Y.
-        let no_axis = 0.5;
+        // plane then a direction-moment plane, base pages first (irradiance at
+        // 0 and 2), group 0's page planes at 4/6, group 1's at 8/10. The alpha
+        // channels are reserved (`0.5`) and the reconstruction ignores them.
+        let reserved = 0.5;
         let layers: Vec<[f32; 4]> = vec![
-            // Base page 0: irradiance, dominant lobe.
-            [0.1, 0.1, 0.1, no_axis],
-            [0.0, 0.0, 0.0, no_axis],
-            // Base page 1: a +Y dominant lobe.
-            [0.2, 0.2, 0.2, 0.5],
-            [0.0, 0.3, 0.0, 1.0],
+            // Base page 0: irradiance, zero moment.
+            [0.1, 0.1, 0.1, reserved],
+            [0.0, 0.0, 0.0, reserved],
+            // Base page 1: irradiance and a +Y moment of 0.3.
+            [0.2, 0.2, 0.2, reserved],
+            [0.0, 0.3, 0.0, reserved],
             // Group 0, page 0 then page 1.
-            [0.05, 0.05, 0.05, no_axis],
-            [0.0, 0.0, 0.0, no_axis],
-            [0.06, 0.06, 0.06, no_axis],
-            [0.0, 0.0, 0.0, no_axis],
+            [0.05, 0.05, 0.05, reserved],
+            [0.0, 0.0, 0.0, reserved],
+            [0.06, 0.06, 0.06, reserved],
+            [0.0, 0.0, 0.0, reserved],
             // Group 1, page 0 then page 1.
-            [0.02, 0.02, 0.02, no_axis],
-            [0.0, 0.0, 0.0, no_axis],
-            [0.03, 0.03, 0.03, no_axis],
-            [0.0, 0.0, 0.0, no_axis],
+            [0.02, 0.02, 0.02, reserved],
+            [0.0, 0.0, 0.0, reserved],
+            [0.03, 0.03, 0.03, reserved],
+            [0.0, 0.0, 0.0, reserved],
         ];
         let unit = [1.0; 3];
         let up = [0.0, 1.0, 0.0];
@@ -3793,22 +3797,24 @@ mod tests {
         };
 
         // Every stamped page byte addresses its own pair within the base group,
-        // and the reconstruction reads the direction moment at the material
-        // normal, per channel: base page 1 is
-        // `max(0, 0.2 + 0.3 * n_y)` on the green channel only.
+        // and the reconstruction reads the moment vector at the material
+        // normal: base page 1 reconstructs
+        // `max(0, 0.2 + (0.2 / 0.6) * 0.3) = 0.3` on every channel, because
+        // `g = (0, 0.3, 0)` dots to `0.3` and each channel scales by its own
+        // share of the mean irradiance.
         close(
             surface_light_mirror(true, 0.0, 2, 0, 0, up, &layers, unit),
             [0.1; 3],
         );
         close(
             surface_light_mirror(true, 1.0, 2, 0, 0, up, &layers, unit),
-            [0.2, 0.5, 0.2],
+            [0.3; 3],
         );
-        // A surface facing away from the dominant direction clamps at zero,
-        // not at a negative draw.
+        // A surface facing away from the moment loses the directional part
+        // without a negative draw.
         close(
             surface_light_mirror(true, 1.0, 2, 0, 0, down, &layers, unit),
-            [0.2, 0.0, 0.2],
+            [0.1; 3],
         );
         // The base group alone stays the reference: it holds every switchable
         // fixture's contribution out.
@@ -3829,9 +3835,10 @@ mod tests {
             surface_light_mirror(true, 0.0, 2, 2, 0b11, up, &layers, unit),
             [0.17; 3],
         );
+        // Page byte 1 inside group 0 addresses that group's page 1: 0.3 + 0.06.
         close(
             surface_light_mirror(true, 1.0, 2, 2, 0b01, up, &layers, unit),
-            [0.26, 0.56, 0.26],
+            [0.36; 3],
         );
         // A count of one means group 1 does not exist: its mask bit is read but
         // the loop never reaches it.
@@ -3861,7 +3868,7 @@ mod tests {
         );
         close(
             surface_light_mirror(true, 1.0, 2, 0, 0, up, &layers, [2.0; 3]),
-            [0.4, 1.0, 0.4],
+            [0.6; 3],
         );
         close(
             surface_light_mirror(true, 0.0, 2, 0, 0, up, &layers, [2.0; 3]),
@@ -3885,6 +3892,117 @@ mod tests {
         assert!(WORLD_SHADER_SRC.contains("let page = u32(in.lightmap_page + 0.5);"));
         assert!(WORLD_SHADER_SRC.contains("pages * 2u * (group + 1u) + page * 2u"));
         assert!(WORLD_SHADER_SRC.contains("soft_clip(hdr)"));
+    }
+
+    /// The runtime-side regression for the octahedral-seam artifact: two
+    /// adjacent texels whose *old* octahedral encodings straddled the stored
+    /// `x = 0.5` seam while their physical directions were nearly equal. The
+    /// hardware bilinearly interpolates whatever is stored; under the old
+    /// representation that blended the folded axis coordinates, so decoding
+    /// the blended pair swept through the fold and collapsed towards black in
+    /// the middle of the span (the dark contour the artifact report
+    /// describes). The new representation stores linear irradiance and a
+    /// linear moment vector, and its only nonlinear step runs on the scalar
+    /// of the interpolated moment, so reconstructing the interpolated pair
+    /// sweeps a bounded interval.
+    ///
+    /// The simulation mirrors the WGSL exactly: the interpolated planes feed
+    /// `decode_lightmap` in `world.wgsl`, whose body is
+    /// `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - |g|))`.
+    #[test]
+    fn the_moment_reconstruction_interpolates_smoothly_across_the_old_octahedral_seam() {
+        // The two stored encodings measured in the artifact evidence, both
+        // decoding to a direction near `(0, -0.1, -0.99)`: the stored `x`
+        // jumps from 0.928 to 0.048 across the seam at 0.5.
+        let old_axis = [[0.928_f32, 0.048], [0.048, 0.048]];
+        // The old shader's octahedral decode, kept here only as the measured
+        // counter-example (neither it nor its formula exist in the shader any
+        // more).
+        let old_decode = |axis: [f32; 2]| -> [f32; 3] {
+            let p = [
+                axis[0].clamp(0.0, 1.0) * 2.0 - 1.0,
+                axis[1].clamp(0.0, 1.0) * 2.0 - 1.0,
+            ];
+            let z = 1.0 - p[0].abs() - p[1].abs();
+            if z < 0.0 {
+                let sign_x = if p[0] >= 0.0 { 1.0 } else { -1.0 };
+                let sign_y = if p[1] >= 0.0 { 1.0 } else { -1.0 };
+                [(1.0 - p[1].abs()) * sign_x, (1.0 - p[0].abs()) * sign_y, z]
+            } else {
+                [p[0], p[1], z]
+            }
+        };
+        let normalize = |v: [f32; 3]| {
+            let length = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+            [v[0] / length, v[1] / length, v[2] / length]
+        };
+        // The physical directions the two texels encode, from the old decode.
+        let omega_a = normalize(old_decode(old_axis[0]));
+        let omega_b = normalize(old_decode(old_axis[1]));
+        // A single shared direction stores `g = k * omega` (the interface's
+        // moment identity), with `k = I.r + I.g + I.b = 1.5` on both texels;
+        // the old representation additionally stored the per-channel amplitude
+        // `A = I` (amplitude was not the artifact's carrier).
+        let irradiance = [0.5_f32; 3];
+        let k = 1.5_f32;
+        let moment_a = omega_a.map(|channel| channel * k);
+        let moment_b = omega_b.map(|channel| channel * k);
+        // A wall facing the light: the moment points at -Z.
+        let normal = [0.0_f32, 0.0, -1.0];
+
+        let mut new_min = f32::MAX;
+        let mut new_max = f32::MIN;
+        let mut old_min = f32::MAX;
+        let mut old_max = f32::MIN;
+        for step in 0..=64 {
+            #[allow(clippy::cast_precision_loss)] // 65 exact sample positions
+            let t = (step as f32) / 64.0;
+            // The blend the hardware performs: every stored value interpolates
+            // linearly, so the sampled planes are the linear pair below.
+            let planes = [
+                [irradiance[0], irradiance[1], irradiance[2], 0.5],
+                [
+                    moment_a[0] + (moment_b[0] - moment_a[0]) * t,
+                    moment_a[1] + (moment_b[1] - moment_a[1]) * t,
+                    moment_a[2] + (moment_b[2] - moment_a[2]) * t,
+                    0.5,
+                ],
+            ];
+            let light = decode_lightmap(0, normal, &planes);
+            for value in light {
+                new_min = new_min.min(value);
+                new_max = new_max.max(value);
+            }
+            let axis = [
+                old_axis[0][0] + (old_axis[1][0] - old_axis[0][0]) * t,
+                old_axis[0][1] + (old_axis[1][1] - old_axis[0][1]) * t,
+            ];
+            let decoded = old_decode(axis);
+            let cosine = decoded[0] * normal[0] + decoded[1] * normal[1] + decoded[2] * normal[2];
+            let lobe = 2.0 * cosine.max(0.0) - 1.0;
+            for value in irradiance {
+                let old_light = (value + value * lobe).max(0.0);
+                old_min = old_min.min(old_light);
+                old_max = old_max.max(old_light);
+            }
+        }
+        // The new representation renders the span as a narrow band: a bilinear
+        // blend of the stored values stays a bilinear blend of the light.
+        assert!(
+            new_max - new_min < 0.02,
+            "moment interpolation must be smooth: {new_min}..{new_max}"
+        );
+        // The removed representation, measured on the same span: the blended
+        // axis folds through the seam and the centre of the span collapses
+        // towards black.
+        assert!(
+            old_max - old_min > 0.4,
+            "the old representation must show the seam artifact: {old_min}..{old_max}"
+        );
+        assert!(
+            old_min < 0.1,
+            "the old contour must reach near-black: {old_min}"
+        );
     }
 
     #[test]

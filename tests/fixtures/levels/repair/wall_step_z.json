@@ -1,0 +1,79 @@
+{
+  "format_version": 3,
+  "id": "repair_wall_step_z",
+  "name": "Repair Wall Step Z",
+  "author": "Places Team",
+  "spawn": {
+    "x": 1.0,
+    "z": 2.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "walls": [
+    {
+      "x": 2.15,
+      "z": 1.0,
+      "width": 0.3,
+      "depth": 4.0,
+      "y": 0.0,
+      "height": 3.0
+    },
+    {
+      "x": 2.0,
+      "z": 5.0,
+      "width": 0.3,
+      "depth": 4.0,
+      "y": 0.0,
+      "height": 3.0
+    },
+    {
+      "x": 2.15,
+      "z": -2.85,
+      "width": 0.3,
+      "depth": 3.85,
+      "y": 0.0,
+      "height": 3.0
+    }
+  ],
+  "baseboards": [
+    {
+      "x": 2.0,
+      "z": 6.0,
+      "length": 2.5,
+      "rotation_degrees": 270.0,
+      "y": 0.0,
+      "material": "home:baseboard_white_01"
+    },
+    {
+      "x": 1.4,
+      "z": 8.5,
+      "length": 0.62,
+      "rotation_degrees": 0.0,
+      "y": 0.0,
+      "material": "home:baseboard_white_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 0.5,
+      "z": 5.5,
+      "width": 1.55,
+      "depth": 3.0,
+      "offset_y": 0.0,
+      "material": "core:carpet_beige_01"
+    }
+  ],
+  "rooms": [
+    {
+      "x": -1.0,
+      "z": -3.0,
+      "width": 4.2,
+      "depth": 13.0,
+      "height": 3.0
+    }
+  ]
+}

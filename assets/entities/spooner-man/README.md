@@ -52,7 +52,7 @@ add attack behavior. Play it through the existing named-clip route step:
 Two-link leg IK preserves bone lengths and paw orientation. Transitions share
 exact endpoints; all looping clips close exactly. Ground correction is checked
 against the skinned mesh at every authored pose. The pounce starts and finishes
-in the idle stance. No new rig, textures or skin-weight edits were needed.
+in the idle stance.
 
 ```sh
 python3 tools/props/animate_spooner_man.py            # rebuild clips only
@@ -64,24 +64,21 @@ python3 tools/entities/validate_entities.py --glb assets/entities/spooner-man/mo
 Motion previews, preservation hashes and the 60 Hz export sweep are documented
 in `docs/reports/spoonerman-cat-motion.md`.
 
-### Skin repair (run 3)
+### Skin binding
 
-The original hand-authored export bound the paw geometry to the body chain
-(measured: under 2% of the vertex weight reached any leg bone, and Blender's
-own importer agreed that the lowest paw vertices were weighted
-`chest`/`neck`), so no leg pose could deform the feet. The clip tool detects
-that and rebinds every vertex with a deterministic nearest-segment two-bone
-blend (`sigma = 0.02 m`, the central `root` bone excluded); the leg weight
-share rises from 1.5% to 42.3%. Only the `JOINTS_0`/`WEIGHTS_0` bytes change:
-positions, UVs, textures, the node hierarchy, the joint list, the inverse bind
-matrices and the rest pose are untouched, and the bind pose renders exactly as
-before. `--repair-skin` forces the rebind; without it the tool repairs only
-weights that look degenerate.
+Every vertex is bound with a deterministic nearest-segment two-bone blend
+(`sigma = 0.02 m`, the central `root` bone excluded), so the paw geometry
+deforms with the legs and never rides the body chain; the leg weight share is
+42.3%. Only the `JOINTS_0`/`WEIGHTS_0` bytes change: positions, UVs, textures,
+the node hierarchy, the joint list, the inverse bind matrices and the rest pose
+are untouched, and the bind pose renders exactly as before. `--repair-skin`
+forces the rebind; without it the tool repairs only weights that look
+degenerate.
 
-The asset moved here from `assets/props/models/spooner-man.glb`; there is
-exactly one copy of the resource in the repository, and the catalog maps the
-logical id `spooner-man` to `entities/spooner-man/model/spooner-man.glb`, so
-levels that reference `"model": "spooner-man"` load as they always have.
+The asset lives at `assets/entities/spooner-man/model/spooner-man.glb`: one
+copy of the resource in the repository, mapped by the catalog's logical id
+`spooner-man`, so levels that reference `"model": "spooner-man"` resolve to the
+entity model.
 
 ## Tooling
 

@@ -676,6 +676,15 @@ fn merge_light_runs(
 /// also the same wall here.
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
+/// Bumped whenever the emitted static geometry changes for an unchanged
+/// source.
+///
+/// It is folded into both compiler fingerprints so a stale mesh and the
+/// lightmaps baked against it are rebuilt instead of reused. 1 =
+/// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
+/// wall.
+pub const GEOMETRY_REVISION: u32 = 2;
+
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
 ///
@@ -738,6 +747,19 @@ impl WallUnit<'_> {
         match self {
             Self::Plain { index, .. } => vec![*index],
             Self::Coalesced { members, .. } => members.clone(),
+        }
+    }
+
+    /// The earliest authored wall index this unit emits.
+    ///
+    /// A coalesced group's members are collected in authored order, so this is
+    /// the group's first member. It is the unit's ordering key for cross-wall
+    /// cap ownership: the lower key keeps an overlap, the higher one subtracts
+    /// it (see `emit_wall_caps`).
+    fn first_member(&self) -> usize {
+        match self {
+            Self::Plain { index, .. } => *index,
+            Self::Coalesced { members, .. } => members.first().copied().unwrap_or(0),
         }
     }
 
@@ -997,10 +1019,29 @@ pub(in crate::render) fn wall_layout<'a>(
             units.push(unit);
         }
     }
+    // The unit each authored wall is emitted by, keyed by the unit's earliest
+    // member: the deterministic order the cross-wall cap ownership rule uses.
+    // A wall outside every unit keeps its own index, which is also its order.
+    let mut owners: Vec<usize> = (0..walls.len()).collect();
+    for unit in &units {
+        let first = unit.first_member();
+        for member in unit.members() {
+            if let Some(owner) = owners.get_mut(member) {
+                *owner = first;
+            }
+        }
+    }
     let coverages = walls
         .iter()
         .enumerate()
-        .map(|(index, wall)| wall_coverage(index, wall, surfaces))
+        .map(|(index, wall)| {
+            wall_coverage(
+                index,
+                owners.get(index).copied().unwrap_or(index),
+                wall,
+                surfaces,
+            )
+        })
         .collect();
     WallLayout { units, coverages }
 }
@@ -1089,6 +1130,10 @@ fn group_union_span(group: &[usize], slabs: &[Option<WallSlab>]) -> (f32, f32) {
 #[derive(Debug)]
 pub(in crate::render) struct WallCoverage {
     index: usize,
+    /// Earliest authored wall index of the unit that emits this wall: the
+    /// ordering key cross-wall cap ownership compares, so a wall coalesced
+    /// into a unit is ordered by the unit's earliest member.
+    owner: usize,
     axis: WallAxis,
     /// World span along the wall's length axis.
     length: (f32, f32),
@@ -1100,7 +1145,12 @@ pub(in crate::render) struct WallCoverage {
 }
 
 /// Resolves one authored wall's solid volume and its solid patches.
-fn wall_coverage(index: usize, wall: &WallDef, surfaces: &LevelSurfaces<'_>) -> WallCoverage {
+fn wall_coverage(
+    index: usize,
+    owner: usize,
+    wall: &WallDef,
+    surfaces: &LevelSurfaces<'_>,
+) -> WallCoverage {
     let axis = wall.axis();
     let (x0, x1) = (
         wall.x.min(wall.x + wall.width),
@@ -1139,6 +1189,7 @@ fn wall_coverage(index: usize, wall: &WallDef, surfaces: &LevelSurfaces<'_>) -> 
     solids.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
     WallCoverage {
         index,
+        owner,
         axis,
         length,
         thickness,
@@ -2805,6 +2856,7 @@ mod wall_coverage_tests {
     fn doorway() -> WallCoverage {
         WallCoverage {
             index: 0,
+            owner: 0,
             axis: WallAxis::X,
             length: (0.0, 4.0),
             thickness: (0.0, 0.3),

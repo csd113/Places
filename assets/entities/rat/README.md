@@ -93,8 +93,9 @@ python3 tools/entities/rig.py --check assets/entities/rat/model/rat.glb
 
 Rebuilding requires Blender on `PATH` for the exact surface union. The
 script is deterministic for the same Blender version (verified with 5.2.2), and prints counts plus its own offline skinning/contact/speed
-verification. The development report and optional `--preview` PNG are written
-under `target/entity-specialists/rat/`, not into the asset tree.
+verification. The build report and optional `--preview` PNG are developer
+preview output written under `target/entity-previews/rat/`, not into the asset
+tree.
 
 ## Provenance
 

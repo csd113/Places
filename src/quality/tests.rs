@@ -160,7 +160,7 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     let medium = QualityLevel::Medium.lightmap_config();
     let high = QualityLevel::High.lightmap_config();
 
-    assert_eq!(low.texels_per_metre, 9.0);
+    assert_eq!(low.texels_per_metre, 10.0);
     assert_eq!(low.page_edge, 512);
     assert_eq!(low.padding, 1);
     assert_eq!(low.usable_edge(), 510);
@@ -361,7 +361,7 @@ fn switching_levels_changes_every_derived_decision() {
             false,
             false,
             512,
-            9.0,
+            10.0,
             1,
             0.15,
             true,

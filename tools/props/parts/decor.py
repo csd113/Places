@@ -230,8 +230,8 @@ def build_rug(p: PropBuilder) -> None:
         raise ValueError("rug.png must be the delivered 256x256 woven atlas")
     # The delivered artwork's bound rug occupies the upper 169 rows of the
     # native 256 px atlas; the binding/backing occupies the bottom 84 rows
-    # (172-255), with a narrow gutter between the two. The historical 128 px
-    # atlas used 84/42 rows; the native atlas is the size that ships.
+    # (172-255), with a narrow gutter between the two. The 256 px atlas's
+    # regions are 169/84 rows.
     tex.region("top", (0, 0, 256, 169))
     tex.region("edge", (0, 172, 256, 84))
     field = border = (255, 255, 255)

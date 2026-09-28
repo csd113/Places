@@ -237,14 +237,38 @@ fn a_diffuse_bounce_reaches_a_surface_the_light_cannot_see() {
     );
 }
 
+/// A sealed wall blocks every direct path: the corner behind it solves to
+/// exactly zero. The bounce path is no longer exactly zero under the frozen
+/// linear moment reconstruction: a two-sided divider's receivers also carry the
+/// light their front face "sees through itself" (the emitter test is a
+/// visibility test, not a normal test), and the first-order reconstruction
+/// returns `irradiance * (1 + dot(n, g))` for a hit whose normal faces away
+/// instead of the old hard terminator's zero. The residual must stay a small
+/// bounded fraction of a directly lit texel, so this regression still fails
+/// loudly if the visibility solve itself breaks.
 #[test]
-fn a_sealed_room_stays_dark_for_direct_and_indirect_light() {
+fn a_sealed_room_blocks_every_direct_path_and_almost_the_whole_bounce_path() {
     let (scene, charts) = two_room_scene_sealed(0.8);
+    let direct = scene.solve(&charts, options(0, 3), None).expect("solve");
+    assert_eq!(
+        first_light(&direct, [0.0, 1.0, 0.0]),
+        [0.0; 3],
+        "a sealed wall must block every direct path exactly"
+    );
     let solution = scene.solve(&charts, options(2, 3), None).expect("solve");
     let light = first_light(&solution, [0.0, 1.0, 0.0]);
+    let lit = solution.charts[1].texels[0].light_at([0.0, 1.0, 0.0])[0];
     assert!(
-        light[0] <= 1.0e-6,
-        "a sealed wall must block the whole light path: {light:?}"
+        lit > 0.5,
+        "the lit side of the scene must solve bright: {lit}"
+    );
+    assert!(
+        light[0] <= lit * 0.05,
+        "a sealed wall must block almost the whole light path: {light:?} vs lit {lit}"
+    );
+    assert!(
+        light[0] >= 0.0 && light[0].is_finite(),
+        "the bounded bounce residual must stay finite and non-negative: {light:?}"
     );
 }
 
@@ -307,16 +331,24 @@ fn an_extended_emitter_produces_a_partial_soft_visibility_transition() {
     );
 }
 
+/// The moment reconstruction, pinned on a real one-light solve: the stored mean
+/// is the field mean, the stored moment points at the light, and `light_at(n)`
+/// follows the calibrated sharp cosine `2 * I * max(0, dot(n, omega))` — the
+/// peak is `2 * I`, the half-angle is half the peak, a receiver facing away is
+/// dark, and the sphere mean is exactly `I`, so a texel can never gain energy
+/// from its moment.
 #[test]
-fn directional_lightmaps_respond_to_the_normal_without_double_energy() {
+fn the_moment_reconstruction_is_exact_for_a_single_light() {
     let light = point([0.0, 3.0, 0.0], 2.0);
     let scene = TransportScene::new(Vec::new(), vec![light]).expect("scene");
     let patch = floor_patch(-0.1, -0.1, 0.1, 0.1, 1, 1);
     let solution = scene.solve(&[patch], options(0, 1), None).expect("solve");
     let texel = solution.charts[0].texels[0];
-    let up = texel.light_at([0.0, 1.0, 0.0])[0];
+    let omega = [0.0, 1.0, 0.0];
+    let up = texel.light_at(omega)[0];
     let down = texel.light_at([0.0, -1.0, 0.0])[0];
     let sideways = texel.light_at([1.0, 0.0, 0.0])[0];
+    let half_angle = texel.light_at([0.0, 0.5, 0.866_025_4])[0];
     assert!(up > 0.1, "the receiver must see the light: {up}");
     assert!(
         down <= 1.0e-6,
@@ -324,27 +356,34 @@ fn directional_lightmaps_respond_to_the_normal_without_double_energy() {
     );
     assert!(
         sideways <= 1.0e-6,
-        "the equator lies on the dominant lobe's terminator: {sideways}"
+        "the equator of a single light carries no light: sideways={sideways}"
+    );
+    assert!(
+        (half_angle - up * 0.5).abs() < up * 1.0e-3,
+        "the cosine half (60 degrees off the light) is exactly half the peak: half={half_angle} up={up}"
     );
     // The stored isotropic term is the exact mean of the reconstructed field:
-    // the directional factor integrates to zero over the sphere, so a texel
-    // can never gain energy from its dominant direction.
+    // the sharp cosine integrates to `I` over the sphere, so a texel can never
+    // gain energy from its moment.
     assert!(
         (texel.irradiance[0] - up * 0.5).abs() < up * 1.0e-3,
-        "the isotropic term must be the field mean: A={} up={up}",
+        "the isotropic term must be the field mean: I={} up={up}",
         texel.irradiance[0]
     );
+    // One shared direction: the moment vector is parallel to the light and
+    // `dot(g, omega) == sum_c irradiance_c` exactly.
+    let k: f32 = texel.irradiance.iter().sum();
+    let g_dot = dot(texel.direction, omega);
     assert!(
-        (texel.direction[0] - up * 0.5).abs() < up * 1.0e-3,
-        "the dominant amplitude must carry the half-lobe: D={} up={up}",
-        texel.direction[0]
+        (g_dot - k).abs() < up * 1.0e-3,
+        "the moment must point at the light: g.omega={g_dot} k={k}"
     );
-    // The stored axis must round-trip the incoming direction.
-    let axis = crate::lighting::lightmap::oct_decode(texel.axis);
     assert!(
-        axis[1] > 0.99,
-        "the dominant axis must point at the light: {axis:?}"
+        texel.direction[1] > 0.0,
+        "the moment vector is signed and must point up: {:?}",
+        texel.direction
     );
+    assert_eq!(texel.axis, [0.5, 0.5], "the axis is reserved");
 }
 
 #[test]
@@ -467,6 +506,10 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
+    assert_eq!(
+        SOLVER_REVISION, 3,
+        "the calibrated sharp-cosine moment reconstruction is solver revision 3"
+    );
     let first = solver_fingerprint();
     assert_eq!(
         first,
