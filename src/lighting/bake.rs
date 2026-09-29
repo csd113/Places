@@ -1993,7 +1993,7 @@ impl LevelLighting {
 
     /// [`Self::room_index_strict_at`] restricted to rooms whose air volume
     /// contains `y`, for surfaces in a stacked building.
-    fn room_index_strict_at_height(&self, x: f32, y: f32, z: f32) -> Option<usize> {
+    pub(crate) fn room_index_strict_at_height(&self, x: f32, y: f32, z: f32) -> Option<usize> {
         self.indexed_room(x, Some(y), z, true)
     }
 

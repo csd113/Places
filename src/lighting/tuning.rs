@@ -464,18 +464,6 @@ pub(super) const MAX_PROP_OCCLUSION_BOXES_PER_MODEL: usize = 64;
 /// bounded no matter how many props a level places.
 pub(super) const MAX_PROP_OCCLUSION_BOXES_PER_LEVEL: usize = 4096;
 
-/// Distance a lightmap wall or skirt texel is pushed off its own face, along
-/// the face normal, before it is evaluated, in metres.
-///
-/// A wall face texel is generated exactly on the wall's solid boundary. The
-/// visibility clip is happy with that (an endpoint on a face is not blocked by
-/// it), but point containment is inclusive, so the sample also counts as
-/// buried: the vertex bake moves such a face sample [`ROOM_EDGE_EPS_M`] into
-/// its room before measuring light, and a lightmap texel gets the same nudge
-/// along its patch normal. The distance is shared with the vertex path so the
-/// two cannot disagree about which side of a wall face is sampled.
-pub(super) const LIGHTMAP_FACE_NORMAL_BIAS_M: f32 = ROOM_EDGE_EPS_M;
-
 /// Deterministic fingerprint of the lighting equation's constants.
 ///
 /// The lightmap content key folds this in, so a recalibration of the bake

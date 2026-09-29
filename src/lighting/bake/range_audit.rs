@@ -44,7 +44,7 @@ use super::LevelLighting;
 use crate::level::LevelDef;
 use crate::lighting::color::LightColor;
 use crate::lighting::lightmap::{LightmapMode, LightmapPatch, PatchKind};
-use crate::lighting::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
+use crate::lighting::tuning::ROOM_EDGE_EPS_M;
 use crate::lighting::{
     AMBIENT_LEVEL, FILL_MAX, FILL_RANGE_MULTIPLIER, FILL_STRENGTH, LOCAL_LIGHT_MAX,
     LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, ambient_color, smooth_falloff,
@@ -182,8 +182,8 @@ fn pool_without_occlusion(
     if !x.is_finite() || !y.is_finite() || !z.is_finite() {
         return (LightColor::BLACK, LightColor::BLACK);
     }
-    let mut remaining_direct = [1.0_f32; 3];
-    let mut remaining_fill = [1.0_f32; 3];
+    let mut direct_pool = [0.0_f32; 3];
+    let mut fill_pool = [0.0_f32; 3];
     for light in lighting.lights() {
         if !light.is_active() {
             continue;
@@ -218,8 +218,12 @@ fn pool_without_occlusion(
                 0.0
             } else {
                 let lateral = 1.0 - horizontal / range;
-                let (lateral_squared, incidence) = (lateral * lateral, vertical / distance);
-                lateral_squared * incidence
+                let curve = match light.falloff() {
+                    crate::lighting::LightFalloff::Smooth => lateral * lateral,
+                    crate::lighting::LightFalloff::Linear => lateral,
+                    crate::lighting::LightFalloff::Constant => 1.0,
+                };
+                curve * vertical / distance
             }
         } else if distance < range {
             light.falloff().factor(distance / range)
@@ -241,25 +245,19 @@ fn pool_without_occlusion(
                 * light.height_factor
                 * direct_shape
                 * value;
-            let direct = direct.min(LOCAL_LIGHT_MAX);
-            if let Some(slot) = remaining_direct.get_mut(channel) {
-                *slot *= 1.0 - direct / LOCAL_LIGHT_MAX;
-            }
+            let peak = color.max_channel();
+            audit_screen(
+                &mut direct_pool[channel],
+                direct,
+                LOCAL_LIGHT_MAX * value / peak,
+            );
             let fill = FILL_STRENGTH * light.intensity() * light.height_factor * fill_shape * value;
-            let fill = fill.min(FILL_MAX);
-            if let Some(slot) = remaining_fill.get_mut(channel) {
-                *slot *= 1.0 - fill / FILL_MAX;
-            }
+            audit_screen(&mut fill_pool[channel], fill, FILL_MAX * value / peak);
         }
     }
-    let channel = |remaining: [f32; 3], cap: f32| LightColor {
-        r: cap * (1.0 - remaining[0]),
-        g: cap * (1.0 - remaining[1]),
-        b: cap * (1.0 - remaining[2]),
-    };
     (
-        channel(remaining_direct, LOCAL_LIGHT_MAX),
-        channel(remaining_fill, FILL_MAX),
+        LightColor::rgb(direct_pool[0], direct_pool[1], direct_pool[2]),
+        LightColor::rgb(fill_pool[0], fill_pool[1], fill_pool[2]),
     )
 }
 
@@ -280,16 +278,29 @@ fn terms_at(
         return (ambient_color(), direct, fill, LightColor::BLACK);
     };
     let baseline = lighting.baseline_in_room(room, point[0], point[2]);
-    let blend = lighting.opening_blend(room, point[0], point[1], point[2]);
+    // `point` is already the production path's evaluated position. The public
+    // diagnostic `opening_blend` would walk it a second time.
+    let blend = lighting.blend_delta(room, point[0], point[1], point[2]);
     let terms = lighting.pool_terms_in_room(Some(room), point[0], point[1], point[2]);
     let (direct, fill) = screen_terms(&terms);
     (baseline, direct, fill, blend)
 }
 
+/// Independent per-channel screen operator, including the authored colour's
+/// own cap. A common white cap overestimates coloured pools and makes an
+/// occlusion audit compare different lighting equations.
+fn audit_screen(pool: &mut f32, contribution: f32, cap: f32) {
+    if !cap.is_finite() || cap <= 0.0 || !contribution.is_finite() || contribution <= 0.0 {
+        return;
+    }
+    let fraction = (contribution / cap).min(1.0);
+    *pool = (cap - *pool).max(0.0).mul_add(fraction, *pool);
+}
+
 /// Screens the measured terms into `(direct, fill)` with the production caps.
 fn screen_terms(terms: &[super::PoolTerm]) -> (LightColor, LightColor) {
-    let mut remaining_direct = [1.0_f32; 3];
-    let mut remaining_fill = [1.0_f32; 3];
+    let mut direct_pool = [0.0_f32; 3];
+    let mut fill_pool = [0.0_f32; 3];
     for term in terms {
         let direct = LOCAL_LIGHT_STRENGTH
             * term.intensity
@@ -302,24 +313,22 @@ fn screen_terms(terms: &[super::PoolTerm]) -> (LightColor, LightColor) {
             .iter()
             .enumerate()
         {
-            let contribution = (direct * value).min(LOCAL_LIGHT_MAX);
-            if let Some(slot) = remaining_direct.get_mut(channel) {
-                *slot *= 1.0 - contribution / LOCAL_LIGHT_MAX;
-            }
-            let contribution = (fill * value).min(FILL_MAX);
-            if let Some(slot) = remaining_fill.get_mut(channel) {
-                *slot *= 1.0 - contribution / FILL_MAX;
-            }
+            let peak = term.color.max_channel();
+            audit_screen(
+                &mut direct_pool[channel],
+                direct * value,
+                LOCAL_LIGHT_MAX * value / peak,
+            );
+            audit_screen(
+                &mut fill_pool[channel],
+                fill * value,
+                FILL_MAX * value / peak,
+            );
         }
     }
-    let channel = |remaining: [f32; 3], cap: f32| LightColor {
-        r: cap * (1.0 - remaining[0]),
-        g: cap * (1.0 - remaining[1]),
-        b: cap * (1.0 - remaining[2]),
-    };
     (
-        channel(remaining_direct, LOCAL_LIGHT_MAX),
-        channel(remaining_fill, FILL_MAX),
+        LightColor::rgb(direct_pool[0], direct_pool[1], direct_pool[2]),
+        LightColor::rgb(fill_pool[0], fill_pool[1], fill_pool[2]),
     )
 }
 
@@ -346,7 +355,7 @@ fn face_bias(patch: &LightmapPatch) -> [f32; 3] {
     if !length.is_finite() || length <= f32::EPSILON {
         return [0.0; 3];
     }
-    normal.map(|value| value / length * LIGHTMAP_FACE_NORMAL_BIAS_M)
+    normal.map(|value| value / length * ROOM_EDGE_EPS_M)
 }
 
 /// The exact per-texel evaluation the deleted `fill_chart` pass performed,
@@ -383,6 +392,44 @@ fn vertex_lit_texel(lighting: &LevelLighting, patch: &LightmapPatch, point: [f32
         light.g.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
         light.b.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
     ]
+}
+
+/// Resolve the same room and walked point as `vertex_lit_texel`. Wall hints
+/// describe architectural ownership, while the fallback's `sample_face` first
+/// chooses strict containment and otherwise clamps into the hinted room.
+fn evaluated_sample(
+    lighting: &LevelLighting,
+    patch: &LightmapPatch,
+    point: [f32; 3],
+) -> (Option<usize>, [f32; 3]) {
+    let [mut x, y, mut z] = point;
+    let room = if matches!(patch.kind, PatchKind::Wall) {
+        lighting.room_index_strict_at_height(x, y, z).or_else(|| {
+            if let Some((room, info)) = patch
+                .room
+                .and_then(|room| lighting.rooms().get(room).map(|info| (room, info)))
+            {
+                x = x.clamp(info.x0 + ROOM_EDGE_EPS_M, info.x1 - ROOM_EDGE_EPS_M);
+                z = z.clamp(info.z0 + ROOM_EDGE_EPS_M, info.z1 - ROOM_EDGE_EPS_M);
+                Some(room)
+            } else {
+                lighting.room_index_at_height(x, y, z)
+            }
+        })
+    } else {
+        patch
+            .room
+            .filter(|room| lighting.rooms().get(*room).is_some())
+            .or_else(|| lighting.room_index_at_height(x, y, z))
+    };
+    if let Some(room) = room
+        && (matches!(patch.kind, PatchKind::Wall)
+            || lighting.wall_contains_point(point[0], point[2])
+            || patch.room.is_none())
+    {
+        (x, z) = lighting.clear_sample(room, x, z);
+    }
+    (room, [x, y, z])
 }
 
 /// The deleted `fill_chart`'s texel axis: the texels span the patch
@@ -446,24 +493,30 @@ fn measure(level: &LevelDef) -> Measurement {
                 let raw = patch.point_at(u, v);
                 let point = [raw[0] + bias[0], raw[1] + bias[1], raw[2] + bias[2]];
                 let value = vertex_lit_texel(lighting, patch, point);
-                // A texel buried in a wall is walked into its room exactly like
-                // `sample_in_room` walks it, so the decomposition is measured at
-                // the position the model actually evaluates.
-                let (px, pz) = match patch.room {
-                    Some(room) if lighting.wall_contains_point(point[0], point[2]) => {
-                        lighting.clear_sample(room, point[0], point[2])
-                    }
-                    _ => (point[0], point[2]),
-                };
-                let evaluated = [px, point[1], pz];
-                let (baseline, pool, fill, blend) = terms_at(lighting, patch.room, evaluated);
+                let (room, evaluated) = evaluated_sample(lighting, patch, point);
+                let (baseline, pool, fill, blend) = terms_at(lighting, room, evaluated);
                 let open = pool_without_occlusion(
                     lighting,
-                    patch.room,
+                    room,
                     evaluated[0],
                     evaluated[1],
                     evaluated[2],
                 );
+                let reconstructed = baseline
+                    .plus(pool)
+                    .plus(fill)
+                    .plus(blend)
+                    .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+                for (actual, expected) in
+                    value
+                        .iter()
+                        .zip([reconstructed.r, reconstructed.g, reconstructed.b])
+                {
+                    assert!(
+                        (actual - expected).abs() < 1.0e-5,
+                        "audit decomposition must use the actual sample room/point: {actual} vs {expected} at {point:?}"
+                    );
+                }
                 texels.push(Texel {
                     kind: patch.kind,
                     value: LightColor::rgb(value[0], value[1], value[2]),

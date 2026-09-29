@@ -544,9 +544,12 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    tall chamber's floor stays lit; the receiver's normal supplies the incidence
    in the reconstruction.
 2. **Bounce**: uniform-hemisphere ray samples per texel read the previous pass's
-   solved surfaces through a side/surface-aware cache (a cache cell can only
-   answer with a receiver of the hit triangle, so light never crosses a wall or
-   a storey). One pass is one diffuse bounce; Medium runs one, Full two, and the
+   solved surfaces through a side/surface-aware cache. Each cell retains a
+   representative for every triangle occupying it, and answers only for the
+   hit triangle, so neighboring charts cannot evict one another or transfer
+   light through a wall. A shared deterministic angular sequence per pass
+   makes the samples independent of chart ordering. One pass is one diffuse
+   bounce; Medium runs one, Full two, and the
    estimator is unbiassed (no truncated point-light list).
 3. **Denoise**: a chart-space luma-guided 3x3 pass (gated on the smooth
    irradiance luminance, so direction noise cannot lock itself in) removes
@@ -564,19 +567,47 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    below the surface, applied once per receiver; the authored fill target is
    scaled by the same factors so the physical solve and the fill describe one
    water tint.
-5. **Authored fill floor.** After the physical solve, every `Floor`, `Wall`
-   and `Skirt` chart whose solved mean is below the room's authored baseline
-   (minus the fixed ambient floor) receives one uniform per-chart scalar that
-   lifts that mean to the target, scaled by the receiver's water attenuation.
-   One scalar per chart preserves the chart's own contrast (a pool under a
-   panel against its far corner) while restoring the calibrated fill the
-   heuristic model always had; a chart already above its target is untouched,
-   and a fixture-free chart's target is exactly zero, so deliberate darkness
-   stays black. Ceilings are deliberately skipped: they face the lit floor, so
-   the physical bounce supplies them most directly, and their pool structure
-   is left exactly as solved. The probe field (moving objects) gets the same
-   room-level fill. The prepared path deliberately does not add the
-   vertex-lit model's global `0.10` ambient floor.
+5. **Authored fill floor.** Every architectural receiver, including ceilings,
+   uses the same continuous response after the physical solve. The authored
+   baseline above ambient is multiplied by the maximum range/falloff support
+   of always-on emitters at that position: directional fixtures use horizontal
+   shape distance and point sources use three-dimensional distance. Thus the
+   fill follows actual fixture pools even on a tall chamber's ceiling, instead
+   of overwhelming small indirect gradients with a uniform target. Given
+   physical light `L` and this spatial target `T`, the result is
+   `L + T * max(1 - L / (4*T), 0)^2` for positive `T`; a zero target leaves
+   the physical light unchanged. This reaches `T` at zero illumination, keeps
+   at least half of physical-light contrast at a fixed local target, and becomes
+   the unchanged solve above `4*T` with a continuous first derivative. Neither chart means nor
+   chart sizes affect it, so repartitioning a coplanar surface cannot add a
+   brightness step. The stored directional moment stays unchanged; the colour
+   ratio is inverted to realize the exact lift at the receiver normal. The
+   target is attenuated by the receiver's water depth first. Probe irradiance
+   uses the same local response. Switchable layers never receive this fill,
+   and their emitters are excluded from the permanent target. The prepared
+   path does not add the vertex-lit model's global `0.10` ambient floor.
+
+Ray origins use a normal offset of four `f32` machine epsilons scaled by world
+coordinate magnitude, plus a tiny chart-interior inset at boundaries. Shading
+positions remain shared. The watertight triangle test evaluates projected edge
+functions in `f64`; there is no fixed-distance origin dead zone that could
+skip a nearby stair riser. Only the far emitter endpoint gets a scale-aware
+reconstruction allowance.
+
+Architectural wall slices retain their parent wall's room ownership and
+material gradient. The parent room is selected from the complete wall's
+contact area; adjoining faces use a real height-aware room volume, so a tall
+lintel cannot inherit a shorter corridor merely through its doorway. The
+`.92` bottom to `1.05` top material shade is evaluated in the parent wall's
+height frame, including the local gable profile, rather than restarting on
+each opening fragment. Ceiling-bounded wall faces and their end caps evaluate
+that roof on each thickness edge; a sloping roof therefore meets the inner
+face without a half-thickness gap. Explicitly authored rigid heights retain
+their meaning. Ceiling chart domains exclude only proven wall-covered areas;
+all remaining cells share one exposed-region label, allowing the existing
+planar merger to join them across doorway subtraction cuts. Invisible wall
+texels cannot darken the ceiling edge, and doorway cuts do not create
+unnecessary chart boundaries across the room.
 
 Probes for the `off` variant and the fallback remain the historical
 display-space model; see §7.3.

@@ -83,26 +83,20 @@
     clippy::while_let_loop
 )]
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
 use crate::lighting::probes::{ProbeField, ProbeSample};
 use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
-/// Distance a shadow ray starts away from its surface, in metres.
-///
-/// The same nudge the historical face bake used, so a texel generated on a
-/// solid boundary is tested in the air the face opens into. It is the single
-/// calibrated constant shared with the vertex-lit bake.
-pub const SURFACE_OFFSET_M: f32 = super::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
+/// Minimum normal offset, equal to four single-precision rounding steps at
+/// unit scale. Actual receivers scale this bound with their world coordinates.
+/// This is numerical separation, not a geometric centimetre-sized displacement.
+pub const SURFACE_OFFSET_M: f32 = 4.0 * f32::EPSILON;
 
-/// Shortest accepted ray hit distance, in metres.
-///
-/// A hit this close is the origin surface's own triangle or a coincident
-/// neighbour; treating it as "clear" is what lets a texel see a light that a
-/// coincident quad would otherwise self-occlude.
-pub const RAY_EPS_M: f32 = 1.0e-3;
+/// No metric dead zone: even a sub-millimetre neighbouring stair face blocks.
+/// The double-precision intersection excludes only non-positive distances.
+pub const RAY_EPS_M: f32 = 0.0;
 
 /// Largest number of triangles a transport scene may contain.
 ///
@@ -227,7 +221,12 @@ pub fn solver_fingerprint() -> u64 {
 ///   baseline fill (one uniform scalar per chart/room, so internal contrast
 ///   survives; ceilings keep their physical solve), so every version-3 atlas
 ///   is invalid.
-pub const SOLVER_REVISION: u64 = 4;
+/// * `5` — scale-aware ray origins, watertight intersections, and a continuous
+///   receiver-local baseline response shared by ceilings and probes replace
+///   chart/room mean corrections.
+/// * `6` — bounce-cache cells retain each triangle's representative and bounce
+///   ray sequences are independent of chart ordering.
+pub const SOLVER_REVISION: u64 = 6;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -521,6 +520,17 @@ impl TransportEmitter {
         point: [f32; 3],
         taps: u8,
     ) -> ([f32; 3], [f32; 3]) {
+        self.direct_from(scene, point, point, taps)
+    }
+
+    /// Evaluate at the shared shading point while tracing from its safe origin.
+    fn direct_from(
+        &self,
+        scene: &TransportScene,
+        point: [f32; 3],
+        ray_origin: [f32; 3],
+        taps: u8,
+    ) -> ([f32; 3], [f32; 3]) {
         if !self.intensity.is_finite() || self.intensity <= 0.0 {
             return ([0.0; 3], [0.0; 3]);
         }
@@ -535,7 +545,7 @@ impl TransportEmitter {
         let mut first = true;
         for offset in samples {
             let sample = add(self.position, offset);
-            if scene.occluded(point, sample) {
+            if scene.occluded(ray_origin, sample) {
                 continue;
             }
             visible = visible.saturating_add(1);
@@ -590,6 +600,9 @@ impl TransportEmitter {
 pub struct TransportReceiver {
     /// World-space position of the texel, already offset off its surface.
     pub position: [f32; 3],
+    /// Ray origin inset by a numerical bound from the chart boundary. Shading
+    /// and cache positions stay shared across coplanar chart edges.
+    pub ray_origin: [f32; 3],
     /// Surface normal at the texel.
     pub normal: [f32; 3],
     /// Diffuse albedo at the texel.
@@ -656,9 +669,12 @@ impl TransportWaterBody {
 /// The target is the room area's baseline above [`AMBIENT_LEVEL`] at the
 /// probe's own position, before water attenuation; the room is the same
 /// [`LevelLighting::room_index_at_height`] resolution the compiler's own probe
-/// labelling uses, so the fill's room groups match the runtime sampling groups.
+/// labelling uses; the position drives continuous fill lookup independently of
+/// room groups or chart boundaries.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProbeTarget {
+    /// World position used by the continuous fixture-support field.
+    pub position: [f32; 3],
     /// Target per channel, before water attenuation.
     pub target: [f32; 3],
     /// Resolved room index, or `-1` outside every room.
@@ -791,21 +807,50 @@ fn for_each_texel(chart: &Chart, mut visit: impl FnMut(f32, f32)) {
     }
 }
 
-/// The world-space receiver position of a texel: its patch point nudged off
-/// the surface along the patch normal, the same bias the historical face bake
-/// used.
-fn receiver_position(point: [f32; 3], normal: [f32; 3]) -> [f32; 3] {
+/// Separate the origin by a bound on single-precision position rounding.
+/// The bound depends on world-coordinate magnitude, never on ray length, so
+/// a long grazing ray cannot acquire a larger geometric light-leak allowance.
+pub(crate) fn receiver_position(point: [f32; 3], normal: [f32; 3]) -> [f32; 3] {
+    let magnitude = point
+        .iter()
+        .fold(1.0_f32, |scale, value| scale.max(value.abs()));
+    let offset = SURFACE_OFFSET_M * magnitude;
     [
-        normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
-        normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
-        normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
+        normal[0].mul_add(offset, point[0]),
+        normal[1].mul_add(offset, point[1]),
+        normal[2].mul_add(offset, point[2]),
     ]
+}
+
+/// Select the owning side of an edge before the normal separation. A texel
+/// exactly on a two-sided wall/riser cannot infer that side from the hit
+/// triangle's winding. Inset only boundary samples by a few rounding steps
+/// toward their patch interior; this cannot cross the adjoining solid face.
+fn receiver_ray_origin(patch: &LightmapPatch, u: f32, v: f32, normal: [f32; 3]) -> [f32; 3] {
+    let point = patch.point_at(u, v);
+    let magnitude = point
+        .iter()
+        .fold(1.0_f32, |scale, value| scale.max(value.abs()));
+    let inset = 2.0 * SURFACE_OFFSET_M * magnitude;
+    let (width, height) = patch.extent_m();
+    let inset_axis = |coordinate: f32, extent: f32| {
+        if extent > 0.0 {
+            let margin = (inset / extent).min(0.25);
+            coordinate.clamp(margin, 1.0 - margin)
+        } else {
+            coordinate
+        }
+    };
+    receiver_position(
+        patch.point_at(inset_axis(u, width), inset_axis(v, height)),
+        normal,
+    )
 }
 
 /// The authored baseline target of one position inside a resolved room: the
 /// room area's baseline less [`AMBIENT_LEVEL`], per channel, clamped at zero.
 ///
-/// This is the value the chart fill aims a chart's mean at and never above: a
+/// This is the smooth floor's value at zero physical illumination: a
 /// fixture-free room's baseline is exactly [`AMBIENT_LEVEL`], so its target is
 /// exactly zero and deliberate darkness is preserved.
 fn target_in_room(lighting: &LevelLighting, room: usize, x: f32, z: f32) -> [f32; 3] {
@@ -836,19 +881,44 @@ fn target_and_room_at(lighting: &LevelLighting, point: [f32; 3]) -> ([f32; 3], i
         })
 }
 
-/// True when a chart's patch family takes part in the authored baseline fill.
-///
-/// Floors, walls and skirts are the surfaces the calibrated model fills from
-/// the room's fixture density but the physical solve under-delivers on; the
-/// fill restores the heuristic baseline exactly there. A ceiling is
-/// deliberately excluded: it faces the lit floor, so it is the surface the
-/// physical bounce supplies most directly, and skipping it keeps the ceiling's
-/// pool structure (near-panel versus far corner) exactly as the calibrated
-/// solve produced it. [`TransportScene::apply_chart_fill`] and
-/// [`receiver_targets`] share this one predicate so a future chart-kind change
-/// cannot silently shift which charts are filled.
+/// Architectural receivers share the same spatial fill, including ceilings.
 const fn chart_receives_fill(kind: PatchKind) -> bool {
-    matches!(kind, PatchKind::Floor | PatchKind::Wall | PatchKind::Skirt)
+    matches!(
+        kind,
+        PatchKind::Floor | PatchKind::Wall | PatchKind::Skirt | PatchKind::Ceiling
+    )
+}
+
+/// Smooth, chart-independent protection against a broken near-black solve.
+/// At zero light this adds the authored target; at four times the target it
+/// joins the unchanged physical solve with a continuous first derivative.
+/// The output slope is always at least one half, unlike a hard minimum which
+/// erases every gradient below its threshold. Zero targets preserve darkness.
+fn baseline_fill(current: f32, target: f32) -> f32 {
+    if !target.is_finite() || target <= 0.0 || !current.is_finite() {
+        return 0.0;
+    }
+    let remaining = (1.0 - 0.25 * (current / target)).max(0.0);
+    target * remaining * remaining
+}
+
+/// Add the smooth floor at the receiver normal without changing the stored
+/// directional moment. Inverting the reconstruction's common colour ratio
+/// makes the requested lift exact, even for coloured directional light.
+fn fill_texel(texel: &mut LightmapTexel, normal: [f32; 3], target: [f32; 3]) {
+    let current = texel.light_at(normal);
+    let fill =
+        std::array::from_fn::<_, 3, _>(|channel| baseline_fill(current[channel], target[channel]));
+    let added: f32 = fill.iter().sum();
+    if added <= 0.0 {
+        return;
+    }
+    let new_mean = texel.irradiance.iter().sum::<f32>() + added;
+    let new_light = current.iter().sum::<f32>() + added;
+    for channel in 0..3 {
+        texel.irradiance[channel] = (current[channel] + fill[channel]) * (new_mean / new_light);
+    }
+    *texel = texel.normalized();
 }
 
 /// The authored baseline target of every chart texel, in exactly the order
@@ -857,9 +927,8 @@ const fn chart_receives_fill(kind: PatchKind) -> bool {
 /// Each texel's room is the patch's own resolved `room` hint when set (the
 /// face's authoritative room), else the room containing its patch point. The
 /// target is the room area's baseline above [`AMBIENT_LEVEL`], not the full
-/// vertex-lit sample: the per-chart fill only has to keep a chart's mean at
-/// the authored room fill, and the physical transport keeps any extra light
-/// the fixtures and bounces actually deliver. A texel in no room gets zero.
+/// vertex-lit sample. The continuous soft floor preserves at least half the
+/// physical gradient and becomes the identity above four times the target. A texel in no room gets zero.
 /// The lookup is the baked zone grid, so it stays cheap per texel.
 ///
 /// Targets are produced for *every* chart so the list stays index-aligned
@@ -930,17 +999,13 @@ pub fn probe_targets(
             min[2] + (z as f32 + 0.5) * cell,
         ];
         let (target, room) = target_and_room_at(lighting, position);
-        out.push(ProbeTarget { target, room });
+        out.push(ProbeTarget {
+            position,
+            target,
+            room,
+        });
     }
     out
-}
-
-/// Per-room accumulation of the probe fill means.
-#[derive(Default)]
-struct ProbeRoomSums {
-    target: [f32; 3],
-    current: [f32; 3],
-    count: usize,
 }
 
 /// The origin, cell size and counts of the probe lattice a receiver set
@@ -1118,8 +1183,9 @@ impl TransportScene {
 
     /// True when the straight segment `a -> b` crosses any triangle.
     ///
-    /// Endpoints within [`RAY_EPS_M`] of a hit are treated as clear, so a
-    /// surface does not shadow itself.
+    /// Every positive-distance blocker counts at the origin. Only the far
+    /// endpoint has a floating-point reconstruction allowance, so an emitter
+    /// lying on its own face does not shadow itself after ray normalization.
     #[must_use]
     pub fn occluded(&self, a: [f32; 3], b: [f32; 3]) -> bool {
         let direction = sub(b, a);
@@ -1128,7 +1194,10 @@ impl TransportScene {
             return false;
         }
         let unit = scale(direction, 1.0 / distance);
-        let max_t = distance - RAY_EPS_M;
+        let endpoint_scale = b
+            .iter()
+            .fold(distance.max(1.0), |scale, value| scale.max(value.abs()));
+        let max_t = distance - SURFACE_OFFSET_M * endpoint_scale;
         if max_t <= 0.0 {
             return false;
         }
@@ -1689,13 +1758,15 @@ impl TransportScene {
             for_each_texel(chart, |u, v| {
                 let point = patch.point_at(u, v);
                 let position = receiver_position(point, normal);
-                let sampled = self.surface_sample(position, 0.2);
+                let ray_origin = receiver_ray_origin(patch, u, v, normal);
+                let sampled = self.surface_sample(ray_origin, 0.2);
                 let albedo = sampled.map_or([0.55, 0.55, 0.55], |(albedo, _)| albedo);
                 let surface = sampled.map_or(u32::MAX, |(_, index)| {
                     u32::try_from(index).unwrap_or(u32::MAX)
                 });
                 out.push(TransportReceiver {
                     position,
+                    ray_origin,
                     normal,
                     albedo,
                     area,
@@ -1729,7 +1800,8 @@ impl TransportScene {
                 let Some(emitter) = self.emitters.get(*emitter_index) else {
                     continue;
                 };
-                let (weight, direction) = emitter.direct(self, receiver.position, taps);
+                let (weight, direction) =
+                    emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
                 accumulate_lobe(
                     &mut accumulator,
                     attenuate(weight, receiver.attenuation),
@@ -1740,28 +1812,34 @@ impl TransportScene {
         })
     }
 
-    /// Lifts the base solve's filled charts to the authored room fill, one
-    /// uniform scalar per chart, after filtering.
-    ///
-    /// For each chart whose patch kind [`chart_receives_fill`] accepts
-    /// (`Floor`, `Wall`, `Skirt`) the mean of the receivers' target (already
-    /// scaled by their water attenuation) and the mean of the solved
-    /// reconstructed light at the receivers' own normals are compared; the
-    /// positive difference is added to every texel's stored irradiance.
-    /// Because the same scalar is added across a chart, the chart's own
-    /// internal contrast — a pool under a panel against its far corner — is
-    /// preserved while the chart's mean lands at or above its authored fill. A
-    /// chart already averaging above its target is untouched, so the physical
-    /// transport keeps its extra light, and a fixture-free chart's target mean
-    /// is exactly zero, so deliberate darkness is preserved.
-    ///
-    /// A `Ceiling` chart is deliberately skipped: it faces the lit floor, so
-    /// the physical bounce supplies it most directly, and its texels keep
-    /// their exact post-solve values (near-panel pool versus far corner) as
-    /// the calibrated solve produced them. Its target is still computed by
-    /// [`receiver_targets`] so the target list stays index-aligned with the
-    /// receiver list; a target list that does not line up is ignored rather
-    /// than misapplied.
+    /// Continuous support of the authored emitter ranges, independent of
+    /// chart partitioning and surface orientation. Directional sources retain
+    /// their horizontal reach so a tall ceiling can illuminate its floor.
+    /// A target-only scene retains its explicit recovery target; a scene of
+    /// switchable emitters contributes no permanent support.
+    fn baseline_support(&self, point: [f32; 3]) -> f32 {
+        if self.emitters.is_empty() {
+            return 1.0;
+        }
+        self.emitters
+            .iter()
+            .filter(|emitter| emitter.switchable.is_none() && emitter.intensity > 0.0)
+            .map(|emitter| {
+                let distance = if emitter.directional {
+                    emitter.horizontal_distance(point)
+                } else {
+                    length(sub(emitter.position, point))
+                };
+                emitter.falloff.factor(distance / emitter.range)
+            })
+            .filter(|value| value.is_finite())
+            .fold(0.0_f32, f32::max)
+    }
+
+    /// Applies the same continuous response at every architectural receiver.
+    /// Chart size, mean, neighbouring texels and tessellation never enter the
+    /// correction. Water attenuates the target before evaluating the response;
+    /// only the always-on base solve calls this pass.
     fn apply_chart_fill(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -1773,130 +1851,47 @@ impl TransportScene {
         }
         let mut offset = 0usize;
         for (patch, chart) in charts {
-            let width = usize::try_from(chart.width).unwrap_or(0);
-            let height = usize::try_from(chart.height).unwrap_or(0);
-            let count = width.saturating_mul(height);
-            if width == 0 || height == 0 {
-                continue;
-            }
+            let count = usize::try_from(chart.width)
+                .unwrap_or(0)
+                .saturating_mul(usize::try_from(chart.height).unwrap_or(0));
             let end = offset.saturating_add(count);
             if chart_receives_fill(patch.kind) {
-                let (Some(chart_receivers), Some(chart_texels)) =
-                    (receivers.get(offset..end), texels.get_mut(offset..end))
-                else {
-                    break;
-                };
-                let divisor = count as f32;
-                // The stored irradiance is reconstructed through a nonlinear
-                // moment ratio, so one mean-difference pass can leave the
-                // reconstructed chart mean a little below its target. Iterate
-                // a bounded number of times, each pass adding one more uniform
-                // scalar per channel: the total added stays uniform across the
-                // chart (so relative structure survives exactly) while the
-                // chart mean lands at or above its authored target.
-                for _ in 0..3 {
-                    let mut sum_target = [0.0_f32; 3];
-                    let mut sum_current = [0.0_f32; 3];
-                    for (local, (receiver, texel)) in
-                        chart_receivers.iter().zip(chart_texels.iter()).enumerate()
-                    {
-                        let Some(target) = self.receiver_target.get(offset.saturating_add(local))
-                        else {
-                            continue;
-                        };
-                        let current = texel.light_at(receiver.normal);
-                        for channel in 0..3 {
-                            sum_target[channel] += target[channel] * receiver.attenuation[channel];
-                            sum_current[channel] += current[channel];
-                        }
-                    }
-                    let mut fill = [0.0_f32; 3];
-                    let mut any = false;
-                    for channel in 0..3 {
-                        let value = (sum_target[channel] - sum_current[channel]) / divisor;
-                        fill[channel] = if value.is_finite() && value > 0.0 {
-                            value
-                        } else {
-                            0.0
-                        };
-                        any |= fill[channel] > 0.0;
-                    }
-                    if !any {
+                for index in offset..end {
+                    let (Some(receiver), Some(texel), Some(target)) = (
+                        receivers.get(index),
+                        texels.get_mut(index),
+                        self.receiver_target.get(index),
+                    ) else {
                         break;
-                    }
-                    for texel in chart_texels.iter_mut() {
-                        for channel in 0..3 {
-                            if let Some(slot) = texel.irradiance.get_mut(channel) {
-                                *slot += fill[channel];
-                            }
-                        }
-                        *texel = texel.normalized();
-                    }
+                    };
+                    fill_texel(
+                        texel,
+                        receiver.normal,
+                        scale(
+                            attenuate(*target, receiver.attenuation),
+                            self.baseline_support(receiver.position),
+                        ),
+                    );
                 }
             }
             offset = end;
         }
     }
 
-    /// Lifts the moving-object field to the authored fill, one uniform scalar
-    /// per resolved room, after the probes are baked.
-    ///
-    /// The probes are grouped by the room [`probe_targets`] resolved for each
-    /// lattice point (the same lookup the compiler's own labelling uses). Per
-    /// room, the mean target already scaled by the probe's water attenuation
-    /// and the mean solved isotropic value are compared; the positive
-    /// difference is added uniformly to that room's probes, so the room's
-    /// internal brightness structure survives while its mean lands at or above
-    /// its authored fill. A room already averaging above its target is
-    /// untouched; probes in no room (`room == -1`, target zero) never gain
-    /// anything. A target list that does not line up with the baked lattice is
-    /// ignored rather than misapplied.
-    ///
-    /// Probes feed moving objects and carry no surface kind, so the ceiling
-    /// scoping of [`chart_receives_fill`] does not apply here: every resolved
-    /// room's field is filled uniformly regardless of which surface the
-    /// nearby texels belong to.
+    /// Dynamic-object probes use the same local response, avoiding a second
+    /// room-mean correction that depends on the probe lattice's coverage.
     fn apply_probe_fill(&self, baked: &mut [(ProbeSample, [f32; 3])]) {
         if self.probe_target.len() != baked.len() {
             return;
         }
-        let mut sums: HashMap<i32, ProbeRoomSums> = HashMap::new();
-        for (target, (probe, attenuation)) in self.probe_target.iter().zip(baked.iter()) {
-            let entry = sums.entry(target.room).or_default();
-            entry.count = entry.count.saturating_add(1);
+        for (target, (probe, attenuation)) in self.probe_target.iter().zip(baked.iter_mut()) {
+            let support = self.baseline_support(target.position);
             for channel in 0..3 {
-                entry.target[channel] += target.target[channel] * attenuation[channel];
-                entry.current[channel] += probe.irradiance[channel];
-            }
-        }
-        let mut fills: HashMap<i32, [f32; 3]> = HashMap::with_capacity(sums.len());
-        for (room, sums) in &sums {
-            if sums.count == 0 {
-                continue;
-            }
-            let divisor = sums.count as f32;
-            let mut fill = [0.0_f32; 3];
-            for channel in 0..3 {
-                let value = (sums.target[channel] - sums.current[channel]) / divisor;
-                fill[channel] = if value.is_finite() {
-                    value.max(0.0)
-                } else {
-                    0.0
-                };
-            }
-            fills.insert(*room, fill);
-        }
-        for (target, (probe, _)) in self.probe_target.iter().zip(baked.iter_mut()) {
-            let Some(fill) = fills.get(&target.room) else {
-                continue;
-            };
-            if fill.iter().all(|value| *value <= 0.0) {
-                continue;
-            }
-            for channel in 0..3 {
-                if let Some(slot) = probe.irradiance.get_mut(channel) {
-                    *slot += fill[channel];
-                }
+                let current = probe.irradiance[channel];
+                probe.irradiance[channel] += baseline_fill(
+                    current,
+                    target.target[channel] * attenuation[channel] * support,
+                );
             }
             *probe = probe.normalized();
         }
@@ -1904,9 +1899,9 @@ impl TransportScene {
 
     /// One bounce pass: uniform-hemisphere ray samples against the cache.
     ///
-    /// Every receiver traces the same number of rays with a per-receiver,
-    /// per-pass deterministic sequence, so a serial and a parallel solve trace
-    /// identical rays. A ray that escapes the scene contributes nothing (an
+    /// Every receiver uses the same per-pass deterministic angular sequence,
+    /// making serial and parallel results identical and preventing chart order
+    /// or tessellation from changing the sampled directions. A ray that escapes the scene contributes nothing (an
     /// interior has no sky), and a ray that hits a surface contributes that
     /// surface's solved outgoing radiance times its albedo, weighted by the
     /// sample's solid angle.
@@ -1927,11 +1922,13 @@ impl TransportScene {
                 return Accumulator::default();
             };
             let mut accumulator = Accumulator::default();
-            let mut state = ray_seed(index, pass_index);
+            // A shared sequence makes the estimator depend on geometry, not
+            // chart ordering or how many texels another chart happened to add.
+            let mut state = ray_seed(0, pass_index);
             for _ in 0..count {
                 let (u1, u2) = next_pair(&mut state);
                 let direction = hemisphere_sample(receiver.normal, u1, u2);
-                let origin = add(receiver.position, scale(receiver.normal, RAY_EPS_M));
+                let origin = receiver.ray_origin;
                 let Some((distance, triangle_index)) = self.intersect(origin, direction) else {
                     continue;
                 };
@@ -1975,6 +1972,7 @@ impl TransportScene {
     ) -> LightmapTexel {
         let receiver = TransportReceiver {
             position,
+            ray_origin: position,
             normal,
             albedo: [0.0; 3],
             area: 0.0,
@@ -1987,7 +1985,8 @@ impl TransportScene {
             if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
                 continue;
             }
-            let (weight, direction) = emitter.direct(self, receiver.position, taps);
+            let (weight, direction) =
+                emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
             accumulate_lobe(
                 &mut accumulator,
                 attenuate(weight, receiver.attenuation),
@@ -2092,10 +2091,9 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 /// dominant direction. Probes outside every room, and probes the compiler
 /// labels afterwards as inside a wall, stay invalid and are never sampled.
 /// Water attenuation applies to the probe's direct and gathered light exactly
-/// as it does to a chart receiver, and each resolved room's authored fill is
-/// added as one uniform scalar after the whole lattice is baked, so the
-/// moving-object field matches the static surfaces without losing its internal
-/// structure.
+/// as it does to a chart receiver. Each probe then uses the same continuous
+/// baseline response as static receivers, preserving at least half its local
+/// physical gradient without depending on room means or lattice coverage.
 ///
 /// # Errors
 ///
@@ -2169,8 +2167,7 @@ fn bake_probe_field(
             attenuation,
         )
     })?;
-    // The authored fill is one scalar per resolved room, added after the
-    // whole lattice is baked so a room's internal structure survives.
+    // Use the same local support field and continuous response as the atlas.
     scene.apply_probe_fill(&mut baked);
     let probes = baked.into_iter().map(|(probe, _)| probe).collect();
     Ok(ProbeField {
@@ -2316,8 +2313,9 @@ fn filter_accumulators(
 ///
 /// A bounce ray reads this cache at its hit point, which is what turns one
 /// bounce pass into a full diffuse gather without a receiver-to-receiver
-/// quadratic loop. Each cell stores the receiver nearest its centre, and a
-/// lookup only accepts representatives on the hit surface's own side: a cell
+/// quadratic loop. Each cell keeps one representative for every triangle
+/// occupying it, so adjacent charts cannot evict each other's light. A lookup
+/// only accepts representatives on the hit surface's own side: a cell
 /// that straddles a wall therefore cannot migrate a lit room's light through
 /// the solid, and a hit whose neighbourhood holds no receiver on its side reads
 /// zero instead of a neighbour's light.
@@ -2325,8 +2323,8 @@ struct RadianceCache {
     min: [f32; 3],
     cell: f32,
     dims: [usize; 3],
-    /// One representative receiver per cell, chosen nearest the cell centre.
-    cells: Vec<Option<usize>>,
+    /// One receiver per (cell, triangle), chosen nearest the cell centre.
+    cells: Vec<Vec<usize>>,
 }
 
 impl RadianceCache {
@@ -2378,8 +2376,7 @@ impl RadianceCache {
             CACHE_CELL_M
         };
         let total = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
-        let mut cells: Vec<Option<usize>> = vec![None; total];
-        let mut best_distance: Vec<f32> = vec![f32::INFINITY; total];
+        let mut cells: Vec<Vec<usize>> = vec![Vec::new(); total];
         for (index, receiver) in receivers.iter().enumerate() {
             let Some(cell_index) = cache_cell(receiver.position, min, cell, dims) else {
                 continue;
@@ -2388,12 +2385,25 @@ impl RadianceCache {
             let distance = (receiver.position[0] - centre[0]).powi(2)
                 + (receiver.position[1] - centre[1]).powi(2)
                 + (receiver.position[2] - centre[2]).powi(2);
-            if let (Some(slot), Some(limit)) =
-                (cells.get_mut(cell_index), best_distance.get_mut(cell_index))
-                && distance < *limit
-            {
-                *slot = Some(index);
-                *limit = distance;
+            let Some(entries) = cells.get_mut(cell_index) else {
+                continue;
+            };
+            if let Some(previous) = entries.iter_mut().find(|entry| {
+                receivers
+                    .get(**entry)
+                    .is_some_and(|candidate| candidate.surface == receiver.surface)
+            }) {
+                let old_distance = receivers.get(*previous).map_or(f32::INFINITY, |candidate| {
+                    dot(
+                        sub(candidate.position, centre),
+                        sub(candidate.position, centre),
+                    )
+                });
+                if distance < old_distance {
+                    *previous = index;
+                }
+            } else {
+                entries.push(index);
             }
         }
         Self {
@@ -2406,7 +2416,22 @@ impl RadianceCache {
 
     /// Number of cells that hold a representative receiver.
     fn occupied_cells(&self) -> usize {
-        self.cells.iter().filter(|cell| cell.is_some()).count()
+        self.cells.iter().filter(|cell| !cell.is_empty()).count()
+    }
+
+    /// Select the hit triangle's representative without borrowing another face's
+    /// light, including the opposite face of a thin wall in the same cell.
+    fn representative(
+        &self,
+        cell: usize,
+        surface: usize,
+        receivers: &[TransportReceiver],
+    ) -> Option<usize> {
+        self.cells.get(cell)?.iter().copied().find(|index| {
+            receivers.get(*index).is_some_and(|receiver| {
+                usize::try_from(receiver.surface).unwrap_or(usize::MAX) == surface
+            })
+        })
     }
 
     /// Interpolated cached light at `point`, restricted to representatives on
@@ -2451,11 +2476,11 @@ impl RadianceCache {
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let Some(Some(receiver)) = self.cells.get(index) else {
+                    let Some(receiver) = self.representative(index, surface, receivers) else {
                         continue;
                     };
                     let (Some(receiver), Some(value)) =
-                        (receivers.get(*receiver), values.get(*receiver))
+                        (receivers.get(receiver), values.get(receiver))
                     else {
                         continue;
                     };
@@ -2486,11 +2511,11 @@ impl RadianceCache {
                         let Some(index) = lattice_cell(cell, self.dims) else {
                             continue;
                         };
-                        let Some(Some(receiver)) = self.cells.get(index) else {
+                        let Some(receiver) = self.representative(index, surface, receivers) else {
                             continue;
                         };
                         let (Some(receiver), Some(value)) =
-                            (receivers.get(*receiver), values.get(*receiver))
+                            (receivers.get(receiver), values.get(receiver))
                         else {
                             continue;
                         };
@@ -2599,7 +2624,8 @@ fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
     Some(index)
 }
 
-/// A per-receiver, per-pass deterministic ray sequence seed.
+/// A deterministic ray sequence seed; surface gathers share sequence zero,
+/// while probes use their lattice index.
 fn ray_seed(receiver: usize, pass: u8) -> u64 {
     (receiver as u64)
         .wrapping_mul(0x9E37_79B9_7F4A_7C15)
@@ -2822,32 +2848,75 @@ fn point_box_distance_squared(point: [f32; 3], min: [f32; 3], max: [f32; 3]) -> 
     sum
 }
 
-/// Möller-Trumbore intersection, double-sided.
+/// Double-sided watertight ray/triangle test. Translate before projecting onto
+/// the dominant ray axis, then evaluate the three oriented edge functions in
+/// f64. Shared edges use the same products in reverse order in either triangle,
+/// avoiding cracks and f32 cancellation on long, oblique rays. No barycentric
+/// epsilon expands geometry and no fixed distance discards nearby blockers.
 fn ray_triangle(
     origin: [f32; 3],
     direction: [f32; 3],
     triangle: &TransportTriangle,
 ) -> Option<f32> {
-    let e1 = sub(triangle.p1, triangle.p0);
-    let e2 = sub(triangle.p2, triangle.p0);
-    let pvec = cross3(direction, e2);
-    let det = dot(e1, pvec);
-    if det.abs() <= 1.0e-12 {
+    let dominant = if direction[0].abs() > direction[1].abs() {
+        if direction[0].abs() > direction[2].abs() {
+            0
+        } else {
+            2
+        }
+    } else if direction[1].abs() > direction[2].abs() {
+        1
+    } else {
+        2
+    };
+    let depth = f64::from(direction[dominant]);
+    if depth.abs() <= f64::MIN_POSITIVE || !depth.is_finite() {
         return None;
     }
-    let inverse = 1.0 / det;
-    let tvec = sub(origin, triangle.p0);
-    let u = dot(tvec, pvec) * inverse;
-    if !(0.0..=1.0).contains(&u) {
+    let horizontal = (dominant + 1) % 3;
+    let vertical = (horizontal + 1) % 3;
+    let shear_x = f64::from(direction[horizontal]) / depth;
+    let shear_y = f64::from(direction[vertical]) / depth;
+    let project = |point: [f32; 3]| {
+        let translated = [
+            f64::from(point[0]) - f64::from(origin[0]),
+            f64::from(point[1]) - f64::from(origin[1]),
+            f64::from(point[2]) - f64::from(origin[2]),
+        ];
+        [
+            translated[horizontal] - shear_x * translated[dominant],
+            translated[vertical] - shear_y * translated[dominant],
+            translated[dominant] / depth,
+        ]
+    };
+    let a = project(triangle.p0);
+    let b = project(triangle.p1);
+    let c = project(triangle.p2);
+    let edge_a = c[0] * b[1] - c[1] * b[0];
+    let edge_b = a[0] * c[1] - a[1] * c[0];
+    let edge_c = b[0] * a[1] - b[1] * a[0];
+    if (edge_a < 0.0 || edge_b < 0.0 || edge_c < 0.0)
+        && (edge_a > 0.0 || edge_b > 0.0 || edge_c > 0.0)
+    {
         return None;
     }
-    let qvec = cross3(tvec, e1);
-    let v = dot(direction, qvec) * inverse;
-    if v < 0.0 || u + v > 1.0 {
+    let determinant = edge_a + edge_b + edge_c;
+    if determinant.abs() <= f64::MIN_POSITIVE {
         return None;
     }
-    let t = dot(e2, qvec) * inverse;
-    if t.is_finite() { Some(t) } else { None }
+    let distance = ((edge_a * a[2] + edge_b * b[2] + edge_c * c[2]) / determinant) as f32;
+    if !distance.is_finite() {
+        return None;
+    }
+    // At a shared corner the normal offset can leave the origin exactly on
+    // the adjoining face. Its winding resolves the boundary: entering solid
+    // blocks immediately, leaving the face is a harmless zero-distance hit.
+    // With this projection determinant * depth is -dot(ray, geometric normal).
+    if distance.abs() < f32::MIN_POSITIVE && determinant * depth > 0.0 {
+        Some(f32::MIN_POSITIVE)
+    } else {
+        Some(distance)
+    }
 }
 
 /// Squared distance from a point to a triangle (Ericson, Real-Time Collision

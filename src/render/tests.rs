@@ -8647,3 +8647,258 @@ fn a_switchable_fixture_owns_its_luminous_face_material() {
         "the switchable fixture draws its own face slot: {materials:?}"
     );
 }
+
+#[test]
+fn doorway_lintel_and_coplanar_wall_slices_keep_the_parent_room() {
+    use crate::lighting::lightmap::{LightmapPlan, PatchKind};
+
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "lintel_owner", "name": "Lintel owner",
+            "spawn": {"x": 4.0, "z": 4.0},
+            "rooms": [
+                {"x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 4.5},
+                {"x": 4.0, "z": -8.0, "width": 2.0, "depth": 8.0, "height": 2.5}
+            ],
+            "walls": [{"x": 0.0, "z": -0.15, "width": 10.0, "depth": 0.3,
+                "height": 4.5, "openings": [{"kind": "passage", "offset": 4.3,
+                "width": 1.4, "height": 2.1}]}]
+        }"#,
+    )
+    .expect("valid lintel level");
+    let lighting = LevelLighting::bake(&level);
+    let mut plan = LightmapPlan::new(crate::quality::QualityLevel::High.lightmap_config());
+    let mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
+        &level,
+        &PropCatalog::builtin(),
+        &[],
+        &lighting,
+        &logical_materials(&level),
+        Some(&mut plan),
+    );
+    assert!(!plan.failed());
+    let mut lintels = 0;
+    for (patch, _) in plan.charts() {
+        if patch.kind != PatchKind::Wall || patch.origin[1] < 4.4 {
+            continue;
+        }
+        assert_eq!(patch.room, Some(0), "coplanar wall slice: {patch:?}");
+        if patch.origin[0] >= 4.3 && patch.origin[0] <= 5.7 {
+            lintels += 1;
+        }
+    }
+    assert!(lintels >= 2, "both lintel faces must be checked");
+
+    // The lightmapped path stores material shade in its vertices. A header's
+    // lower edge must match the interpolated shade of the adjacent unsliced
+    // wall at the same height; restarting .92 -> 1.05 per slice makes a seam
+    // even when both charts contain identical irradiance.
+    let wall_vertices = mesh.triangles_for(SurfaceKind::Wall);
+    let front: Vec<_> = wall_vertices
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| triangle.iter().all(|vertex| vertex.pos[2] == 0.15))
+        .flatten()
+        .collect();
+    let bottom = front
+        .iter()
+        .find(|vertex| vertex.pos[1] == 0.0)
+        .expect("wall bottom");
+    let top = front
+        .iter()
+        .find(|vertex| vertex.pos[1] == 4.5)
+        .expect("wall top");
+    let header_bottom: Vec<_> = front.iter().filter(|vertex| vertex.pos[1] == 2.1).collect();
+    assert!(!header_bottom.is_empty());
+    for vertex in header_bottom {
+        for channel in 0..3 {
+            let expected = (top.color[channel] - bottom.color[channel])
+                .mul_add(vertex.pos[1] / 4.5, bottom.color[channel]);
+            assert!(
+                (vertex.color[channel] - expected).abs() < 1e-6,
+                "header shade must continue the parent gradient: {vertex:?}, expected {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn maintained_demo_step_risers_meet_their_treads_without_gaps() {
+    use crate::lighting::lightmap::{LightmapPlan, PatchKind};
+
+    let level = shipped_demo();
+    let lighting = LevelLighting::bake(&level);
+    let mut plan = LightmapPlan::new(crate::quality::QualityLevel::High.lightmap_config());
+    let _mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
+        &level,
+        &PropCatalog::builtin(),
+        &[],
+        &lighting,
+        &logical_materials(&level),
+        Some(&mut plan),
+    );
+    assert!(!plan.failed());
+    let floors: Vec<_> = plan
+        .charts()
+        .iter()
+        .filter_map(|(patch, _)| (patch.kind == PatchKind::Floor).then_some(patch))
+        .collect();
+    let mut checked = 0;
+    for (patch, _) in plan.charts() {
+        let p = patch.origin;
+        let stair_hall =
+            (19.0..=24.0).contains(&p[0]) && (1.6..=4.8).contains(&p[2]) && patch.u_axis[2] == 0.0;
+        let pool_steps =
+            (24.2..=25.0).contains(&p[0]) && (9.2..=11.0).contains(&p[2]) && patch.u_axis[0] == 0.0;
+        if patch.kind != PatchKind::Skirt || !(stair_hall || pool_steps) {
+            continue;
+        }
+        // Midpoints of both horizontal riser edges avoid unrelated room-edge
+        // corners; the emitted floor must reach each edge at exactly its Y.
+        for v in [0.0, 1.0] {
+            let point = glam::Vec3::from_array(p)
+                + glam::Vec3::from_array(patch.u_axis) * 0.5
+                + glam::Vec3::from_array(patch.v_axis) * v;
+            let touches = floors.iter().any(|floor| {
+                if floor.origin[1] != point.y {
+                    return false;
+                }
+                let offset = point - glam::Vec3::from_array(floor.origin);
+                let u = glam::Vec3::from_array(floor.u_axis);
+                let v = glam::Vec3::from_array(floor.v_axis);
+                let along_u = offset.dot(u) / u.length_squared();
+                let along_v = offset.dot(v) / v.length_squared();
+                (-1e-6..=1.000_001).contains(&along_u) && (-1e-6..=1.000_001).contains(&along_v)
+            });
+            assert!(touches, "riser edge has no adjoining tread: {point:?}");
+            checked += 1;
+        }
+    }
+    assert!(checked >= 12, "both maintained stair areas must be checked");
+}
+
+#[test]
+fn ceiling_lightmap_edges_stop_at_wall_air_faces_instead_of_buried_texels() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version":3, "id":"ceiling_boundary", "name":"Ceiling Boundary",
+        "spawn":{"x":2,"z":2},
+        "rooms": [{"x":0,"z":0,"width":4,"depth":4,"height":3}],
+        "walls": [{"x":0,"z":-0.15,"width":4,"depth":0.3,
+            "openings":[{"kind":"passage","offset":1,"width":1,"height":2}]}],
+        "ceiling_lights": [{"x":2,"z":2,"fixture":"core:fluorescent_panel_01","intensity":1.0}]
+    }"#,
+    )
+    .expect("ceiling fixture");
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    let atlas = build.lightmaps.as_ref().expect("atlas");
+    let ceilings: Vec<_> = atlas
+        .charts
+        .iter()
+        .filter(|(patch, _)| patch.kind == crate::lighting::lightmap::PatchKind::Ceiling)
+        .collect();
+    assert_eq!(
+        ceilings.len(),
+        1,
+        "doorway slice cuts must not split the continuous exposed ceiling into separate charts"
+    );
+    let mut near_edge = f32::INFINITY;
+    for (patch, _) in ceilings {
+        for (u, v) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)] {
+            let point = patch.point_at(u, v);
+            assert!(
+                point[2] >= 0.15 - 1.0e-6,
+                "buried ceiling sample at {point:?}"
+            );
+            near_edge = near_edge.min(point[2]);
+        }
+    }
+    assert!(
+        (near_edge - 0.15).abs() < 1.0e-6,
+        "ceiling must meet wall exactly"
+    );
+
+    let mut gable = level.clone();
+    gable.rooms[0].ceiling = crate::level::CeilingProfileDef::Gable {
+        ridge: crate::level::WallAxis::X,
+        ridge_rise: 1.0,
+    };
+    let gable_build = lightmap_build(&gable, crate::quality::QualityLevel::High, LightmapMode::On);
+    let gable_atlas = gable_build.lightmaps.as_ref().expect("gable atlas");
+    for (patch, _) in &gable_atlas.charts {
+        if patch.kind == crate::lighting::lightmap::PatchKind::Ceiling {
+            assert!(
+                patch.origin[2] >= 0.15 - 1.0e-6,
+                "ceiling-bounded gable wall must also exclude buried chart strip: {patch:?}"
+            );
+        }
+    }
+
+    let mut low_wall = level;
+    low_wall.walls[0].height = Some(1.0);
+    let low_build = lightmap_build(
+        &low_wall,
+        crate::quality::QualityLevel::High,
+        LightmapMode::On,
+    );
+    let low_atlas = low_build.lightmaps.as_ref().expect("low-wall atlas");
+    assert!(
+        low_atlas.charts.iter().any(|(patch, _)| {
+            patch.kind == crate::lighting::lightmap::PatchKind::Ceiling
+                && patch.origin[2].abs() < 1.0e-6
+        }),
+        "a low wall cannot remove visible ceiling"
+    );
+}
+
+#[test]
+fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "gable_wall_join", "name": "Gable wall join",
+            "spawn": {"x": 4.0, "z": 4.0},
+            "rooms": [{"x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                "height": 3.0, "ceiling": {"kind": "gable", "ridge": "x", "ridge_rise": 2.0}}],
+            "walls": [{"x": 2.0, "z": 0.0, "width": 3.0, "depth": 0.4,
+                "openings": [{"kind": "passage", "offset": 1.0, "width": 1.0, "height": 2.0}]}]
+        }"#,
+    )
+    .expect("valid gable wall");
+    let mesh = build_level_geometry(&level);
+    let triangles = mesh.triangles_for(SurfaceKind::Wall);
+    // The inner face is 20 cm higher than the eave. Every strip, including
+    // the header, must reach that plane rather than its old centerline top.
+    let front: Vec<_> = triangles
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|triangle| triangle.iter().all(|vertex| vertex.pos[2] == 0.4))
+        .flatten()
+        .filter(|vertex| vertex.pos[1] > 3.0)
+        .collect();
+    assert!(!front.is_empty());
+    for vertex in front {
+        assert!((vertex.pos[1] - 3.2).abs() < 1e-6, "roof gap at {vertex:?}");
+    }
+    // End caps need the same sloped top edge, not a rectangular cap stopping
+    // at the centerline height and leaving the wall open at its end.
+    for end in [2.0, 5.0] {
+        let cap: Vec<_> = triangles
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .filter(|triangle| triangle.iter().all(|vertex| vertex.pos[0] == end))
+            .flatten()
+            .filter(|vertex| vertex.pos[1] > 2.9)
+            .collect();
+        assert!(!cap.is_empty());
+        for vertex in cap {
+            let expected = 0.5f32.mul_add(vertex.pos[2], 3.0);
+            assert!(
+                (vertex.pos[1] - expected).abs() < 1e-6,
+                "cap gap at {vertex:?}"
+            );
+        }
+    }
+}

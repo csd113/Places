@@ -932,7 +932,7 @@ fn assert_chart_receivers(
     chart: &Chart,
     shared_shape: (usize, usize),
 ) {
-    use crate::lighting::transport::{SURFACE_OFFSET_M, patch_normal, texel_axis};
+    use crate::lighting::transport::{patch_normal, receiver_position, texel_axis};
     let width = usize::try_from(chart.width).expect("chart width");
     let height = usize::try_from(chart.height).expect("chart height");
     assert_eq!((width, height), shared_shape);
@@ -945,11 +945,7 @@ fn assert_chart_receivers(
             let receiver = solved.receivers[j * width + i];
             assert_eq!(receiver.normal, normal);
             let point = patch.point_at(texel_axis(i, width), texel_axis(j, height));
-            let expected = [
-                normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
-                normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
-                normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
-            ];
+            let expected = receiver_position(point, normal);
             assert_eq!(receiver.position, expected, "receiver ({i}, {j})");
         }
     }
@@ -962,7 +958,7 @@ fn assert_chart_receivers(
 #[test]
 fn transport_receivers_span_each_patch_and_meet_on_a_shared_edge() {
     use crate::lighting::transport::{
-        SURFACE_OFFSET_M, SolveOptions, TransportScene, patch_normal, texel_axis,
+        SolveOptions, TransportScene, patch_normal, receiver_position, texel_axis,
     };
     // Two coplanar 2 x 2 m floor patches sharing the x = 2 edge; one chart each.
     let patch_a = LightmapPatch {
@@ -1035,11 +1031,7 @@ fn transport_receivers_span_each_patch_and_meet_on_a_shared_edge() {
     let b = &solution.charts[1].receivers;
     let shifted = |point: [f32; 3]| {
         let normal = patch_normal(&patch_a);
-        [
-            normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
-            normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
-            normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
-        ]
+        receiver_position(point, normal)
     };
     assert_eq!(a[0].position, shifted(patch_a.point_at(0.0, 0.0)));
     assert_eq!(

@@ -2373,14 +2373,24 @@ impl StairSurface {
     /// length axis.
     #[must_use]
     pub fn tread_span(&self, index: u32) -> (f32, f32) {
-        let (x0, _x1, z0, _z1) = self.bounds();
-        let origin = match self.axis() {
-            WallAxis::X => x0,
-            WallAxis::Z => z0,
+        let (x0, x1, z0, z1) = self.bounds();
+        let (origin, end) = match self.axis() {
+            WallAxis::X => (x0, x1),
+            WallAxis::Z => (z0, z1),
         };
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
-        let start = self.tread_depth().mul_add(index as f32, origin);
-        (start, start + self.tread_depth())
+        // Every shared tread/riser boundary must use the same operation. Adding
+        // one depth to the previous start rounds differently from the next
+        // tread's fused multiply-add, leaving tiny cracks in the shadow mesh.
+        let boundary = |step: u32| {
+            if step >= self.steps {
+                end
+            } else {
+                #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+                let step = step as f32;
+                self.tread_depth().mul_add(step, origin)
+            }
+        };
+        (boundary(index), boundary(index.saturating_add(1)))
     }
 
     /// A world point just outside one side of the flight, at run fraction

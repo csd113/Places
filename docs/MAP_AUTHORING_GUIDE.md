@@ -3215,7 +3215,7 @@ decorative tube — authors its own emissive strength separately:
 
 ```json
 { "fixture": "core:fluorescent_panel_01", "x": 47.5, "z": 13.0,
-  "brightness": 0.18, "emission": 1.0 }
+  "brightness": 0.38, "range": 4.5, "emission": 1.0 }
 ```
 
 That entry is real content in `places_demo.json`: the far east corridor's last tube
@@ -5537,11 +5537,11 @@ A prop that owns its own light (a machine with a lit panel or a subtle glow):
   "brightness": 0.34, "color": [1.0, 0.2, 0.15] }
 ```
 
-A tube that reads bright but casts its dim pool (the demo's far corridor panel):
+A tube that reads bright but casts a restrained local pool (the demo's far corridor panel):
 
 ```json
 { "fixture": "core:fluorescent_panel_01", "x": 47.5, "z": 13.0,
-  "brightness": 0.18, "emission": 1.0 }
+  "brightness": 0.38, "range": 4.5, "emission": 1.0 }
 ```
 
 ## Place a wall light

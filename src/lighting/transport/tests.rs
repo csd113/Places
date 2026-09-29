@@ -508,8 +508,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 4,
-        "water transmission/attenuation and the per-chart baseline fill are solver revision 4"
+        SOLVER_REVISION, 6,
+        "surface-complete bounce caching and chart-independent rays are solver revision 6"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -942,7 +942,7 @@ fn the_chart_fill_restores_the_authored_baseline_and_keeps_dark_rooms_dark() {
     // Case 2: the real fixture, with a full-height wall across the lit room.
     // The chart mean must still reach its authored target, never fall below
     // it, and the unblocked side must stay visibly brighter than the blocked
-    // side (the uniform fill cannot flatten within-chart contrast).
+    // side (the smooth floor retains at least half the physical gradient).
     let blocker = wall(
         [2.0, 0.0, 0.0],
         [2.0, 0.0, 4.0],
@@ -1069,8 +1069,8 @@ fn a_water_target_is_attenuated_with_the_direct_light() {
 }
 
 /// The moving-object field gets the same authored fill as the static atlas,
-/// one uniform scalar per resolved room, so a probe in a lit room never reads
-/// darker than its authored baseline and a fixture-free room stays dark.
+/// with the same continuous response at each probe, so a probe in a lit room
+/// never reads darker than its baseline and a fixture-free room stays dark.
 #[test]
 fn the_chart_fill_reaches_the_probe_field_with_the_same_target() {
     let level = fill_test_level();
@@ -1123,8 +1123,8 @@ fn the_chart_fill_reaches_the_probe_field_with_the_same_target() {
 }
 
 /// A solver-level mirror of the render suite's tall-chamber acceptance: a
-/// 17 m room, one 0.45 panel, one whole-floor chart. The uniform per-chart
-/// fill must lift the chart while the physical pool under the panel keeps its
+/// 17 m room, one 0.45 panel, one whole-floor chart. The continuous baseline
+/// response must lift dark samples while the physical pool keeps its
 /// real margin over the far corner after soft-clip.
 #[test]
 fn a_chart_fill_preserves_the_tall_chamber_pool_contrast() {
@@ -1213,17 +1213,15 @@ fn ceiling_patch(
     )
 }
 
-/// The authored fill is scoped to floors, walls and skirts: a ceiling chart
-/// keeps its exact post-solve values (physical pool and all) whether or not
-/// targets are attached, while the floor and wall charts of the same room rise
-/// to the authored fill.
+/// Every architectural family receives the same smooth floor, including the
+/// ceiling, while the physical bounce gradient and directional moment survive.
 #[test]
-fn the_chart_fill_skips_ceilings_and_keeps_their_physical_values() {
+fn the_spatial_fill_includes_ceilings_and_preserves_their_physical_gradients() {
     // The shared predicate is the single scoping decision.
     assert!(chart_receives_fill(PatchKind::Floor));
     assert!(chart_receives_fill(PatchKind::Wall));
     assert!(chart_receives_fill(PatchKind::Skirt));
-    assert!(!chart_receives_fill(PatchKind::Ceiling));
+    assert!(chart_receives_fill(PatchKind::Ceiling));
 
     let level = fill_test_level();
     let lighting = LevelLighting::bake(&level);
@@ -1264,8 +1262,7 @@ fn the_chart_fill_skips_ceilings_and_keeps_their_physical_values() {
         .solve(&charts, options(2, 1), None)
         .expect("filled solve");
 
-    // The ceiling is physically lit (the bounces reach it) and the fill must
-    // leave every one of its solved texels bit-for-bit untouched.
+    // The ceiling is physically lit, and the fill must preserve its structure.
     assert!(
         plain.charts[1]
             .texels
@@ -1274,9 +1271,36 @@ fn the_chart_fill_skips_ceilings_and_keeps_their_physical_values() {
         "the setup needs a physically lit ceiling: {:?}",
         plain.charts[1].texels[0]
     );
-    assert_eq!(
-        filled.charts[1].texels, plain.charts[1].texels,
-        "a ceiling chart must keep its exact physical values"
+    let mut lowest = f32::INFINITY;
+    let mut highest = 0.0_f32;
+    let support_scene = TransportScene::new(
+        Vec::new(),
+        vec![TransportEmitter::from_baked(&lighting.lights()[0], None)],
+    )
+    .expect("support");
+    for ((original, lifted), receiver) in plain.charts[1]
+        .texels
+        .iter()
+        .zip(&filled.charts[1].texels)
+        .zip(&filled.charts[1].receivers)
+    {
+        let support = support_scene.baseline_support(receiver.position);
+        let before = original.light_at([0.0, -1.0, 0.0]);
+        let after = lifted.light_at([0.0, -1.0, 0.0]);
+        assert_eq!(
+            original.direction, lifted.direction,
+            "fill preserves the directional moment"
+        );
+        for channel in 0..3 {
+            assert!(after[channel] >= before[channel]);
+            assert!(after[channel] >= floor_target[channel] * support - 1.0e-5);
+        }
+        lowest = lowest.min(after[0]);
+        highest = highest.max(after[0]);
+    }
+    assert!(
+        highest > lowest + 1.0e-4,
+        "ceiling bounce gradients survive the fill"
     );
 
     // The floors and the wall rise to the authored fill mean.
@@ -1296,8 +1320,8 @@ fn the_chart_fill_skips_ceilings_and_keeps_their_physical_values() {
     }
 }
 
-/// The probe fill is one uniform scalar per resolved room: two probes in one
-/// room keep their physical brightness difference after the fill.
+/// The continuous probe response preserves a visible difference between
+/// physically bright and dark parts of the same room.
 #[test]
 fn the_probe_fill_preserves_a_rooms_internal_structure() {
     let level = fill_test_level();
@@ -1330,7 +1354,237 @@ fn the_probe_fill_preserves_a_rooms_internal_structure() {
     );
     assert!(
         highest > lowest + 1.0e-3,
-        "the room's internal probe structure must survive the uniform fill: \
+        "the room's internal probe structure must survive the continuous fill: \
          highest {highest} lowest {lowest}"
     );
+}
+
+/// An edge texel can sit on a perpendicular face's plane. Leaving that plane
+/// must remain clear even for a very oblique ray at translated world scales.
+#[test]
+fn perpendicular_corner_and_long_grazing_rays_do_not_self_occlude() {
+    for translation in [0.0, 100.0, 10_000.0] {
+        let mut triangles = floor(translation, 0.0, translation + 4.0, 4.0, [0.5; 3]);
+        triangles.extend(wall(
+            [translation, 0.0, 4.0],
+            [translation, 0.0, 0.0],
+            [translation, 4.0, 0.0],
+            [translation, 4.0, 4.0],
+            [0.5; 3],
+        ));
+        let scene = TransportScene::new(triangles, Vec::new()).expect("corner");
+        let origin = receiver_position([translation, 0.0, 2.0], [0.0, 1.0, 0.0]);
+        for target in [
+            [translation + 2.0, 2.0, 2.0],
+            [translation + 0.01, 0.02, 10_000.0],
+        ] {
+            assert!(
+                !scene.occluded(origin, target),
+                "corner {origin:?} -> {target:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn shared_triangle_edges_and_t_junctions_are_watertight() {
+    let mut triangles = floor(-2.0, -2.0, 0.0, 2.0, [0.5; 3]);
+    triangles.extend(floor(0.0, -2.0, 2.0, 0.0, [0.5; 3]));
+    triangles.extend(floor(0.0, 0.0, 2.0, 2.0, [0.5; 3]));
+    let scene = TransportScene::new(triangles, Vec::new()).expect("T junction");
+    for point in [[0.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 1.0]] {
+        assert!(scene.occluded(add(point, [0.0, 1.0, 0.0]), add(point, [0.0, -1.0, 0.0])));
+        let origin = receiver_position(point, [0.0, 1.0, 0.0]);
+        assert!(!scene.occluded(origin, add(point, [10_000.0, 0.001, 0.02])));
+        assert!(!scene.occluded(point, add(point, [0.0, 1.0, 0.0])));
+    }
+}
+
+/// The old millimetre dead zone dropped the first real hit at a stair joint.
+/// Both direct visibility and diffuse-bounce intersection must see it.
+#[test]
+fn stair_joint_blocks_even_submillimetre_hits() {
+    let mut triangles = floor(-1.0, -1.0, 0.0, 1.0, [0.5; 3]);
+    triangles.extend(wall(
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.2, 1.0],
+        [0.0, 0.2, -1.0],
+        [0.5; 3],
+    ));
+    let scene = TransportScene::new(triangles, Vec::new()).expect("stair joint");
+    let origin = receiver_position([-0.0001, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    assert!(scene.occluded(origin, [0.5, 0.1, 0.0]));
+    let hit = scene
+        .intersect(origin, [1.0, 0.0, 0.0])
+        .expect("near riser blocks");
+    assert!(hit.0 > 0.0 && hit.0 < 0.001);
+}
+
+#[test]
+fn oblique_starting_surface_has_no_positive_self_hit() {
+    let triangle = TransportTriangle::new(
+        [100.0, 31.0, -71.0],
+        [130.0, 47.0, -62.0],
+        [102.0, 44.0, -20.0],
+        [0.5; 3],
+    )
+    .expect("sloped triangle");
+    let scene = TransportScene::new(vec![triangle], Vec::new()).expect("scene");
+    let point = scale(add(add(triangle.p0, triangle.p1), triangle.p2), 1.0 / 3.0);
+    let origin = receiver_position(point, triangle.normal);
+    let tangent = normalize_or(sub(triangle.p1, triangle.p0), [1.0, 0.0, 0.0]);
+    let target = add(
+        origin,
+        add(scale(tangent, 10_000.0), scale(triangle.normal, 0.01)),
+    );
+    assert!(!scene.occluded(origin, target));
+    assert!(origin.iter().all(|value| value.is_finite()));
+}
+
+mod fill;
+
+#[test]
+fn stair_shared_edge_distinguishes_entering_solid_from_departing() {
+    // Lower tread opens upward and riser opens toward negative x.
+    let mut triangles = floor(-1.0, -1.0, 0.0, 1.0, [0.5; 3]);
+    triangles.extend(wall(
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.2, 1.0],
+        [0.0, 0.2, -1.0],
+        [0.5; 3],
+    ));
+    let scene = TransportScene::new(triangles, Vec::new()).expect("stair edge");
+    let origin = receiver_position([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    assert!(
+        !scene.occluded(origin, [-0.5, 0.1, 0.0]),
+        "departing riser is clear"
+    );
+    assert!(
+        scene.occluded(origin, [0.5, 0.1, 0.0]),
+        "entering riser blocks at zero t"
+    );
+}
+
+/// Fixed cancellation witness from a deterministic search (seed 5931).
+/// The old f32/FMA Moller-Trumbore kernel reports t=2.154646m even though the
+/// supporting plane intersects behind the origin (t=-0.2302094m in f64).
+#[test]
+fn grazing_ray_cancellation_does_not_invent_a_blocker_two_metres_away() {
+    let triangle = TransportTriangle::new(
+        [-84.185_47, 110.031_66, -99.317_75],
+        [46.573_353, -38.304_01, -105.976_29],
+        [-118.381_86, 35.967_926, -28.538_006],
+        [0.5; 3],
+    )
+    .expect("triangle");
+    let origin = [-62.056_02, 28.499_092, -65.925_44];
+    let direction = [0.660_889_57, -0.749_728_2, -0.033_654_39];
+    let distance =
+        ray_triangle(origin, direction, &triangle).expect("supporting plane intersection");
+    assert!(
+        distance < 0.0,
+        "intersection is behind the origin: {distance}"
+    );
+    let scene = TransportScene::new(vec![triangle], Vec::new()).expect("scene");
+    assert!(scene.intersect(origin, direction).is_none());
+    assert!(!scene.any_hit(origin, direction, 10_000.0));
+}
+
+#[test]
+fn corner_ray_origin_stays_on_the_charts_owning_side_and_surface() {
+    let mut triangles = floor(0.0, 0.0, 2.0, 2.0, [0.3; 3]);
+    triangles.extend(wall(
+        [0.0, 0.0, 2.0],
+        [2.0, 0.0, 2.0],
+        [2.0, 2.0, 2.0],
+        [0.0, 2.0, 2.0],
+        [0.8; 3],
+    ));
+    // The two-sided wall is wound away from this floor, as at a room divider.
+    let scene = TransportScene::new(triangles, vec![point([1.0, 1.0, 1.0], 2.0)]).expect("corner");
+    let chart = floor_patch(0.0, 0.0, 2.0, 2.0, 3, 3);
+    let solution = scene.solve(&[chart], options(0, 1), None).expect("solve");
+    for (receiver, texel) in solution.charts[0]
+        .receivers
+        .iter()
+        .zip(&solution.charts[0].texels)
+    {
+        assert!(receiver.ray_origin[2] < 2.0);
+        assert_eq!(
+            receiver.albedo, [0.3; 3],
+            "a floor edge must keep its own material"
+        );
+        assert!(
+            texel.light_at([0.0, 1.0, 0.0])[0] > 0.1,
+            "corner must see the room light"
+        );
+        assert!((receiver.ray_origin[2] - receiver.position[2]).abs() < 0.00001);
+    }
+}
+
+#[test]
+fn subdivided_coplanar_surfaces_keep_their_bounce_cache_light() {
+    let receiver = |x, surface, normal| TransportReceiver {
+        position: [x, 0.0, 0.1],
+        ray_origin: [x, 0.00001, 0.1],
+        normal,
+        albedo: [0.5; 3],
+        area: 0.01,
+        surface,
+        attenuation: [1.0; 3],
+    };
+    // Four triangle/chart representatives compete in the same cache cell.
+    let mut receivers: Vec<_> = (0..4_u16)
+        .map(|index| {
+            receiver(
+                0.1 + f32::from(index) * 0.1,
+                u32::from(index),
+                [0.0, 1.0, 0.0],
+            )
+        })
+        .collect();
+    receivers.push(receiver(0.25, 4, [0.0, -1.0, 0.0]));
+    let mut values = vec![
+        Accumulator {
+            irradiance: [0.6; 3],
+            ..Accumulator::default()
+        };
+        4
+    ];
+    values.push(Accumulator::default());
+    let cache = RadianceCache::build(&receivers);
+    for (surface, receiver) in receivers.iter().enumerate() {
+        let actual = cache.sample_surface(receiver.position, surface, &receivers, &values);
+        for (actual, expected) in actual.irradiance.iter().zip(values[surface].irradiance) {
+            assert!(
+                (actual - expected).abs() < 1.0e-6,
+                "each triangle must retain its own light, including the dark opposite face: {actual} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn reordering_charts_does_not_change_the_indirect_field() {
+    let (scene, charts) = two_room_scene(0.8);
+    let mut reversed = charts.clone();
+    reversed.reverse();
+    let first = scene
+        .solve(&charts, options(2, 3), None)
+        .expect("first solve");
+    let second = scene
+        .solve(&reversed, options(2, 3), None)
+        .expect("reordered solve");
+    for (original, reordered) in first.charts.iter().zip(second.charts.iter().rev()) {
+        for (left, right) in original.texels.iter().zip(&reordered.texels) {
+            for (a, b) in left.irradiance.iter().zip(right.irradiance) {
+                assert!(
+                    (a - b).abs() < 1.0e-5,
+                    "chart order changed indirect light: {a} vs {b}"
+                );
+            }
+        }
+    }
 }

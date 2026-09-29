@@ -379,7 +379,7 @@ pub fn split_rect(rect: (f32, f32, f32, f32), max_span: f32) -> Vec<(f32, f32, f
 /// makes the world length axis run the other way). A creator can therefore put
 /// a sign, a border or a directional pattern in a wall PNG and see it upright
 /// and unmirrored in game.
-struct WallFaceStrip<'a, Y: Fn(f32) -> f32> {
+struct WallFaceStrip<'a, Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> {
     /// The wall's length axis.
     axis: WallAxis,
     /// World position of the face across the wall's thickness.
@@ -394,21 +394,21 @@ struct WallFaceStrip<'a, Y: Fn(f32) -> f32> {
     bottom: f32,
     /// The face's top edge at a length offset.
     top_at: Y,
-    /// Shaded colour of the face's bottom edge.
-    bottom_shade: [f32; 3],
-    /// Shaded colour of the face's top edge.
-    top_shade: [f32; 3],
+    /// Material shade at a world length/height, using the parent wall's span.
+    shade_at: S,
     /// Whether the winding runs against the length axis.
     reversed: bool,
     /// Whether `u` is negated so the face reads unmirrored from its own side.
     flip_u: bool,
     lighting: &'a LevelLighting,
+    /// Room resolved by the parent geometry, shared by its doorway fragments.
+    room: Option<usize>,
     tile_metres: f32,
     /// `None` is the historical vertex-lit path.
     lightmap: Option<LightmapEmit<'a>>,
 }
 
-impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
+impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
     /// A world point on the face.
     const fn point(&self, at: f32, y: f32) -> [f32; 3] {
         match self.axis {
@@ -458,8 +458,8 @@ impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
             boundaries.push((
                 at,
                 top,
-                self.color(at, self.bottom, self.bottom_shade, face_room),
-                self.color(at, top, self.top_shade, face_room),
+                self.color(at, self.bottom, (self.shade_at)(at, self.bottom), face_room),
+                self.color(at, top, (self.shade_at)(at, top), face_room),
             ));
         }
         boundaries
@@ -467,18 +467,7 @@ impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
 
     /// Emits the face's merged lighting runs as quads.
     fn emit(&self, vertices: &mut Vec<Vertex>) {
-        // Probe inside the room this face looks into, so the wall is lit by its
-        // own side of the wall even when the surface sits exactly on a room
-        // boundary. The room itself is resolved from the middle of the face,
-        // which is unambiguous, so a face that runs along a shared boundary is
-        // lit by the room it opens into instead of by whichever room the
-        // tie-break preferred.
-        let mid = f32::midpoint(self.l0, self.l1);
-        let (mid_x, mid_z, normal_x, normal_z) = match self.axis {
-            WallAxis::X => (mid, self.face, 0.0, self.normal),
-            WallAxis::Z => (self.face, mid, self.normal, 0.0),
-        };
-        let face_room = self.lighting.face_room(mid_x, mid_z, normal_x, normal_z);
+        let face_room = self.room;
         // The V reference keeps the image's top row at the face's top while
         // staying constant along the face, so tiling never breaks across a
         // gable slope or a merged lighting run.
@@ -577,11 +566,11 @@ fn add_wall_length_face<'a>(
     normal: f32,
     bottom: f32,
     top_at: impl Fn(f32) -> f32,
-    bottom_shade: [f32; 3],
-    top_shade: [f32; 3],
+    shade_at: impl Fn(f32, f32) -> [f32; 3],
     reversed: bool,
     flip_u: bool,
     lighting: &'a LevelLighting,
+    room: Option<usize>,
     tile_metres: f32,
     lightmap: Option<LightmapEmit<'a>>,
 ) {
@@ -593,11 +582,11 @@ fn add_wall_length_face<'a>(
         l1,
         bottom,
         top_at,
-        bottom_shade,
-        top_shade,
+        shade_at,
         reversed,
         flip_u,
         lighting,
+        room,
         tile_metres,
         lightmap,
     };
@@ -1648,7 +1637,7 @@ fn add_wall_cross_quad(
     at: f32,
     thickness: (f32, f32),
     bottom: f32,
-    top: f32,
+    top: [f32; 2],
     facing_positive: bool,
     corners: [[f32; 3]; 4],
     tile_metres: f32,
@@ -1656,6 +1645,8 @@ fn add_wall_cross_quad(
     room: Option<usize>,
 ) {
     let (t0, t1) = thickness;
+    let [top_low, top_high] = top;
+    let uv_top = top_low.max(top_high);
     // The four corners are supplied in the order (low thickness, high
     // thickness) at the bottom, then the same two at the top, and each keeps
     // its own baked colour.
@@ -1664,15 +1655,15 @@ fn add_wall_cross_quad(
         WallAxis::X => (
             ([at, bottom, t0], corners[0]),
             ([at, bottom, t1], corners[1]),
-            ([at, top, t1], corners[2]),
-            ([at, top, t0], corners[3]),
+            ([at, top_high, t1], corners[2]),
+            ([at, top_low, t0], corners[3]),
         ),
         // Length runs along Z, so the cross section lies in the X/Y plane.
         WallAxis::Z => (
             ([t0, bottom, at], corners[0]),
             ([t1, bottom, at], corners[1]),
-            ([t1, top, at], corners[2]),
-            ([t0, top, at], corners[3]),
+            ([t1, top_high, at], corners[2]),
+            ([t0, top_low, at], corners[3]),
         ),
     };
     // Forward order faces -X for a Z/Y section and +Z for an X/Y section.
@@ -1683,8 +1674,8 @@ fn add_wall_cross_quad(
         [b, a, d, c]
     };
     let uv = |point: [f32; 3]| match axis {
-        WallAxis::X => tiled_uv(point[2], top - point[1], tile_metres),
-        WallAxis::Z => tiled_uv(point[0], top - point[1], tile_metres),
+        WallAxis::X => tiled_uv(point[2], uv_top - point[1], tile_metres),
+        WallAxis::Z => tiled_uv(point[0], uv_top - point[1], tile_metres),
     };
     let first = vertices.len();
     add_quad(

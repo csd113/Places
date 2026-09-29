@@ -313,10 +313,10 @@ pub struct LightmapPatch {
     pub v_axis: [f32; 3],
     /// Room hint for [`crate::lighting::LevelLighting::sample_in_room`].
     ///
-    /// The fill uses it for floors, ceilings and skirts, which are emitted per
-    /// room and can be lit by the area they belong to. Wall charts ignore it
-    /// and resolve their room per texel, because a coalesced wall run can span
-    /// a room boundary and one hint would make the light step at the run seam.
+    /// Transport baseline targets use this authoritative owner for every
+    /// architectural family. Wall slices and lintels inherit their parent
+    /// face's room so a doorway cannot redirect their fill into a neighbouring
+    /// corridor. A patch without an owner resolves the room at each texel.
     pub room: Option<usize>,
     /// Which static surface family this patch covers.
     pub kind: PatchKind,

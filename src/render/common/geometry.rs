@@ -260,6 +260,113 @@ fn emit_floors(
     }
 }
 
+/// Clip hidden ceiling strips out of the lightmap chart domain. A room's
+/// authored rectangle extends underneath perimeter walls; interpolating their
+/// buried texels into the visible ceiling creates a false dark edge. Keep only
+/// proven solid coverage (including real opening slices), never low walls.
+/// Sloped roofs additionally require a terminal ceiling-bounded wall slice
+/// whose actual roof owner is this room, matching the wall-face emitter.
+fn exposed_ceiling_rectangles(
+    context: &EmitContext<'_, '_>,
+    room: &RoomDef,
+) -> Vec<(f32, f32, f32, f32)> {
+    let bounds = room.bounds();
+    if !context.lightmapped() {
+        return vec![bounds];
+    }
+    let mut covered = Vec::new();
+    for coverage in context.coverages {
+        for &(start, end, bottom, top) in &coverage.solids {
+            let (x0, x1, z0, z1) = match coverage.axis {
+                WallAxis::X => (start, end, coverage.thickness.0, coverage.thickness.1),
+                WallAxis::Z => (coverage.thickness.0, coverage.thickness.1, start, end),
+            };
+            let (x0, x1, z0, z1) = (
+                x0.max(bounds.0),
+                x1.min(bounds.1),
+                z0.max(bounds.2),
+                z1.min(bounds.3),
+            );
+            if x0 >= x1 || z0 >= z1 {
+                continue;
+            }
+            let heights = [
+                room.ceiling_y_at(x0, z0),
+                room.ceiling_y_at(x1, z0),
+                room.ceiling_y_at(x0, z1),
+                room.ceiling_y_at(x1, z1),
+            ];
+            let low = heights.into_iter().fold(f32::INFINITY, f32::min);
+            let high = heights.into_iter().fold(f32::NEG_INFINITY, f32::max);
+            let flat_covered =
+                high - low <= WALL_COINCIDENCE_EPS && top >= high - WALL_COINCIDENCE_EPS;
+            let follows_roof = context.level.walls.get(coverage.index).is_some_and(|wall| {
+                if wall.height.is_some() {
+                    return false;
+                }
+                let across = f32::midpoint(coverage.thickness.0, coverage.thickness.1);
+                let (along0, along1) = match coverage.axis {
+                    WallAxis::X => (x0, x1),
+                    WallAxis::Z => (z0, z1),
+                };
+                let centre = |along| match coverage.axis {
+                    WallAxis::X => (along, across),
+                    WallAxis::Z => (across, along),
+                };
+                let (cx, cz) = centre(f32::midpoint(along0, along1));
+                if !context
+                    .surfaces
+                    .room_at(cx, cz)
+                    .is_some_and(|owner| std::ptr::eq(owner, room))
+                {
+                    return false;
+                }
+                [along0, along1].into_iter().all(|along| {
+                    let (x, z) = centre(along);
+                    let ceiling_limit = wall.y + context.surfaces.clear_ceiling_height_at(x, z);
+                    top >= ceiling_limit - WALL_COINCIDENCE_EPS
+                })
+            });
+            if bottom < low - WALL_COINCIDENCE_EPS && (flat_covered || follows_roof) {
+                covered.push((x0, x1, z0, z1));
+            }
+        }
+    }
+    subtract_rectangles(bounds, &covered)
+}
+
+/// One ceiling lattice with a shared exposed-region label. Wall cuts remain
+/// exact, but adjoining clear cells can merge across artificial subtraction
+/// cuts instead of each doorway projecting a separate chart across the roof.
+fn ceiling_surface_grid(
+    context: &EmitContext<'_, '_>,
+    room: &RoomDef,
+) -> (Vec<f32>, Vec<f32>, Vec<u32>) {
+    let (mut columns, mut rows) = context.surfaces.ceiling_grid(room);
+    let exposed = exposed_ceiling_rectangles(context, room);
+    for &(x0, x1, z0, z1) in &exposed {
+        columns.extend([x0, x1]);
+        rows.extend([z0, z1]);
+    }
+    columns.sort_by(f32::total_cmp);
+    columns.dedup();
+    rows.sort_by(f32::total_cmp);
+    rows.dedup();
+    let mut labels = Vec::new();
+    for row in rows.windows(2) {
+        let &[z0, z1] = row else { continue };
+        let z = f32::midpoint(z0, z1);
+        for column in columns.windows(2) {
+            let &[x0, x1] = column else { continue };
+            let x = f32::midpoint(x0, x1);
+            labels.push(u32::from(exposed.iter().any(
+                |&(left, right, front, back)| x >= left && x <= right && z >= front && z <= back,
+            )));
+        }
+    }
+    (columns, rows, labels)
+}
+
 /// Step 2: the ceiling batch, using the same grid and lighting sample as the
 /// floor, with the fixture panels themselves drawn brighter by the light batch.
 ///
@@ -281,7 +388,8 @@ fn emit_ceilings(
             room.ceiling_ref()
                 .unwrap_or_else(|| context.level.defaults.ceiling_ref()),
         );
-        let (xs, zs) = context.surfaces.ceiling_grid(room);
+        let (xs, zs, labels) = ceiling_surface_grid(context, room);
+        scratch.clear();
         let ceiling_at = |x: f32, z: f32| room.ceiling_y_at(x, z);
         let colors = lit_surface_grid(
             context.lighting,
@@ -293,7 +401,6 @@ fn emit_ceilings(
             context.vertex_colors_are_material_only(),
         );
         let tile = context.materials.tile_metres(ceiling_key);
-        scratch.clear();
         emit_lit_surface_grid(
             scratch,
             &xs,
@@ -302,7 +409,7 @@ fn emit_ceilings(
             LitSurface {
                 y_at: ceiling_at,
                 ceiling: true,
-                region: None,
+                region: Some((1, &labels)),
             },
             // The ceiling tiles in the room's own tile frame (world origin at
             // zero rotation unless the room authors one), so a room with its
@@ -367,6 +474,11 @@ struct WallState<'a> {
     t1: f32,
     /// World Y of the wall's base.
     wall_base: f32,
+    /// Parent wall's top before openings split its material gradient.
+    wall_top: f32,
+    /// Parent room used when a doorway fragment lies beyond the adjoining
+    /// room's vertical volume (for example a tall room's corridor lintel).
+    room: Option<usize>,
     /// The wall's solid Y profile, in length order.
     slices: Vec<WallSlice>,
 }
@@ -391,7 +503,7 @@ fn emit_wall_unit(
     let z1 = wall.z.max(wall.z + wall.depth);
     // The unit's own solid profile: a plain wall cuts its own openings, a
     // coalesced group carries the union its members resolved to.
-    let (wall_base, _) = wall_vertical_extent(wall, context.surfaces);
+    let (wall_base, wall_top) = wall_vertical_extent(wall, context.surfaces);
     // The axis the wall's length runs along and the world span across its
     // thickness. Local slice offsets start at the wall's min corner.
     let axis = wall.axis();
@@ -413,6 +525,8 @@ fn emit_wall_unit(
         t0,
         t1,
         wall_base,
+        wall_top,
+        room: wall_parent_room(context.level, wall, wall_base, wall_top),
         slices,
     };
     // Cursor into `scratch` for the current face's quads; see `flush_wall_run`.
@@ -422,6 +536,40 @@ fn emit_wall_unit(
     }
     emit_wall_cross_sections(context, buckets, scratch, &state, &mut cursor);
     flush_wall_run(buckets, scratch, &mut cursor, wall_key);
+}
+
+/// Selects the parent from the complete wall's contact area, before openings
+/// and material runs split it. A small adjoining corridor must not steal a
+/// tall lintel just because its doorway happens to cross the wall midpoint.
+fn wall_parent_room(level: &LevelDef, wall: &WallDef, bottom: f32, top: f32) -> Option<usize> {
+    let (wx0, wx1) = (
+        wall.x.min(wall.x + wall.width),
+        wall.x.max(wall.x + wall.width),
+    );
+    let (wz0, wz1) = (
+        wall.z.min(wall.z + wall.depth),
+        wall.z.max(wall.z + wall.depth),
+    );
+    let mut best = None;
+    let mut best_area = 0.0;
+    for (index, room) in level.room_iter().enumerate() {
+        let (x0, x1, z0, z1) = room.bounds();
+        if x0 > wx1 || x1 < wx0 || z0 > wz1 || z1 < wz0 {
+            continue;
+        }
+        let along = match wall.axis() {
+            WallAxis::X => wx1.min(x1) - wx0.max(x0),
+            WallAxis::Z => wz1.min(z1) - wz0.max(z0),
+        };
+        let ceiling = room.ceiling_y_at(f32::midpoint(wx0, wx1), f32::midpoint(wz0, wz1));
+        let height = (top.min(ceiling) - bottom.max(room.floor_y)).max(0.0);
+        let area = along.max(0.0) * height;
+        if area > best_area {
+            best_area = area;
+            best = Some(index);
+        }
+    }
+    best
 }
 
 /// One of the two length faces of a wall: its position across the wall's
@@ -442,8 +590,7 @@ struct WallFace {
     name: &'static str,
 }
 
-/// One length-face strip to emit: the face's span, material and pre-shaded
-/// top/bottom colours.
+/// One length-face strip to emit: the face's span, material and direction shade.
 #[derive(Clone, Copy)]
 struct WallLengthFace {
     key: SurfaceKey,
@@ -452,22 +599,14 @@ struct WallLengthFace {
     l0: f32,
     l1: f32,
     bottom: f32,
-    bottom_shade: [f32; 3],
-    top_shade: [f32; 3],
+    shade: f32,
     reversed: bool,
     flip_u: bool,
 }
 
 impl WallLengthFace {
-    /// Resolves one length-face strip's colours for its material key.
-    fn new(
-        context: &EmitContext<'_, '_>,
-        key: SurfaceKey,
-        face: WallFace,
-        l0: f32,
-        l1: f32,
-        bottom: f32,
-    ) -> Self {
+    /// Resolves one length-face strip's material and orientation.
+    const fn new(key: SurfaceKey, face: WallFace, l0: f32, l1: f32, bottom: f32) -> Self {
         Self {
             key,
             face: face.position,
@@ -475,13 +614,7 @@ impl WallLengthFace {
             l0,
             l1,
             bottom,
-            bottom_shade: scaled_wall_color(
-                context.materials,
-                key,
-                face.mult,
-                WALL_BOTTOM_GRADIENT,
-            ),
-            top_shade: scaled_wall_color(context.materials, key, face.mult, WALL_TOP_GRADIENT),
+            shade: face.mult,
             reversed: face.reversed,
             flip_u: face.flip_u,
         }
@@ -510,20 +643,14 @@ fn emit_wall_slice(
     // written, which is what lets a raised wall span two rooms with different
     // ceiling heights.
     let ceiling_bounded = state.wall.height.is_none();
-    let visible_top = move |at: f32| {
-        if !ceiling_bounded {
-            return slice_top;
-        }
-        let ceiling = match state.axis {
-            WallAxis::X => context
+    let profile_top = |offset| {
+        state.wall.y
+            + context
                 .surfaces
-                .ceiling_y_at(at, f32::midpoint(state.t0, state.t1)),
-            WallAxis::Z => context
-                .surfaces
-                .ceiling_y_at(f32::midpoint(state.t0, state.t1), at),
-        };
-        slice_top.min(ceiling)
+                .clear_ceiling_height_along(state.wall, offset)
     };
+    let follows_ceiling = ceiling_bounded
+        && slice_top >= profile_top(slice.start).max(profile_top(slice.end)) - WALL_COINCIDENCE_EPS;
 
     // Faces parallel to the length axis: north/south for X-axis walls,
     // west/east for Z-axis walls. Each face is a strip of quads so the baked
@@ -568,6 +695,17 @@ fn emit_wall_slice(
         ],
     };
     for (face_index, face) in faces.into_iter().enumerate() {
+        let visible_top = |at| {
+            if !ceiling_bounded {
+                return slice_top;
+            }
+            let ceiling = wall_face_ceiling(context, state, at, face.position);
+            if follows_ceiling {
+                ceiling
+            } else {
+                slice_top.min(ceiling)
+            }
+        };
         // A coalesced unit splits the face at its material runs; a plain wall
         // emits the whole slice under its authored key.
         let runs = state
@@ -575,7 +713,7 @@ fn emit_wall_slice(
             .runs_between(slice.start, slice.end, slice.bottom, slice.top);
         if runs.is_empty() {
             let key = wall_face_key(context, state.wall, face.name);
-            let strip = WallLengthFace::new(context, key, face, l0, l1, slice_bottom);
+            let strip = WallLengthFace::new(key, face, l0, l1, slice_bottom);
             emit_wall_length_face(context, buckets, scratch, state, cursor, strip, visible_top);
         } else {
             for run in runs {
@@ -584,8 +722,7 @@ fn emit_wall_slice(
                     WallAxis::Z => (state.origin_z + run.start, state.origin_z + run.end),
                 };
                 let key = run.faces.get(face_index).copied().unwrap_or(state.wall_key);
-                let strip =
-                    WallLengthFace::new(context, key, face, run_start, run_end, slice_bottom);
+                let strip = WallLengthFace::new(key, face, run_start, run_end, slice_bottom);
                 emit_wall_length_face(context, buckets, scratch, state, cursor, strip, visible_top);
             }
         }
@@ -632,6 +769,19 @@ fn emit_wall_length_face(
         vec![(strip.l0, strip.l1)]
     };
     for (start, end) in intervals {
+        let mid = f32::midpoint(start, end);
+        let y = f32::midpoint(strip.bottom, top_at(mid));
+        let side = strip.normal.mul_add(LIGHT_FACE_PROBE_M, strip.face);
+        let (x, z) = match state.axis {
+            WallAxis::X => (mid, side),
+            WallAxis::Z => (side, mid),
+        };
+        // A lintel above a low corridor belongs to its tall parent room, not
+        // to the corridor selected by a two-dimensional doorway probe.
+        let room = context
+            .lighting
+            .room_index_strict_at_height(x, y, z)
+            .or(state.room);
         add_wall_length_face(
             scratch,
             state.axis,
@@ -641,16 +791,65 @@ fn emit_wall_length_face(
             strip.normal,
             strip.bottom,
             &top_at,
-            strip.bottom_shade,
-            strip.top_shade,
+            |at, y| wall_material_shade(context, state, strip, at, y),
             strip.reversed,
             strip.flip_u,
             context.lighting,
+            room,
             context.materials.tile_metres(strip.key),
             context.lightmap,
         );
     }
     flush_wall_run(buckets, scratch, cursor, strip.key);
+}
+
+/// The wall's owning ceiling profile evaluated on the actual face, rather
+/// than the thickness midpoint. This also extrapolates the same roof to an
+/// exterior face instead of falling back to an unrelated room's ceiling.
+fn wall_face_ceiling(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    at: f32,
+    face: f32,
+) -> f32 {
+    let middle = f32::midpoint(state.t0, state.t1);
+    let ((cx, cz), (x, z)) = match state.axis {
+        WallAxis::X => ((at, middle), (at, face)),
+        WallAxis::Z => ((middle, at), (face, at)),
+    };
+    context
+        .surfaces
+        .room_at(cx, cz)
+        .or_else(|| {
+            state
+                .room
+                .and_then(|index| context.level.room_iter().nth(index))
+        })
+        .map_or_else(
+            || context.surfaces.ceiling_y_at(x, z),
+            |room| room.ceiling_y_at(x, z),
+        )
+}
+
+/// Evaluates the authored bottom/top shade in the parent wall's height frame.
+/// Opening fragments must not restart that gradient at their own sill/header.
+fn wall_material_shade(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    strip: WallLengthFace,
+    at: f32,
+    y: f32,
+) -> [f32; 3] {
+    let top = if state.wall.height.is_some() {
+        state.wall_top
+    } else {
+        wall_face_ceiling(context, state, at, strip.face)
+    };
+    let fraction =
+        ((y - state.wall_base) / (top - state.wall_base).max(f32::EPSILON)).clamp(0.0, 1.0);
+    let gradient =
+        (WALL_TOP_GRADIENT - WALL_BOTTOM_GRADIENT).mul_add(fraction, WALL_BOTTOM_GRADIENT);
+    scaled_wall_color(context.materials, strip.key, strip.shade, gradient)
 }
 
 /// Emits the horizontal caps one solid slice exposes: the top of a half-height
@@ -1067,6 +1266,26 @@ fn sample_cross_edge(
     }
 }
 
+/// One cross-section top corner, following the same roof as the length face.
+fn wall_cross_top(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    at: f32,
+    across: f32,
+    top: f32,
+) -> f32 {
+    if state.wall.height.is_some() {
+        return top;
+    }
+    let center_ceiling = wall_face_ceiling(context, state, at, f32::midpoint(state.t0, state.t1));
+    let ceiling = wall_face_ceiling(context, state, at, across);
+    if top >= center_ceiling - WALL_COINCIDENCE_EPS {
+        ceiling
+    } else {
+        top.min(ceiling)
+    }
+}
+
 /// Emits one exposed interval of a solid-profile boundary cross-section.
 ///
 /// A cross-section always sits where the wall's solid profile changes, so its
@@ -1139,6 +1358,8 @@ fn emit_wall_cross_quad(
         for (across0, across1, bottom, top) in
             split_rect((across_low, across_high, rect_bottom, rect_top), max_span_m)
         {
+            let top_low_y = wall_cross_top(context, state, at, across0, top);
+            let top_high_y = wall_cross_top(context, state, at, across1, top);
             // Wall ends keep the directional face shading; internal reveals use
             // the darker jamb/head colours.
             let mult = if at_start {
@@ -1167,8 +1388,8 @@ fn emit_wall_cross_quad(
                 let (bottom_low, bottom_high, top_low, top_high) = (
                     sample_cross_edge(context, state, inboard, low_side, low_normal, bottom),
                     sample_cross_edge(context, state, inboard, high_side, high_normal, bottom),
-                    sample_cross_edge(context, state, inboard, low_side, low_normal, top),
-                    sample_cross_edge(context, state, inboard, high_side, high_normal, top),
+                    sample_cross_edge(context, state, inboard, low_side, low_normal, top_low_y),
+                    sample_cross_edge(context, state, inboard, high_side, high_normal, top_high_y),
                 );
                 [
                     shade(bottom_shade, bottom_low),
@@ -1184,7 +1405,7 @@ fn emit_wall_cross_quad(
                 at,
                 (across0, across1),
                 bottom,
-                top,
+                [top_low_y, top_high_y],
                 covers(boundary.left),
                 corners,
                 tile,

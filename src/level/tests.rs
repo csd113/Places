@@ -2002,3 +2002,30 @@ fn the_switchable_fixture_material_base_starts_after_the_family_sheets() {
         crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE + 7
     );
 }
+
+#[test]
+fn stair_treads_share_exact_boundaries_with_risers_and_landing() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "stair_joins", "name": "Stair joins",
+            "spawn": {"x": 1.0, "z": 1.0},
+            "rooms": [{"x": -100.0, "z": -100.0, "width": 200.0, "depth": 200.0}],
+            "stairs": [
+                {"x": 58.31, "z": 4.17, "width": 3.39, "depth": 1.3, "rise": 1.7, "steps": 13},
+                {"x": -37.13, "z": -61.73, "width": 1.3, "depth": 7.73, "rise": 2.1, "steps": 17}
+            ]
+        }"#,
+    )
+    .expect("valid stairs");
+    for stair in &level.stairs {
+        for step in 1..stair.step_count() {
+            assert_exact(stair.tread_span(step - 1).1, stair.tread_span(step).0);
+        }
+        let (_, x1, _, z1) = stair.bounds();
+        let end = match stair.axis() {
+            WallAxis::X => x1,
+            WallAxis::Z => z1,
+        };
+        assert_exact(stair.tread_span(stair.step_count() - 1).1, end);
+    }
+}
