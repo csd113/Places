@@ -20,6 +20,7 @@
 )]
 
 use super::*;
+use crate::level::LevelDef;
 use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
 
 /// A floor quad split into two triangles, wound so its normal points up
@@ -507,8 +508,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 3,
-        "the calibrated sharp-cosine moment reconstruction is solver revision 3"
+        SOLVER_REVISION, 4,
+        "water transmission/attenuation and the per-chart baseline fill are solver revision 4"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -691,4 +692,645 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
         }
     }
     assert!(sampled > 0, "at least one probe position must resolve");
+}
+
+// ------------------------------------------------- water and translucency
+
+/// A horizontal quad at `y` spanning `[-half, half]²`, wound with an upward
+/// normal, optionally transmissive.
+fn overhead_quad(
+    y: f32,
+    half: f32,
+    albedo: [f32; 3],
+    transmissive: bool,
+) -> Vec<TransportTriangle> {
+    let mut out = wall(
+        [-half, y, half],
+        [half, y, half],
+        [half, y, -half],
+        [-half, y, -half],
+        albedo,
+    );
+    if transmissive {
+        for triangle in &mut out {
+            *triangle = triangle.with_transmissive(true);
+        }
+    }
+    out
+}
+
+/// One water body over the test pool, with the solver's calibrated extinction.
+fn test_water_body(surface_y: f32, bottom_y: f32) -> TransportWaterBody {
+    TransportWaterBody {
+        x0: -2.0,
+        x1: 2.0,
+        z0: -2.0,
+        z1: 2.0,
+        surface_y,
+        bottom_y,
+        extinction: crate::lighting::tuning::WATER_EXTINCTION_PER_M,
+    }
+}
+
+/// A water surface transmits direct light, attenuates it by the vertical
+/// submerged path per channel with red absorbed most, and an identical opaque
+/// barrier at the same plane still blocks.
+#[test]
+fn a_water_surface_transmits_attenuates_and_tints_while_an_opaque_barrier_blocks() {
+    let light = point([0.0, 2.0, 0.0], 3.0);
+    let ground = floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]);
+    let patch = floor_patch(-0.1, -0.1, 0.1, 0.1, 1, 1);
+    let charts = [patch];
+
+    let open = TransportScene::new(ground.clone(), vec![light]).expect("open scene");
+    let water_scene = TransportScene::new(
+        ground
+            .iter()
+            .copied()
+            .chain(overhead_quad(1.0, 1.0, [1.0; 3], true))
+            .collect(),
+        vec![light],
+    )
+    .expect("water scene")
+    .with_water(vec![test_water_body(1.0, -1.0)]);
+    let opaque_scene = TransportScene::new(
+        ground
+            .iter()
+            .copied()
+            .chain(overhead_quad(1.0, 1.0, [1.0; 3], false))
+            .collect(),
+        vec![light],
+    )
+    .expect("opaque scene");
+
+    let solve = |scene: &TransportScene| {
+        scene
+            .solve(&charts, options(0, 1), None)
+            .expect("solve")
+            .charts[0]
+            .texels[0]
+            .light_at([0.0, 1.0, 0.0])
+    };
+    let open_light = solve(&open);
+    let water_light = solve(&water_scene);
+    let opaque_light = solve(&opaque_scene);
+
+    assert!(
+        open_light[0] > 0.05,
+        "the open scene must be lit: {open_light:?}"
+    );
+    assert!(
+        water_light.iter().all(|value| *value > 0.0),
+        "water must transmit direct light: {water_light:?}"
+    );
+    assert_eq!(
+        opaque_light, [0.0; 3],
+        "an opaque barrier at the waterline must block"
+    );
+    // The submerged receiver's value is the open value times one bounded
+    // Beer-Lambert step over the vertical path below the surface.
+    let depth = 1.0 - SURFACE_OFFSET_M;
+    for channel in 0..3 {
+        let sigma = crate::lighting::tuning::WATER_EXTINCTION_PER_M[channel];
+        let expected = open_light[channel] * (-sigma * depth).exp();
+        assert!(
+            (water_light[channel] - expected).abs() <= expected.abs().max(1.0e-4) * 1.0e-3,
+            "channel {channel}: water {water_light:?} vs expected {expected} (open {open_light:?})"
+        );
+    }
+    assert!(
+        water_light[0] < water_light[2],
+        "red is absorbed most, so water tints blue: {water_light:?}"
+    );
+}
+
+/// A transmissive triangle never answers `occluded` or `intersect`: a bounce
+/// ray passes straight through and reaches the real surface behind, so water
+/// contributes no bounce albedo.
+#[test]
+fn a_transmissive_triangle_is_skipped_by_visibility_and_by_the_nearest_hit() {
+    let mut triangles = floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]);
+    triangles.extend(overhead_quad(1.0, 1.0, [1.0; 3], true));
+    let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
+    assert!(
+        !scene.occluded([0.0, 0.0, 0.0], [0.0, 2.0, 0.0]),
+        "the pane must not shadow the segment through it"
+    );
+    let (distance, index) = scene
+        .intersect([0.0, 2.0, 0.0], [0.0, -1.0, 0.0])
+        .expect("the floor behind the pane answers the ray");
+    assert!(
+        distance > 1.0,
+        "the pane must not be the nearest hit: t={distance}"
+    );
+    let hit = scene.triangles[index];
+    assert!(
+        !hit.transmissive,
+        "a transmissive pane was returned: {hit:?}"
+    );
+    assert!(
+        (hit.normal[1] - 1.0).abs() < 1.0e-6,
+        "the nearest opaque hit must be the floor: {hit:?}"
+    );
+}
+
+// --------------------------------------------------- authored baseline fill
+
+/// Two rooms of one level: a small lit room and a separate fixture-free room.
+/// The lit room's baseline is above ambient, the empty room's exactly ambient.
+fn fill_test_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "transport_fill_test",
+            "name": "Transport Fill Test",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+                { "x": 8.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 0.5, "z": 2.0, "brightness": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("fill test level parses")
+}
+
+/// The whole floor of the lit room and of the fixture-free room, one chart
+/// each, several texels per chart.
+fn fill_test_charts() -> Vec<(LightmapPatch, Chart)> {
+    vec![
+        floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4),
+        floor_patch(8.0, 0.0, 12.0, 4.0, 4, 4),
+    ]
+}
+
+/// The mean reconstructed light of one chart at a normal.
+fn chart_mean_light(
+    solution: &TransportSolution,
+    chart_index: usize,
+    normal: [f32; 3],
+) -> [f32; 3] {
+    let Some(chart) = solution.charts.get(chart_index) else {
+        return [0.0; 3];
+    };
+    let mut sum = [0.0_f32; 3];
+    for texel in &chart.texels {
+        let light = texel.light_at(normal);
+        for channel in 0..3 {
+            sum[channel] += light[channel];
+        }
+    }
+    let divisor = f32::from(u16::try_from(chart.texels.len().max(1)).unwrap_or(u16::MAX));
+    [sum[0] / divisor, sum[1] / divisor, sum[2] / divisor]
+}
+
+/// The prepared base solve lifts each chart to the authored room fill: the
+/// chart mean ends at or above its mean target even when the direct path is
+/// blocked, and a fixture-free room's texels stay exactly zero. No global
+/// ambient is introduced.
+#[test]
+fn the_chart_fill_restores_the_authored_baseline_and_keeps_dark_rooms_dark() {
+    let level = fill_test_level();
+    let lighting = LevelLighting::bake(&level);
+    let charts = fill_test_charts();
+    let target = receiver_targets(&lighting, &charts);
+    assert_eq!(target.len(), 32, "4x4 texels per chart, two charts");
+    let lit_target = target[0];
+    let dark_target = target[16];
+    assert!(
+        lit_target.iter().all(|value| *value > 0.0),
+        "the lit room needs a non-zero target: {lit_target:?}"
+    );
+    assert_eq!(
+        dark_target, [0.0; 3],
+        "a fixture-free room's baseline is exactly ambient, so its target is zero"
+    );
+    // The target is the authored baseline less the ambient floor, compared
+    // straight against the baked model.
+    let baseline = lighting.baseline_in_room(0, 2.0, 2.0).to_array();
+    for channel in 0..3 {
+        let expected = (baseline[channel] - AMBIENT_LEVEL).max(0.0);
+        assert!(
+            (lit_target[channel] - expected).abs() < 1.0e-6,
+            "channel {channel}: target {} vs baseline-ambient {expected}",
+            lit_target[channel]
+        );
+    }
+
+    // Case 1: no geometry and no emitters. The fill itself is the only light:
+    // the lit chart lands exactly on its target, the empty chart on zero.
+    let empty = TransportScene::new(Vec::new(), Vec::new())
+        .expect("scene")
+        .with_receiver_target(target.clone());
+    let solved = empty.solve(&charts, options(0, 1), None).expect("solve");
+    let normal = [0.0, 1.0, 0.0];
+    let lit_mean = chart_mean_light(&solved, 0, normal);
+    let dark_mean = chart_mean_light(&solved, 1, normal);
+    for channel in 0..3 {
+        assert!(
+            (lit_mean[channel] - lit_target[channel]).abs() < 1.0e-6,
+            "channel {channel}: the fill must land on the target mean: {lit_mean:?} vs {lit_target:?}"
+        );
+    }
+    assert_eq!(
+        dark_mean, [0.0; 3],
+        "no blanket ambient in a fixture-free room"
+    );
+
+    // Case 2: the real fixture, with a full-height wall across the lit room.
+    // The chart mean must still reach its authored target, never fall below
+    // it, and the unblocked side must stay visibly brighter than the blocked
+    // side (the uniform fill cannot flatten within-chart contrast).
+    let blocker = wall(
+        [2.0, 0.0, 0.0],
+        [2.0, 0.0, 4.0],
+        [2.0, 3.0, 4.0],
+        [2.0, 3.0, 0.0],
+        [0.8; 3],
+    );
+    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let scene = TransportScene::new(blocker, vec![emitter])
+        .expect("scene")
+        .with_receiver_target(target);
+    let solved = scene.solve(&charts, options(0, 1), None).expect("solve");
+    let lit_mean = chart_mean_light(&solved, 0, normal);
+    for channel in 0..3 {
+        assert!(
+            lit_mean[channel] >= lit_target[channel] - 1.0e-5,
+            "channel {channel}: a blocked chart mean must still reach its target: \
+             {lit_mean:?} vs {lit_target:?}"
+        );
+    }
+    // The chart's own structure survives: the texel under the fixture beats
+    // the blocked corner, which is exactly what a per-texel deficit lost.
+    let chart = &solved.charts[0];
+    let mut near = 0.0_f32;
+    let mut far = 0.0_f32;
+    for (receiver, texel) in chart.receivers.iter().zip(&chart.texels) {
+        let value = texel.light_at(normal)[0];
+        if receiver.position[0] < 1.0 {
+            near = near.max(value);
+        } else if receiver.position[0] > 3.0 {
+            far = far.max(value);
+        }
+    }
+    assert!(
+        near > far + 1.0e-3,
+        "the chart fill must preserve the pool contrast: near {near} far {far}"
+    );
+}
+
+/// A chart the physical solve already lights above its target mean is
+/// untouched by the chart fill: the fill only ever lifts, never adds.
+#[test]
+fn a_chart_brighter_than_its_target_is_untouched() {
+    let light = point([0.0, 2.0, 0.0], 3.0);
+    let patch = floor_patch(-0.1, -0.1, 0.1, 0.1, 1, 1);
+    let charts = [patch];
+    let plain =
+        TransportScene::new(floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]), vec![light]).expect("scene");
+    let reference = plain
+        .solve(&charts, options(0, 1), None)
+        .expect("solve")
+        .charts[0]
+        .texels[0];
+    let target = [0.02; 3];
+    assert!(
+        reference.light_at([0.0, 1.0, 0.0])[0] > target[0],
+        "the setup needs direct light above the target"
+    );
+    let filled = TransportScene::new(floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]), vec![light])
+        .expect("scene")
+        .with_receiver_target(vec![target]);
+    let solved = filled
+        .solve(&charts, options(0, 1), None)
+        .expect("solve")
+        .charts[0]
+        .texels[0];
+    assert_eq!(
+        solved.irradiance, reference.irradiance,
+        "a zero fill must not change the stored irradiance"
+    );
+    assert_eq!(
+        solved.direction, reference.direction,
+        "a zero fill must not change the moment"
+    );
+}
+
+/// The authored target is attenuated by the same water factors as the direct
+/// and bounce terms, so a fill-dominated submerged chart mean lands exactly on
+/// the target times `exp(-sigma * depth)` and never on the undimmed target.
+#[test]
+fn a_water_target_is_attenuated_with_the_direct_light() {
+    // No emitters: the chart fill is the only contribution, which pins the
+    // target path on its own.
+    let charts = [floor_patch(-0.1, -0.1, 0.1, 0.1, 1, 1)];
+    let target = [0.4, 0.4, 0.4];
+    let open = TransportScene::new(Vec::new(), Vec::new())
+        .expect("scene")
+        .with_receiver_target(vec![target]);
+    let water = TransportScene::new(Vec::new(), Vec::new())
+        .expect("scene")
+        .with_water(vec![test_water_body(1.0, -1.0)])
+        .with_receiver_target(vec![target]);
+    let solve = |scene: &TransportScene| {
+        scene
+            .solve(&charts, options(0, 1), None)
+            .expect("solve")
+            .charts[0]
+            .texels[0]
+            .light_at([0.0, 1.0, 0.0])
+    };
+    let open_light = solve(&open);
+    let water_light = solve(&water);
+    assert!(
+        (open_light[0] - target[0]).abs() < 1.0e-6,
+        "the open fill lands on the target: {open_light:?}"
+    );
+    let depth = 1.0 - SURFACE_OFFSET_M;
+    for channel in 0..3 {
+        let sigma = crate::lighting::tuning::WATER_EXTINCTION_PER_M[channel];
+        let expected = open_light[channel] * (-sigma * depth).exp();
+        assert!(
+            (water_light[channel] - expected).abs() < 1.0e-6,
+            "channel {channel}: attenuated target {water_light:?} vs {expected}"
+        );
+    }
+    assert!(
+        water_light.iter().all(|value| *value < target[0]),
+        "the submerged fill must be dimmer than the target: {water_light:?}"
+    );
+    assert!(
+        water_light[0] < water_light[2],
+        "the attenuated target keeps the water tint: {water_light:?}"
+    );
+}
+
+/// The moving-object field gets the same authored fill as the static atlas,
+/// one uniform scalar per resolved room, so a probe in a lit room never reads
+/// darker than its authored baseline and a fixture-free room stays dark.
+#[test]
+fn the_chart_fill_reaches_the_probe_field_with_the_same_target() {
+    let level = fill_test_level();
+    let lighting = LevelLighting::bake(&level);
+    // Whole-room floor charts, so the probe lattice the receivers imply has
+    // probes inside both rooms (and in the air between them).
+    let charts = vec![
+        floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4),
+        floor_patch(8.0, 0.0, 12.0, 4.0, 4, 4),
+    ];
+    let target = receiver_targets(&lighting, &charts);
+    let lit_target = target[0];
+    assert!(
+        lit_target.iter().all(|value| *value > 0.0),
+        "the lit room needs a non-zero target: {lit_target:?}"
+    );
+    let probes = probe_targets(&lighting, &charts);
+    assert!(
+        probes.iter().any(|probe| probe.target[0] > 0.0),
+        "the lit room's lattice needs a non-zero target: {probes:?}"
+    );
+    let scene = TransportScene::new(Vec::new(), Vec::new())
+        .expect("scene")
+        .with_receiver_target(target)
+        .with_probe_target(probes);
+    let solved = scene
+        .solve_with_probes(&charts, options(0, 1), None, true)
+        .expect("solve");
+    let mut field = solved.probes.expect("solved field");
+    // The compiler labels rooms before packaging; a synthetic label by X is
+    // enough for this scene (rooms sit at x = 0 and x = 8).
+    field.assign_rooms(|position| Some(usize::from(position[0] >= 4.0)));
+    let lit = field
+        .sample([2.0, 0.01, 2.0], Some(0))
+        .expect("the lit room's probe resolves");
+    for channel in 0..3 {
+        assert!(
+            lit.irradiance[channel] >= lit_target[channel] - 1.0e-6,
+            "channel {channel}: the field must carry the fill: {:?} vs {lit_target:?}",
+            lit.irradiance
+        );
+    }
+    let dark = field
+        .sample([10.0, 0.01, 2.0], Some(1))
+        .expect("the empty room's probe resolves");
+    assert_eq!(
+        dark.irradiance, [0.0; 3],
+        "a fixture-free room's probes stay dark"
+    );
+}
+
+/// A solver-level mirror of the render suite's tall-chamber acceptance: a
+/// 17 m room, one 0.45 panel, one whole-floor chart. The uniform per-chart
+/// fill must lift the chart while the physical pool under the panel keeps its
+/// real margin over the far corner after soft-clip.
+#[test]
+fn a_chart_fill_preserves_the_tall_chamber_pool_contrast() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "transport_tall_chamber",
+            "name": "Transport Tall Chamber",
+            "spawn": { "x": 6.0, "z": 6.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 17.0 } ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 6.0, "brightness": 0.45 }
+            ]
+        }"#,
+    )
+    .expect("tall-chamber level parses");
+    let lighting = LevelLighting::bake(&level);
+    let charts = vec![floor_patch(0.0, 0.0, 12.0, 12.0, 24, 24)];
+    let target = receiver_targets(&lighting, &charts);
+    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let scene = TransportScene::new(Vec::new(), vec![emitter])
+        .expect("scene")
+        .with_receiver_target(target);
+    let solved = scene.solve(&charts, options(0, 2), None).expect("solve");
+    let chart = &solved.charts[0];
+    let normal = [0.0, 1.0, 0.0];
+    let luma = |color: [f32; 3]| {
+        0.2126_f32.mul_add(
+            soft_clip_channel(color[0]),
+            0.7152_f32.mul_add(
+                soft_clip_channel(color[1]),
+                0.0722 * soft_clip_channel(color[2]),
+            ),
+        )
+    };
+    let mut under = (0.0_f32, 0usize);
+    let mut far = (0.0_f32, 0usize);
+    for (receiver, texel) in chart.receivers.iter().zip(&chart.texels) {
+        let value = luma(texel.light_at(normal));
+        let point = receiver.position;
+        if (5.0..=7.0).contains(&point[0]) && (5.5..=6.5).contains(&point[2]) {
+            under = (under.0 + value, under.1 + 1);
+        }
+        if (0.0..=2.5).contains(&point[0]) && (0.0..=2.5).contains(&point[2]) {
+            far = (far.0 + value, far.1 + 1);
+        }
+    }
+    assert!(
+        under.1 > 0 && far.1 > 0,
+        "both comparison boxes must sample real texels"
+    );
+    let under = under.0 / under.1 as f32;
+    let far = far.0 / far.1 as f32;
+    assert!(
+        under > far + 15.0 / 255.0,
+        "the floor under the panel ({under:.3}) must clearly beat the far floor ({far:.3}): \
+         a 17 m ceiling must still pool"
+    );
+}
+
+/// One ceiling patch at `y = 3`, wound so `cross(u, v)` points down (the
+/// room-facing normal of a ceiling).
+fn ceiling_patch(
+    x0: f32,
+    z0: f32,
+    x1: f32,
+    z1: f32,
+    width: u32,
+    height: u32,
+) -> (LightmapPatch, Chart) {
+    (
+        LightmapPatch {
+            origin: [x1, 3.0, z1],
+            u_axis: [x0 - x1, 0.0, 0.0],
+            v_axis: [0.0, 0.0, z0 - z1],
+            room: None,
+            kind: PatchKind::Ceiling,
+        },
+        Chart {
+            page: 0,
+            x: 0,
+            y: 0,
+            width,
+            height,
+        },
+    )
+}
+
+/// The authored fill is scoped to floors, walls and skirts: a ceiling chart
+/// keeps its exact post-solve values (physical pool and all) whether or not
+/// targets are attached, while the floor and wall charts of the same room rise
+/// to the authored fill.
+#[test]
+fn the_chart_fill_skips_ceilings_and_keeps_their_physical_values() {
+    // The shared predicate is the single scoping decision.
+    assert!(chart_receives_fill(PatchKind::Floor));
+    assert!(chart_receives_fill(PatchKind::Wall));
+    assert!(chart_receives_fill(PatchKind::Skirt));
+    assert!(!chart_receives_fill(PatchKind::Ceiling));
+
+    let level = fill_test_level();
+    let lighting = LevelLighting::bake(&level);
+    let wall_chart = (
+        LightmapPatch {
+            origin: [0.0, 0.0, 4.0],
+            u_axis: [0.0, 0.0, -4.0],
+            v_axis: [0.0, 3.0, 0.0],
+            room: None,
+            kind: PatchKind::Wall,
+        },
+        Chart {
+            page: 0,
+            x: 0,
+            y: 0,
+            width: 4,
+            height: 4,
+        },
+    );
+    let charts = vec![
+        floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4),
+        ceiling_patch(0.0, 0.0, 4.0, 4.0, 4, 4),
+        wall_chart,
+    ];
+    let target = receiver_targets(&lighting, &charts);
+    let floor_target = target[0];
+    let wall_target = target[32];
+    let ground = floor(0.0, 0.0, 4.0, 4.0, [0.7; 3]);
+    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let plain = TransportScene::new(ground.clone(), vec![emitter])
+        .expect("scene")
+        .solve(&charts, options(2, 1), None)
+        .expect("plain solve");
+    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let filled = TransportScene::new(ground, vec![emitter])
+        .expect("scene")
+        .with_receiver_target(target)
+        .solve(&charts, options(2, 1), None)
+        .expect("filled solve");
+
+    // The ceiling is physically lit (the bounces reach it) and the fill must
+    // leave every one of its solved texels bit-for-bit untouched.
+    assert!(
+        plain.charts[1]
+            .texels
+            .iter()
+            .any(|texel| texel.irradiance[0] > 1.0e-4),
+        "the setup needs a physically lit ceiling: {:?}",
+        plain.charts[1].texels[0]
+    );
+    assert_eq!(
+        filled.charts[1].texels, plain.charts[1].texels,
+        "a ceiling chart must keep its exact physical values"
+    );
+
+    // The floors and the wall rise to the authored fill mean.
+    let floor_mean = chart_mean_light(&filled, 0, [0.0, 1.0, 0.0]);
+    for channel in 0..3 {
+        assert!(
+            floor_mean[channel] >= floor_target[channel] - 1.0e-5,
+            "channel {channel}: floor mean {floor_mean:?} vs target {floor_target:?}"
+        );
+    }
+    let wall_mean = chart_mean_light(&filled, 2, [1.0, 0.0, 0.0]);
+    for channel in 0..3 {
+        assert!(
+            wall_mean[channel] >= wall_target[channel] - 1.0e-5,
+            "channel {channel}: wall mean {wall_mean:?} vs target {wall_target:?}"
+        );
+    }
+}
+
+/// The probe fill is one uniform scalar per resolved room: two probes in one
+/// room keep their physical brightness difference after the fill.
+#[test]
+fn the_probe_fill_preserves_a_rooms_internal_structure() {
+    let level = fill_test_level();
+    let lighting = LevelLighting::bake(&level);
+    let charts = vec![floor_patch(0.0, 0.0, 4.0, 4.0, 4, 4)];
+    let target = receiver_targets(&lighting, &charts);
+    let probes = probe_targets(&lighting, &charts);
+    assert!(
+        probes.iter().all(|probe| probe.room == 0),
+        "the one-chart lattice must sit in the lit room"
+    );
+    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let scene = TransportScene::new(floor(0.0, 0.0, 4.0, 4.0, [0.7; 3]), vec![emitter])
+        .expect("scene")
+        .with_receiver_target(target)
+        .with_probe_target(probes);
+    let solved = scene
+        .solve_with_probes(&charts, options(0, 1), None, true)
+        .expect("solve");
+    let field = solved.probes.expect("solved field");
+    let mut lowest = f32::INFINITY;
+    let mut highest = f32::NEG_INFINITY;
+    for probe in &field.probes {
+        lowest = lowest.min(probe.irradiance[0]);
+        highest = highest.max(probe.irradiance[0]);
+    }
+    assert!(
+        lowest.is_finite() && highest.is_finite(),
+        "the field must hold finite probes"
+    );
+    assert!(
+        highest > lowest + 1.0e-3,
+        "the room's internal probe structure must survive the uniform fill: \
+         highest {highest} lowest {lowest}"
+    );
 }

@@ -8,13 +8,13 @@
 //! and its directional-moment plane the odd layer after it, in page order;
 //! each switchable fixture's prepared contribution follows the base group in
 //! the same pair layout. The world fragment stage reconstructs
-//! `max(0, irradiance + (irradiance / max(k, 1e-6)) * dot(direction, normal))`
-//! with `k = irradiance.r + irradiance.g + irradiance.b`; the direction plane
-//! holds the signed vector sum of the per-channel moment vectors (world space),
-//! and selects the pair from the vertex's page byte plus the environment
-//! uniform's page and switchable counts. The two planes' alpha channels are
-//! reserved (`0.5`) and ignored by the reconstruction. This module owns that
-//! contract:
+//! `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)))` with
+//! `k = I.r + I.g + I.b`, sampling the irradiance `I` and signed direction
+//! moment `g` from the pair; the direction plane holds the signed vector sum of
+//! the per-channel moment vectors (world space), and the pair is selected from
+//! the vertex's page byte plus the environment uniform's page and switchable
+//! counts. The two planes' alpha channels are reserved (`0.5`) and ignored by
+//! the reconstruction. This module owns that contract:
 //!
 //! * the prepared pages as raw, non-sRGB `Rgba16Float` array layers (linear HDR
 //!   half floats: irradiance `(r, g, b, 0.5)` and direction moment

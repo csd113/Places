@@ -5171,6 +5171,197 @@ fn atlas_texels_in_box(
     (mean, count)
 }
 
+/// Per-texel atlas statistics over an axis-aligned world box, ignoring the
+/// patch's room hint: `(min, mean, max, zero share, texel count)` in
+/// soft-clipped display units `0..=1`.
+///
+/// This is the diagnostic companion to [`atlas_texels_in_box`]: the acceptance
+/// question "what does a particular wall/floor region of the shipped demo
+/// actually carry?" needs the raw distribution, not only its mean.
+fn atlas_box_stats(
+    lightmaps: &LevelLightmaps,
+    kind: PatchKind,
+    min: [f32; 3],
+    max: [f32; 3],
+) -> (f32, f32, f32, f32, usize) {
+    let mut min_value = f32::INFINITY;
+    let mut max_value = f32::NEG_INFINITY;
+    let mut sum = 0.0_f64;
+    let mut zeros = 0usize;
+    let mut count = 0usize;
+    for (patch, chart) in &lightmaps.charts {
+        if patch.kind != kind {
+            continue;
+        }
+        let Some(page) = lightmaps.pages.get(usize::from(chart.page)) else {
+            continue;
+        };
+        let normal = crate::lighting::transport::patch_normal(patch);
+        for row in 0..chart.height {
+            for column in 0..chart.width {
+                let u = (column as f32 + 0.5) / chart.width as f32;
+                let v = (row as f32 + 0.5) / chart.height as f32;
+                let point = patch.point_at(u, v);
+                if point[0] < min[0]
+                    || point[0] > max[0]
+                    || point[1] < min[1]
+                    || point[1] > max[1]
+                    || point[2] < min[2]
+                    || point[2] > max[2]
+                {
+                    continue;
+                }
+                let Some(texel) = page.texel(chart.x + column, chart.y + row) else {
+                    continue;
+                };
+                let light = texel.light_at(normal);
+                let luma = 0.2126_f32.mul_add(
+                    crate::lighting::transport::soft_clip_channel(light[0]),
+                    0.7152_f32.mul_add(
+                        crate::lighting::transport::soft_clip_channel(light[1]),
+                        0.0722 * crate::lighting::transport::soft_clip_channel(light[2]),
+                    ),
+                );
+                if !luma.is_finite() {
+                    continue;
+                }
+                min_value = min_value.min(luma);
+                max_value = max_value.max(luma);
+                if luma <= 0.5 / 255.0 {
+                    zeros += 1;
+                }
+                sum += f64::from(luma);
+                count += 1;
+            }
+        }
+    }
+    let mean = if count == 0 {
+        0.0
+    } else {
+        (sum / count as f64) as f32
+    };
+    let zero_share = if count == 0 {
+        0.0
+    } else {
+        zeros as f32 / count as f32
+    };
+    (
+        if count == 0 { 0.0 } else { min_value },
+        mean,
+        if count == 0 { 0.0 } else { max_value },
+        zero_share,
+        count,
+    )
+}
+
+/// One named diagnostic box: `(name, patch kind, min, max, room, CPU sample)`.
+type DiagnosticBox = (&'static str, PatchKind, [f32; 3], [f32; 3], usize, [f32; 3]);
+
+/// Developer diagnostic: the shipped demo's solved low-end distribution at the
+/// reported problem spots. Prints one line per box and asserts every sample is
+/// a real, finite, non-negative HDR value.
+#[test]
+fn demo_lightmap_low_end_distribution_at_reported_spots() {
+    let level = shipped_demo();
+    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
+    let lightmaps = build
+        .lightmaps
+        .as_deref()
+        .expect("the demo must produce an atlas");
+    let vertex = LevelLighting::bake(&level);
+    let boxes: &[DiagnosticBox] = &[
+        (
+            "office_floor_under_fixture",
+            PatchKind::Floor,
+            [2.0, -0.05, 2.0],
+            [7.0, 0.05, 5.0],
+            0,
+            [4.5, 0.0, 4.0],
+        ),
+        (
+            "office_north_wall",
+            PatchKind::Wall,
+            [1.0, 0.5, 6.5],
+            [8.0, 2.0, 7.2],
+            0,
+            [4.5, 1.5, 6.9],
+        ),
+        (
+            "office_west_corner",
+            PatchKind::Wall,
+            [0.0, 0.2, 6.4],
+            [0.6, 2.4, 7.2],
+            0,
+            [0.2, 1.2, 6.9],
+        ),
+        (
+            "home_living_floor",
+            PatchKind::Floor,
+            [54.0, -0.95, 4.0],
+            [64.0, -0.85, 14.0],
+            6,
+            [59.0, -0.9, 9.0],
+        ),
+        (
+            "home_south_wall_inner",
+            PatchKind::Wall,
+            [54.0, -0.4, 14.83],
+            [64.0, 1.6, 14.88],
+            6,
+            [59.0, 1.0, 14.9],
+        ),
+        (
+            "pool_basin_floor",
+            PatchKind::Floor,
+            [9.0, -3.05, 10.5],
+            [19.0, -2.95, 15.5],
+            3,
+            [14.0, -3.0, 13.0],
+        ),
+        (
+            "pool_deck",
+            PatchKind::Floor,
+            [2.0, -1.55, 8.0],
+            [7.0, -1.45, 11.0],
+            3,
+            [4.5, -1.5, 9.5],
+        ),
+        (
+            "corridor_floor",
+            PatchKind::Floor,
+            [45.0, -0.95, 12.0],
+            [52.0, -0.85, 14.0],
+            5,
+            [48.5, -0.9, 13.0],
+        ),
+        (
+            "sauna_floor",
+            PatchKind::Floor,
+            [27.0, -0.95, 11.5],
+            [32.0, -0.85, 14.5],
+            4,
+            [29.5, -0.9, 13.0],
+        ),
+    ];
+    for (name, kind, min, max, room, point) in boxes {
+        let (low, mean, high, zero_share, count) = atlas_box_stats(lightmaps, *kind, *min, *max);
+        let baseline = vertex.sample_in_room(*room, point[0], point[1], point[2]);
+        println!(
+            "demo_low_end {name:30} count {count:5} min {low:.3} mean {mean:.3} max {high:.3} zero {zero_share:.3} vertex ({:.3},{:.3},{:.3})",
+            baseline.r, baseline.g, baseline.b
+        );
+        assert!(count > 0, "{name} must select real texels");
+        assert!(
+            low.is_finite() && mean.is_finite() && high.is_finite(),
+            "{name} must be finite"
+        );
+        assert!(
+            high <= 1.0 + 1e-6 && low >= 0.0,
+            "{name} must stay inside the display range: {low}..{high}"
+        );
+    }
+}
+
 #[test]
 fn a_tall_chamber_receives_per_texel_light_from_a_directional_ceiling_fixture() {
     // The Pit's acceptance case in miniature: a 0.45-brightness ceiling panel

@@ -83,11 +83,12 @@
     clippy::while_let_loop
 )]
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel};
-use crate::lighting::probes::ProbeField;
-use crate::lighting::{LightFalloff, LightShape};
+use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
+use crate::lighting::probes::{ProbeField, ProbeSample};
+use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
 /// Distance a shadow ray starts away from its surface, in metres.
 ///
@@ -197,6 +198,9 @@ pub fn solver_fingerprint() -> u64 {
         u64::from(MAX_CACHE_CELLS as u32),
         u64::from(SURFACE_OFFSET_M.to_bits()),
         u64::from(RAY_EPS_M.to_bits()),
+        u64::from(super::tuning::WATER_EXTINCTION_PER_M[0].to_bits()),
+        u64::from(super::tuning::WATER_EXTINCTION_PER_M[1].to_bits()),
+        u64::from(super::tuning::WATER_EXTINCTION_PER_M[2].to_bits()),
     ] {
         for byte in bits.to_le_bytes() {
             hash ^= u64::from(byte);
@@ -217,7 +221,13 @@ pub fn solver_fingerprint() -> u64 {
 ///   (`2 * max(0, dot(g, n)) - |g|`), which also changes the radiance the
 ///   bounce passes and the probe field read back, so version-2 pages are
 ///   invalid.
-pub const SOLVER_REVISION: u64 = 3;
+/// * `4` — water surfaces and alpha-transparent architecture panes transmit
+///   instead of occluding, water attenuates by submerged depth, and the base
+///   solve lifts every floor/wall/skirt chart and probe room to its authored
+///   baseline fill (one uniform scalar per chart/room, so internal contrast
+///   survives; ceilings keep their physical solve), so every version-3 atlas
+///   is invalid.
+pub const SOLVER_REVISION: u64 = 4;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -236,6 +246,16 @@ pub struct TransportTriangle {
     /// Diffuse albedo in `0..=1`, already multiplied by the texture's average
     /// colour.
     pub albedo: [f32; 3],
+    /// True when a ray passes straight through this triangle and it
+    /// contributes no bounce albedo.
+    ///
+    /// The shipped renderer draws a water volume's surface and an
+    /// alpha-transparent architecture pane as openings the vertex-lit bake
+    /// transmits light through, so the transport solve marks them here instead
+    /// of treating them as solid blockers. Both `any_hit`/`occluded` and
+    /// `intersect` skip a transmissive triangle, which means a shadow ray
+    /// ignores it and a bounce ray continues to the next real hit behind it.
+    pub transmissive: bool,
 }
 
 impl TransportTriangle {
@@ -269,7 +289,17 @@ impl TransportTriangle {
             p2,
             normal,
             albedo,
+            transmissive: false,
         })
+    }
+
+    /// Marks this triangle transmissive (or solid) in builder form.
+    ///
+    /// See [`TransportTriangle::transmissive`]; triangles start solid.
+    #[must_use]
+    pub const fn with_transmissive(mut self, transmissive: bool) -> Self {
+        self.transmissive = transmissive;
+        self
     }
 
     /// Two-sided area, in square metres.
@@ -570,6 +600,69 @@ pub struct TransportReceiver {
     /// no triangle was close enough. The bounce cache uses it to read a hit
     /// surface's own light instead of a co-planar surface across a wall.
     pub surface: u32,
+    /// Per-channel water extinction this receiver's gathered light passes
+    /// through, computed once from the scene's water bodies: `[1; 3]` above
+    /// every surface, and `exp(-sigma_c * depth)` per overlapped body for a
+    /// receiver below one. It multiplies the direct weights, the bounce gains
+    /// and the authored baseline target exactly once each, so the physical
+    /// solve and the chart/probe fill describe one water tint.
+    pub attenuation: [f32; 3],
+}
+
+/// One resolved water body the solve transmits through and attenuates in.
+///
+/// Mirrors [`crate::level::WaterVolume`] as plain scene data: the level's own
+/// resolution decides the footprint, surface and bottom, and the solver only
+/// needs the AABB, the surface plane and the extinction to decide how much
+/// light reaches a point below the surface. The corresponding surface
+/// triangles are marked [`TransportTriangle::transmissive`] at build time.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransportWaterBody {
+    /// Footprint minimum X.
+    pub x0: f32,
+    /// Footprint maximum X.
+    pub x1: f32,
+    /// Footprint minimum Z.
+    pub z0: f32,
+    /// Footprint maximum Z.
+    pub z1: f32,
+    /// World Y of the free surface.
+    pub surface_y: f32,
+    /// World Y of the resolved bottom.
+    pub bottom_y: f32,
+    /// Per-channel extinction, per metre of vertical submerged path.
+    pub extinction: [f32; 3],
+}
+
+impl TransportWaterBody {
+    /// One body from a resolved level water volume, with the solver's
+    /// calibrated extinction.
+    #[must_use]
+    pub fn from_volume(volume: &crate::level::WaterVolume) -> Self {
+        Self {
+            x0: volume.x0.min(volume.x1),
+            x1: volume.x0.max(volume.x1),
+            z0: volume.z0.min(volume.z1),
+            z1: volume.z0.max(volume.z1),
+            surface_y: volume.surface_y,
+            bottom_y: volume.bottom_y,
+            extinction: super::tuning::WATER_EXTINCTION_PER_M,
+        }
+    }
+}
+
+/// One probe's authored baseline target and the room it resolves to.
+///
+/// The target is the room area's baseline above [`AMBIENT_LEVEL`] at the
+/// probe's own position, before water attenuation; the room is the same
+/// [`LevelLighting::room_index_at_height`] resolution the compiler's own probe
+/// labelling uses, so the fill's room groups match the runtime sampling groups.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProbeTarget {
+    /// Target per channel, before water attenuation.
+    pub target: [f32; 3],
+    /// Resolved room index, or `-1` outside every room.
+    pub room: i32,
 }
 
 /// One solved chart: the receiver set plus its HDR texels.
@@ -641,6 +734,14 @@ pub struct TransportScene {
     order: Vec<u32>,
     nodes: Vec<BvhNode>,
     emitters: Vec<TransportEmitter>,
+    /// Resolved water bodies the solve transmits through and attenuates in.
+    water: Vec<TransportWaterBody>,
+    /// Per-texel authored baseline target in receiver order (see
+    /// [`receiver_targets`]); empty when the scene predates a real chart plan.
+    receiver_target: Vec<[f32; 3]>,
+    /// Per-probe authored baseline target and room in flat probe order (see
+    /// [`probe_targets`]); empty when no probe lattice was supplied.
+    probe_target: Vec<ProbeTarget>,
 }
 
 impl std::fmt::Debug for TransportScene {
@@ -649,6 +750,9 @@ impl std::fmt::Debug for TransportScene {
             .field("triangles", &self.triangles.len())
             .field("nodes", &self.nodes.len())
             .field("emitters", &self.emitters.len())
+            .field("water", &self.water.len())
+            .field("receiver_target", &self.receiver_target.len())
+            .field("probe_target", &self.probe_target.len())
             .finish()
     }
 }
@@ -664,6 +768,227 @@ struct BvhNode {
     count: u32,
     /// Right child index for an interior node.
     right: u32,
+}
+
+/// Calls `visit(u, v)` for every texel of one chart, rows then columns, in the
+/// order [`TransportScene::receivers`] emits receivers.
+///
+/// Every walk that must line up with the solved texel list (receiver
+/// construction, [`receiver_targets`], [`probe_targets`]) goes through this
+/// one loop so the orders cannot drift apart. A zero-sized axis emits nothing.
+fn for_each_texel(chart: &Chart, mut visit: impl FnMut(f32, f32)) {
+    let width = usize::try_from(chart.width).unwrap_or(0);
+    let height = usize::try_from(chart.height).unwrap_or(0);
+    if width == 0 || height == 0 {
+        return;
+    }
+    for j in 0..height {
+        let v = texel_axis(j, height);
+        for i in 0..width {
+            let u = texel_axis(i, width);
+            visit(u, v);
+        }
+    }
+}
+
+/// The world-space receiver position of a texel: its patch point nudged off
+/// the surface along the patch normal, the same bias the historical face bake
+/// used.
+fn receiver_position(point: [f32; 3], normal: [f32; 3]) -> [f32; 3] {
+    [
+        normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
+        normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
+        normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
+    ]
+}
+
+/// The authored baseline target of one position inside a resolved room: the
+/// room area's baseline less [`AMBIENT_LEVEL`], per channel, clamped at zero.
+///
+/// This is the value the chart fill aims a chart's mean at and never above: a
+/// fixture-free room's baseline is exactly [`AMBIENT_LEVEL`], so its target is
+/// exactly zero and deliberate darkness is preserved.
+fn target_in_room(lighting: &LevelLighting, room: usize, x: f32, z: f32) -> [f32; 3] {
+    let baseline = lighting.baseline_in_room(room, x, z).to_array();
+    let mut out = [0.0_f32; 3];
+    for channel in 0..3 {
+        let value = baseline.get(channel).copied().unwrap_or(AMBIENT_LEVEL) - AMBIENT_LEVEL;
+        out[channel] = if value.is_finite() {
+            value.max(0.0)
+        } else {
+            0.0
+        };
+    }
+    out
+}
+
+/// The authored baseline target and resolved room at one world position: the
+/// baseline of the room whose air contains it, or zero and `-1` outside every
+/// room.
+fn target_and_room_at(lighting: &LevelLighting, point: [f32; 3]) -> ([f32; 3], i32) {
+    lighting
+        .room_index_at_height(point[0], point[1], point[2])
+        .map_or(([0.0; 3], -1), |room| {
+            (
+                target_in_room(lighting, room, point[0], point[2]),
+                i32::try_from(room).unwrap_or(i32::MAX),
+            )
+        })
+}
+
+/// True when a chart's patch family takes part in the authored baseline fill.
+///
+/// Floors, walls and skirts are the surfaces the calibrated model fills from
+/// the room's fixture density but the physical solve under-delivers on; the
+/// fill restores the heuristic baseline exactly there. A ceiling is
+/// deliberately excluded: it faces the lit floor, so it is the surface the
+/// physical bounce supplies most directly, and skipping it keeps the ceiling's
+/// pool structure (near-panel versus far corner) exactly as the calibrated
+/// solve produced it. [`TransportScene::apply_chart_fill`] and
+/// [`receiver_targets`] share this one predicate so a future chart-kind change
+/// cannot silently shift which charts are filled.
+const fn chart_receives_fill(kind: PatchKind) -> bool {
+    matches!(kind, PatchKind::Floor | PatchKind::Wall | PatchKind::Skirt)
+}
+
+/// The authored baseline target of every chart texel, in exactly the order
+/// [`TransportScene::receivers`] builds receivers.
+///
+/// Each texel's room is the patch's own resolved `room` hint when set (the
+/// face's authoritative room), else the room containing its patch point. The
+/// target is the room area's baseline above [`AMBIENT_LEVEL`], not the full
+/// vertex-lit sample: the per-chart fill only has to keep a chart's mean at
+/// the authored room fill, and the physical transport keeps any extra light
+/// the fixtures and bounces actually deliver. A texel in no room gets zero.
+/// The lookup is the baked zone grid, so it stays cheap per texel.
+///
+/// Targets are produced for *every* chart so the list stays index-aligned
+/// with [`TransportScene::receivers`]; [`chart_receives_fill`] is the single
+/// decision of which kinds the fill pass consumes
+/// ([`TransportScene::apply_chart_fill`]).
+#[must_use]
+pub fn receiver_targets(
+    lighting: &LevelLighting,
+    charts: &[(LightmapPatch, Chart)],
+) -> Vec<[f32; 3]> {
+    let mut out = Vec::new();
+    for (patch, chart) in charts {
+        let width = usize::try_from(chart.width).unwrap_or(0);
+        let height = usize::try_from(chart.height).unwrap_or(0);
+        out.reserve(width.saturating_mul(height));
+        if width == 0 || height == 0 {
+            continue;
+        }
+        for_each_texel(chart, |u, v| {
+            let point = patch.point_at(u, v);
+            let room = patch
+                .room
+                .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
+            out.push(room.map_or([0.0; 3], |room| {
+                target_in_room(lighting, room, point[0], point[2])
+            }));
+        });
+    }
+    out
+}
+
+/// The authored baseline target and room of every probe, in the flat probe
+/// order [`bake_probe_field`] writes.
+///
+/// The probe lattice is the one the chart receiver set implies, so the target
+/// vector lines up index for index with the baked field. A probe is an air
+/// point: its room is resolved by height at its own position, and a probe
+/// outside every room gets zero and room `-1`, exactly like a texel.
+#[must_use]
+pub fn probe_targets(
+    lighting: &LevelLighting,
+    charts: &[(LightmapPatch, Chart)],
+) -> Vec<ProbeTarget> {
+    let mut positions: Vec<[f32; 3]> = Vec::new();
+    for (patch, chart) in charts {
+        let width = usize::try_from(chart.width).unwrap_or(0);
+        let height = usize::try_from(chart.height).unwrap_or(0);
+        positions.reserve(width.saturating_mul(height));
+        if width == 0 || height == 0 {
+            continue;
+        }
+        let normal = patch_normal(patch);
+        for_each_texel(chart, |u, v| {
+            positions.push(receiver_position(patch.point_at(u, v), normal));
+        });
+    }
+    let Some((min, cell, dims)) = probe_lattice(positions.iter()) else {
+        return Vec::new();
+    };
+    let count = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
+    let mut out = Vec::with_capacity(count);
+    for index in 0..count {
+        let (x, y, z) = lattice_from_index(index, dims);
+        let position = [
+            min[0] + (x as f32 + 0.5) * cell,
+            min[1] + (y as f32 + 0.5) * cell,
+            min[2] + (z as f32 + 0.5) * cell,
+        ];
+        let (target, room) = target_and_room_at(lighting, position);
+        out.push(ProbeTarget { target, room });
+    }
+    out
+}
+
+/// Per-room accumulation of the probe fill means.
+#[derive(Default)]
+struct ProbeRoomSums {
+    target: [f32; 3],
+    current: [f32; 3],
+    count: usize,
+}
+
+/// The origin, cell size and counts of the probe lattice a receiver set
+/// implies, or `None` when the set is empty or not finite.
+///
+/// [`bake_probe_field`] and [`probe_targets`] both derive the lattice here, so
+/// the baked field and its targets cannot disagree about the grid.
+fn probe_lattice<'a>(
+    positions: impl IntoIterator<Item = &'a [f32; 3]>,
+) -> Option<([f32; 3], f32, [usize; 3])> {
+    let mut min = [f32::INFINITY; 3];
+    let mut max = [f32::NEG_INFINITY; 3];
+    for position in positions {
+        for axis in 0..3 {
+            if let (Some(value), Some(low), Some(high)) =
+                (position.get(axis), min.get_mut(axis), max.get_mut(axis))
+            {
+                *low = low.min(*value);
+                *high = high.max(*value);
+            }
+        }
+    }
+    if !min[0].is_finite() || !min.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+    let mut dims = [1usize; 3];
+    for axis in 0..3 {
+        let extent = (max[axis] - min[axis]).max(0.0);
+        let requested = (extent / crate::lighting::probes::PROBE_SPACING_M)
+            .ceil()
+            .max(1.0);
+        let cap =
+            f32::from(u16::try_from(crate::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u16::MAX))
+                .max(1.0);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // `capped` is finite and at most MAX_PROBE_CELLS, so the cast is exact.
+        let count = requested.min(cap) as usize;
+        dims[axis] = count.max(1);
+    }
+    let mut cell = crate::lighting::probes::PROBE_SPACING_M;
+    for axis in 0..3 {
+        let extent = (max[axis] - min[axis]).max(0.0);
+        cell = cell.max(extent / f32::from(u16::try_from(dims[axis].max(1)).unwrap_or(1)));
+    }
+    if !cell.is_finite() || cell <= 0.0 {
+        cell = crate::lighting::probes::PROBE_SPACING_M;
+    }
+    Some((min, cell, dims))
 }
 
 impl TransportScene {
@@ -694,7 +1019,83 @@ impl TransportScene {
             order,
             nodes,
             emitters,
+            water: Vec::new(),
+            receiver_target: Vec::new(),
+            probe_target: Vec::new(),
         })
+    }
+
+    /// Attaches the resolved water bodies the solve transmits through and
+    /// attenuates in.
+    #[must_use]
+    pub fn with_water(mut self, water: Vec<TransportWaterBody>) -> Self {
+        self.water = water;
+        self
+    }
+
+    /// Attaches the per-texel authored baseline targets in receiver order.
+    ///
+    /// The targets come from [`receiver_targets`] and must cover the same
+    /// chart set the solve is called with; a length mismatch disables the
+    /// chart fill rather than misaligning it.
+    #[must_use]
+    pub fn with_receiver_target(mut self, target: Vec<[f32; 3]>) -> Self {
+        self.receiver_target = target;
+        self
+    }
+
+    /// Attaches the per-probe authored baseline targets and rooms in flat
+    /// probe order.
+    ///
+    /// The targets come from [`probe_targets`] and are indexed exactly like
+    /// the probe lattice [`bake_probe_field`] writes; a length mismatch
+    /// disables the fill rather than misaligning it.
+    #[must_use]
+    pub fn with_probe_target(mut self, target: Vec<ProbeTarget>) -> Self {
+        self.probe_target = target;
+        self
+    }
+
+    /// The per-channel water attenuation a point at `position` receives.
+    ///
+    /// Every body whose footprint contains the point and whose surface is at
+    /// or above it contributes `exp(-sigma_c * depth)` with `depth` clamped to
+    /// the body's resolved bottom; overlapping bodies multiply. A point above
+    /// every surface, outside every footprint, or with a non-finite
+    /// coordinate gets `[1; 3]`.
+    #[must_use]
+    pub fn attenuation_at(&self, position: [f32; 3]) -> [f32; 3] {
+        if !position.iter().all(|value| value.is_finite()) {
+            return [1.0; 3];
+        }
+        let mut out = [1.0_f32; 3];
+        for body in &self.water {
+            if position[0] < body.x0
+                || position[0] > body.x1
+                || position[2] < body.z0
+                || position[2] > body.z1
+                || position[1] > body.surface_y
+            {
+                continue;
+            }
+            let reach = (body.surface_y - body.bottom_y).max(0.0);
+            let depth = (body.surface_y - position[1]).clamp(0.0, reach);
+            if depth <= 0.0 {
+                continue;
+            }
+            for channel in 0..3 {
+                let sigma = body
+                    .extinction
+                    .get(channel)
+                    .copied()
+                    .unwrap_or(0.0)
+                    .max(0.0);
+                if let Some(slot) = out.get_mut(channel) {
+                    *slot *= (-sigma * depth).exp();
+                }
+            }
+        }
+        out
     }
 
     /// Number of triangles in the scene.
@@ -774,6 +1175,9 @@ impl TransportScene {
                     else {
                         continue;
                     };
+                    if triangle.transmissive {
+                        continue;
+                    }
                     if let Some(t) = ray_triangle(origin, direction, triangle)
                         && t > RAY_EPS_M
                         && t < max_t
@@ -867,6 +1271,9 @@ impl TransportScene {
                     else {
                         continue;
                     };
+                    if triangle.transmissive {
+                        continue;
+                    }
                     if let Some(t) = ray_triangle(origin, direction, triangle)
                         && t > RAY_EPS_M
                         && best.is_none_or(|(distance, _)| t < distance)
@@ -927,7 +1334,9 @@ impl TransportScene {
     /// Fallback full scan used only when the traversal stack saturates.
     fn linear_any_hit(&self, origin: [f32; 3], direction: [f32; 3], max_t: f32) -> bool {
         self.triangles.iter().any(|triangle| {
-            ray_triangle(origin, direction, triangle).is_some_and(|t| t > RAY_EPS_M && t < max_t)
+            !triangle.transmissive
+                && ray_triangle(origin, direction, triangle)
+                    .is_some_and(|t| t > RAY_EPS_M && t < max_t)
         })
     }
 
@@ -1079,6 +1488,7 @@ impl TransportScene {
         let base = self.solve_pass(
             charts,
             &base_emitters,
+            true,
             taps,
             bounces,
             bounce_samples,
@@ -1094,6 +1504,7 @@ impl TransportScene {
             let solved = self.solve_pass(
                 charts,
                 std::slice::from_ref(emitter),
+                false,
                 taps,
                 bounces,
                 bounce_samples,
@@ -1119,11 +1530,16 @@ impl TransportScene {
     }
 
     /// One solve over a fixed emitter subset.
+    ///
+    /// `apply_fill` gates the authored baseline fill: the base solve gets it, a
+    /// switchable fixture's own layer must not (the runtime already adds that
+    /// layer on top of the base, so a fill in both would double it).
     #[allow(clippy::too_many_arguments)] // internal pass driver; the arguments are the pass's whole budget
     fn solve_pass(
         &self,
         charts: &[(LightmapPatch, Chart)],
         emitters: &[usize],
+        apply_fill: bool,
         taps: u8,
         bounces: u8,
         bounce_samples: usize,
@@ -1208,7 +1624,10 @@ impl TransportScene {
         // Controlled filtering: a chart-space luma-guided 3x3 pass on the
         // accumulated values removes the per-texel gather noise a point VPL
         // set leaves without blurring across a change in received light.
-        let filtered = filter_accumulators(charts, &accumulators);
+        let mut filtered = filter_accumulators(charts, &accumulators);
+        if apply_fill {
+            self.apply_chart_fill(charts, &receivers, &mut filtered);
+        }
         let mut out = Vec::with_capacity(charts.len());
         let mut offset = 0usize;
         for (_, chart) in charts {
@@ -1244,7 +1663,7 @@ impl TransportScene {
     }
 
     /// The receiver list for every chart texel, with albedo resolved from the
-    /// scene.
+    /// scene and water attenuation resolved from its bodies.
     fn receivers(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -1262,39 +1681,37 @@ impl TransportScene {
             let texel_area = (u_metres * v_metres)
                 / (f32::from(u16::try_from(width).unwrap_or(u16::MAX))
                     * f32::from(u16::try_from(height).unwrap_or(u16::MAX)));
-            for j in 0..height {
-                let v = texel_axis(j, height);
-                for i in 0..width {
-                    let u = texel_axis(i, width);
-                    let point = patch.point_at(u, v);
-                    let position = [
-                        normal[0].mul_add(SURFACE_OFFSET_M, point[0]),
-                        normal[1].mul_add(SURFACE_OFFSET_M, point[1]),
-                        normal[2].mul_add(SURFACE_OFFSET_M, point[2]),
-                    ];
-                    let sampled = self.surface_sample(position, 0.2);
-                    let albedo = sampled.map_or([0.55, 0.55, 0.55], |(albedo, _)| albedo);
-                    let surface = sampled.map_or(u32::MAX, |(_, index)| {
-                        u32::try_from(index).unwrap_or(u32::MAX)
-                    });
-                    out.push(TransportReceiver {
-                        position,
-                        normal,
-                        albedo,
-                        area: if texel_area.is_finite() && texel_area > 0.0 {
-                            texel_area
-                        } else {
-                            1.0e-4
-                        },
-                        surface,
-                    });
-                }
-            }
+            let area = if texel_area.is_finite() && texel_area > 0.0 {
+                texel_area
+            } else {
+                1.0e-4
+            };
+            for_each_texel(chart, |u, v| {
+                let point = patch.point_at(u, v);
+                let position = receiver_position(point, normal);
+                let sampled = self.surface_sample(position, 0.2);
+                let albedo = sampled.map_or([0.55, 0.55, 0.55], |(albedo, _)| albedo);
+                let surface = sampled.map_or(u32::MAX, |(_, index)| {
+                    u32::try_from(index).unwrap_or(u32::MAX)
+                });
+                out.push(TransportReceiver {
+                    position,
+                    normal,
+                    albedo,
+                    area,
+                    surface,
+                    attenuation: self.attenuation_at(position),
+                });
+            });
         }
         Ok(out)
     }
 
     /// Direct illumination for every receiver.
+    ///
+    /// Every sampled weight passes through the receiver's own water
+    /// attenuation exactly once ([`TransportReceiver::attenuation`]), so a
+    /// submerged texel gathers a tinted, dimmed direct term.
     fn direct_pass(
         &self,
         receivers: &[TransportReceiver],
@@ -1313,10 +1730,176 @@ impl TransportScene {
                     continue;
                 };
                 let (weight, direction) = emitter.direct(self, receiver.position, taps);
-                accumulate_lobe(&mut accumulator, weight, direction);
+                accumulate_lobe(
+                    &mut accumulator,
+                    attenuate(weight, receiver.attenuation),
+                    direction,
+                );
             }
             accumulator
         })
+    }
+
+    /// Lifts the base solve's filled charts to the authored room fill, one
+    /// uniform scalar per chart, after filtering.
+    ///
+    /// For each chart whose patch kind [`chart_receives_fill`] accepts
+    /// (`Floor`, `Wall`, `Skirt`) the mean of the receivers' target (already
+    /// scaled by their water attenuation) and the mean of the solved
+    /// reconstructed light at the receivers' own normals are compared; the
+    /// positive difference is added to every texel's stored irradiance.
+    /// Because the same scalar is added across a chart, the chart's own
+    /// internal contrast — a pool under a panel against its far corner — is
+    /// preserved while the chart's mean lands at or above its authored fill. A
+    /// chart already averaging above its target is untouched, so the physical
+    /// transport keeps its extra light, and a fixture-free chart's target mean
+    /// is exactly zero, so deliberate darkness is preserved.
+    ///
+    /// A `Ceiling` chart is deliberately skipped: it faces the lit floor, so
+    /// the physical bounce supplies it most directly, and its texels keep
+    /// their exact post-solve values (near-panel pool versus far corner) as
+    /// the calibrated solve produced them. Its target is still computed by
+    /// [`receiver_targets`] so the target list stays index-aligned with the
+    /// receiver list; a target list that does not line up is ignored rather
+    /// than misapplied.
+    fn apply_chart_fill(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        receivers: &[TransportReceiver],
+        texels: &mut [LightmapTexel],
+    ) {
+        if self.receiver_target.len() != receivers.len() {
+            return;
+        }
+        let mut offset = 0usize;
+        for (patch, chart) in charts {
+            let width = usize::try_from(chart.width).unwrap_or(0);
+            let height = usize::try_from(chart.height).unwrap_or(0);
+            let count = width.saturating_mul(height);
+            if width == 0 || height == 0 {
+                continue;
+            }
+            let end = offset.saturating_add(count);
+            if chart_receives_fill(patch.kind) {
+                let (Some(chart_receivers), Some(chart_texels)) =
+                    (receivers.get(offset..end), texels.get_mut(offset..end))
+                else {
+                    break;
+                };
+                let divisor = count as f32;
+                // The stored irradiance is reconstructed through a nonlinear
+                // moment ratio, so one mean-difference pass can leave the
+                // reconstructed chart mean a little below its target. Iterate
+                // a bounded number of times, each pass adding one more uniform
+                // scalar per channel: the total added stays uniform across the
+                // chart (so relative structure survives exactly) while the
+                // chart mean lands at or above its authored target.
+                for _ in 0..3 {
+                    let mut sum_target = [0.0_f32; 3];
+                    let mut sum_current = [0.0_f32; 3];
+                    for (local, (receiver, texel)) in
+                        chart_receivers.iter().zip(chart_texels.iter()).enumerate()
+                    {
+                        let Some(target) = self.receiver_target.get(offset.saturating_add(local))
+                        else {
+                            continue;
+                        };
+                        let current = texel.light_at(receiver.normal);
+                        for channel in 0..3 {
+                            sum_target[channel] += target[channel] * receiver.attenuation[channel];
+                            sum_current[channel] += current[channel];
+                        }
+                    }
+                    let mut fill = [0.0_f32; 3];
+                    let mut any = false;
+                    for channel in 0..3 {
+                        let value = (sum_target[channel] - sum_current[channel]) / divisor;
+                        fill[channel] = if value.is_finite() && value > 0.0 {
+                            value
+                        } else {
+                            0.0
+                        };
+                        any |= fill[channel] > 0.0;
+                    }
+                    if !any {
+                        break;
+                    }
+                    for texel in chart_texels.iter_mut() {
+                        for channel in 0..3 {
+                            if let Some(slot) = texel.irradiance.get_mut(channel) {
+                                *slot += fill[channel];
+                            }
+                        }
+                        *texel = texel.normalized();
+                    }
+                }
+            }
+            offset = end;
+        }
+    }
+
+    /// Lifts the moving-object field to the authored fill, one uniform scalar
+    /// per resolved room, after the probes are baked.
+    ///
+    /// The probes are grouped by the room [`probe_targets`] resolved for each
+    /// lattice point (the same lookup the compiler's own labelling uses). Per
+    /// room, the mean target already scaled by the probe's water attenuation
+    /// and the mean solved isotropic value are compared; the positive
+    /// difference is added uniformly to that room's probes, so the room's
+    /// internal brightness structure survives while its mean lands at or above
+    /// its authored fill. A room already averaging above its target is
+    /// untouched; probes in no room (`room == -1`, target zero) never gain
+    /// anything. A target list that does not line up with the baked lattice is
+    /// ignored rather than misapplied.
+    ///
+    /// Probes feed moving objects and carry no surface kind, so the ceiling
+    /// scoping of [`chart_receives_fill`] does not apply here: every resolved
+    /// room's field is filled uniformly regardless of which surface the
+    /// nearby texels belong to.
+    fn apply_probe_fill(&self, baked: &mut [(ProbeSample, [f32; 3])]) {
+        if self.probe_target.len() != baked.len() {
+            return;
+        }
+        let mut sums: HashMap<i32, ProbeRoomSums> = HashMap::new();
+        for (target, (probe, attenuation)) in self.probe_target.iter().zip(baked.iter()) {
+            let entry = sums.entry(target.room).or_default();
+            entry.count = entry.count.saturating_add(1);
+            for channel in 0..3 {
+                entry.target[channel] += target.target[channel] * attenuation[channel];
+                entry.current[channel] += probe.irradiance[channel];
+            }
+        }
+        let mut fills: HashMap<i32, [f32; 3]> = HashMap::with_capacity(sums.len());
+        for (room, sums) in &sums {
+            if sums.count == 0 {
+                continue;
+            }
+            let divisor = sums.count as f32;
+            let mut fill = [0.0_f32; 3];
+            for channel in 0..3 {
+                let value = (sums.target[channel] - sums.current[channel]) / divisor;
+                fill[channel] = if value.is_finite() {
+                    value.max(0.0)
+                } else {
+                    0.0
+                };
+            }
+            fills.insert(*room, fill);
+        }
+        for (target, (probe, _)) in self.probe_target.iter().zip(baked.iter_mut()) {
+            let Some(fill) = fills.get(&target.room) else {
+                continue;
+            };
+            if fill.iter().all(|value| *value <= 0.0) {
+                continue;
+            }
+            for channel in 0..3 {
+                if let Some(slot) = probe.irradiance.get_mut(channel) {
+                    *slot += fill[channel];
+                }
+            }
+            *probe = probe.normalized();
+        }
     }
 
     /// One bounce pass: uniform-hemisphere ray samples against the cache.
@@ -1365,13 +1948,19 @@ impl TransportScene {
                 // samples) and multiplied by the hit surface's albedo. The
                 // receiver's own albedo is deliberately absent: the shader
                 // multiplies the stored light by the receiver's base colour
-                // exactly once.
+                // exactly once. The receiver's water attenuation multiplies
+                // the whole pass's gain exactly once, so a submerged texel
+                // gathers a tinted bounce and never a double-attenuated one.
                 let weight = [
                     triangle.albedo[0] * radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
                     triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
                     triangle.albedo[2] * radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
                 ];
-                accumulate_lobe(&mut accumulator, weight, direction);
+                accumulate_lobe(
+                    &mut accumulator,
+                    attenuate(weight, receiver.attenuation),
+                    direction,
+                );
             }
             accumulator
         })
@@ -1390,6 +1979,7 @@ impl TransportScene {
             albedo: [0.0; 3],
             area: 0.0,
             surface: u32::MAX,
+            attenuation: self.attenuation_at(position),
         };
         let taps = options.taps_per_axis.clamp(1, 3);
         let mut accumulator = Accumulator::default();
@@ -1398,7 +1988,11 @@ impl TransportScene {
                 continue;
             }
             let (weight, direction) = emitter.direct(self, receiver.position, taps);
-            accumulate_lobe(&mut accumulator, weight, direction);
+            accumulate_lobe(
+                &mut accumulator,
+                attenuate(weight, receiver.attenuation),
+                direction,
+            );
         }
         let _ = normal;
         compress(&accumulator)
@@ -1441,6 +2035,15 @@ fn accumulate_lobe(accumulator: &mut Accumulator, weight: [f32; 3], direction: [
             }
         }
     }
+}
+
+/// Multiplies one sampled weight by a receiver's per-channel attenuation.
+fn attenuate(weight: [f32; 3], attenuation: [f32; 3]) -> [f32; 3] {
+    [
+        weight[0] * attenuation[0],
+        weight[1] * attenuation[1],
+        weight[2] * attenuation[2],
+    ]
 }
 
 /// Compresses an accumulated field into the stored moment form.
@@ -1488,6 +2091,11 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 /// surfaces, so the field carries the room's real brightness, colour and
 /// dominant direction. Probes outside every room, and probes the compiler
 /// labels afterwards as inside a wall, stay invalid and are never sampled.
+/// Water attenuation applies to the probe's direct and gathered light exactly
+/// as it does to a chart receiver, and each resolved room's authored fill is
+/// added as one uniform scalar after the whole lattice is baked, so the
+/// moving-object field matches the static surfaces without losing its internal
+/// structure.
 ///
 /// # Errors
 ///
@@ -1502,45 +2110,11 @@ fn bake_probe_field(
     workers: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<ProbeField, LightmapFailure> {
-    let mut min = [f32::INFINITY; 3];
-    let mut max = [f32::NEG_INFINITY; 3];
-    for receiver in receivers {
-        for axis in 0..3 {
-            if let (Some(value), Some(low), Some(high)) = (
-                receiver.position.get(axis),
-                min.get_mut(axis),
-                max.get_mut(axis),
-            ) {
-                *low = low.min(*value);
-                *high = high.max(*value);
-            }
-        }
-    }
-    if !min[0].is_finite() || !min.iter().all(|value| value.is_finite()) {
+    let Some((min, cell, dims)) =
+        probe_lattice(receivers.iter().map(|receiver| &receiver.position))
+    else {
         return Err(LightmapFailure::InvalidConfig);
-    }
-    let mut dims = [1usize; 3];
-    for axis in 0..3 {
-        let extent = (max[axis] - min[axis]).max(0.0);
-        let requested = (extent / crate::lighting::probes::PROBE_SPACING_M)
-            .ceil()
-            .max(1.0);
-        let cap =
-            f32::from(u16::try_from(crate::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u16::MAX))
-                .max(1.0);
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        // `capped` is finite and at most MAX_PROBE_CELLS, so the cast is exact.
-        let count = requested.min(cap) as usize;
-        dims[axis] = count.max(1);
-    }
-    let mut cell = crate::lighting::probes::PROBE_SPACING_M;
-    for axis in 0..3 {
-        let extent = (max[axis] - min[axis]).max(0.0);
-        cell = cell.max(extent / f32::from(u16::try_from(dims[axis].max(1)).unwrap_or(1)));
-    }
-    if !cell.is_finite() || cell <= 0.0 {
-        cell = crate::lighting::probes::PROBE_SPACING_M;
-    }
+    };
     let count = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
     if count == 0 || count > crate::lighting::probes::MAX_PROBES {
         return Err(LightmapFailure::InvalidConfig);
@@ -1548,20 +2122,21 @@ fn bake_probe_field(
     let cache = RadianceCache::build(receivers);
     let rays = PROBE_BAKE_RAYS;
     let inverse_rays = 1.0 / f32::from(u16::try_from(rays).unwrap_or(u16::MAX));
-    let probes = parallel_map(count, workers, cancel, |index| {
+    let mut baked = parallel_map(count, workers, cancel, |index| {
         let (x, y, z) = lattice_from_index(index, dims);
         let position = [
             min[0] + (x as f32 + 0.5) * cell,
             min[1] + (y as f32 + 0.5) * cell,
             min[2] + (z as f32 + 0.5) * cell,
         ];
+        let attenuation = scene.attenuation_at(position);
         let mut accumulator = Accumulator::default();
         for emitter in &scene.emitters {
             if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
                 continue;
             }
             let (weight, direction) = emitter.direct(scene, position, taps);
-            accumulate_lobe(&mut accumulator, weight, direction);
+            accumulate_lobe(&mut accumulator, attenuate(weight, attenuation), direction);
         }
         let mut state = ray_seed(index ^ 0x5EED_5EED, 0xA5);
         for _ in 0..rays {
@@ -1581,16 +2156,23 @@ fn bake_probe_field(
                 triangle.albedo[1] * radiance[1] * 2.0 * inverse_rays,
                 triangle.albedo[2] * radiance[2] * 2.0 * inverse_rays,
             ];
-            accumulate_lobe(&mut accumulator, weight, direction);
+            accumulate_lobe(&mut accumulator, attenuate(weight, attenuation), direction);
         }
         let texel = compress(&accumulator);
-        crate::lighting::probes::ProbeSample {
-            irradiance: texel.irradiance,
-            direction: texel.direction,
-            axis: texel.axis,
-            room: -1,
-        }
+        (
+            crate::lighting::probes::ProbeSample {
+                irradiance: texel.irradiance,
+                direction: texel.direction,
+                axis: texel.axis,
+                room: -1,
+            },
+            attenuation,
+        )
     })?;
+    // The authored fill is one scalar per resolved room, added after the
+    // whole lattice is baked so a room's internal structure survives.
+    scene.apply_probe_fill(&mut baked);
+    let probes = baked.into_iter().map(|(probe, _)| probe).collect();
     Ok(ProbeField {
         min,
         cell_m: cell,

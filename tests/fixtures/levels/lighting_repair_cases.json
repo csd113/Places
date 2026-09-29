@@ -1,0 +1,179 @@
+{
+  "format_version": 3,
+  "id": "lighting_repair_cases",
+  "name": "Lighting Repair Cases",
+  "author": "Places lighting repair",
+  "spawn": {
+    "x": 2.0,
+    "z": 2.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:hardwood_oak_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "height": 3.0,
+      "floor_y": 0.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 4.4,
+      "z": 0.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "height": 3.0,
+      "floor_y": 0.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 8.8,
+      "z": 0.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "height": 3.0,
+      "floor_y": 0.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 13.2,
+      "z": 0.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "height": 3.0,
+      "floor_y": 0.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 17.6,
+      "z": 0.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "height": 3.0,
+      "floor_y": 0.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 22.5,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": -0.3,
+      "z": 4.0,
+      "width": 22.5,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 0.3,
+      "depth": 4.6,
+      "height": 3.0
+    },
+    {
+      "x": 21.6,
+      "z": -0.3,
+      "width": 0.3,
+      "depth": 4.6,
+      "height": 3.0
+    },
+    {
+      "x": 4.0,
+      "z": -0.1,
+      "width": 0.4,
+      "depth": 4.2,
+      "height": 3.0
+    },
+    {
+      "x": 8.4,
+      "z": -0.1,
+      "width": 0.4,
+      "depth": 4.2,
+      "height": 3.0
+    },
+    {
+      "x": 12.8,
+      "z": -0.1,
+      "width": 0.4,
+      "depth": 4.2,
+      "height": 3.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.6,
+          "width": 1.0,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 17.2,
+      "z": -0.1,
+      "width": 0.4,
+      "depth": 4.2,
+      "height": 3.0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.0,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.4,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.4,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.4,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.8,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 19.6,
+      "z": 2.0,
+      "brightness": 0.5,
+      "align": "none"
+    }
+  ]
+}

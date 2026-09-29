@@ -1,5 +1,36 @@
 ## Unreleased — final architecture: doors, interactions, effects and content cutover
 
+### Lighting: water and translucent transmission, authored fill floor and complete rebake
+
+- **Water volumes no longer act as an opaque lid in the prepared solve.** The
+  drawn surface quad is a transmissive triangle: shadow and bounce rays pass
+  through it, a fixture above the pool reaches the basin, and the light is then
+  attenuated with a bounded per-channel Beer–Lambert falloff over the vertical
+  submerged path (`WATER_EXTINCTION_PER_M = [0.35, 0.12, 0.05]` per metre, red
+  absorbed most), applied once per receiver and to the fill target so the two
+  terms share one tint. The demo's basin floor solves from 100 % black to a lit
+  blue-green gradient; an opaque barrier at the same plane still blocks.
+- **Translucent architecture transmits like the opening it fills.** A resolved
+  `alpha_mode: blend|cutout` wall/floor/ceiling range (a glass pane, a vent
+  grille, a screen) no longer occludes the transport solve, matching the
+  documented vertex-lit contract; solid glass and every opaque material still
+  block, and prop triangles stay solid.
+- **The authored room fill is restored as a chart-level floor.** After the
+  physical solve, every `Floor`/`Wall`/`Skirt` chart whose solved mean is below
+  its room's calibrated baseline minus the fixed `0.10` ambient receives one
+  uniform scalar that lifts that mean to the baseline; the single scalar keeps
+  the chart's own pool structure. A chart already above its target is untouched,
+  a room with no fixtures keeps a zero target (deliberate darkness stays black
+  in the prepared path), and ceilings are deliberately left to the physical
+  bounce. The probe field moving objects sample receives the same room fill.
+- **Solver revision 3 -> 4** invalidates every stale prepared lightmap; all five
+  maintained maps were rebuilt and rebaked in all variants, verified current and
+  loaded by a fresh player with no runtime preparation. New regression fixtures
+  (`tests/fixtures/levels/water_transmission.json`,
+  `lighting_repair_cases.json`) pin water transmission against an identical
+  opaque control, the fill floor and contrast, pane/doorway transmission, a
+  clean adjoining corner and finite non-negative values.
+
 ### Wall and doorway alignment: checker, offline repair and the cap ownership fix
 
 - **The geometry checker now proves wall-joint continuity.** Four checks cover

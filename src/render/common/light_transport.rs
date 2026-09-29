@@ -19,10 +19,19 @@
 //! tagged with its light index so the solver can solve its contribution into
 //! its own prepared layer set.
 
+use crate::level::{LevelDef, WaterVolumes};
 use crate::lighting::LevelLighting;
-use crate::lighting::transport::{TransportEmitter, TransportScene, TransportTriangle};
-use crate::materials::{MaterialTable, RawImage};
+use crate::lighting::lightmap::{Chart, LightmapPatch};
+use crate::lighting::transport::{
+    TransportEmitter, TransportScene, TransportTriangle, TransportWaterBody, probe_targets,
+    receiver_targets,
+};
+use crate::materials::{AlphaMode, MaterialTable, RawImage};
 use crate::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKind, Vertex};
+
+/// World-space tolerance, in metres, for matching a triangle's corners to a
+/// water volume's surface plane and footprint.
+const WATER_SURFACE_EPS_M: f32 = 1.0e-3;
 
 /// What one transport-scene build produced, for the developer report.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -39,19 +48,82 @@ pub struct TransportSceneStats {
 
 /// Builds the transport scene for one prepared build.
 ///
+/// `charts` is the finished lightmap plan's chart list. It is needed here so
+/// the authored baseline target of every receiver and probe can be resolved
+/// once, from the same zone-grid lookup the vertex bake used, and stored with
+/// the scene the solve later runs against.
+///
 /// Returns `None` when the scene exceeds the transport solver's triangle budget;
 /// the caller then fails the variant over to the vertex-lit build by name,
 /// exactly like a lightmap plan failure.
 #[must_use]
 pub fn build_transport_scene(
-    level: &crate::level::LevelDef,
+    level: &LevelDef,
     mesh: &LevelMesh,
     batches: &[PropMeshBatch],
     materials: &MaterialTable,
     lighting: &LevelLighting,
+    charts: &[(LightmapPatch, Chart)],
 ) -> Option<(TransportScene, TransportSceneStats)> {
     let mut stats = TransportSceneStats::default();
     let mut triangles: Vec<TransportTriangle> = Vec::new();
+    // Water bodies transmit and attenuate; the drawn surface triangles are
+    // matched against the same resolved volumes the player swims in. A dry
+    // level must not pay for the floor resolution the water emitter also skips.
+    let water = if level.water.is_empty() {
+        WaterVolumes::new()
+    } else {
+        WaterVolumes::from_level(level)
+    };
+    append_architecture_triangles(mesh, materials, &water, &mut triangles, &mut stats);
+    append_prop_triangles(batches, &mut triangles, &mut stats);
+
+    let mut emitters: Vec<TransportEmitter> = Vec::new();
+    let switchable = switchable_lights(level, lighting);
+    for (index, light) in lighting.lights().iter().enumerate() {
+        let tag = switchable
+            .iter()
+            .copied()
+            .find(|candidate| *candidate == index);
+        // A switchable fixture is prepared even when it is authored off, so a
+        // runtime toggle can turn its contribution on; a plainly inactive
+        // light contributes nothing to any solve.
+        if !light.is_active() && tag.is_none() {
+            continue;
+        }
+        emitters.push(TransportEmitter::from_baked(light, tag));
+        if tag.is_some() {
+            stats.switchable_emitters = stats.switchable_emitters.saturating_add(1);
+        }
+    }
+    stats.triangles = triangles.len();
+    stats.emitters = emitters.len();
+    let scene = TransportScene::new(triangles, emitters)?
+        .with_water(
+            water
+                .volumes()
+                .iter()
+                .map(TransportWaterBody::from_volume)
+                .collect(),
+        )
+        .with_receiver_target(receiver_targets(lighting, charts))
+        .with_probe_target(probe_targets(lighting, charts));
+    Some((scene, stats))
+}
+
+/// Appends every architecture range's triangles to the transport scene.
+///
+/// Decals and fixture geometry are skipped; walls, floors, ceilings,
+/// architecture and prop fallbacks occlude. A water volume's drawn surface and
+/// a blend/cutout architecture pane are marked transmissive; everything else,
+/// including a solid glass material, keeps blocking.
+fn append_architecture_triangles(
+    mesh: &LevelMesh,
+    materials: &MaterialTable,
+    water: &WaterVolumes,
+    triangles: &mut Vec<TransportTriangle>,
+    stats: &mut TransportSceneStats,
+) {
     for range in &mesh.ranges {
         // Decals are a visual overlay, and fixture geometry is the analytic
         // emitters' own housing: keeping it would let a fixture shadow itself
@@ -62,6 +134,14 @@ pub fn build_transport_scene(
             continue;
         }
         let material = material_albedo(materials, range.key.material);
+        let material_id = material_id(materials, range.key.material);
+        // Architecture panes the renderer draws as blend/cutout (glass,
+        // grilles) transmit like the shipped vertex-lit bake's openings; a
+        // solid glass or any opaque architecture range keeps blocking.
+        let transmits = matches!(
+            range.key.kind,
+            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+        ) && material_transmits(materials, range.key.material);
         for chunk in range.indices.as_chunks::<3>().0 {
             let (Some(a), Some(b), Some(c)) = (chunk.first(), chunk.get(1), chunk.get(2)) else {
                 continue;
@@ -75,11 +155,26 @@ pub fn build_transport_scene(
             };
             let albedo = triangle_albedo(material, va, vb, vc, None);
             match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
-                Some(triangle) => triangles.push(triangle),
+                Some(triangle) => {
+                    let corners = [va.pos, vb.pos, vc.pos];
+                    let transmissive = transmits || is_water_surface(corners, material_id, water);
+                    triangles.push(triangle.with_transmissive(transmissive));
+                }
                 None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
             }
         }
     }
+}
+
+/// Appends every placed prop batch's triangles: solid, opaque blockers.
+///
+/// A prop's alpha is not an opening contract the vertex-lit bake ever honoured,
+/// so these stay solid whatever their texture alpha says.
+fn append_prop_triangles(
+    batches: &[PropMeshBatch],
+    triangles: &mut Vec<TransportTriangle>,
+    stats: &mut TransportSceneStats,
+) {
     for batch in batches {
         for submesh in &batch.submeshes {
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
@@ -114,29 +209,58 @@ pub fn build_transport_scene(
             }
         }
     }
+}
 
-    let mut emitters: Vec<TransportEmitter> = Vec::new();
-    let switchable = switchable_lights(level, lighting);
-    for (index, light) in lighting.lights().iter().enumerate() {
-        let tag = switchable
-            .iter()
-            .copied()
-            .find(|candidate| *candidate == index);
-        // A switchable fixture is prepared even when it is authored off, so a
-        // runtime toggle can turn its contribution on; a plainly inactive
-        // light contributes nothing to any solve.
-        if !light.is_active() && tag.is_none() {
-            continue;
-        }
-        emitters.push(TransportEmitter::from_baked(light, tag));
-        if tag.is_some() {
-            stats.switchable_emitters = stats.switchable_emitters.saturating_add(1);
-        }
+/// The level material id one surface key resolves to, or `None` when the key
+/// binds no level material (a fixture housing or a prop fallback).
+fn material_id(materials: &MaterialTable, material: u16) -> Option<&str> {
+    if material == MATERIAL_NONE {
+        return None;
     }
-    stats.triangles = triangles.len();
-    stats.emitters = emitters.len();
-    let scene = TransportScene::new(triangles, emitters)?;
-    Some((scene, stats))
+    materials.entry(material).map(|entry| entry.id.as_str())
+}
+
+/// True when a range's resolved material is drawn as a translucent or
+/// alpha-tested opening rather than a solid occluder.
+///
+/// This is the same `alpha_mode: blend|cutout` classification the renderer
+/// uses to route a surface into the translucent or alpha-tested pass; the
+/// vertex-lit bake transmits light through both, so the transport solve must
+/// too. A material that does not resolve stays solid.
+fn material_transmits(materials: &MaterialTable, material: u16) -> bool {
+    if material == MATERIAL_NONE {
+        return false;
+    }
+    materials
+        .entry(material)
+        .is_some_and(|entry| matches!(entry.alpha.mode, AlphaMode::Cutout | AlphaMode::Blend))
+}
+
+/// True when a triangle is one water volume's drawn surface: all three corners
+/// lie on one resolved footprint at its `surface_y` (so the triangle is
+/// horizontal) and the range resolves to that volume's material id.
+///
+/// The surface is drawn only for [`WaterVolumes`] entries, so matching the
+/// authored geometry back to the same resolution is what keeps the transmitted
+/// surface and the attenuating body one thing.
+fn is_water_surface(
+    corners: [[f32; 3]; 3],
+    material_id: Option<&str>,
+    water: &WaterVolumes,
+) -> bool {
+    let Some(material_id) = material_id else {
+        return false;
+    };
+    water.volumes().iter().any(|volume| {
+        volume.material_id() == material_id
+            && corners.iter().all(|corner| {
+                (corner[1] - volume.surface_y).abs() <= WATER_SURFACE_EPS_M
+                    && corner[0] >= volume.x0 - WATER_SURFACE_EPS_M
+                    && corner[0] <= volume.x1 + WATER_SURFACE_EPS_M
+                    && corner[2] >= volume.z0 - WATER_SURFACE_EPS_M
+                    && corner[2] <= volume.z1 + WATER_SURFACE_EPS_M
+            })
+    })
 }
 
 /// The light indices of every switchable ceiling fixture, in fixture order.
@@ -306,6 +430,10 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
 
 #[cfg(test)]
 mod tests {
+    // Test code: unwrap/expect and permissive float comparison are idiomatic
+    // here; the production lints stay enforced above.
+    #![allow(clippy::expect_used, clippy::float_cmp)]
+
     use super::*;
 
     #[test]
@@ -332,5 +460,139 @@ mod tests {
         );
         let sample = sample_texture(&image, [1.25, -0.25]);
         assert!(sample.iter().all(|value| (0.0..=1.0).contains(value)));
+    }
+
+    use crate::level::LevelDef;
+    use crate::render::{LevelMeshBatches, LevelMeshRange, SurfaceKey};
+    use crate::spatial::Aabb;
+
+    /// A one-room level whose floor references `material`, so the logical
+    /// material table resolves it.
+    fn pane_level(material: &str) -> LevelDef {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "transport_pane",
+                "name": "Transport Pane",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0,
+                            "material": "{material}" }}]
+            }}"#
+        ))
+        .expect("pane level parses")
+    }
+
+    /// A hand-built vertical wall pane at `z = 0`, one quad, one material.
+    fn pane_mesh(material: u16) -> LevelMesh {
+        let vertices = vec![
+            Vertex::new([-1.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]),
+            Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]),
+            Vertex::new([1.0, 2.0, 0.0], [1.0; 4], [1.0, 1.0]),
+            Vertex::new([-1.0, 2.0, 0.0], [1.0; 4], [0.0, 1.0]),
+        ];
+        let indices = vec![0, 1, 2, 0, 2, 3];
+        LevelMesh {
+            ranges: vec![LevelMeshRange {
+                key: SurfaceKey::new(SurfaceKind::Wall, material),
+                vertices,
+                indices,
+                bounds: Aabb::EMPTY,
+            }],
+            batches: LevelMeshBatches::default(),
+            vertex_count: 4,
+            index_count: 6,
+        }
+    }
+
+    /// The renderer's alpha contract reaches the transport solve: a blend or
+    /// cutout architecture pane transmits a shadow ray, an opaque wall at the
+    /// same place blocks it.
+    #[test]
+    fn blend_and_cutout_architecture_panes_transmit_while_an_opaque_wall_blocks() {
+        let from = [0.0, 1.0, -1.0];
+        let to = [0.0, 1.0, 1.0];
+        for (material, transmits) in [
+            ("core:glass_window_clear_01", true),
+            ("core:grille_vent_01", true),
+            ("core:painting_dull_01", false),
+        ] {
+            let level = pane_level(material);
+            let materials = crate::render::logical_materials(&level);
+            let material_index = materials.index_of(material).expect("material resolves");
+            let mesh = pane_mesh(material_index);
+            let lighting = LevelLighting::bake(&level);
+            let (scene, _) = build_transport_scene(&level, &mesh, &[], &materials, &lighting, &[])
+                .expect("scene builds");
+            assert_eq!(
+                scene.occluded(from, to),
+                !transmits,
+                "{material}: the pane must {} the ray",
+                if transmits { "transmit" } else { "block" }
+            );
+        }
+    }
+
+    /// The authored water volume reaches the solver as a transmissive surface
+    /// and an attenuating body: a ray crosses the surface, a point below it is
+    /// attenuated by its submerged depth, and a point above is not.
+    #[test]
+    fn a_water_volume_transmits_and_attenuates_by_submerged_depth() {
+        let level = LevelDef::from_json(
+            r#"{
+                "format_version": 3,
+                "id": "transport_water",
+                "name": "Transport Water",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ],
+                "water": [
+                    { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0,
+                      "surface_y": 1.0, "bottom_y": -1.0 }
+                ]
+            }"#,
+        )
+        .expect("water level parses");
+        let materials = crate::render::logical_materials(&level);
+        let water_index = materials
+            .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+            .expect("the water material resolves");
+        // The same quad the water emitter draws: `p0, p1, p2` then `p0, p2, p3`.
+        let vertices = vec![
+            Vertex::new([0.0, 1.0, 4.0], [1.0; 4], [0.0, 0.0]),
+            Vertex::new([4.0, 1.0, 4.0], [1.0; 4], [1.0, 0.0]),
+            Vertex::new([4.0, 1.0, 0.0], [1.0; 4], [1.0, 1.0]),
+            Vertex::new([0.0, 1.0, 0.0], [1.0; 4], [0.0, 1.0]),
+        ];
+        let mesh = LevelMesh {
+            ranges: vec![LevelMeshRange {
+                key: SurfaceKey::new(SurfaceKind::Floor, water_index),
+                vertices,
+                indices: vec![0, 1, 2, 0, 2, 3],
+                bounds: Aabb::EMPTY,
+            }],
+            batches: LevelMeshBatches::default(),
+            vertex_count: 4,
+            index_count: 6,
+        };
+        let lighting = LevelLighting::bake(&level);
+        let (scene, _) = build_transport_scene(&level, &mesh, &[], &materials, &lighting, &[])
+            .expect("scene builds");
+        assert!(
+            !scene.occluded([2.0, 0.0, 2.0], [2.0, 2.0, 2.0]),
+            "the water surface must transmit"
+        );
+        let below = scene.attenuation_at([2.0, 0.5, 2.0]);
+        assert!(
+            below.iter().all(|value| *value < 1.0),
+            "a submerged point must be attenuated: {below:?}"
+        );
+        assert!(
+            below[0] < below[1] && below[1] < below[2],
+            "red is absorbed most: {below:?}"
+        );
+        assert_eq!(
+            scene.attenuation_at([2.0, 1.5, 2.0]),
+            [1.0; 3],
+            "above the surface there is no attenuation"
+        );
     }
 }

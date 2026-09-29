@@ -725,6 +725,7 @@ pub fn prepare_level_geometry_with_lightmaps(
                     &build.batches,
                     materials,
                     &build.lighting,
+                    plan.charts(),
                 ) {
                     Some((transport, scene_stats)) => {
                         crate::logging::info(format_args!(

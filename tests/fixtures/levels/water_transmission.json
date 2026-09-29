@@ -1,0 +1,146 @@
+{
+  "format_version": 3,
+  "id": "water_transmission",
+  "name": "Water Transmission",
+  "author": "Places lighting repair",
+  "spawn": {
+    "x": 2.0,
+    "z": 4.6,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 8.0,
+      "depth": 5.0,
+      "height": 3.2,
+      "floor_y": 0.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 8.6,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": -0.3,
+      "z": 5.0,
+      "width": 8.6,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 0.3,
+      "depth": 5.6,
+      "height": 3.2
+    },
+    {
+      "x": 8.0,
+      "z": -0.3,
+      "width": 0.3,
+      "depth": 5.6,
+      "height": 3.2
+    },
+    {
+      "x": 3.8,
+      "z": -0.1,
+      "width": 0.4,
+      "depth": 5.2,
+      "y": -1.2,
+      "height": 4.4,
+      "material": "core:pool_tile_wall_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 0.8,
+      "z": 1.0,
+      "width": 3.0,
+      "depth": 3.0,
+      "offset_y": -1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 0.8,
+      "z": 1.0,
+      "width": 1.2,
+      "depth": 3.0,
+      "offset_y": -0.85,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 4.2,
+      "z": 1.0,
+      "width": 3.0,
+      "depth": 3.0,
+      "offset_y": -1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.0,
+      "z": 1.0,
+      "width": 1.2,
+      "depth": 3.0,
+      "offset_y": -0.85,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "water": [
+    {
+      "x": 0.8,
+      "z": 1.0,
+      "width": 3.0,
+      "depth": 3.0,
+      "surface_y": -0.2,
+      "bottom_y": -1.2,
+      "material": "core:water_pool_01",
+      "opacity": 0.62,
+      "swimming": true
+    }
+  ],
+  "half_walls": [
+    {
+      "x": 4.2,
+      "z": 1.0,
+      "width": 3.0,
+      "depth": 3.0,
+      "height": 0.08,
+      "y": -0.28,
+      "material": "core:pool_tile_wall_01",
+      "cap_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.3,
+      "z": 2.5,
+      "brightness": 1.0,
+      "align": "none"
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.7,
+      "z": 2.5,
+      "brightness": 1.0,
+      "align": "none"
+    }
+  ]
+}

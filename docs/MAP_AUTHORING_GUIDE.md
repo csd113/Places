@@ -1247,7 +1247,9 @@ How it behaves:
   visible from above and the surface is seen from underwater as well. Its UVs
   continue the world tile grid, its colour carries the baked light of its
   corners and it stays out of the lightmap atlas: a volume belongs to the water,
-  not to a room's chart.
+  not to a room's chart. In a prepared (`medium`/`full`) build the *bake* also
+  treats the volume as transmissive with depth attenuation rather than as a
+  lid, so the basin keeps the light a fixture above it can deliver (section 18).
 * **Wading** is the ordinary walking controller: the water at the player's feet
   at or below `0.55 m` deep is waded at full walk speed, and a jump works
   normally. A standing player also keeps wading where the water is deeper than
@@ -2645,6 +2647,27 @@ rebake. See `docs/RENDERER.md` §7.1 for the encoding and
 The vertex-lit model below is the exact contract of the `off` variant and of
 every fallback after a plan/fill failure; it remains fully supported and its
 examples still apply to a `Lightmaps: Off` map.
+
+Two prepared-path rules keep a solved map readable, and both are automatic:
+
+* **Water and translucent panes transmit.** A `water` volume's surface does
+  not block the bake: a fixture above the pool reaches the basin, and the light
+  that passes into the water is attenuated with depth — a bounded per-channel
+  Beer–Lambert falloff, red absorbed most, so a deep basin reads blue-green
+  while the shallow end stays brighter. A window pane, vent grille or screen
+  whose material is `blend` or `cutout` transmits exactly like the opening it
+  fills, matching the vertex-lit model; only opaque materials (including solid
+  glass) block a ray. The surface you see is unchanged: it stays a translucent
+  quad outside the atlas, as section 10 describes.
+* **The authored room fill is restored.** After the physical solve, a floor,
+  wall or skirt chart whose solved mean is below its room's calibrated
+  baseline (minus the fixed `0.10` ambient floor) is lifted to that baseline
+  with one uniform value, so the calibrated fill the vertex-lit model always
+  had cannot go missing. One value per chart keeps the chart's own pool
+  structure, a chart that is already brighter than the baseline keeps all of
+  its physical light, and a room with no fixtures still has a zero target: in
+  the prepared variants, deliberate darkness is darker than in the vertex-lit
+  model, never brighter. Ceilings are left to the physical bounce.
 
 ### The implemented vertex-lit lighting model
 

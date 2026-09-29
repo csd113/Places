@@ -30,6 +30,8 @@ mod lighting_leak_audit;
 #[cfg(test)]
 mod lighting_partition_audit;
 #[cfg(test)]
+mod lighting_repair_regression;
+#[cfg(test)]
 mod lighting_vertical_audit;
 pub mod loader;
 mod loading;

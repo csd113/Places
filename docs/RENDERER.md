@@ -552,6 +552,31 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    irradiance luminance, so direction noise cannot lock itself in) removes
    gather noise without crossing a real lighting edge, then the chart gutters
    are dilated.
+4. **Transmission.** Translucent architecture does not block the solve: an
+   authored window pane, vent grille or screen (`alpha_mode: blend` or
+   `cutout`) is a transmissive triangle and a shadow or bounce ray passes
+   straight through it, exactly as the historical model treated the opening;
+   an opaque material (including solid glass) still blocks. A water volume's
+   drawn surface transmits the same way, so a fixture above a pool reaches the
+   basin. The submerged path then attenuates the receiver's direct and bounce
+   light with a bounded per-channel Beer–Lambert term
+   (`WATER_EXTINCTION_PER_M`, red absorbed most) over the vertical distance
+   below the surface, applied once per receiver; the authored fill target is
+   scaled by the same factors so the physical solve and the fill describe one
+   water tint.
+5. **Authored fill floor.** After the physical solve, every `Floor`, `Wall`
+   and `Skirt` chart whose solved mean is below the room's authored baseline
+   (minus the fixed ambient floor) receives one uniform per-chart scalar that
+   lifts that mean to the target, scaled by the receiver's water attenuation.
+   One scalar per chart preserves the chart's own contrast (a pool under a
+   panel against its far corner) while restoring the calibrated fill the
+   heuristic model always had; a chart already above its target is untouched,
+   and a fixture-free chart's target is exactly zero, so deliberate darkness
+   stays black. Ceilings are deliberately skipped: they face the lit floor, so
+   the physical bounce supplies them most directly, and their pool structure
+   is left exactly as solved. The probe field (moving objects) gets the same
+   room-level fill. The prepared path deliberately does not add the
+   vertex-lit model's global `0.10` ambient floor.
 
 Probes for the `off` variant and the fallback remain the historical
 display-space model; see §7.3.
@@ -686,7 +711,10 @@ Quality is a compile-time choice: **Medium** runs one diffuse bounce with two
 emitter taps per axis at 12 texels/m; **Full** runs two bounces with three taps
 at 16 texels/m. `off` ships no atlas and the historical vertex-lit mesh. There
 is no runtime atlas re-fill and no runtime lightmap disk store; the compiler
-reuses whole packages by fingerprint instead.
+reuses whole packages by fingerprint instead. `SOLVER_REVISION` (currently 4:
+water/translucent transmission and the authored fill floor) is folded into
+`solver_fingerprint`, so a solver change reports every prepared package stale
+even though the stored record format is unchanged.
 
 ### 7.5 The sheen
 

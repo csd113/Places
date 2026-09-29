@@ -40,6 +40,22 @@ pub const HEIGHT_FALLOFF: f32 = 0.5;
 /// without lights is dark by design; see [`ambient_color`].
 pub const AMBIENT_LEVEL: f32 = 0.10;
 
+/// Per-channel extinction of light in water, per metre of vertical path.
+///
+/// The offline transport solve treats an authored water surface as
+/// transmissive and attenuates every direct weight and bounce gain of a
+/// receiver below it with the bounded Beer-Lambert term
+/// `exp(-sigma_c * depth)`, where `depth` is the receiver's vertical distance
+/// below the surface clamped to the volume's resolved bottom. Red is absorbed
+/// most strongly, so a basin reads blue-green with depth. The approximation is
+/// deliberately bounded: no refraction, no scattering and no horizontal path
+/// through the body, so a ray crossing a pool edge passes through one clean
+/// extinction step rather than an integrated path. The authored room baseline
+/// is attenuated with the same factors, so the fill and the physical solve
+/// describe one water tint. It is calibration, like the rest of this module,
+/// and [`crate::lighting::transport::solver_fingerprint`] folds it in.
+pub const WATER_EXTINCTION_PER_M: [f32; 3] = [0.35, 0.12, 0.05];
+
 /// Hard upper bound on baked brightness, per channel. Values above 1.0 would
 /// clip textured surfaces to flat white and wash the level out.
 pub const MAX_BRIGHTNESS: f32 = 1.0;

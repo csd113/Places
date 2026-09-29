@@ -14,12 +14,13 @@
 //   targets directly; only the surface-facing entry points (`fs_main`,
 //   `fs_cutout`) convert once with `srgb_to_linear` for the sRGB surface;
 // * take `light` from the prepared HDR lightmap array when one is resident:
-//   each page is a pair of linear `Rgba16Float` layers (irradiance and the
-//   signed direction moment) reconstructed at the material normal as
-//   `max(0, irradiance + (irradiance / max(k, 1e-6)) * dot(direction, normal))`
-//   with `k = irradiance.r + irradiance.g + irradiance.b`, plus every enabled
-//   switchable fixture's contribution pair, then compressed by the shared
-//   display tone map; the historical vertex-lit colour is used otherwise;
+//   each page is a pair of linear `Rgba16Float` layers (irradiance `I` and the
+//   signed direction moment `g`, alpha channels reserved) reconstructed at the
+//   material normal `n` as
+//   `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)))`
+//   with `k = I.r + I.g + I.b`, plus every enabled switchable fixture's
+//   contribution pair, then compressed by the shared display tone map; the
+//   historical vertex-lit colour is used otherwise;
 // * decode the material's normal map (when the material binds one) into the
 //   world-space material normal the sheen and reflection terms use;
 // * classify alpha: opaque, alpha-tested (`fs_cutout`) and straight-alpha
