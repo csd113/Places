@@ -738,6 +738,125 @@ fn lit_room_level(width: f32, depth: f32, height: f32, lights_json: &str) -> Lev
     LevelDef::from_json(&json).expect("valid lit room json")
 }
 
+#[test]
+fn prepared_blend_decals_read_the_probe_field_and_cutout_decals_do_not() {
+    // A blended feather decal and a cut-out sign in one room: the relight pass
+    // must move only the feather onto the prepared probe light, leaving the
+    // authored sign exactly as it was (the demo-baseline guarantee).
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "relight",
+            "name": "Relight",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
+            "decals": [
+                { "x": 0.0, "z": 0.0, "width": 2.0, "height": 2.0,
+                  "material": "outdoor:decal_path_edge_01", "surface": "floor" },
+                { "x": 2.0, "z": 2.0, "width": 1.0, "height": 1.0,
+                  "material": "core:decal_no_diving_01", "surface": "floor" }
+            ]
+        }"#,
+    )
+    .expect("relight level");
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let (mut mesh, _) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    let lighting = LevelLighting::bake(&level);
+    let field = crate::lighting::probes::ProbeField {
+        min: [-10.0, -10.0, -10.0],
+        cell_m: 40.0,
+        dims: [1, 1, 1],
+        probes: vec![crate::lighting::probes::ProbeSample {
+            irradiance: [0.3, 0.3, 0.3],
+            direction: [0.0, 0.0, 0.0],
+            axis: [0.5, 0.5],
+            room: 0,
+        }],
+    };
+    let decal_colors = |mesh: &LevelMesh| -> Vec<[f32; 4]> {
+        mesh.ranges
+            .iter()
+            .filter(|range| range.key.kind == SurfaceKind::Decal)
+            .flat_map(|range| range.vertices.iter().map(|vertex| vertex.color))
+            .collect()
+    };
+    let before = decal_colors(&mesh);
+    crate::render::relight_blend_decals(&mut mesh, &level, catalog.assets(), &lighting, &field);
+    let after = decal_colors(&mesh);
+    assert_eq!(
+        before.len(),
+        after.len(),
+        "the pass never adds or drops vertices"
+    );
+    let expected = field
+        .sample_display([0.0, 0.05, 0.0], Some(0))
+        .expect("the probe lattice answers");
+    let mut changed = 0usize;
+    let mut unchanged = 0usize;
+    for (old, new) in before.iter().zip(&after) {
+        if old == new {
+            unchanged += 1;
+        } else {
+            changed += 1;
+            assert!(
+                (new[0] - expected[0]).abs() < 1.0e-4
+                    && (new[1] - expected[1]).abs() < 1.0e-4
+                    && (new[2] - expected[2]).abs() < 1.0e-4,
+                "the feather takes the prepared display light: {new:?} vs {expected:?}"
+            );
+            assert!((new[3] - old[3]).abs() < f32::EPSILON, "alpha is untouched");
+        }
+    }
+    assert!(
+        changed >= 4,
+        "the blended feather relights: {changed} vertices"
+    );
+    assert!(
+        unchanged >= 4,
+        "the cut-out sign keeps its authored light: {unchanged} vertices"
+    );
+}
+
+#[test]
+fn an_open_ceiling_room_emits_every_surface_but_the_ceiling() {
+    // An open room is the sky-visible case: floors, walls and contents are
+    // emitted exactly like a flat room, but no ceiling batch exists, so the
+    // renderer's sky pass (when the level declares one) shows above.
+    let mut open = lit_room_level(8.0, 8.0, 3.0, "[]");
+    open.rooms[0].ceiling = crate::level::CeilingProfileDef::Open;
+    let mesh = build_level_geometry(&open);
+    assert!(
+        !mesh
+            .ranges
+            .iter()
+            .any(|range| range.key.kind == SurfaceKind::Ceiling),
+        "an open-ceiling room must emit no ceiling surface"
+    );
+    assert!(
+        mesh.ranges
+            .iter()
+            .any(|range| range.key.kind == SurfaceKind::Floor),
+        "an open-ceiling room still emits its floor"
+    );
+    // The walkable ceiling model skips it too: there is nothing to bump into.
+    assert!(
+        crate::level::WalkableCeiling::from_level(&open).is_empty(),
+        "an open room contributes no walkable ceiling"
+    );
+
+    // The same room with its default flat ceiling keeps both.
+    let closed = lit_room_level(8.0, 8.0, 3.0, "[]");
+    let mesh = build_level_geometry(&closed);
+    assert!(
+        mesh.ranges
+            .iter()
+            .any(|range| range.key.kind == SurfaceKind::Ceiling),
+        "a flat room still emits its ceiling"
+    );
+    assert!(!crate::level::WalkableCeiling::from_level(&closed).is_empty());
+}
+
 /// Expands a material's aggregate index span back into draw-order vertices.
 ///
 /// The renderer never expands indices; tests inspect geometry in draw order,
@@ -1685,6 +1804,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            occludes: true,
             components: Vec::new(),
             bindings: Vec::new(),
             lights: Vec::new(),
@@ -1701,6 +1821,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            occludes: true,
             components: Vec::new(),
             bindings: Vec::new(),
             lights: Vec::new(),
@@ -1754,6 +1875,7 @@ fn vertically_offset_props_sample_their_true_world_position() {
         scale: 1.0,
         size: Some([1.0, 1.0, 1.0]),
         solid: false,
+        occludes: true,
         components: Vec::new(),
         bindings: Vec::new(),
         lights: Vec::new(),
@@ -2343,13 +2465,27 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     );
 
     // The shared showcase fixtures place every catalogue placeable exactly
-    // once: the domestic/office map covers the generic and Office props, and
-    // the Pool showcase covers the Pool family. Themes organize content;
-    // this is the one place a "placed somewhere" check is legitimate.
+    // once: the domestic/office map covers the generic and Office props, the
+    // Pool showcase covers the Pool family, and the outdoor kit showcase
+    // covers the outdoor theme's ground, lamps, tree and facade parts. Themes
+    // organize content; this is the one place a "placed somewhere" check is
+    // legitimate.
     let pool_showcase = fixture_level("pool_showcase");
+    let outdoor_showcase = fixture_level("outdoor_kit_showcase");
+    // The Halloween entity fixture covers the three Halloween entities (the
+    // ordinary skeleton and the other existing entities stay in the generic
+    // showcases).
+    let halloween = fixture_level("halloween_entities");
     let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
     used.extend(level.props.iter().map(|prop| prop.model.as_str()));
     used.extend(pool_showcase.props.iter().map(|prop| prop.model.as_str()));
+    used.extend(
+        outdoor_showcase
+            .props
+            .iter()
+            .map(|prop| prop.model.as_str()),
+    );
+    used.extend(halloween.props.iter().map(|prop| prop.model.as_str()));
     for entry in catalog.entries() {
         assert!(
             used.contains(entry.id.as_str()),
@@ -2357,6 +2493,42 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
             entry.id
         );
     }
+
+    // The outdoor kit fixture renders every model it places as real geometry
+    // too (a missing outdoor asset must not silently become a placeholder).
+    let (outdoor_mesh, outdoor_batches) =
+        build_level_geometry_with_assets(&outdoor_showcase, &catalog, &mut assets);
+    assert_eq!(
+        outdoor_mesh.batches.prop_batch.count, 0,
+        "no placeholder boxes expected in the outdoor kit fixture"
+    );
+    assert!(!outdoor_batches.is_empty());
+
+    // The Halloween fixture does too: the three entities (including the
+    // blended sheet ghost and the split pumpkin models) resolve to real
+    // geometry, never a placeholder box.
+    let (halloween_mesh, halloween_batches) =
+        build_level_geometry_with_assets(&halloween, &catalog, &mut assets);
+    assert_eq!(
+        halloween_mesh.batches.prop_batch.count, 0,
+        "no placeholder boxes expected in the Halloween fixture"
+    );
+    let mut halloween_models: Vec<&str> = halloween_batches
+        .iter()
+        .map(|batch| batch.model.as_str())
+        .collect();
+    halloween_models.sort_unstable();
+    halloween_models.dedup();
+    let halloween_placed: std::collections::HashSet<&str> = halloween
+        .props
+        .iter()
+        .map(|prop| prop.model.as_str())
+        .collect();
+    assert_eq!(
+        halloween_models.len(),
+        halloween_placed.len(),
+        "each model the Halloween fixture places appears as real geometry"
+    );
 
     // Every prop this level places renders with real geometry, never a
     // placeholder box, and each model appears exactly once.
@@ -5749,6 +5921,7 @@ fn runtime_emissive_model() -> crate::gltf::PropModel {
         indices: vec![0, 1, 2],
         textures: Vec::new(),
         submeshes: vec![PropSubmesh {
+            alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: None,
             emission: MaterialEmission::new([0.8, 0.4, 0.2], 2.0),
@@ -7508,11 +7681,35 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
     );
 }
 
+/// Every model path the demo's animatable placements claim, sorted: the two
+/// Spooner-Men, the four wall switches and the five night-route entities.
+fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String> {
+    let mut paths: Vec<String> = [
+        "spooner-man",
+        "home:wall_switch",
+        "carved-pumpkin",
+        "sheet-ghost",
+        "pumpkin-skeleton",
+    ]
+    .iter()
+    .map(|id| {
+        catalog
+            .get(id)
+            .model
+            .unwrap_or_else(|| panic!("{id} ships a model"))
+    })
+    .collect();
+    paths.sort_unstable();
+    paths
+}
+
 /// The shipped demo level places its skinned props, and the character path
 /// claims each model without touching the rest of the prop field.
 ///
-/// The demo places six animatable props: two skinned Spooner-Men (the pool
-/// route actor and the home encounter predator) and four rigid (skinless) wall
+/// The demo places eleven animatable props: two skinned Spooner-Men (the pool
+/// route actor and the home encounter predator), the three Halloween entities
+/// the night route adds (a routed carved pumpkin, three routed sheet ghosts
+/// and a navigation-driven pumpkin skeleton) and four rigid (skinless) wall
 /// switches. A model with any unclaimed placement stays in the static batch;
 /// here every placement of every one of those models is claimed.
 #[test]
@@ -7524,7 +7721,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
     let mut assets = shipped_assets();
     let lighting = LevelLighting::bake(&level);
     let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 6, "the demo places six animatable props");
+    assert_eq!(scene.len(), 11, "the demo places eleven animatable props");
     let mut ids: Vec<&str> = scene
         .characters()
         .iter()
@@ -7536,6 +7733,11 @@ fn the_places_demo_level_places_its_animated_props_once() {
         [
             "hall_switch",
             "kitchen_switch",
+            "night_ghost_a",
+            "night_ghost_b",
+            "night_ghost_c",
+            "night_pumpkin",
+            "night_skeleton",
             "rat_release_switch",
             "sauna_switch",
             "spooner_man",
@@ -7547,7 +7749,11 @@ fn the_places_demo_level_places_its_animated_props_once() {
         .iter()
         .filter(|character| character.asset().model.is_skinned())
         .collect();
-    assert_eq!(skinned.len(), 2, "two skinned characters");
+    assert_eq!(
+        skinned.len(),
+        7,
+        "two skinned Spooner-Men and the five skinned night-route entities"
+    );
     assert!(
         skinned
             .iter()
@@ -7577,16 +7783,9 @@ fn the_places_demo_level_places_its_animated_props_once() {
 
     // The claimed models are suppressed from the static batch: exactly the
     // models every placement of which is a character.
-    let mut claimed: Vec<&str> = scene.claimed_models().iter().map(String::as_str).collect();
+    let mut claimed: Vec<String> = scene.claimed_models().to_vec();
     claimed.sort_unstable();
-    let spooner = catalog.get("spooner-man").model.expect("spooner-man model");
-    let switch = catalog
-        .get("home:wall_switch")
-        .model
-        .expect("wall switch model");
-    let mut expected = vec![spooner.as_str(), switch.as_str()];
-    expected.sort_unstable();
-    assert_eq!(claimed, expected);
+    assert_eq!(claimed, demo_claimed_model_paths(&catalog));
 
     let character = scene
         .characters()
@@ -7706,6 +7905,8 @@ fn two_placed_characters_follow_independent_entity_frames() {
             instance_id: "cat_a".into(),
             transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), std::f32::consts::FRAC_PI_2)),
             cue: PoseCue::Walk { speed_mps: 0.5 },
+            opacity: 1.0,
+            glow: None,
         },
         EntityFrame {
             instance_id: "cat_b".into(),
@@ -7715,6 +7916,8 @@ fn two_placed_characters_follow_independent_entity_frames() {
                 once: false,
                 paused: false,
             },
+            opacity: 1.0,
+            glow: None,
         },
     ];
     let update = scene.update(
@@ -7760,6 +7963,148 @@ fn two_placed_characters_follow_independent_entity_frames() {
         .expect("cat_b");
     assert_eq!(a.transform(), a_transform);
     assert_eq!(b.transform(), b_transform);
+}
+
+/// The consumer half of the frame contract: a frame yaw of +PI/2 radians
+/// turns the model's front (+Z: the shipped entities' measured forward) onto
+/// world +X. Reading a frame yaw as degrees would leave the model almost
+/// unrotated (1.57 degrees), so this pins the consumer's unit; together with
+/// the AI producer test in `entities::tests` it makes a producer/consumer
+/// unit disagreement impossible to ship unnoticed.
+#[test]
+fn an_entity_frame_yaw_rotates_the_model_front_from_plus_z_towards_plus_x() {
+    use crate::render::common::character::EntityFrame;
+
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = level_with_wall_and_lights(
+        "[]",
+        r#"[{ "id": "cat", "model": "spooner-man", "x": 1.0, "z": 1.0 }]"#,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 1, "the skinned placement becomes a character");
+    let character = &scene.characters()[0];
+
+    // At the authored yaw the model front is world +Z.
+    let (_, rest_rotation, _) = character.transform().to_scale_rotation_translation();
+    assert!(
+        (rest_rotation * glam::Vec3::Z - glam::Vec3::Z).length() < 1e-4,
+        "the unrotated placement faces world +Z"
+    );
+
+    let frames = [EntityFrame {
+        instance_id: "cat".into(),
+        transform: Some((glam::Vec3::new(1.0, 0.0, 1.0), std::f32::consts::FRAC_PI_2)),
+        cue: PoseCue::Idle,
+        opacity: 1.0,
+        glow: None,
+    }];
+    scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &frames);
+    let character = &scene.characters()[0];
+    let (_, rotation, _) = character.transform().to_scale_rotation_translation();
+    let facing = rotation * glam::Vec3::Z;
+    assert!(
+        (facing - glam::Vec3::X).length() < 1e-4,
+        "a frame yaw of PI/2 radians faces the model at world +X: {facing:?}"
+    );
+}
+
+/// A placed character with a glow frame becomes exactly one attached light,
+/// keyed by its instance id, with the fade-scaled intensity and the authored
+/// radius; a frame-less pass retires it again.
+#[test]
+fn a_glowing_placed_character_produces_one_keyed_attached_light() {
+    use crate::entity::GlowCue;
+    use crate::render::common::character::EntityFrame;
+
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = level_with_wall_and_lights(
+        "[]",
+        r#"[{ "id": "lantern", "model": "spooner-man", "x": 1.0, "z": 1.0 }]"#,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 1, "the placed skinned prop is a character");
+    assert_exact(scene.characters()[0].opacity(), 1.0);
+
+    let frame = EntityFrame {
+        instance_id: "lantern".to_string(),
+        transform: None,
+        cue: PoseCue::Idle,
+        opacity: 0.5,
+        glow: Some(GlowCue {
+            socket: None,
+            offset: [0.0, 0.2, 0.0],
+            color: [1.0, 0.86, 0.6],
+            intensity: 1.0,
+            range: 2.5,
+            fade_with_opacity: true,
+        }),
+    };
+    scene.update(
+        1.0 / 60.0,
+        LocomotionSnapshot::default(),
+        std::slice::from_ref(&frame),
+    );
+    assert_exact(scene.characters()[0].opacity(), 0.5);
+    let lights = scene.dynamic_lights();
+    assert_eq!(lights.len(), 1);
+    let light = lights.get("glow:lantern").expect("keyed by instance id");
+    assert_exact(light.intensity, 0.5);
+    assert_exact(light.radius, 2.5);
+    assert_exact_array(light.color, [1.0, 0.86, 0.6]);
+    let expected = scene.characters()[0]
+        .transform()
+        .transform_point3(glam::Vec3::new(0.0, 0.2, 0.0));
+    assert!(
+        (light.position - expected).length() < 1e-5,
+        "the glow offset is entity-local: {:?} vs {expected:?}",
+        light.position
+    );
+
+    // The next pass retires a glow the entity no longer carries.
+    scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &[]);
+    assert!(scene.dynamic_lights().is_empty());
+}
+
+/// The exported sheet ghost reaches the character path as a blended material:
+/// at least one of its submeshes classifies into the sorted translucent
+/// character pass. Skips while the lead's asset registration is in flight.
+#[test]
+fn the_sheet_ghost_asset_classifies_a_blended_submesh_translucent() {
+    let catalog = shipped_catalog();
+    if !catalog.contains("sheet-ghost") {
+        println!("[test] sheet-ghost is not registered; skipping");
+        return;
+    }
+    let model_path = catalog
+        .get("sheet-ghost")
+        .model
+        .expect("the catalogue maps sheet-ghost to a model");
+    let mut assets = shipped_assets();
+    let Ok(asset) = assets.resolve(&model_path) else {
+        println!("[test] sheet-ghost does not resolve; skipping");
+        return;
+    };
+    assert!(
+        asset.model.is_animatable(),
+        "the sheet ghost must be an animatable character model"
+    );
+    let blended = asset
+        .model
+        .submeshes
+        .iter()
+        .filter(|submesh| BatchPass::of(submesh.alpha) == BatchPass::Translucent)
+        .count();
+    assert!(
+        blended > 0,
+        "the glTF `alphaMode: BLEND` cloth must classify translucent: {:?}",
+        asset.model.submeshes
+    );
 }
 
 /// Resolves one shipped entity GLB for the character-cue tests.
@@ -8477,6 +8822,7 @@ fn placeholder_prop_box_faces_point_out_of_the_box() {
         scale: 1.0,
         size: Some([1.0, 1.5, 2.0]),
         solid: false,
+        occludes: true,
         components: Vec::new(),
         bindings: Vec::new(),
         lights: Vec::new(),
@@ -8529,11 +8875,15 @@ fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
             instance_id: "cat_a".into(),
             transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), 0.4)),
             cue: PoseCue::Walk { speed_mps: 0.5 },
+            opacity: 1.0,
+            glow: None,
         },
         EntityFrame {
             instance_id: "cat_b".into(),
             transform: Some((glam::Vec3::new(2.0, 0.0, 4.0), 1.2)),
             cue: PoseCue::Walk { speed_mps: 0.9 },
+            opacity: 1.0,
+            glow: None,
         },
     ];
     for _ in 0..10 {

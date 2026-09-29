@@ -9,27 +9,30 @@ from mesh import FACE_KEYS, FACE_SHADE, _rotate
 from tex import decode_png
 
 
-def load_atlas_from(p, source: Path, regions):
-    """Load an opaque square source PNG from an explicit path into ``p``.
+def load_atlas_from(p, source: Path, regions, keep_alpha: bool = False):
+    """Load a square source PNG from an explicit path into ``p``.
 
     The themed packs keep their committed source art beside their GLBs (for
     example ``assets/environment/home/props/models/plate.png``), so the loader
     takes the path rather than a name; :func:`load_atlas` is the core-pack
     shorthand that resolves the name under ``assets/core/props/models``.
+
+    ``keep_alpha`` admits a cutout atlas (foliage cards): the alpha channel is
+    preserved for the glTF ``MASK`` material instead of being rejected.
     """
     width, height, pixels = decode_png(source.read_bytes())
     # 256x256 is the normal native prop-atlas size; 32/64/128 remain legal for
     # lighter props. The runtime decoder accepts up to 1024 and downscales to
     # the active quality level, but shipping art above the native size only
     # wastes GLB bytes because High and Medium sample prop sheets at 256.
-    if (width, height) not in ((32, 32), (64, 64), (128, 128), (256, 256)) or any(
-        a != 255 for a in pixels[3::4]
+    if (width, height) not in ((32, 32), (64, 64), (128, 128), (256, 256)) or (
+        not keep_alpha and any(a != 255 for a in pixels[3::4])
     ):
         raise ValueError(
-            f"{source.name} must be an opaque square 32/64/128/256 px atlas "
+            f"{source.name} must be a square 32/64/128/256 px atlas "
             f"(found {width}x{height})"
         )
-    tex = p.set_texture(width)
+    tex = p.set_texture(width, alpha=keep_alpha)
     tex.pixels[:] = pixels
     if regions:
         tex.auto(*regions)

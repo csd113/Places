@@ -1,0 +1,2837 @@
+{
+  "format_version": 3,
+  "id": "outdoor_kit_showcase",
+  "name": "Outdoor Kit Showcase (dev)",
+  "author": "Places Team",
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 1.0,
+    "ambient": 0.05
+  },
+  "spawn": {
+    "x": 10.0,
+    "z": 16.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "outdoor:house_siding_01",
+    "floor": "outdoor:grass_ground_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 26.0,
+      "depth": 20.0,
+      "height": 6.0,
+      "ceiling": {
+        "kind": "open"
+      },
+      "material": "outdoor:grass_ground_01"
+    },
+    {
+      "x": 2.5,
+      "z": -3.8,
+      "width": 15.0,
+      "depth": 4.8,
+      "height": 2.7,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.75
+      },
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 26.0,
+      "z": 6.0,
+      "width": 5.0,
+      "depth": 5.0,
+      "height": 2.6,
+      "material": "outdoor:concrete_pavement_01",
+      "ceiling_material": "home:ceiling_white_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": 2.5,
+      "z": 0.85,
+      "width": 15.0,
+      "depth": 0.3,
+      "height": 2.7,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 6.95,
+          "width": 1.1,
+          "height": 2.15,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 2.5,
+      "z": -4.1,
+      "width": 15.0,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": 2.2,
+      "z": -4.1,
+      "width": 0.3,
+      "depth": 5.25,
+      "height": 2.7
+    },
+    {
+      "x": 17.5,
+      "z": -4.1,
+      "width": 0.3,
+      "depth": 5.25,
+      "height": 2.7
+    },
+    {
+      "x": 25.7,
+      "z": 6.0,
+      "width": 0.3,
+      "depth": 5.0,
+      "height": 2.7,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.5,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 26.0,
+      "z": 5.7,
+      "width": 5.0,
+      "depth": 0.3,
+      "height": 2.6
+    },
+    {
+      "x": 26.0,
+      "z": 10.7,
+      "width": 5.0,
+      "depth": 0.3,
+      "height": 2.6
+    },
+    {
+      "x": 30.7,
+      "z": 6.0,
+      "width": 0.3,
+      "depth": 5.0,
+      "height": 2.6
+    }
+  ],
+  "half_walls": [
+    {
+      "x": 0.0,
+      "z": 19.8,
+      "width": 26.0,
+      "depth": 0.2,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 0.2,
+      "depth": 20.0,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 25.8,
+      "z": 0.0,
+      "width": 0.2,
+      "depth": 6.0,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 25.8,
+      "z": 11.0,
+      "width": 0.2,
+      "depth": 9.0,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 2.5,
+      "depth": 0.2,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 17.5,
+      "z": 0.0,
+      "width": 8.5,
+      "depth": 0.2,
+      "height": 1.05,
+      "material": "outdoor:house_siding_01"
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 9.2,
+      "z": 4.2,
+      "width": 1.6,
+      "depth": 14.4,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 8.0,
+      "z": 1.6,
+      "width": 4.0,
+      "depth": 2.6,
+      "material": "outdoor:concrete_pavement_01"
+    }
+  ],
+  "decals": [
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 5.2,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 6.1000000000000005,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 7.0,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 7.9,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 8.8,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 9.700000000000001,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 10.600000000000001,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 11.500000000000002,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 12.4,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 13.3,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 14.2,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 15.1,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 16.0,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 16.9,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 17.8,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 180.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 18.7,
+      "width": 1.0,
+      "height": 2.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_edge_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.0,
+      "y": 0.0,
+      "z": 18.4,
+      "width": 1.8,
+      "height": 1.8,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_end_01",
+      "surface": "floor"
+    },
+    {
+      "x": 9.2,
+      "y": 0.0,
+      "z": 4.2,
+      "width": 1.0,
+      "height": 1.0,
+      "rotation_degrees": 0.0,
+      "material": "outdoor:decal_path_corner_01",
+      "surface": "floor"
+    },
+    {
+      "x": 10.8,
+      "y": 0.0,
+      "z": 4.2,
+      "width": 1.0,
+      "height": 1.0,
+      "rotation_degrees": 90.0,
+      "material": "outdoor:decal_path_corner_01",
+      "surface": "floor"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 28.5,
+      "z": 8.6,
+      "brightness": 0.8,
+      "color": [
+        1.0,
+        0.86,
+        0.7
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "front_door",
+      "x": 9.45,
+      "y": 0.0,
+      "z": 1.0,
+      "rotation_degrees": 0.0,
+      "width": 1.1,
+      "height": 2.15,
+      "kind": "interior",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Front Door"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "props": [
+    {
+      "model": "outdoor:house_wall_window",
+      "x": 4.0,
+      "z": 1.27,
+      "id": "facade_4"
+    },
+    {
+      "model": "outdoor:house_wall_solid",
+      "x": 7.0,
+      "z": 1.27,
+      "id": "facade_7"
+    },
+    {
+      "model": "outdoor:house_wall_doorway",
+      "x": 10.0,
+      "z": 1.3499999999999999,
+      "id": "facade_10"
+    },
+    {
+      "model": "outdoor:house_wall_solid",
+      "x": 13.0,
+      "z": 1.27,
+      "id": "facade_13"
+    },
+    {
+      "model": "outdoor:house_wall_window",
+      "x": 16.0,
+      "z": 1.27,
+      "id": "facade_16"
+    },
+    {
+      "model": "outdoor:house_corner_trim",
+      "x": 2.5,
+      "z": 1.0
+    },
+    {
+      "model": "outdoor:house_corner_trim",
+      "x": 17.5,
+      "z": 1.0
+    },
+    {
+      "model": "outdoor:house_roof_slope",
+      "x": 10.0,
+      "z": 1.2,
+      "y": 2.7
+    },
+    {
+      "model": "outdoor:house_roof_slope",
+      "x": 10.0,
+      "z": -4.0,
+      "rotation_degrees": 180.0,
+      "y": 2.7
+    },
+    {
+      "model": "outdoor:house_roof_ridge",
+      "x": 10.0,
+      "z": -1.4,
+      "y": 4.23
+    },
+    {
+      "model": "outdoor:lamp_wall",
+      "x": 8.85,
+      "z": 1.55,
+      "y": 2.03,
+      "id": "door_wall_lamp_left",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.18,
+            0.12
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.6,
+          "range": 5.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:lamp_wall",
+      "x": 11.15,
+      "z": 1.55,
+      "y": 2.03,
+      "id": "door_wall_lamp_right",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.18,
+            0.12
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.6,
+          "range": 5.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:concrete_step",
+      "x": 10.0,
+      "z": 1.8,
+      "solid": true,
+      "size": [
+        1.4,
+        0.18,
+        0.7
+      ]
+    },
+    {
+      "model": "outdoor:tree_01",
+      "x": 5.5,
+      "z": 5.5,
+      "rotation_degrees": 20.0,
+      "scale": 1.05,
+      "solid": true,
+      "size": [
+        0.8,
+        6.4,
+        0.8
+      ],
+      "occludes": false,
+      "id": "yard_tree"
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 3,
+      "id": "fence_post_1"
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 5,
+      "id": "fence_post_2"
+    },
+    {
+      "model": "outdoor:lamp_fence",
+      "x": 1.2,
+      "z": 5,
+      "y": 1.05,
+      "id": "fence_lamp_2",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.3,
+            0.05
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.5,
+          "range": 4.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 7,
+      "id": "fence_post_3"
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 9,
+      "id": "fence_post_4"
+    },
+    {
+      "model": "outdoor:lamp_fence",
+      "x": 1.2,
+      "z": 9,
+      "y": 1.05,
+      "id": "fence_lamp_4",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.3,
+            0.05
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.5,
+          "range": 4.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 11,
+      "id": "fence_post_5"
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 13,
+      "id": "fence_post_6"
+    },
+    {
+      "model": "outdoor:lamp_fence",
+      "x": 1.2,
+      "z": 13,
+      "y": 1.05,
+      "id": "fence_lamp_6",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.3,
+            0.05
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.5,
+          "range": 4.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 15,
+      "id": "fence_post_7"
+    },
+    {
+      "model": "outdoor:fence_post",
+      "x": 1.2,
+      "z": 17,
+      "id": "fence_post_8"
+    },
+    {
+      "model": "outdoor:lamp_stand",
+      "x": 8.2,
+      "z": 6.0,
+      "id": "path_lamp_1",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.86,
+            0.0
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.7,
+          "range": 7.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:lamp_stand",
+      "x": 11.8,
+      "z": 11.0,
+      "id": "path_lamp_2",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.86,
+            0.0
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.7,
+          "range": 7.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:lamp_stand",
+      "x": 8.2,
+      "z": 16.0,
+      "id": "path_lamp_3",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.86,
+            0.0
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.7,
+          "range": 7.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:lamp_stand",
+      "x": 13.4,
+      "z": 3.6,
+      "id": "path_lamp_4",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.86,
+            0.0
+          ],
+          "color": [
+            1.0,
+            0.86,
+            0.68
+          ],
+          "intensity": 0.7,
+          "range": 7.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:collision_peg",
+      "x": 25.55,
+      "z": 18.2,
+      "y": -0.06,
+      "solid": true,
+      "size": [
+        0.3,
+        3.0,
+        3.0
+      ],
+      "occludes": false,
+      "id": "kit_boundary_peg",
+      "comment": "Buried invisible containment collider: a 6 cm peg sunk 6 cm below the floor, so only its level-sized solid box exists. The box lies flush along the east perimeter wall up to the north-east corner; occludes: false keeps it out of the bake."
+    },
+    {
+      "id": "grass_low_1",
+      "model": "outdoor:grass_patch_small",
+      "x": 20.475,
+      "z": 1.33,
+      "rotation_degrees": 162.2,
+      "scale": 0.941,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_2",
+      "model": "outdoor:grass_patch_small",
+      "x": 13.454,
+      "z": 1.387,
+      "rotation_degrees": 189.8,
+      "scale": 0.914,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_3",
+      "model": "outdoor:grass_patch_small",
+      "x": 23.7,
+      "z": 1.492,
+      "rotation_degrees": 46.2,
+      "scale": 0.995,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_4",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.359,
+      "z": 1.511,
+      "rotation_degrees": 86.2,
+      "scale": 0.931,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_5",
+      "model": "outdoor:grass_patch_small",
+      "x": 14.8,
+      "z": 1.618,
+      "rotation_degrees": 317.8,
+      "scale": 0.904,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_6",
+      "model": "outdoor:grass_patch_small",
+      "x": 25.204,
+      "z": 1.782,
+      "rotation_degrees": 54.5,
+      "scale": 1.044,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_7",
+      "model": "outdoor:grass_patch_large",
+      "x": 18.96,
+      "z": 1.921,
+      "rotation_degrees": 271.1,
+      "scale": 0.937,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_8",
+      "model": "outdoor:grass_patch_small",
+      "x": 21.678,
+      "z": 1.996,
+      "rotation_degrees": 128.0,
+      "scale": 0.874,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_9",
+      "model": "outdoor:grass_patch_small",
+      "x": 17.763,
+      "z": 2.002,
+      "rotation_degrees": 223.3,
+      "scale": 0.955,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_10",
+      "model": "outdoor:grass_patch_large",
+      "x": 24.652,
+      "z": 2.561,
+      "rotation_degrees": 87.0,
+      "scale": 0.994,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_11",
+      "model": "outdoor:grass_patch_small",
+      "x": 20.601,
+      "z": 2.644,
+      "rotation_degrees": 141.9,
+      "scale": 0.861,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_12",
+      "model": "outdoor:grass_patch_small",
+      "x": 23.511,
+      "z": 2.656,
+      "rotation_degrees": 174.1,
+      "scale": 1.033,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_13",
+      "model": "outdoor:grass_patch_large",
+      "x": 13.839,
+      "z": 2.794,
+      "rotation_degrees": 307.2,
+      "scale": 1.139,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_14",
+      "model": "outdoor:grass_patch_small",
+      "x": 22.199,
+      "z": 2.805,
+      "rotation_degrees": 183.6,
+      "scale": 0.951,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_15",
+      "model": "outdoor:grass_patch_large",
+      "x": 14.649,
+      "z": 2.877,
+      "rotation_degrees": 195.5,
+      "scale": 0.934,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_16",
+      "model": "outdoor:grass_patch_small",
+      "x": 17.84,
+      "z": 3.038,
+      "rotation_degrees": 50.8,
+      "scale": 1.093,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_17",
+      "model": "outdoor:grass_patch_small",
+      "x": 19.315,
+      "z": 3.195,
+      "rotation_degrees": 102.5,
+      "scale": 0.894,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_18",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.449,
+      "z": 3.224,
+      "rotation_degrees": 0.2,
+      "scale": 1.032,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_19",
+      "model": "outdoor:grass_patch_large",
+      "x": 20.575,
+      "z": 3.903,
+      "rotation_degrees": 158.9,
+      "scale": 0.919,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_20",
+      "model": "outdoor:grass_patch_small",
+      "x": 19.499,
+      "z": 4.02,
+      "rotation_degrees": 93.7,
+      "scale": 1.035,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_21",
+      "model": "outdoor:grass_patch_large",
+      "x": 23.113,
+      "z": 4.082,
+      "rotation_degrees": 57.9,
+      "scale": 1.135,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_22",
+      "model": "outdoor:grass_patch_small",
+      "x": 13.786,
+      "z": 4.275,
+      "rotation_degrees": 203.6,
+      "scale": 1.082,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_23",
+      "model": "outdoor:grass_patch_large",
+      "x": 17.717,
+      "z": 4.337,
+      "rotation_degrees": 343.8,
+      "scale": 0.97,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_24",
+      "model": "outdoor:grass_patch_large",
+      "x": 15.406,
+      "z": 4.459,
+      "rotation_degrees": 149.6,
+      "scale": 1.083,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_25",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.573,
+      "z": 4.57,
+      "rotation_degrees": 79.0,
+      "scale": 1.055,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_26",
+      "model": "outdoor:grass_patch_large",
+      "x": 25.237,
+      "z": 4.655,
+      "rotation_degrees": 65.5,
+      "scale": 0.906,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_27",
+      "model": "outdoor:grass_patch_large",
+      "x": 22.074,
+      "z": 4.734,
+      "rotation_degrees": 83.6,
+      "scale": 1.125,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_28",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.431,
+      "z": 5.255,
+      "rotation_degrees": 36.0,
+      "scale": 1.114,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_29",
+      "model": "outdoor:grass_patch_small",
+      "x": 20.438,
+      "z": 5.312,
+      "rotation_degrees": 305.0,
+      "scale": 1.005,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_30",
+      "model": "outdoor:grass_patch_large",
+      "x": 23.386,
+      "z": 5.419,
+      "rotation_degrees": 122.8,
+      "scale": 0.938,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_31",
+      "model": "outdoor:grass_patch_small",
+      "x": 13.869,
+      "z": 5.445,
+      "rotation_degrees": 22.3,
+      "scale": 0.995,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_32",
+      "model": "outdoor:grass_patch_small",
+      "x": 15.259,
+      "z": 5.523,
+      "rotation_degrees": 148.5,
+      "scale": 0.908,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_33",
+      "model": "outdoor:grass_patch_large",
+      "x": 18.096,
+      "z": 5.739,
+      "rotation_degrees": 359.7,
+      "scale": 0.983,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_34",
+      "model": "outdoor:grass_patch_large",
+      "x": 22.07,
+      "z": 5.77,
+      "rotation_degrees": 0.3,
+      "scale": 1.047,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_35",
+      "model": "outdoor:grass_patch_small",
+      "x": 25.228,
+      "z": 5.837,
+      "rotation_degrees": 40.1,
+      "scale": 0.925,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_36",
+      "model": "outdoor:grass_patch_small",
+      "x": 18.911,
+      "z": 5.859,
+      "rotation_degrees": 276.8,
+      "scale": 0.937,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_37",
+      "model": "outdoor:grass_patch_small",
+      "x": 23.094,
+      "z": 6.62,
+      "rotation_degrees": 241.6,
+      "scale": 1.136,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_38",
+      "model": "outdoor:grass_patch_small",
+      "x": 19.605,
+      "z": 6.698,
+      "rotation_degrees": 298.2,
+      "scale": 0.937,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_39",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.679,
+      "z": 6.779,
+      "rotation_degrees": 165.8,
+      "scale": 0.858,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_40",
+      "model": "outdoor:grass_patch_large",
+      "x": 13.899,
+      "z": 6.798,
+      "rotation_degrees": 176.3,
+      "scale": 1.037,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_41",
+      "model": "outdoor:grass_patch_small",
+      "x": 17.449,
+      "z": 6.829,
+      "rotation_degrees": 351.0,
+      "scale": 0.87,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_42",
+      "model": "outdoor:grass_patch_small",
+      "x": 21.762,
+      "z": 6.901,
+      "rotation_degrees": 260.9,
+      "scale": 0.883,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_43",
+      "model": "outdoor:grass_patch_small",
+      "x": 20.221,
+      "z": 7.116,
+      "rotation_degrees": 38.5,
+      "scale": 1.038,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_44",
+      "model": "outdoor:grass_patch_small",
+      "x": 25.192,
+      "z": 7.259,
+      "rotation_degrees": 136.1,
+      "scale": 0.976,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_45",
+      "model": "outdoor:grass_patch_small",
+      "x": 14.648,
+      "z": 7.274,
+      "rotation_degrees": 41.3,
+      "scale": 1.011,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_46",
+      "model": "outdoor:grass_patch_small",
+      "x": 21.761,
+      "z": 7.906,
+      "rotation_degrees": 309.5,
+      "scale": 1.018,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_47",
+      "model": "outdoor:grass_patch_small",
+      "x": 25.041,
+      "z": 7.995,
+      "rotation_degrees": 129.1,
+      "scale": 0.935,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_48",
+      "model": "outdoor:grass_patch_small",
+      "x": 15.454,
+      "z": 8.193,
+      "rotation_degrees": 232.5,
+      "scale": 1.049,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_49",
+      "model": "outdoor:grass_patch_large",
+      "x": 23.882,
+      "z": 8.237,
+      "rotation_degrees": 290.7,
+      "scale": 0.954,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_50",
+      "model": "outdoor:grass_patch_large",
+      "x": 17.632,
+      "z": 8.317,
+      "rotation_degrees": 253.4,
+      "scale": 1.055,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_51",
+      "model": "outdoor:grass_patch_small",
+      "x": 20.52,
+      "z": 8.446,
+      "rotation_degrees": 106.7,
+      "scale": 0.976,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_52",
+      "model": "outdoor:grass_patch_small",
+      "x": 13.583,
+      "z": 8.618,
+      "rotation_degrees": 288.1,
+      "scale": 1.144,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_53",
+      "model": "outdoor:grass_patch_small",
+      "x": 16.414,
+      "z": 8.731,
+      "rotation_degrees": 341.9,
+      "scale": 1.125,
+      "occludes": false
+    },
+    {
+      "id": "grass_low_54",
+      "model": "outdoor:grass_patch_small",
+      "x": 19.139,
+      "z": 8.737,
+      "rotation_degrees": 285.9,
+      "scale": 0.915,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_1",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.523,
+      "z": 9.252,
+      "rotation_degrees": 130.1,
+      "scale": 0.874,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_2",
+      "model": "outdoor:grass_patch_small",
+      "x": 0.832,
+      "z": 9.33,
+      "rotation_degrees": 21.7,
+      "scale": 0.947,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_3",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.001,
+      "z": 9.41,
+      "rotation_degrees": 210.3,
+      "scale": 0.898,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_4",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.87,
+      "z": 9.473,
+      "rotation_degrees": 54.6,
+      "scale": 0.985,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_5",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.96,
+      "z": 9.52,
+      "rotation_degrees": 1.9,
+      "scale": 1.143,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_6",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.754,
+      "z": 9.53,
+      "rotation_degrees": 1.2,
+      "scale": 1.023,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_7",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.511,
+      "z": 9.533,
+      "rotation_degrees": 210.6,
+      "scale": 1.012,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_8",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.104,
+      "z": 9.541,
+      "rotation_degrees": 279.8,
+      "scale": 0.914,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_9",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.588,
+      "z": 9.549,
+      "rotation_degrees": 18.5,
+      "scale": 1.13,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_10",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.177,
+      "z": 10.225,
+      "rotation_degrees": 138.0,
+      "scale": 0.926,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_11",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.355,
+      "z": 10.245,
+      "rotation_degrees": 70.3,
+      "scale": 0.883,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_12",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.288,
+      "z": 10.332,
+      "rotation_degrees": 82.4,
+      "scale": 1.121,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_13",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.195,
+      "z": 10.333,
+      "rotation_degrees": 353.1,
+      "scale": 1.146,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_14",
+      "model": "outdoor:grass_patch_small",
+      "x": 2.567,
+      "z": 10.374,
+      "rotation_degrees": 352.8,
+      "scale": 0.954,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_15",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.934,
+      "z": 10.413,
+      "rotation_degrees": 172.8,
+      "scale": 1.019,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_16",
+      "model": "outdoor:grass_patch_small",
+      "x": 8.158,
+      "z": 10.413,
+      "rotation_degrees": 339.4,
+      "scale": 1.097,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_17",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.653,
+      "z": 10.436,
+      "rotation_degrees": 141.0,
+      "scale": 0.856,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_18",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.789,
+      "z": 10.915,
+      "rotation_degrees": 117.7,
+      "scale": 1.132,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_19",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.109,
+      "z": 10.921,
+      "rotation_degrees": 59.4,
+      "scale": 1.031,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_20",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.442,
+      "z": 10.947,
+      "rotation_degrees": 105.3,
+      "scale": 1.051,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_21",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.43,
+      "z": 11.01,
+      "rotation_degrees": 304.5,
+      "scale": 1.12,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_22",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.841,
+      "z": 11.139,
+      "rotation_degrees": 316.8,
+      "scale": 1.046,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_23",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.652,
+      "z": 11.144,
+      "rotation_degrees": 184.2,
+      "scale": 0.936,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_24",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.533,
+      "z": 11.181,
+      "rotation_degrees": 264.4,
+      "scale": 0.998,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_25",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.94,
+      "z": 11.194,
+      "rotation_degrees": 312.5,
+      "scale": 0.893,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_26",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.566,
+      "z": 11.779,
+      "rotation_degrees": 190.4,
+      "scale": 0.874,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_27",
+      "model": "outdoor:grass_patch_large",
+      "x": 8.11,
+      "z": 11.805,
+      "rotation_degrees": 22.3,
+      "scale": 0.864,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_28",
+      "model": "outdoor:grass_patch_small",
+      "x": 2.837,
+      "z": 11.985,
+      "rotation_degrees": 82.3,
+      "scale": 1.047,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_29",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.438,
+      "z": 12.015,
+      "rotation_degrees": 120.3,
+      "scale": 0.881,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_30",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.178,
+      "z": 12.049,
+      "rotation_degrees": 135.1,
+      "scale": 0.905,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_31",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.341,
+      "z": 12.06,
+      "rotation_degrees": 216.5,
+      "scale": 0.904,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_32",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.053,
+      "z": 12.066,
+      "rotation_degrees": 172.8,
+      "scale": 0.865,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_33",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.9,
+      "z": 12.071,
+      "rotation_degrees": 262.2,
+      "scale": 1.145,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_34",
+      "model": "outdoor:grass_patch_small",
+      "x": 2.584,
+      "z": 12.599,
+      "rotation_degrees": 341.9,
+      "scale": 1.122,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_35",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.422,
+      "z": 12.61,
+      "rotation_degrees": 345.6,
+      "scale": 1.039,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_36",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.561,
+      "z": 12.649,
+      "rotation_degrees": 287.9,
+      "scale": 1.08,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_37",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.249,
+      "z": 12.658,
+      "rotation_degrees": 4.1,
+      "scale": 0.93,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_38",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.324,
+      "z": 12.684,
+      "rotation_degrees": 104.7,
+      "scale": 0.986,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_39",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.746,
+      "z": 12.703,
+      "rotation_degrees": 181.0,
+      "scale": 0.93,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_40",
+      "model": "outdoor:grass_patch_small",
+      "x": 8.063,
+      "z": 12.738,
+      "rotation_degrees": 226.6,
+      "scale": 1.149,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_41",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.349,
+      "z": 12.867,
+      "rotation_degrees": 26.7,
+      "scale": 0.936,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_42",
+      "model": "outdoor:grass_patch_small",
+      "x": 0.756,
+      "z": 12.918,
+      "rotation_degrees": 198.5,
+      "scale": 1.15,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_43",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.326,
+      "z": 13.394,
+      "rotation_degrees": 151.9,
+      "scale": 0.884,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_44",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.561,
+      "z": 13.418,
+      "rotation_degrees": 10.0,
+      "scale": 1.107,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_45",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.039,
+      "z": 13.444,
+      "rotation_degrees": 8.0,
+      "scale": 0.869,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_46",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.499,
+      "z": 13.447,
+      "rotation_degrees": 23.6,
+      "scale": 1.089,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_47",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.333,
+      "z": 13.487,
+      "rotation_degrees": 69.0,
+      "scale": 0.897,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_48",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.868,
+      "z": 13.53,
+      "rotation_degrees": 240.0,
+      "scale": 0.965,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_49",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.938,
+      "z": 13.735,
+      "rotation_degrees": 275.2,
+      "scale": 1.038,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_50",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.381,
+      "z": 13.748,
+      "rotation_degrees": 12.8,
+      "scale": 1.126,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_51",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.733,
+      "z": 14.234,
+      "rotation_degrees": 285.2,
+      "scale": 1.048,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_52",
+      "model": "outdoor:grass_patch_small",
+      "x": 8.191,
+      "z": 14.271,
+      "rotation_degrees": 48.3,
+      "scale": 1.145,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_53",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.27,
+      "z": 14.291,
+      "rotation_degrees": 234.5,
+      "scale": 0.984,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_54",
+      "model": "outdoor:grass_patch_small",
+      "x": 1.985,
+      "z": 14.356,
+      "rotation_degrees": 97.8,
+      "scale": 0.892,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_55",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.383,
+      "z": 14.373,
+      "rotation_degrees": 203.7,
+      "scale": 0.905,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_56",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.442,
+      "z": 14.44,
+      "rotation_degrees": 210.6,
+      "scale": 1.138,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_57",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.306,
+      "z": 14.487,
+      "rotation_degrees": 48.6,
+      "scale": 1.063,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_58",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.392,
+      "z": 14.559,
+      "rotation_degrees": 233.1,
+      "scale": 1.041,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_59",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.954,
+      "z": 15.063,
+      "rotation_degrees": 290.7,
+      "scale": 1.064,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_60",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.533,
+      "z": 15.064,
+      "rotation_degrees": 17.4,
+      "scale": 1.148,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_61",
+      "model": "outdoor:grass_patch_large",
+      "x": 0.807,
+      "z": 15.169,
+      "rotation_degrees": 251.0,
+      "scale": 1.005,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_62",
+      "model": "outdoor:grass_patch_small",
+      "x": 2.766,
+      "z": 15.178,
+      "rotation_degrees": 72.2,
+      "scale": 1.025,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_63",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.118,
+      "z": 15.264,
+      "rotation_degrees": 165.7,
+      "scale": 1.02,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_64",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.102,
+      "z": 15.282,
+      "rotation_degrees": 332.3,
+      "scale": 1.051,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_65",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.845,
+      "z": 15.31,
+      "rotation_degrees": 188.4,
+      "scale": 0.935,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_66",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.488,
+      "z": 15.353,
+      "rotation_degrees": 15.2,
+      "scale": 1.081,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_67",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.465,
+      "z": 15.369,
+      "rotation_degrees": 184.8,
+      "scale": 1.146,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_68",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.987,
+      "z": 15.907,
+      "rotation_degrees": 170.9,
+      "scale": 0.974,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_69",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.711,
+      "z": 16.015,
+      "rotation_degrees": 236.1,
+      "scale": 1.125,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_70",
+      "model": "outdoor:grass_patch_small",
+      "x": 1.925,
+      "z": 16.091,
+      "rotation_degrees": 182.8,
+      "scale": 1.096,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_71",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.557,
+      "z": 16.095,
+      "rotation_degrees": 349.7,
+      "scale": 1.047,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_72",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.117,
+      "z": 16.115,
+      "rotation_degrees": 131.6,
+      "scale": 0.984,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_73",
+      "model": "outdoor:grass_patch_large",
+      "x": 0.818,
+      "z": 16.118,
+      "rotation_degrees": 221.4,
+      "scale": 1.013,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_74",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.509,
+      "z": 16.245,
+      "rotation_degrees": 75.7,
+      "scale": 1.05,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_75",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.851,
+      "z": 16.275,
+      "rotation_degrees": 179.5,
+      "scale": 0.987,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_76",
+      "model": "outdoor:grass_patch_small",
+      "x": 1.953,
+      "z": 16.758,
+      "rotation_degrees": 189.0,
+      "scale": 1.041,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_77",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.97,
+      "z": 16.793,
+      "rotation_degrees": 259.3,
+      "scale": 1.095,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_78",
+      "model": "outdoor:grass_patch_small",
+      "x": 8.033,
+      "z": 16.831,
+      "rotation_degrees": 332.4,
+      "scale": 0.953,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_79",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.585,
+      "z": 16.914,
+      "rotation_degrees": 35.4,
+      "scale": 0.922,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_80",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.48,
+      "z": 16.916,
+      "rotation_degrees": 325.5,
+      "scale": 0.944,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_81",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.288,
+      "z": 16.937,
+      "rotation_degrees": 214.2,
+      "scale": 0.901,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_82",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.489,
+      "z": 17.084,
+      "rotation_degrees": 168.9,
+      "scale": 0.928,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_83",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.264,
+      "z": 17.103,
+      "rotation_degrees": 158.4,
+      "scale": 0.989,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_84",
+      "model": "outdoor:grass_patch_small",
+      "x": 8.024,
+      "z": 17.56,
+      "rotation_degrees": 327.4,
+      "scale": 0.986,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_85",
+      "model": "outdoor:grass_patch_large",
+      "x": 2.76,
+      "z": 17.582,
+      "rotation_degrees": 212.7,
+      "scale": 0.986,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_86",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.523,
+      "z": 17.597,
+      "rotation_degrees": 8.1,
+      "scale": 0.995,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_87",
+      "model": "outdoor:grass_patch_large",
+      "x": 0.785,
+      "z": 17.612,
+      "rotation_degrees": 248.6,
+      "scale": 1.121,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_88",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.354,
+      "z": 17.681,
+      "rotation_degrees": 203.1,
+      "scale": 1.093,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_89",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.209,
+      "z": 17.689,
+      "rotation_degrees": 41.6,
+      "scale": 1.114,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_90",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.567,
+      "z": 17.765,
+      "rotation_degrees": 185.7,
+      "scale": 1.078,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_91",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.637,
+      "z": 17.786,
+      "rotation_degrees": 345.2,
+      "scale": 1.106,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_92",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.343,
+      "z": 17.866,
+      "rotation_degrees": 250.1,
+      "scale": 1.11,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_93",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.587,
+      "z": 18.422,
+      "rotation_degrees": 35.2,
+      "scale": 0.914,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_94",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.537,
+      "z": 18.508,
+      "rotation_degrees": 21.1,
+      "scale": 0.921,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_95",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.185,
+      "z": 18.531,
+      "rotation_degrees": 257.5,
+      "scale": 0.988,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_96",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.079,
+      "z": 18.603,
+      "rotation_degrees": 248.0,
+      "scale": 1.065,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_97",
+      "model": "outdoor:grass_patch_large",
+      "x": 1.805,
+      "z": 18.614,
+      "rotation_degrees": 27.1,
+      "scale": 1.019,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_98",
+      "model": "outdoor:grass_patch_small",
+      "x": 1.004,
+      "z": 18.621,
+      "rotation_degrees": 195.2,
+      "scale": 0.895,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_99",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.335,
+      "z": 18.646,
+      "rotation_degrees": 285.3,
+      "scale": 0.904,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_100",
+      "model": "outdoor:grass_patch_small",
+      "x": 2.605,
+      "z": 18.678,
+      "rotation_degrees": 223.4,
+      "scale": 0.918,
+      "occludes": false
+    },
+    {
+      "id": "grass_medium_101",
+      "model": "outdoor:grass_patch_large",
+      "x": 8.136,
+      "z": 18.768,
+      "rotation_degrees": 229.3,
+      "scale": 0.944,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_1",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.105,
+      "z": 3.212,
+      "rotation_degrees": 116.9,
+      "scale": 0.987,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_2",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.213,
+      "z": 3.246,
+      "rotation_degrees": 27.9,
+      "scale": 1.049,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_3",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.987,
+      "z": 3.278,
+      "rotation_degrees": 108.5,
+      "scale": 1.055,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_4",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.851,
+      "z": 3.286,
+      "rotation_degrees": 225.2,
+      "scale": 0.924,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_5",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.653,
+      "z": 3.324,
+      "rotation_degrees": 316.8,
+      "scale": 0.861,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_6",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.882,
+      "z": 3.337,
+      "rotation_degrees": 227.1,
+      "scale": 0.88,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_7",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.504,
+      "z": 3.354,
+      "rotation_degrees": 265.2,
+      "scale": 0.944,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_8",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.443,
+      "z": 3.365,
+      "rotation_degrees": 41.9,
+      "scale": 0.961,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_9",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.425,
+      "z": 3.387,
+      "rotation_degrees": 256.3,
+      "scale": 0.875,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_10",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.214,
+      "z": 3.723,
+      "rotation_degrees": 306.6,
+      "scale": 0.918,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_11",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.569,
+      "z": 3.779,
+      "rotation_degrees": 5.6,
+      "scale": 1.061,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_12",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.174,
+      "z": 3.798,
+      "rotation_degrees": 173.4,
+      "scale": 1.083,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_13",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.948,
+      "z": 3.8,
+      "rotation_degrees": 22.1,
+      "scale": 0.976,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_14",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.999,
+      "z": 3.825,
+      "rotation_degrees": 356.4,
+      "scale": 1.132,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_15",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.813,
+      "z": 3.84,
+      "rotation_degrees": 305.3,
+      "scale": 0.907,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_16",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.703,
+      "z": 3.867,
+      "rotation_degrees": 28.5,
+      "scale": 1.091,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_17",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.628,
+      "z": 3.935,
+      "rotation_degrees": 284.4,
+      "scale": 0.936,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_18",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.47,
+      "z": 3.948,
+      "rotation_degrees": 184.7,
+      "scale": 1.065,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_19",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.229,
+      "z": 4.296,
+      "rotation_degrees": 49.0,
+      "scale": 0.966,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_20",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.621,
+      "z": 4.313,
+      "rotation_degrees": 19.3,
+      "scale": 0.94,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_21",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.61,
+      "z": 4.387,
+      "rotation_degrees": 57.9,
+      "scale": 1.068,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_22",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.986,
+      "z": 4.405,
+      "rotation_degrees": 25.3,
+      "scale": 0.872,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_23",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.28,
+      "z": 4.419,
+      "rotation_degrees": 76.9,
+      "scale": 0.954,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_24",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.936,
+      "z": 4.437,
+      "rotation_degrees": 214.8,
+      "scale": 1.052,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_25",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.52,
+      "z": 4.449,
+      "rotation_degrees": 18.5,
+      "scale": 0.911,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_26",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.869,
+      "z": 4.52,
+      "rotation_degrees": 105.2,
+      "scale": 0.957,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_27",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.182,
+      "z": 4.521,
+      "rotation_degrees": 254.7,
+      "scale": 0.938,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_28",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.407,
+      "z": 4.845,
+      "rotation_degrees": 292.7,
+      "scale": 0.932,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_29",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.219,
+      "z": 4.856,
+      "rotation_degrees": 12.7,
+      "scale": 1.115,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_30",
+      "model": "outdoor:grass_patch_small",
+      "x": 6.739,
+      "z": 4.857,
+      "rotation_degrees": 101.4,
+      "scale": 0.864,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_31",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.278,
+      "z": 4.923,
+      "rotation_degrees": 22.9,
+      "scale": 0.986,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_32",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.167,
+      "z": 4.946,
+      "rotation_degrees": 63.7,
+      "scale": 0.853,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_33",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.863,
+      "z": 4.96,
+      "rotation_degrees": 355.7,
+      "scale": 0.949,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_34",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.042,
+      "z": 4.985,
+      "rotation_degrees": 326.5,
+      "scale": 1.133,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_35",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.828,
+      "z": 5.021,
+      "rotation_degrees": 11.5,
+      "scale": 1.131,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_36",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.671,
+      "z": 5.027,
+      "rotation_degrees": 292.3,
+      "scale": 0.894,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_37",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.626,
+      "z": 5.438,
+      "rotation_degrees": 55.5,
+      "scale": 1.038,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_38",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.738,
+      "z": 5.471,
+      "rotation_degrees": 92.2,
+      "scale": 0.853,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_39",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.212,
+      "z": 5.543,
+      "rotation_degrees": 239.0,
+      "scale": 1.062,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_40",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.258,
+      "z": 5.558,
+      "rotation_degrees": 30.8,
+      "scale": 1.05,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_41",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.006,
+      "z": 5.633,
+      "rotation_degrees": 300.1,
+      "scale": 0.887,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_42",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.85,
+      "z": 5.647,
+      "rotation_degrees": 309.4,
+      "scale": 1.049,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_43",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.427,
+      "z": 5.652,
+      "rotation_degrees": 220.6,
+      "scale": 0.859,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_44",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.836,
+      "z": 5.653,
+      "rotation_degrees": 86.7,
+      "scale": 1.048,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_45",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.493,
+      "z": 6.089,
+      "rotation_degrees": 43.9,
+      "scale": 0.937,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_46",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.696,
+      "z": 6.122,
+      "rotation_degrees": 197.2,
+      "scale": 1.096,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_47",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.225,
+      "z": 6.126,
+      "rotation_degrees": 283.9,
+      "scale": 0.854,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_48",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.948,
+      "z": 6.134,
+      "rotation_degrees": 22.8,
+      "scale": 1.04,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_49",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.96,
+      "z": 6.136,
+      "rotation_degrees": 131.4,
+      "scale": 0.988,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_50",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.401,
+      "z": 6.184,
+      "rotation_degrees": 15.0,
+      "scale": 1.15,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_51",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.392,
+      "z": 6.199,
+      "rotation_degrees": 237.9,
+      "scale": 0.873,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_52",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.285,
+      "z": 6.201,
+      "rotation_degrees": 289.4,
+      "scale": 1.056,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_53",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.716,
+      "z": 6.207,
+      "rotation_degrees": 93.8,
+      "scale": 0.965,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_54",
+      "model": "outdoor:grass_patch_small",
+      "x": 3.804,
+      "z": 6.536,
+      "rotation_degrees": 233.1,
+      "scale": 0.92,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_55",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.191,
+      "z": 6.582,
+      "rotation_degrees": 272.9,
+      "scale": 0.994,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_56",
+      "model": "outdoor:grass_patch_small",
+      "x": 7.245,
+      "z": 6.633,
+      "rotation_degrees": 307.8,
+      "scale": 1.13,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_57",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.593,
+      "z": 6.646,
+      "rotation_degrees": 276.4,
+      "scale": 1.111,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_58",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.713,
+      "z": 6.68,
+      "rotation_degrees": 236.0,
+      "scale": 1.056,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_59",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.055,
+      "z": 6.686,
+      "rotation_degrees": 58.3,
+      "scale": 0.928,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_60",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.534,
+      "z": 6.717,
+      "rotation_degrees": 325.3,
+      "scale": 1.048,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_61",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.395,
+      "z": 6.745,
+      "rotation_degrees": 92.6,
+      "scale": 0.85,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_62",
+      "model": "outdoor:grass_patch_small",
+      "x": 5.928,
+      "z": 6.749,
+      "rotation_degrees": 111.1,
+      "scale": 0.889,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_63",
+      "model": "outdoor:grass_patch_large",
+      "x": 5.497,
+      "z": 7.189,
+      "rotation_degrees": 13.7,
+      "scale": 0.907,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_64",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.608,
+      "z": 7.196,
+      "rotation_degrees": 198.9,
+      "scale": 0.865,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_65",
+      "model": "outdoor:grass_patch_large",
+      "x": 4.477,
+      "z": 7.231,
+      "rotation_degrees": 203.0,
+      "scale": 1.032,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_66",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.034,
+      "z": 7.231,
+      "rotation_degrees": 160.7,
+      "scale": 1.071,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_67",
+      "model": "outdoor:grass_patch_large",
+      "x": 7.229,
+      "z": 7.232,
+      "rotation_degrees": 182.9,
+      "scale": 1.038,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_68",
+      "model": "outdoor:grass_patch_large",
+      "x": 6.712,
+      "z": 7.29,
+      "rotation_degrees": 230.4,
+      "scale": 1.007,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_69",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.169,
+      "z": 7.305,
+      "rotation_degrees": 314.1,
+      "scale": 0.864,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_70",
+      "model": "outdoor:grass_patch_small",
+      "x": 4.985,
+      "z": 7.328,
+      "rotation_degrees": 66.9,
+      "scale": 1.099,
+      "occludes": false
+    },
+    {
+      "id": "grass_dense_71",
+      "model": "outdoor:grass_patch_large",
+      "x": 3.901,
+      "z": 7.337,
+      "rotation_degrees": 144.6,
+      "scale": 0.948,
+      "occludes": false
+    }
+  ]
+}

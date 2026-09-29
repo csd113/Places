@@ -297,6 +297,7 @@ fn placeable_entry(entry: &crate::assets::AssetEntry) -> PropCatalogEntry {
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     validate_element_limits(level)?;
+    validate_sky(level)?;
     validate_rooms(level)?;
     validate_surface_shine(level)?;
     validate_floor_regions(level)?;
@@ -323,6 +324,48 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_decal_surfaces(level)?;
     validate_animated_emissions(level)?;
     validate_geometry_budget(level)
+}
+
+/// The optional sky: a well-formed texture id, a bounded brightness and a
+/// bounded ambient radiance.
+///
+/// The id is checked for shape only; whether the catalog actually declares it
+/// is a load-time resolution decision (an unknown id warns and draws no sky,
+/// like every other unresolved reference).
+fn validate_sky(level: &LevelDef) -> Result<(), String> {
+    let Some(sky) = &level.sky else {
+        return Ok(());
+    };
+    let id = sky.texture.trim();
+    if id.is_empty() {
+        return Err("sky names no texture".to_string());
+    }
+    if !crate::assets::is_valid_asset_id(id) {
+        return Err(format!(
+            "sky texture `{id}` is not a well-formed logical id"
+        ));
+    }
+    if !sky.brightness.is_finite() || sky.brightness < 0.0 {
+        return Err(format!(
+            "sky brightness must be a finite value at or above 0.0, found {}",
+            sky.brightness
+        ));
+    }
+    if sky.brightness > crate::level::MAX_SKY_BRIGHTNESS {
+        return Err(format!(
+            "sky brightness must be at most {}, found {}",
+            crate::level::MAX_SKY_BRIGHTNESS,
+            sky.brightness
+        ));
+    }
+    if !sky.ambient.is_finite() || !(0.0..=crate::level::MAX_SKY_AMBIENT).contains(&sky.ambient) {
+        return Err(format!(
+            "sky ambient must be between 0.0 and {}, found {}",
+            crate::level::MAX_SKY_AMBIENT,
+            sky.ambient
+        ));
+    }
+    Ok(())
 }
 
 /// Animated emissions: a known effect, a finite rate and a bounded depth.
@@ -2292,6 +2335,8 @@ fn validate_components<'a>(
             | ComponentDef::Water { .. }
             | ComponentDef::NavAgent { .. }
             | ComponentDef::NavObstacle { .. }
+            | ComponentDef::Fade(_)
+            | ComponentDef::Glow(_)
             | ComponentDef::Ai(_)) => {
                 let kind = other.kind();
                 if !singles.insert(kind) {
@@ -2486,6 +2531,101 @@ fn validate_component_value<'a>(
             if !def.is_valid() {
                 return Err(format!(
                     "{context} `ai` component {i} has an invalid behavior, speed, range or tag"
+                ));
+            }
+        }
+        ComponentDef::Fade(def) => {
+            if !def.period_seconds.is_finite()
+                || def.period_seconds <= 0.0
+                || def.period_seconds > crate::level::MAX_FADE_PERIOD_SECONDS
+            {
+                return Err(format!(
+                    "{context} `fade` component {i} period_seconds ({:?}) must be a finite \
+                     number between 0 and {}",
+                    def.period_seconds,
+                    crate::level::MAX_FADE_PERIOD_SECONDS
+                ));
+            }
+            if let Some(phase) = def.phase
+                && !(phase.is_finite() && (0.0..=1.0).contains(&phase))
+            {
+                return Err(format!(
+                    "{context} `fade` component {i} phase ({phase:?}) must be a finite number \
+                     between 0 and 1"
+                ));
+            }
+            for (name, value) in [
+                ("min_opacity", def.min_opacity),
+                ("max_opacity", def.max_opacity),
+            ] {
+                if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                    return Err(format!(
+                        "{context} `fade` component {i} {name} ({value:?}) must be a finite \
+                         number between 0 and 1"
+                    ));
+                }
+            }
+            if def.min_opacity > def.max_opacity {
+                return Err(format!(
+                    "{context} `fade` component {i} min_opacity ({:?}) must not exceed \
+                     max_opacity ({:?})",
+                    def.min_opacity, def.max_opacity
+                ));
+            }
+        }
+        ComponentDef::Glow(def) => {
+            if !def
+                .color
+                .iter()
+                .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+            {
+                return Err(format!(
+                    "{context} `glow` component {i} color ({:?}) must be three finite channels \
+                     between 0 and 1",
+                    def.color
+                ));
+            }
+            if !def.intensity.is_finite()
+                || !(0.0..=crate::level::MAX_GLOW_INTENSITY).contains(&def.intensity)
+            {
+                return Err(format!(
+                    "{context} `glow` component {i} intensity ({:?}) must be a finite number \
+                     between 0 and {}",
+                    def.intensity,
+                    crate::level::MAX_GLOW_INTENSITY
+                ));
+            }
+            if !def.range.is_finite()
+                || !(crate::level::MIN_GLOW_RANGE_M..=crate::level::MAX_GLOW_RANGE_M)
+                    .contains(&def.range)
+            {
+                return Err(format!(
+                    "{context} `glow` component {i} range ({:?}) must be a finite number \
+                     between {} and {} metres",
+                    def.range,
+                    crate::level::MIN_GLOW_RANGE_M,
+                    crate::level::MAX_GLOW_RANGE_M
+                ));
+            }
+            if def
+                .socket
+                .as_deref()
+                .is_some_and(|socket| socket.trim().is_empty())
+            {
+                return Err(format!(
+                    "{context} `glow` component {i} socket must not be blank when specified"
+                ));
+            }
+            if !def
+                .offset
+                .iter()
+                .all(|axis| axis.is_finite() && axis.abs() <= crate::level::MAX_GLOW_OFFSET_M)
+            {
+                return Err(format!(
+                    "{context} `glow` component {i} offset ({:?}) must be three finite numbers \
+                     within +/-{} metres",
+                    def.offset,
+                    crate::level::MAX_GLOW_OFFSET_M
                 ));
             }
         }
@@ -4038,6 +4178,8 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                 | ComponentDef::Steam { .. }
                 | ComponentDef::Water { .. }
                 | ComponentDef::NavObstacle { .. }
+                | ComponentDef::Fade(_)
+                | ComponentDef::Glow(_)
                 | ComponentDef::Ai(_) => None,
             })
             .unwrap_or_else(|| {
@@ -4365,6 +4507,24 @@ fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), St
             "Door {i} close_speed_degrees must be between 0 and {}",
             crate::level::MAX_DOOR_SPEED_DEGREES
         ));
+    }
+    if let Some(depth) = door.frame_depth
+        && (!depth.is_finite() || depth <= 0.0 || depth > crate::level::MAX_DOOR_FRAME_DEPTH_M)
+    {
+        return Err(format!(
+            "Door {i} frame_depth must be between 0 and {} m",
+            crate::level::MAX_DOOR_FRAME_DEPTH_M
+        ));
+    }
+    if let Some(center) = door.frame_center {
+        let depth = door.frame_depth.ok_or_else(|| {
+            format!("Door {i} frame_center needs a frame_depth to be measured inside")
+        })?;
+        if !center.is_finite() || center.abs() > depth {
+            return Err(format!(
+                "Door {i} frame_center must be within ±frame_depth ({depth} m)"
+            ));
+        }
     }
     // A door's authored prompt and reach now live in its `interactable`
     // component and are validated with every other component by

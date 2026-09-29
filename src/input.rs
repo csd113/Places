@@ -52,6 +52,109 @@ impl Control {
     }
 }
 
+/// Every gameplay control, in bit order.
+///
+/// The developer move script iterates this table so a scripted release always
+/// covers every control the script names; tests use it to drive each binding.
+pub const ALL_CONTROLS: [Control; 11] = [
+    Control::MoveForward,
+    Control::MoveBackward,
+    Control::StrafeLeft,
+    Control::StrafeRight,
+    Control::LookUp,
+    Control::LookDown,
+    Control::LookLeft,
+    Control::LookRight,
+    Control::Jump,
+    Control::Crouch,
+    Control::Interact,
+];
+
+/// One control hold from the `PLACES_MOVE_SCRIPT` developer override.
+///
+/// The hold covers the ready-world simulation seconds in
+/// `first_seconds..=last_seconds`, so a capture sequence happens at the same
+/// in-world time at any frame rate. It exists so a capture run can drive the
+/// player through real motion - a jump, a pool crossing - without touching the
+/// world directly; ordinary play never sets it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScriptedHold {
+    /// The control to hold.
+    pub control: Control,
+    /// First ready-world simulation second of the hold, inclusive.
+    pub first_seconds: f32,
+    /// Last ready-world simulation second of the hold, inclusive.
+    pub last_seconds: f32,
+}
+
+/// The control a script name selects, or `None` for an unknown name.
+#[must_use]
+pub fn scripted_control(name: &str) -> Option<Control> {
+    match name {
+        "forward" => Some(Control::MoveForward),
+        "backward" => Some(Control::MoveBackward),
+        "strafe_left" => Some(Control::StrafeLeft),
+        "strafe_right" => Some(Control::StrafeRight),
+        "look_up" => Some(Control::LookUp),
+        "look_down" => Some(Control::LookDown),
+        "look_left" => Some(Control::LookLeft),
+        "look_right" => Some(Control::LookRight),
+        "jump" => Some(Control::Jump),
+        "crouch" => Some(Control::Crouch),
+        "interact" => Some(Control::Interact),
+        _ => None,
+    }
+}
+
+/// Parses a `PLACES_MOVE_SCRIPT` value: `control@first-last` entries separated
+/// by commas, for example `forward@0-6.5,jump@0.2-0.6,jump@3-3.4`.
+///
+/// `first` and `last` are ready-world simulation seconds, so the same script
+/// drives the same in-world sequence at any frame rate. Returns the accepted
+/// holds in authored order and the rejected entries, so the caller can report a
+/// typo once instead of silently doing nothing.
+#[must_use]
+pub fn parse_move_script(value: &str) -> (Vec<ScriptedHold>, Vec<String>) {
+    let mut holds = Vec::new();
+    let mut rejected = Vec::new();
+    for entry in value.split(',') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            continue;
+        }
+        let Some((name, range)) = entry.split_once('@') else {
+            rejected.push(entry.to_string());
+            continue;
+        };
+        let Some((first, last)) = range.split_once('-') else {
+            rejected.push(entry.to_string());
+            continue;
+        };
+        let (Some(control), Ok(first_seconds), Ok(last_seconds)) = (
+            scripted_control(name.trim()),
+            first.trim().parse::<f32>(),
+            last.trim().parse::<f32>(),
+        ) else {
+            rejected.push(entry.to_string());
+            continue;
+        };
+        if !first_seconds.is_finite()
+            || !last_seconds.is_finite()
+            || first_seconds < 0.0
+            || last_seconds < first_seconds
+        {
+            rejected.push(entry.to_string());
+            continue;
+        }
+        holds.push(ScriptedHold {
+            control,
+            first_seconds,
+            last_seconds,
+        });
+    }
+    (holds, rejected)
+}
+
 /// Raw input state representing gameplay movement, camera looking and the
 /// accumulated relative mouse motion.
 ///
@@ -113,6 +216,30 @@ impl InputState {
             self.held |= control.bit();
         } else {
             self.held &= !control.bit();
+        }
+    }
+
+    /// Applies one frame of a `PLACES_MOVE_SCRIPT` developer script.
+    ///
+    /// Every control the script names is held while *any* of its ranges covers
+    /// the ready-world simulation second `seconds`, and released otherwise,
+    /// exactly as a player pressing and lifting the key would be: the rising
+    /// edge is set once per range, so two `jump@` ranges are two presses.
+    /// Controls the script never names are left untouched.
+    pub(crate) fn apply_move_script(&mut self, script: &[ScriptedHold], seconds: f32) {
+        for control in ALL_CONTROLS {
+            let mut scripted = false;
+            let mut held = false;
+            for entry in script {
+                if entry.control != control {
+                    continue;
+                }
+                scripted = true;
+                held = held || (seconds >= entry.first_seconds && seconds <= entry.last_seconds);
+            }
+            if scripted {
+                self.set_held(control, held);
+            }
         }
     }
 

@@ -170,6 +170,7 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 | `tools/bench/loading.py` | Already-built native startup and application-cache comparison | S/Places; isolated state, raw logs, traces and timings JSON | C; serial native runs; cold means an empty application cache, with OS/GPU caches untouched |
 | `tools/bench/visual_check.py` | Two-build capture and connected-difference audit | S/Places; captures/report | C serial capture; A spawn comparisons |
 | `tools/entities/build_mannequin.py` | Mannequin mesh and three poses; entity authoring | S/P/E; GLB and concrete PNG | D; bounded direct construction |
+| `tools/entities/author_halloween_assets.py` | Material contracts for the Halloween entity GLBs; `--check` acceptance | S/E; GLB bytes and stdout | D; bounded single-file rewriting |
 | `tools/entities/build_rat.py` | Rat mesh and clips; entity authoring | S/P/E/B; GLB, fur PNG, reports | C; serial owning scene, bounded native Boolean |
 | `tools/entities/build_skeleton.py` | Skeleton mesh and three poses; entity authoring | S/P/E; GLB, bone PNG, optional preview | D; bounded construction, renderer used for preview |
 | `tools/entities/check_clip_boundaries.py` | Exported loop/transition checks; acceptance | S/E; stdout | D; small endpoint comparisons |

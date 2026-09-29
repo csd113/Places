@@ -28,6 +28,7 @@ use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
 use crate::quality::{QualityLevel, TextureClass};
+use crate::render::common::materials::BatchPass;
 use crate::render::common::props::PropMeshBatch;
 use crate::spatial::Aabb;
 
@@ -60,6 +61,9 @@ pub struct PropDraw {
     pub texture: usize,
     /// Slot into [`WgpuProps::materials`].
     pub material: usize,
+    /// Which world draw pass the submesh belongs to: opaque, or the
+    /// alpha-tested cutout pass for a glTF `MASK` material (foliage cards).
+    pub pass: BatchPass,
     /// True when the submesh's material emits; the emissive pass draws exactly
     /// these.
     pub emissive: bool,
@@ -102,7 +106,7 @@ pub struct WgpuProps {
 /// upload cannot change deduplication, ordering, or accounting.
 pub struct PropUpload {
     props: WgpuProps,
-    identities: Vec<(usize, [f32; 3], Option<usize>)>,
+    identities: Vec<(usize, [f32; 3], Option<usize>, u32)>,
     skip_models: Vec<String>,
     image_keys: std::collections::HashMap<(String, usize), ImageIdentity>,
     level: QualityLevel,
@@ -220,7 +224,11 @@ impl PropUpload {
                 .and_then(|index| usize::from(index).checked_add(texture_base))
                 .filter(|index| *index < textures.len());
             let record = EmissionRecord::material(submesh.emission, mask.is_some());
-            let identity = (texture, record.color, mask);
+            // The cutoff is part of the material identity: two primitives that
+            // share a sheet and emission but discard at different alpha levels
+            // need different uniforms.
+            let cutoff = submesh.alpha.cutoff.to_bits();
+            let identity = (texture, record.color, mask, cutoff);
             let material = identities
                 .iter()
                 .position(|existing| *existing == identity)
@@ -228,13 +236,14 @@ impl PropUpload {
                     let mask_texture = mask
                         .and_then(|index| textures.get(index).cloned())
                         .unwrap_or_else(|| cache.fallback());
-                    let gpu = GpuMaterial::plain_emissive(
+                    let gpu = GpuMaterial::plain_with_alpha(
                         device,
                         queue,
                         material_layout,
                         cache,
                         &mask_texture,
                         record,
+                        submesh.alpha,
                     );
                     materials.push(gpu);
                     identities.push(identity);
@@ -250,6 +259,11 @@ impl PropUpload {
                 bounds: batch.bounds,
                 texture,
                 material,
+                pass: if submesh.alpha.is_cutout() {
+                    BatchPass::Cutout
+                } else {
+                    BatchPass::Opaque
+                },
                 emissive: record.is_emissive(),
             });
         }

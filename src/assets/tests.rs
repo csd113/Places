@@ -109,7 +109,7 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
         .iter()
         .map(|theme| theme.id.as_str())
         .collect();
-    assert_eq!(themes, ["office", "pool", "home"]);
+    assert_eq!(themes, ["office", "pool", "home", "outdoor"]);
     assert!(
         catalog
             .themes()
@@ -606,12 +606,26 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
         ShippedTextureKind::Surface,
         ShippedTextureKind::FixtureFace,
         ShippedTextureKind::DecalSheet,
+        ShippedTextureKind::Sky,
     ] {
         let error = kind
             .check_dimensions(0, 128)
             .expect_err("a zero-sized sheet must be rejected");
         assert!(error.contains("non-zero"), "unexpected error: {error}");
     }
+
+    // A sky sheet is exactly 2:1 with power-of-two edges.
+    ShippedTextureKind::Sky
+        .check_dimensions(1024, 512)
+        .expect("the shipped 1024x512 sky sheet is the class contract");
+    let error = ShippedTextureKind::Sky
+        .check_dimensions(1024, 1024)
+        .expect_err("a square sky sheet must be rejected");
+    assert!(error.contains("2:1"), "unexpected error: {error}");
+    let error = ShippedTextureKind::Sky
+        .check_dimensions(768, 384)
+        .expect_err("an NPOT sky sheet must be rejected");
+    assert!(error.contains("power-of-two"), "unexpected error: {error}");
 
     // A surface sheet must be square: the renderer samples it as a square
     // tile_metres cell, so a 2:1 sheet would stretch.
@@ -649,6 +663,7 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
         ShippedTextureKind::Surface,
         ShippedTextureKind::FixtureFace,
         ShippedTextureKind::DecalSheet,
+        ShippedTextureKind::Sky,
     ] {
         assert!(
             kind.check_dimensions(96, 64).is_err(),
@@ -695,7 +710,11 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
                 {
                     continue;
                 }
-                ShippedTextureKind::Surface
+                if entry.surface.as_deref() == Some("sky") {
+                    ShippedTextureKind::Sky
+                } else {
+                    ShippedTextureKind::Surface
+                }
             }
             AssetType::DECAL => ShippedTextureKind::DecalSheet,
             AssetType::LIGHT => ShippedTextureKind::FixtureFace,

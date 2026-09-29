@@ -638,6 +638,12 @@ impl PropOcclusionCache {
             if !prop_is_static(prop) {
                 continue;
             }
+            // Decorative alpha-cutout scenery (grass, leaf canopies) opts out:
+            // the bake derives coarse solid boxes from triangles, which would
+            // turn thousands of blade cards into solid shadow volumes.
+            if !prop.occludes {
+                continue;
+            }
             let entry = self.catalog.get(&prop.model);
             let Some(model_path) = entry.model else {
                 // The draw path has no model to draw: the catalogue
@@ -917,6 +923,7 @@ mod tests {
             indices,
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
                 texture: None,
                 emission: crate::materials::MaterialEmission::NONE,
@@ -1383,6 +1390,12 @@ mod tests {
         let mut seen: Vec<String> = Vec::new();
         let mut models = Vec::new();
         for prop in &level.props {
+            // A placement that opts out of the bake (`occludes: false`, §19:
+            // alpha-cutout grass, the night tree canopy) contributes no boxes at
+            // all, so its model can never be truncated by the cap.
+            if !prop.occludes {
+                continue;
+            }
             let Some(path) = catalog.get(&prop.model).model else {
                 continue;
             };
@@ -1447,8 +1460,8 @@ mod tests {
     fn shipped_models_stay_within_the_box_cap_on_a_finer_grid() {
         // The profile grid must not silently truncate shipped art: a model at
         // the cap loses its high-Z/high-X shadow. Every distinct model the
-        // shipped demo places is measured at the historical 0.15 m and the
-        // finer cells a profile could select.
+        // shipped demo bakes as an occluder is measured at the historical
+        // 0.15 m and the finer cells a profile could select.
         let mut cache = PropOcclusionCache::with_root("assets");
         let models = demo_models(&mut cache);
         assert!(!models.is_empty(), "the demo must resolve its prop models");
@@ -1569,6 +1582,7 @@ mod tests {
             textures: Vec::new(),
             submeshes: vec![
                 PropSubmesh {
+                    alpha: crate::materials::MaterialAlpha::OPAQUE,
                     material: 0,
                     texture: None,
                     emission: crate::materials::MaterialEmission::NONE,
@@ -1576,6 +1590,7 @@ mod tests {
                     index_count: 6,
                 },
                 PropSubmesh {
+                    alpha: crate::materials::MaterialAlpha::OPAQUE,
                     material: 1,
                     texture: None,
                     emission: crate::materials::MaterialEmission::NONE,
@@ -1630,6 +1645,7 @@ mod tests {
                 scale,
                 size: None,
                 solid: false,
+                occludes: true,
                 lights: Vec::new(),
                 float: None,
             };

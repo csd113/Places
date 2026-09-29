@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use super::{LevelDef, LevelLighting, LevelSurfaces, PropDef, Vertex, spatial_cell_grid};
-use crate::materials::MaterialEmission;
+use crate::materials::{MaterialAlpha, MaterialEmission};
 
 /// One primitive's slice of a [`PropMeshBatch`]: its texture, its emission and
 /// the range of the batch's index buffer it draws.
@@ -31,6 +31,12 @@ pub struct PropSubmeshBatch {
     /// only glows, and any environmental illumination it contributes comes from
     /// the generic lights its level entry attaches to it.
     pub emission: MaterialEmission,
+    /// The material's alpha contract. A glTF `MASK` primitive is
+    /// [`crate::materials::AlphaMode::Cutout`] and draws through the cutout
+    /// pass; a `BLEND` primitive is [`crate::materials::AlphaMode::Blend`] and
+    /// is meaningful only on a route with a translucent pass (a character or a
+    /// dynamic object); every other prop primitive is opaque.
+    pub alpha: MaterialAlpha,
     /// First index into [`PropMeshBatch::indices`].
     pub first_index: u32,
     /// Number of indices in this submesh (a multiple of three).
@@ -95,6 +101,7 @@ struct BatchBuilder {
 struct PrimitiveBuilder {
     texture: Option<u16>,
     emission: MaterialEmission,
+    alpha: MaterialAlpha,
     indices: Vec<u16>,
 }
 
@@ -113,6 +120,7 @@ impl BatchBuilder {
                 .map(|submesh| PrimitiveBuilder {
                     texture: submesh.texture,
                     emission: submesh.emission,
+                    alpha: submesh.alpha,
                     indices: Vec::new(),
                 })
                 .collect(),
@@ -178,6 +186,7 @@ impl BatchBuilder {
             submeshes.push(PropSubmeshBatch {
                 texture: primitive.texture,
                 emission: primitive.emission,
+                alpha: primitive.alpha,
                 first_index,
                 index_count,
             });

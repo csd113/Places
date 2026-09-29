@@ -98,6 +98,14 @@ pub const fn ambient_color() -> LightColor {
     LightColor::grey(AMBIENT_LEVEL)
 }
 
+/// Colour of the sky's ambient radiance term, per linear channel.
+///
+/// The level authors one scalar (`sky.ambient`, `0..=1`); this cool blue-grey
+/// is what makes a moonless night dome read as sky rather than as a grey lift.
+/// The term is only ever fed to the prepared transport solve, and only when a
+/// level declares a sky with a nonzero ambient.
+pub const SKY_AMBIENT_COLOR: [f32; 3] = [0.42, 0.52, 0.72];
+
 /// Radius in metres over which one fixture's local pool fades to nothing.
 ///
 /// This is the historical reach and stays the default `range`: the directional

@@ -30,11 +30,22 @@ def compare(model, a, b, label):
 
 
 def main():
-    for name in ('rat', 'mannequin', 'skeleton', 'spooner-man'):
+    for name in (
+        'rat',
+        'mannequin',
+        'skeleton',
+        'spooner-man',
+        'carved-pumpkin',
+        'pumpkin-skeleton',
+        'sheet-ghost',
+    ):
         model = Model(REPO_ROOT / f'assets/entities/{name}/model/{name}.glb')
         animations = {a['name']: a for a in model.animations}
         for clip, animation in animations.items():
-            if clip not in ('sit_down', 'stand_up', 'pounce'):
+            # One-shot clips legitimately start and end in different poses: the
+            # sit/stand transitions, Spoonerman's pounce, the rat's death fall
+            # and the pumpkin skeleton's collapse/reassemble gesture.
+            if clip not in ('sit_down', 'stand_up', 'pounce', 'dead', 'collapse_reassemble'):
                 compare(model, endpoints(model, animation, False), endpoints(model, animation, True),
                         f'{name}/{clip} loop')
         for weights in model.vertex_weights:

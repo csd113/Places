@@ -225,6 +225,11 @@ lives in `src/entities/`:
   the collider derived from the live angle; a door's `locked` state is on the
   runtime, `open`/`close`/`toggle`/`lock`/`unlock` drive it, and
   `EntityWorld::door_blockers()` publishes the id, passability and collider.
+  `src/render/common/doors.rs` builds the visuals as two models: the static
+  frame (a reveal liner through the wall tunnel the leaf is installed in, its
+  stop lip, a casing on each end face and the hinge furniture) and the moving
+  leaf (a panelled or sauna glass build), each submesh sampling its own material
+  slot so the leaf, frame, handle and glass textures stay independent.
   Navigation reads the same state through door **portals** in the baked mesh, so
   a closed door blocks a route and opening it invalidates cached paths without
   ever rebaking the mesh.

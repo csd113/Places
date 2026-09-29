@@ -63,7 +63,7 @@ pub use common::{
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     character_vertex, decal_external_sheet_ids, decal_material_slot, decal_quad_points,
     decal_sheet_index, decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials,
-    spatial_cell_grid, tiled_uv,
+    relight_blend_decals, spatial_cell_grid, tiled_uv,
 };
 #[cfg(test)]
 pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};

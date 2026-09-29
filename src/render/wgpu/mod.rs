@@ -56,6 +56,7 @@ pub mod postprocess;
 pub mod props;
 pub mod reflections;
 pub mod renderer;
+pub mod sky;
 pub mod surface;
 pub mod texture;
 pub mod ui;

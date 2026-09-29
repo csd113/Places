@@ -756,6 +756,60 @@ fn prop_records_round_trip_with_textures_reattached_at_load() {
 }
 
 #[test]
+fn prop_records_round_trip_every_alpha_mode() {
+    // Reuse the round-trip fixture's first batch and give it one submesh per
+    // alpha contract, so the record's mode codes are exercised end to end.
+    let level = crate::level::LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "props_alpha_round_trip", "name": "Props",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ],
+            "ceiling_lights": [ { "fixture": "core:ceiling_panel_01", "x": 2.0, "z": 2.0 } ],
+            "props": [ { "model": "core:exit_sign", "x": 2.0, "z": 3.0 } ]
+        }"#,
+    )
+    .expect("prop fixture parses");
+    let build = build_level_build(&level, crate::quality::LightmapQuality::Off);
+    let mut batch = build.batches[0].clone();
+    let template = batch.submeshes[0].clone();
+    batch.submeshes = vec![
+        crate::render::PropSubmeshBatch {
+            alpha: crate::materials::MaterialAlpha::OPAQUE,
+            ..template.clone()
+        },
+        crate::render::PropSubmeshBatch {
+            alpha: crate::materials::MaterialAlpha {
+                mode: crate::materials::AlphaMode::Cutout,
+                opacity: 1.0,
+                cutoff: 0.35,
+            },
+            ..template.clone()
+        },
+        crate::render::PropSubmeshBatch {
+            alpha: crate::materials::MaterialAlpha::blend(1.0),
+            ..template
+        },
+    ];
+    let bytes = super::props::write_props(&[batch]).expect("props encode");
+    let decoded = super::props::read_props(&bytes).expect("props decode");
+    let modes: Vec<_> = decoded[0].submeshes.iter().map(|s| s.alpha.mode).collect();
+    assert_eq!(
+        modes,
+        vec![
+            crate::materials::AlphaMode::Opaque,
+            crate::materials::AlphaMode::Cutout,
+            crate::materials::AlphaMode::Blend,
+        ]
+    );
+    assert!(
+        (decoded[0].submeshes[1].alpha.cutoff - 0.35).abs() < f32::EPSILON,
+        "{:?}",
+        decoded[0].submeshes[1].alpha
+    );
+    assert!((decoded[0].submeshes[2].alpha.opacity - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
 fn lighting_records_round_trip_sample_for_sample() {
     let level = tiny_level("lighting_round_trip");
     let build = build_level_build(&level, crate::quality::LightmapQuality::Full);

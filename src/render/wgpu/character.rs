@@ -7,15 +7,19 @@
 //! * one **mutable vertex buffer per character**, written by CPU skinning
 //!   only on the frames the animator's pose revision changes;
 //! * one group-3 environment per character carrying the placement model
-//!   matrix; the vertices are skinned in model space, so the shader applies
-//!   the placement exactly like the static prop path;
-//! * one plain-opaque GPU material per mesh submesh, shared by every
-//!   character of that model.
+//!   matrix and the character's current opacity; the vertices are skinned in
+//!   model space, so the shader applies the placement exactly like the static
+//!   prop path;
+//! * one plain GPU material per mesh submesh, shared by every character of
+//!   that model, and one [`BatchPass`] per submesh from its glTF material.
 //!
 //! The colour is the pre-baked albedo x light sampled at spawn, so the
 //! character draws through the ordinary vertex-lit path and the light scale
-//! stays neutral. Nothing here is created per frame: `sync` reuses the buffers
-//! and materials uploaded with the level.
+//! stays neutral; a submesh whose exported material is blended (the sheet
+//! ghost) draws in the sorted translucent pass with its opacity applied.
+//! Nothing here is created per frame: `sync` reuses the buffers and materials
+//! uploaded with the level and writes only the environments whose placement or
+//! opacity changed.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,6 +34,7 @@ use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
 use crate::quality::{QualityLevel, TextureClass};
 use crate::render::common::character::{Character, CharacterScene, character_vertex};
+use crate::render::common::materials::BatchPass;
 use crate::spatial::Aabb;
 
 /// One distinct model uploaded in model space.
@@ -49,6 +54,21 @@ struct CharacterMeshGpu {
     emissive: Vec<bool>,
 }
 
+/// The pass one source submesh's alpha contract maps to for a character.
+///
+/// A `MASK` (cut-out) material keeps the character path's historical opaque
+/// treatment; a `BLEND` material (a glTF `alphaMode: "BLEND"`, exported for the
+/// sheet ghost) draws in the sorted translucent character pass. A zero-opacity
+/// blend is invisible and draws in neither. Pure, so the classification is
+/// unit-testable without a device.
+#[must_use]
+const fn character_submesh_pass(alpha: crate::materials::MaterialAlpha) -> BatchPass {
+    match BatchPass::of(alpha) {
+        BatchPass::Cutout | BatchPass::Opaque => BatchPass::Opaque,
+        BatchPass::Translucent => BatchPass::Translucent,
+    }
+}
+
 /// One primitive of a character model.
 #[derive(Clone, Copy)]
 struct CharacterSubmeshGpu {
@@ -58,6 +78,12 @@ struct CharacterSubmeshGpu {
     texture: Option<usize>,
     first_index: u32,
     index_count: u32,
+    /// The pass the primitive's glTF material draws in.
+    ///
+    /// A `MASK` (cut-out) material keeps the character path's historical
+    /// opaque treatment; a `BLEND` material (the sheet ghost's exported
+    /// `alphaMode`) selects the sorted translucent character pass.
+    pass: BatchPass,
 }
 
 /// Which neutral-scene character a GPU entry belongs to.
@@ -86,6 +112,8 @@ struct CharacterGpu {
     uploaded_revision: u64,
     /// The placement matrix the environment uniform currently holds.
     uploaded_transform: Mat4,
+    /// The opacity the environment uniform currently holds.
+    uploaded_opacity: f32,
     /// World-space culling bounds from the last applied transform.
     world_bounds: Aabb,
 }
@@ -217,7 +245,8 @@ impl WgpuCharacters {
                 ctx.planar_fallback,
                 ctx.environment
                     .with_model(character.transform())
-                    .with_light_scale([1.0; 3]),
+                    .with_light_scale([1.0; 3])
+                    .with_opacity(character.opacity()),
             );
             Self::fill_vertices(character, &mut value.scratch);
             ctx.queue
@@ -229,6 +258,7 @@ impl WgpuCharacters {
                 environment,
                 uploaded_revision: character.animator().revision(),
                 uploaded_transform: character.transform(),
+                uploaded_opacity: character.opacity(),
                 world_bounds: character.world_bounds(),
             });
         }
@@ -307,10 +337,12 @@ impl WgpuCharacters {
             ));
             materials.push(value.materials.len().saturating_sub(1));
             emissive.push(record.is_emissive());
+            let pass = character_submesh_pass(source.alpha);
             submeshes.push(CharacterSubmeshGpu {
                 texture,
                 first_index: source.first_index,
                 index_count: source.index_count,
+                pass,
             });
         }
         if submeshes.is_empty() {
@@ -422,11 +454,23 @@ impl WgpuCharacters {
             let Some(character) = character else {
                 continue;
             };
-            if character.transform() != gpu.uploaded_transform {
-                gpu.environment
-                    .update(queue, environment.with_model(character.transform()));
+            // A fade is a per-frame environment write, so the comparison also
+            // covers opacity: a still, settled pose writes nothing, while a
+            // fading ghost rewrites only its own uniform.
+            let transform_changed = character.transform() != gpu.uploaded_transform;
+            let opacity_changed = character.opacity().to_bits() != gpu.uploaded_opacity.to_bits();
+            if transform_changed || opacity_changed {
+                gpu.environment.update(
+                    queue,
+                    environment
+                        .with_model(character.transform())
+                        .with_opacity(character.opacity()),
+                );
                 gpu.uploaded_transform = character.transform();
-                gpu.world_bounds = character.world_bounds();
+                gpu.uploaded_opacity = character.opacity();
+                if transform_changed {
+                    gpu.world_bounds = character.world_bounds();
+                }
             }
             if character.animator().revision() == gpu.uploaded_revision {
                 continue;
@@ -495,6 +539,29 @@ impl WgpuCharacters {
             .map_or(0, |mesh| mesh.submeshes.len())
     }
 
+    /// The pass one character's submesh draws in.
+    #[must_use]
+    pub fn submesh_pass(&self, character: usize, submesh: usize) -> Option<BatchPass> {
+        let entry = self.characters.get(character)?;
+        let mesh = self.meshes.get(entry.mesh)?;
+        mesh.submeshes.get(submesh).map(|submesh| submesh.pass)
+    }
+
+    /// True when one character has at least one submesh in `pass`.
+    ///
+    /// The translucent pass sorts only the characters that can actually draw
+    /// there, so a fully opaque model never enters the ordering.
+    #[must_use]
+    pub fn has_submesh_pass(&self, character: usize, pass: BatchPass) -> bool {
+        let Some(entry) = self.characters.get(character) else {
+            return false;
+        };
+        let Some(mesh) = self.meshes.get(entry.mesh) else {
+            return false;
+        };
+        mesh.submeshes.iter().any(|submesh| submesh.pass == pass)
+    }
+
     /// True when the character's submesh emits.
     #[must_use]
     pub fn submesh_emissive(&self, character: usize, submesh: usize) -> bool {
@@ -548,11 +615,38 @@ impl WgpuCharacters {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::materials::{AlphaMode, MaterialAlpha};
 
     #[test]
     fn an_empty_scene_reports_nothing() {
         let characters = WgpuCharacters::default();
         assert_eq!(characters.character_count(), 0);
         assert_eq!(characters.stats().draws, 0);
+    }
+
+    #[test]
+    fn a_blended_character_material_selects_the_translucent_pass() {
+        // The ghost's exported `alphaMode: BLEND` is what puts it in the
+        // sorted translucent pass; cut-out keeps today's opaque treatment.
+        assert_eq!(
+            character_submesh_pass(MaterialAlpha::OPAQUE),
+            BatchPass::Opaque
+        );
+        assert_eq!(
+            character_submesh_pass(MaterialAlpha::blend(1.0)),
+            BatchPass::Translucent
+        );
+        // A zero-opacity blend is invisible: it draws in neither pass.
+        assert_eq!(
+            character_submesh_pass(MaterialAlpha::blend(0.0)),
+            BatchPass::Opaque
+        );
+        assert_eq!(
+            character_submesh_pass(MaterialAlpha {
+                mode: AlphaMode::Cutout,
+                ..MaterialAlpha::OPAQUE
+            }),
+            BatchPass::Opaque
+        );
     }
 }

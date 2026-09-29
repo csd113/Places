@@ -15,6 +15,11 @@
       "id": "home",
       "display_name": "Home",
       "description": "Ordinary residential interiors: clean off-white wallpaper and paint, hardwood and cream carpet floors, a simple kitchen tile, painted baseboards and trim, flat and plaster ceilings, warm white flush-mount ceiling light and simple kitchen cabinetry."
+    },
+    {
+      "id": "outdoor",
+      "display_name": "Outdoor",
+      "description": "Night exterior: a dark starry sky, tileable grass ground, a dirt and gravel path with feathered edges, a restrained concrete walkway, a leafy tree, warm exterior lamps and modular house facade parts."
     }
   ],
   "assets": [
@@ -1858,6 +1863,60 @@
       "description": "Low-poly articulated skeleton prop with a real animation rig and three held poses (pose_stand, pose_sit_floor, pose_sit_chair); the chair pose fits the 0.45 m seat of core:chair."
     },
     {
+      "id": "carved-pumpkin",
+      "display_name": "Carved Candle Pumpkin",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/carved-pumpkin/model/carved-pumpkin.glb",
+      "size": [
+        0.701,
+        0.654,
+        0.635
+      ],
+      "color": "#c9761f",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Carved pumpkin with a candle and an emissive flame primitive on the animated flame node; hopping loop hop_forward (authored for 0.5 m/s) and the laughing loop laugh (2.4 s). Attach a glow component with socket flame for the candle light."
+    },
+    {
+      "id": "sheet-ghost",
+      "display_name": "Sheet Ghost",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/sheet-ghost/model/sheet-ghost.glb",
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "color": "#bfe4e8",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Painted sheet ghost with a readable face on a three-joint rig; floating loop float_forward (authored for 0.3 m/s) and idle sway, plus blended materials with a mild cyan cloth glow and a dimmer face-feature primitive. Use fade and glow components for its cycle."
+    },
+    {
+      "id": "pumpkin-skeleton",
+      "display_name": "Pumpkin-Head Skeleton",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+      "size": [
+        0.442,
+        1.808,
+        0.403
+      ],
+      "color": "#c9b48a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Walking skeleton whose skull is replaced by an emissive pumpkin head on the piece_pumpkin_head joint; in-place walk loop (authored for 0.571 m/s) and the collapse_reassemble gesture. Attach a glow component with socket piece_pumpkin_head for the head light."
+    },
+    {
       "id": "core:stop_sign",
       "display_name": "Stop Sign",
       "asset_class": "environment",
@@ -2065,6 +2124,440 @@
       "category": "Decorative",
       "solid": false,
       "description": "Yellow rubber duck with an orange beak and painted eyes; the beak end faces +Z and a `float` block lets it ride the pool surface."
+    },
+    {
+      "id": "outdoor:tex_grass_ground_01",
+      "display_name": "Grass Ground Texture",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/outdoor/textures/ground/grass_ground_01.png",
+      "description": "Tileable night lawn: short mottled blades in muted greens, no bright or dark edge band, readable under a small pool of warm lamplight."
+    },
+    {
+      "id": "outdoor:tex_dirt_gravel_01",
+      "display_name": "Dirt and Gravel Path Texture",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+      "description": "Stylized packed dirt with scattered pale gravel; tileable in both axes and deliberately low-contrast so a feathered edge blends into grass."
+    },
+    {
+      "id": "outdoor:tex_concrete_pavement_01",
+      "display_name": "Concrete Pavement Texture",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+      "description": "Restrained poured-concrete walkway: pale grey with subtle panel grain and a few darker pores, tileable in both axes."
+    },
+    {
+      "id": "outdoor:tex_house_siding_01",
+      "display_name": "House Siding Texture",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/outdoor/textures/house/siding_01.png",
+      "description": "Horizontal painted clapboard siding in a muted dark green-grey, tileable in both axes."
+    },
+    {
+      "id": "outdoor:tex_house_roof_shingle_01",
+      "display_name": "Roof Shingle Texture",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "ceiling",
+      "model": "environment/outdoor/textures/house/roof_shingle_01.png",
+      "description": "Dark asphalt roof shingles in overlapping rows, tileable in both axes."
+    },
+    {
+      "id": "outdoor:tex_sky_stars_01",
+      "display_name": "Night Sky, Faint Stars",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "sky",
+      "model": "environment/outdoor/textures/sky/sky_stars_01.png",
+      "description": "Equirectangular 2:1 night sky: near-black with a small number of faint stars in the upper hemisphere and no moon, Milky Way, glow or daylight horizon."
+    },
+    {
+      "id": "outdoor:grass_ground_01",
+      "display_name": "Grass Ground",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_grass_ground_01",
+      "tile_metres": 2.0,
+      "shine": 0.03,
+      "description": "Night lawn surface: low sheen so a small warm lamp pool reads without a wet sheen."
+    },
+    {
+      "id": "outdoor:dirt_gravel_01",
+      "display_name": "Dirt and Gravel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_dirt_gravel_01",
+      "tile_metres": 1.6,
+      "shine": 0.05,
+      "description": "Walked dirt path surface."
+    },
+    {
+      "id": "outdoor:concrete_pavement_01",
+      "display_name": "Concrete Pavement",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "tile_metres": 2.0,
+      "shine": 0.08,
+      "description": "Cast concrete walkway surface."
+    },
+    {
+      "id": "outdoor:house_siding_01",
+      "display_name": "House Siding",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "outdoor:tex_house_siding_01",
+      "tile_metres": 1.2,
+      "shine": 0.12,
+      "description": "Painted exterior wall cladding."
+    },
+    {
+      "id": "outdoor:house_roof_shingle_01",
+      "display_name": "Roof Shingles",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "outdoor:tex_house_roof_shingle_01",
+      "tile_metres": 1.0,
+      "shine": 0.06,
+      "description": "Exterior roof surface."
+    },
+    {
+      "id": "outdoor:decal_path_edge_01",
+      "display_name": "Path Edge Feather",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/outdoor/textures/decals/path_edge_01.png",
+      "alpha_mode": "blend",
+      "description": "Straight path-edge feather strip: the dirt/gravel grain fades out across the strip width so a dirt patch meets grass without a hard rectangular seam. Place with width across the seam and height along the edge; rotate to face either side or a diagonal run."
+    },
+    {
+      "id": "outdoor:decal_path_end_01",
+      "display_name": "Path End Feather",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/outdoor/textures/decals/path_end_01.png",
+      "alpha_mode": "blend",
+      "description": "Rounded path-end feather: grain fades radially so a path can stop, fork or flare into gravel without a cut edge."
+    },
+    {
+      "id": "outdoor:decal_path_corner_01",
+      "display_name": "Path Corner Feather",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/outdoor/textures/decals/path_corner_01.png",
+      "alpha_mode": "blend",
+      "description": "Corner feather piece for a path bend or junction: two soft fades meeting at a rounded inner corner."
+    },
+    {
+      "id": "outdoor:grass_patch_small",
+      "display_name": "Small Grass Tuft",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/grass_patch_small.glb",
+      "size": [
+        0.55,
+        0.3,
+        0.55
+      ],
+      "color": "#4c6b3c",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Standing tuft of alpha-cutout grass cards for LOW-density scatter; non-solid, does not occlude the light bake."
+    },
+    {
+      "id": "outdoor:grass_patch_large",
+      "display_name": "Large Grass Tuft",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/grass_patch_large.glb",
+      "size": [
+        0.95,
+        0.62,
+        0.95
+      ],
+      "color": "#4f6f3e",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Taller standing grass cluster for MEDIUM and DENSE scatter; non-solid, does not occlude the light bake."
+    },
+    {
+      "id": "outdoor:tree_01",
+      "display_name": "Leafy Tree",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/tree_01.glb",
+      "size": [
+        4.6,
+        6.4,
+        4.6
+      ],
+      "color": "#5a6b45",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Large stylized tree: tapered trunk, four branches and an alpha-cutout leaf canopy. Place it solid with a level size of roughly [0.8, 6.4, 0.8] so only the trunk blocks the player."
+    },
+    {
+      "id": "outdoor:lamp_stand",
+      "display_name": "Standing Exterior Lamp",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/lamp_stand.glb",
+      "size": [
+        0.34,
+        1.05,
+        0.34
+      ],
+      "color": "#3b3a36",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Ground-standing garden lamp on a short post: a dark housing with a warm emissive pane. Author its point light at offset [0, 0.86, 0] (the documented mounting origin)."
+    },
+    {
+      "id": "outdoor:lamp_fence",
+      "display_name": "Fence-Post Lamp",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/lamp_fence.glb",
+      "size": [
+        0.32,
+        0.42,
+        0.36
+      ],
+      "color": "#3b3a36",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Small cap lamp for a fence post: the bracket seats on a 0.12 m post and the warm emissive pane faces +Z. Author its point light at offset [0, 0.30, 0.05]."
+    },
+    {
+      "id": "outdoor:lamp_wall",
+      "display_name": "Hanging Eave Lamp",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/lamp_wall.glb",
+      "size": [
+        0.3,
+        0.52,
+        0.34
+      ],
+      "color": "#3b3a36",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Building/eave-hanging lantern: an arched bracket meets the wall at y = 0.52 and the lamp hangs below it. Author its point light at offset [0, 0.18, 0.12]."
+    },
+    {
+      "id": "outdoor:fence_post",
+      "display_name": "Wooden Fence Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/fence_post.glb",
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "color": "#6a5a45",
+      "category": "Structure",
+      "solid": true,
+      "description": "Simple capped fence post; supports outdoor:lamp_fence and gives a run of posts a repeated silhouette."
+    },
+    {
+      "id": "outdoor:house_wall_solid",
+      "display_name": "House Wall Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#5c6b58",
+      "category": "Structure",
+      "solid": false,
+      "description": "Modular exterior wall panel: siding on both faces with a painted base band and corner boards. Use level size [3.0, 2.7, 0.24] and solid true, or butt it against real level walls."
+    },
+    {
+      "id": "outdoor:house_wall_window",
+      "display_name": "House Wall Panel, Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#5c6b58",
+      "category": "Structure",
+      "solid": false,
+      "description": "Exterior wall panel with a centered framed window, sill and dark glazing; the window is decorative and the panel stays solid."
+    },
+    {
+      "id": "outdoor:house_wall_doorway",
+      "display_name": "House Wall Panel, Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#5c6b58",
+      "category": "Structure",
+      "solid": false,
+      "description": "Exterior wall panel with a centered 1.1 x 2.15 m doorway: real jamb depth through the panel, a lintel and a threshold board. Non-solid; the level authors a real wall with a door opening behind it. Eave lamp mounts are documented at [+/-1.15, 2.55, 0.20] local."
+    },
+    {
+      "id": "outdoor:house_roof_slope",
+      "display_name": "House Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#4a4640",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pitched roof slope with a visible eave: shingle field on top, fascia and soffit board at the low edge, origin at the eave's underside centre so a slope can be butted against a gable."
+    },
+    {
+      "id": "outdoor:house_roof_ridge",
+      "display_name": "House Roof Ridge Cap",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#3f3b36",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ridge cap that covers the joint where two roof slopes meet."
+    },
+    {
+      "id": "outdoor:house_corner_trim",
+      "display_name": "House Corner Board",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#6a5a45",
+      "category": "Structure",
+      "solid": false,
+      "description": "Vertical corner board that covers panel junctions at a house corner."
+    },
+    {
+      "id": "outdoor:concrete_step",
+      "display_name": "Concrete Step",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/concrete_step.glb",
+      "size": [
+        1.4,
+        0.18,
+        0.7
+      ],
+      "color": "#8a8781",
+      "category": "Structure",
+      "solid": false,
+      "description": "Low cast step joining a concrete walkway or dirt path to a doorway threshold without a large step; set the level size with solid true when the player should stand on it."
+    },
+    {
+      "id": "outdoor:collision_peg",
+      "display_name": "Containment Collider Peg",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/collision_peg.glb",
+      "size": [
+        0.06,
+        0.06,
+        0.06
+      ],
+      "color": "#3d3e42",
+      "category": "Structure",
+      "solid": true,
+      "description": "Deliberately tiny 6 cm grey cube that carries an authored invisible containment collider, not scenery: place it solid: true with the collider's real size (e.g. [0.3, 3.0, 3.0]), set occludes: false and author a y that buries the cube below the local floor, so the drawn geometry is never visible and the bake never sees it."
     }
   ]
 }

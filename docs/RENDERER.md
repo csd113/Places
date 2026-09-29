@@ -99,9 +99,9 @@ render_scene:
   ensure depth / pipelines / post targets / planar target
   select planar plane (Medium and High only) + nearest probe
   planar capture (mirror ranges excluded, modes zeroed, capture environment)
-  update material reflection modes + environment uniforms + cameras
+  update material reflection modes + environment uniforms + cameras + attached lights
   encode:
-    scene pass        -> raw scene target + depth  (static, props, dynamics, characters, decals, then effects)
+    scene pass        -> raw scene target + depth  (static, props, dynamics, characters incl. sorted translucent submeshes, decals, then effects)
     emissive pass     -> raw emissive target       (when an emissive draw survived)
     blur x2           -> quarter-size raw targets
     resolve/present   -> raw presented target
@@ -137,6 +137,8 @@ This is deliberate; the shipped artwork, the material tints and every lighting c
 The world shader has raw and sRGB entry points (`fs_main`/`fs_main_raw`, `fs_cutout`/`fs_cutout_raw`, plus the emissive variants): the raw entry points write the display-space assembly straight to a raw target, the sRGB entry points convert for the surface paths. The unlit bypass keeps a direct sample byte-exact: when the vertex colour is white, the light factor is ≥ 1 and the sheen is zero, the sampled base colour is written unchanged. Alpha never passes through the transfer functions: it is the straight scalar product `texel.a × vertex.a × opacity`.
 
 Clear and background values: raw targets clear to the reference display value `(0.08, 0.08, 0.09)` (`CLEAR_COLOR`); the sRGB surface paths use `CLEAR_COLOR_SRGB`, the linear form of the same value through the same IEC curve, so the presented background is identical. Scene, planar and probe clears all use the raw value.
+
+**The sky pass** is the one optional thing drawn between the clear and the world: a level that declares `sky` gets one fullscreen triangle (`sky.wgsl`) after the colour clear and before any world body draw, sampling an equirectangular 2:1 sheet by view direction (repeat in U, clamp at the poles). It writes no depth and tests depth `Always`, so the world body — a solid ceiling included — always covers it; it is not submitted at all when the level declares no sky, which is what keeps the historical clear as the background. The sky is a separate pipeline per target convention (`SCENE_FORMAT` raw, the surface format sRGB) and is deliberately absent from the reflection and planar captures. Its one contribution to baked lighting is the level's `sky.ambient`, resolved in the transport solve rather than in this pass.
 
 ## 4. World geometry and coordinate conventions
 
@@ -496,11 +498,13 @@ The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, 
 
 ### 7.1 Prepared lighting, no realtime lights
 
-The renderer has no light selection, no light array, no attenuation curve in a
-shader and no shadow map. Every fixture contribution is solved **offline** by
-`places-compile` (the transport solver in `src/lighting/transport.rs`) and
-packaged; the player decodes prepared data and samples it. The world fragment
-stage contains exactly one light expression:
+The renderer has no light selection, no fixture light array, no fixture
+attenuation curve in a shader and no shadow map. Every fixture contribution is
+solved **offline** by `places-compile` (the transport solver in
+`src/lighting/transport.rs`) and packaged; the player decodes prepared data and
+samples it. The one bounded realtime addition is the attached character glow
+(§7.1.4): eight lights at most, additive, unshadowed and never baked. The world
+fragment stage's baked light expression is:
 
 ```wgsl
 light = prepared_light(when the atlas is on) else vec3(1.0);
@@ -647,6 +651,73 @@ even while it is on and its static surfaces are lit. Toggling updates the
 static atlas layers, not the field. Per-state field layers are deliberately not
 prepared; until they are, treat a switchable fixture as a static-surface light
 where moving-object lighting is concerned.
+
+### 7.1.4 Attached dynamic lights
+
+An entity may attach a glow to an animated socket (the carved pumpkin's candle
+flame, the sheet ghost's cyan core). The character path resolves each frame's
+glow cues into a `DynamicLightSet` (`src/render/common/dynamic_lights.rs`):
+bounded at `MAX_DYNAMIC_LIGHTS` (8), keyed (`"glow:<instance id>"`),
+insertion-ordered and deterministic. It refuses a non-finite or out-of-range
+value rather than clamping it (position finite, colour channels `0..=1`,
+intensity `0..=32`, radius `0 < r <= 256 m`), so a malformed cue can never
+poison the uniform or the whole lit term.
+
+The world position of a light is `character.transform() *
+animator.node_global(socket)` when the authored socket resolves to a rig node
+(case-insensitive, composed from the current pose), otherwise the placement
+applied to the entity-local offset in metres. The effective intensity is the
+authored intensity multiplied by the instance opacity when the cue asked for
+`fade_with_opacity`. An entity whose glow disappears, whose opacity reaches
+zero or whose effective intensity reaches zero has its light removed that
+frame; a frame-less pass retires it too.
+
+The backend uploads the whole set once per frame into one group-4 uniform
+(`count: u32`, three pad words, then `array<DynamicLight, 8>` at a 32-byte
+stride) and binds it in every world, prop, dynamic and character encode path.
+Group 4 is one more than WebGPU's default `maxBindGroups` of 4, so every device
+the world pipeline is created on is requested with `max_bind_groups: 5`
+(`render::wgpu::renderer::world_device_limits`); the window renderer and the
+offline compiler share the request. The shader adds, per live light:
+
+```wgsl
+d = length(light.position - world_position);
+if (d < light.radius) {
+    ndl = max(dot(normal, normalize(light.position - world_position)), 0.0);
+    window = clamp(1 - d / light.radius, 0, 1);
+    sum += color * intensity * ndl * window * window;
+}
+```
+
+The sum is added to the `light` factor `lit_display` and `surface_sheen` use; it
+never modifies `surface_light`, so every baked lightmap, directional-moment and
+solid-wall occlusion result is unchanged.
+
+**Approximation limits.** The term is deliberately small and its limits are
+part of its contract:
+
+* **Unshadowed.** A wall does not block an attached light: the shader has no
+  shadow map and tests no visibility, so an entity's glow can leak through the
+  surface it stands behind.
+* **Range-bounded.** The only bound is the authored `radius`, with the windowed
+  quadratic falloff above (zero exactly at the radius). There is no
+  distance-independent ambient term.
+* **Additive to the baked term, never baked.** The lights never enter the
+  compile-time transport solve, the lightmap atlas or the moving-object
+  irradiance field. Static surfaces are lit exactly as if they did not exist;
+  only the frame's own draws (including the entity's own submeshes) see them.
+* **No per-receiver occlusion or bounce.** No cone, no contact shadow, no
+  bounce; light does not pool around the entity beyond the diffuse cosine term.
+* **Emissive pass excluded.** The bloom source is drawn without the dynamic
+  term, and the per-instance opacity scales the emissive term instead, so a
+  glow cannot double itself in the bloom.
+* **Reflection captures excluded.** The probe bake and the planar capture use
+  the capture pipeline's zeroed light set, so a mirror or probe never bakes a
+  glow in.
+
+At zero attached lights the term is exactly `vec3(0.0)` and the shader's
+unit-light bypass is unchanged, so a frame with no glowing character renders
+bit-identically to the pre-change renderer.
 
 ### 7.2 Light sources
 
@@ -848,7 +919,7 @@ graphics change or per frame.
 
 **Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed only when an object moves. Opaque dynamic primitives splice in after the static opaque class; a dynamic submesh may instead declare a **blended** alpha contract, in which case it draws after the sorted static translucent surfaces, with depth writes off and depth testing against the opaque pass, so a moving glass pane composites over the static world. Dynamic objects are outside the static batches and the bake and cast no shadow. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
 
-**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The interior leaf is a white painted slab with two raised panels per face and a round brass handle on both sides; the sauna leaf is cedar stiles and rails around a clear glass panel. The sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults.
+**Doors.** A level's `doors[]` frame and leaf are built in code (`src/render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The frame is the reveal the leaf is installed in — a liner through the resolved wall tunnel with a 4 mm stop lip, a casing on both end faces and the hinge knuckles and plates — and the leaf is a stile-and-rail panel door with two 12 mm recesses per face (the interior kind) or cedar stiles and rails around a clear glass panel (the sauna kind). Each submesh samples its own material slot (leaf, frame, handle, sauna glass), so a per-door `material`, `frame_material` or `handle_material` override changes exactly the surface it names and the sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults. The dynamic path carries one flat probe shade per object and no per-vertex normal, so every emitted face bakes its own shade into the vertex colour, which is what makes the recesses, the casing edges and the liner's reveal read.
 
 **Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`src/render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
 
@@ -857,6 +928,8 @@ The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer p
 **Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`src/render/common/water.rs`): the material's `alpha_mode: "blend"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
 
 **Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
+
+A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into the fragment alpha and the emissive term — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` rewrites a character's environment only when its transform **or** its opacity changed, so a still, settled character writes nothing while a fading one rewrites one uniform. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in a second, sorted back-to-front character pass after the blended dynamic primitives, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh keeps the historical opaque treatment, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
 
 **Entity cues, live transforms and routes.** A map-authored route or a
 `play_animation` action addresses a character by its placed-instance id
@@ -870,9 +943,14 @@ back to `WALK_REFERENCE_SPEED_MPS` / `RUN_REFERENCE_SPEED_MPS`), preferring
 `run` above 1.5× the walk reference. A frame may also carry a live
 `(position, yaw)`: `Character::set_pose` rebuilds the placement matrix,
 recomputes the conservative culling bounds, and `WgpuCharacters::sync` rewrites
-that character's group-3 environment matrix and bounds while only re-skinning
-the vertices whose pose revision changed. Characters with no frame keep
-following the player's locomotion snapshot, exactly as before.
+that character's group-3 environment matrix, opacity and bounds while only
+re-skinning the vertices whose pose revision changed. A frame also carries the
+entity's fade opacity (clamped to `0..=1` each pass) and, when the level
+authors a `glow` component, the glow cue; `CharacterScene` resolves the cue
+into the attached-light set of §7.1.4 after the poses advanced — so a socket
+reads the pose that will draw — and exposes it as
+`CharacterScene::dynamic_lights()` for the frame's upload. Characters with no
+frame keep following the player's locomotion snapshot, exactly as before.
 
 **Fixtures and emission.** Fixture luminous faces are `SurfaceKind::Light` ranges with per-vertex emission; their housings draw the shared white sheet. A fixture's light remains entirely in the CPU bake — the emission term is visual only and never illuminates anything. Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) is independent of environmental illumination, so a surface or fixture face can read fully bright while casting nothing, and a light can cast while nothing glows. A level can make a material's emission `pulse` or `flicker`, deterministically and within a bounded depth; the animation reaches the shader through `emission_scale`.
 

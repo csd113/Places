@@ -1639,6 +1639,7 @@ fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
 
 fn empty_level() -> LevelDef {
     LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -1804,6 +1805,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             scale: 1.0,
             size: None,
             solid: false,
+            occludes: true,
             lights: Vec::new(),
             float: None,
         }],

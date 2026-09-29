@@ -347,6 +347,11 @@ pub enum ShippedTextureKind {
     /// Decals are sampled with mipmaps exactly like a fixture face, so both
     /// edges must be powers of two.
     DecalSheet,
+    /// A level's equirectangular night-sky sheet.
+    ///
+    /// The sky is sampled by view direction with a CPU mip chain, so it must be
+    /// exactly 2:1 with power-of-two edges (the shipped sheet is 1024x512).
+    Sky,
 }
 
 impl ShippedTextureKind {
@@ -402,6 +407,18 @@ impl ShippedTextureKind {
                 if !width.is_power_of_two() || !height.is_power_of_two() {
                     problems.push(format!(
                         "a fitted sheet (fixture face or decal) must be power-of-two on both edges, found {width}x{height}"
+                    ));
+                }
+            }
+            Self::Sky => {
+                if width != height.saturating_mul(2) {
+                    problems.push(format!(
+                        "a sky sheet must be exactly 2:1 (equirectangular), found {width}x{height}"
+                    ));
+                }
+                if !width.is_power_of_two() || !height.is_power_of_two() {
+                    problems.push(format!(
+                        "a sky sheet must be power-of-two on both edges, found {width}x{height}"
                     ));
                 }
             }
@@ -1363,12 +1380,31 @@ impl CatalogEntryFile {
             });
         }
         if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
-            return Err(format!(
-                "{id}: only a `material` `definition` asset may declare surface-response \
-                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`), \
-                 alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
-                 reflection (`reflection_mode`, `reflection_strength`) field"
-            ));
+            // One exception: a file-backed decal sheet may author its alpha
+            // handling. A decal has no material state of its own (no sheen, no
+            // normal map, no reflection) but its sheet may be a soft-edged
+            // `blend` sheet instead of the reference's hard cut-out, which is
+            // the path-to-grass feather.
+            let decal_alpha_only = asset_type.as_str() == AssetType::DECAL
+                && source == AssetSource::File
+                && normal_texture.is_none()
+                && self.normal_strength.is_none()
+                && self.specular.is_none()
+                && self.specular_color.is_none()
+                && self.shine.is_none()
+                && self.opacity.is_none()
+                && self.alpha_cutoff.is_none()
+                && self.reflection_mode.is_none()
+                && self.reflection_strength.is_none();
+            if !decal_alpha_only {
+                return Err(format!(
+                    "{id}: only a `material` `definition` asset may declare surface-response \
+                     (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`), \
+                     alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
+                     reflection (`reflection_mode`, `reflection_strength`) field; \
+                     a `decal` `file` asset may declare only `alpha_mode`"
+                ));
+            }
         }
         if let Some(texture) = &normal_texture
             && !is_valid_asset_id(texture)

@@ -777,13 +777,17 @@ fn baked_rooms(level: &LevelDef) -> (Vec<RoomLighting>, f32, f32) {
             REFERENCE_CEILING_HEIGHT_M
         };
         // A gable profile with a malformed rise behaves as flat, exactly
-        // like `RoomDef::ceiling_y_at` would resolve it.
+        // like `RoomDef::ceiling_y_at` would resolve it. An open ceiling
+        // resolves its volume as a flat one: the room still participates in
+        // the bake's fill and fixture span, it simply emits no ceiling
+        // surface.
         let profile = match room.ceiling {
             crate::level::CeilingProfileDef::Gable { ridge_rise, .. }
                 if !(ridge_rise.is_finite() && ridge_rise > 0.0) =>
             {
                 crate::level::CeilingProfileDef::Flat
             }
+            crate::level::CeilingProfileDef::Open => crate::level::CeilingProfileDef::Flat,
             profile @ (crate::level::CeilingProfileDef::Flat
             | crate::level::CeilingProfileDef::Gable { .. }) => profile,
         };
@@ -2950,7 +2954,9 @@ fn write_rooms(writer: &mut Writer, rooms: &[RoomLighting]) -> Result<(), String
         writer.f32(room.floor_y);
         writer.f32(room.height_m);
         match room.profile {
-            CeilingProfileDef::Flat => writer.u8(0),
+            // Normalized to `Flat` when the room volume was built; an open
+            // ceiling resolves as a flat volume there.
+            CeilingProfileDef::Flat | CeilingProfileDef::Open => writer.u8(0),
             CeilingProfileDef::Gable { ridge, ridge_rise } => {
                 writer.u8(1);
                 writer.u8(match ridge {

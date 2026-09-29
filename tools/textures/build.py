@@ -46,6 +46,7 @@ import extra_art  # noqa: E402
 import home_art  # noqa: E402
 import lights_art  # noqa: E402
 import office_art  # noqa: E402
+import outdoor_art  # noqa: E402
 import pool_art  # noqa: E402
 import water_art  # noqa: E402
 
@@ -67,6 +68,7 @@ for module in (
     diagnostic_art,
     extra_art,
     home_art,
+    outdoor_art,
 ):
     for texture_id, entry in module.ART.items():
         if texture_id in MANIFEST:

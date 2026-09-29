@@ -50,6 +50,7 @@ use super::reflections::{
     CaptureFrame, ProbeCube, ReflectionTargets, planar_size_for, planar_view_projection,
     probe_bake_position, probe_face_size, probe_face_view_projection, probe_mip_edge,
 };
+use super::sky::{SkyPipeline, WgpuSky};
 use super::surface::{
     self, CLEAR_COLOR, CLEAR_COLOR_SRGB, DEPTH_FORMAT, SurfaceRecovery, SurfaceStatus,
     present_mode_label,
@@ -133,6 +134,19 @@ struct DepthTarget {
 /// capture contract's RGBA byte order.
 const fn capture_format(surface_format: wgpu::TextureFormat) -> wgpu::TextureFormat {
     surface_format
+}
+
+/// The device limits the world pipelines need.
+///
+/// The world pipeline layout binds groups 0..=4 — group 4 is the frame's
+/// attached-light uniform — which is one more than WebGPU's default
+/// `maxBindGroups` of 4; the renderer asks for exactly what it binds. Every
+/// device the world pipeline is created on goes through this request.
+pub(super) fn world_device_limits() -> wgpu::Limits {
+    wgpu::Limits {
+        max_bind_groups: 5,
+        ..wgpu::Limits::default()
+    }
 }
 
 /// True when a mapped `CAPTURE_FORMAT` row stores its red and blue channels
@@ -417,6 +431,10 @@ pub struct WgpuRenderer {
     emissive_pipeline: Option<WorldPipeline>,
     /// The decal pipeline for the offscreen scene format.
     decal_scene_pipeline: Option<DecalPipeline>,
+    /// The level's uploaded sky, or `None` for a level that declares none.
+    sky: Option<WgpuSky>,
+    /// The sky pass's pipeline pair, one per colour target convention.
+    sky_pipeline: Option<SkyPipeline>,
     /// The frame/level environment bindings for the loaded level.
     environment: Option<EnvironmentBindings>,
     /// The 1x1 black cube bound while no probe is resident (renderer lifetime).
@@ -611,6 +629,7 @@ impl WgpuRenderer {
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu"),
+            required_limits: world_device_limits(),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -680,6 +699,7 @@ impl WgpuRenderer {
         Self::check_native_backend(&adapter_info)?;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu-compiler"),
+            required_limits: world_device_limits(),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -792,6 +812,8 @@ impl WgpuRenderer {
             decals: None,
             decal_pipeline: None,
             decal_reflection_pipeline: None,
+            sky: None,
+            sky_pipeline: None,
             ui: None,
             last_ui: Vec::new(),
             post: None,
@@ -1237,7 +1259,9 @@ impl WgpuRenderer {
             return;
         }
         for def in &level.doors {
-            let Some(models) = crate::render::common::doors::build_door_models(def, materials)
+            let frame = level.door_frame(def);
+            let Some(models) =
+                crate::render::common::doors::build_door_models(def, materials, frame)
             else {
                 logging::warn(format!(
                     "[doors] `{}` has an unresolved door material; the leaf will not draw",
@@ -1292,7 +1316,7 @@ impl WgpuRenderer {
                     &frame_key,
                     &models.frame,
                     models.textures.clone(),
-                    &models.alphas,
+                    &models.frame_alphas,
                 )
                 .and_then(|mesh| {
                     self.dynamic
@@ -1304,7 +1328,7 @@ impl WgpuRenderer {
                     &leaf_key,
                     &models.leaf,
                     models.textures.clone(),
-                    &models.alphas,
+                    &models.leaf_alphas,
                 )
                 .and_then(|mesh| {
                     self.dynamic
@@ -2310,6 +2334,7 @@ impl WgpuRenderer {
         // reflection-format one) must exist before any probe bake.
         self.ensure_world_pipeline();
         self.upload_decals(&build.mesh, &loaded.level);
+        self.upload_sky(&loaded.level);
         // Reflection probes are already captured for a compiled world; a
         // developer-tool install (the offline compiler itself) bakes them here,
         // when the world, its textures, its materials and its decals are all
@@ -2371,6 +2396,24 @@ impl WgpuRenderer {
             decals.stats().diagnostic_sheets,
         ));
         self.decals = Some(decals);
+    }
+
+    /// Resolves and uploads the level's optional sky sheet.
+    ///
+    /// A level without a `sky` clears the pass (`self.sky = None`), which is
+    /// the historical clear-colour background.
+    fn upload_sky(&mut self, level: &crate::level::LevelDef) {
+        let asset_root = crate::assets::resolve_asset_root();
+        let sky = WgpuSky::upload(
+            &self.device,
+            &self.queue,
+            &mut self.textures,
+            self.prop_catalog.assets(),
+            asset_root.as_deref(),
+            level,
+            self.quality,
+        );
+        self.sky = sky;
     }
 
     /// The environment uniform's lightmap selection: pages per layer group,
@@ -2827,8 +2870,27 @@ impl WgpuRenderer {
         if let Some(pipeline) = self.emissive_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
+        // The attached lights are this frame's character glows. The three
+        // main-scene pipelines upload the same set (an empty one writes a zero
+        // count, clearing the previous frame); the reflection-capture pipeline
+        // keeps its zeroed set, so a mirror or probe never bakes a glow in.
+        let lights = self.characters.dynamic_lights();
+        if let Some(pipeline) = self.world_pipeline.as_ref() {
+            pipeline.update_lights(&self.queue, lights);
+        }
+        if let Some(pipeline) = self.scene_pipeline.as_ref() {
+            pipeline.update_lights(&self.queue, lights);
+        }
+        if let Some(pipeline) = self.emissive_pipeline.as_ref() {
+            pipeline.update_lights(&self.queue, lights);
+        }
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+        }
+        if let Some(sky) = self.sky.as_ref()
+            && let Some(pipeline) = self.sky_pipeline.as_mut()
+        {
+            pipeline.upload_camera(&self.queue, frame.view_projection, sky.brightness());
         }
         if let Some(pipeline) = self.effects_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
@@ -3014,6 +3076,11 @@ impl WgpuRenderer {
         ) else {
             return totals;
         };
+        // The night sky paints the cleared background first; the world body
+        // draws over it with depth testing, so a solid ceiling always hides it.
+        if let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref()) {
+            sky_pipeline.encode_scene(pass, sky, self.filtering);
+        }
         totals = pipeline.encode(
             pass,
             super::world::WorldEncodeInputs {
@@ -3134,6 +3201,12 @@ impl WgpuRenderer {
                 self.environment.as_ref(),
             )
         {
+            // The sky background, drawn before the world exactly like the
+            // offscreen scene body.
+            if let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
+            {
+                sky_pipeline.encode_surface(&mut pass, sky, self.filtering);
+            }
             totals = pipeline.encode(
                 &mut pass,
                 super::world::WorldEncodeInputs {
@@ -3218,6 +3291,15 @@ impl WgpuRenderer {
             super::reflections::REFLECTION_FORMAT,
         ));
         self.decal_scene_pipeline = Some(DecalPipeline::new(&self.device, SCENE_FORMAT));
+        // The sky pass draws in the same colour+depth passes as the world (the
+        // main surface and the offscreen scene target, in raw display space),
+        // sampling the shared texture-cache group 1.
+        self.sky_pipeline = Some(SkyPipeline::new(
+            &self.device,
+            self.config.format,
+            SCENE_FORMAT,
+            self.textures.layout(),
+        ));
         // The effect billboards run in the same colour+depth passes as the
         // world (the main surface and the offscreen scene target), with the
         // shared texture-cache layout as group 1, so every uploaded effect

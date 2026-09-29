@@ -17,6 +17,7 @@ pub mod character;
 pub mod decals;
 pub mod doors;
 pub mod dynamic;
+pub mod dynamic_lights;
 pub mod effects;
 pub mod fixtures;
 pub mod framebuffer;
@@ -51,13 +52,14 @@ pub use character::{
 pub use decals::{
     DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_POLYGON_OFFSET,
     DECAL_SURFACE_OFFSET_M, DECAL_TEST_MATERIAL, decal_external_sheet_ids, decal_material_slot,
-    decal_sheet_index, decal_uv_rect, decal_uv_rect_full,
+    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, relight_blend_decals,
 };
 pub use dynamic::{
     DEMO_DRUM_ID, DEMO_MACHINE_ID, DEMO_SPIN_DEGREES_PER_SECOND, DynamicId, DynamicMesh,
     DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, MAX_DYNAMIC_MESHES,
     MAX_DYNAMIC_OBJECTS, PROBE_EPSILON_M,
 };
+pub use dynamic_lights::{DynamicLight, DynamicLightSet, MAX_DYNAMIC_LIGHTS};
 use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use mesh::{
@@ -1816,11 +1818,11 @@ const CEILING_TINT: [f32; 3] = [0.72, 0.72, 0.70];
 /// Distance a wall decal is probed away from its wall when sampling baked
 /// lighting. Matching [`LIGHT_FACE_PROBE_M`] means a decal reads with exactly
 /// the illumination of the wall face it is printed on.
-const DECAL_WALL_LIGHT_PROBE_M: f32 = LIGHT_FACE_PROBE_M;
+pub const DECAL_WALL_LIGHT_PROBE_M: f32 = LIGHT_FACE_PROBE_M;
 /// Distance a floor or ceiling decal is probed away from its plane. The floor
 /// and ceiling grids sample on the plane itself, so this only needs to clear
 /// the boundary the plane sits on, not a whole wall thickness.
-const DECAL_HORIZONTAL_LIGHT_PROBE_M: f32 = 0.05;
+pub const DECAL_HORIZONTAL_LIGHT_PROBE_M: f32 = 0.05;
 
 /// The four world-space corners of a decal quad, in winding order.
 ///
@@ -1896,7 +1898,7 @@ pub fn decal_quad_points_rotated(
 /// Per-decal shading tint: the surface family's face shade, so a decal sits in
 /// the same light as the surface it is printed on.
 #[must_use]
-const fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
+pub const fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
     use crate::level::DecalSurface;
     let mult = match surface {
         DecalSurface::Floor => 1.0,
@@ -1907,6 +1909,37 @@ const fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
         DecalSurface::WallEast => WALL_FACE_EAST_MULT,
     };
     [mult, mult, mult]
+}
+
+/// The decal-surface tint for one emitted quad's geometric normal.
+///
+/// `add_quad` gives every decal vertex its surface frame, and a decal's
+/// authored `surface` is exactly the outward normal of that frame, so the
+/// shading tint can be recovered from the normal after the mesh is assembled
+/// (the prepared relight pass does this). A normal outside the horizontal
+/// band is resolved to the wall face it points at.
+#[must_use]
+pub fn decal_tint_for_normal(normal: [f32; 3]) -> [f32; 3] {
+    use crate::level::DecalSurface;
+    if normal[1] > 0.5 {
+        return decal_surface_tint(DecalSurface::Floor);
+    }
+    if normal[1] < -0.5 {
+        return decal_surface_tint(DecalSurface::Ceiling);
+    }
+    if normal[2].abs() >= normal[0].abs() {
+        decal_surface_tint(if normal[2] < 0.0 {
+            DecalSurface::WallNorth
+        } else {
+            DecalSurface::WallSouth
+        })
+    } else {
+        decal_surface_tint(if normal[0] < 0.0 {
+            DecalSurface::WallWest
+        } else {
+            DecalSurface::WallEast
+        })
+    }
 }
 
 /// Emits one decal as a lit quad carrying the shared decal sheet.

@@ -503,6 +503,10 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
         if strength != 1.0:
             uses_emissive_strength = True
             material["extensions"] = {"KHR_materials_emissive_strength": {"emissiveStrength": round(strength, 6)}}
+        if entry.get("alpha_mode") == "mask":
+            material["alphaMode"] = "MASK"
+            cutoff = entry.get("alpha_cutoff")
+            material["alphaCutoff"] = round(0.5 if cutoff is None else float(cutoff), 6)
         material["doubleSided"] = True
         materials_json.append(material)
 

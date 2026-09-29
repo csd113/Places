@@ -442,7 +442,8 @@
         0.72,
         0.33
       ],
-      "solid": true
+      "solid": false,
+      "comment": "An upper cabinet 0.55 m above the 0.9 m walkable counter cannot be solid to a 1.8 m player; the base cabinets already block the floor. occludes stays true, so baked lighting and the artwork are unchanged."
     },
     {
       "model": "home:cabinet_wall",
@@ -455,7 +456,8 @@
         0.72,
         0.33
       ],
-      "solid": true
+      "solid": false,
+      "comment": "An upper cabinet 0.55 m above the 0.9 m walkable counter cannot be solid to a 1.8 m player; the base cabinets already block the floor. occludes stays true, so baked lighting and the artwork are unchanged."
     },
     {
       "model": "core:sink",
@@ -465,10 +467,11 @@
       "rotation_degrees": 270.0,
       "size": [
         0.6,
-        0.85,
+        0.9,
         0.55
       ],
-      "solid": true
+      "solid": true,
+      "comment": "The 0.90 m deck/rim plane is the standable approximation: the 0.40 x 0.31 m basin cannot admit a 0.6 m player disc, so the rim is treated as continuous support, and the faucet post above the deck is decorative and non-blocking."
     },
     {
       "model": "core:stove",

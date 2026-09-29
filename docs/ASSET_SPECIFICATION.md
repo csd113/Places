@@ -227,8 +227,9 @@ currently nothing enforces a minimum for any class.
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 1024×512 (current production); 128×64 painter output is contract-valid | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
-| Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
-| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
+| Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background. A catalog decal may add `"alpha_mode": "blend"` for a soft-edged feather sheet (path-to-grass strips); the default stays the hard 0.5 cut-out | no | full sheet fitted to the level placement's width × height | POT both edges |
+| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; a glTF material may declare `alphaMode: "MASK"` (+`alphaCutoff`, default 0.5) for alpha-cutout foliage, which draws through the engine's cutout pass, or `alphaMode: "BLEND"` for a translucent material, which only the character/dynamic translucent routes draw (a blended static architecture placement is an authoring error) | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
+| Sky sheet | `sky_stars_01.png` | **2:1 equirectangular** | 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
@@ -680,14 +681,34 @@ normal runtime texture         256x256 native
 ### 8.5 Materials, alpha and emissive maps
 
 * The loader reads `pbrMetallicRoughness.baseColorTexture` and
-  `baseColorFactor`, `emissiveFactor`, `emissiveTexture` and
-  `KHR_materials_emissive_strength`. It ignores `metallicFactor`,
-  `roughnessFactor`, `normalTexture`, `occlusionTexture`,
-  `metallicRoughnessTexture`, `alphaMode`, `alphaCutoff`, `doubleSided` and
-  samplers.
-* **Props always draw opaque.** There is no per-prop cut-out or blend path;
-  alpha in a model texture has no effect. The toolkit enforces this by writing
-  full opacity into every prop sheet.
+  `baseColorFactor`, `emissiveFactor`, `emissiveTexture`,
+  `KHR_materials_emissive_strength`, `alphaMode` and `alphaCutoff`. It ignores
+  `metallicFactor`, `roughnessFactor`, `normalTexture`, `occlusionTexture`,
+  `metallicRoughnessTexture`, `doubleSided` and samplers.
+* **Props draw opaque unless the material declares `alphaMode: "MASK"`.** A
+  masked primitive becomes the engine's alpha-tested cutout pass at the
+  authored `alphaCutoff` (glTF default 0.5); this is what grass tufts and tree
+  leaf cards use. The toolkit writes full opacity into every prop sheet unless
+  the builder opts in with `p.set_texture(size, alpha=True)` and
+  `p.material(..., alpha_mode="mask")`.
+* **`alphaMode: "BLEND"` is the blended-material contract.** The importer reads
+  it as a real translucent material and only the routes with a translucent
+  pass draw it: skinned characters (a fading sheet-ghost entity) and dynamic
+  objects. The static prop batch pass still draws opaque and cut-out batches
+  only, so a blended model placed as static architecture is a mistake — author
+  it as an entity. A glTF `baseColorFactor` alpha is folded into the vertex
+  colours by the importer, so the blend contract itself carries opacity `1.0`;
+  per-instance fade is a runtime component, not an asset property.
+* An emissive material is one slot of a model and lights nothing by itself
+  (`emissiveFactor`/`KHR_materials_emissive_strength`, optional
+  `emissiveTexture` mask). The Halloween entities use this for the carved
+  candle flame, the sheet ghost's cloth (with its face-feature primitive kept
+  much dimmer so the painted face stays readable) and the pumpkin head; their
+  actual illumination is the runtime `glow` component, never a baked static
+  light.
+* A masked prop still bakes as a *solid* occluder unless its level placement
+  sets `"occludes": false`: the bake derives coarse boxes from triangles and
+  cannot see alpha. Every scatter tool writes `"occludes": false` for foliage.
 * `baseColorFactor` is baked into vertex colours; the renderer adds the
   material's emissive term on top, never multiplied by the baked light.
 * An `emissiveTexture` is sampled with the *same* `TEXCOORD_0` as the base
@@ -756,13 +777,30 @@ The atlas is embedded by `tools/props/parts/duck_remade.py` during export.
 
 * 1 model unit = 1 metre; +Y up; +Z is the model's front at
   `rotation_degrees = 0`.
+* An **entity frame** (the per-frame handoff to the character renderer) carries
+  its world yaw in **radians**, `0` facing world `+Z`, the same unit as the
+  route state and the character pose; the AI layer stores yaw in degrees and
+  converts once at that handoff. See `assets/entities/README.md`.
 * The origin is the floor-contact point, horizontally centred under the
-  model's bounding box (base at `y = 0`).
+  model's bounding box (base at `y = 0`). A **hovering skinned character** is
+  the one exception: its bind pose may float above the origin (the sheet ghost
+  starts at ~0.17 m), and the level places it at `y = 0` so the hover is the
+  asset's own. The horizontal centre and a non-sinking base are still enforced.
 * The model's bounding box must match the catalog `size` within
   `max(2 cm, 6 % of the axis)`; the shipped-asset test and the prop tooling
   enforce it.
-* Budgets: 500 triangles preferred, 800 needs justification, 1500 is the art
-  budget; the engine loads up to 6000, then falls back to a placeholder.
+* Budgets: 500 triangles preferred, 800 needs justification, 1500 is the prop
+  art budget; a **skinned character** gets 3000 (the shipped pumpkin-head
+  skeleton is 2,278 across 94 joints), and the engine loads up to 6000, then
+  falls back to a placeholder. Models above the review threshold are listed in
+  the shipped-asset allowlist with their justification.
+
+The outdoor containment peg (`outdoor:collision_peg`) is the one model whose
+drawn geometry is meant to be hidden: a deliberately tiny 6 cm opaque cube with
+a 32×32 sheet, shipped only as the carrier for a level-authored invisible
+containment collider. A level places it `solid: true` with its own collider
+`size`, sets `occludes: false` and authors a `y` below the local floor, so the
+bake never sees the cube and the level contributes collision and nothing else.
 
 ---
 

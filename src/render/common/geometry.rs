@@ -383,6 +383,12 @@ fn emit_ceilings(
         if !room_is_tessellatable(room) {
             continue;
         }
+        // An open-ceiling room emits no ceiling batch at all: the sky (when the
+        // level declares one) is what shows above it, and the level's other
+        // geometry is unaffected.
+        if room.ceiling.is_open() {
+            continue;
+        }
         let ceiling_key = context.materials.key(
             MaterialSlot::Ceiling,
             room.ceiling_ref()

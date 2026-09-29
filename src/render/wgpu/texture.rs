@@ -96,13 +96,18 @@ impl TextureSemantic {
 ///
 /// Tiling surface sheets repeat; a fitted single-use sheet (a prop model's own
 /// texture, a fixture face) clamps, because its UVs never leave the image and a
-/// repeat wrap would bleed one edge of the artwork into the opposite edge.
+/// repeat wrap would bleed one edge of the artwork into the opposite edge. A
+/// sky sheet repeats horizontally (the equirectangular seam) and clamps at the
+/// poles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TextureWrap {
     /// `REPEAT` addressing.
     Repeat,
     /// `CLAMP_TO_EDGE` addressing.
     Clamp,
+    /// `REPEAT` in U (the sky's horizontal seam), `CLAMP_TO_EDGE` in V (its
+    /// poles).
+    RepeatClampV,
 }
 
 impl TextureWrap {
@@ -112,6 +117,7 @@ impl TextureWrap {
         match self {
             Self::Repeat => filtering.sampler_policy(),
             Self::Clamp => filtering.clamp_sampler_policy(),
+            Self::RepeatClampV => filtering.sky_sampler_policy(),
         }
     }
 }
@@ -263,6 +269,17 @@ impl TextureFiltering {
             Self::High => SamplerPolicy::ClampHigh,
         }
     }
+
+    /// The sampler policy this level selects for a sky sheet: the same world
+    /// presets with U repeating and V clamped at the equirectangular poles.
+    #[must_use]
+    pub const fn sky_sampler_policy(self) -> SamplerPolicy {
+        match self {
+            Self::Low => SamplerPolicy::SkyLow,
+            Self::Medium => SamplerPolicy::SkyMedium,
+            Self::High => SamplerPolicy::SkyHigh,
+        }
+    }
 }
 
 /// One shared sampler configuration.
@@ -286,6 +303,13 @@ pub enum SamplerPolicy {
     ClampMedium,
     /// A clamped world sheet at the High preset (16x requested anisotropy).
     ClampHigh,
+    /// A sky sheet at the Low preset: U repeats (the horizontal seam), V
+    /// clamps at the poles (4x requested anisotropy).
+    SkyLow,
+    /// A sky sheet at the Medium preset (8x requested anisotropy).
+    SkyMedium,
+    /// A sky sheet at the High preset (16x requested anisotropy).
+    SkyHigh,
     /// The retained point-sampled repeating policy; no world preset selects it.
     RepeatNearest,
     /// The fallback sheet and the UI's clamped point-sampled policy.
@@ -306,6 +330,9 @@ impl SamplerPolicy {
             Self::ClampLow => "places-wgpu-sampler-clamp-low",
             Self::ClampMedium => "places-wgpu-sampler-clamp-medium",
             Self::ClampHigh => "places-wgpu-sampler-clamp-high",
+            Self::SkyLow => "places-wgpu-sampler-sky-low",
+            Self::SkyMedium => "places-wgpu-sampler-sky-medium",
+            Self::SkyHigh => "places-wgpu-sampler-sky-high",
             Self::RepeatNearest => "places-wgpu-sampler-repeat-nearest",
             Self::ClampNearest => "places-wgpu-sampler-clamp-nearest",
             Self::ClampLinear => "places-wgpu-sampler-clamp-linear",
@@ -317,9 +344,9 @@ impl SamplerPolicy {
     #[must_use]
     pub const fn requested_anisotropy(self) -> u16 {
         match self {
-            Self::RepeatLow | Self::ClampLow => 4,
-            Self::RepeatMedium | Self::ClampMedium => 8,
-            Self::RepeatHigh | Self::ClampHigh => 16,
+            Self::RepeatLow | Self::ClampLow | Self::SkyLow => 4,
+            Self::RepeatMedium | Self::ClampMedium | Self::SkyMedium => 8,
+            Self::RepeatHigh | Self::ClampHigh | Self::SkyHigh => 16,
             Self::RepeatNearest | Self::ClampNearest | Self::ClampLinear => 1,
         }
     }
@@ -331,23 +358,33 @@ impl SamplerPolicy {
     /// linear policies request 1.
     #[must_use]
     pub const fn descriptor(self) -> wgpu::SamplerDescriptor<'static> {
-        let (address, filter, mip) = match self {
+        let (address_u, address_v, filter, mip) = match self {
             Self::RepeatLow | Self::RepeatMedium | Self::RepeatHigh => (
+                wgpu::AddressMode::Repeat,
                 wgpu::AddressMode::Repeat,
                 wgpu::FilterMode::Linear,
                 wgpu::MipmapFilterMode::Linear,
             ),
+            Self::SkyLow | Self::SkyMedium | Self::SkyHigh => (
+                wgpu::AddressMode::Repeat,
+                wgpu::AddressMode::ClampToEdge,
+                wgpu::FilterMode::Linear,
+                wgpu::MipmapFilterMode::Linear,
+            ),
             Self::ClampLow | Self::ClampMedium | Self::ClampHigh | Self::ClampLinear => (
+                wgpu::AddressMode::ClampToEdge,
                 wgpu::AddressMode::ClampToEdge,
                 wgpu::FilterMode::Linear,
                 wgpu::MipmapFilterMode::Linear,
             ),
             Self::RepeatNearest => (
                 wgpu::AddressMode::Repeat,
+                wgpu::AddressMode::Repeat,
                 wgpu::FilterMode::Nearest,
                 wgpu::MipmapFilterMode::Nearest,
             ),
             Self::ClampNearest => (
+                wgpu::AddressMode::ClampToEdge,
                 wgpu::AddressMode::ClampToEdge,
                 wgpu::FilterMode::Nearest,
                 wgpu::MipmapFilterMode::Nearest,
@@ -355,9 +392,9 @@ impl SamplerPolicy {
         };
         wgpu::SamplerDescriptor {
             label: Some(self.label()),
-            address_mode_u: address,
-            address_mode_v: address,
-            address_mode_w: address,
+            address_mode_u: address_u,
+            address_mode_v: address_v,
+            address_mode_w: address_v,
             mag_filter: filter,
             min_filter: filter,
             mipmap_filter: mip,
@@ -653,7 +690,7 @@ impl PreparedTexture {
     }
 }
 
-/// The nine shared samplers the world and every later pass use.
+/// The twelve shared samplers the world and every later pass use.
 ///
 /// The six world presets are created with
 /// [`SamplerPolicy::effective_descriptor`], so an adapter without anisotropic
@@ -666,6 +703,9 @@ struct Samplers {
     clamp_low: wgpu::Sampler,
     clamp_medium: wgpu::Sampler,
     clamp_high: wgpu::Sampler,
+    sky_low: wgpu::Sampler,
+    sky_medium: wgpu::Sampler,
+    sky_high: wgpu::Sampler,
     repeat_nearest: wgpu::Sampler,
     clamp_nearest: wgpu::Sampler,
     clamp_linear: wgpu::Sampler,
@@ -684,6 +724,9 @@ impl Samplers {
             clamp_low: create(SamplerPolicy::ClampLow),
             clamp_medium: create(SamplerPolicy::ClampMedium),
             clamp_high: create(SamplerPolicy::ClampHigh),
+            sky_low: create(SamplerPolicy::SkyLow),
+            sky_medium: create(SamplerPolicy::SkyMedium),
+            sky_high: create(SamplerPolicy::SkyHigh),
             repeat_nearest: create(SamplerPolicy::RepeatNearest),
             clamp_nearest: create(SamplerPolicy::ClampNearest),
             clamp_linear: create(SamplerPolicy::ClampLinear),
@@ -699,6 +742,9 @@ impl Samplers {
             SamplerPolicy::ClampLow => &self.clamp_low,
             SamplerPolicy::ClampMedium => &self.clamp_medium,
             SamplerPolicy::ClampHigh => &self.clamp_high,
+            SamplerPolicy::SkyLow => &self.sky_low,
+            SamplerPolicy::SkyMedium => &self.sky_medium,
+            SamplerPolicy::SkyHigh => &self.sky_high,
             SamplerPolicy::RepeatNearest => &self.repeat_nearest,
             SamplerPolicy::ClampNearest => &self.clamp_nearest,
             SamplerPolicy::ClampLinear => &self.clamp_linear,
@@ -988,6 +1034,23 @@ impl TextureCache {
             level,
             wrap: TextureWrap::Clamp,
         };
+        self.get_or_upload_key(device, queue, key, image, origin)
+    }
+
+    /// Uploads one level sheet under an explicit cache identity.
+    ///
+    /// Used by the sky, whose equirectangular sheet repeats in U (the seam) and
+    /// clamps in V (the poles): the caller builds the full [`TextureKey`] and
+    /// this is the one upload path, so a bespoke identity cannot bypass the
+    /// cache's retirement rules.
+    pub fn get_or_upload_with_key(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        key: TextureKey,
+        image: &RawImage,
+        origin: TextureOrigin,
+    ) -> (CacheOutcome, Arc<GpuTexture>) {
         self.get_or_upload_key(device, queue, key, image, origin)
     }
 

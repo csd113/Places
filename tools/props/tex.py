@@ -83,7 +83,7 @@ def write_png(width: int, height: int, rgba: bytes) -> bytes:
 class Texture:
     """A procedural RGBA canvas with named UV regions."""
 
-    def __init__(self, size: int = 64, seed: int = 1) -> None:
+    def __init__(self, size: int = 64, seed: int = 1, keep_alpha: bool = False) -> None:
         if size not in (32, 64, 128, 256):
             raise ValueError("texture size must be 32, 64, 128 or 256")
         self.width = size
@@ -92,6 +92,10 @@ class Texture:
         self.regions: Dict[str, Rect] = {}
         self.rng = Rng(seed)
         self._last_fill: Dict[str, Color] = {}
+        # Props are opaque by default. An alpha-cutout prop (foliage) opts in:
+        # its painted alpha is then the material mask the game's cutout pass
+        # discards below the glTF ``alphaCutoff``.
+        self.keep_alpha = bool(keep_alpha)
 
     # --------------------------------------------------------------- regions
 
@@ -410,7 +414,9 @@ class Texture:
     # --------------------------------------------------------------- output
 
     def to_rgba(self) -> bytes:
-        # Guarantee full opacity: props use no alpha blending.
+        # Guarantee full opacity unless the prop opted into alpha cutout.
+        if self.keep_alpha:
+            return bytes(self.pixels)
         data = bytearray(self.pixels)
         for index in range(3, len(data), 4):
             data[index] = 255

@@ -1038,6 +1038,18 @@ fn build_variant(
                 build.lightmaps = Some(atlas);
                 build.lightmap_failure = None;
                 lightmap_failure = None;
+                // A feather decal must read like the prepared surface under it:
+                // rewrite the blended decals' vertex light from the same probe
+                // field moving objects use. Cut-out decals are untouched.
+                if let Some(field) = build.probes.as_deref() {
+                    crate::render::relight_blend_decals(
+                        &mut build.mesh,
+                        level,
+                        catalog.assets(),
+                        &build.lighting,
+                        field,
+                    );
+                }
             }
             crate::render::LightmapFillOutcome::Failed(failure) => {
                 // The runtime contract falls back to the vertex-lit build with
@@ -1233,6 +1245,13 @@ fn collect_dependencies(
         if let Some(path) = catalog.assets().fixture_sheet_path(&light.fixture) {
             add(DependencyKind::Texture, path)?;
         }
+    }
+    // The sky sheet is a level dependency like any surface texture: editing it
+    // must invalidate the prepared package.
+    if let Some(sky) = &level.sky
+        && let Some(path) = catalog.assets().texture_path(sky.texture.trim())
+    {
+        add(DependencyKind::Texture, path)?;
     }
     Ok(identities.into_values().collect())
 }

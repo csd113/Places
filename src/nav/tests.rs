@@ -758,13 +758,18 @@ fn settle_doors(doors: &mut Doors) {
     panic!("a demo door never settled");
 }
 
-/// The real Demo bakes the reference humanoid plus the two actor bodies, all
-/// four authored doors become portals, and the frozen grid's exact report.
+/// The real Demo bakes the reference humanoid, the two actor bodies and the
+/// night route's pumpkin skeleton, all six authored doors become portals, and
+/// the frozen grid's exact report.
 #[test]
-fn the_demo_bakes_three_classes_four_portals_and_the_frozen_grid() {
+fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
     let (level, mesh, report) = demo_nav();
-    assert!(level.doors.len() == 4, "the demo authors four doors");
-    assert_eq!(mesh.grid().classes.len(), 3, "reference + two actor bodies");
+    assert!(level.doors.len() == 6, "the demo authors six doors");
+    assert_eq!(
+        mesh.grid().classes.len(),
+        4,
+        "reference + the two actor bodies + the night-route pumpkin skeleton"
+    );
     let mut portals: Vec<&str> = mesh
         .grid()
         .portals
@@ -774,14 +779,22 @@ fn the_demo_bakes_three_classes_four_portals_and_the_frozen_grid() {
     portals.sort_unstable();
     assert_eq!(
         portals,
-        ["hall_door", "sauna_door", "sauna_shower_door", "study_door"],
+        [
+            "hall_door",
+            "night_house_door",
+            "night_source_door",
+            "sauna_door",
+            "sauna_shower_door",
+            "study_door"
+        ],
         "every authored door is a portal"
     );
-    assert_eq!(report.portals, 4, "the bake reports four portals");
-    // Frozen grid: 360 x 171 cells of 0.2 m over the demo's room footprint.
-    assert_eq!((report.cells_x, report.cells_z), (360, 171));
-    assert_eq!(report.surface_cells, 21031, "walkable-surface cells");
-    assert_eq!(report.walkable_cells.len(), 3);
+    assert_eq!(report.portals, 6, "the bake reports six portals");
+    // Frozen grid: the same 0.2 m cells over the demo's room footprint, now
+    // including the night yard and the destination house.
+    assert_eq!((report.cells_x, report.cells_z), (361, 586));
+    assert_eq!(report.surface_cells, 78_147, "walkable-surface cells");
+    assert_eq!(report.walkable_cells.len(), 4);
     for (class, cells) in report.walkable_cells.iter().enumerate() {
         assert!(
             *cells > 10_000,

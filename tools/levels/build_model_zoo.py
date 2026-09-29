@@ -97,6 +97,16 @@ POSED = {"mannequin", "skeleton"}
 # displayed in full.
 LADDER_COMPANION = "core:pool_ladder"
 
+# The catalogue `size` is the model's true visual bounds. A solid prop's
+# collision box must be its standable mass, so a display whose geometry rises
+# above the surface a player can actually stand on declares that standable size
+# here: `core:sink`'s deck is the 0.90 m plane the player lands on, while the
+# catalogue's 1.1 m bounds include the decorative faucet post, which must never
+# block. Consulted by ``Layout.add_prop`` for solid placements only.
+SOLID_SIZE_OVERRIDES: Dict[str, List[float]] = {
+    "core:sink": [0.6, 0.9, 0.55],
+}
+
 # Emissive props that must actually illuminate: a light is authored into the
 # placement's own `lights` array, exactly as Places Demo does.
 PROP_LIGHTS = {
@@ -682,6 +692,11 @@ class Layout:
             placement["components"] = components
             placement["bindings"] = bindings
         placement.update(fields)
+        # A solid placement collides with its standable mass, not necessarily
+        # the model's full visual bounds (see SOLID_SIZE_OVERRIDES).
+        override = SOLID_SIZE_OVERRIDES.get(entry["id"]) if placement["solid"] else None
+        if override is not None:
+            placement["size"] = [round(float(value), 3) for value in override]
         self.props.append(placement)
         return placement
 

@@ -112,3 +112,29 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
     let alpha = base.a * in.color.a;
     return vec4<f32>(base.rgb * in.color.rgb, alpha);
 }
+
+// A soft-edged decal (a path-to-grass feather strip): the same texture
+// multiply, but the alpha is carried into the blender instead of tested. Fully
+// transparent texels are still discarded so a mip-filtered sheet never writes
+// a rectangle of nothing, and degenerate alpha cannot produce NaN blending.
+@fragment
+fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
+    let base = textureSample(decal_texture, decal_sampler, in.uv);
+    let alpha = base.a * in.color.a;
+    if (alpha == 0.0) {
+        discard;
+    }
+    // One conversion, on the display-space product.
+    return vec4<f32>(srgb_to_linear(base.rgb * in.color.rgb), alpha);
+}
+
+// The blended fragment for a raw (non-sRGB) scene target.
+@fragment
+fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
+    let base = textureSample(decal_texture, decal_sampler, in.uv);
+    let alpha = base.a * in.color.a;
+    if (alpha == 0.0) {
+        discard;
+    }
+    return vec4<f32>(base.rgb * in.color.rgb, alpha);
+}

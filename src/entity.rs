@@ -16,7 +16,7 @@
 //!       |                              |
 //!       |  advance(delta, walls/floor) |
 //!       v                              v
-//!   EntityFrame { instance_id, transform, PoseCue } per frame -> renderer
+//!   EntityFrame { instance_id, transform, PoseCue, opacity, GlowCue } per frame -> renderer
 //! ```
 //!
 //! Identity is the placed-instance id, exactly like labels and interactions,
@@ -200,7 +200,10 @@ impl EntityRoutes {
                     | crate::level::ComponentDef::Steam { .. }
                     | crate::level::ComponentDef::Water { .. }
                     | crate::level::ComponentDef::NavObstacle { .. }
-                    | crate::level::ComponentDef::Ai(_) => None,
+                    | crate::level::ComponentDef::Ai(_)
+                    // The render-side components never move the body.
+                    | crate::level::ComponentDef::Fade(_)
+                    | crate::level::ComponentDef::Glow(_) => None,
                 });
             let (radius, body_height, step_height) = body.unwrap_or_else(|| {
                 (
@@ -474,16 +477,44 @@ pub struct RouteWorld<'a> {
     pub index: &'a crate::collision_index::CollisionIndex,
 }
 
+/// One attached light the renderer places at an animated socket or offset.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GlowCue {
+    /// Animated joint/node name the light attaches to; `None` uses `offset`.
+    pub socket: Option<String>,
+    /// Entity-local offset in metres.
+    pub offset: [f32; 3],
+    /// Linear colour, each channel in `0..=1`.
+    pub color: [f32; 3],
+    /// Intensity before any fade scaling.
+    pub intensity: f32,
+    /// Reach in metres.
+    pub range: f32,
+    /// True multiplies the intensity by [`EntityFrame::opacity`].
+    pub fade_with_opacity: bool,
+}
+
 /// One entity's per-frame handoff to the renderer.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EntityFrame {
     /// Placed-instance id the renderer's character is keyed by.
     pub instance_id: String,
-    /// Live base position and yaw, when the route moved the entity.
+    /// Live base position and yaw in radians, when the runtime moved the
+    /// entity (a route step or an AI agent).
+    ///
+    /// The yaw is radians with `0` facing world `+Z`, exactly like
+    /// [`RouteState::yaw`] and the renderer's `Character::set_pose`. The AI
+    /// layer stores degrees and converts once at its frame handoff.
     pub transform: Option<(Vec3, f32)>,
     /// The pose to play this frame (an interaction override wins over the
     /// route's own cue).
     pub cue: PoseCue,
+    /// Opacity of the entity this frame, `1.0` when it has no `fade`
+    /// component.
+    pub opacity: f32,
+    /// The attached light this frame, `None` when the entity has no `glow`
+    /// component.
+    pub glow: Option<GlowCue>,
 }
 
 /// Shortest signed angular difference `to - from`, in radians.

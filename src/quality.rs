@@ -86,6 +86,12 @@ pub enum TextureClass {
     Prop,
     /// A material's emissive mask.
     EmissionMask,
+    /// A level's night-sky sheet.
+    ///
+    /// The sky is an equirectangular 2:1 sheet sampled by view direction: it
+    /// repeats horizontally (the sphere's `u` seam) and clamps at the poles, so
+    /// it is the one class whose two axes have different budgets and wrap.
+    Sky,
 }
 
 /// Full-quality edge budget: surfaces and fitted sheets at 1024.
@@ -94,6 +100,11 @@ const FULL_SHEET_EDGE: u32 = 1_024;
 const FULL_PROP_EDGE: u32 = 256;
 /// Full-quality edge budget: emissive masks at 512.
 const FULL_MASK_EDGE: u32 = 512;
+/// Full- and Medium-quality edge budget: sky sheets at 1024 (their 2:1 sheet is
+/// 1024x512, the largest the runtime decoder accepts).
+const FULL_SKY_EDGE: u32 = 1_024;
+/// Low-quality edge budget: sky sheets at 512 (512x256).
+const LOW_SKY_EDGE: u32 = 512;
 /// Medium-quality edge budget: sheets at 512.
 const MEDIUM_SHEET_EDGE: u32 = 512;
 /// Medium-quality edge budget: emissive masks at 256.
@@ -154,12 +165,14 @@ impl QualityProfile {
             ) => FULL_SHEET_EDGE,
             (Self::Full, TextureClass::Prop) => FULL_PROP_EDGE,
             (Self::Full, TextureClass::EmissionMask) => FULL_MASK_EDGE,
+            (Self::Full, TextureClass::Sky) => FULL_SKY_EDGE,
             (
                 Self::Low,
                 TextureClass::Surface | TextureClass::FixtureFace | TextureClass::DecalSheet,
             ) => LOW_SHEET_EDGE,
             (Self::Low, TextureClass::Prop) => LOW_PROP_EDGE,
             (Self::Low, TextureClass::EmissionMask) => LOW_MASK_EDGE,
+            (Self::Low, TextureClass::Sky) => LOW_SKY_EDGE,
         }
     }
 
@@ -363,6 +376,7 @@ impl QualityLevel {
                 }
                 TextureClass::Prop => FULL_PROP_EDGE,
                 TextureClass::EmissionMask => MEDIUM_MASK_EDGE,
+                TextureClass::Sky => FULL_SKY_EDGE,
             },
             Self::High => QualityProfile::Full.budget(class),
         }

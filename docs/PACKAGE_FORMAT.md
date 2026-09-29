@@ -189,16 +189,26 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 1 | batch_count u32
+magic "PLMP" | version u16 = 3 | batch_count u32
 batch {
   model u32 length + UTF-8
   bounds_min f32 x 3 | bounds_max f32 x 3
   submesh_count u32
-  submeshes { texture optional u16 | emission colour f32 x 3, intensity f32,
-              mask optional u16 | first_index u32 | index_count u32 }
+  submeshes { texture optional u16 | alpha_mode u8 (0 opaque, 1 cutout, 2 blend)
+              | alpha_cutoff f32
+              | emission colour f32 x 3, intensity f32, mask optional u16
+              | first_index u32 | index_count u32 }
   vertices u32 count + 69-byte vertices | indices u32 count + u16
 }
 ```
+
+Version 2 added the per-submesh alpha contract; version 3 added the blended
+mode. A blended submesh carries opacity `1.0` in the record: an imported GLB's
+`baseColorFactor` alpha is already folded into its vertices, and per-instance
+fade is a runtime component, not baked content. The static prop draw path still
+classifies every prop batch as opaque or cut-out; the blended flag exists so
+the record reproduces the model's alpha contract exactly and the runtime
+character/dynamic routes can consume it.
 
 Submesh ranges must lie inside the batch's index list and every index must be
 inside the batch's vertex list.

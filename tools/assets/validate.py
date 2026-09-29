@@ -122,6 +122,8 @@ COMPONENT_TAGS = (
     "nav_agent",
     "nav_obstacle",
     "ai",
+    "fade",
+    "glow",
 )
 EVENT_KINDS = (
     "interact",
@@ -167,6 +169,12 @@ MAX_ACTIONS_PER_SOURCE = 8
 MAX_BINDINGS_PER_ENTITY = 16
 MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
+# Mirrors src/level.rs: fade period and glow intensity/range/offset bounds.
+MAX_FADE_PERIOD_SECONDS = 3600.0
+MAX_GLOW_INTENSITY = 8.0
+MIN_GLOW_RANGE_M = 0.05
+MAX_GLOW_RANGE_M = 64.0
+MAX_GLOW_OFFSET_M = 4.0
 MAX_ENTITY_ROUTES = 256
 MAX_LEVEL_SEQUENCES = 256
 MAX_SEQUENCE_STEPS = 64
@@ -453,8 +461,8 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             if not valid_tint:
                 errors.append(f"{where}: tint must be three numbers in 0..1")
         surface = entry.get("surface")
-        if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling"):
-            errors.append(f"{where}: surface must be 'wall', 'floor' or 'ceiling'")
+        if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling", "sky"):
+            errors.append(f"{where}: surface must be 'wall', 'floor', 'ceiling' or 'sky'")
 
         # Surface-response and alpha fields. Like emission these are material
         # definition fields: a prop or a texture that authored them would be a
@@ -485,9 +493,27 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             )
         )
         if declares_response and not (asset_type == "material" and source == "definition"):
-            errors.append(
-                f"{where}: surface-response and alpha fields are only valid on a definition material"
+            # A file-backed decal sheet may author only its alpha handling: a
+            # soft-edged `blend` sheet is the path-to-grass feather, and it has
+            # no other material state to declare.
+            decal_alpha_only = (
+                asset_type == "decal"
+                and source == "file"
+                and normal_texture is None
+                and normal_strength is None
+                and specular is None
+                and specular_color is None
+                and shine is None
+                and opacity is None
+                and alpha_cutoff is None
+                and reflection_mode is None
+                and reflection_strength is None
             )
+            if not decal_alpha_only:
+                errors.append(
+                    f"{where}: surface-response and alpha fields are only valid on a definition "
+                    f"material; a file decal may declare only alpha_mode"
+                )
         else:
             if normal_texture is not None:
                 normal_id = str(normal_texture).strip()
@@ -1283,6 +1309,74 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                 or not all(is_finite_number(value) and value > 0.0 for value in size)
             ):
                 errors.append(f"{entry} size must be [width, height, depth] of positive numbers")
+        elif tag == "fade":
+            period = component.get("period_seconds")
+            if (
+                not is_finite_number(period)
+                or period <= 0.0
+                or period > MAX_FADE_PERIOD_SECONDS
+            ):
+                errors.append(
+                    f"{entry} period_seconds must be in (0, {MAX_FADE_PERIOD_SECONDS}]"
+                )
+            phase = component.get("phase")
+            if phase is not None and (
+                not is_finite_number(phase) or phase < 0.0 or phase > 1.0
+            ):
+                errors.append(f"{entry} phase must be between 0 and 1")
+            minimum = component.get("min_opacity", 0.0)
+            maximum = component.get("max_opacity", 1.0)
+            for key, value in (("min_opacity", minimum), ("max_opacity", maximum)):
+                if not is_finite_number(value) or value < 0.0 or value > 1.0:
+                    errors.append(f"{entry} {key} must be between 0 and 1")
+            if (
+                is_finite_number(minimum)
+                and is_finite_number(maximum)
+                and minimum > maximum
+            ):
+                errors.append(f"{entry} min_opacity must not exceed max_opacity")
+        elif tag == "glow":
+            color = component.get("color", [1.0, 0.86, 0.6])
+            if (
+                not isinstance(color, list)
+                or len(color) != 3
+                or not all(
+                    is_finite_number(channel) and 0.0 <= channel <= 1.0
+                    for channel in color
+                )
+            ):
+                errors.append(f"{entry} color must be three channels between 0 and 1")
+            intensity = component.get("intensity", 0.5)
+            if (
+                not is_finite_number(intensity)
+                or intensity < 0.0
+                or intensity > MAX_GLOW_INTENSITY
+            ):
+                errors.append(f"{entry} intensity must be in [0, {MAX_GLOW_INTENSITY}]")
+            span = component.get("range", 3.0)
+            if (
+                not is_finite_number(span)
+                or span < MIN_GLOW_RANGE_M
+                or span > MAX_GLOW_RANGE_M
+            ):
+                errors.append(
+                    f"{entry} range must be in [{MIN_GLOW_RANGE_M}, {MAX_GLOW_RANGE_M}]"
+                )
+            socket = component.get("socket")
+            if socket is not None and (not isinstance(socket, str) or not socket.strip()):
+                errors.append(f"{entry} socket must not be blank when specified")
+            offset = component.get("offset")
+            if offset is not None and (
+                not isinstance(offset, list)
+                or len(offset) != 3
+                or not all(
+                    is_finite_number(axis) and abs(axis) <= MAX_GLOW_OFFSET_M
+                    for axis in offset
+                )
+            ):
+                errors.append(
+                    f"{entry} offset must be three finite values within +/-{MAX_GLOW_OFFSET_M}"
+                )
         elif tag in ("steam", "water") and "enabled" in component:
             if not isinstance(component["enabled"], bool):
                 errors.append(f"{entry} enabled must be a boolean")

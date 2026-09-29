@@ -51,7 +51,8 @@ use crate::level::LevelDef;
 use crate::materials::RawImage;
 use crate::quality::{QualityLevel, TextureClass, fit_image};
 use crate::render::common::decals::{
-    DECAL_ATLAS_SIZE, DECAL_EXTERNAL_BASE, decal_external_sheet_ids, generate_decal_atlas,
+    DECAL_ATLAS_SIZE, DECAL_EXTERNAL_BASE, decal_blend_sheets, decal_external_sheet_ids,
+    decal_sheet_is_blend, generate_decal_atlas,
 };
 use crate::render::common::mesh::{LevelMesh, MaterialIndex, SurfaceKind, Vertex};
 use crate::render::common::{MeshChunk, MeshPacker};
@@ -68,6 +69,28 @@ pub const DECAL_FRAGMENT_ENTRY: &str = "fs_main";
 /// the decal product is display-space, so it is written directly, exactly like
 /// the world shader's raw entry points.
 pub const DECAL_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
+/// The blended (soft-edge) fragment entry point.
+pub const DECAL_BLEND_ENTRY: &str = "fs_blend";
+/// The blended fragment entry point for a raw (non-sRGB) target.
+pub const DECAL_BLEND_ENTRY_RAW: &str = "fs_blend_raw";
+
+/// The blended decal pipeline's blend state.
+///
+/// The same `glBlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA)` + `FUNC_ADD` contract
+/// the world translucent pass uses, written out explicitly so both channels get
+/// the reference's factors.
+const BLEND_DECAL_STATE: wgpu::BlendState = wgpu::BlendState {
+    color: wgpu::BlendComponent {
+        src_factor: wgpu::BlendFactor::SrcAlpha,
+        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+        operation: wgpu::BlendOperation::Add,
+    },
+    alpha: wgpu::BlendComponent {
+        src_factor: wgpu::BlendFactor::SrcAlpha,
+        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+        operation: wgpu::BlendOperation::Add,
+    },
+};
 
 /// The format every decal sheet uploads as.
 ///
@@ -139,6 +162,9 @@ struct DecalDraw {
     bounds: Aabb,
     /// The decal sheet index this range samples.
     sheet: MaterialIndex,
+    /// True when the sheet is a soft-edged (blended) decal: drawn after the
+    /// cutout decals, back to front, with depth writes off.
+    blend: bool,
 }
 
 /// What one upload produced, as plain counters.
@@ -204,6 +230,10 @@ pub struct DecalEncodeInputs<'a> {
 /// pipeline always agree on group 1.
 pub struct DecalPipeline {
     pipeline: wgpu::RenderPipeline,
+    /// The soft-edged variant: same program and vertex state, blending on and
+    /// depth writes off, for decals whose catalog entry authors
+    /// `alpha_mode: "blend"`.
+    blend_pipeline: wgpu::RenderPipeline,
     sheet_layout: wgpu::BindGroupLayout,
     camera_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
@@ -263,14 +293,26 @@ fn sheet_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
 /// The reference's decal program plus its raster state: `LessEqual` depth with
 /// writes on, [`DECAL_DEPTH_BIAS`], no culling (`GL_CULL_FACE` is never
 /// enabled), no blending and the shared world vertex layout.
+///
+/// `blend` builds the soft-edge variant of the same program: the same bias and
+/// vertex state, but `fs_blend`/`fs_blend_raw` with
+/// [`BLEND_DECAL_STATE`] and depth writes off, so a feathered sheet fades
+/// instead of testing at the hard 0.5 cut-out. It still tests depth
+/// (`LessEqual`) against every opaque surface and against the cut-out decals,
+/// so it can never draw through the floor it is printed on.
 fn build_decal_pipeline(
     device: &wgpu::Device,
     format: wgpu::TextureFormat,
     pipeline_layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
+    blend: bool,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("places-wgpu-decal"),
+        label: Some(if blend {
+            "places-wgpu-decal-blend"
+        } else {
+            "places-wgpu-decal"
+        }),
         layout: Some(pipeline_layout),
         vertex: wgpu::VertexState {
             module: shader,
@@ -293,8 +335,10 @@ fn build_decal_pipeline(
         },
         depth_stencil: Some(wgpu::DepthStencilState {
             format: DEPTH_FORMAT,
-            // The reference keeps depth writes on during the decal pass.
-            depth_write_enabled: Some(true),
+            // The reference keeps depth writes on during the cut-out decal
+            // pass; a blended decal must not write depth, or every feathered
+            // sheet would occlude whatever the scene draws after it.
+            depth_write_enabled: Some(!blend),
             // The reference's `glDepthFunc(GL_LEQUAL)`.
             depth_compare: Some(wgpu::CompareFunction::LessEqual),
             stencil: wgpu::StencilState::default(),
@@ -303,17 +347,18 @@ fn build_decal_pipeline(
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: shader,
-            entry_point: Some(if format.is_srgb() {
-                DECAL_FRAGMENT_ENTRY
-            } else {
-                DECAL_FRAGMENT_ENTRY_RAW
+            entry_point: Some(match (blend, format.is_srgb()) {
+                (false, true) => DECAL_FRAGMENT_ENTRY,
+                (false, false) => DECAL_FRAGMENT_ENTRY_RAW,
+                (true, true) => DECAL_BLEND_ENTRY,
+                (true, false) => DECAL_BLEND_ENTRY_RAW,
             }),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format,
-                // Decals are opaque-with-discard: the reference never enables
-                // blending for them.
-                blend: None,
+                // Cut-out decals are opaque-with-discard: the reference never
+                // enables blending for them. The soft-edge variant blends.
+                blend: if blend { Some(BLEND_DECAL_STATE) } else { None },
                 write_mask: wgpu::ColorWrites::ALL,
             })],
         }),
@@ -351,9 +396,11 @@ impl DecalPipeline {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-        let pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader);
+        let pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, false);
+        let blend_pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, true);
         Self {
             pipeline,
+            blend_pipeline,
             sheet_layout,
             camera_buffer,
             bind_group,
@@ -463,7 +510,15 @@ impl WgpuDecals {
         inputs: DecalUploadInputs<'_>,
         level: QualityLevel,
     ) -> Self {
-        let (packer, draws) = pack_decal_ranges(inputs.mesh);
+        let (packer, mut draws) = pack_decal_ranges(inputs.mesh);
+        // A decal sheet whose catalog entry authors `alpha_mode: "blend"` is a
+        // soft-edged sheet: its ranges move to the blended pipeline. The flag
+        // is derived from the level and catalog alone, exactly like the sheet
+        // mapping, so it cannot drift from what `upload_sheets` loaded.
+        let blend_sheets = decal_blend_sheets(inputs.level, inputs.catalog);
+        for draw in &mut draws {
+            draw.blend = decal_sheet_is_blend(draw.sheet, &blend_sheets);
+        }
         let mut chunks: Vec<DecalChunk> = Vec::with_capacity(packer.chunks.len());
         for chunk in &packer.chunks {
             chunks.push(upload_chunk(device, queue, chunk));
@@ -519,9 +574,11 @@ impl WgpuDecals {
     ///
     /// The caller opens the pass on the same colour + depth targets the scene
     /// body used; decals run last, with the depth test on, exactly like the
-    /// reference's `draw_decal_batches`. Within the pass the packed draw order
-    /// is kept and vertex/index buffers and sheets are rebound only when a run
-    /// of draws changes them.
+    /// reference's `draw_decal_batches`. Cut-out decals keep the packed draw
+    /// order; soft-edged (`alpha_mode: "blend"`) sheets draw after them through
+    /// the blended pipeline, sorted back to front, so overlapping feather
+    /// strips composite in a stable order. Vertex/index buffers and sheets are
+    /// rebound only when a run of draws changes them.
     #[must_use]
     pub fn encode<'a>(
         &'a self,
@@ -533,16 +590,55 @@ impl WgpuDecals {
         if self.is_empty() {
             return totals;
         }
-        pass.set_pipeline(&pipeline.pipeline);
         pass.set_bind_group(0, &pipeline.bind_group, &[]);
+        // Cut-out ranges first (they write depth), then the blended ranges back
+        // to front. The sort only runs when the level actually authors a
+        // soft-edged sheet, so an ordinary level keeps its exact packed order.
+        let mut order: Vec<usize> = (0..self.draws.len()).collect();
+        let has_blend = self.draws.iter().any(|draw| draw.blend);
+        if has_blend {
+            let eye = inputs.frame.eye;
+            let distance_squared = |index: usize| -> f32 {
+                self.draws.get(index).map_or(0.0, |draw| {
+                    let centre = draw.bounds.centre();
+                    let dx = centre[0] - eye.x;
+                    let dy = centre[1] - eye.y;
+                    let dz = centre[2] - eye.z;
+                    dx.mul_add(dx, dy.mul_add(dy, dz * dz))
+                })
+            };
+            order.sort_by(|a, b| {
+                let blend_a = self.draws.get(*a).is_some_and(|draw| draw.blend);
+                let blend_b = self.draws.get(*b).is_some_and(|draw| draw.blend);
+                blend_a.cmp(&blend_b).then_with(|| {
+                    if blend_a {
+                        distance_squared(*b).total_cmp(&distance_squared(*a))
+                    } else {
+                        a.cmp(b)
+                    }
+                })
+            });
+        }
+        let mut bound_pipeline: Option<bool> = None;
         let mut bound_chunk: Option<usize> = None;
         let mut bound_sheet: Option<usize> = None;
-        for draw in &self.draws {
+        for index in order {
+            let Some(draw) = self.draws.get(index) else {
+                continue;
+            };
             if draw.index_count == 0 {
                 continue;
             }
             if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
                 continue;
+            }
+            if bound_pipeline != Some(draw.blend) {
+                pass.set_pipeline(if draw.blend {
+                    &pipeline.blend_pipeline
+                } else {
+                    &pipeline.pipeline
+                });
+                bound_pipeline = Some(draw.blend);
             }
             let slot = sheet_slot_for(draw.sheet, self.external_sheets);
             if bound_sheet != Some(slot) {
@@ -598,6 +694,7 @@ fn pack_decal_ranges(mesh: &LevelMesh) -> (MeshPacker, Vec<DecalDraw>) {
                 vertex_count: u32::try_from(packed.vertex_count).unwrap_or(u32::MAX),
                 bounds: range.bounds,
                 sheet: range.key.material,
+                blend: false,
             });
         }
     }
@@ -1019,6 +1116,50 @@ mod tests {
     }
 
     // ---------------------------------------------------------- depth bias
+
+    #[test]
+    fn a_blend_catalog_decal_sheet_draws_on_the_soft_edge_pipeline() {
+        let level = crate::level::LevelDef::from_json(
+            r#"{
+                "format_version": 3,
+                "id": "feather",
+                "name": "Feather",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
+                "decals": [
+                    { "x": 1.0, "z": 1.0, "width": 1.0, "height": 0.5,
+                      "material": "outdoor:decal_path_edge_01", "surface": "floor" },
+                    { "x": 2.0, "z": 1.0, "width": 1.0, "height": 0.5,
+                      "material": "outdoor:decal_path_end_01", "surface": "floor" }
+                ]
+            }"#,
+        )
+        .expect("feather level parses");
+        let catalog = crate::loader::PropCatalog::load_default();
+        let ids = decal_external_sheet_ids(&level, catalog.assets());
+        assert_eq!(
+            ids,
+            vec![
+                "outdoor:decal_path_edge_01".to_string(),
+                "outdoor:decal_path_end_01".to_string()
+            ]
+        );
+        let flags = decal_blend_sheets(&level, catalog.assets());
+        assert_eq!(flags, vec![true, true], "both feather sheets are blended");
+
+        let index = crate::render::common::decals::decal_sheet_index(
+            &level,
+            catalog.assets(),
+            "outdoor:decal_path_edge_01",
+        )
+        .expect("the feather sheet has an index");
+        let index = MaterialIndex::try_from(index).expect("index fits");
+        assert!(decal_sheet_is_blend(index, &flags));
+        // The generated atlas and an out-of-range external index are cut-out.
+        assert!(!decal_sheet_is_blend(0, &flags));
+        let beyond = MaterialIndex::try_from(DECAL_EXTERNAL_BASE + 7).expect("index");
+        assert!(!decal_sheet_is_blend(beyond, &flags));
+    }
 
     #[test]
     fn the_depth_bias_maps_gl_polygon_offset_towards_the_camera() {

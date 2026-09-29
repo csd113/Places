@@ -21,7 +21,8 @@ use std::sync::Arc;
 
 use crate::gltf::{GltfError, PropModel, parse_glb};
 use crate::level::{
-    PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES, PROP_TRIANGLE_BUDGET,
+    ENTITY_TRIANGLE_BUDGET, PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES,
+    PROP_TRIANGLE_BUDGET,
 };
 
 /// One model's decoded asset plus the path it came from.
@@ -59,9 +60,16 @@ pub const fn pack_texture_budget_exceeded(decoded_bytes: usize) -> bool {
 /// names the broken budget so the fix is obvious.
 fn art_budget_warning(model: &PropModel) -> Option<String> {
     let mut reasons: Vec<String> = Vec::new();
-    if model.triangles > PROP_TRIANGLE_BUDGET {
+    // A skinned model is a character; it gets the documented entity art
+    // budget rather than the static-prop one.
+    let triangle_budget = if model.skin.is_some() {
+        ENTITY_TRIANGLE_BUDGET
+    } else {
+        PROP_TRIANGLE_BUDGET
+    };
+    if model.triangles > triangle_budget {
         reasons.push(format!(
-            "{} triangles (art budget {PROP_TRIANGLE_BUDGET})",
+            "{} triangles (art budget {triangle_budget})",
             model.triangles
         ));
     }

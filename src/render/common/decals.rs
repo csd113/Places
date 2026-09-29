@@ -203,6 +203,102 @@ pub const fn decal_uv_rect_full() -> [[f32; 2]; 4] {
     [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]]
 }
 
+/// Per-external-sheet blend flags, in [`decal_external_sheet_ids`] order.
+///
+/// A catalog decal entry that authors `alpha_mode: "blend"` draws through the
+/// soft-edge pipeline; the generated atlas and every other external sheet stay
+/// on the reference's hard cut-out.
+#[must_use]
+pub fn decal_blend_sheets(level: &LevelDef, catalog: &crate::assets::AssetCatalog) -> Vec<bool> {
+    decal_external_sheet_ids(level, catalog)
+        .into_iter()
+        .map(|id| {
+            catalog
+                .get(&id)
+                .and_then(|entry| entry.alpha_mode.as_deref())
+                .is_some_and(|mode| mode.eq_ignore_ascii_case("blend"))
+        })
+        .collect()
+}
+
+/// Whether one decal range's sheet index is a soft-edged (blended) sheet.
+///
+/// The generated atlas (indices below [`DECAL_EXTERNAL_BASE`]) is never
+/// blended; an
+/// external sheet follows the flag order of [`decal_blend_sheets`].
+#[must_use]
+pub fn decal_sheet_is_blend(
+    material: crate::render::common::mesh::MaterialIndex,
+    blend_sheets: &[bool],
+) -> bool {
+    let index = u32::from(material);
+    if index < DECAL_EXTERNAL_BASE {
+        return false;
+    }
+    usize::try_from(index.saturating_sub(DECAL_EXTERNAL_BASE))
+        .ok()
+        .and_then(|offset| blend_sheets.get(offset))
+        .copied()
+        .unwrap_or(false)
+}
+
+/// Replaces the vertex-lit approximation baked into blended decals with the
+/// prepared probe field's display light, in place.
+///
+/// Every decal vertex colour is `surface tint x vertex-lit sample`, because
+/// that is the light model the decal pass renders with in the vertex-lit
+/// variant. In a lightmapped build the prepared solve lights the surrounding
+/// surfaces, and its unlit floor is deliberately darker than the vertex model's
+/// ambient floor; a feather decal left on the vertex model therefore glows over
+/// its dark surface. This pass rewrites each *blended* decal's colour as
+/// `surface tint x prepared display light` sampled from the same probe lattice
+/// moving objects use, so a feather follows the baked scene. Cut-out decals are
+/// untouched: existing signage keeps its authored look, and a vertex-lit build
+/// (no probe field) is untouched too.
+pub fn relight_blend_decals(
+    mesh: &mut super::mesh::LevelMesh,
+    level: &LevelDef,
+    catalog: &crate::assets::AssetCatalog,
+    lighting: &crate::lighting::LevelLighting,
+    field: &crate::lighting::probes::ProbeField,
+) {
+    let flags = decal_blend_sheets(level, catalog);
+    if !flags.iter().any(|blend| *blend) {
+        return;
+    }
+    for range in &mut mesh.ranges {
+        if range.key.kind != super::mesh::SurfaceKind::Decal
+            || !decal_sheet_is_blend(range.key.material, &flags)
+        {
+            continue;
+        }
+        for vertex in &mut range.vertices {
+            let normal = glam::Vec3::from(vertex.normal);
+            if normal.length_squared() <= 1.0e-12 {
+                continue;
+            }
+            let normal = normal.normalize();
+            let probe = if normal.y.abs() > 0.5 {
+                super::DECAL_HORIZONTAL_LIGHT_PROBE_M
+            } else {
+                super::DECAL_WALL_LIGHT_PROBE_M
+            };
+            let sample = normal.mul_add(glam::Vec3::splat(probe), glam::Vec3::from(vertex.pos));
+            let room = lighting.room_index_at_height(sample.x, sample.y, sample.z);
+            let Some(display) = field.sample_display(sample.to_array(), room) else {
+                continue;
+            };
+            let tint = super::decal_tint_for_normal(normal.to_array());
+            vertex.color = [
+                tint[0].mul_add(display[0], 0.0).clamp(0.0, 1.0),
+                tint[1].mul_add(display[1], 0.0).clamp(0.0, 1.0),
+                tint[2].mul_add(display[2], 0.0).clamp(0.0, 1.0),
+                vertex.color[3],
+            ];
+        }
+    }
+}
+
 /// Writes one texel into the decal sheet, in visual (top-down) coordinates.
 ///
 /// The sheet is stored bottom-up so the generated text reads upright under the

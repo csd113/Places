@@ -771,3 +771,72 @@ fn a_solid_glass_opening_blocks_and_a_visual_pane_does_not() {
         "the visual-only opening has no collider at all"
     );
 }
+
+/// The shipped demo sink's deck over the -0.9 m kitchen floor: the 0.0 m box
+/// blocks a player standing on the floor and never one standing on the
+/// counter top itself, and the support query answers the deck, never the old
+/// 1.1 m faucet collider that used to bury the counter.
+#[test]
+fn the_sink_deck_blocks_the_floor_and_supports_the_counter() {
+    let level = demo_level();
+    let sink = level
+        .props
+        .iter()
+        .find(|prop| prop.model == "core:sink")
+        .expect("the shipped demo places the sink");
+    let size = sink.resolved_size(crate::level::PROP_FALLBACK_SIZE);
+    assert!(
+        (size[1] - 0.9).abs() < 1e-4,
+        "the sink collision is its 0.9 m deck, not the 1.1 m faucet: {size:?}"
+    );
+    let surfaces = crate::level::LevelSurfaces::new(&level);
+    let floor = surfaces
+        .floor_y_at(sink.x, sink.z)
+        .expect("the sink stands on the kitchen floor");
+    assert_exact(floor, -0.9);
+
+    let aabbs = level.collision_aabbs();
+    let deck = aabbs
+        .iter()
+        .find(|aabb| {
+            (aabb.min_x - (sink.x - size[0] * 0.5)).abs() < 1e-3
+                && (aabb.max_x - (sink.x + size[0] * 0.5)).abs() < 1e-3
+                && (aabb.min_z - (sink.z - size[2] * 0.5)).abs() < 1e-3
+                && (aabb.max_z - (sink.z + size[2] * 0.5)).abs() < 1e-3
+        })
+        .expect("the sink authors a deck collider");
+    assert_exact(deck.min_y, -0.9);
+    assert_exact(deck.max_y, 0.0);
+
+    assert!(
+        deck.blocks_body(-0.9, PLAYER_HEIGHT),
+        "the deck blocks a player standing on the kitchen floor"
+    );
+    assert!(
+        !deck.blocks_body(0.0, PLAYER_HEIGHT),
+        "the deck never blocks a player standing on the counter top"
+    );
+
+    // A point on the sink clear of the wall behind it: the deck stops
+    // the player walking in from the floor, and nothing pushes the player
+    // standing on the 0.0 m counter top.
+    let position = Vec2::new(sink.x, sink.z + 0.1);
+    assert_ne!(
+        resolve_player_collision(position, PLAYER_RADIUS, -0.9, &aabbs),
+        position,
+        "the deck blocks a player standing on the kitchen floor"
+    );
+    assert_eq!(
+        resolve_player_collision(position, PLAYER_RADIUS, 0.0, &aabbs),
+        position,
+        "standing on the counter top must never be pushed off by the counter box"
+    );
+
+    let support = highest_support_top(position.x, position.y, 0.0, &aabbs)
+        .expect("the deck is a landable support");
+    assert_exact(support, 0.0);
+    assert!(
+        (support - 1.1).abs() > 0.1,
+        "the support must be the deck, never the old 1.1 m faucet collider: {support}"
+    );
+}

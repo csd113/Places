@@ -761,6 +761,9 @@ pub struct TransportScene {
     /// Per-probe authored baseline target and room in flat probe order (see
     /// [`probe_targets`]); empty when no probe lattice was supplied.
     probe_target: Vec<ProbeTarget>,
+    /// Radiance an escaping bounce ray sees, per linear channel. Zero unless
+    /// the level authored a sky with a nonzero `ambient`.
+    sky_radiance: [f32; 3],
 }
 
 impl std::fmt::Debug for TransportScene {
@@ -1090,6 +1093,7 @@ impl TransportScene {
             water: Vec::new(),
             receiver_target: Vec::new(),
             probe_target: Vec::new(),
+            sky_radiance: [0.0; 3],
         })
     }
 
@@ -1121,6 +1125,22 @@ impl TransportScene {
     #[must_use]
     pub fn with_probe_target(mut self, target: Vec<ProbeTarget>) -> Self {
         self.probe_target = target;
+        self
+    }
+
+    /// Attaches the sky radiance an escaping bounce ray sees.
+    ///
+    /// Zero (the default) preserves the historical "an interior has no sky"
+    /// behaviour exactly; a level's `sky.ambient` is the only producer.
+    #[must_use]
+    pub fn with_sky(mut self, radiance: [f32; 3]) -> Self {
+        self.sky_radiance = radiance.map(|channel| {
+            if channel.is_finite() {
+                channel.max(0.0)
+            } else {
+                0.0
+            }
+        });
         self
     }
 
@@ -1639,7 +1659,9 @@ impl TransportScene {
                 .zip(&receivers)
                 .map(|(value, receiver)| compress_surface(value, receiver.normal)),
         );
-        if bounces > 0 && !emitters.is_empty() {
+        if bounces > 0
+            && (!emitters.is_empty() || self.sky_radiance.iter().any(|channel| *channel > 0.0))
+        {
             let mut bounce_count = 0usize;
             // The cache is derived from the receiver positions alone, which do
             // not move between passes; only the solved values it is read
@@ -1905,10 +1927,11 @@ impl TransportScene {
     ///
     /// Every receiver uses the same per-pass deterministic angular sequence,
     /// making serial and parallel results identical and preventing chart order
-    /// or tessellation from changing the sampled directions. A ray that escapes the scene contributes nothing (an
-    /// interior has no sky), and a ray that hits a surface contributes that
-    /// surface's solved outgoing radiance times its albedo, weighted by the
-    /// sample's solid angle.
+    /// or tessellation from changing the sampled directions. A ray that escapes
+    /// the scene contributes the level's sky radiance — zero without a `sky`,
+    /// which is the historical "an interior has no sky" behaviour — and a ray
+    /// that hits a surface contributes that surface's solved outgoing radiance
+    /// times its albedo, weighted by the sample's solid angle.
     fn bounce_pass(
         &self,
         receivers: &[TransportReceiver],
@@ -1934,6 +1957,24 @@ impl TransportScene {
                 let direction = hemisphere_sample(receiver.normal, u1, u2);
                 let origin = receiver.ray_origin;
                 let Some((distance, triangle_index)) = self.intersect(origin, direction) else {
+                    // An escaping ray sees the level's sky radiance, which is
+                    // zero unless the level authored `sky.ambient`: the night
+                    // dome is the only environment term the solver has. The
+                    // same per-sample weight as a bounce is used, so one
+                    // calibration governs both and the term is bounded.
+                    if self.sky_radiance.iter().any(|channel| *channel > 0.0) {
+                        let weight = [
+                            self.sky_radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
+                            self.sky_radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
+                            self.sky_radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
+                        ];
+                        accumulate_surface_lobe(
+                            &mut accumulator,
+                            attenuate(weight, receiver.attenuation),
+                            direction,
+                            receiver.normal,
+                        );
+                    }
                     continue;
                 };
                 let hit = add(origin, scale(direction, distance));

@@ -467,7 +467,7 @@ The `home:` theme ships the door surfaces; the brass handle ships under `core:`:
 
 | Material id | Texture id | Used by | Notes |
 | --- | --- | --- | --- |
-| `home:door_white_01` | `home:tex_door_white_01` | interior door leaf | Satin white door paint (`tile_metres: 0.5`); the leaf builds two raised panels per face |
+| `home:door_white_01` | `home:tex_door_white_01` | interior door leaf | Satin white door paint (`tile_metres: 0.5`); the leaf builds two recessed panels per face inside real stiles and rails |
 | `home:sauna_wood_01` | `home:tex_sauna_wood_01` | sauna stiles, rails and handle | Light cedar boards (`tile_metres: 0.6`), a restrained satin sheen |
 | `home:baseboard_white_01` | `home:tex_baseboard_white_01` | interior door frame | Painted white skirting shared with the baseboards |
 | `home:baseboard_wood_01` | `home:tex_baseboard_wood_01` | sauna door frame | The same wood skirting the baseboards use |

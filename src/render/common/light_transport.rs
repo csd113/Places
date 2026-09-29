@@ -107,8 +107,26 @@ pub fn build_transport_scene(
                 .collect(),
         )
         .with_receiver_target(receiver_targets(lighting, charts))
-        .with_probe_target(probe_targets(lighting, charts));
+        .with_probe_target(probe_targets(lighting, charts))
+        .with_sky(sky_radiance(level));
     Some((scene, stats))
+}
+
+/// The radiance an escaping bounce ray sees, from the level's optional sky.
+///
+/// Zero without a sky (or with `ambient` 0.0), which preserves the historical
+/// "an interior has no sky" solve exactly. The authored scalar is scaled by
+/// [`crate::lighting::SKY_AMBIENT_COLOR`].
+fn sky_radiance(level: &LevelDef) -> [f32; 3] {
+    let Some(sky) = level.sky.as_ref() else {
+        return [0.0; 3];
+    };
+    let ambient = if sky.ambient.is_finite() {
+        sky.ambient.clamp(0.0, crate::level::MAX_SKY_AMBIENT)
+    } else {
+        0.0
+    };
+    crate::lighting::SKY_AMBIENT_COLOR.map(|channel| channel * ambient)
 }
 
 /// Appends every architecture range's triangles to the transport scene.

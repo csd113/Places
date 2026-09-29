@@ -24,15 +24,18 @@
 // * decode the material's normal map (when the material binds one) into the
 //   world-space material normal the sheen and reflection terms use;
 // * classify alpha: opaque, alpha-tested (`fs_cutout`) and straight-alpha
-//   blending (the same `fs_main` body, blended by the pipeline);
+//   blending (the same `fs_main` body, blended by the pipeline), with the
+//   per-instance `environment.opacity` folded into the fragment alpha and the
+//   emissive term so a character can fade;
 // * classify emission: the emissive pass entry points (`fs_emission`,
 //   `fs_emission_cutout`) write the emissive term alone into the raw bloom
 //   target, exactly like the reference's `u_emission_only` return.
 //
-// The light the world stage uses is *baked*, not realtime: there is no light
-// selection, no light array and no shadow map. The fragment stage reconstructs
-// `light` from the resident lightmap layers and `vec3(1.0)` otherwise. See
-// `docs/RENDERER.md`.
+// The light the world stage uses is *baked*: the fragment stage reconstructs
+// `light` from the resident lightmap layers and `vec3(1.0)` otherwise; there is
+// no light selection and no shadow map. On top of the baked term the shader
+// sums one bounded, unshadowed attached-light array (group 4, at most eight
+// character glows), never more. See `docs/RENDERER.md`.
 //
 // Coordinate convention: `camera.view_projection` is the Places camera matrix
 // with the single OpenGL -> wgpu clip-space correction already applied on the
@@ -115,6 +118,11 @@ struct Environment {
     // The reference's `u_model`: the object transform; identity for the static
     // world and for props, the moving transform for a dynamic object.
     model: mat4x4<f32>,
+    // Per-instance opacity multiplier (offset 192). `1.0` for the static world
+    // and for every draw without a fade; a character instance installs its
+    // clamped fade opacity, which multiplies the fragment alpha and the
+    // emissive term (so a faded ghost neither covers nor blooms).
+    opacity: f32,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -165,6 +173,66 @@ var probe_map: texture_cube<f32>;
 var planar_map: texture_2d<f32>;
 @group(3) @binding(6)
 var reflection_sampler: sampler;
+
+// Group 4 is the frame's attached lights: a small, fixed-capacity array of
+// character glows the renderer resolves from the entity frames each frame.
+// It is the one realtime light term in this shader, and it is deliberately
+// bounded, unshadowed and additive on top of the baked `surface_light`; the
+// emissive pass never reads it, so bloom cannot double the pool.
+struct DynamicLight {
+    // World-space position, in metres.
+    position: vec3<f32>,
+    // The falloff window's radius, in metres, strictly positive.
+    radius: f32,
+    // Display-space colour, each channel `0..=1`.
+    color: vec3<f32>,
+    // Additive intensity.
+    intensity: f32,
+};
+
+struct DynamicLights {
+    // Number of valid entries in `lights`, 0 when nothing is attached.
+    count: u32,
+    // Explicit scalar padding so the array starts at offset 16: three separate
+    // `u32`s, because a `vec3<u32>` would itself align to 16.
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+    lights: array<DynamicLight, 8>,
+};
+
+@group(4) @binding(0)
+var<uniform> dynamic_lights: DynamicLights;
+
+// The attached lights' diffuse term at one fragment. Each light contributes a
+// cosine lobe windowed by a quadratic range falloff:
+//
+//     d = length(light.position - world_position)
+//     ndl = max(dot(normal, normalize(light.position - world_position)), 0)
+//     window = clamp(1 - d / light.radius, 0, 1)
+//     sum += color * intensity * ndl * window * window
+//
+// The term is exactly zero when no light is attached, so the baked path (and
+// the shader's unit-light bypass) is unchanged at zero lights. Zero distance
+// is guarded before the normalise; a zero-radius light is refused by the
+// neutral set, so `light.radius` is always positive here.
+fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    var sum = vec3<f32>(0.0);
+    let count = min(dynamic_lights.count, 8u);
+    for (var slot = 0u; slot < count; slot = slot + 1u) {
+        let light = dynamic_lights.lights[slot];
+        let to_light = light.position - world_position;
+        let distance = length(to_light);
+        if (distance >= light.radius) {
+            continue;
+        }
+        let direction = to_light / max(distance, 1.0e-6);
+        let ndl = max(dot(normal, direction), 0.0);
+        let window = clamp(1.0 - distance / light.radius, 0.0, 1.0);
+        sum += light.color * light.intensity * ndl * window * window;
+    }
+    return sum;
+}
 
 struct WorldVertex {
     // World-space position, pre-transformed by the CPU builder.
@@ -473,13 +541,19 @@ struct Shaded {
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let base = textureSample(base_texture, base_sampler, in.uv);
     let base_display = base.rgb;
-    // The reference's alpha: texture x vertex-colour alpha x material opacity.
-    let alpha = base.a * in.color.a * material.opacity;
+    // The reference's alpha: texture x vertex-colour alpha x material opacity,
+    // then the per-instance opacity. The instance factor is exactly 1.0 for
+    // the static world and for every prop, so their alpha is unchanged.
+    let alpha = base.a * in.color.a * material.opacity * environment.opacity;
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
     let normal = material_normal(in, front_facing);
-    let light = surface_light(in, normal);
+    // The baked light term plus the frame's attached lights. The dynamic term
+    // is additive and never modifies `surface_light`, so every lightmap and
+    // baked-occlusion result survives; with no attached lights it is exactly
+    // zero and the unit-light bypass below is unchanged.
+    let light = surface_light(in, normal) + dynamic_light_term(normal, in.world_position);
     let view = normalize(camera.position - in.world_position);
     let sheen = surface_sheen(in, normal, view, light);
     let reflection = surface_reflection(in, normal, view);
@@ -540,11 +614,13 @@ fn fs_cutout_raw(in: VsOut, @builtin(front_facing) front_facing: bool) -> @locat
 // The bloom targets are non-sRGB so no transfer function is applied here.
 fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     let base = textureSample(base_texture, base_sampler, in.uv);
-    let alpha = base.a * in.color.a * material.opacity;
+    let alpha = base.a * in.color.a * material.opacity * environment.opacity;
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
-    return vec4<f32>(surface_emission(in, base.rgb), 1.0);
+    // The per-instance opacity scales the emission so a faded ghost does not
+    // keep its full bloom; the attached-light term is deliberately absent here.
+    return vec4<f32>(surface_emission(in, base.rgb) * environment.opacity, 1.0);
 }
 
 @fragment

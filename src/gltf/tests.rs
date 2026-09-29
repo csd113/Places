@@ -12,7 +12,7 @@
 
 use super::*;
 use crate::level::PROP_TRIANGLE_BUDGET;
-use crate::materials::MAX_EMISSION_INTENSITY;
+use crate::materials::{AlphaMode, MAX_EMISSION_INTENSITY};
 use crate::test_support::assert_exact;
 
 /// A real, shipped prop asset: the parser must accept what the toolkit writes.
@@ -628,6 +628,66 @@ fn emissive_materials_carry_factor_strength_and_mask() {
 }
 
 #[test]
+fn a_gltf_mask_material_parses_as_cutout_with_its_cutoff() {
+    let masked = r#"{
+        "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+        "alphaMode": "MASK",
+        "alphaCutoff": 0.3
+    }"#;
+    let model = parse_glb(&triangle_document(masked, 0)).expect("masked material parses");
+    let alpha = model.submeshes[0].alpha;
+    assert_eq!(alpha.mode, AlphaMode::Cutout);
+    assert!((alpha.cutoff - 0.3).abs() < f32::EPSILON, "{alpha:?}");
+    assert!(alpha.is_cutout());
+
+    // The glTF default cutoff is 0.5 when the material omits it.
+    let masked = r#"{
+        "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+        "alphaMode": "MASK"
+    }"#;
+    let model = parse_glb(&triangle_document(masked, 0)).expect("default cutoff parses");
+    assert!((model.submeshes[0].alpha.cutoff - 0.5).abs() < f32::EPSILON);
+
+    // Out-of-range cutoffs are clamped into the unit range, never rejected.
+    let masked = r#"{
+        "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+        "alphaMode": "MASK",
+        "alphaCutoff": 4.0
+    }"#;
+    let model = parse_glb(&triangle_document(masked, 0)).expect("clamped cutoff parses");
+    assert!((model.submeshes[0].alpha.cutoff - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn opaque_gltf_alpha_modes_stay_opaque_and_blend_imports_as_blend() {
+    // The material default and an explicit OPAQUE.
+    for material in [
+        r#"{"pbrMetallicRoughness": {}}"#,
+        r#"{"pbrMetallicRoughness": {}, "alphaMode": "OPAQUE"}"#,
+    ] {
+        let model = parse_glb(&triangle_document(material, 0)).expect("opaque material parses");
+        assert_eq!(
+            model.submeshes[0].alpha,
+            crate::materials::MaterialAlpha::OPAQUE
+        );
+    }
+    // BLEND is a supported asset contract: the importer classifies it as a
+    // translucent material so a blended model can draw through the
+    // character/dynamic translucent routes.
+    let blended = r#"{
+        "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+        "alphaMode": "BLEND"
+    }"#;
+    let model = parse_glb(&triangle_document(blended, 0)).expect("blend material parses");
+    let alpha = model.submeshes[0].alpha;
+    assert_eq!(alpha.mode, crate::materials::AlphaMode::Blend);
+    assert!(alpha.is_translucent());
+    // The baseColorFactor alpha is already folded into the vertex colours, so
+    // the contract's own multiplier stays at 1.0 and never double-applies.
+    assert!((alpha.opacity - 1.0).abs() < f32::EPSILON, "{alpha:?}");
+}
+
+#[test]
 fn node_transforms_move_only_the_meshes_below_them() {
     let mut builder = ModelBuilder::default();
     let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
@@ -1100,9 +1160,10 @@ fn rejects_second_texture_coordinate_sets() {
 
 #[test]
 fn rejects_models_over_the_vertex_ceiling() {
-    // Two primitives share one 32,768-vertex accessor, so assembling both
-    // needs 65,536 vertices: one past the 65,535-vertex engine ceiling.
-    let vertex_count = MAX_PROP_VERTICES / 2 + 1;
+    // One primitive with one vertex past the 65,535-vertex engine ceiling.
+    // (Two primitives that share one accessor are deduplicated into one vertex
+    // block by design, so the ceiling counts unique vertices.)
+    let vertex_count = MAX_PROP_VERTICES + 1;
     let mut builder = ModelBuilder::default();
     let positions = builder.positions(&vec![[0.0f32, 0.0, 0.0]; vertex_count]);
     let uvs = builder.uvs(&vec![[0.0f32, 0.0]; vertex_count]);
@@ -1116,7 +1177,7 @@ fn rejects_models_over_the_vertex_ceiling() {
           "scene": 0,
           "scenes": [{{"nodes": [0]}}],
           "nodes": [{{"mesh": 0}}],
-          "meshes": [{{"primitives": [{primitive}, {primitive}]}}],
+          "meshes": [{{"primitives": [{primitive}]}}],
           "accessors": [{accessors}],
           "bufferViews": [{views}],
           "buffers": [{{"byteLength": {length}}}]
@@ -1133,6 +1194,49 @@ fn rejects_models_over_the_vertex_ceiling() {
         "{}",
         error.0
     );
+}
+
+#[test]
+fn primitives_that_share_every_attribute_share_one_vertex_block() {
+    // The Halloween material splits partition one authored mesh into two
+    // primitives with identical attribute accessors and disjoint index ranges;
+    // the flattened model must keep one vertex block, not duplicate it.
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let first = builder.indices(&[0, 1, 2]);
+    let second = builder.indices(&[0, 2, 1]);
+    let body = format!(
+        r#"{{"attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}}}, "indices": {first}, "material": 0}}"#
+    );
+    let part = format!(
+        r#"{{"attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}}}, "indices": {second}, "material": 1}}"#
+    );
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [{{"mesh": 0}}],
+          "meshes": [{{"primitives": [{body}, {part}]}}],
+          "materials": [{{}}, {{}}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}]
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    let model = parse_glb(&glb_container(&json, builder.bytes())).expect("shared block parses");
+    assert_eq!(
+        model.vertices.len(),
+        3,
+        "the two primitives share one three-vertex block"
+    );
+    assert_eq!(model.submeshes.len(), 2);
+    assert_eq!(model.indices.len(), 6);
+    assert_eq!(model.triangles, 2);
 }
 
 #[test]
@@ -1823,6 +1927,64 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
         assert!((low[axis] - expected_low[axis]).abs() < 2e-3, "{low:?}");
         assert!((high[axis] - expected_high[axis]).abs() < 2e-3, "{high:?}");
     }
+}
+
+/// The model-space rest z of one named joint, composed down its parent chain.
+fn joint_rest_z(model: &PropModel, name: &str) -> Option<f32> {
+    let skin = model.skin.as_ref()?;
+    let index = u16::try_from(skin.nodes.iter().position(|node| node.name == name)?).ok()?;
+    let mut chain = vec![index];
+    let mut parent = skin.nodes[usize::from(index)].parent;
+    while let Some(node) = parent {
+        chain.push(node);
+        parent = skin.nodes[usize::from(node)].parent;
+    }
+    let global = chain.iter().rev().fold(Mat4::IDENTITY, |transform, node| {
+        transform * skin.nodes[usize::from(*node)].local_transform()
+    });
+    Some(global.w_axis.z)
+}
+
+/// The shipped entity rigs face +Z: in the bind pose each head joint sits at a
+/// greater model-space z than its tail joints, and the front paws lead the
+/// rear ones. Measured from the shipped GLBs (head +0.213 / tail -0.262 for
+/// the rat; head +0.228 / front paw +0.113 / rear paw -0.132 / tail -0.246 for
+/// the cat), so a future rebuild that flipped a rig would be caught here
+/// rather than by an upside-down animal at run time.
+#[test]
+fn the_shipped_entity_rigs_face_plus_z_in_the_bind_pose() {
+    const RAT_GLB: &[u8] = include_bytes!("../../assets/entities/rat/model/rat.glb");
+    const SPOONERMAN_GLB: &[u8] =
+        include_bytes!("../../assets/entities/spooner-man/model/spooner-man.glb");
+
+    let rat = parse_glb(RAT_GLB).expect("shipped rat.glb must parse");
+    let head = joint_rest_z(&rat, "head").expect("the rat has a head joint");
+    let neck = joint_rest_z(&rat, "neck").expect("the rat has a neck joint");
+    let tail = joint_rest_z(&rat, "tail_05").expect("the rat has a tail tip");
+    assert!(head > neck, "rat: head {head} must lead neck {neck}");
+    assert!(
+        neck > 0.0 && tail < 0.0,
+        "rat: the head/neck and tail joints split the origin ({neck}, {tail})"
+    );
+    assert!(head > tail, "rat: head {head} must lead tail {tail}");
+
+    let cat = parse_glb(SPOONERMAN_GLB).expect("shipped spooner-man.glb must parse");
+    let head = joint_rest_z(&cat, "head").expect("the cat has a head joint");
+    let front_paw = joint_rest_z(&cat, "leg_fl_paw").expect("the cat has a front paw");
+    let rear_paw = joint_rest_z(&cat, "leg_rl_paw").expect("the cat has a rear paw");
+    let tail = joint_rest_z(&cat, "tail_08").expect("the cat has a tail tip");
+    assert!(
+        head > front_paw,
+        "cat: head {head} must lead front paw {front_paw}"
+    );
+    assert!(
+        front_paw > 0.0 && rear_paw < 0.0,
+        "cat: the front and rear paws split the origin ({front_paw}, {rear_paw})"
+    );
+    assert!(
+        rear_paw > tail,
+        "cat: rear paw {rear_paw} must lead tail {tail}"
+    );
 }
 
 /// A missing or malformed `places_entity_clips` marker never fails a model:

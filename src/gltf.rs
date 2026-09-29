@@ -50,7 +50,7 @@ use crate::level::{
     MAX_PROP_PRIMITIVES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
 };
 use crate::loader::RawImage;
-use crate::materials::MaterialEmission;
+use crate::materials::{AlphaMode, DEFAULT_ALPHA_CUTOFF, MaterialAlpha, MaterialEmission};
 
 const GLB_MAGIC: u32 = 0x4654_6C67;
 const CHUNK_JSON: u32 = 0x4E4F_534A;
@@ -115,6 +115,16 @@ pub struct PropSubmesh {
     pub texture: Option<u16>,
     /// Emission of the primitive's material.
     pub emission: MaterialEmission,
+    /// Alpha contract of the primitive's material.
+    ///
+    /// A glTF `alphaMode: "MASK"` material is [`AlphaMode::Cutout`] with its
+    /// `alphaCutoff` and draws through the alpha-tested cutout pass; a
+    /// `"BLEND"` material is [`AlphaMode::Blend`] (its `baseColorFactor` alpha
+    /// already lives in the vertex colours) and draws through the sorted
+    /// depth-write-disabled translucent pass wherever the renderer has one
+    /// (characters and dynamic objects). `"OPAQUE"` and an omitted mode stay
+    /// [`AlphaMode::Opaque`].
+    pub alpha: MaterialAlpha,
     /// First index into [`PropModel::indices`].
     pub first_index: u32,
     /// Number of indices (a multiple of three).
@@ -648,6 +658,8 @@ struct ResolvedMaterial {
     texture: Option<u16>,
     /// Material emission, already sanitised.
     emission: MaterialEmission,
+    /// Material alpha contract, already sanitised.
+    alpha: MaterialAlpha,
 }
 
 impl Default for ResolvedMaterial {
@@ -656,6 +668,7 @@ impl Default for ResolvedMaterial {
             color: DEFAULT_BASE_COLOR,
             texture: None,
             emission: MaterialEmission::NONE,
+            alpha: MaterialAlpha::OPAQUE,
         }
     }
 }
@@ -712,6 +725,13 @@ struct Doc<'a> {
     /// `morph_targets`: vertex base, global target base, per-target default
     /// weights and the deltas.
     morph_chunks: Vec<(usize, usize, Vec<f32>, Vec<PropMorphTarget>)>,
+    /// Assembled vertex blocks keyed by `(attributes, mesh, node, skin)`: two
+    /// primitives of one mesh visit that share every attribute accessor (the
+    /// Halloween material splits do exactly this) draw one vertex block with
+    /// two index ranges and two materials, so the flattened model stays as
+    /// small as the authored one. A primitive with morph targets never
+    /// reuses a block: its deltas are assembled per primitive.
+    vertex_blocks: Vec<(serde_json::Value, usize, usize, Option<usize>, usize, usize)>,
 }
 
 impl<'a> Doc<'a> {
@@ -755,6 +775,7 @@ impl<'a> Doc<'a> {
             morph_weights: Vec::new(),
             mesh_morph_ranges: Vec::new(),
             morph_chunks: Vec::new(),
+            vertex_blocks: Vec::new(),
         })
     }
 
@@ -1059,23 +1080,44 @@ impl<'a> Doc<'a> {
         }
         let index_count = u32::try_from(local_indices.len())
             .map_err(|_| GltfError::new("primitive index count does not fit in 32 bits"))?;
-        let vertex_total = self.vertices.len().saturating_add(vertex_count);
-        if vertex_total > MAX_PROP_VERTICES {
-            return Err(GltfError::new(format!(
-                "prop model assembles {vertex_total} vertices; \
-                 the engine ceiling is {MAX_PROP_VERTICES}"
-            )));
-        }
-        let base = self.vertices.len();
-        self.assemble_primitive(primitive, request, &attributes, resolved, target_count)?;
+        let reused = if target_count == 0 {
+            self.reusable_vertex_block(primitive, request)
+        } else {
+            None
+        };
+        let (base, block_vertices) = if let Some(found) = reused {
+            found
+        } else {
+            let vertex_total = self.vertices.len().saturating_add(vertex_count);
+            if vertex_total > MAX_PROP_VERTICES {
+                return Err(GltfError::new(format!(
+                    "prop model assembles {vertex_total} vertices; \
+                     the engine ceiling is {MAX_PROP_VERTICES}"
+                )));
+            }
+            let base = self.vertices.len();
+            self.assemble_primitive(primitive, request, &attributes, resolved, target_count)?;
+            if target_count == 0 {
+                self.vertex_blocks.push((
+                    primitive.get("attributes").cloned().unwrap_or_default(),
+                    request.mesh_index,
+                    request.node_index,
+                    request.node_skin,
+                    base,
+                    vertex_count,
+                ));
+            }
+            (base, vertex_count)
+        };
         let first_index = u32::try_from(self.indices.len())
             .map_err(|_| GltfError::new("prop model index buffer does not fit in 32 bits"))?;
-        append_indices(&mut self.indices, &local_indices, base, vertex_count)?;
+        append_indices(&mut self.indices, &local_indices, base, block_vertices)?;
         self.submeshes.push(PropSubmesh {
             material: u16::try_from(material)
                 .map_err(|_| GltfError::new("material index does not fit in 16 bits"))?,
             texture: resolved.texture,
             emission: resolved.emission,
+            alpha: resolved.alpha,
             first_index,
             index_count,
         });
@@ -1087,6 +1129,32 @@ impl<'a> Doc<'a> {
             )));
         }
         Ok(target_count)
+    }
+
+    /// The already-assembled vertex block a primitive may reuse.
+    ///
+    /// Two primitives of one mesh **visit** that declare identical attribute
+    /// accessors (and the same node skin) describe the same vertex data: the
+    /// Halloween pumpkin-head and ghost-face splits share one block across two
+    /// index ranges and two materials. Reuse is scoped to the mesh visit — a
+    /// mesh placed under a second node is re-assembled because its vertices
+    /// bake that node's transform — and is skipped for morph-target
+    /// primitives, whose deltas are assembled per primitive.
+    fn reusable_vertex_block(
+        &self,
+        primitive: &serde_json::Value,
+        request: &PrimitiveRequest<'_>,
+    ) -> Option<(usize, usize)> {
+        let attributes = primitive.get("attributes")?;
+        self.vertex_blocks
+            .iter()
+            .find(|(key, mesh, node, skin, _, _)| {
+                key == attributes
+                    && *mesh == request.mesh_index
+                    && *node == request.node_index
+                    && *skin == request.node_skin
+            })
+            .map(|(_, _, _, _, base, count)| (*base, *count))
     }
 
     /// Appends one primitive's vertices and records its morph-target chunk.
@@ -1261,15 +1329,60 @@ impl<'a> Doc<'a> {
             None => None,
         };
         let emission = self.resolve_emission(material, index)?;
+        let alpha = Self::resolve_alpha(material, index)?;
         let resolved = ResolvedMaterial {
             color,
             texture,
             emission,
+            alpha,
         };
         if let Some(slot) = self.material_cache.get_mut(index) {
             *slot = Some(resolved);
         }
         Ok(resolved)
+    }
+
+    /// Reads `alphaMode` and `alphaCutoff` into a sanitised
+    /// [`MaterialAlpha`].
+    ///
+    /// `MASK` becomes the game's alpha-tested [`AlphaMode::Cutout`] at the
+    /// authored cutoff (defaulting to [`DEFAULT_ALPHA_CUTOFF`]); `BLEND`
+    /// becomes [`AlphaMode::Blend`]. A glTF `baseColorFactor` alpha is
+    /// already multiplied into every vertex colour by the importer, so the
+    /// alpha contract carries the mode only (opacity `1.0`) and the renderer's
+    /// translucent routes draw the asset without a per-placement exception.
+    /// `OPAQUE` is the default.
+    fn resolve_alpha(
+        material: &serde_json::Value,
+        index: usize,
+    ) -> Result<MaterialAlpha, GltfError> {
+        let mode = match material.get("alphaMode") {
+            Some(serde_json::Value::String(value)) => value.as_str(),
+            Some(_) => {
+                return Err(GltfError::new(format!(
+                    "material {index} alphaMode is not a string"
+                )));
+            }
+            None => "OPAQUE",
+        };
+        if mode == "BLEND" {
+            return Ok(MaterialAlpha::blend(1.0));
+        }
+        if mode != "MASK" {
+            return Ok(MaterialAlpha::OPAQUE);
+        }
+        let cutoff = match material.get("alphaCutoff") {
+            Some(value) => json_f32(value).ok_or_else(|| {
+                GltfError::new(format!("material {index} alphaCutoff is not a number"))
+            })?,
+            None => DEFAULT_ALPHA_CUTOFF,
+        };
+        Ok(MaterialAlpha {
+            mode: AlphaMode::Cutout,
+            opacity: 1.0,
+            cutoff,
+        }
+        .sanitized())
     }
 
     /// Reads `emissiveFactor`, `KHR_materials_emissive_strength` and

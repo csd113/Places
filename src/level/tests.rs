@@ -28,6 +28,36 @@ fn test_parse_single_room_level() {
 }
 
 #[test]
+fn test_parse_sky_defaults_brightness_and_ambient() {
+    let json = r#"{
+        "format_version": 3,
+        "id": "sky_level",
+        "name": "Sky Level",
+        "spawn": { "x": 0.0, "z": 0.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 } ],
+        "sky": { "texture": "outdoor:tex_sky_stars_01" }
+    }"#;
+    let level = LevelDef::from_json(json).expect("valid json");
+    let sky = level.sky.expect("sky parses");
+    assert_eq!(sky.texture, "outdoor:tex_sky_stars_01");
+    assert_exact(sky.brightness, 1.0);
+    assert_exact(sky.ambient, 0.0);
+
+    let json = r#"{
+        "format_version": 3,
+        "id": "sky_tuned",
+        "name": "Sky Tuned",
+        "spawn": { "x": 0.0, "z": 0.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 } ],
+        "sky": { "texture": "outdoor:tex_sky_stars_01", "brightness": 0.5, "ambient": 0.08 }
+    }"#;
+    let level = LevelDef::from_json(json).expect("valid json");
+    let sky = level.sky.expect("sky parses");
+    assert_exact(sky.brightness, 0.5);
+    assert_exact(sky.ambient, 0.08);
+}
+
+#[test]
 fn test_parse_multi_room_level_with_walls() {
     let json = r#"{
         "format_version": 3,
@@ -145,6 +175,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
 fn test_estimate_geometry_saturates_on_extreme_input() {
     // Direct construction with absurd dimensions must not overflow or panic.
     let level = LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -260,6 +291,104 @@ fn test_wall_axis_and_length_helpers() {
     assert_eq!(negative.axis(), WallAxis::X);
     assert_exact(negative.length(), 4.0);
     assert_eq!(negative.min_corner(), (0.0, 0.6));
+}
+
+#[test]
+fn test_a_door_resolves_the_wall_opening_it_fills() {
+    // Wall at z 2.85..3.15 (0.3 m thick) with a passage x 3.0..4.4, and the
+    // leaf hinged exactly on the passage's near edge and centred in the wall.
+    let json = r#"{
+        "format_version": 3,
+        "id": "frame_resolve",
+        "name": "Frame Resolve",
+        "spawn": { "x": 3.0, "z": 4.0 },
+        "rooms": [ { "x": 0.0, "z": 2.0, "width": 6.0, "depth": 4.0, "height": 2.7 } ],
+        "walls": [ { "x": 0.0, "z": 2.85, "width": 6.0, "depth": 0.3,
+                     "openings": [ { "kind": "passage", "offset": 3.0, "width": 1.4,
+                                     "height": 2.1, "sill": 0.0 } ] } ],
+        "doors": [
+            { "id": "in_the_wall", "x": 3.0, "z": 3.0, "width": 1.4, "height": 2.1 },
+            { "id": "off_the_wall", "x": 3.0, "z": 5.0, "width": 1.4, "height": 2.1 },
+            { "id": "explicit", "x": 3.0, "z": 4.0, "width": 1.4, "height": 2.1,
+              "frame_depth": 0.7, "frame_center": -0.2 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("level parses");
+    let frame = level.door_frame(&level.doors[0]);
+    assert_exact(frame.depth, 0.3);
+    assert_exact(frame.center, 0.0);
+    // A leaf no wall opening claims keeps the standalone liner.
+    let standalone = level.door_frame(&level.doors[1]);
+    assert!((standalone.depth - STANDALONE_DOOR_FRAME_DEPTH_M).abs() < 1e-6);
+    assert_exact(standalone.center, 0.0);
+    // Authored values win over the resolution.
+    let authored = level.door_frame(&level.doors[2]);
+    assert_exact(authored.depth, 0.7);
+    assert_exact(authored.center, -0.2);
+    let (lo, hi) = authored.span();
+    assert!(
+        (lo + 0.55).abs() < 1e-6 && (hi - 0.15).abs() < 1e-6,
+        "{lo}..{hi}"
+    );
+
+    // A Z-axis wall resolves the same way, and a door whose leaf normal runs
+    // along the wall's length still measures the tunnel across its thickness.
+    let json = r#"{
+        "format_version": 3,
+        "id": "frame_resolve_z",
+        "name": "Frame Resolve Z",
+        "spawn": { "x": 3.0, "z": 3.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 2.7 } ],
+        "walls": [ { "x": 2.85, "z": 0.0, "width": 0.3, "depth": 6.0,
+                     "openings": [ { "kind": "door", "offset": 2.0, "width": 1.4,
+                                     "height": 2.1, "sill": 0.0 } ] } ],
+        "doors": [ { "id": "z_door", "x": 3.08, "z": 2.0, "rotation_degrees": 270.0,
+                     "width": 1.4, "height": 2.1 } ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("z level parses");
+    let frame = level.door_frame(&level.doors[0]);
+    assert!((frame.depth - 0.3).abs() < 1e-5, "{}", frame.depth);
+    // The leaf sits 80 mm east of the wall centre and its normal points west.
+    assert!((frame.center - 0.08).abs() < 1e-5, "{}", frame.center);
+
+    // A raised doorway whose sill meets the leaf's own raised floor still
+    // frames the leaf: the pool-side sauna door is the maintained example.
+    let json = r#"{
+        "format_version": 3,
+        "id": "frame_resolve_sill",
+        "name": "Frame Resolve Sill",
+        "spawn": { "x": 3.0, "z": 3.0 },
+        "rooms": [ { "x": 0.0, "z": 2.0, "width": 6.0, "depth": 4.0, "height": 2.7 } ],
+        "walls": [ { "x": 0.0, "z": 2.85, "width": 6.0, "depth": 0.3, "y": -0.6,
+                     "openings": [ { "kind": "door", "offset": 0.7, "width": 1.4,
+                                     "height": 2.1, "sill": 0.6 } ] } ],
+        "doors": [ { "id": "raised", "x": 0.7, "y": 0.6, "z": 3.0,
+                     "width": 1.4, "height": 2.1 } ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("raised level parses");
+    let frame = level.door_frame(&level.doors[0]);
+    assert!((frame.depth - 0.3).abs() < 1e-5, "{}", frame.depth);
+    assert!(frame.center.abs() < 1e-5, "{}", frame.center);
+    // A window that happens to span the leaf's height is never a frame.
+    let json = r#"{
+        "format_version": 3,
+        "id": "frame_resolve_window",
+        "name": "Frame Resolve Window",
+        "spawn": { "x": 3.0, "z": 3.0 },
+        "rooms": [ { "x": 0.0, "z": 2.0, "width": 6.0, "depth": 4.0, "height": 2.7 } ],
+        "walls": [ { "x": 0.0, "z": 2.85, "width": 6.0, "depth": 0.3,
+                     "openings": [ { "kind": "window", "offset": 0.7, "width": 1.4,
+                                     "height": 2.1, "sill": 0.0 } ] } ],
+        "doors": [ { "id": "in_front_of_a_window", "x": 0.7, "z": 3.0,
+                     "width": 1.4, "height": 2.1 } ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("window level parses");
+    let frame = level.door_frame(&level.doors[0]);
+    assert!(
+        (frame.depth - STANDALONE_DOOR_FRAME_DEPTH_M).abs() < 1e-6,
+        "{}",
+        frame.depth
+    );
 }
 
 #[test]
@@ -2028,4 +2157,102 @@ fn stair_treads_share_exact_boundaries_with_risers_and_landing() {
         };
         assert_exact(stair.tread_span(stair.step_count() - 1).1, end);
     }
+}
+
+/// A sink's collider is its standable deck, never the model's faucet post:
+/// over the -0.9 m kitchen floor the authored 0.90 m `size` yields a box
+/// topping out at exactly 0.0 with the real 0.6 x 0.55 m footprint, a
+/// conservative 0.55 x 0.6 m box at 90 degrees, and a top that scales with
+/// the placement.
+#[test]
+fn a_sink_collider_is_its_standable_deck_not_the_faucet_post() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "sink_decks",
+            "name": "Sink Decks",
+            "spawn": { "x": 54.8, "z": 3.4 },
+            "rooms": [ { "x": 53.0, "z": 3.0, "width": 12.0, "depth": 12.0, "height": 4.5, "floor_y": -0.9 } ],
+            "props": [
+                { "model": "core:sink", "x": 54.8, "y": 0.0, "z": 3.425, "size": [0.6, 0.9, 0.55], "solid": true },
+                { "model": "core:sink", "x": 56.0, "y": 0.0, "z": 3.425, "rotation_degrees": 90.0, "size": [0.6, 0.9, 0.55], "solid": true },
+                { "model": "core:sink", "x": 57.5, "y": 0.0, "z": 3.425, "scale": 1.2, "size": [0.6, 0.9, 0.55], "solid": true }
+            ]
+        }"#,
+    )
+    .expect("the sink level parses");
+    let aabbs = level.collision_aabbs();
+    assert_eq!(aabbs.len(), 3, "exactly the three solid sinks collide");
+
+    // The plain deck: -0.9 + 0.0 .. -0.9 + 0.9, footprint 0.6 x 0.55.
+    let plain = aabbs[0];
+    assert_exact(plain.min_y, -0.9);
+    assert_exact(plain.max_y, 0.0);
+    assert!((plain.max_x - plain.min_x - 0.6).abs() < 1e-4);
+    assert!((plain.max_z - plain.min_z - 0.55).abs() < 1e-4);
+    assert!((plain.min_x + plain.max_x - 2.0 * 54.8).abs() < 1e-4);
+
+    // Rotated 90 degrees: the same top, the conservative 0.55 x 0.6 m box
+    // that contains the rotated rectangle's corners.
+    let rotated = aabbs[1];
+    assert_exact(rotated.max_y, 0.0);
+    assert!((rotated.max_x - rotated.min_x - 0.55).abs() < 1e-4);
+    assert!((rotated.max_z - rotated.min_z - 0.6).abs() < 1e-4);
+
+    // Scaled 1.2: the top is the deck height times the scale.
+    let scaled = aabbs[2];
+    assert!((scaled.max_y - (-0.9 + 1.08)).abs() < 1e-5);
+    assert!((scaled.max_x - scaled.min_x - 0.72).abs() < 1e-4);
+    assert!((scaled.max_z - scaled.min_z - 0.66).abs() < 1e-4);
+}
+
+/// The shipped Places Demo kitchen counter run: every collider over the
+/// counter footprint tops out at the 0.0 m counter surface (the -0.9 m floor
+/// plus the 0.9 m cabinet/stove/sink size), and nothing occupies the
+/// 0.55..0.9 m band above it, so the upper cabinets (now `solid: false`) can
+/// never push a player standing on the counter off it. This is the surface
+/// the raised jump apex can land on.
+#[test]
+fn the_shipped_demo_counters_are_clear_above_their_tops() {
+    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+        .expect("the Places demo level is present");
+    let level = LevelDef::from_json(&content).expect("the Places demo parses");
+
+    // Four 0.6 m base cabinets, the stove and the sink along the kitchen's
+    // north wall: x 53.3..56.9 by the base cabinets' 0.6 m depth at z 3.45.
+    let (x0, x1, z0, z1) = (53.3_f32, 56.9_f32, 3.15_f32, 3.75_f32);
+    let mut counter_boxes = 0_u32;
+    for aabb in level.collision_aabbs() {
+        let overlaps = aabb.max_x > x0 + 1e-4
+            && aabb.min_x < x1 - 1e-4
+            && aabb.max_z > z0 + 1e-4
+            && aabb.min_z < z1 - 1e-4;
+        if !overlaps {
+            continue;
+        }
+        assert!(
+            !(aabb.min_y < 0.9 - 1e-3 && aabb.max_y > 0.55 + 1e-3),
+            "a collider spans the walkable band over the counter: {aabb:?}"
+        );
+        let inside = aabb.min_x > x0 - 1e-3
+            && aabb.max_x < x1 + 1e-3
+            && aabb.min_z > z0 - 1e-3
+            && aabb.max_z < z1 + 1e-3;
+        if inside {
+            counter_boxes += 1;
+            assert!(
+                aabb.max_y.abs() < 1e-4,
+                "a counter box tops out at {} instead of 0.0: {aabb:?}",
+                aabb.max_y
+            );
+            assert!(
+                (aabb.min_y + 0.9).abs() < 1e-4,
+                "a counter box must start on the -0.9 m kitchen floor: {aabb:?}"
+            );
+        }
+    }
+    assert_eq!(
+        counter_boxes, 6,
+        "the counter run contributes four bases, the stove and the sink"
+    );
 }

@@ -1233,7 +1233,7 @@ fn jump_apex_at(delta: f32) -> f32 {
     apex
 }
 
-/// The jump apex is the desk height at every frame rate: vertical motion runs
+/// The jump apex is the sizing target at every frame rate: vertical motion runs
 /// in a fixed substep, so 30, 60 and 144 fps sample the same parabola.
 #[test]
 fn jump_apex_is_frame_rate_independent() {
@@ -1248,7 +1248,7 @@ fn jump_apex_is_frame_rate_independent() {
     for apex in apexes {
         assert!(
             (JUMP_APEX_M - 0.01..=JUMP_APEX_M + 0.01).contains(&apex),
-            "the apex clears the {OFFICE_DESK_TOP_M} m desk by its margin: {apex}"
+            "the apex clears the {KITCHEN_COUNTER_TOP_M} m counter by its margin: {apex}"
         );
     }
     let low = apexes.iter().copied().fold(f32::INFINITY, f32::min);
@@ -1747,6 +1747,150 @@ fn standing_jump_lands_on_the_demo_desk_top() {
         walker.player_position.z >= 6.15 + PLAYER_RADIUS - 1e-3,
         "the desk face stops the walk one radius short: {:?}",
         walker.player_position
+    );
+}
+
+/// The player jumps from the kitchen floor onto each 0.9 m counter-run top
+/// (a base cabinet, the stove and the sink deck), walks along the run onto a
+/// neighbouring top, and steps off the front edge back to the floor: real
+/// landings at the surface the model actually has (world 0.0 over the -0.9 m
+/// kitchen floor), no embedding, and no upward correction larger than a
+/// walkable step.
+#[test]
+fn jumping_onto_the_demo_kitchen_counter_run_lands_walks_and_leaves() {
+    let settings = Settings::default();
+    // The front faces are at z 3.75 (cabinets, stove) and 3.70 (sink); a
+    // take-off 1.45 m out lands inside the 1.18..1.78 m window the 1.0 m apex
+    // and the 3.0 m/s walk give.
+    for (name, x) in [("base cabinet", 55.4), ("stove", 56.0), ("sink", 54.8)] {
+        let mut game = demo_game_at(x, -0.9, 5.2, 0.0, 1.0 / 60.0);
+        let mut jump = InputState::holding(&[Control::MoveForward, Control::Jump]);
+        let mut landed = false;
+        let mut highest_feet = game.feet_y();
+        let mut previous_feet = game.feet_y();
+        for _ in 0..120 {
+            game.update_player_movement(&mut jump, &settings);
+            highest_feet = highest_feet.max(game.feet_y());
+            assert!(
+                game.feet_y() <= previous_feet + PLAYER_STEP_HEIGHT + STEP_EPS,
+                "{name}: no upward correction larger than a step: {} then {}",
+                previous_feet,
+                game.feet_y()
+            );
+            previous_feet = game.feet_y();
+            if game.grounded && game.player_floor_y.abs() < 1e-3 {
+                landed = true;
+                break;
+            }
+        }
+        assert!(
+            landed,
+            "{name}: the jump lands on the 0.9 m top: floor {} at {:?}",
+            game.player_floor_y, game.player_position
+        );
+        assert!(
+            (game.feet_y() - game.player_floor_y).abs() < 1e-3,
+            "{name}: the feet stand on the landed surface: {}",
+            game.feet_y()
+        );
+        assert!(
+            highest_feet <= -0.9 + JUMP_APEX_M + 1e-3,
+            "{name}: the apex stays the ordinary jump, never a mantle: {highest_feet}"
+        );
+
+        // Walk along the run: strafing crosses onto the neighbouring top at
+        // the same height with no step, no snag and no fall.
+        let start_x = game.player_position.x;
+        let mut strafe = InputState::holding(&[Control::StrafeLeft]);
+        for frame in 0..20 {
+            game.update_player_movement(&mut strafe, &settings);
+            assert!(
+                game.grounded,
+                "{name}: the run stays walkable (frame {frame})"
+            );
+            assert!(
+                game.player_floor_y.abs() < 1e-3,
+                "{name}: still on the 0.0 m tops (frame {frame}): {}",
+                game.player_floor_y
+            );
+        }
+        let walked = (game.player_position.x - start_x).abs();
+        assert!(
+            walked > 0.8,
+            "{name}: the player walks along the run: {walked}"
+        );
+
+        // Leave: walking off the front edge is a real drop to the -0.9 m
+        // kitchen floor, and the landing is grounded, never embedded.
+        let mut back = InputState::holding(&[Control::MoveBackward]);
+        let mut left = false;
+        for _ in 0..120 {
+            game.update_player_movement(&mut back, &settings);
+            if game.grounded && (game.player_floor_y + 0.9).abs() < 1e-3 {
+                left = true;
+                break;
+            }
+        }
+        assert!(
+            left,
+            "{name}: the player steps off and lands on the floor: {:?}",
+            game.player_position
+        );
+        assert!((game.feet_y() - game.player_floor_y).abs() < 1e-3);
+    }
+}
+
+/// The counter jump lands at 30, 60 and 144 fps: the fixed vertical substep
+/// keeps the apex frame-rate independent, exactly like the desk jump.
+#[test]
+fn the_counter_jump_lands_at_30_60_and_144_fps() {
+    let settings = Settings::default();
+    for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
+        let mut game = demo_game_at(56.0, -0.9, 5.2, 0.0, delta);
+        let mut jump = InputState::holding(&[Control::MoveForward, Control::Jump]);
+        let mut landed = false;
+        for _ in 0..240 {
+            game.update_player_movement(&mut jump, &settings);
+            if game.grounded && game.player_floor_y.abs() < 1e-3 {
+                landed = true;
+                break;
+            }
+        }
+        assert!(
+            landed,
+            "the stove jump lands at delta {delta}: floor {} at {:?}",
+            game.player_floor_y, game.player_position
+        );
+    }
+}
+
+/// The raised jump apex still cannot mount the 1.05 m pool guardrail: the
+/// rails top out at -0.45 over the -1.5 m deck, above the 1.0 m apex, so the
+/// jump is not a universal mantle and the rails keep guarding the deck.
+#[test]
+fn the_jump_never_mantles_onto_the_pool_guardrail() {
+    let settings = Settings::default();
+    // The north deck (z 7..10, floor -1.5) south of the rail at z 9.9.
+    let mut game = demo_game_at(14.0, -1.5, 8.6, 180.0, 1.0 / 60.0);
+    let mut jump = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    let mut highest_feet = game.feet_y();
+    for _ in 0..120 {
+        game.update_player_movement(&mut jump, &settings);
+        highest_feet = highest_feet.max(game.feet_y());
+    }
+    assert!(
+        highest_feet <= -0.45 + 1e-3,
+        "the feet never reach the rail top: {highest_feet}"
+    );
+    assert!(
+        (game.player_floor_y + 1.5).abs() < 1e-3,
+        "the deck stays the floor: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.z <= 9.9 - PLAYER_RADIUS + 1e-3,
+        "the rail stops the jump one radius short: {:?}",
+        game.player_position
     );
 }
 
@@ -3381,6 +3525,7 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         scale: 1.0,
         size: Some([0.8, 0.4, 0.8]),
         solid: true,
+        occludes: true,
         components: Vec::new(),
         bindings: Vec::new(),
         lights: Vec::new(),
@@ -4223,6 +4368,56 @@ fn a_route_never_walks_the_entity_through_a_wall() {
     );
 }
 
+/// A fade-only entity authors no route and no AI, so its frame has no
+/// transform; the opacity must still change between two update ticks.
+#[test]
+fn a_fading_entity_changes_opacity_between_ticks() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "fading_ghost",
+            "name": "Fading Ghost",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
+            "props": [
+                { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                  "components": [ { "component": "fade", "period_seconds": 2.0,
+                                    "phase": 0.0, "min_opacity": 0.0,
+                                    "max_opacity": 1.0 } ] }
+            ]
+        }"#,
+    )
+    .expect("the fading level parses");
+    let mut game = game_for(&level);
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = MAX_SIM_DELTA;
+    let settings = Settings::default();
+    let mut input = InputState::default();
+
+    let opacity = |game: &Game| -> f32 {
+        let frame = game
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == "ghost")
+            .expect("the fade-only ghost has a frame");
+        assert!(frame.transform.is_none(), "nothing moves the ghost");
+        frame.opacity
+    };
+    let first = opacity(&game);
+    game.update_player_movement(&mut input, &settings);
+    let second = opacity(&game);
+    game.update_player_movement(&mut input, &settings);
+    let third = opacity(&game);
+    assert!(
+        (second - first).abs() > 1e-4,
+        "the fade advanced between ticks: {first} -> {second}"
+    );
+    assert!(
+        (third - second).abs() > 1e-4,
+        "and keeps advancing: {second} -> {third}"
+    );
+}
+
 #[test]
 fn play_animation_sets_a_pose_override_that_reset_clears() {
     let level = routed_entity_level();
@@ -4405,6 +4600,113 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
             once: true,
             paused: false
         })
+    );
+}
+
+/// The Halloween fixture runs all three entities through the shared
+/// components: the pumpkin hops its walkway on a route, the ghosts float
+/// bounded routes while fading on independently phased cycles with a
+/// fade-coupled glow, and the pumpkin-head skeleton wanders the tree zone
+/// through the baked navigation.
+#[test]
+fn the_halloween_fixture_runs_jumping_pumpkins_fading_ghosts_and_wandering_skeletons() {
+    let content = std::fs::read_to_string("tests/fixtures/levels/halloween_entities.json")
+        .expect("the Halloween fixture is present");
+    let level = LevelDef::from_json(&content).expect("the Halloween fixture parses");
+    crate::loader::validate_level(&level).expect("the Halloween fixture validates");
+    let mut game = game_for(&level);
+    assert_eq!(
+        game.routes().len(),
+        4,
+        "the pumpkin and three ghosts each carry a route"
+    );
+
+    game.set_app_state(AppState::Playing);
+    let settings = Settings::default();
+    game.sim_delta_seconds = MAX_SIM_DELTA;
+    for _ in 0..40 {
+        game.update_player_movement(&mut InputState::default(), &settings);
+    }
+
+    // The pumpkin hops north along the walkway at its authored 0.5 m/s; four
+    // seconds of frames move it 2 m from its spawn at z = -2.5 with no
+    // lateral drift.
+    let pumpkin = game
+        .route_state("pumpkin_hopper")
+        .expect("the pumpkin route resolves")
+        .position;
+    assert!(
+        (pumpkin.z + 0.5).abs() < 0.15 && pumpkin.x.abs() < 0.05,
+        "the pumpkin hopped the walkway: {pumpkin:?}"
+    );
+    // The ghost floats its route at its authored 0.3 m/s float speed.
+    let ghost = game
+        .route_state("ghost_a")
+        .expect("the ghost route resolves")
+        .position;
+    assert!(
+        (ghost.x - 6.2).abs() < 0.15 && (ghost.z + 8.0).abs() < 0.05,
+        "the ghost floated its route: {ghost:?}"
+    );
+
+    // The frames carry the attachment contracts the renderer needs.
+    let frames = game.entity_frames();
+    let pumpkin_frame = frames
+        .iter()
+        .find(|frame| frame.instance_id == "pumpkin_hopper")
+        .expect("the pumpkin has a frame");
+    let glow = pumpkin_frame
+        .glow
+        .as_ref()
+        .expect("the pumpkin carries a glow cue");
+    assert_eq!(glow.socket.as_deref(), Some("flame"));
+    assert!((pumpkin_frame.opacity - 1.0).abs() < f32::EPSILON);
+
+    let ghost_frame = frames
+        .iter()
+        .find(|frame| frame.instance_id == "ghost_a")
+        .expect("the ghost has a frame");
+    let ghost_glow = ghost_frame
+        .glow
+        .as_ref()
+        .expect("the ghost carries a glow cue");
+    assert_eq!(ghost_glow.socket.as_deref(), Some("body"));
+    assert!(ghost_glow.fade_with_opacity, "the glow follows the fade");
+    let before = ghost_frame.opacity;
+    assert!(
+        (0.05..=0.85).contains(&before),
+        "the authored opacity cycle bounds hold: {before}"
+    );
+
+    // Half of ghost_a's 7 s cycle later the opacity has crossed to the other
+    // half: the fade is a real cycle, not a static value.
+    game.sim_delta_seconds = 3.5;
+    game.update_player_movement(&mut InputState::default(), &settings);
+    let after = game
+        .entity_frames()
+        .iter()
+        .find(|frame| frame.instance_id == "ghost_a")
+        .expect("the ghost still has a frame")
+        .opacity;
+    assert!(
+        (after - before).abs() > 0.3,
+        "the ghost fades on its authored cycle: {before} -> {after}"
+    );
+    assert!(
+        (0.05..=0.85).contains(&after),
+        "the second half stays inside the bounds: {after}"
+    );
+
+    // The skeleton wanders through the AI runtime with a real transform.
+    let walker = game
+        .entity_frames()
+        .iter()
+        .find(|frame| frame.instance_id == "pumpkin_walker")
+        .expect("the pumpkin-head skeleton has an AI frame");
+    let (position, yaw) = walker.transform.expect("the skeleton has a transform");
+    assert!(
+        position.is_finite() && yaw.is_finite(),
+        "the wandering skeleton stays finite: {position:?}"
     );
 }
 
@@ -6166,8 +6468,9 @@ fn demo_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) {
         "the demo bakes a real mesh"
     );
     assert_eq!(
-        report.portals, 4,
-        "the demo's four doors (hall, pool-side sauna, shower-side sauna, study) are portal links"
+        report.portals, 6,
+        "the demo's six doors (hall, pool-side sauna, shower-side sauna, study, front, house) \
+         are portal links"
     );
     let bytes = crate::package::navigation::write_navigation(
         &crate::package::navigation::read_navigation(&bytes).expect("the record decodes"),
@@ -6845,6 +7148,7 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
     let mut stood_on_step = false;
     let mut previous = game.player_position;
     for _ in 0..400 {
+        let frame_start_eye = game.player_position.y;
         game.update_player_movement(&mut exit, &settings);
         let position = game.player_position;
         assert!(
@@ -6859,10 +7163,15 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
             position.y
         );
         if game.is_swimming() {
+            // The old instant stand-up wrote the standing line in the frame it
+            // left the water, so the eye could never pass the float line while
+            // `is_swimming()`. The bounded climb now legitimately rises above
+            // the line over the frames it takes to stand: what must hold
+            // instead is that every frame moves at most the climb rate.
             assert!(
-                position.y <= -1.65 + FLOAT_EYE_MARGIN + SWIM_BOB_AMPLITUDE + 1e-3,
-                "the swimmer never pops above the float line: {}",
-                position.y
+                (position.y - frame_start_eye).abs() <= WATER_EXIT_CLIMB_SPEED / 60.0 + 1e-3,
+                "the exit climbs at a bounded rate: {}",
+                position.y - frame_start_eye
             );
         }
         if game.grounded && (game.player_floor_y - (-1.85)).abs() < 1e-3 {
@@ -6884,6 +7193,431 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
     });
     wade.assert_walkable("walk-in step wade to deck");
     assert_eq!(wade.discrete_steps, 1, "one 0.35 m rise edge");
+}
+
+/// A fall from the demo deck enters the swim state as soon as the basin water
+/// is deep enough to swim in — well above the basin floor — instead of
+/// grounding on the pool bottom and waiting for the eye band.
+#[test]
+fn falling_into_deep_water_starts_swimming_near_the_surface() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+    let mut walk = InputState::holding(&[Control::MoveForward]);
+    let mut grounded_on_basin = false;
+    let mut first_swim_feet = f32::MAX;
+    for _ in 0..240 {
+        game.update_player_movement(&mut walk, &settings);
+        if game.is_swimming() {
+            first_swim_feet = game.feet_y();
+            break;
+        }
+        // The basin floor is -3.0; the deck (-1.5) is where the walk starts.
+        if game.grounded && game.player_floor_y <= -2.5 {
+            grounded_on_basin = true;
+        }
+    }
+    assert!(game.is_swimming(), "the deck fall ends in swimming");
+    assert!(
+        !grounded_on_basin,
+        "the swim state begins before the player grounds on the basin floor"
+    );
+    // The entry threshold is the surface minus WADE_DEPTH (-2.2 m in the demo
+    // basin): the first swimming frame sits just below it, not on the basin
+    // floor (-3.0). The old eye-band gate instead put the first swimming frame
+    // at feet <= surface - 1.23 = -2.88, essentially the floor.
+    assert!(
+        first_swim_feet <= -1.65 - WADE_DEPTH + 1e-3,
+        "the water is deeper than WADE_DEPTH at the feet: {first_swim_feet}"
+    );
+    assert!(
+        first_swim_feet > -2.5,
+        "the entry happens near the surface, not on the basin floor: {first_swim_feet}"
+    );
+    assert!(!game.grounded, "the entry clears the grounded flag");
+}
+
+/// Walking off the demo deck and jumping in with Jump held never snap the eye:
+/// every frame moves it at most the fall rate, and the entry seeds a bounded
+/// descending velocity instead of zeroing the plunge.
+#[test]
+fn entering_the_pool_never_snaps_the_eye() {
+    let settings = Settings::default();
+    // The deck fall reaches ~4 m/s at the entry (0.067 m per 1/60 frame); the
+    // jump-in apex makes it ~5.8 m/s (0.097 m per frame). 0.12 m bounds both.
+    // The old path instead wrote the eye straight to the float line when the
+    // band was crossed, a step of up to 0.25 m.
+    let bound = 0.12_f32;
+    for (label, jump) in [("walking off the deck", false), ("jumping in", true)] {
+        let mut game = demo_game_at(21.0, -1.5, 12.0, 270.0, 1.0 / 60.0);
+        let mut input = if jump {
+            InputState::holding(&[Control::MoveForward, Control::Jump])
+        } else {
+            InputState::holding(&[Control::MoveForward])
+        };
+        let mut previous_eye = game.player_position.y;
+        let mut entry_velocity = None;
+        for _ in 0..240 {
+            let before_velocity = game.vertical_velocity;
+            game.update_player_movement(&mut input, &settings);
+            let eye = game.player_position.y;
+            assert!(
+                (eye - previous_eye).abs() <= bound + 1e-4,
+                "{label}: the eye jumped {} m in one frame at {eye}",
+                eye - previous_eye
+            );
+            previous_eye = eye;
+            if game.is_swimming() && entry_velocity.is_none() {
+                let velocity = game.vertical_velocity;
+                // The entry keeps the plunge as a bounded swim velocity (the
+                // old path zeroed it): it stays negative and within twice the
+                // swim rise speed.
+                let plunge_bound = SWIM_RISE_SPEED.mul_add(-2.0, -1e-4);
+                assert!(
+                    (plunge_bound..0.0).contains(&velocity),
+                    "{label}: the entry velocity is the bounded plunge, not zero: {velocity}"
+                );
+                assert!(
+                    before_velocity < 0.0,
+                    "{label}: the frame before the entry is falling: {before_velocity}"
+                );
+                entry_velocity = Some(velocity);
+            }
+        }
+        assert!(
+            entry_velocity.is_some(),
+            "{label}: the fall reaches the water"
+        );
+        assert!(game.is_swimming(), "{label}: still swimming at the end");
+    }
+}
+
+/// The demo deck exit is a bounded, cancellable climb: the eye rises at most
+/// the climb speed per frame onto the real deck floor, and reversing back over
+/// the water mid-climb cancels to swimming with the same bound.
+#[test]
+fn exiting_the_demo_pool_is_a_bounded_climb() {
+    let settings = Settings::default();
+    let bound = WATER_EXIT_CLIMB_SPEED / 60.0 + 1e-3;
+
+    // The exit completes standing on the deck floor (-1.5), not with an
+    // instant stand-up: the old path moved the eye from the float line to the
+    // standing line in a single frame (1.63 m).
+    let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    let mut swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    let mut previous_eye = game.player_position.y;
+    let mut exited = false;
+    for _ in 0..400 {
+        game.update_player_movement(&mut swim, &settings);
+        let eye = game.player_position.y;
+        assert!(
+            (eye - previous_eye).abs() <= bound,
+            "the exit climb is bounded: {} m in one frame",
+            eye - previous_eye
+        );
+        previous_eye = eye;
+        if game.grounded
+            && (game.player_floor_y - (-1.5)).abs() < 1e-3
+            && game.player_position.x > 20.0
+        {
+            exited = true;
+            break;
+        }
+    }
+    assert!(
+        exited,
+        "the swimmer climbs onto the deck: {:?} floor {}",
+        game.player_position, game.player_floor_y
+    );
+    assert!(
+        !game.is_swimming(),
+        "the completed climb leaves the swim state"
+    );
+    assert!(
+        (game.feet_y() - (-1.5)).abs() < 1e-3,
+        "the feet stand on the deck"
+    );
+
+    // Reversing mid-climb: face back west over the water and release Jump. The
+    // recorded support stops being standable and the climb cancels back to
+    // swimming, with no snap on the way.
+    let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    let mut swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    for _ in 0..400 {
+        game.update_player_movement(&mut swim, &settings);
+        if game.water_exit.is_some() {
+            break;
+        }
+    }
+    assert!(
+        game.water_exit.is_some(),
+        "the swimmer reaches the rim and climbs"
+    );
+    // A few frames of climb put the eye above the float line, so the reversal
+    // is a genuine mid-climb cancel.
+    for _ in 0..4 {
+        game.update_player_movement(&mut swim, &settings);
+    }
+    assert!(game.water_exit.is_some(), "the climb is still in progress");
+    game.player_yaw = 270.0_f32.to_radians();
+    let mut reverse = InputState::holding(&[Control::MoveForward]);
+    let mut previous_eye = game.player_position.y;
+    let mut previous_position = game.player_position;
+    let mut cancelled = false;
+    let horizontal_bound = settings.walk_speed * SWIM_SPEED_FACTOR / 60.0 + 1e-3;
+    for _ in 0..120 {
+        game.update_player_movement(&mut reverse, &settings);
+        let eye = game.player_position.y;
+        assert!(
+            (eye - previous_eye).abs() <= bound,
+            "the cancelled climb is bounded: {} m in one frame",
+            eye - previous_eye
+        );
+        previous_eye = eye;
+        // The cancel must not hand the body to the airborne pass while the rim
+        // is beside it: the horizontal step stays at the swim speed, never a
+        // rim depenetration lurch (the verifier's D1).
+        let step = Vec2::new(
+            game.player_position.x - previous_position.x,
+            game.player_position.z - previous_position.z,
+        )
+        .length();
+        assert!(
+            step <= horizontal_bound,
+            "the cancelled climb never lurches horizontally: {step} m in one frame"
+        );
+        previous_position = game.player_position;
+        cancelled |= game.water_exit.is_none();
+    }
+    assert!(cancelled, "reversing back over the water cancels the climb");
+    assert!(
+        game.swimming && game.is_swimming(),
+        "the cancelled climb returns to the swim pose"
+    );
+    assert!(
+        (game.player_floor_y - (-3.0)).abs() < 1e-3,
+        "the support is the basin floor again: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.x < 20.0,
+        "the reversed player is back over the basin: {:?}",
+        game.player_position
+    );
+}
+
+/// Three full enter/exit cycles at the demo rim and at the walk-in step stay
+/// bounded and never flap: each cycle is exactly one entry and one completed
+/// exit, with no teleport and no per-frame step beyond the documented bounds.
+#[test]
+fn repeated_pool_entry_and_exit_stays_bounded() {
+    let settings = Settings::default();
+    let horizontal_bound = settings.walk_speed / 60.0 + 1e-3;
+    // The fall into the water reaches ~4 m/s (0.067 m per frame) and the
+    // bounded climb is 0.037 m per frame; 0.12 bounds both. The walk-in cycle's
+    // ordinary 0.35 m walkable step gets the `PLAYER_STEP_HEIGHT` bound below.
+    let water_bound = 0.12_f32;
+
+    // The demo rim: walk west off the deck, surface east, climb out.
+    let mut game = demo_game_at(21.0, -1.5, 14.0, 270.0, 1.0 / 60.0);
+    let mut phase = 0_u8;
+    let mut input = InputState::holding(&[Control::MoveForward]);
+    let mut previous = game.player_position;
+    let mut before_swimming = game.swimming;
+    let mut toggles = 0_u32;
+    let mut cycles = 0_u32;
+    for _ in 0..4000 {
+        if phase == 0 && game.swimming {
+            game.player_yaw = 90.0_f32.to_radians();
+            input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+            phase = 1;
+        } else if phase == 1 && game.grounded && (game.player_floor_y - (-1.5)).abs() < 1e-3 {
+            cycles = cycles.saturating_add(1);
+            if cycles >= 3 {
+                break;
+            }
+            game.player_yaw = 270.0_f32.to_radians();
+            input = InputState::holding(&[Control::MoveForward]);
+            phase = 0;
+        }
+        game.update_player_movement(&mut input, &settings);
+        let position = game.player_position;
+        assert!(
+            Vec2::new(position.x - previous.x, position.z - previous.z).length()
+                <= horizontal_bound,
+            "rim cycle: no horizontal teleport"
+        );
+        assert!(
+            (position.y - previous.y).abs() <= water_bound,
+            "rim cycle: the eye stepped {} m in one frame",
+            position.y - previous.y
+        );
+        assert!(
+            !(game.swimming || game.water_exit.is_some())
+                || (position.y - previous.y).abs() <= water_bound,
+            "rim cycle: the water states stay bounded"
+        );
+        previous = position;
+        if game.swimming != before_swimming {
+            toggles = toggles.saturating_add(1);
+            before_swimming = game.swimming;
+        }
+    }
+    assert_eq!(cycles, 3, "three full rim cycles complete");
+    assert_eq!(toggles, 6, "one entry and one completed exit per cycle");
+
+    // The walk-in step: wade north off the step, sink and surface, climb back
+    // out over the step's submerged floor (-1.85).
+    let mut game = demo_game_at(13.0, -1.85, 16.4, 0.0, 1.0 / 60.0);
+    let mut phase = 0_u8;
+    let mut input = InputState::holding(&[Control::MoveForward]);
+    let mut previous = game.player_position;
+    let mut before_swimming = game.swimming;
+    let mut toggles = 0_u32;
+    let mut cycles = 0_u32;
+    for _ in 0..4000 {
+        if phase == 0 && game.swimming {
+            game.player_yaw = 180.0_f32.to_radians();
+            input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+            phase = 1;
+        } else if phase == 1 && game.grounded && (game.player_floor_y - (-1.85)).abs() < 1e-3 {
+            cycles = cycles.saturating_add(1);
+            if cycles >= 3 {
+                break;
+            }
+            game.player_yaw = 0.0;
+            input = InputState::holding(&[Control::MoveForward]);
+            phase = 0;
+        }
+        game.update_player_movement(&mut input, &settings);
+        let position = game.player_position;
+        assert!(
+            Vec2::new(position.x - previous.x, position.z - previous.z).length()
+                <= horizontal_bound,
+            "step cycle: no horizontal teleport"
+        );
+        assert!(
+            (position.y - previous.y).abs() <= PLAYER_STEP_HEIGHT + 1e-3,
+            "step cycle: the eye stepped {} m in one frame",
+            position.y - previous.y
+        );
+        assert!(
+            !(game.swimming || game.water_exit.is_some())
+                || (position.y - previous.y).abs() <= water_bound,
+            "step cycle: the water states stay bounded"
+        );
+        previous = position;
+        if game.swimming != before_swimming {
+            toggles = toggles.saturating_add(1);
+            before_swimming = game.swimming;
+        }
+    }
+    assert_eq!(cycles, 3, "three full step cycles complete");
+    assert_eq!(toggles, 6, "one entry and one completed exit per cycle");
+}
+
+/// The demo rim entry and exit are frame-rate independent: 30, 60 and 144 fps
+/// move the eye at most the same delta-scaled fall/climb bound and complete on
+/// the deck.
+#[test]
+fn water_transitions_hold_at_30_60_and_144_fps() {
+    let settings = Settings::default();
+    for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
+        // The water transitions never move the eye faster than the ordinary
+        // jump's take-off speed: the deck fall reaches ~4 m/s at the entry and
+        // every other water state is slower (the climb is 2.2 m/s), and every
+        // step is delta-scaled, so one bound holds at each rate.
+        let bound = JUMP_VELOCITY.mul_add(delta, 1e-3);
+        let mut game = demo_game_at(21.0, -1.5, 14.0, 270.0, delta);
+        let mut phase = 0_u8;
+        let mut input = InputState::holding(&[Control::MoveForward]);
+        let mut previous = game.player_position;
+        let mut exited = false;
+        // 20 s at 144 fps covers the whole cycle at every rate; the loop
+        // breaks as soon as the exit completes.
+        let frames = 144 * 20;
+        for _ in 0..frames {
+            if phase == 0 && game.swimming {
+                game.player_yaw = 90.0_f32.to_radians();
+                input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+                phase = 1;
+            }
+            game.update_player_movement(&mut input, &settings);
+            let position = game.player_position;
+            let dy = (position.y - previous.y).abs();
+            assert!(
+                dy <= bound,
+                "at {:.0} fps the eye stepped {dy} m in one frame",
+                1.0 / delta
+            );
+            assert!(
+                Vec2::new(position.x - previous.x, position.z - previous.z).length()
+                    <= settings.walk_speed.mul_add(delta, 1e-3),
+                "at {:.0} fps the player teleported horizontally",
+                1.0 / delta
+            );
+            previous = position;
+            if phase == 1
+                && game.grounded
+                && (game.player_floor_y - (-1.5)).abs() < 1e-3
+                && game.player_position.x > 20.0
+            {
+                exited = true;
+                break;
+            }
+        }
+        assert!(
+            exited,
+            "at {:.0} fps the exit completes on the deck: {:?} floor {}",
+            1.0 / delta,
+            game.player_position,
+            game.player_floor_y
+        );
+    }
+}
+
+/// A swimmer over the submerged walk-in step stands up with no jump at all —
+/// the step's floor is below the surface — in a bounded climb onto the real
+/// step floor (-1.85).
+#[test]
+fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
+    let mut idle = InputState::default();
+    for _ in 0..120 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert!(game.is_swimming(), "the basin water is swum");
+    assert!(
+        game.player_position.y < -1.65 - SWIM_FLOOR_CLEARANCE + 1e-3,
+        "the swimmer is deep: {}",
+        game.player_position.y
+    );
+
+    // Swim south over the step with no Jump: the support below the surface is
+    // a standable exit, so the bounded climb starts by itself.
+    let mut forward = InputState::holding(&[Control::MoveForward]);
+    let mut previous_eye = game.player_position.y;
+    let mut stood = false;
+    for _ in 0..400 {
+        game.update_player_movement(&mut forward, &settings);
+        let eye = game.player_position.y;
+        assert!(
+            (eye - previous_eye).abs() <= WATER_EXIT_CLIMB_SPEED / 60.0 + 1e-3,
+            "the stand-up is bounded: {} m in one frame",
+            eye - previous_eye
+        );
+        previous_eye = eye;
+        if game.grounded && (game.player_floor_y - (-1.85)).abs() < 1e-3 {
+            stood = true;
+            break;
+        }
+    }
+    assert!(
+        stood,
+        "the swimmer stands on the submerged step: {:?} floor {}",
+        game.player_position, game.player_floor_y
+    );
+    assert!(!game.is_swimming(), "the step exit leaves the swim state");
 }
 
 /// The pool deck's raised sauna landing: region 7/8/9/10 build two 0.3 m steps
@@ -7492,4 +8226,514 @@ fn capture_demo_stair_inventory() {
         }
     }
     std::fs::write(dir.join("summary.txt"), &summary).expect("the summary is writable");
+}
+
+// ---- The night route: the outdoor extension ---------------------------------
+//
+// The coordinates below mirror tools/levels/build_outdoor_route.py, which owns
+// the outdoor slice: the gravel route runs north (-Z) at x = 4.5 from the front
+// door, the concrete walkway is parallel at x = 13.5, the connector's centre is
+// 87.4 m from the threshold, and the yard is the rectangle the invisible
+// containment colliders bound.
+
+/// The gravel route's centre line, which is also the front doorway's centre.
+const NIGHT_ROUTE_X: f32 = 4.5;
+/// The parallel concrete walkway's centre line.
+const NIGHT_WALKWAY_X: f32 = 13.5;
+/// The connector's centre: ~30 s of walking from the threshold.
+const NIGHT_CONNECTOR_Z: f32 = -87.4;
+/// The yard's authored outside faces: west, east and north.
+const NIGHT_YARD_WEST: f32 = -0.15;
+const NIGHT_YARD_EAST: f32 = 24.15;
+const NIGHT_YARD_NORTH: f32 = -91.85;
+/// The source house's north face: the yard's south edge.
+const NIGHT_FACADE_Z: f32 = -0.15;
+/// The destination house's back-wall inner face.
+const NIGHT_HOUSE_BACK_Z: f32 = -96.8;
+
+/// Walks a fully held forward input from `(x, z)` on the yard floor, one fixed
+/// 1/60 s frame at a time, and stops once `stop` says so or `max_steps` frames
+/// elapse. Returns the game and the simulated seconds it took.
+fn demo_night_walk(
+    x: f32,
+    z: f32,
+    yaw_degrees: f32,
+    max_steps: usize,
+    mut stop: impl FnMut(&Game) -> bool,
+) -> (Game, f32) {
+    let settings = Settings::default();
+    let delta = 1.0 / 60.0;
+    let mut game = demo_game_at(x, 0.0, z, yaw_degrees, delta);
+    let mut input = InputState::holding(&[Control::MoveForward]);
+    let mut seconds = 0.0f32;
+    for _ in 0..max_steps {
+        game.sim_delta_seconds = delta;
+        game.update_player_movement(&mut input, &settings);
+        seconds += delta;
+        if stop(&game) {
+            break;
+        }
+    }
+    (game, seconds)
+}
+
+/// One minute of fixed 1/60 s frames: the timed walk's generous upper bound.
+const NIGHT_WALK_STEPS: usize = 60 * 60;
+
+/// The night route is ordinary forward walking at the shipped speed: from the
+/// front-door threshold to the connector's centre is 87.4 m, measured at 29.1 s,
+/// inside the requested 27-33 s window, with no lateral drift and no clutter.
+#[test]
+fn demo_night_route_is_a_thirty_second_walk_from_the_front_door() {
+    let settings = Settings::default();
+    assert!(
+        (settings.walk_speed - 3.0).abs() < f32::EPSILON,
+        "the shipped ordinary walk speed is 3.0 m/s, found {}",
+        settings.walk_speed
+    );
+    // Stand just outside the threshold, facing north up the gravel route.
+    let start_z = -0.2f32;
+    let (game, seconds) = demo_night_walk(NIGHT_ROUTE_X, start_z, 0.0, NIGHT_WALK_STEPS, |game| {
+        game.player_position.z <= NIGHT_CONNECTOR_Z
+    });
+    assert!(
+        game.player_position.z <= NIGHT_CONNECTOR_Z,
+        "the walk reaches the connector: z {} after {seconds:.2} s",
+        game.player_position.z
+    );
+    assert!(
+        (27.0..=33.0).contains(&seconds),
+        "the gravel route to the connector is ~30 s of walking, measured {seconds:.2} s"
+    );
+    assert!(
+        (game.player_position.x - NIGHT_ROUTE_X).abs() < 0.05,
+        "the route is straight: x drifted to {}",
+        game.player_position.x
+    );
+    assert!(game.grounded, "the route is walked, never fallen off");
+    assert!(
+        (game.player_floor_y).abs() < 1e-3,
+        "the whole route is at the authored y=0: floor {}",
+        game.player_floor_y
+    );
+    let walked = start_z - game.player_position.z;
+    assert!(
+        (walked - (87.4 - 0.2)).abs() < 0.6,
+        "measured distance {walked:.2} m matches the authored route length"
+    );
+}
+
+/// The two connections the route depends on: walking out of the front door into
+/// the yard, and walking off the walkway through the destination doorway into
+/// the enclosed entry room and back out.
+#[test]
+fn demo_night_route_walks_out_of_one_house_and_into_the_other() {
+    // Out of the source house: the front door is open, so ordinary forward
+    // walking from inside the front room reaches the yard.
+    let (out, _) = demo_night_walk(NIGHT_ROUTE_X, 0.6, 0.0, 4 * 60, |game| {
+        game.player_position.z <= -1.0
+    });
+    assert!(
+        out.player_position.z <= -1.0,
+        "the front door is walkable outward: z {}",
+        out.player_position.z
+    );
+    assert!(out.player_floor_y.abs() < 1e-3, "the yard floor is y=0");
+
+    // Into the destination house: the doorway is open and the entry room's own
+    // floor continues the yard's y=0.
+    let (inside, _) = demo_night_walk(NIGHT_WALKWAY_X, -90.4, 0.0, 4 * 60, |game| {
+        game.player_position.z <= -93.0
+    });
+    assert!(
+        inside.player_position.z <= -93.0,
+        "the destination doorway is walkable inward: z {}",
+        inside.player_position.z
+    );
+    let (settled, _) = demo_night_walk(
+        NIGHT_WALKWAY_X,
+        inside.player_position.z,
+        0.0,
+        3 * 60,
+        |_| false,
+    );
+    assert!(
+        settled.player_position.z > NIGHT_HOUSE_BACK_Z,
+        "the entry room's back wall stops the walk: z {}",
+        settled.player_position.z
+    );
+    assert!(
+        settled.player_floor_y.abs() < 1e-3,
+        "the entry room is at the same y=0: floor {}",
+        settled.player_floor_y
+    );
+
+    // Back out again: the return route is the same door.
+    let (back, _) = demo_night_walk(NIGHT_WALKWAY_X, -95.0, 180.0, 6 * 60, |game| {
+        game.player_position.z >= -90.0
+    });
+    assert!(
+        back.player_position.z >= -90.0,
+        "the way back out is walkable: z {}",
+        back.player_position.z
+    );
+}
+
+/// The invisible containment holds against walking and jumping in every
+/// direction, with no ground gap and no invisible staircase: the feet never
+/// rise onto a boundary top, and the player never leaves the yard.
+#[test]
+fn demo_night_route_containment_holds_walking_and_jumping() {
+    let settings = Settings::default();
+    let delta = 1.0 / 60.0;
+    let cases: [(f32, f32, f32, &str); 6] = [
+        (12.0, -45.0, 90.0, "east"),
+        (12.0, -45.0, 270.0, "west"),
+        (12.0, -88.0, 0.0, "north"),
+        (NIGHT_ROUTE_X, -88.0, 0.0, "north along the gravel route"),
+        (24.0, -1.0, 135.0, "the north-east corner"),
+        (0.3, -1.0, 225.0, "the north-west corner"),
+    ];
+    for (start_x, start_z, yaw, label) in cases {
+        let mut game = demo_game_at(start_x, 0.0, start_z, yaw, delta);
+        let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+        let mut max_feet = f32::MIN;
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_z = f32::MAX;
+        let mut max_z = f32::MIN;
+        for _ in 0..(60 * 25) {
+            game.sim_delta_seconds = delta;
+            game.update_player_movement(&mut input, &settings);
+            max_feet = max_feet.max(game.feet_y());
+            min_x = min_x.min(game.player_position.x);
+            max_x = max_x.max(game.player_position.x);
+            min_z = min_z.min(game.player_position.z);
+            max_z = max_z.max(game.player_position.z);
+        }
+        let margin = 0.05;
+        assert!(
+            min_x >= NIGHT_YARD_WEST && max_x <= NIGHT_YARD_EAST,
+            "{label}: the player stays inside the yard in x ({min_x}..{max_x})"
+        );
+        assert!(
+            min_z >= NIGHT_YARD_NORTH && max_z <= NIGHT_FACADE_Z,
+            "{label}: the player stays inside the yard in z ({min_z}..{max_z})"
+        );
+        // The feet may reach the ordinary jump apex above the y = 0 ground but
+        // never an invisible top: the containment is solid, not a staircase.
+        // The bound is the jump apex (1.0 m = the 0.9 m kitchen counter plus
+        // its 0.10 m clearance), not the old 0.9 m boundary top; containment
+        // itself is proven by the x/z bounds above.
+        assert!(
+            max_feet <= JUMP_APEX_M + margin,
+            "{label}: no invisible staircase: the feet reached {max_feet}"
+        );
+        assert!(
+            game.grounded && game.player_floor_y.abs() < 1e-3,
+            "{label}: the player ends standing on the y=0 ground"
+        );
+    }
+}
+
+/// Every maintained door completes a full close and a full open.
+///
+/// The sweep is driven through the real runtime: the same
+/// `Game::update_player_movement` the player runs, the same obstruction test
+/// (`entities::door_pose_hits_static`), the same `Doors` state machine. A leaf
+/// that cannot reach either end is a door the player can never operate, so each
+/// one is driven to the closed end, back to the open end, and closed again.
+#[test]
+fn every_demo_door_completes_a_full_close_and_a_full_open() {
+    let settings = Settings::default();
+    let doors = [
+        "hall_door",
+        "sauna_door",
+        "study_door",
+        "sauna_shower_door",
+        "night_source_door",
+        "night_house_door",
+    ];
+    for id in doors {
+        // The yard is empty ground, 5 m from every leaf: no door can be
+        // obstructed by the player while it swings.
+        let mut game = demo_game_at(2.0, 0.0, -5.0, 0.0, 1.0 / 60.0);
+        let leaf = game
+            .doors()
+            .index_of(id)
+            .expect("the demo authors the door");
+        let start = game.doors().get(leaf).expect("leaf").phase();
+        assert!(
+            matches!(
+                start,
+                crate::door::DoorPhase::Open | crate::door::DoorPhase::Closed
+            ),
+            "{id} starts at an end: {start:?}"
+        );
+        let mut idle = InputState::default();
+        // Two full cycles from wherever the map starts it: open the leaf, close
+        // it, and repeat. Each request moves the leaf off the end it is on, so
+        // every call is meaningful.
+        // The first request always moves the leaf off the end it starts on.
+        let first_open = matches!(start, crate::door::DoorPhase::Closed);
+        for _ in 0..2 {
+            for open in [first_open, !first_open] {
+                let expected = if open { "open" } else { "closed" };
+                // The request is made inside the loop: issuing both before the
+                // leaf moves would reverse it before a single frame ran.
+                let requested = if open {
+                    game.world_mut().doors_mut().request_open(id)
+                } else {
+                    game.world_mut().doors_mut().request_close(id)
+                };
+                assert!(requested, "{id} accepts the request");
+                for _ in 0..600 {
+                    game.update_player_movement(&mut idle, &settings);
+                    if game.doors().get(leaf).expect("leaf").phase().name() == expected {
+                        break;
+                    }
+                }
+                assert_eq!(
+                    game.doors().get(leaf).expect("leaf").phase().name(),
+                    expected,
+                    "{id} reaches its {expected} end (angle {:.1})",
+                    game.doors().get(leaf).expect("leaf").angle()
+                );
+            }
+        }
+        assert!(!game.doors().get(leaf).expect("leaf").is_moving());
+    }
+}
+
+/// Holds the backward control for `frames` frames at the demo's fixed delta.
+fn step_back(game: &mut Game, frames: usize) {
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::MoveBackward]);
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 60.0;
+    for _ in 0..frames {
+        game.update_player_movement(&mut input, &settings);
+    }
+}
+
+/// A closed destination entrance blocks the player; the same leaf opened passes.
+///
+/// Both night-route leaves start open, so the closed half of the cycle had
+/// never been walked before: the collider follows the leaf, and the opening
+/// itself is unchanged.
+#[test]
+fn a_closed_destination_entrance_blocks_and_an_open_one_passes() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(13.5, 0.0, -94.2, 180.0, 1.0 / 60.0);
+    let leaf = game
+        .doors()
+        .index_of("night_house_door")
+        .expect("the demo authors the destination leaf");
+    assert!(
+        game.world_mut()
+            .doors_mut()
+            .request_close("night_house_door")
+    );
+    let mut idle = InputState::default();
+    for _ in 0..600 {
+        game.update_player_movement(&mut idle, &settings);
+        if game.doors().get(leaf).expect("leaf").phase().name() == "closed" {
+            break;
+        }
+    }
+    assert_eq!(
+        game.doors().get(leaf).expect("leaf").phase().name(),
+        "closed"
+    );
+    let max_step = pushed_walk(&mut game, 180);
+    assert!(max_step < 0.1, "no teleport at the closed leaf: {max_step}");
+    assert!(
+        game.player_position.z < -92.05,
+        "the closed leaf stops the walker inside the room: {:?}",
+        game.player_position
+    );
+    assert!(game.grounded && game.player_floor_y.abs() < 1e-3);
+
+    // Opened again, the same walk crosses the threshold and the yard lies
+    // beyond. The walker steps back first: the leaf swings into the room and
+    // refuses to sweep through a body standing in the opening.
+    step_back(&mut game, 60);
+    assert!(
+        game.world_mut()
+            .doors_mut()
+            .request_open("night_house_door")
+    );
+    for _ in 0..600 {
+        game.update_player_movement(&mut idle, &settings);
+        if game.doors().get(leaf).expect("leaf").phase().name() == "open" {
+            break;
+        }
+    }
+    assert_eq!(game.doors().get(leaf).expect("leaf").phase().name(), "open");
+    let through = audited_walk(&mut game, 240, 1e-3, None, |game| {
+        game.player_position.z > -90.5
+    });
+    through.assert_flat("open night doorway");
+    assert!(
+        game.player_position.z > -90.5,
+        "the open leaf leaves a traversable opening: {:?}",
+        game.player_position
+    );
+}
+
+/// The source entrance closes into the doorway and blocks the yard walker.
+#[test]
+fn a_closed_source_entrance_blocks_and_an_open_one_passes() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(4.5, 0.0, -2.4, 180.0, 1.0 / 60.0);
+    let leaf = game
+        .doors()
+        .index_of("night_source_door")
+        .expect("the demo authors the source leaf");
+    assert!(
+        game.world_mut()
+            .doors_mut()
+            .request_close("night_source_door")
+    );
+    let mut idle = InputState::default();
+    for _ in 0..600 {
+        game.update_player_movement(&mut idle, &settings);
+        if game.doors().get(leaf).expect("leaf").phase().name() == "closed" {
+            break;
+        }
+    }
+    assert_eq!(
+        game.doors().get(leaf).expect("leaf").phase().name(),
+        "closed"
+    );
+    let max_step = pushed_walk(&mut game, 180);
+    assert!(max_step < 0.1, "no teleport at the closed leaf: {max_step}");
+    assert!(
+        game.player_position.z < 0.15,
+        "the closed source leaf stops the walker at the doorway: {:?}",
+        game.player_position
+    );
+    assert!(game.grounded && game.player_floor_y.abs() < 1e-3);
+
+    // This leaf swings out into the yard, so the walker clears it before it
+    // opens.
+    step_back(&mut game, 60);
+    assert!(
+        game.world_mut()
+            .doors_mut()
+            .request_open("night_source_door")
+    );
+    for _ in 0..600 {
+        game.update_player_movement(&mut idle, &settings);
+        if game.doors().get(leaf).expect("leaf").phase().name() == "open" {
+            break;
+        }
+    }
+    assert_eq!(game.doors().get(leaf).expect("leaf").phase().name(), "open");
+    let through = audited_walk(&mut game, 240, 1e-3, None, |game| {
+        game.player_position.z > 2.0
+    });
+    through.assert_flat("open source doorway");
+    assert!(
+        game.player_position.z > 2.0,
+        "the open source leaf lets the player through: {:?}",
+        game.player_position
+    );
+}
+
+/// Every demo door frames the tunnel it is actually installed in.
+///
+/// The frame's liner and casings are placed from the resolved wall, so a leaf
+/// whose opening the resolver misses would draw a standalone liner buried
+/// inside a thick wall — the pool-side sauna leaf's raised sill used to do
+/// exactly that. Each entry pins the depth and the liner's offset from the leaf
+/// plane for the shipped demo.
+#[test]
+fn every_demo_door_frames_the_wall_it_sits_in() {
+    let level = demo_level();
+    let expected: [(&str, f32, f32); 6] = [
+        ("hall_door", 0.3, 0.0),
+        ("sauna_door", 0.3, 0.08),
+        ("study_door", 0.3, 0.0),
+        ("sauna_shower_door", 0.3, 0.0),
+        // The two night-route entrances author the façade's visible tunnel: the
+        // 0.30 m wall plus the 0.40 m doorway panel in front of it.
+        ("night_source_door", 0.7, -0.2),
+        ("night_house_door", 0.7, 0.2),
+    ];
+    assert_eq!(
+        level.doors.len(),
+        expected.len(),
+        "the demo's door inventory"
+    );
+    for (id, depth, center) in expected {
+        let def = level
+            .doors
+            .iter()
+            .find(|door| door.id == id)
+            .unwrap_or_else(|| panic!("the demo authors `{id}`"));
+        let frame = level.door_frame(def);
+        assert!(
+            (frame.depth - depth).abs() < 1e-4,
+            "{id} liner depth {} (expected {depth})",
+            frame.depth
+        );
+        assert!(
+            (frame.center - center).abs() < 1e-4,
+            "{id} liner offset {} (expected {center})",
+            frame.center
+        );
+    }
+}
+
+/// A scripted `interact@…` press closes the open hall door, exactly as the
+/// capture harness drives it.
+///
+/// This mirrors the real frame order (`update_player_movement` latches the
+/// rising edge, `take_interact_press` consumes it, `dispatch_interaction`
+/// resolves the aim) minus the SDL focus gate, so a failure here is an engine
+/// fault and a pass points at the window layer.
+#[test]
+fn a_scripted_interact_press_closes_the_open_hall_door() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(61.6, -0.9, 1.2, 216.0, 1.0 / 60.0);
+    let leaf = game.doors().index_of("hall_door").expect("door");
+    // The wall switch beside the door opens it, the way PLACES_INTERACT does.
+    let switch = game
+        .world()
+        .interactables()
+        .index_of("hall_switch")
+        .expect("the demo authors the hall switch");
+    let report = game.world_mut().dispatch_interaction(Some(switch));
+    assert!(report.is_some(), "the switch dispatches");
+    let mut input = InputState::default();
+    let (script, rejected) = crate::input::parse_move_script("interact@3.0-3.1");
+    assert!(rejected.is_empty(), "{rejected:?}");
+    let mut pressed_frames = 0;
+    let mut prompt_at_press: Option<String> = None;
+    for frame in 0_u16..240 {
+        let seconds = f32::from(frame) / 60.0;
+        input.apply_move_script(&script, seconds);
+        game.update_player_movement(&mut input, &settings);
+        if game.take_interact_press() {
+            pressed_frames += 1;
+            let target = game.interaction_target();
+            prompt_at_press = target
+                .and_then(|index| game.world().interactables().get(index))
+                .map(|item| item.prompt.clone());
+            game.dispatch_interaction();
+        }
+    }
+    assert_eq!(pressed_frames, 1, "one press edge");
+    assert_eq!(
+        prompt_at_press.as_deref(),
+        Some("Hall door"),
+        "the press aims at the hall door"
+    );
+    assert_eq!(
+        game.doors().get(leaf).expect("leaf").phase().name(),
+        "closed",
+        "the press closes the open leaf (angle {:.1})",
+        game.doors().get(leaf).expect("leaf").angle()
+    );
 }

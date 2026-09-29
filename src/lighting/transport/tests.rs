@@ -190,6 +190,62 @@ fn a_sealed_wall_blocks_direct_light_and_an_opening_admits_it() {
 }
 
 #[test]
+fn a_nonzero_sky_ambient_lights_an_open_receiver_and_zero_is_unchanged() {
+    // No emitters at all: every contribution below is the environment term,
+    // which must work in a level whose only light is its sky.
+    let triangles = floor(-2.0, -2.0, 2.0, 2.0, [0.6; 3]);
+    let dark = TransportScene::new(triangles.clone(), Vec::new())
+        .expect("scene")
+        .solve(
+            &[floor_patch(-2.0, -2.0, 2.0, 2.0, 1, 1)],
+            options(1, 1),
+            None,
+        )
+        .expect("solve");
+    let explicit_zero = TransportScene::new(triangles.clone(), Vec::new())
+        .expect("scene")
+        .with_sky([0.0; 3])
+        .solve(
+            &[floor_patch(-2.0, -2.0, 2.0, 2.0, 1, 1)],
+            options(1, 1),
+            None,
+        )
+        .expect("solve");
+    let with_sky = TransportScene::new(triangles, Vec::new())
+        .expect("scene")
+        .with_sky([0.5, 0.5, 0.5])
+        .solve(
+            &[floor_patch(-2.0, -2.0, 2.0, 2.0, 1, 1)],
+            options(1, 1),
+            None,
+        )
+        .expect("solve");
+    assert_eq!(
+        first_light(&dark, [0.0, 1.0, 0.0]),
+        [0.0; 3],
+        "without a sky the solve has no environment term"
+    );
+    assert_eq!(
+        first_light(&dark, [0.0, 1.0, 0.0]),
+        first_light(&explicit_zero, [0.0, 1.0, 0.0]),
+        "an explicit zero sky is the default solve, bit for bit"
+    );
+    let lit = first_light(&with_sky, [0.0, 1.0, 0.0]);
+    assert!(
+        lit.iter().all(|channel| *channel > 0.001),
+        "the sky ambient must reach an upward receiver: {lit:?}"
+    );
+    // A downward-facing receiver sees almost none of the sky dome: the
+    // hemisphere integral keeps its direction, unlike an isotropic ambient
+    // lift. (The reconstruction is analytic, so a small residual is expected.)
+    let down = first_light(&with_sky, [0.0, -1.0, 0.0]);
+    assert!(
+        down[0] < lit[0] * 0.4,
+        "the sky must stay overwhelmingly upward-facing: up {lit:?}, down {down:?}"
+    );
+}
+
+#[test]
 fn full_occlusion_reads_zero_in_the_solved_atlas() {
     let light = point([0.0, 2.0, 0.0], 3.0);
     let mut triangles = wall(

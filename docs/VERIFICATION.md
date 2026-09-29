@@ -36,6 +36,8 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::
 cargo test --workspace --all-features
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check
+python3 tools/entities/author_halloween_assets.py --check
+python3 tools/entities/check_clip_boundaries.py
 cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json
 cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 8
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
@@ -270,7 +272,12 @@ through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` —
 normal rebuild path (`low` / `medium` / `high`),
 and `PLACES_BENCH_GRAPHICS_CYCLE` changes one Advanced graphics setting at a
 time through the same setters the menu uses (`filtering=low|medium|high`,
-`lightmaps=off|medium|full`, `reflections=off|medium|full`, `bloom=on|off`):
+`lightmaps=off|medium|full`, `reflections=off|medium|full`, `bloom=on|off`).
+`PLACES_MOVE_SCRIPT` drives the *player* through real held controls for a
+capture (`forward@0-6.5,jump@0.2-0.6`, ready-world simulation seconds), and
+`PLACES_CAPTURE_TIME=seconds` waits for the matching ready-world second, which
+is how `tools/bench/capture_movement.sh` records jumps, landings and pool
+crossings at the same in-world moments at any frame rate:
 
 ```sh
 PLACES_BENCH=1 PLACES_BENCH_FRAMES=34 \

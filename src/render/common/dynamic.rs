@@ -219,9 +219,15 @@ impl DynamicMesh {
     pub fn from_asset(asset: &LoadedPropAsset) -> Option<Self> {
         let textures: Vec<Arc<crate::loader::RawImage>> =
             asset.model.textures.iter().cloned().map(Arc::new).collect();
-        // A GLB primitive's alpha mode is not imported yet, so every imported
-        // primitive is opaque; a code-built model names its own contracts.
-        let alphas: Vec<MaterialAlpha> = vec![MaterialAlpha::OPAQUE; asset.model.submeshes.len()];
+        // The primitive's own alpha contract, exactly as the importer read it:
+        // a code-built model and an imported GLB classify identically now that
+        // `alphaMode: "BLEND"` imports as a real translucent contract.
+        let alphas: Vec<MaterialAlpha> = asset
+            .model
+            .submeshes
+            .iter()
+            .map(|submesh| submesh.alpha)
+            .collect();
         Self::from_model(asset.model_path.clone(), &asset.model, textures, &alphas)
     }
 
@@ -1361,6 +1367,7 @@ mod tests {
             indices: vec![0, 1, 2],
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
                 texture: None,
                 emission,

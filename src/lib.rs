@@ -67,7 +67,7 @@ use sdl3::{EventPump, Sdl, VideoSubsystem};
 use bench::Bench;
 use display::DisplayStatus;
 use game::{AppState, CollisionWorld, Game};
-use input::{InputHandler, MenuNavEvent, keycode_to_str};
+use input::{InputHandler, MenuNavEvent, ScriptedHold, keycode_to_str, parse_move_script};
 use perf::PerfOverlay;
 use render::{DrawableSize, GraphicsTransition, Renderer, Vertex};
 use settings::{Settings, WindowMode};
@@ -533,7 +533,20 @@ fn capture_frame_from_env() -> u64 {
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok())
         .filter(|frame| *frame > 0)
-        .unwrap_or(1)
+        .unwrap_or(0)
+}
+
+/// The ready-world simulation second `PLACES_CAPTURE` should be taken on.
+///
+/// `PLACES_CAPTURE_TIME=seconds` waits for the first ready frame at or after
+/// that accumulated simulation time, exactly like `PLACES_CAPTURE_FRAME` but
+/// frame-rate independent, so a scripted capture shows the same in-world
+/// moment on a 55 fps and a 120 fps run.
+fn capture_time_from_env() -> Option<f32> {
+    std::env::var("PLACES_CAPTURE_TIME")
+        .ok()
+        .and_then(|value| value.trim().parse::<f32>().ok())
+        .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
 }
 
 /// The `PLACES_INTERACT` developer overrides: authored instance ids whose
@@ -552,6 +565,29 @@ fn interact_overrides_from_env() -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// The `PLACES_MOVE_SCRIPT` developer override: held controls for a run.
+///
+/// Entries are `control@first-last` in ready-world simulation seconds
+/// (inclusive) and are applied without touching gameplay state, so a capture
+/// run can drive the player through a real jump or pool crossing. Unknown or
+/// malformed entries are rejected with one message; ordinary play never sets
+/// the variable.
+fn move_script_from_env() -> Vec<ScriptedHold> {
+    let Some(value) = std::env::var("PLACES_MOVE_SCRIPT").ok() else {
+        return Vec::new();
+    };
+    let (script, rejected) = parse_move_script(&value);
+    if !rejected.is_empty() {
+        crate::logging::warn(format!(
+            "PLACES_MOVE_SCRIPT: ignored {} malformed entr{}: {}",
+            rejected.len(),
+            if rejected.len() == 1 { "y" } else { "ies" },
+            rejected.join(", ")
+        ));
+    }
+    script
 }
 
 /// The parsed `PLACES_SPAWN` override, if set.
@@ -711,6 +747,9 @@ struct FrameLoop<'a> {
     applied_filtering: &'a mut String,
     capture_path: &'a mut Option<PathBuf>,
     capture_at_frame: u64,
+    /// `PLACES_CAPTURE_TIME`'s ready-world simulation second, when set; it
+    /// takes precedence over the frame count.
+    capture_at_seconds: Option<f32>,
     state_log: &'a mut Option<std::fs::File>,
     spawn_pos: &'a mut Vec3,
     spawn_yaw: &'a mut f32,
@@ -769,6 +808,12 @@ struct FrameLoop<'a> {
     /// `PLACES_INTERACT`'s instance ids, dispatched one by one on the first
     /// Playing frame after a world commit. Empty in ordinary play.
     dev_interactions: Vec<String>,
+    /// `PLACES_MOVE_SCRIPT`'s control holds, applied against the ready-world
+    /// simulation seconds before the player update. Empty in ordinary play.
+    move_script: Vec<ScriptedHold>,
+    /// Simulation seconds accumulated since the world became ready, the clock
+    /// `move_script` is scheduled against.
+    ready_seconds: f32,
 }
 
 impl FrameLoop<'_> {
@@ -925,6 +970,7 @@ impl FrameLoop<'_> {
             self.game.reset_timing();
         }
         // Update player movement (only active during AppState::Playing)
+        self.apply_move_script();
         self.game
             .update_player_movement(self.input_handler.state_mut(), self.settings);
         self.log_player_state();
@@ -976,6 +1022,23 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Applies this ready-world frame's `PLACES_MOVE_SCRIPT` holds, if any.
+    ///
+    /// The script drives the player through real held controls with real press
+    /// edges, in the ordinary input state, so a capture run can record a jump
+    /// or a pool crossing without touching gameplay state; it is empty in
+    /// ordinary play. Scheduling is by accumulated simulation seconds, so the
+    /// same script produces the same in-world sequence at any frame rate.
+    fn apply_move_script(&mut self) {
+        if self.startup != StartupPhase::Ready || self.game.app_state() != AppState::Playing {
+            return;
+        }
+        self.ready_seconds = (self.ready_seconds + self.game.sim_delta_seconds()).min(1.0e6);
+        self.input_handler
+            .state_mut()
+            .apply_move_script(&self.move_script, self.ready_seconds);
     }
 
     /// Dispatches the `PLACES_INTERACT` ids once each, on the first Playing
@@ -2477,15 +2540,23 @@ impl FrameLoop<'_> {
     /// Takes the one-shot `PLACES_CAPTURE` frame when it is due.
     ///
     /// The capture waits for a ready world so it records the finished screen,
-    /// never a preparation frame.
+    /// never a preparation frame, and is due at the ready frame named by
+    /// `PLACES_CAPTURE_FRAME` or the ready-world second named by
+    /// `PLACES_CAPTURE_TIME` (the first frame at or after it).
     fn capture_if_due(&mut self, ready: bool) {
         if !ready
             || !self
                 .actions
                 .as_ref()
                 .is_none_or(perf::actions::Actions::complete)
-            || self.ready_frames < self.capture_at_frame
         {
+            return;
+        }
+        let due = match self.capture_at_seconds {
+            Some(seconds) => self.ready_seconds >= seconds,
+            None => self.ready_frames >= self.capture_at_frame,
+        };
+        if !due {
             return;
         }
         let Some(path) = self.capture_path.take() else {
@@ -2765,6 +2836,23 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
     (initial_entry, direct)
 }
 
+/// Runs the headless geometry CLI modes, which must precede any SDL or wgpu
+/// bootstrap: `--check-geometry` and `--repair-geometry` exit the process
+/// themselves, and a malformed option exits with usage.
+fn dispatch_geometry_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    match geometry_check::options_from_args(args) {
+        Ok(Some(options)) => return geometry_check::main(&options),
+        Ok(None) => {}
+        Err(error) => geometry_check::exit_usage(&error),
+    }
+    match geometry_check::repair_options_from_args(args) {
+        Ok(Some(options)) => return geometry_check::repair_main(&options),
+        Ok(None) => {}
+        Err(error) => geometry_check::exit_usage(&error),
+    }
+    Ok(())
+}
+
 /// Runs the Places player: window, renderer, discovery, loading and the frame loop.
 ///
 /// The library root exists so the offline compiler (`places-compile`) shares the
@@ -2776,16 +2864,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The geometry checker is a headless CLI mode: it must run before any SDL
     // or wgpu bootstrap, and it exits the process with its own status.
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match geometry_check::options_from_args(&args) {
-        Ok(Some(options)) => return geometry_check::main(&options),
-        Ok(None) => {}
-        Err(error) => geometry_check::exit_usage(&error),
-    }
-    match geometry_check::repair_options_from_args(&args) {
-        Ok(Some(options)) => return geometry_check::repair_main(&options),
-        Ok(None) => {}
-        Err(error) => geometry_check::exit_usage(&error),
-    }
+    dispatch_geometry_cli(&args)?;
     let mut trace = perf::loading::LoadTrace::new();
     trace.record("entry", 0, "");
     perf::startup_begin();
@@ -2825,6 +2904,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut applied_filtering = settings.texture_filtering.clone();
     let mut capture_path = capture_path_from_env();
     let capture_at_frame = capture_frame_from_env();
+    let capture_at_seconds = capture_time_from_env();
 
     let applied_graphics_settings = settings.clone();
     let initial_lightmaps = settings.lightmap_quality();
@@ -2846,6 +2926,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         applied_filtering: &mut applied_filtering,
         capture_path: &mut capture_path,
         capture_at_frame,
+        capture_at_seconds,
         state_log: &mut state_log,
         spawn_pos: &mut spawn_pos,
         spawn_yaw: &mut spawn_yaw,
@@ -2874,6 +2955,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         nav_debug_dir: std::env::var_os("PLACES_NAV_DEBUG").map(PathBuf::from),
         nav_debug_age: 0,
         dev_interactions: interact_overrides_from_env(),
+        move_script: move_script_from_env(),
+        ready_seconds: 0.0,
     };
     frame_loop.start(initial_entry, direct);
 

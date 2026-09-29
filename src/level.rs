@@ -92,6 +92,17 @@ pub enum CeilingProfileDef {
         /// Ridge height above the eave, in metres. Must be finite and positive.
         ridge_rise: f32,
     },
+    /// No ceiling surface: an open-air room.
+    ///
+    /// Floors, walls, architecture, props and lights are emitted exactly like a
+    /// flat room — `height` stays the open volume's eave height, so walls and
+    /// fixtures resolve against it — but no ceiling batch is generated, which
+    /// is what lets a level's `sky` show above an exterior. The baked lighting
+    /// treats the room as a flat-ceiling volume for its fill and fixture
+    /// geometry; the only environment term a sky adds to the solve is its
+    /// explicit `ambient`. A ceiling-less room is an authoring choice per room:
+    /// every room without it keeps its ceiling exactly as before.
+    Open,
 }
 
 impl CeilingProfileDef {
@@ -101,11 +112,17 @@ impl CeilingProfileDef {
         matches!(self, Self::Flat)
     }
 
-    /// Ridge axis of a gable ceiling, `None` for a flat one.
+    /// True when the room declares no ceiling surface.
+    #[must_use]
+    pub const fn is_open(self) -> bool {
+        matches!(self, Self::Open)
+    }
+
+    /// Ridge axis of a gable ceiling, `None` for a flat or open one.
     #[must_use]
     pub const fn ridge_axis(self) -> Option<WallAxis> {
         match self {
-            Self::Flat => None,
+            Self::Flat | Self::Open => None,
             Self::Gable { ridge, .. } => Some(ridge),
         }
     }
@@ -114,7 +131,7 @@ impl CeilingProfileDef {
     #[must_use]
     pub fn ridge_rise_m(self) -> f32 {
         match self {
-            Self::Flat => 0.0,
+            Self::Flat | Self::Open => 0.0,
             Self::Gable { ridge_rise, .. } => {
                 if ridge_rise.is_finite() && ridge_rise > 0.0 {
                     ridge_rise
@@ -1214,6 +1231,133 @@ pub enum ComponentDef {
     },
     /// The entity runs a shared AI behavior.
     Ai(crate::ai::AiDef),
+    /// The entity's opacity cycles on a looping authored period.
+    Fade(FadeDef),
+    /// One attached dynamic light on the entity.
+    Glow(GlowDef),
+}
+
+/// One authored `fade` cycle: a looping opacity animation.
+///
+/// ```json
+/// { "component": "fade", "period_seconds": 6.0, "phase": 0.25,
+///   "min_opacity": 0.0, "max_opacity": 1.0, "enabled": true }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FadeDef {
+    /// Cycle length in seconds; required, finite, `0 < p` and at most
+    /// [`MAX_FADE_PERIOD_SECONDS`].
+    pub period_seconds: f32,
+    /// Cycle phase in `0..=1`; omitted resolves the deterministic
+    /// per-instance phase from [`default_fade_phase`].
+    #[serde(default)]
+    pub phase: Option<f32>,
+    /// Lowest opacity of the cycle; defaults to `0.0`.
+    #[serde(default = "default_fade_min_opacity")]
+    pub min_opacity: f32,
+    /// Highest opacity of the cycle; defaults to `1.0`.
+    #[serde(default = "default_fade_max_opacity")]
+    pub max_opacity: f32,
+    /// False holds [`FadeDef::max_opacity`] instead of cycling; defaults to
+    /// true.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+/// Largest authored fade period, in seconds.
+///
+/// A bound, not a tuning knob: a fade shorter than a frame would alias and a
+/// cycle longer than an hour is a typo that reads as a stuck entity.
+pub const MAX_FADE_PERIOD_SECONDS: f32 = 3600.0;
+
+/// One authored `glow` component: a light attached to the entity or one of
+/// its animated sockets.
+///
+/// ```json
+/// { "component": "glow", "color": [0.45, 0.95, 1.0], "intensity": 0.6,
+///   "range": 3.5, "socket": "flame", "offset": [0.0, 0.1, 0.0],
+///   "fade": true }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GlowDef {
+    /// Linear colour; each channel finite in `0..=1`; defaults to warm white.
+    #[serde(default = "default_glow_color")]
+    pub color: [f32; 3],
+    /// Intensity; defaults to `0.5`, finite between `0` and
+    /// [`MAX_GLOW_INTENSITY`].
+    #[serde(default = "default_glow_intensity")]
+    pub intensity: f32,
+    /// Reach in metres; defaults to `3.0`, finite between
+    /// [`MIN_GLOW_RANGE_M`] and [`MAX_GLOW_RANGE_M`].
+    #[serde(default = "default_glow_range")]
+    pub range: f32,
+    /// Animated joint/node name the light attaches to; omitted uses
+    /// [`GlowDef::offset`].
+    #[serde(default)]
+    pub socket: Option<String>,
+    /// Entity-local offset in metres; omitted is the entity origin. Each axis
+    /// is finite with magnitude at most [`MAX_GLOW_OFFSET_M`].
+    #[serde(default)]
+    pub offset: [f32; 3],
+    /// True multiplies the intensity by the entity's fade opacity; defaults
+    /// to true.
+    #[serde(default = "default_true")]
+    pub fade: bool,
+}
+
+/// Largest authored glow intensity.
+pub const MAX_GLOW_INTENSITY: f32 = 8.0;
+
+/// Smallest authored glow range, in metres.
+pub const MIN_GLOW_RANGE_M: f32 = 0.05;
+
+/// Largest authored glow range, in metres.
+pub const MAX_GLOW_RANGE_M: f32 = 64.0;
+
+/// Largest absolute glow offset per entity-local axis, in metres.
+pub const MAX_GLOW_OFFSET_M: f32 = 4.0;
+
+const fn default_fade_min_opacity() -> f32 {
+    0.0
+}
+
+const fn default_fade_max_opacity() -> f32 {
+    1.0
+}
+
+const fn default_glow_color() -> [f32; 3] {
+    [1.0, 0.86, 0.6]
+}
+
+const fn default_glow_intensity() -> f32 {
+    0.5
+}
+
+const fn default_glow_range() -> f32 {
+    3.0
+}
+
+/// Deterministic default fade phase for an instance id, in `0..1`.
+///
+/// The hash is FNV-1a over the id's bytes, reduced to its top 24 bits so the
+/// fraction is exact in `f32` and can never reach `1.0`. Two different ids get
+/// independent phases, and one id always gets the same phase, so a group of
+/// ghosts desynchronises without an authored `phase` and a reload never
+/// re-rolls it.
+#[must_use]
+pub fn default_fade_phase(instance_id: &str) -> f32 {
+    const FNV_OFFSET_BASIS: u32 = 0x811c_9dc5;
+    const FNV_PRIME: u32 = 0x0100_0193;
+    // 2^24, exactly representable in f32.
+    const DENOMINATOR: f32 = 16_777_216.0;
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in instance_id.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    #[allow(clippy::cast_precision_loss)] // the top 24 bits are exact in f32
+    let numerator = (hash >> 8) as f32;
+    numerator / DENOMINATOR
 }
 
 const fn default_animation_speed() -> f32 {
@@ -1324,6 +1468,8 @@ impl ComponentDef {
             Self::NavAgent { .. } => "nav_agent",
             Self::NavObstacle { .. } => "nav_obstacle",
             Self::Ai(_) => "ai",
+            Self::Fade(_) => "fade",
+            Self::Glow(_) => "glow",
         }
     }
 }
@@ -1385,6 +1531,51 @@ pub struct DoorMaterials {
 
 /// The glass a sauna leaf's panel uses.
 pub const SAUNA_DOOR_GLASS_MATERIAL: &str = "core:glass_window_clear_01";
+
+/// Liner depth a door draws when no wall opening resolves for its leaf.
+///
+/// A door with a resolved wall uses that wall's thickness instead, so this is
+/// only the fallback for a leaf standing in geometry the frame resolver cannot
+/// see (a fixture, a hand-cut hall). In metres.
+pub const STANDALONE_DOOR_FRAME_DEPTH_M: f32 = 0.12;
+
+/// Upper bound on an authored [`DoorDef::frame_depth`], in metres.
+pub const MAX_DOOR_FRAME_DEPTH_M: f32 = 2.0;
+
+/// The wall tunnel a door leaf is installed in: what the frame build needs.
+///
+/// The door's frame is a reveal liner that runs the whole tunnel plus casings
+/// on the tunnel's two end faces, so both numbers below come from the map (or
+/// from explicit authoring on the leaf) rather than from a per-level
+/// constant.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DoorFrame {
+    /// Total depth of the reveal liner along the leaf's closed normal, in
+    /// metres.
+    pub depth: f32,
+    /// Signed offset of the tunnel's centre from the leaf's centre plane,
+    /// measured along the leaf's closed normal (hinge space `+Z`), in metres.
+    pub center: f32,
+}
+
+impl DoorFrame {
+    /// The frame of a leaf with no resolved wall: the liner only just clears
+    /// the leaf so both casings still show.
+    #[must_use]
+    pub fn standalone(thickness: f32) -> Self {
+        Self {
+            depth: STANDALONE_DOOR_FRAME_DEPTH_M.max(thickness + 0.04),
+            center: 0.0,
+        }
+    }
+
+    /// The tunnel's two end planes in hinge space, low `z` first.
+    #[must_use]
+    pub fn span(&self) -> (f32, f32) {
+        let half = self.depth.abs() * 0.5;
+        (self.center - half, self.center + half)
+    }
+}
 
 /// The axis-aligned half-extents of a yaw-rotated rectangle's covering box.
 ///
@@ -1504,6 +1695,24 @@ pub struct DoorDef {
     /// Handle material override.
     #[serde(default)]
     pub handle_material: Option<String>,
+    /// Explicit depth of this leaf's frame reveal liner, in metres.
+    ///
+    /// The frame is a liner through the wall the leaf is installed in, with a
+    /// casing on each end face. That tunnel is normally resolved from the wall
+    /// opening the leaf fills; a leaf whose visible tunnel is built by
+    /// something the resolver cannot see (a façade doorway panel in front of
+    /// the wall, for example) authors the real depth here. `None` keeps the
+    /// resolved wall.
+    #[serde(default)]
+    pub frame_depth: Option<f32>,
+    /// Explicit offset of the frame liner's centre from the leaf's centre
+    /// plane, along the leaf's closed normal, in metres.
+    ///
+    /// The sign follows hinge space: a leaf whose tunnel is mostly on its
+    /// `+Z` side authors a positive value. `None` centres the liner on the
+    /// resolved wall.
+    #[serde(default)]
+    pub frame_center: Option<f32>,
 }
 
 const fn default_door_thickness_m() -> f32 {
@@ -1556,6 +1765,118 @@ impl DoorDef {
         let yaw = (self.rotation_degrees + angle_degrees).to_radians();
         (yaw.cos(), -yaw.sin())
     }
+
+    /// The closed leaf's normal in world `(x, z)`: a unit vector along hinge
+    /// space `+Z`, the direction the frame's liner is measured along.
+    #[must_use]
+    pub fn closed_normal(&self) -> (f32, f32) {
+        let yaw = self.rotation_degrees.to_radians();
+        (yaw.sin(), yaw.cos())
+    }
+}
+
+impl LevelDef {
+    /// The wall tunnel this leaf is installed in.
+    ///
+    /// A door is placed by its hinge and its wall opening is authored
+    /// separately, so the two are matched here: the walls whose footprint
+    /// contains the closed leaf's midpoint and whose walk-through opening
+    /// overlaps the leaf span decide the tunnel's depth and its offset from the
+    /// leaf plane. An explicit [`DoorDef::frame_depth`] /
+    /// [`DoorDef::frame_center`] overrides the resolved value, which is how a
+    /// leaf whose visible reveal is built by a prop (an outdoor doorway panel)
+    /// gets a frame that reaches the surface the player actually sees.
+    ///
+    /// The result is stable for a given level and leaf: walls are searched in
+    /// authored order and the first match wins.
+    #[must_use]
+    pub fn door_frame(&self, def: &DoorDef) -> DoorFrame {
+        let mut frame = self
+            .resolved_door_wall_frame(def)
+            .unwrap_or_else(|| DoorFrame::standalone(def.thickness));
+        if let Some(depth) = def
+            .frame_depth
+            .filter(|value| value.is_finite() && *value > 0.0)
+        {
+            frame.depth = depth;
+        }
+        if let Some(center) = def.frame_center.filter(|value| value.is_finite()) {
+            frame.center = center;
+        }
+        frame
+    }
+
+    /// The frame resolved from the wall opening the leaf fills, if one matches.
+    fn resolved_door_wall_frame(&self, def: &DoorDef) -> Option<DoorFrame> {
+        let (dir_x, dir_z) = def.closed_direction();
+        let (normal_x, normal_z) = def.closed_normal();
+        let half = def.width * 0.5;
+        let mid = (dir_x.mul_add(half, def.x), dir_z.mul_add(half, def.z));
+        let leaf_end = (
+            dir_x.mul_add(def.width, def.x),
+            dir_z.mul_add(def.width, def.z),
+        );
+        for wall in &self.walls {
+            let (x0, x1) = (
+                wall.x.min(wall.x + wall.width),
+                wall.x.max(wall.x + wall.width),
+            );
+            let (z0, z1) = (
+                wall.z.min(wall.z + wall.depth),
+                wall.z.max(wall.z + wall.depth),
+            );
+            let margin = 0.05;
+            if mid.0 < x0 - margin
+                || mid.0 > x1 + margin
+                || mid.1 < z0 - margin
+                || mid.1 > z1 + margin
+            {
+                continue;
+            }
+            let axis = wall.axis();
+            let (leaf_lo, leaf_hi) = match axis {
+                WallAxis::X => (def.x.min(leaf_end.0), def.x.max(leaf_end.0)),
+                WallAxis::Z => (def.z.min(leaf_end.1), def.z.max(leaf_end.1)),
+            };
+            // The opening must admit the leaf: a walk-through kind that the
+            // leaf's own base stands at or above. A raised doorway whose sill
+            // meets a raised floor (the pool-side sauna leaf is the maintained
+            // example) still frames the leaf; a window or a high vent does not.
+            let leaf_base = def.base_y(self);
+            let filled = wall.openings.iter().any(|opening| {
+                if !opening.is_door() {
+                    return false;
+                }
+                if opening.bottom(wall.y) > leaf_base + 1e-3 {
+                    return false;
+                }
+                let (open_lo, open_hi) = match axis {
+                    WallAxis::X => (x0 + opening.offset, x0 + opening.end()),
+                    WallAxis::Z => (z0 + opening.offset, z0 + opening.end()),
+                };
+                let overlap = leaf_hi.min(open_hi) - leaf_lo.max(open_lo);
+                overlap >= def.width.min(opening.width) * 0.5
+            });
+            if !filled {
+                continue;
+            }
+            // The wall's extent along the leaf's normal is the tunnel depth;
+            // its centre's signed distance from the hinge is the liner offset.
+            let depth = normal_x
+                .abs()
+                .mul_add(wall.width.abs(), normal_z.abs() * wall.depth.abs());
+            if !depth.is_finite() || depth <= 0.0 {
+                continue;
+            }
+            let wall_mid = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+            let center = (wall_mid.0 - def.x).mul_add(normal_x, (wall_mid.1 - def.z) * normal_z);
+            return Some(DoorFrame {
+                depth,
+                center: if center.is_finite() { center } else { 0.0 },
+            });
+        }
+        None
+    }
 }
 
 impl Default for DoorDef {
@@ -1582,6 +1903,8 @@ impl Default for DoorDef {
             material: None,
             frame_material: None,
             handle_material: None,
+            frame_depth: None,
+            frame_center: None,
         }
     }
 }
@@ -5107,6 +5430,11 @@ const fn default_prop_scale() -> f32 {
     1.0
 }
 
+/// A prop participates in baked light occlusion unless it opts out.
+const fn default_prop_occludes() -> bool {
+    true
+}
+
 /// A placed prop / furniture / appliance instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PropDef {
@@ -5143,6 +5471,16 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
+    /// Whether this placement contributes its model's silhouette to the baked
+    /// lighting as an occluder. Defaults to true, the historical behaviour.
+    ///
+    /// Decorative scenery made of alpha-cutout cards (grass tufts, a tree's
+    /// leaf canopy) sets this false: the bake derives coarse solid boxes from
+    /// triangles and would otherwise turn thousands of blade cards into solid
+    /// shadow volumes. Collision is unaffected — that is `solid` plus level
+    /// `size` — and the renderer's drawn geometry is unaffected too.
+    #[serde(default = "default_prop_occludes")]
+    pub occludes: bool,
     /// Typed components this instance carries — `interactable`, `animation`,
     /// `light`, `state`, `audio`, and so on. Omitted means the prop is scenery
     /// and carries no capabilities.
@@ -5274,6 +5612,42 @@ impl GeometryIntentDef {
 /// whose `format_version` differs is rejected by name rather than migrated.
 pub const LEVEL_FORMAT_VERSION: u32 = 3;
 
+/// Largest accepted sky brightness multiplier.
+pub const MAX_SKY_BRIGHTNESS: f32 = 4.0;
+
+/// Largest accepted sky ambient radiance.
+pub const MAX_SKY_AMBIENT: f32 = 1.0;
+
+/// A level's optional night-sky background.
+///
+/// `texture` names a catalog `texture` asset whose PNG is an equirectangular
+/// 2:1 sheet (U wraps around the horizon, V runs pole to pole). `brightness`
+/// scales the sheet at draw time and nothing else: a starry sheet at
+/// `brightness` 1.0 is the authored artwork, not an exposure. `ambient` is the
+/// one term that can reach baked lighting: it is the radiance an escaping ray
+/// sees in the prepared (lightmap) solve, so the night sky can add a faint
+/// directional-free fill to an exterior without any fixture. Both are
+/// independent of each other and of the level's real lights.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkyDef {
+    /// Catalog texture id of the equirectangular sheet.
+    pub texture: String,
+    /// Visual brightness multiplier, between 0.0 and
+    /// [`MAX_SKY_BRIGHTNESS`].
+    #[serde(default = "default_sky_brightness")]
+    pub brightness: f32,
+    /// Radiance an escaping ray sees in the prepared solve, between 0.0 and
+    /// [`MAX_SKY_AMBIENT`]. Zero (the default) leaves the solve exactly as it
+    /// was: an escaping ray contributes nothing.
+    #[serde(default)]
+    pub ambient: f32,
+}
+
+/// One-to-one brightness: the sheet is the authored exposure.
+const fn default_sky_brightness() -> f32 {
+    1.0
+}
+
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
@@ -5282,6 +5656,13 @@ pub struct LevelDef {
     pub name: String,
     #[serde(default)]
     pub author: String,
+    /// Optional night-sky background. Omitted keeps the historical behaviour:
+    /// no background object, and the surface clear colour wherever geometry
+    /// does not cover a pixel. The sky never illuminates anything by itself —
+    /// its optional `ambient` term is the only path from the sheet to baked
+    /// light, and it is a separate, explicit authoring choice.
+    #[serde(default)]
+    pub sky: Option<SkyDef>,
     /// Every room section, in ownership order.
     #[serde(default)]
     pub rooms: Vec<RoomDef>,
@@ -5431,6 +5812,15 @@ pub const PROP_TRIANGLE_REVIEW: usize = 800;
 /// renderer handles it correctly. The visual language is protected by the
 /// budget being the authored norm, not by refusing the file.
 pub const PROP_TRIANGLE_BUDGET: usize = 1_500;
+/// Art budget for one **skinned character** model's triangle count.
+///
+/// The prop art budget (1,500) is enforced by the prop toolkit and is the
+/// right target for static architecture; a rigged creature legitimately
+/// carries more detail because its limbs, head and face deform as one skin
+/// (the shipped pumpkin-head skeleton is 2,278 triangles across 94 joints).
+/// This is still half the engine ceiling and applies only to models that
+/// declare a skin; an unskinned prop keeps the tighter budget.
+pub const ENTITY_TRIANGLE_BUDGET: usize = 3_000;
 /// Hard engine ceiling on one prop model's triangle count.
 ///
 /// Four times the art budget: far above anything the Places visual language
@@ -7687,6 +8077,9 @@ impl WalkableCeiling {
     pub fn from_level(level: &LevelDef) -> Self {
         let rooms = level
             .room_iter()
+            // An open-ceiling room has no surface to clamp a jumping player
+            // against; it contributes nothing to this model.
+            .filter(|room| !room.ceiling.is_open())
             .map(|room| WalkableCeilingRoom {
                 bounds: room.bounds(),
                 floor_y: if room.floor_y.is_finite() {
@@ -7777,7 +8170,9 @@ fn write_ceiling_room(writer: &mut Writer, room: &WalkableCeilingRoom) {
     writer.f32(room.floor_y);
     writer.f32(room.height);
     match room.profile {
-        CeilingProfileDef::Flat => writer.u8(CEILING_PROFILE_FLAT),
+        // An open room never reaches the record: `WalkableCeiling::from_level`
+        // filters it. A stray one degrades to its eave (flat), never a panic.
+        CeilingProfileDef::Flat | CeilingProfileDef::Open => writer.u8(CEILING_PROFILE_FLAT),
         CeilingProfileDef::Gable { ridge, ridge_rise } => {
             writer.u8(CEILING_PROFILE_GABLE);
             writer.u8(match ridge {

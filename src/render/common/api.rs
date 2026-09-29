@@ -406,7 +406,9 @@ pub struct LightmapFillProduct {
 }
 
 impl LightmapFillProduct {
-    /// The atlas alone, for callers that do not need the field.
+    /// The atlas alone, for callers that do not need the field. Test-only:
+    /// production callers keep the probes for the blended-decal relight.
+    #[cfg(test)]
     #[must_use]
     pub fn into_lightmaps(self) -> LevelLightmaps {
         self.lightmaps
@@ -428,14 +430,17 @@ pub enum LightmapFillOutcome {
 
 /// Fills one request to completion on the calling thread.
 ///
-/// This is the inline path (and the tests' reference): the same body the worker
-/// runs, with a cancellation flag that is never set, which is what keeps the
-/// synchronous and asynchronous pages byte-identical.
+/// This is the tests' reference: the same body the worker runs, with a
+/// cancellation flag that is never set, which is what keeps the synchronous and
+/// asynchronous pages byte-identical. Production callers use
+/// [`fill_lightmaps_full`] or [`fill_lightmaps_cancellable`] so the prepared
+/// probe field survives for the blended-decal relight.
 ///
 /// # Errors
 ///
 /// Returns the named [`LightmapFailure`] when a chart's texels are not exactly
 /// what the plan described; the caller must rebuild the vertex-lit level.
+#[cfg(test)]
 pub fn fill_lightmaps(request: &LightmapFillRequest) -> Result<LevelLightmaps, LightmapFailure> {
     Ok(fill_lightmaps_full(request)?.into_lightmaps())
 }
@@ -824,13 +829,26 @@ pub fn build_level_geometry_timed_with_lightmaps(
     let Some(request) = fill else {
         return build;
     };
-    match fill_lightmaps(&request) {
-        Ok(lightmaps) => {
+    match fill_lightmaps_full(&request) {
+        Ok(product) => {
+            let crate::render::common::api::LightmapFillProduct { lightmaps, probes } = product;
             let lightmaps = Arc::new(lightmaps);
             build.lightmap_millis = lightmaps.stats.bake_millis;
             dump_lightmaps_for_level(level, &lightmaps);
             if let Some(cache) = cache {
                 cache.insert(&request.content_key, Arc::clone(&lightmaps));
+            }
+            // The prepared solve lights the surfaces; blended feather decals
+            // must read with it instead of the vertex-lit approximation (see
+            // `relight_blend_decals`). Cut-out decals are untouched.
+            if let Some(field) = probes.as_ref() {
+                crate::render::relight_blend_decals(
+                    &mut build.mesh,
+                    level,
+                    catalog.assets(),
+                    &build.lighting,
+                    field,
+                );
             }
             build.lightmaps = Some(lightmaps);
         }

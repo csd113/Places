@@ -1,3 +1,338 @@
+## Unreleased — door polish and full-batch acceptance
+
+### Added
+
+- **Two authored door-frame fields.** `doors[]` gains `frame_depth` (number,
+  metres: the total depth of the frame's reveal liner along the leaf's closed
+  normal, `> 0` and `≤ 2.0`) and `frame_center` (number, metres: the signed
+  offset of the liner's centre from the leaf's centre plane, measured along
+  that normal in hinge-space `+Z`, magnitude at most `frame_depth`). Both are
+  optional. Omitted, the frame resolves the wall the leaf is installed in —
+  the wall whose walk-through opening the leaf fills — and uses that wall's
+  thickness and the leaf's position inside it; a leaf no opening claims keeps
+  the standalone 0.12 m liner. `frame_center` may only be authored together
+  with a `frame_depth` (the loader reports `Door {i} frame_center needs a
+  frame_depth to be measured inside`). Places Demo's two night-route leaves
+  author `frame_depth: 0.7` with `frame_center: -0.2` (source) and `+0.2`
+  (destination) to span the 0.40 m façade doorway panel in front of the 0.30 m
+  wall, which the wall resolver cannot see.
+- **`tools/bench/capture_doors.sh`** captures every maintained door leaf in
+  Places Demo from the real renderer: the six demo door families seen from both
+  sides, arc cases that drive the leaves through their real swing via
+  `PLACES_INTERACT`, and a walk-through case driven by `PLACES_MOVE_SCRIPT`, at
+  `high` (default), `medium` or `low`. `PLACES_BIN` selects the executable,
+  `PLACES_CAPTURE_DIR` the output root (default
+  `target/agent-work/door-captures`), `PLACES_DOOR_STATE` the scratch state
+  root and `PLACES_DOOR_CASES` an extended-grep filter on the view name.
+- **Door build tests.** `src/render/common/doors.rs` pins the new build: the
+  interior door builds a frame and a leaf, the sauna door adds a blended glass
+  slot, every submesh samples its own material slot (frame, leaf and handle), a
+  wall-depth frame puts a casing on both faces, no two frame faces share a
+  plane, the leaf bakes visibly darker face shades into its vertices and a
+  small leaf still builds a closed slab. `src/level/tests.rs` pins the frame
+  resolution: a wall opening resolves the depth and centre, a leaf off the wall
+  keeps the standalone liner, authored values win over the resolution, and a
+  Z-axis wall measures the tunnel across its thickness.
+
+### Changed
+
+- **The door frame is the reveal the leaf is installed in.** Both kinds draw a
+  static frame from `src/render/common/doors.rs`: a liner through the resolved
+  tunnel whose two jambs and head lap 30 mm into the wall on every side with a
+  4 mm stop lip into the opening, a 70 mm casing standing 12 mm proud on both
+  end faces, and the hinge knuckles and plates in the frame material. The
+  interior leaf is a stile-and-rail panel door whose two panels are recessed
+  12 mm per face; the sauna leaf is wooden stiles and rails around its glass
+  panel. Every face carries a baked face shade in its vertex colour, so the
+  recesses, the casing edges and the liner's reveal read at walking distance
+  instead of resolving into one flat silhouette.
+- **Each door submesh samples its own material slot** — leaf, frame, handle
+  and the sauna glass — instead of one resolved sheet standing in for several
+  surfaces, so a per-door `material`, `frame_material` or `handle_material`
+  override changes exactly the surface it names.
+- **Documentation updated.** The authoring guide (§30) documents the two fields
+  and the frame/leaf build, the architecture's door bullet names the two built
+  models and the per-submesh slots, and the bench README indexes the capture
+  script.
+
+### Fixed
+
+- **The two night-route entrances authored a 95° swing on a hinge standing on
+  the opening's edge**, so the engine's centre-plane sweep found the leaf's
+  hinge-side quarter inside the jamb at every candidate pose and refused the
+  leaf: `night_source_door` and `night_house_door` could never open or close,
+  and neither a `PLACES_INTERACT` toggle nor an `E` press moved them. Both now
+  author `swing_degrees: 90.0`, the furthest an edge-hinged leaf can reach, and
+  complete their swings.
+- **The frame sampled the leaf's texture and the handle sampled the baseboard
+  texture**, so a door always drew its frame in the leaf's sheet and its brass
+  handle in the frame's (baseboard) sheet, and `frame_material` /
+  `handle_material` overrides were invisible. The frame submesh now references
+  the frame material and the handle, rose, stem and hinges the handle material;
+  the demo's handles render in brass again.
+- **The sauna glass panel drew opaque.** The leaf's alpha contracts were a
+  shared table indexed against the wrong submesh, so the glass received an
+  opaque contract. They are now derived per submesh from the slot that submesh
+  samples, and exactly the glass entry is blended.
+- **The pool-side sauna leaf resolved to the standalone liner.** Its wall
+  opening is a raised sill meeting the sauna's raised floor, and the resolver
+  required the opening to reach the wall's base, so `sauna_door` drew the
+  0.12 m standalone liner buried inside the 0.30 m wall. The resolver now
+  measures the opening's bottom against the leaf's own base, so that leaf is
+  framed like the rest of the demo's doors; a window or a vent still never
+  frames a leaf.
+
+### Notes
+
+- **Batch acceptance, the rebuilt package hashes and the capture results land
+  with the job's handoff.** This entry states the authored values and the
+  behaviour the sources and the tool runs show.
+- **The generator change is idempotent.** `build_outdoor_route.py` rewrote
+  `assets/levels/places_demo.json` with the two door entries only, and
+  `--check` passes byte-for-byte.
+
+## Unreleased — jumpable surfaces, continuous water transitions and entity facing
+
+### The player can jump onto the kitchen counter, stove and sink
+
+- **The standing jump is sized against the 0.9 m kitchen counter**, the tallest
+  ordinary standable furniture in the demo, instead of the 0.75 m office desk:
+  `KITCHEN_COUNTER_TOP_M = 0.9`, `JUMP_CLEARANCE_M = 0.10`,
+  `JUMP_APEX_M = 1.0`, `JUMP_VELOCITY = 4.427_189`. Gravity, the fixed vertical
+  substep, the 0.4 m walkable step and the 3.0 m/s walk are unchanged, so the
+  apex clears furniture by the same margin the desk used to get; the 1.05 m
+  pool guardrails stay above it (a test pins that the jump is not a universal
+  mantle).
+- **`core:sink` collides as its 0.90 m deck, not its 1.1 m faucet post.** The
+  real basin (0.40 × 0.31 m) cannot admit the 0.6 m player disc, so the rim
+  plane is continuous support; the decorative faucet is walked through rather
+  than turned into an invisible blocker. The demo, the Home showcase and the
+  zoo's generated display all author the deck height; `build_model_zoo.py` has
+  a generic solid-size override for the catalogue's true visual bounds.
+- **The demo kitchen's upper cabinets are no longer solid**: they leave only
+  0.55 m of headroom above the 0.9 m counter, so their boxes pushed a 1.8 m
+  player off the very surfaces this job makes standable. The base cabinets
+  already block the same floor footprint, `occludes` stays true, and the baked
+  lighting and artwork are unchanged.
+
+### Water entry and exit are continuous state transitions
+
+- **Entry is body based.** Deep water under the feet plus no standable floor
+  enters swimming as soon as the water is deep enough — the plunge keeps its
+  bounded fall velocity and decelerates in the water instead of grounding on
+  the pool floor before the old eye band was reached. A rising player (ladder
+  launch, surfacing swimmer) is never recaptured; a wading player never enters.
+- **The swim pose is delta scaled in every branch**: holding Jump accelerates
+  to `1.1 m/s` and settles on the float line with the bob starting exactly at
+  its mean, releasing Jump sinks at the `0.5 m/s` terminal, and the
+  floor-clearance clamp under the walk-in step rises at a bounded rate instead
+  of teleporting the eye.
+- **Getting out is a bounded, cancellable climb** at `2.2 m/s` (the ladder
+  speed) that raises the feet and derives the eye, keeping the ordinary
+  swimming collision step for the walk onto the deck. It replaces the
+  one-frame stand-up writes (1.63 m on the demo deck, 1.28 m on the walk-in
+  step); reversing back over deeper water cancels to the swim pose at the
+  current eye line. Tests hold every consecutive eye step to a measured bound
+  at 30, 60 and 144 fps and count state toggles to prove there is no flapping.
+
+### Moving entities face their travel direction
+
+- **The AI handoff wrote yaw in degrees into a radians frame field**, so
+  Spooner-Man, the rat and the wandering pumpkin skeleton rendered at an
+  arbitrary heading while travelling. `rebuild_entity_frames` now converts once
+  at the handoff; `EntityFrame::transform` documents radians with `0` facing
+  world `+Z`, matching the route state and `Character::set_pose`. Both shipped
+  entity GLBs were measured to face `+Z` (rat head `z +0.213`, tail tip
+  `-0.262`; Spooner-Man head `+0.228`, tail tip `-0.246`), so no per-asset
+  correction or model-name branch was added, and a GLB regression test pins the
+  basis.
+
+### Capture tooling and tests
+
+- **`tools/bench/capture_movement.sh`** captures real motion in Places Demo —
+  the counter/stove/sink jump-on, walk-off and landing, repeated pool entry and
+  exit, the Home chase with the spawned rat and the night skeleton — driven by
+  the new `PLACES_MOVE_SCRIPT` developer override (real held controls with real
+  press edges, applied in the ordinary input state; empty in ordinary play).
+- New deterministic tests: kitchen-run landing/walk/leave and its frame-rate
+  independence, the guardrail mantle bound, body-based water entry near the
+  surface, no eye snap on entry, bounded demo exits with mid-climb reversal,
+  repeated entry/exit toggle counts, a continuously climbed walk-in step, the
+  sink deck collider, the demo counter run's clear headroom, the AI frame's
+  radians travel heading, the consumer's `+Z` front, and the shipped entity
+  GLB forward basis.
+
+## Unreleased — the Places Demo night route
+
+### The demo grows a walkable outdoor night route
+
+- **Places Demo now carries a ~90 m night route north of the front rooms**:
+  a new front doorway in `walls[0]`, an open-ceiling grass yard at the same
+  world y = 0 the front rooms already use, a gravel route and a parallel
+  concrete walkway 9 m to its east, a connector at 87.4 m (29.1 s of the
+  shipped 3.0 m/s walk), and a destination house with a centred doorway and a
+  finished entry room. The interior showcase, its encounters, its lighting and
+  the player spawn are untouched.
+- **`tools/levels/build_outdoor_route.py` owns the outdoor slice.** It is
+  deterministic, idempotent (`night_` ids, `grass_night_` for the tufts) and
+  `--check`-able: re-running it replaces its own slice and `--check` fails on
+  drift, so the demo stays a normal hand-editable level file.
+- **The night look is lamp-led**: `sky.ambient` stays 0.0, twelve stand lamps
+  at 7.5 m spacing alternate sides of the route, and both doorways hang two
+  eave lamps on the kit's documented mounts. Trees and grass opt out of the
+  bake (`occludes: false`) so no canopy blob shadow is ground into the
+  lightmap; the demo's lightmap atlas stays inside its 8-page budget.
+- **Invisible containment without light or shadow side effects**: the yard is
+  enclosed by buried `outdoor:collision_peg` props (`solid: true`,
+  `occludes: false`, an authored 3.5 m tall box from −0.10). The new
+  `outdoor:collision_peg` asset is a deliberate 6 cm carrier whose only job is
+  to hold that collider; the `geometry_intent` annotations name the
+  deliberately open perimeter for the geometry checker.
+- **The Halloween encounters are placed in the demo**: a jumping carved
+  pumpkin with its travelling candle glow on the walkway, three sheet ghosts
+  with independent routes and fade phases in the west grass band, and one
+  pumpkin-head skeleton wandering between the grove trees on the compiled
+  navigation. Five of the eight dynamic-light slots are used.
+- **New deterministic tests** walk the real movement controller: the timed
+  gravel walk (27–33 s window, straight line, y = 0 floor), the two door
+  connections (out of one house and into the other, and back), and the
+  containment against walking and jumping in six directions.
+
+## Unreleased — Halloween entities: jumping pumpkins, fading ghosts and pumpkin-head skeletons
+
+### Three catalogued Halloween entities
+
+- **`carved-pumpkin`, `sheet-ghost` and `pumpkin-skeleton` are registered
+  entity assets** with per-entity READMEs documenting rigs, clips, reference
+  speeds, material contracts and light sockets. Their shipped GLBs gain the
+  runtime material contracts through the deterministic, `--check`-able
+  `tools/entities/author_halloween_assets.py`: the pumpkin-skeleton's head
+  triangles become a second primitive with a mild warm emissive factor, the
+  sheet ghost becomes a blended (`alphaMode: "BLEND"`) material whose painted
+  face is a second, much dimmer primitive, and the carved pumpkin's existing
+  emissive flame is verified and left untouched. The same tool normalizes each
+  model onto the repository origin convention (bind-pose centre, grounded base
+  — with the ghost's hover kept) by translating vertices, the root joint, its
+  animation keys and every affected inverse bind matrix together. Geometry,
+  UVs, vertex colours, skins and clips are otherwise untouched, and the
+  ordinary `skeleton` asset stays unchanged.
+- **Skinned characters get a documented 3000-triangle art budget** (the prop
+  budget stays 1500); the pumpkin-head skeleton is 2,278 across 94 joints. The
+  shipped-asset suite selects the budget by the model's skin and the
+  above-review allowlist names all seven entities.
+- **glTF `alphaMode: "BLEND"` now imports as a real translucent contract**
+  (`AlphaMode::Blend`, opacity `1.0` because `baseColorFactor` alpha already
+  lives in the vertex colours). The static prop path still draws opaque and
+  cut-out batches only, so the blend contract is meaningful on the routes that
+  have a translucent pass: skinned characters and dynamic objects.
+- **The props package record is version 3**: a submesh may now carry the
+  blended alpha mode. A version-2 or older record is refused and rebuilt, so
+  every committed package is recompiled.
+
+### Runtime behaviours and lighting
+
+- **`fade` component**: `{ period_seconds, phase?, min_opacity?, max_opacity?,
+  enabled? }` — a smooth sine opacity cycle evaluated from simulation time,
+  with a deterministic per-instance phase when `phase` is omitted, so several
+  ghosts never breathe in lockstep. It reaches the renderer on the per-frame
+  entity handoff and is applied as a per-instance environment opacity without
+  rebuilding materials.
+- **`glow` component**: `{ color, intensity, range, socket?, offset?, fade? }`
+  — a small moving light attached to an animated joint/node, or to an
+  entity-local offset. Its intensity optionally follows the entity's fade, so a
+  faded ghost leaves no orphaned pool. It drives a new bounded dynamic-light
+  term (up to `MAX_DYNAMIC_LIGHTS` lights) added on top of the baked light
+  factor; the bake is never touched and a moving creature never bakes light
+  into a fixed location. Dynamic lights are range-bounded and unshadowed, which
+  is documented as an approximation limit in `docs/RENDERER.md`.
+- **A `PoseCue::Walk` with no clip literally named `walk`/`run` now selects the
+  clip whose declared kind is a locomotion kind** (`walk`, `run`, `hop`,
+  `float`, ...) and plays it at the route's speed over the clip's declared
+  reference speed. That is what makes the pumpkin's `hop_forward` (0.5 m/s) and
+  the ghost's `float_forward` (0.3 m/s) move with planted/synchronised motion
+  on ordinary `move_to` route steps and AI walk states; models that ship a
+  `walk` clip are byte-for-byte unaffected.
+- **Characters may draw through the translucent pass**: a blended character
+  submesh is encoded after the blended dynamic objects, sorted back to front,
+  with depth writes off, and its emissive contribution fades with the same
+  opacity (no orphaned bloom).
+
+### Developer fixture and validation
+
+- `tests/fixtures/levels/halloween_entities.json`: a walled night garden with a
+  concrete walkway (pumpkin route with `laugh` at the reversal points), a ghost
+  grass route with three independently phased ghosts, a tree zone with a
+  wandering pumpkin-head skeleton (`nav_agent` + `ai: wanderer`), a dim lamp
+  and an interior wall. It is loaded by the whole-tree fixture test and
+  compiled by `tools/bench/capture_halloween.sh` for real motion captures at
+  High and Low.
+- `tools/verify.sh` gains the two entity asset checks
+  (`author_halloween_assets.py --check`, `check_clip_boundaries.py`).
+
+## Unreleased — outdoor asset kit, terrain blending and night sky
+
+### Night sky and open ceilings
+
+- **A level may now declare a `sky`**: `{ "texture": <equirect 2:1 sheet>,
+  "brightness": 0.0..=4.0, "ambient": 0.0..=1.0 }`. One fullscreen background
+  pass (`src/render/wgpu/sky.wgsl` + `sky.rs`) samples the sheet by view
+  direction, repeating in U and clamping at the poles through a new
+  `TextureWrap::RepeatClampV` sampler family and `TextureClass::Sky` quality
+  budget (1024×512 native, 512×256 at Low). A level without a `sky` keeps the
+  historical clear-colour background exactly; the sky is never captured into
+  reflection probes or the planar mirror and is not fogged.
+- **A room may declare `"ceiling": { "kind": "open" }`**: no ceiling surface is
+  emitted (floors, walls and contents unchanged), so a level's sky shows above
+  an exterior. The walkable-ceiling collision model skips open rooms, and the
+  bake treats the room as a flat volume for its fill and fixture span.
+- **`sky.ambient` is the one environment term**: the radiance an escaping ray
+  sees in the prepared transport solve (cool `SKY_AMBIENT_COLOR`, up-facing
+  surfaces receive it, down-facing nearly none). Default `0.0` is bit-identical
+  to no sky; the Low vertex-lit path keeps its historical `0.10` floor.
+- The sky sheet is a real package dependency (editing it invalidates the
+  compiled package), `ShippedTextureKind::Sky` pins the 2:1/POT contract, and
+  `outdoor:tex_sky_stars_01` ships near-black with sparse faint stars.
+
+### Alpha-cutout props and the outdoor kit
+
+- **glTF `alphaMode: "MASK"` now imports into the static prop path**: a masked
+  primitive draws through the world's alpha-tested cutout pipeline at its
+  `alphaCutoff` (default 0.5), and the package props record version 2 carries
+  the per-submesh alpha contract. `BLEND` stays opaque, exactly as before.
+- **`props[].occludes` (default `true`)** lets a placement opt out of baked
+  light occlusion: alpha-cutout foliage would otherwise grind thousands of
+  solid blade boxes into the light. Collision and rendering are unaffected.
+- The `outdoor` theme ships tileable grass/dirt/concrete/siding/shingle
+  surfaces, two alpha-cutout grass tufts, a 398-triangle leafy tree, a coherent
+  lamp family on three mounts plus a fence post, modular house facade parts
+  (solid/window/doorway panels, roof slope and ridge, corner board, concrete
+  step) and a deterministic scatter tool (`tools/levels/scatter_grass.py`) with
+  LOW/MEDIUM/DENSE density profiles and a stable seed. The showcase fixture
+  `tests/fixtures/levels/outdoor_kit_showcase.json` is generated by
+  `tools/levels/build_outdoor_fixture.py` and exercises every part.
+- **`outdoor:collision_peg` is the kit's invisible containment carrier**: a
+  deliberately tiny 6 cm opaque cube (12 triangles, one 32×32 sheet) shipped
+  only to carry a level-authored collider. A level places it `solid: true` with
+  its own `size`, sets `occludes: false` and buries it with a below-floor `y`,
+  so the drawn cube is never visible and the bake never sees it; the outdoor
+  showcase fixture's `kit_boundary_peg` uses it to reinforce the yard's
+  north-east boundary.
+
+### Blended decals and the path feather
+
+- **Catalog decal sheets may author `"alpha_mode": "blend"`**: a second decal
+  pipeline blends them (same depth bias, `LessEqual` testing, depth writes off)
+  and sorts them back to front, so a soft feather fades across a seam instead
+  of testing at the hard 0.5 cut-out. Cut-out decals are untouched.
+- **A prepared build relights blended decals from the probe field**
+  (`render::relight_blend_decals`): the vertex-lit model that lights all decals
+  is correct for the Off variant but drifts from the prepared solve, so a
+  feather would glow over a dark floor. Cut-out decals keep their authored
+  light, which is why the frozen indoor captures are unaffected.
+- Three feather sheets (`outdoor:decal_path_edge_01`, `..._end_01`,
+  `..._corner_01`) make a dirt path meet grass on both sides, at ends and at
+  junctions with no coplanar floor, no collision and no hard rectangle.
+
 ## Unreleased — final architecture: doors, interactions, effects and content cutover
 
 ### Lighting: water and translucent transmission, authored fill floor and complete rebake

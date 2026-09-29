@@ -582,20 +582,32 @@ class Mesh:
     # contiguous run into one glTF primitive. Models that never call these keep
     # an empty slot list and the one-material output byte-for-byte.
 
-    def material(self, name: str, emissive=None, strength: float = 1.0, color=None) -> int:
+    def material(self, name: str, emissive=None, strength: float = 1.0, color=None,
+                 alpha_mode: str | None = None, alpha_cutoff: float | None = None) -> int:
         """Registers (or returns) a material slot.
 
         ``emissive`` is an RGB triple in 0..1, ``strength`` the
         ``KHR_materials_emissive_strength`` multiplier and ``color`` an
-        0..255 RGB triple written as ``baseColorFactor``. Re-registering an
-        identical name returns its slot; re-registering it differently is a
-        builder bug and raises.
+        0..255 RGB triple written as ``baseColorFactor``. ``alpha_mode`` is
+        ``None``/``"opaque"`` or ``"mask"`` with an optional ``alpha_cutoff``
+        (glTF default 0.5); a masked material draws through the game's
+        alpha-tested cutout pass, which is how foliage cards work.
+        Re-registering an identical name returns its slot; re-registering it
+        differently is a builder bug and raises.
         """
+        mode = None if alpha_mode in (None, "opaque") else str(alpha_mode)
+        if mode not in (None, "mask"):
+            raise ValueError(f"material {name!r} alpha_mode must be 'opaque' or 'mask'")
+        cutoff = None if mode is None else (0.5 if alpha_cutoff is None else float(alpha_cutoff))
+        if cutoff is not None and not 0.0 <= cutoff <= 1.0:
+            raise ValueError(f"material {name!r} alpha_cutoff must be in 0..=1")
         slot = {
             "name": str(name),
             "emissive": None if emissive is None else tuple(float(value) for value in emissive),
             "strength": float(strength),
             "color": None if color is None else tuple(color),
+            "alpha_mode": mode,
+            "alpha_cutoff": cutoff,
         }
         for index, existing in enumerate(self.materials):
             if existing["name"] == slot["name"]:
@@ -862,9 +874,14 @@ class PropBuilder:
     def add_note(self, text: str) -> None:
         self.notes.append(text)
 
-    def set_texture(self, size: int, seed: int | None = None) -> Texture:
-        """Replaces the canvas before any painting (256 is the native maximum)."""
-        self.tex = Texture(size, seed=seed if seed is not None else _stable_seed(self.id))
+    def set_texture(self, size: int, seed: int | None = None, *, alpha: bool = False) -> Texture:
+        """Replaces the canvas before any painting (256 is the native maximum).
+
+        ``alpha=True`` keeps the painted alpha channel for a glTF ``MASK``
+        material; the default forces opaque props exactly as before.
+        """
+        self.tex = Texture(size, seed=seed if seed is not None else _stable_seed(self.id),
+                           keep_alpha=alpha)
         return self.tex
 
     # ------------------------------------------------ multi-material / rigging

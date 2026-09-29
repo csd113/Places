@@ -27,6 +27,8 @@
 //! ```text
 //! submesh:
 //!   texture      u8 (0 = none, 1 = Some) + u16 slot when present
+//!   alpha_mode   u8 (0 = opaque, 1 = cutout, 2 = blend)
+//!   alpha_cutoff f32
 //!   emission     f32 x 3 colour, f32 intensity
 //!   emission_mask u8 (0 = none, 1 = Some) + u16 slot when present
 //!   first_index  u32
@@ -35,7 +37,7 @@
 
 use std::sync::Arc;
 
-use crate::materials::MaterialEmission;
+use crate::materials::{AlphaMode, MaterialAlpha, MaterialEmission};
 use crate::render::{PropMeshBatch, PropSubmeshBatch};
 use crate::spatial::Aabb;
 
@@ -44,7 +46,11 @@ use super::mesh::{read_vertex, write_vertex};
 use super::{MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PROP_SUBMESHES};
 
 /// Version of the props record layout.
-pub const PROPS_RECORD_VERSION: u16 = 1;
+///
+/// Version 2 added the per-submesh alpha contract (glTF `MASK` foliage draws
+/// through the cutout pass); version 3 adds the blended mode (a model
+/// authoring `alphaMode: "BLEND"`). An older record is refused and rebuilt.
+pub const PROPS_RECORD_VERSION: u16 = 3;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -74,6 +80,8 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
         writer.u32(submeshes);
         for submesh in &batch.submeshes {
             write_optional_slot(&mut writer, submesh.texture);
+            writer.u8(alpha_mode_code(submesh.alpha));
+            writer.f32(submesh.alpha.cutoff);
             writer.f32_3(submesh.emission.color);
             writer.f32(submesh.emission.intensity);
             write_optional_slot(&mut writer, submesh.emission.mask);
@@ -200,11 +208,23 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
 
 fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
     let texture = read_optional_slot(reader)?;
+    let alpha_mode = reader.u8()?;
+    let mode = match alpha_mode {
+        0 => AlphaMode::Opaque,
+        1 => AlphaMode::Cutout,
+        // A blended primitive's opacity is not carried: an imported GLB's
+        // `baseColorFactor` alpha is already folded into its vertex colours,
+        // so the contract itself is opacity 1.0 and per-instance fade is a
+        // runtime component.
+        2 => AlphaMode::Blend,
+        other => return Err(format!("prop submesh has unknown alpha mode {other}")),
+    };
+    let alpha_cutoff = reader.f32()?;
     let color = reader.f32_3()?;
     let intensity = reader.f32()?;
     let mask = read_optional_slot(reader)?;
-    if !finite3(color) || !intensity.is_finite() {
-        return Err("prop submesh has a non-finite emission".to_string());
+    if !finite3(color) || !intensity.is_finite() || !alpha_cutoff.is_finite() {
+        return Err("prop submesh has a non-finite emission or alpha".to_string());
     }
     Ok(PropSubmeshBatch {
         texture,
@@ -213,9 +233,24 @@ fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
             intensity,
             mask,
         },
+        alpha: MaterialAlpha {
+            mode,
+            opacity: 1.0,
+            cutoff: alpha_cutoff,
+        }
+        .sanitized(),
         first_index: reader.u32()?,
         index_count: reader.u32()?,
     })
+}
+
+/// One submesh's alpha mode as the record encodes it.
+const fn alpha_mode_code(alpha: MaterialAlpha) -> u8 {
+    match alpha.mode {
+        AlphaMode::Opaque => 0,
+        AlphaMode::Cutout => 1,
+        AlphaMode::Blend => 2,
+    }
 }
 
 fn write_optional_slot(writer: &mut Writer, slot: Option<u16>) {

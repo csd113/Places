@@ -25,6 +25,7 @@ use crate::test_support::{assert_exact, assert_exact_array};
 #[test]
 fn test_validate_level_success() {
     let level = LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -98,6 +99,7 @@ fn test_validate_level_success() {
 #[test]
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -143,9 +145,65 @@ fn test_validate_level_invalid_version() {
 }
 
 #[test]
+fn test_validate_sky_bounds_and_identifiers() {
+    let base = |sky: &str| {
+        format!(
+            r#"{{
+                "format_version": 3,
+                "id": "sky_case",
+                "name": "Sky Case",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }} ],
+                "sky": {sky}
+            }}"#
+        )
+    };
+    let level = LevelDef::from_json(&base(
+        r#"{ "texture": "outdoor:tex_sky_stars_01", "brightness": 2.0, "ambient": 1.0 }"#,
+    ))
+    .expect("valid json");
+    assert!(validate_level(&level).is_ok());
+
+    for (sky, expected) in [
+        (
+            r#"{ "texture": "outdoor:tex_sky_stars_01", "brightness": -1.0 }"#,
+            "brightness",
+        ),
+        (
+            r#"{ "texture": "outdoor:tex_sky_stars_01", "brightness": 9.0 }"#,
+            "brightness",
+        ),
+        (
+            r#"{ "texture": "outdoor:tex_sky_stars_01", "ambient": 2.0 }"#,
+            "ambient",
+        ),
+        (
+            r#"{ "texture": "outdoor:tex_sky_stars_01", "ambient": -0.5 }"#,
+            "ambient",
+        ),
+        (
+            r#"{ "texture": "", "brightness": 1.0 }"#,
+            "names no texture",
+        ),
+        (
+            r#"{ "texture": "not a:valid id", "brightness": 1.0 }"#,
+            "well-formed",
+        ),
+    ] {
+        let level = LevelDef::from_json(&base(sky)).expect("valid json");
+        let error = validate_level(&level).expect_err("invalid sky must be rejected");
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in: {error}"
+        );
+    }
+}
+
+#[test]
 fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -276,6 +334,7 @@ fn test_parse_materials_json() {
 #[test]
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
+        sky: None,
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -1256,7 +1315,10 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
         vec![
             "core:decal_no_diving_01".to_string(),
             "core:decal_stripes_01".to_string(),
-            "core:decal_ceiling_vent_01".to_string()
+            "core:decal_ceiling_vent_01".to_string(),
+            "outdoor:decal_path_edge_01".to_string(),
+            "outdoor:decal_path_end_01".to_string(),
+            "outdoor:decal_path_corner_01".to_string()
         ],
         "every decal sheet the demo places resolves as external PNG artwork"
     );
@@ -2882,6 +2944,68 @@ fn test_validate_rejects_duplicate_component_kinds() {
     validate_level(&distinct_states).expect("distinct state names may repeat");
 }
 
+/// `fade` and `glow` accept the documented examples and every omitted field
+/// resolves its documented default.
+#[test]
+fn test_validate_accepts_fade_and_glow_components() {
+    let level = binding_level(
+        r#""props": [ { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+            "components": [
+                { "component": "fade", "period_seconds": 6.0, "phase": 0.25,
+                  "min_opacity": 0.0, "max_opacity": 1.0, "enabled": true },
+                { "component": "glow", "color": [0.45, 0.95, 1.0], "intensity": 0.6,
+                  "range": 3.5, "socket": "flame", "offset": [0.0, 0.1, 0.0],
+                  "fade": true } ] } ]"#,
+    );
+    validate_level(&level).expect("the documented fade/glow examples validate");
+
+    // A plain prop may carry a glow; only the components' own values are
+    // checked here (the runtime's character path decides where it updates).
+    let defaults = binding_level(
+        r#""props": [ { "id": "lamp_post", "model": "core:lamp", "x": 2.0, "z": 2.0,
+            "components": [ { "component": "fade", "period_seconds": 2.0 },
+                            { "component": "glow" } ] } ]"#,
+    );
+    validate_level(&defaults).expect("fade/glow defaults validate");
+    let prop = defaults.props.first().expect("the prop parses");
+    let fade = prop
+        .components
+        .iter()
+        .find_map(|component| {
+            if let crate::level::ComponentDef::Fade(def) = component {
+                Some(def)
+            } else {
+                None
+            }
+        })
+        .expect("the fade parses");
+    assert_eq!(fade.period_seconds, 2.0);
+    assert_eq!(fade.phase, None, "an omitted phase stays unresolved");
+    assert_eq!(fade.min_opacity, 0.0);
+    assert_eq!(fade.max_opacity, 1.0);
+    assert!(fade.enabled);
+    let glow = prop
+        .components
+        .iter()
+        .find_map(|component| {
+            if let crate::level::ComponentDef::Glow(def) = component {
+                Some(def)
+            } else {
+                None
+            }
+        })
+        .expect("the glow parses");
+    assert_eq!(glow.intensity, 0.5);
+    assert_eq!(glow.range, 3.0);
+    assert_eq!(glow.socket, None);
+    assert!(glow.fade);
+    // Two instance ids get independent deterministic phases without one.
+    let first = crate::level::default_fade_phase("ghost_a");
+    let second = crate::level::default_fade_phase("ghost_b");
+    assert!((0.0..1.0).contains(&first) && (0.0..1.0).contains(&second));
+    assert_ne!(first.to_bits(), second.to_bits());
+}
+
 /// Every component value is checked by name: reach, lifetime, emission,
 /// variants, state names, clips, sounds and nav metadata.
 #[test]
@@ -2973,6 +3097,67 @@ fn test_validate_rejects_bad_component_values() {
             r#"{ "component": "ai", "behavior": "prey" }"#,
             "authors an `ai` component without a `nav_agent` body",
             "an ai needs a body",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 0.0 }"#,
+            "`fade` component 0 period_seconds",
+            "zero fade period",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 3601.0 }"#,
+            "`fade` component 0 period_seconds",
+            "fade period above the cap",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 1.0, "phase": 1.5 }"#,
+            "`fade` component 0 phase",
+            "fade phase above one",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 1.0, "min_opacity": -0.1 }"#,
+            "`fade` component 0 min_opacity",
+            "negative min opacity",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 1.0, "max_opacity": 1.5 }"#,
+            "`fade` component 0 max_opacity",
+            "max opacity above one",
+        ),
+        (
+            r#"{ "component": "fade", "period_seconds": 1.0,
+                "min_opacity": 0.8, "max_opacity": 0.2 }"#,
+            "must not exceed max_opacity",
+            "inverted opacity range",
+        ),
+        (
+            r#"{ "component": "glow", "color": [0.0, 1.5, 0.0] }"#,
+            "`glow` component 0 color",
+            "glow colour above one",
+        ),
+        (
+            r#"{ "component": "glow", "intensity": 8.5 }"#,
+            "`glow` component 0 intensity",
+            "glow intensity above the cap",
+        ),
+        (
+            r#"{ "component": "glow", "range": 0.01 }"#,
+            "`glow` component 0 range",
+            "glow range below the floor",
+        ),
+        (
+            r#"{ "component": "glow", "range": 65.0 }"#,
+            "`glow` component 0 range",
+            "glow range above the cap",
+        ),
+        (
+            r#"{ "component": "glow", "socket": "  " }"#,
+            "socket must not be blank",
+            "blank glow socket",
+        ),
+        (
+            r#"{ "component": "glow", "offset": [0.0, 4.5, 0.0] }"#,
+            "`glow` component 0 offset",
+            "glow offset above the cap",
         ),
     ];
     for (component, expected, label) in cases {

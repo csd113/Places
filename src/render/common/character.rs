@@ -59,6 +59,7 @@ use glam::{Mat4, Quat, Vec3};
 use super::Vertex;
 use super::mesh::LIGHTMAP_NONE;
 use super::props::{prop_instance_matrix, transform_bounds};
+use super::{DynamicLight, DynamicLightSet};
 use crate::game::{LocomotionSnapshot, LocomotionState};
 use crate::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::level::LevelSurfaces;
@@ -136,6 +137,9 @@ pub const RUN_GAIT_MULTIPLIER: f32 = 1.5;
 /// the culling box is the bind-pose box grown by this fraction and then by
 /// [`CHARACTER_BOUNDS_MARGIN_M`]. The margin is conservative, never exact.
 pub const CHARACTER_BOUNDS_EXPANSION: f32 = 0.15;
+
+/// Key prefix of one attached character light: `"glow:" + instance id`.
+const GLOW_KEY_PREFIX: &str = "glow:";
 
 /// Number of locomotion states the blend vector carries.
 const STATE_COUNT: usize = 5;
@@ -901,6 +905,9 @@ pub struct Character {
     /// Uniform placement scale, retained so a live pose change composes the
     /// same transform the static prop path did.
     scale: f32,
+    /// Per-instance opacity multiplier applied by the environment uniform,
+    /// clamped to `0..=1`; `1.0` for a character with no fade component.
+    opacity: f32,
 }
 
 impl Character {
@@ -908,6 +915,28 @@ impl Character {
     #[must_use]
     pub const fn asset(&self) -> &Arc<LoadedPropAsset> {
         &self.asset
+    }
+
+    /// The character's current opacity, in `0..=1`.
+    ///
+    /// The environment uniform multiplies the fragment alpha and the emissive
+    /// term by this value, so a faded ghost neither covers what is behind it
+    /// nor blooms.
+    #[must_use]
+    pub const fn opacity(&self) -> f32 {
+        self.opacity
+    }
+
+    /// Sets the character's opacity, clamped to `0..=1`.
+    ///
+    /// A non-finite value is treated as fully opaque: a malformed fade must not
+    /// make the mesh disappear or poison the uniform.
+    pub const fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = if opacity.is_finite() {
+            opacity.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
     }
 
     /// The placement transform (translate x yaw x uniform scale), the same
@@ -930,6 +959,11 @@ impl Character {
     }
 
     /// Moves the character to a live base position and yaw (radians).
+    ///
+    /// The yaw is radians with `0` facing world `+Z`, the same unit
+    /// [`EntityFrame::transform`] carries; a caller that holds degrees
+    /// (`spawn_runtime_character`, `SetDynamicTransform`) converts at its own
+    /// boundary before calling this.
     ///
     /// Rebuilds the same placement matrix `prop_instance_matrix` produced and
     /// recomputes the conservative world bounds, so culling follows the
@@ -970,6 +1004,10 @@ pub struct CharacterScene {
     /// visible on the frame it happens.
     runtime_generation: u64,
     claimed_models: Vec<String>,
+    /// Attached lights for this frame's glow cues, keyed by instance id.
+    /// Rebuilt by [`Self::update`] after the characters advance, so every
+    /// socket resolves against the pose that will draw.
+    dynamic_lights: DynamicLightSet,
 }
 
 impl CharacterScene {
@@ -1067,6 +1105,7 @@ impl CharacterScene {
             std::mem::swap(&mut character.animator, &mut old.animator);
             character.transform = old.transform;
             character.world_bounds = old.world_bounds;
+            character.opacity = old.opacity;
         }
     }
 
@@ -1166,6 +1205,7 @@ impl CharacterScene {
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
+                opacity: 1.0,
             });
             if let Some(counts) = placements.get_mut(&model_path) {
                 counts.1 = counts.1.saturating_add(1);
@@ -1184,6 +1224,7 @@ impl CharacterScene {
             runtime: Vec::new(),
             runtime_generation: 0,
             claimed_models,
+            dynamic_lights: DynamicLightSet::new(),
         }
     }
 
@@ -1277,6 +1318,7 @@ impl CharacterScene {
             world_bounds,
             instance_id: Some(instance_id.to_string()),
             scale,
+            opacity: 1.0,
         };
         match replaced {
             Some(index) => {
@@ -1361,7 +1403,88 @@ impl CharacterScene {
                 finished.push(instance_id);
             }
         }
+        // Run after the poses advanced: an attached light's socket resolves
+        // against the pose the frame will draw, not the previous one.
+        self.update_dynamic_lights(frames);
         CharacterUpdate { moved, finished }
+    }
+
+    /// Rebuilds the attached-light set from this frame's handoff.
+    ///
+    /// One light per character whose frame carries a glow and whose effective
+    /// intensity (`glow.intensity`, scaled by the clamped instance opacity when
+    /// the cue asked for a fade) is positive and finite. The position is the
+    /// world position of the glow's socket — `character.transform() *
+    /// animator.node_global(socket)` in model space — or, when no socket is
+    /// authored or the node does not resolve, the placement applied to the
+    /// entity-local offset. A frame with no glow, a missing frame and an
+    /// intensity that reached zero all remove the key, so a despawned or
+    /// invisible glow cannot leave a stale light in the uniform.
+    fn update_dynamic_lights(&mut self, frames: &[EntityFrame]) {
+        for character in self.characters.iter().chain(self.runtime.iter()) {
+            let Some(instance_id) = character.instance_id() else {
+                continue;
+            };
+            let mut key =
+                String::with_capacity(GLOW_KEY_PREFIX.len().saturating_add(instance_id.len()));
+            key.push_str(GLOW_KEY_PREFIX);
+            key.push_str(instance_id);
+            let glow = frames
+                .iter()
+                .find(|frame| frame.instance_id == instance_id)
+                .and_then(|frame| frame.glow.as_ref());
+            let Some(glow) = glow else {
+                self.dynamic_lights.remove(&key);
+                continue;
+            };
+            let fade = if glow.fade_with_opacity {
+                character.opacity
+            } else {
+                1.0
+            };
+            let intensity = glow.intensity * fade;
+            let position = glow
+                .socket
+                .as_deref()
+                .and_then(|socket| character.animator.node_global(socket))
+                .map_or_else(
+                    || {
+                        character
+                            .transform
+                            .transform_point3(Vec3::from(glow.offset))
+                    },
+                    |node| {
+                        character
+                            .transform
+                            .mul_mat4(&node)
+                            .transform_point3(Vec3::ZERO)
+                    },
+                );
+            if !intensity.is_finite() || intensity <= 0.0 || !position.is_finite() {
+                self.dynamic_lights.remove(&key);
+                continue;
+            }
+            let light = DynamicLight {
+                key: key.clone(),
+                position,
+                color: glow.color,
+                intensity,
+                radius: glow.range,
+            };
+            if !self.dynamic_lights.insert(light) {
+                // The bounded set refused the value (a malformed cue or a full
+                // budget): never keep a stale light for the refused key.
+                self.dynamic_lights.remove(&key);
+            }
+        }
+    }
+
+    /// The attached lights this frame's glow cues produced.
+    ///
+    /// Rebuilt by the last [`Self::update`]; the backend uploads it verbatim.
+    #[must_use]
+    pub const fn dynamic_lights(&self) -> &DynamicLightSet {
+        &self.dynamic_lights
     }
 
     /// Advances one character against this frame's handoff.
@@ -1382,6 +1505,9 @@ impl CharacterScene {
             .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
         match frame {
             Some(frame) => {
+                // The frame's fade is applied every pass, before the pose: the
+                // opacity is independent of whether the pose changed.
+                character.set_opacity(frame.opacity);
                 if let Some((position, yaw)) = frame.transform
                     && !transforms_agree(character.transform, position, character.scale, yaw)
                 {
@@ -1534,6 +1660,13 @@ pub struct CharacterAnimator {
     /// Per declared clip, the stride's authored ground speed, parallel to the
     /// model's `animations`.
     clip_reference_speeds: Vec<Option<f32>>,
+    /// Per declared clip, the authored kind (`asset.extras.places_entity_clips`
+    /// `kind`, lower-cased), parallel to the model's `animations`.
+    ///
+    /// The locomotion resolver uses it when a model declares no clip literally
+    /// named `walk`/`run`: the pumpkin's `hop_forward` is its walk kind and the
+    /// ghost's `float_forward` its float kind.
+    clip_kinds: Vec<Option<String>>,
     /// Current morph weights, parallel to the model's morph targets.
     morphs: Vec<f32>,
     /// Default morph weights, restored before each sample.
@@ -1641,9 +1774,25 @@ impl CharacterAnimator {
             .iter()
             .map(|animation| animation.reference_speed_mps)
             .collect();
+        let clip_kinds: Vec<Option<String>> = model
+            .animations
+            .iter()
+            .map(|animation| {
+                animation
+                    .kind
+                    .as_ref()
+                    .map(|kind| kind.trim().to_ascii_lowercase())
+                    .filter(|kind| !kind.is_empty())
+            })
+            .collect();
         let morph_count = model.morph_targets.len();
         let morph_defaults = model.morph_weights.clone();
         let morph_ranges = model.mesh_morph_ranges.clone();
+        // The rest pose is what an animator that has not updated yet holds, so
+        // the node globals start there rather than at the identity: an
+        // attached light must find a named socket's bind-pose transform even
+        // before the first pose pass.
+        let node_globals = rig.rest_global.clone();
         Some(Self {
             rig,
             rigid,
@@ -1659,11 +1808,12 @@ impl CharacterAnimator {
             cue_finished: false,
             walk_reference_speed: WALK_REFERENCE_SPEED_MPS,
             clip_reference_speeds,
+            clip_kinds,
             morphs: vec![0.0; morph_count],
             morph_defaults,
             morph_ranges,
             pose,
-            node_globals: vec![Mat4::IDENTITY; node_count],
+            node_globals,
             deltas,
             clip_a,
             clip_b,
@@ -1844,6 +1994,23 @@ impl CharacterAnimator {
     #[must_use]
     pub fn joint_delta(&self, slot: usize) -> Option<Mat4> {
         self.deltas.get(slot).copied()
+    }
+
+    /// A named node's current model-space global transform, or `None`.
+    ///
+    /// The lookup is case-insensitive over the rig's node names. The global is
+    /// the composed local hierarchy of the current pose — the same value
+    /// [`Self::joint_delta`] derives from — so an attached light reads the pose
+    /// that is on screen. Before the first pose pass the globals hold the
+    /// model's rest (bind) hierarchy, never the identity.
+    #[must_use]
+    pub fn node_global(&self, name: &str) -> Option<Mat4> {
+        let index = self
+            .rig
+            .nodes
+            .iter()
+            .position(|node| node.name.eq_ignore_ascii_case(name))?;
+        self.node_globals.get(index).copied()
     }
 
     /// Skins one bind-pose vertex with the current joint deltas.
@@ -2047,15 +2214,48 @@ impl CharacterAnimator {
         }
     }
 
+    /// The best locomotion-kind clip for a model with no literal `walk`/`run`.
+    ///
+    /// A model may declare its ground/air locomotion through the asset's
+    /// `places_entity_clips` metadata instead of a conventional clip name: the
+    /// carved pumpkin's `hop_forward` (kind `walk`, 0.5 m/s) and the sheet
+    /// ghost's `float_forward` (kind `float`, 0.3 m/s). Kinds are ranked so a
+    /// model that declares several picks the most walk-like one, and equal
+    /// ranks resolve in model order, so the choice is deterministic.
+    fn declared_locomotion_clip(&self) -> Option<usize> {
+        const KIND_RANK: [&str; 7] = ["walk", "run", "hop", "float", "fly", "swim", "crawl"];
+        let mut best: Option<(usize, usize)> = None;
+        for (index, kind) in self.clip_kinds.iter().enumerate() {
+            let Some(kind) = kind.as_deref() else {
+                continue;
+            };
+            let Some((rank, _)) = KIND_RANK
+                .iter()
+                .enumerate()
+                .find(|(_, name)| **name == kind)
+            else {
+                continue;
+            };
+            if best.is_none_or(|(best_rank, _)| rank < best_rank) {
+                best = Some((rank, index));
+            }
+        }
+        best.map(|(_, index)| index)
+    }
+
     /// Resolves a pose cue to `(clip, once, paused, time rate)`.
     ///
     /// * `Idle` uses the `idle` clip.
     /// * `Walk { speed }` picks `run` when the rig has one and the requested
     ///   speed is at least [`RUN_GAIT_MULTIPLIER`] times the walk clip's
-    ///   reference speed; otherwise `walk`. Either clip plays at
-    ///   `speed / its_own_reference_speed`, and a clip with no declared
-    ///   reference falls back to the engine constants, so the shipped
-    ///   Spoonerman keeps its 0.26 m/s walk.
+    ///   reference speed; otherwise `walk`. When the model has no clip
+    ///   literally named `walk`, the first clip whose declared kind is a
+    ///   locomotion kind (`walk`, `run`, `hop`, `float`, `fly`, `swim`,
+    ///   `crawl`, in that rank order) drives the gait — that is how the
+    ///   pumpkin hops and the ghost floats on ordinary `move_to` route steps.
+    ///   Either clip plays at `speed / its_own_reference_speed`, and a clip
+    ///   with no declared reference falls back to the engine constants, so the
+    ///   shipped Spoonerman keeps its 0.26 m/s walk.
     /// * `Clip { name, .. }` looks the name up case-insensitively.
     fn resolve_cue(&self, cue: &PoseCue) -> (usize, bool, bool, f32) {
         match cue {
@@ -2066,35 +2266,59 @@ impl CharacterAnimator {
                 } else {
                     0.0
                 };
-                let walk_index = self.clip_index("walk").unwrap_or(0);
-                let walk_reference = self
+                let reference_of = |index: usize| {
+                    self.clip_reference_speeds
+                        .get(index)
+                        .copied()
+                        .flatten()
+                        .unwrap_or(self.walk_reference_speed)
+                };
+                let literal_walk = self.clip_index("walk");
+                let literal_run = self.clip_index("run");
+                if let Some(walk_index) = literal_walk {
+                    let walk_reference = reference_of(walk_index);
+                    if let Some(run_index) = literal_run
+                        && speed >= walk_reference * RUN_GAIT_MULTIPLIER
+                    {
+                        let run_reference = self
+                            .clip_reference_speeds
+                            .get(run_index)
+                            .copied()
+                            .flatten()
+                            .unwrap_or(RUN_REFERENCE_SPEED_MPS);
+                        return (
+                            run_index,
+                            false,
+                            false,
+                            (speed / run_reference).clamp(0.05, 4.0),
+                        );
+                    }
+                    return (
+                        walk_index,
+                        false,
+                        false,
+                        (speed / walk_reference).clamp(0.05, 4.0),
+                    );
+                }
+                // No conventional name: the model's own declared locomotion
+                // kind wins, so `hop_forward`/`float_forward` play at their
+                // authored speed on an ordinary walk cue.
+                if let Some(index) = self.declared_locomotion_clip() {
+                    return (
+                        index,
+                        false,
+                        false,
+                        (speed / reference_of(index)).clamp(0.05, 4.0),
+                    );
+                }
+                let fallback = literal_run.unwrap_or(0);
+                let reference = self
                     .clip_reference_speeds
-                    .get(walk_index)
+                    .get(fallback)
                     .copied()
                     .flatten()
                     .unwrap_or(self.walk_reference_speed);
-                if let Some(run_index) = self.clip_index("run")
-                    && speed >= walk_reference * RUN_GAIT_MULTIPLIER
-                {
-                    let run_reference = self
-                        .clip_reference_speeds
-                        .get(run_index)
-                        .copied()
-                        .flatten()
-                        .unwrap_or(RUN_REFERENCE_SPEED_MPS);
-                    return (
-                        run_index,
-                        false,
-                        false,
-                        (speed / run_reference).clamp(0.05, 4.0),
-                    );
-                }
-                (
-                    walk_index,
-                    false,
-                    false,
-                    (speed / walk_reference).clamp(0.05, 4.0),
-                )
+                (fallback, false, false, (speed / reference).clamp(0.05, 4.0))
             }
             PoseCue::Clip { name, once, paused } => {
                 (self.clip_index(name).unwrap_or(0), *once, *paused, 1.0)
@@ -2466,6 +2690,7 @@ mod tests {
 
     use super::*;
     use crate::gltf::{AnimationPath, PropAnimationChannel, PropModel, PropNode, PropSkin};
+    use crate::test_support::{assert_exact, assert_exact_array};
 
     /// A synthetic three-node rig: a body, a front-left leg and a tail, with
     /// one vertex skinned to all three.
@@ -2847,6 +3072,52 @@ mod tests {
             animator.update(1.0 / 60.0, snapshot(state, 1.0));
         }
         assert_eq!(animator.allocation_probe(), before);
+    }
+
+    #[test]
+    fn a_named_node_resolves_case_insensitively_from_the_current_pose() {
+        let model = rigged_model(Vec::new());
+        let animator = CharacterAnimator::new(&model).expect("rig animator");
+        // The globals start at the rest hierarchy, never the identity: a
+        // socket on a rigid model must resolve before its first pose pass.
+        let leg = animator.node_global("leg_fl_upper").expect("named node");
+        assert_eq!(
+            leg,
+            animator
+                .node_global("LEG_FL_UPPER")
+                .expect("case-insensitive")
+        );
+        assert!(
+            (leg.transform_point3(Vec3::ZERO) - Vec3::new(0.0, -1.0, 0.0)).length() < 1e-6,
+            "the leg's rest global is its parent-composed translation: {leg:?}"
+        );
+        let tail = animator.node_global("tail_01").expect("tail node");
+        assert!((tail.transform_point3(Vec3::ZERO) - Vec3::new(0.0, 0.0, -0.5)).length() < 1e-6);
+        assert!(animator.node_global("flame").is_none());
+        assert!(animator.node_global("").is_none());
+
+        // A rigid (clips-only, no skin) model resolves names through the same
+        // lookup: the glow socket on the carved pumpkin is a rigid node.
+        let mut rigid_model = rigged_model(Vec::new());
+        rigid_model.skin = None;
+        let rigid = CharacterAnimator::new(&rigid_model).expect("rigid animator");
+        assert!(rigid.is_rigid());
+        assert_eq!(rigid.node_global("root"), animator.node_global("root"));
+        assert!(rigid.node_global("tail_01").is_some());
+
+        // And the named global tracks the pose: after walking, the leg's
+        // global differs from its rest transform and stays finite.
+        let mut moving = animator;
+        for _ in 0..20 {
+            moving.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
+        }
+        let posed = moving.node_global("leg_fl_upper").expect("named node");
+        assert!(posed.to_cols_array().iter().all(|value| value.is_finite()));
+        assert_ne!(
+            posed.transform_point3(Vec3::ZERO),
+            Vec3::new(0.0, -1.0, 0.0),
+            "the walking pose must move the leg's global"
+        );
     }
 
     #[test]
@@ -3261,6 +3532,68 @@ mod tests {
         assert!((rate - 1.0).abs() < 1e-5, "walk reference: {rate}");
     }
 
+    /// One clip that keys a single node and declares an asset kind, for
+    /// cue-resolution tests.
+    fn declared_clip(name: &str, reference_speed_mps: Option<f32>, kind: &str) -> PropAnimation {
+        PropAnimation {
+            kind: Some(kind.to_string()),
+            ..named_clip(name, reference_speed_mps)
+        }
+    }
+
+    /// A walk cue on a model with no clip literally named `walk`/`run` plays
+    /// the model's declared locomotion kind at its own reference speed: the
+    /// carved pumpkin's `hop_forward` and the sheet ghost's `float_forward`.
+    #[test]
+    fn a_walk_cue_uses_a_declared_locomotion_kind_when_no_walk_clip_exists() {
+        // The carved pumpkin: `laugh` (idle) + `hop_forward` (kind walk).
+        let pumpkin = rigged_model(vec![
+            declared_clip("laugh", None, "idle"),
+            declared_clip("hop_forward", Some(0.5), "walk"),
+        ]);
+        let animator = CharacterAnimator::new(&pumpkin).expect("rig animator");
+        let hop = animator.clip_index("hop_forward").expect("hop clip");
+        let (clip, once, paused, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.5 });
+        assert_eq!((clip, once, paused), (hop, false, false));
+        assert!((rate - 1.0).abs() < 1e-5, "hop at its reference: {rate}");
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.25 });
+        assert_eq!(clip, hop);
+        assert!((rate - 0.5).abs() < 1e-5, "half speed: {rate}");
+
+        // The sheet ghost declares a float kind; an idle kind is never chosen
+        // for a walk cue.
+        let ghost = rigged_model(vec![
+            declared_clip("idle", None, "idle"),
+            declared_clip("float_forward", Some(0.3), "float"),
+        ]);
+        let animator = CharacterAnimator::new(&ghost).expect("rig animator");
+        let float = animator.clip_index("float_forward").expect("float clip");
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
+        assert_eq!(clip, float);
+        assert!((rate - 1.0).abs() < 1e-5, "float at its reference: {rate}");
+
+        // Rank order: walk beats float regardless of declaration order.
+        let ranked = rigged_model(vec![
+            declared_clip("glide", Some(0.4), "float"),
+            declared_clip("march", Some(0.8), "walk"),
+        ]);
+        let animator = CharacterAnimator::new(&ranked).expect("rig animator");
+        let march = animator.clip_index("march").expect("march clip");
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.8 });
+        assert_eq!(clip, march, "walk ranks above float");
+        assert!((rate - 1.0).abs() < 1e-5);
+
+        // No walk clip and no declared locomotion kind keeps the historical
+        // first-clip fallback so existing pose-only props are unchanged.
+        let pose_only = rigged_model(vec![
+            named_clip("pose_stand", None),
+            named_clip("pose_sit", None),
+        ]);
+        let animator = CharacterAnimator::new(&pose_only).expect("rig animator");
+        let (clip, _, _, _) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
+        assert_eq!(clip, 0, "the first clip is the historical fallback");
+    }
+
     // ------------------------------------------------- runtime characters
 
     /// A one-room level placing one shipped `rat`: a catalogue id whose model
@@ -3361,6 +3694,8 @@ mod tests {
             instance_id: "rat#1".to_string(),
             transform: Some((Vec3::new(2.0, 0.5, -1.0), std::f32::consts::FRAC_PI_2)),
             cue: PoseCue::Walk { speed_mps: 0.2 },
+            opacity: 1.0,
+            glow: None,
         };
         let update = scene.update(
             1.0 / 60.0,
@@ -3392,6 +3727,145 @@ mod tests {
                 .revision(),
             revision,
             "the snapshot never advances a runtime actor"
+        );
+    }
+
+    /// The frame's fade reaches the character and drives the attached light:
+    /// the intensity scales by the clamped opacity, the offset is entity-local
+    /// metres, and a zero opacity or a missing glow removes the light.
+    #[test]
+    #[allow(clippy::too_many_lines)] // one cohesive fade/glow lifecycle with its fixtures
+    fn a_frame_opacity_and_glow_drive_the_attached_light_set() {
+        use crate::entity::GlowCue;
+
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let mut scene = CharacterScene::new();
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "rat#1",
+                "rat",
+                Vec3::new(1.5, 0.25, -2.0),
+                0.0,
+                1.0,
+            )
+            .expect("the shipped rat spawns");
+        let glow = GlowCue {
+            socket: None,
+            offset: [0.0, 0.5, 0.0],
+            color: [0.4, 0.9, 1.0],
+            intensity: 2.0,
+            range: 4.0,
+            fade_with_opacity: true,
+        };
+        let frame = |opacity: f32, glow: Option<GlowCue>| EntityFrame {
+            instance_id: "rat#1".to_string(),
+            transform: None,
+            cue: PoseCue::Idle,
+            opacity,
+            glow,
+        };
+
+        // A fading, glowing frame: intensity 2.0 * 0.25, at the local offset.
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(0.25, Some(glow.clone()))],
+        );
+        let character = scene.runtime_character("rat#1").expect("live");
+        assert_exact(character.opacity(), 0.25);
+        let lights = scene.dynamic_lights();
+        assert_eq!(lights.len(), 1);
+        let light = lights.get("glow:rat#1").expect("one light");
+        assert_exact(light.intensity, 0.5);
+        assert_exact_array(light.color, [0.4, 0.9, 1.0]);
+        assert_exact(light.radius, 4.0);
+        let expected = character
+            .transform()
+            .transform_point3(Vec3::new(0.0, 0.5, 0.0));
+        assert!(
+            (light.position - expected).length() < 1e-5,
+            "the offset is entity-local: {:?} vs {expected:?}",
+            light.position
+        );
+
+        // `fade_with_opacity: false` keeps the full intensity, and an
+        // out-of-range opacity clamps to one.
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(
+                1.5,
+                Some(GlowCue {
+                    fade_with_opacity: false,
+                    ..glow.clone()
+                }),
+            )],
+        );
+        assert_exact(
+            scene.runtime_character("rat#1").expect("live").opacity(),
+            1.0,
+        );
+        assert_exact(
+            scene
+                .dynamic_lights()
+                .get("glow:rat#1")
+                .expect("still attached")
+                .intensity,
+            2.0,
+        );
+
+        // Opacity zero removes the light; the character stays at zero.
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(0.0, Some(glow.clone()))],
+        );
+        assert_exact(
+            scene.runtime_character("rat#1").expect("live").opacity(),
+            0.0,
+        );
+        assert!(scene.dynamic_lights().is_empty());
+
+        // A vanished glow removes the light even at full opacity.
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(1.0, Some(glow.clone()))],
+        );
+        assert_eq!(scene.dynamic_lights().len(), 1);
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(1.0, None)],
+        );
+        assert!(scene.dynamic_lights().is_empty());
+
+        // A non-finite opacity falls back to fully opaque instead of poisoning
+        // the uniform, and a frame-less pass removes a stale light.
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(f32::NAN, Some(glow.clone()))],
+        );
+        assert_exact(
+            scene.runtime_character("rat#1").expect("live").opacity(),
+            1.0,
+        );
+        scene.update(
+            1.0 / 60.0,
+            snapshot(LocomotionState::Idle, 0.0),
+            &[frame(1.0, Some(glow))],
+        );
+        assert_eq!(scene.dynamic_lights().len(), 1);
+        scene.update(1.0 / 60.0, snapshot(LocomotionState::Idle, 0.0), &[]);
+        assert!(
+            scene.dynamic_lights().is_empty(),
+            "a frame-less pass must not leave a stale light"
         );
     }
 

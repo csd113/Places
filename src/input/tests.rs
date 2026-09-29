@@ -2,25 +2,11 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::doc_markdown, clippy::expect_used)]
+#![allow(clippy::doc_markdown, clippy::expect_used, clippy::indexing_slicing)]
 
 use super::*;
 use crate::test_support::assert_exact;
 use sdl3::keyboard::Mod;
-
-const ALL_CONTROLS: [Control; 11] = [
-    Control::MoveForward,
-    Control::MoveBackward,
-    Control::StrafeLeft,
-    Control::StrafeRight,
-    Control::LookUp,
-    Control::LookDown,
-    Control::LookLeft,
-    Control::LookRight,
-    Control::Jump,
-    Control::Crouch,
-    Control::Interact,
-];
 
 /// The first `KeyDown` SDL delivers for a key (OS auto-repeat comes later).
 fn key_down(key: Keycode) -> Event {
@@ -408,4 +394,98 @@ fn a_complete_tap_retains_one_press_until_consumed_or_cleared() {
         handler.clear_gameplay_inputs();
         assert!(!handler.state().was_pressed(control));
     }
+}
+
+/// The `PLACES_MOVE_SCRIPT` parser accepts the documented grammar and names
+/// every rejected entry instead of silently dropping it.
+#[test]
+fn move_script_parses_ranges_and_rejects_malformed_entries() {
+    let (script, rejected) = parse_move_script(
+        "forward@0-6.5, jump@0.2-0.6 ,jump@3-3.4,look_right@4-5.5,crouch@0.1-0.2",
+    );
+    assert!(rejected.is_empty(), "a valid script has no rejections");
+    assert_eq!(script.len(), 5);
+    assert_eq!(script[0].control, Control::MoveForward);
+    assert_exact(script[0].first_seconds, 0.0);
+    assert_exact(script[0].last_seconds, 6.5);
+    assert_eq!(script[1].control, Control::Jump);
+    assert_exact(script[1].last_seconds, 0.6);
+    assert_eq!(script[2].control, Control::Jump);
+    assert_eq!(script[3].control, Control::LookRight);
+    assert_eq!(script[4].control, Control::Crouch);
+
+    let (script, rejected) =
+        parse_move_script("nope@1-2,forward,forward@5,x@1-2,forward@-1-2,forward@9-3,forward@a-b");
+    assert!(script.is_empty(), "no entry survives: {script:?}");
+    assert_eq!(
+        rejected,
+        [
+            "nope@1-2",
+            "forward",
+            "forward@5",
+            "x@1-2",
+            "forward@-1-2",
+            "forward@9-3",
+            "forward@a-b",
+        ],
+        "every malformed entry is named, in authored order"
+    );
+}
+
+/// A scripted hold is a real held control with a real rising edge: the jump
+/// presses once per range, releases between ranges, and a second range presses
+/// again; controls outside the script keep whatever the player holds.
+#[test]
+fn move_script_holds_controls_with_one_press_edge_per_range() {
+    let (script, rejected) = parse_move_script("jump@0.2-0.3,jump@1.0-1.0,forward@0.2-0.4");
+    assert!(rejected.is_empty());
+    let mut state = InputState::default();
+    for seconds in [0.0_f32, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0] {
+        state.apply_move_script(&script, seconds);
+        let expected_jump = (0.2..=0.3).contains(&seconds) || (seconds - 1.0).abs() < 1e-6;
+        assert_eq!(
+            state.is_held(Control::Jump),
+            expected_jump,
+            "seconds {seconds}"
+        );
+        assert_eq!(
+            state.is_held(Control::MoveForward),
+            (0.2..=0.4).contains(&seconds),
+            "seconds {seconds}"
+        );
+        state.clear_presses();
+    }
+    let mut state = InputState::default();
+    state.apply_move_script(&script, 0.2);
+    assert!(
+        state.was_pressed(Control::Jump),
+        "the first held frame presses"
+    );
+    state.clear_presses();
+    state.apply_move_script(&script, 0.25);
+    assert!(
+        !state.was_pressed(Control::Jump),
+        "a held frame never re-presses"
+    );
+    state.apply_move_script(&script, 0.5);
+    assert!(!state.is_held(Control::Jump), "the range releases");
+    state.apply_move_script(&script, 1.0);
+    assert!(
+        state.was_pressed(Control::Jump),
+        "a second range presses again"
+    );
+}
+
+/// A control the script never names is untouched: a real held key survives a
+/// scripted frame.
+#[test]
+fn move_script_leaves_unscripted_controls_alone() {
+    let (script, _) = parse_move_script("jump@0-0.1");
+    let mut state = InputState::holding(&[Control::MoveForward]);
+    state.apply_move_script(&script, 0.05);
+    assert!(state.is_held(Control::MoveForward));
+    assert!(state.is_held(Control::Jump));
+    state.apply_move_script(&script, 0.2);
+    assert!(state.is_held(Control::MoveForward));
+    assert!(!state.is_held(Control::Jump));
 }

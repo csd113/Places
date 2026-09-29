@@ -11,7 +11,9 @@ its skinned sibling.
 | `build_mannequin.py` | grey concrete human mannequin with three selectable poses |
 | `build_rat.py` | animated rat: idle, walk and run |
 | `build_skeleton.py` | articulated human skeleton prop with floor and chair sits |
+| `author_halloween_assets.py` | material contract for the externally modelled Halloween entities (pumpkin-head emissive primitive split, ghost BLEND + cyan emissive), deterministic and `--check`-able |
 | `validate_entities.py` | parallel per-frame skinning/contact sweep over built GLBs (`--workers N`, `PLACES_TOOL_WORKERS`) |
+| `check_clip_boundaries.py` | exported-GLB loop seams, one-shot transitions and normalised weights |
 | `render_contact_sheets.py` | Blender reimport contact sheets (front/side/three-quarter per clip/pose), one bounded Blender process per asset |
 
 ## Conventions
@@ -58,10 +60,19 @@ cd /path/to/Places
 python3 tools/entities/build_rat.py                # write the asset + checks
 python3 tools/entities/build_mannequin.py
 python3 tools/entities/build_skeleton.py
+python3 tools/entities/author_halloween_assets.py         # material contracts
+python3 tools/entities/author_halloween_assets.py --check # verify (no writes)
 python3 tools/entities/rig.py --check <glb>        # structural check only
+python3 tools/entities/check_clip_boundaries.py    # loop seams and transitions
 python3 tools/entities/validate_entities.py --workers 8
 python3 tools/entities/validate_entities.py --workers 1   # serial reference
 ```
+
+`author_halloween_assets.py` is idempotent: it rewrites only when the shipped
+bytes differ from the derived contract, and `--check` fails on a stale asset.
+The externally modelled Halloween GLBs are the source; changing a contract
+means restoring the raw GLB from git and re-running the tool (the authored
+files carry no separate source).
 
 `validate_entities.py` is the expensive offline check: it re-reads each built
 GLB, evaluates every clip at a fine time sampling with the runtime's blend

@@ -508,6 +508,62 @@ pub struct NavObstacle {
     pub affects_nav: bool,
 }
 
+/// One opacity fade cycle: the runtime of the `fade` component.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Fade {
+    /// Cycle length in seconds, `> 0`.
+    pub period_seconds: f32,
+    /// Cycle phase in `0..1`.
+    pub phase: f32,
+    /// Lowest opacity of the cycle, `0..=1`.
+    pub min_opacity: f32,
+    /// Highest opacity of the cycle, `0..=1`, `>= min_opacity`.
+    pub max_opacity: f32,
+    /// False holds `max_opacity` instead of cycling.
+    pub enabled: bool,
+}
+
+impl Fade {
+    /// The opacity at simulation time `seconds`.
+    ///
+    /// A full cosine cycle interpolates between the two ends, so the fade
+    /// eases in and out with no cusp where a cycle wraps; a disabled fade is
+    /// constant at `max_opacity`. A non-finite time or period is treated as
+    /// zero so a corrupt value can never poison the frame.
+    #[must_use]
+    pub fn opacity_at(&self, seconds: f32) -> f32 {
+        if !self.enabled {
+            return self.max_opacity;
+        }
+        let period = if self.period_seconds.is_finite() && self.period_seconds > 0.0 {
+            self.period_seconds
+        } else {
+            1.0
+        };
+        let seconds = if seconds.is_finite() { seconds } else { 0.0 };
+        let angle = std::f32::consts::TAU * (self.phase + seconds / period);
+        let swing = 0.5 * (1.0 - angle.cos());
+        (self.max_opacity - self.min_opacity).mul_add(swing, self.min_opacity)
+    }
+}
+
+/// One attached dynamic light: the runtime of the `glow` component.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Glow {
+    /// Linear colour, each channel in `0..=1`.
+    pub color: [f32; 3],
+    /// Intensity in `0..=8`.
+    pub intensity: f32,
+    /// Reach in metres, `0.05..=64`.
+    pub range: f32,
+    /// Animated joint/node name the light attaches to.
+    pub socket: Option<String>,
+    /// Entity-local offset in metres.
+    pub offset: [f32; 3],
+    /// True multiplies the intensity by the entity's fade opacity.
+    pub fade_with_opacity: bool,
+}
+
 /// Every component table of one world.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ComponentTables {
@@ -547,6 +603,10 @@ pub struct ComponentTables {
     pub nav_obstacles: ComponentTable<NavObstacle>,
     /// AI behavior definitions.
     pub ais: ComponentTable<crate::ai::AiDef>,
+    /// Opacity fade cycles.
+    pub fades: ComponentTable<Fade>,
+    /// Attached dynamic lights.
+    pub glows: ComponentTable<Glow>,
 }
 
 impl ComponentTables {
@@ -572,6 +632,8 @@ impl ComponentTables {
             nav_agents: ComponentTable::new(),
             nav_obstacles: ComponentTable::new(),
             ais: ComponentTable::new(),
+            fades: ComponentTable::new(),
+            glows: ComponentTable::new(),
         }
     }
 
@@ -595,6 +657,8 @@ impl ComponentTables {
         self.nav_agents.clear();
         self.nav_obstacles.clear();
         self.ais.clear();
+        self.fades.clear();
+        self.glows.clear();
     }
 
     /// Total entries across every table, for the diagnostics summary.
@@ -619,6 +683,8 @@ impl ComponentTables {
             + self.nav_agents.len()
             + self.nav_obstacles.len()
             + self.ais.len()
+            + self.fades.len()
+            + self.glows.len()
     }
 
     /// True when no table holds an entry.
@@ -647,6 +713,8 @@ impl ComponentTables {
         self.nav_agents.remove(handle);
         self.nav_obstacles.remove(handle);
         self.ais.remove(handle);
+        self.fades.remove(handle);
+        self.glows.remove(handle);
     }
 }
 
@@ -767,6 +835,65 @@ mod tests {
         assert!(!material.select("on"), "already selected");
         assert!(!material.select("missing"), "unknown variant");
         assert_eq!(material.emission_scale(), 1.0);
+    }
+
+    #[test]
+    fn fade_opacity_cycles_between_min_and_max() {
+        let fade = Fade {
+            period_seconds: 4.0,
+            phase: 0.0,
+            min_opacity: 0.2,
+            max_opacity: 1.0,
+            enabled: true,
+        };
+        assert!((fade.opacity_at(0.0) - 0.2).abs() < 1e-6, "cycle start");
+        assert!((fade.opacity_at(1.0) - 0.6).abs() < 1e-6, "quarter cycle");
+        assert!((fade.opacity_at(2.0) - 1.0).abs() < 1e-6, "half cycle");
+        assert!((fade.opacity_at(3.0) - 0.6).abs() < 1e-6, "three quarters");
+        assert!((fade.opacity_at(4.0) - 0.2).abs() < 1e-5, "wraps to start");
+        let disabled = Fade {
+            enabled: false,
+            ..fade
+        };
+        for seconds in [0.0, 1.0, 2.0, 3.0, 100.0] {
+            assert!(
+                (disabled.opacity_at(seconds) - 1.0).abs() < 1e-6,
+                "a disabled fade holds max_opacity at {seconds}s"
+            );
+        }
+    }
+
+    #[test]
+    fn fade_opacity_is_deterministic_and_bounded() {
+        let fade = Fade {
+            period_seconds: 6.0,
+            phase: 0.25,
+            min_opacity: 0.0,
+            max_opacity: 0.8,
+            enabled: true,
+        };
+        for seconds in [0.0, 0.5, 3.0, 12.0, 3600.0] {
+            let first = fade.opacity_at(seconds);
+            let second = fade.opacity_at(seconds);
+            assert_eq!(first.to_bits(), second.to_bits(), "same input, same bits");
+            assert!((0.0..=0.8).contains(&first), "{first} at {seconds}s");
+        }
+    }
+
+    #[test]
+    fn default_fade_phase_is_stable_and_instance_dependent() {
+        let first = crate::level::default_fade_phase("sheet_ghost_1");
+        assert!((0.0..1.0).contains(&first), "{first}");
+        assert_eq!(
+            first.to_bits(),
+            crate::level::default_fade_phase("sheet_ghost_1").to_bits(),
+            "one id always gets the same phase"
+        );
+        assert_ne!(
+            first.to_bits(),
+            crate::level::default_fade_phase("sheet_ghost_2").to_bits(),
+            "two ids desynchronise without an authored phase"
+        );
     }
 
     #[test]

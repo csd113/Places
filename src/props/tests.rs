@@ -14,9 +14,9 @@
 use super::*;
 use crate::gltf::{PropSubmesh, PropVertex};
 use crate::level::{
-    MAX_PROP_TEXTURE_BYTES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
-    PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES, PROP_TRIANGLE_BUDGET,
-    PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
+    ENTITY_TRIANGLE_BUDGET, MAX_PROP_TEXTURE_BYTES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES,
+    MAX_PROP_VERTICES, PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES,
+    PROP_TRIANGLE_BUDGET, PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
 };
 use crate::loader::{PropCatalog, RawImage};
 use crate::materials::MaterialEmission;
@@ -117,10 +117,17 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
             );
         }
         // Art budget, not engine ceiling: shipped assets must stay inside the
-        // numbers `assets/README.md` and `tools/props/build.py` enforce.
+        // numbers `assets/README.md` and `tools/props/build.py` enforce. A
+        // skinned character follows the documented entity budget instead of
+        // the static-prop target.
+        let triangle_budget = if model.skin.is_some() {
+            ENTITY_TRIANGLE_BUDGET
+        } else {
+            PROP_TRIANGLE_BUDGET
+        };
         assert!(
-            model.triangles <= PROP_TRIANGLE_BUDGET,
-            "{}: model has {} triangles, above the {PROP_TRIANGLE_BUDGET}-triangle art budget",
+            model.triangles <= triangle_budget,
+            "{}: model has {} triangles, above the {triangle_budget}-triangle art budget",
             entry.id,
             model.triangles
         );
@@ -183,12 +190,27 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
                 tolerance
             );
         }
-        assert!(
-            low[1].abs() <= 0.012,
-            "{}: model base sits at y={:.3}; props must rest on y=0",
-            entry.id,
-            low[1]
-        );
+        // A grounded model rests its base on y = 0. A hovering skinned
+        // character (the sheet ghost) keeps its lowest vertex above the origin
+        // and inside its own height: the level places it at y = 0 and the
+        // hover is the asset's own bind pose, so it must neither sink below
+        // the origin nor float away from it.
+        if model.skin.is_some() {
+            assert!(
+                low[1] >= -0.012 && low[1] <= dimensions[1],
+                "{}: skinned model base sits at y={:.3}; a grounded character must \
+                 rest on y=0 and a hovering one must stay inside its own height",
+                entry.id,
+                low[1]
+            );
+        } else {
+            assert!(
+                low[1].abs() <= 0.012,
+                "{}: model base sits at y={:.3}; props must rest on y=0",
+                entry.id,
+                low[1]
+            );
+        }
         let center_x = f32::midpoint(low[0], high[0]);
         let center_z = f32::midpoint(low[2], high[2]);
         assert!(
@@ -207,10 +229,19 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // legs, a tail and readable markings, so he sits above the 800-triangle
     // review threshold and well under the 1500 hard ceiling. The shipped
     // entity models are the same case: a readable human mannequin, a rat with
-    // four articulated legs and a tail, and an articulated skeleton all need
-    // anatomy no box-shaped prop has (1130 / 856 / 1352 triangles, all under
-    // the 1500 shipped-art ceiling).
-    let detailed_props = ["spooner-man", "mannequin", "rat", "skeleton"];
+    // four articulated legs and a tail, an articulated skeleton, and the
+    // Halloween creatures (a carved candle pumpkin at 1498 triangles, a
+    // painted sheet ghost at 1270, and a 94-joint pumpkin-head skeleton at
+    // 2278, all under the 3000-triangle skinned-character ceiling).
+    let detailed_props = [
+        "spooner-man",
+        "mannequin",
+        "rat",
+        "skeleton",
+        "carved-pumpkin",
+        "sheet-ghost",
+        "pumpkin-skeleton",
+    ];
     let over_review: Vec<(String, usize)> = entries
         .iter()
         .filter_map(|entry| entry.model.as_deref().map(|path| (entry.id.clone(), path)))
@@ -321,6 +352,7 @@ fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
             })
             .collect(),
         submeshes: vec![PropSubmesh {
+            alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: (!textures.is_empty()).then_some(0u16),
             emission: MaterialEmission::NONE,

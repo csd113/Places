@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -291,6 +291,12 @@ skeleton and the per-field tables.
   "name": "My Level",                      // REQUIRED. Non-empty; display name.
   "author": "",                            // optional, default "".
 
+  "sky": {                                 // optional; a data-driven night-sky background
+    "texture": "outdoor:tex_sky_stars_01", // a catalog `texture` asset, equirectangular 2:1
+    "brightness": 1.0,                     // optional, default 1.0; 0.0..4.0
+    "ambient": 0.0                         // optional, default 0.0; 0.0..1.0
+  },                                       // omitted = no background object (clear colour)
+
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },  // x, z REQUIRED; yaw default 0.0
 
   "defaults": {                            // optional block; see the warning below
@@ -496,6 +502,7 @@ skeleton and the per-field tables.
       "scale": 1.0,                        // optional, default 1.0, must be > 0
       "size": [1.6, 0.75, 0.7],            // optional [w,h,d]; collision box, x scale
       "solid": true,                       // optional, default false
+      "occludes": true,                    // optional, default true; false for alpha-cutout scenery (grass)
       "components": [                      // optional typed capabilities; see §29
         { "component": "interactable", "prompt": "Toggle name", "reach": 2.5 },
         { "component": "state", "name": "phase", "value": "cold" },
@@ -827,7 +834,17 @@ A gable ceiling with the ridge running along X and a 2 m rise above the eave:
 { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }
 ```
 
-* Tagged enum: `kind` is `"flat"` or `"gable"`; an unknown `kind` is a JSON parse error.
+An **open** ceiling — no ceiling surface at all, so a level's `sky` shows above
+an exterior. Floors, walls and contents are emitted exactly like a flat room and
+`height` remains the volume's eave height (walls and fixtures resolve against
+it); the walkable-ceiling model skips the room, so nothing clamps a jumping
+player:
+
+```json
+{ "kind": "open" }
+```
+
+* Tagged enum: `kind` is `"flat"`, `"gable"` or `"open"`; an unknown `kind` is a JSON parse error.
 * `ridge` is the axis the ridge runs **along**: `"x"` leaves the ridge constant in X
   and slopes the ceiling along Z; `"z"` is the mirror case. The ridge sits at the
   footprint midpoint of the perpendicular axis.
@@ -1258,27 +1275,48 @@ How it behaves:
 * **Wading** is the ordinary walking controller: the water at the player's feet
   at or below `0.55 m` deep is waded at full walk speed, and a jump works
   normally. A standing player also keeps wading where the water is deeper than
-  that but the eye is still above the swim band (see below), so shallow basins
-  read as chest-deep walking rather than floating.
-* **Swimming** starts once the water at the feet is deeper than `0.55 m` **and**
-  the eye is at or below the surface's swim band (`surface_y + 0.37 m`: the
-  float margin plus the surface-swim margin). The band is what stops a fall
-  from switching to swimming while the body is still in the air above the pool.
-  The swimmer moves at `0.55×` walk speed, the body sinks at a `0.5 m/s`
-  terminal until it rests `0.55 m` above the floor (so a `1.35 m` basin —
-  shallower than the standing eye height — still fully submerges), and holding
-  Jump rises to the float line at `surface_y + 0.12 m` with a small idle bob,
-  where the eye stays. Releasing Jump sinks again. A jump press never
-  ground-jumps while submerged.
-* **Getting out** only works where standing leaves the eye above the swim band:
-  the walkable floor underfoot must be within `EXIT_DEPTH` of the surface —
-  `1.23 m` standing (`1.6 − 0.37`), `0.43 m` crouched — and the eye must be
-  near the top of the water. Because the threshold is derived from the band, a
-  stand-up can never immediately re-enter swimming and a pool edge cannot
-  oscillate; the player stands up on the submerged step or the shallow floor.
-  The swimming wall band sits one `0.4 m` step below the surface so a ledge
-  within a step of the waterline can be climbed. A deeper rim stays solid,
-  exactly like a floor-region rim on land.
+  that as long as the floor underfoot is standable (within `EXIT_DEPTH` of the
+  surface), so shallow basins read as chest-deep walking rather than floating.
+* **Entering** is body based. The water under the feet must be a swimming
+  volume deeper than `0.55 m` (`WADE_DEPTH`) and the walkable floor under the
+  centre must *not* be standable (see Getting out): a wading player on a floor
+  shallow enough to stand on never enters swimming at all. A falling player
+  enters as soon as the water is deep enough — the plunge keeps its vertical
+  velocity (bounded to twice `SWIM_RISE_SPEED`), so the fall decelerates in the
+  water instead of grounding on the pool floor first; a body already sinking or
+  resting enters once its eye is inside the surface band (`surface_y + 0.37 m`:
+  the float margin plus the surface-swim margin); a **rising** player is never
+  recaptured, so a ladder launch or a surfacing swimmer clears the waterline.
+* **Swimming** moves at `0.55×` walk speed. The body sinks under the reduced
+  underwater gravity at a `0.5 m/s` terminal until the eye rests `0.55 m` above
+  the floor (so a `1.35 m` basin — shallower than the standing eye height —
+  still fully submerges), and holding Jump accelerates upward to `1.1 m/s` and
+  holds the float line at `surface_y + 0.12 m` with a small idle bob, where the
+  eye stays. Every branch is delta-scaled, so entering, surfacing and releasing
+  Jump move continuously and the eye is never written to the float line in one
+  frame. Releasing Jump sinks again. A jump press never ground-jumps while
+  submerged.
+* **Getting out** is a bounded, cancellable climb, not a stand-up teleport. The
+  walkable floor directly under the centre must be a standable exit at the
+  waterline — at most one `WATER_EXIT_STEP_M` (`0.5 m`) above the surface or
+  within `EXIT_DEPTH` below it (`1.23 m` standing, `0.43 m` crouched), with the
+  stance's body clear overhead — and the eye must be near the top of the water
+  (`surface_y − 0.6 m`). The climb raises the feet at `WATER_EXIT_CLIMB_SPEED`
+  (`2.2 m/s`, the ladder speed) and derives the eye, so the camera rises
+  continuously from the swim pose to the standing line (about 0.7 s from the
+  deepest pool to the demo deck) instead of snapping up ~1.6 m; the final head
+  clearance is validated once, when the climb begins. Horizontal movement keeps
+  the ordinary swimming collision step throughout, so the player walks onto the
+  real deck with ordinary input and real collision, and no horizontal position
+  is ever written. Reversing back over deeper water (the floor under the centre
+  stops being a standable exit) cancels back to the swim pose at the current eye
+  line: the surface pose over a floor deeper than `WADE_DEPTH` still counts as
+  swimming, so a cancelled climb never falls through the air beside the rim.
+  Because the threshold is derived from the swim band, an exit can never
+  immediately re-enter swimming and a pool edge cannot oscillate. The swimming
+  wall band sits one `0.4 m` step below the surface so a ledge within a step of
+  the waterline can be climbed, while a deeper rim stays solid, exactly like a
+  floor-region rim on land; a solid prop or wall top is never a floor exit.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
 * **Validation**: non-finite values, a non-positive footprint, a surface at or
@@ -1291,8 +1329,11 @@ How it behaves:
 Places Demo's pool is two adjacent volumes at one waterline: the basin
 (`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
 submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
-`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step, stand up,
-or climb the chrome ladder at the east rim.
+`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step and climb
+out there, or climb the chrome ladder at the east rim. Walking off the deck is
+a real drop into the water: the plunge decelerates, buoyancy surfaces you, and
+climbing back onto the rim is a bounded 2.2 m/s climb, never a coordinate
+snap.
 
 ### Ladders
 
@@ -2584,6 +2625,13 @@ Rules:
   reports them as level errors, so the tool is the place to catch a typo.
 * Decal sheets are alpha cut-outs; background alpha 0. Artwork is visible where
   alpha ≥ 0.5 (`DECAL_ALPHA_CUTOFF`).
+* A catalog decal sheet may add `"alpha_mode": "blend"` instead of the default
+  cut-out. A blended sheet is drawn by a second decal pipeline (same depth bias,
+  `LessEqual` testing, but blending on and depth writes off) and is sorted back to
+  front, so a soft-edged feather fades across a surface edge instead of testing at
+  0.5. This is what the outdoor path-edge strips use; `"cutout"`/`"opaque"` on the
+  entry keeps the historical hard cut-out, and a decal with no `alpha_mode` is
+  unchanged. See §34.3.
 
 Use a decal when you need a **local marking on an existing surface**: signs, arrows,
 hazard bands, stains that must be a specific shape. Use a material change (patch or
@@ -2809,8 +2857,8 @@ storage change, not an authoring one.
   so the plan leaves that quad vertex-lit and reports it in the `[lightmaps]` line
   (`left N sub-texel sliver quad(s) vertex-lit`) while the rest of the level keeps its
   atlas. A visible malformed quad (a bow-tie) still fails the build over.
-* Fixtures, prop placeholder boxes, decals and dynamic objects (door leaves and
-  the washer drum) are vertex-lit:
+* Fixtures, prop placeholder boxes, decals and dynamic objects (door frames,
+  door leaves and the washer drum) are vertex-lit:
   their colour keeps the baked light folded in, exactly as before. Glass panes and
   stairs are lightmapped like the wall around them.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
@@ -2851,8 +2899,9 @@ object: a `core:washer_drum` turning inside every placed `core:washing_machine`,
 behind its open porthole and inside the machine's cavity (the machine itself is
 an ordinary static prop and participates in the bake).
 
-* **Door leaves** are authored in level JSON, carry their own collision and are
-  the level's only map-authored movable solids.
+* **Door frames and leaves** are authored in level JSON and both draw through
+  the dynamic path; the leaf carries the collision and is the level's only
+  map-authored movable solid.
 * The **washer-drum demonstration** is engine-created: placing a
   `core:washing_machine` is the only way a level influences one.
 * Dynamic objects are lit by a single probe of the static bake at their current
@@ -2993,6 +3042,7 @@ Exact level syntax (all fields verified against `src/level.rs::PropDef`):
   "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
   "solid": true,                 // optional, default false. Only this flag creates collision.
+  "occludes": true,              // optional, default true. Set false for alpha-cutout scenery (grass).
   "components": [                // optional typed capabilities (see §29).
     { "component": "interactable",   // an E-aimable object.
       "prompt": "Toggle name",       // optional; shown while aimed at; default "Interact".
@@ -3034,6 +3084,14 @@ Semantics:
   The catalog `size` is never used for collision. A solid prop that should block like
   its picture must author `size`. Validation rejects non-positive/non-finite `size`
   and `scale`.
+* **A solid prop's box is its standable mass, not necessarily its full visual
+  bounds.** The box top is the surface a jump or step lands on, so a model whose
+  geometry rises above the surface a player can stand on (a sink's decorative
+  faucet post above its deck, a lamp's thin finial) must author the standable
+  height, not the model's bounding height: `core:sink` is 0.6 × **0.9** × 0.55 in
+  the demo even though the model's faucet reaches 1.1 m. A small feature left
+  outside the box is walked through rather than turned into an invisible blocker;
+  a box top above the jump apex (`1.0 m`, see below) is not landable at all.
 * A solid prop's box is **landable on top and blocking underneath**: the sides stop
   a walking player, a fall lands on the top (if the player's centre is over the
   box), and a jump under a raised prop bumps its underside. A prop authored above
@@ -3041,6 +3099,14 @@ Semantics:
   under and a standing or jumping one does not.
 * A **climbable ladder prop should be `solid: false`** with a matching `ladders[]`
   volume: the generic box would block the climb approach and the top exit.
+* A prop that **overhangs a standable surface with less than a player's height of
+  clearance** must not be solid: a 1.8 m body standing on the 0.9 m counter is
+  pushed off it by the box. The demo kitchen's upper cabinets are 0.55 m above
+  the counter top, so they are `solid: false` (`occludes` stays true, so the
+  artwork and baked lighting are unchanged); the base cabinets already block the
+  same floor footprint. Clearance for a *crouched* 0.9 m body is still clearance:
+  a beam whose underside is at 1.0 m over a walkable floor is solid and a
+  standing player bumps it.
 * The collision box is **axis-aligned and does not rotate**. For a 90°/270° rotated
   solid prop, author the x/z-extents swapped.
 * Rotation does rotate the rendered model around Y.
@@ -3053,6 +3119,17 @@ Semantics:
   darkens the wall it stands against. `solid` controls collision only — a
   non-solid prop still occludes, because the occlusion comes from the drawn
   geometry. See [Static props occlude the bake](#static-props-occlude-the-bake).
+* `"occludes": false` opts one placement out of that bake contribution without
+  changing collision or rendering. The bake derives coarse solid boxes from
+  triangles and cannot see alpha, so **alpha-cutout scenery must opt out**: a
+  grass field or a leaf canopy left at the default would bake thousands of solid
+  blade boxes into the light. `tools/levels/scatter_grass.py` writes the flag for
+  every tuft it emits. A tree's trunk shadow is lost with the canopy when a whole
+  placement opts out; author the choice deliberately (see §34.5). The flag
+  removes the placement's derived boxes and its vertex-bake contribution; it does
+  **not** remove the drawn triangles from the prepared solve's transport scene
+  (§18), so a prop that must not touch the light at all has to sit out of the
+  light's path as well — see §35.2 for a containment collider that does.
 
 | `float` | object | no | — | Water-driven motion for a floating prop: `{ "draft": 0.03, "bob": 0.012, "bob_seconds": 2.8, "heel_degrees": 6.0, "heel_seconds": 3.6, "phase": 0.0 }`. The prop is drawn by the dynamic path on the water surface, at `surface_y - draft + bob · sin(...)`, with **no horizontal drift**; `heel_degrees` rolls it about its own forward axis. It must be `solid: false`, author `size`, sit fully inside one water volume once the swept footprint (half-diagonal plus the heel's excursion) is added, and it cannot be routed. `phase` is `0..=1`; omitted, a deterministic per-placement phase keeps two floats out of lockstep. |
 
@@ -4068,9 +4145,98 @@ Components never carry actions — the bindings do that.
 | `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
 | `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges and catch fields | The entity runs the shared AI behavior (`idler`/`wanderer`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
+| `fade` | `period_seconds` (required, finite, `0 < p ≤ 3600`), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`) | The entity's opacity cycles on a loop; `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
+| `glow` | `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
 
 A component the engine cannot honour is a named load error. Unknown component
 tags are rejected at parse time.
+
+#### Fades and attached glows
+
+`fade` and `glow` are presentation components: they change how an entity draws
+and how it lights its surroundings, never where it moves. An entity that also
+authors a `routes[]` entry or an `ai` component still walks its route or
+wanders exactly as before; the fade and the attached light ride along. A placed
+entity carrying either component (or both) gets a renderer frame even with no
+route, AI, animation override or binding, so a fade-only ghost fades in place.
+
+```json
+{ "component": "fade", "period_seconds": 6.0, "phase": 0.25,
+  "min_opacity": 0.0, "max_opacity": 1.0, "enabled": true }
+```
+
+An omitted `phase` resolves a deterministic per-instance value from the
+instance id (FNV-1a over its bytes), so two copies of one model desynchronise
+without an authored phase and reloading a level never re-rolls the cycle.
+A disabled fade holds `max_opacity` at every instant.
+
+```json
+{ "component": "glow", "color": [0.45, 0.95, 1.0], "intensity": 0.6,
+  "range": 3.5, "socket": "flame", "offset": [0.0, 0.1, 0.0], "fade": true }
+```
+
+* `socket` names a node of the animated model (matched case-insensitively) and
+  the light rides that joint's animated transform; **the offset is only a
+  fallback**: it is used when no socket is authored *or* the named node does not
+  resolve, and an authored `offset` is ignored whenever the socket does
+  resolve. The offset is in entity-local metres.
+* `fade: true` multiplies the intensity by the entity's live fade opacity, so
+  an attached light dims with its ghost; `false` keeps it constant.
+* A `glow` may be authored on a plain prop, but in this build only a skinned
+  character driven through the entity frame updates it at runtime.
+* At most one `fade` and one `glow` per entity, like every other component
+  kind except `state`. A non-finite or out-of-range value is a named load
+  error, never a clamp: the loader, the runtime and `tools/assets/validate.py`
+  agree on the ranges in the table above.
+
+#### Note for the Halloween entity fixture (Job 04)
+
+The Halloween archetypes are authored by these ids; a `glow` names the animated
+joint below (matched case-insensitively) and the light rides that joint's
+animated transform through the jump, the float and the walk:
+
+| Archetype id | `glow.socket` | Clips the GLB carries | Reference speed |
+| --- | --- | --- | --- |
+| `carved-pumpkin` | `flame` | `laugh`, `hop_forward` | `hop_forward` 0.5 m/s |
+| `sheet-ghost` | `body` | `float_forward`, `idle` | `float_forward` 0.3 m/s |
+| `pumpkin-skeleton` | `piece_pumpkin_head` | `walk`, `collapse_reassemble` | `walk` 0.571 m/s |
+
+The GLBs carry these clips with their `asset.extras.places_entity_clips`
+metadata. `fade` and `glow` never change route or AI movement: an entity still
+follows its `routes[]` steps or its AI behavior exactly as authored, and its
+clips resolve through the renderer's existing cue path. A model without a
+literal `walk` clip plays its declared locomotion kind on a `move_to` step or
+an AI walk state (the pumpkin's `hop_forward`, the ghost's `float_forward`).
+
+The tested example definitions live in
+`tests/fixtures/levels/halloween_entities.json`: the pumpkin hops a walkway
+with `laugh` at both reversal points, three ghosts float bounded routes with
+independent fade phases (0.0 / 0.35 / authored-default), and the pumpkin-head
+skeleton wanders the tree zone through `nav_agent` + `ai`. A jump pumpkin and
+a fading ghost:
+
+```json
+{ "id": "pumpkin_hopper", "model": "carved-pumpkin",
+  "x": 0.0, "z": -2.5, "size": [0.701, 0.654, 0.635], "solid": false,
+  "components": [
+    { "component": "glow", "color": [1.0, 0.52, 0.16], "intensity": 0.7,
+      "range": 4.5, "socket": "flame", "fade": false } ] }
+```
+```json
+{ "id": "ghost_a", "model": "sheet-ghost", "x": 5.0, "z": -8.0,
+  "size": [0.994, 1.619, 0.716], "solid": false,
+  "components": [
+    { "component": "fade", "period_seconds": 7.0, "phase": 0.0,
+      "min_opacity": 0.05, "max_opacity": 0.85 },
+    { "component": "glow", "color": [0.4, 0.95, 1.0], "intensity": 0.45,
+      "range": 3.0, "socket": "body", "fade": true } ] }
+```
+
+Each entity is `solid: false` and gets its motion from a `routes[]` step (the
+pumpkin and ghosts) or `ai` (the skeleton); the ghost's hover is its own bind
+pose, so it is placed at `y = 0` and still floats. Give a moving entity a
+`glow`, never a static `props[].lights` entry: a baked light at its spawn would
+contradict the runtime motion.
 
 ### Event bindings
 
@@ -4536,9 +4702,10 @@ interactable component:
 
 A door is a single movable leaf with its own state machine, collision and
 component/binding surface; `effects[]` adds presentation-only ambient emitters.
-Every field below is verified against `src/level.rs` (`DoorDef`, `EffectDef`),
-`src/loader.rs` (`validate_doors`, `validate_effects`, `validate_bindings`) and
-`src/door.rs`.
+Every field below is verified against `src/level.rs` (`DoorDef`, `DoorFrame`,
+`LevelDef::door_frame`, `EffectDef`), `src/loader.rs` (`validate_doors`,
+`validate_effects`, `validate_bindings`), `src/door.rs` and the build in
+`src/render/common/doors.rs`.
 
 ### Doors
 
@@ -4557,6 +4724,16 @@ start inside solid geometry (hinge, centre and latch edge are sampled) and that
 the hinge stands where the walkable floor resolves; a leaf in a wall or floating
 over the void is a named error.
 
+The hinge-to-opening relationship limits the swing. A candidate pose is proven
+by sweeping the leaf's **centre plane** (samples across the width and up the
+height) against the solid world, and a pose with any sample inside solid
+geometry is refused. A leaf hinged **on the opening's edge** therefore cannot
+pass 90°: past it the leaf's own hinge-side quarter crosses back into the jamb,
+so every candidate pose is refused and the leaf never moves from its authored
+state. Keep an edge-hinged leaf at `abs(swing_degrees) ≤ 90`. A leaf whose
+hinge stands inside a wall slab may exceed 90° only if its sweep leaves the
+slab first; the accepted engine range stays `5`–`179`.
+
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
 | `id` | string | **yes** | — | Stable entity id. Must be unique across props, light fixtures, doors, trigger volumes, timers and spawn points; a duplicate or malformed id is a load error. |
@@ -4567,7 +4744,7 @@ over the void is a named error.
 | `height` | number | **yes** | — | Leaf height, `> 0`, `≤ 12` m. |
 | `thickness` | number | no | `0.045` | Leaf thickness, `> 0`, `≤ 12` m. |
 | `open_direction` | `"left"` \| `"right"` | no | `"left"` | Which way the leaf swings about the hinge (seen from above with the closed leaf running hinge→latch). `left` is a positive rotation, `right` negative. |
-| `swing_degrees` | number | no | `90.0` | Opening angle, `5`–`179`; a negative value means the opposite swing. |
+| `swing_degrees` | number | no | `90.0` | Opening angle, `5`–`179`; a negative value means the opposite swing. An edge-hinged leaf is limited to `abs(value) ≤ 90` (see above). |
 | `open_speed_degrees` | number | no | `120.0` | Angular speed while opening, in degrees/second, `> 0`, `≤ 720`. |
 | `close_speed_degrees` | number | no | `open_speed_degrees` | Angular speed while closing. |
 | `initial_state` | `"closed"` \| `"open"` | no | `"closed"` | Start at angle 0 or at the full swing. |
@@ -4577,6 +4754,25 @@ over the void is a named error.
 | `obstruction` | `"stop"` \| `"reverse"` | no | `"stop"` | What the sweep does when it meets the player or solid geometry. `stop` holds and resumes when clear; `reverse` flips direction once per obstruction (a 0.4 s guard stops chatter). |
 | `kind` | `"interior"` \| `"sauna"` | no | `"interior"` | Visual build (see below). |
 | `material`, `frame_material`, `handle_material` | string | no | kind defaults | Per-door material overrides for the leaf, the static frame and the handle. |
+| `frame_depth` | number | no | resolved wall (`0.12` standalone) | Total depth of the frame's reveal liner along the leaf's closed normal, in metres; `> 0` and `≤ 2.0` (`MAX_DOOR_FRAME_DEPTH_M`). Omitted resolves the wall the leaf is installed in. |
+| `frame_center` | number | no | resolved wall (`0.0` standalone) | Signed offset of the liner's centre from the leaf's centre plane along the leaf's closed normal (hinge-space `+Z`), in metres; `abs(value) ≤ frame_depth`, and it may only be authored together with `frame_depth`. |
+
+The **frame** the leaf hangs in is resolved from the map unless the leaf authors
+it. The resolver looks for the wall whose footprint contains the closed leaf's
+midpoint and whose walk-through opening the leaf fills: the opening's `kind` is
+`door` or `passage`, its bottom (`wall.y + opening.sill`) is at or below the
+leaf's own base (the floor under the hinge plus `y`), and its span overlaps the
+leaf by at least half the smaller of the two. The first such wall in authored
+order wins, and its thickness becomes `frame_depth` and its centre's signed
+distance from the hinge — measured along the closed leaf's normal — becomes
+`frame_center`. Measuring against the leaf's base rather than the wall's is what
+lets a raised doorway meeting a raised floor frame its leaf, as the demo's
+pool-side `sauna_door` does, while a window or a vent never matches. A leaf that
+no such opening claims keeps a standalone 0.12 m liner
+(`STANDALONE_DOOR_FRAME_DEPTH_M`), just deep enough for both casings to show.
+Author `frame_depth`/`frame_center` when the visible tunnel is built by geometry
+the resolver cannot see (a facade doorway panel in front of the wall, for
+example).
 
 A **manual** door is an `interactable` component plus an `interact` binding;
 its aim bound follows the live collider as the leaf swings, and its prompt is
@@ -4587,13 +4783,31 @@ placed props only.
 
 Two kinds ship:
 
-* **`interior`** — a white painted leaf with two raised panels per face and a
-  round brass handle on both sides. Defaults: `home:door_white_01` leaf,
-  `home:baseboard_white_01` frame, `core:metal_brass_01` handle.
+* **`interior`** — a white painted leaf with two panels recessed 12 mm per
+  face inside real stiles and rails, and a round brass handle on both sides.
+  Defaults: `home:door_white_01` leaf, `home:baseboard_white_01` frame,
+  `core:metal_brass_01` handle.
 * **`sauna`** — cedar stiles and rails around a clear glass panel, with a wooden
   round handle. Defaults: `home:sauna_wood_01` leaf and handle,
   `home:baseboard_wood_01` frame; the panel is
   `core:glass_window_clear_01` and draws in the blended pass.
+
+### Frame and leaf builds
+
+Each door draws two models, both built in code in `src/render/common/doors.rs`:
+a **frame** that never moves and the **leaf** that swings. The frame is a reveal
+**liner** through the resolved tunnel — its two jambs and its head lap 30 mm
+into the wall on every side and reach 4 mm into the opening as the stop lip the
+closed leaf sits behind — plus a 70 mm **casing** standing 12 mm proud on
+**both** end faces and the hinge knuckles and plates on the hinge axis, all in
+`frame_material`. The leaf is a stile-and-rail panel door whose two panels are
+recessed 12 mm (the `interior` kind) or wooden stiles around a glass panel (the
+`sauna` kind). Both models travel the dynamic-object path, so each face bakes a
+face shade into its vertex colour and a recess, a casing edge and the liner's
+dark reveal read at walking distance instead of resolving into one flat
+silhouette. Each submesh samples its own material slot (leaf, frame, handle and
+the sauna glass), so `material`, `frame_material` and `handle_material`
+overrides are all visible and the sauna glass draws in the blended pass.
 
 Places Demo ships both kinds and two `sauna`
 leaves: `sauna_door` in the pool-deck wall (hinge `26.08, 0, 12.5`, rotation
@@ -4603,6 +4817,13 @@ clear of the two-tier cedar benches. The shower-side leaf is the pattern for a
 second doorway into one room: its wall opening is authored on wall 15 exactly
 like any other, and both leaves share the one door state machine, collider and
 action set.
+
+The night route's two entrances author their frame explicitly. A 0.40 m
+`outdoor:house_wall_doorway` facade panel in front of the 0.30 m wall builds the
+jamb depth the player actually sees, and that panel is a prop the wall resolver
+cannot see, so `night_source_door` and `night_house_door` author
+`frame_depth: 0.7` and the centre of the real tunnel they sit in
+(`frame_center: -0.2` and `+0.2`).
 
 The leaf's collider follows the same angle the renderer draws, so what stops the
 player and what is seen can never disagree. A resting leaf costs nothing; only a
@@ -5222,6 +5443,401 @@ template, the group, the tags and the sequence are all ordinary data.
 * The compiler reports a build warning naming any `nav_agent` entity or spawn
   point with no navigable cell, so a stair or passage that silently breaks an
   actor's clearance is visible at build time.
+
+## 34. The Outdoor Kit
+
+The `outdoor` theme is a reusable night-exterior kit: tileable ground
+materials, three grass densities, a dirt/gravel path with feathered
+transitions, a concrete walkway, a leafy tree, an exterior lamp family with a
+fence post, modular house facade parts and a faint-star night sky. Every id in
+this section is a real `assets/catalog.json` entry.
+
+### 34.1 Ground materials
+
+| Material id | Texture file | Texture id | `tile_metres` | Use |
+| --- | --- | --- | --- | --- |
+| `outdoor:grass_ground_01` | `grass_ground_01.png` | `outdoor:tex_grass_ground_01` | 2.0 | lawns, verges, the ground under a scattered field |
+| `outdoor:dirt_gravel_01` | `dirt_gravel_01.png` | `outdoor:tex_dirt_gravel_01` | 1.6 | the walked dirt/gravel path |
+| `outdoor:concrete_pavement_01` | `concrete_pavement_01.png` | `outdoor:tex_concrete_pavement_01` | 2.0 | walkways, porches, foundations |
+| `outdoor:house_siding_01` | `siding_01.png` | `outdoor:tex_house_siding_01` | 1.2 | exterior cladding on real `walls` |
+| `outdoor:house_roof_shingle_01` | `roof_shingle_01.png` | `outdoor:tex_house_roof_shingle_01` | 1.0 | roof slopes and a gable room's `ceiling_material` |
+
+Assign them like any material: `rooms[].material` / `defaults.floor` for the
+base ground, and `floor_patches[]` for paths and walkways. A floor patch is a
+**material region in the room's own floor grid**, not a second coplanar quad:
+the grid resolves one material per cell (later patches win), so a path meets
+grass with no z-fighting and no duplicate surface. Nothing about a floor
+material adds collision or navigation.
+
+```json
+"rooms": [ { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 18.0, "height": 5.0,
+             "ceiling": { "kind": "open" },
+             "material": "outdoor:grass_ground_01" } ],
+"floor_patches": [
+  { "x": 1.0, "z": 8.0, "width": 20.0, "depth": 1.6,
+    "material": "outdoor:dirt_gravel_01" },
+  { "x": 16.0, "z": 0.0, "width": 3.0, "depth": 8.0,
+    "material": "outdoor:concrete_pavement_01" }
+]
+```
+
+An exterior room authors `"ceiling": { "kind": "open" }` (§7): the ground is a
+normal room floor, and the sky shows above. An exterior floor with no room at
+all does not exist — the room is what gives the ground a surface and the
+lighting a volume.
+
+### 34.2 Grass and the three densities
+
+Two alpha-cutout tuft models:
+
+| Asset id | Size `[w,h,d]` m | Notes |
+| --- | --- | --- |
+| `outdoor:grass_patch_small` | `[0.55, 0.30, 0.55]` | low tuft, the LOW field's main body |
+| `outdoor:grass_patch_large` | `[0.95, 0.62, 0.95]` | taller cluster for MEDIUM and DENSE fields |
+
+Both draw through the alpha-tested cutout pass (glTF `MASK`, cutoff 0.5), are
+non-solid by default, and are authored with `"occludes": false` so the light
+bake never grinds solid shadow boxes out of blade cards.
+
+**Densities are authoring choices, not graphics settings.** They are three
+instance counts on the ground, chosen per area; the Low/Medium/High quality
+tiers never change the number of tufts, they only change what each tuft costs
+(Low uploads prop sheets at 128 and runs the vertex-lit path without
+lightmaps). An intentional dense field stays dense at every tier.
+
+`tools/levels/scatter_grass.py` emits the placements deterministically:
+
+```sh
+# Print placements for one area (JSON prop array on stdout).
+python3 tools/levels/scatter_grass.py --area 0,0,24,18 --density medium --seed 7
+
+# Write them straight into a level's props array.
+python3 tools/levels/scatter_grass.py --area 0,0,24,18 --area 6,2,8,5 \
+    --density dense --seed 12 --keep-out 2,8,20,1.6 --target my_level.json --apply
+
+# Prove the file's grass matches what the tool would emit today.
+python3 tools/levels/scatter_grass.py --area 0,0,24,18 --density dense --seed 12 \
+    --target my_level.json --check
+```
+
+| Profile | Instances per m² | Minimum spacing | Model mix |
+| --- | --- | --- | --- |
+| `low` | 0.5 | 0.45 m | 2/3 `grass_patch_small`, 1/3 `grass_patch_large` |
+| `medium` | 1.4 | 0.45 m | half/half |
+| `dense` | 3.0 | 0.30 m | 2/3 `grass_patch_large`, 1/3 `grass_patch_small` |
+
+* Every emitted prop carries `"occludes": false`, a yaw (`rotation_degrees`), a
+  scale in `0.85..1.15`, and a stable id `grass_<n>`.
+* The profile numbers are the generator's cell density, not a promised count:
+  keep-outs reject candidates without re-filling, so the measured instances per
+  m² lands a little under the profile (measured on the generated fixture: 0.54 /
+  1.26 / 3.16). The **minimum spacing and the ordering** are the contracts; a
+  band's count is whatever survives its keep-outs at that seed.
+* More than one density in a level: pass `--id-prefix grass_<band>_` per call
+  (the generated fixture uses `grass_low_`, `grass_medium_`, `grass_dense_`),
+  then merge the outputs; the prefix must start with `grass_` so a level-wide
+  replace still finds every band.
+* The same seed, areas and keep-outs always produce byte-identical output: the
+  generator is a seeded LCG and the output is sorted by `(z, x)`. `--check`
+  re-derives and reports drift.
+* `--keep-out` rectangles keep grass off paths, doorways, spawn points and
+  anything the player must cross; the tool never places inside one.
+* Placement is render-instanced by the ordinary prop pipeline: every instance
+  of a model in a spatial cell becomes one draw, so a dense field costs draws
+  per model per cell, not per tuft.
+
+### 34.3 Path transitions: the feather decals
+
+The path itself is a `floor_patches[]` region. Its border is softened with
+three **blended decal sheets**:
+
+| Asset id | Sheet | Shape |
+| --- | --- | --- |
+| `outdoor:decal_path_edge_01` | 256×128 | dirt grain opaque on one side of the strip, fading to transparent across the width |
+| `outdoor:decal_path_end_01` | 128×128 | radial fade, alpha 0 at every edge |
+| `outdoor:decal_path_corner_01` | 128×128 | two fades meeting at a rounded inner corner |
+
+The catalog entries author `"alpha_mode": "blend"` (§17). Placement recipe:
+
+* `width` is the blend band **across** the seam: overlap the dirt edge by about
+  half the decal width, and lay the decal so the fade ends on the grass.
+* `height` runs **along** the edge; a working band is 1.5–2.5 m per decal, placed
+  end to end along the path. The edge sheet feathers slightly at its own short
+  ends too, so overlap neighbouring strips by about 0.2 m (the generated fixture
+  steps 1.8 m for a 2.0 m strip) rather than butting them.
+* `rotation_degrees` is the edge's direction in the surface plane. One straight
+  sheet serves both sides of a path: rotate it 180° for the other side (the two
+  rotations differ by 180° so the opaque half always lies over the dirt), or to
+  any angle for a diagonal run. The generated fixture
+  (`tests/fixtures/levels/outdoor_kit_showcase.json`) is the reference
+  placement; its captures validate the orientation.
+* Ends and junctions use the end and corner sheets, which is why a bend does
+  not need a new material.
+* `surface` is `"floor"`, `y` is the floor plane, and the decal is lifted
+  0.2 mm and depth-biased, so it can never flicker through the floor or create
+  collision (decals have no collider at all).
+
+```json
+"decals": [
+  { "x": 2.0, "y": 0.0, "z": 7.4, "width": 1.0, "height": 2.0,
+    "rotation_degrees": 0.0, "material": "outdoor:decal_path_edge_01",
+    "surface": "floor" },
+  { "x": 19.4, "y": 0.0, "z": 7.4, "width": 1.0, "height": 2.0,
+    "rotation_degrees": 180.0, "material": "outdoor:decal_path_edge_01",
+    "surface": "floor" },
+  { "x": 21.0, "y": 0.0, "z": 8.0, "width": 1.0, "height": 1.0,
+    "rotation_degrees": 0.0, "material": "outdoor:decal_path_end_01",
+    "surface": "floor" }
+]
+```
+
+Blended decals are sorted back to front inside their own pass and depth-test
+against everything opaque, so overlapping feather strips composite in a stable
+order and can never draw through a floor or a wall.
+
+### 34.4 Concrete walkway
+
+Use `outdoor:concrete_pavement_01` for the walkway region and
+`outdoor:concrete_step` where it meets a doorway threshold so the change of
+surface is one low step rather than a large lip:
+
+```json
+{ "model": "outdoor:concrete_step", "x": 21.0, "y": 0.0, "z": 3.2,
+  "size": [1.4, 0.18, 0.7], "solid": true }
+```
+
+`solid: true` with the step's real size makes it landable; `size` is what the
+collider uses (§19), so keep it equal to the drawn step. The step is ordinary
+prop geometry, not a new floor element.
+
+### 34.5 Tree
+
+`outdoor:tree_01` is a substantial stylized tree: a tapered trunk, four
+branches and a broad alpha-cutout leaf canopy, about 4.6 m wide and 6.4 m tall.
+The **canopy** is the catalog box; collision is the level `size`, so place it
+solid with a trunk-sized box:
+
+```json
+{ "id": "yard_tree", "model": "outdoor:tree_01", "x": 6.0, "z": 3.5,
+  "rotation_degrees": 25.0, "scale": 1.1,
+  "size": [0.8, 6.4, 0.8], "solid": true, "occludes": false }
+```
+
+* `occludes` is the author's choice here. The default (`true`) bakes a coarse
+  solid box for the whole silhouette — trunk *and* canopy — which is a heavy
+  blob shadow no leaf card could cast. `false` removes the tree from the bake
+  entirely, losing the trunk shadow too. For a decorative night tree either is
+  defensible; pick one deliberately and keep it consistent for a group of trees.
+* Repeated placements vary with `scale` (0.9–1.15), `rotation_degrees` and the
+  model choice; there is no vegetation simulation and none is needed.
+* Leaves never become collision; only the authored `size` box does.
+
+### 34.6 Exterior lamps
+
+One housing family, three mounts, plus the fence post that supports the middle
+one. Every lamp's pane is an emissive material group; **emission is bloom
+only**. The real illumination is a `props[].lights` point the level authors at
+the documented offset, because no material ever lights anything (§18). The
+housing leaves the pane's outward hemisphere open, and the offsets sit clear of
+the housing, so a lamp never blocks its own light.
+
+| Asset id | Size `[w,h,d]` m | Mount / origin | Documented light profile |
+| --- | --- | --- | --- |
+| `outdoor:lamp_stand` | `[0.34, 1.05, 0.34]` | base plate on the floor at `y = 0`; pane faces +Z | `point`, offset `[0, 0.86, 0]` (2.5 cm in front of the pane), color `[1.0, 0.86, 0.68]`, intensity 0.7, range 7.0, `smooth` |
+| `outdoor:lamp_fence` | `[0.32, 0.42, 0.36]` | saddle plate underside is the origin; seat it on a 0.12 m square post top (i.e. `y` = the post's top height); pane faces +Z | `point`, offset `[0, 0.30, 0.05]`, color `[1.0, 0.86, 0.68]`, intensity 0.5, range 4.0 |
+| `outdoor:lamp_wall` | `[0.30, 0.52, 0.34]` | wall plate in the local `z = 0` plane with its top at local `y = 0.52`; the eave hook sits behind it (`z < 0`) and the lantern hangs in front (+Z) | `point`, offset `[0, 0.18, 0.12]`, color `[1.0, 0.86, 0.68]`, intensity 0.6, range 5.0 |
+| `outdoor:fence_post` | `[0.12, 1.05, 0.12]` | base on the floor; flat cap seat at `y = 1.05` | the fence lamp's saddle seats on it |
+
+```json
+{ "id": "path_lamp_1", "model": "outdoor:lamp_stand", "x": 4.0, "z": 7.2,
+  "size": [0.34, 1.05, 0.34],
+  "lights": [ { "shape": "point", "offset": [0.0, 0.86, 0.0],
+                "color": [1.0, 0.86, 0.68], "intensity": 0.7,
+                "range": 7.0, "falloff": "smooth" } ] }
+```
+
+Distances: one stand lamp every 6–9 m along a path is enough for pools to
+overlap at the edges; fence lamps suit 2–3 m post spacing; a wall lamp belongs
+under an eave or beside a door at about 2.2–2.6 m above the local floor.
+
+### 34.7 House facade kit
+
+Modular parts in metres, all siding-first with painted trim. They are visual
+depth on top of real `walls`: the level owns structure and collision, the props
+own the exterior read.
+
+| Asset id | Size `[w,h,d]` m | Notes |
+| --- | --- | --- |
+| `outdoor:house_wall_solid` | `[3.0, 2.7, 0.24]` | siding panel with base band and corner boards; `solid: true` in the level |
+| `outdoor:house_wall_window` | `[3.0, 2.7, 0.24]` | panel with a centered framed window and dark glazing |
+| `outdoor:house_wall_doorway` | `[3.0, 2.7, 0.40]` | panel with a real 1.1 × 2.15 m doorway through 0.40 m of depth: jamb, head and threshold surfaces, no collision |
+| `outdoor:house_roof_slope` | `[3.4, 1.75, 2.6]` | shingle field on top, eave fascia and soffit at the low edge; origin at the eave's underside centre |
+| `outdoor:house_roof_ridge` | `[3.4, 0.22, 0.6]` | ridge cap over the slope joint |
+| `outdoor:house_corner_trim` | `[0.18, 2.7, 0.18]` | vertical corner board over panel junctions |
+
+The destination house is assembled from normal level parts:
+
+1. **Structure and collision** come from real `walls` and a room. Give the room
+   `"ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": <pitch ×
+   half-depth> }` so the interior ceiling is the roof pitch, and use
+   `outdoor:house_siding_01` + `outdoor:house_roof_shingle_01` as its materials.
+2. **The centered doorway** is a real opening: author the wall with an
+   `openings` entry (`kind: "door"`, width 1.1, height 2.15) and a real `doors[]`
+   entity there (the `interior` kind reuses the existing white door material and
+   frame; §30). Remember `offset` is the opening's **near edge** along the wall
+   from its minimum corner (§5): to centre a 1.1 m opening on wall centre `cx`,
+   use `offset = cx - 0.55 - wall x`. Then place `outdoor:house_wall_doorway`
+   centred on the opening, offset outward by 0.20 m so its jamb depth reads on
+   both faces, and put the door's hinge x at the opening's near edge so the
+   closed leaf fills the hole exactly. The panel builds the visible jamb depth
+   too, so author the leaf's `frame_depth`/`frame_center` to span both it and
+   the wall (§30). The panel is non-solid; the wall's solid slices provide the
+   collision, and the player walks through both holes.
+3. **Windows** are `outdoor:house_wall_window` panels, centered on the window
+   axis. They are decorative and solid by default: pair one with a real wall
+   opening only when the window should actually be glazed. A dark window needs
+   no hole.
+4. **The roof** is two `outdoor:house_roof_slope` props meeting at a
+   `outdoor:house_roof_ridge`, both non-solid, with the eave at the wall top.
+   The slope pitches about 32.5° and **rises towards local −Z**, with the eave
+   (fascia and soffit) at +Z and the origin at the eave's underside centre; two
+   slopes mirrored 180° about Y meet at the ridge cap, whose apex edge is at
+   local `y = 0.22`. The integrated fascia/soffit is the visible eave.
+5. **Corners and returns**: `outdoor:house_corner_trim` covers a junction, and a
+   run of `outdoor:house_wall_solid` panels closes a side return. The exit
+   building and the destination building use the same parts.
+6. **Eave lamps**: `outdoor:house_wall_doorway` documents its lamp mounts at
+   local `[-1.15, 2.55, 0.20]` and `[+1.15, 2.55, 0.20]` (+Z away from the
+   wall). Place an `outdoor:lamp_wall` so its wall plate lands on the mount:
+   because the lamp's origin is the bottom of its bbox and the plate sits at
+   local `y = 0.52`, a mount at 2.55 means `"y": 2.03` relative to the local
+   floor. Add the documented point light.
+
+### 34.8 Night sky
+
+A level may declare one sky background:
+
+```json
+"sky": {
+  "texture": "outdoor:tex_sky_stars_01",
+  "brightness": 1.0,
+  "ambient": 0.0
+}
+```
+
+* `texture` is a catalog `texture` asset whose PNG is an **equirectangular
+  2:1** sheet: `u` is yaw (seamless around the horizon), `v` is pitch with `0`
+  straight up. `outdoor:tex_sky_stars_01` is 1024×512, near-black with a small
+  number of faint stars in the upper half — no moon, no glow, no horizon.
+* `brightness` (`0.0..=4.0`, default 1.0) scales the sheet at draw time. It is
+  a visual control, not an exposure: the authored art is the look.
+* **The sky is a background, not a light.** A solid ceiling always covers it,
+  and a level without a `sky` keeps the historical clear-colour background
+  exactly (§5). The one environment term is `ambient`.
+* `ambient` (`0.0..=1.0`, default 0.0) is the radiance an escaping ray sees in
+  the **prepared lightmap solve** (Medium/High): a faint cool dome fill for an
+  exterior with no fixtures, directional — upward faces receive it, downward
+  faces almost none. `0.0` leaves the solve bit-identical to a level with no
+  sky. The Low-quality vertex-lit path keeps its own historical `0.10` ambient
+  floor and does not read `ambient`.
+* The sky is never captured into reflection probes or the planar mirror, and it
+  is not fogged: it is an infinite background. It *is* a package dependency:
+  editing the sheet invalidates a compiled package like any surface texture.
+* To see the sky above an exterior, the ground room must author
+  `"ceiling": { "kind": "open" }`. Through a window or an open doorway the sky
+  is visible from inside a normal room without any change; it can never leak
+  through a solid roof because the ceiling geometry draws over the background
+  pass with normal depth testing.
+
+## 35. The night route: Places Demo's outdoor extension
+
+Places Demo keeps its interior; north of the front rooms the level carries a
+night route about 30 seconds long, from the front door to a lamplit destination
+house. **`tools/levels/build_outdoor_route.py` owns that slice end to end.**
+Every element it emits is id-namespaced `night_` (grass `grass_night_`, which
+keeps the grass tools' whole-level filters matching); re-running it replaces
+the previous slice instead of duplicating it, and `--check` re-derives the slice
+and fails on any drift. Edit the constants at the top of that tool, run it,
+recompile the demo, recapture.
+
+### 35.1 Layout, in real units
+
+| Element | Authored value |
+| --- | --- |
+| Front doorway | `walls[0]` (the front rooms' north wall at z = −0.15..0.15) with a `door` opening 1.11 × 2.15 m centred on x = 4.5, and a real interior door leaf. |
+| Threshold / yard ground | **world y = 0**, the same floor the front rooms already use; no spawn was moved and no elevation is snapped. |
+| Night yard room | x = −0.15..24.15, z = −91.85..0, `"ceiling": { "kind": "open" }`, `outdoor:grass_ground_01`. |
+| Gravel route | x = 3.2..5.8 (2.6 m wide), z = −91.6..−0.2, `outdoor:dirt_gravel_01`. |
+| Concrete walkway | x = 12.5..14.5 (2.0 m wide), same span: genuinely parallel, laterally offset 9 m. |
+| Connector | x = 5.8..12.5, z = −88.5..−86.3: 87.4 m from the threshold, 29.1 s at the shipped 3.0 m/s walk. |
+| Destination house | 9 × 5.4 m at x = 9.0..18.0, z = −97.1..−91.7, doorway centred on x = 13.5 (the walkway's centre), gable roof, finished entry room at y = 0. |
+| Containment | Four buried `outdoor:collision_peg` placements: the collider boxes are 0.3 m thick, 3.5 m tall from −0.10, along x = −0.30/24.30 and z = −92.00. |
+
+The route is measured, not assumed: `src/game/tests.rs` walks the real
+`Game::update_player_movement` from the threshold and asserts 27–33 s, a
+straight line and a y = 0 floor
+(`demo_night_route_is_a_thirty_second_walk_from_the_front_door`).
+
+### 35.2 Invisible containment that does not light, shadow or reflect
+
+The yard is bounded by **buried `outdoor:collision_peg` props**, not walls:
+
+```json
+{ "id": "night_boundary_0", "model": "outdoor:collision_peg",
+  "x": -0.30, "z": -45.925, "y": -0.10,
+  "size": [0.30, 3.5, 91.85], "solid": true, "occludes": false }
+```
+
+* The peg's own mesh is a 6 cm cube; `y: -0.10` buries it below the local floor,
+  so the drawn geometry is never visible and never blocks the sky.
+* `solid: true` with the authored `size` is the whole collider: a 3.5 m tall box
+  from −0.10, so it has no ground gap, is far above the 1.0 m jump apex (it can
+  never be stepped on) and blocks the player, the AI and the navigation bake
+  alike.
+* **`occludes: false` is mandatory**: it keeps the box out of the occlusion
+  bake and the vertex solve, and the buried mesh keeps every drawn triangle out
+  of any receiver's line of sight. The honest test is a measurement: on the
+  shipped level, deleting the four pegs moves 0.1475 % of the atlas texels by at
+  most 0.18 in the solver's stored radiance scale (mean 0.0011), while deleting
+  four ordinary grass tufts moves 0.1660 % with a worst texel of 0.28 — the pegs
+  sit at or below the pipeline's own order noise and cast no readable shadow.
+  Replacing a boundary with a `wall` would block the lamps, the sky and the
+  reflection probes outright.
+* The `geometry_intent` annotations for the missing-wall and room-leak
+  heuristics name these boundaries, so `places --check-geometry` stays clean
+  without a visible wall.
+
+### 35.3 The night look
+
+* `"sky": { "texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.0 }`.
+  The ambient term stays **0.0**: there is no moon, no sky fill and no exposure
+  trick in this level, and the interiors are untouched by it.
+* Twelve `outdoor:lamp_stand` props at 7.5 m spacing alternate sides of the
+  gravel route, each with the kit's documented `point` light (offset
+  `[0, 0.86, 0]`, intensity 0.7, range 7.0, `smooth`). The pools overlap at
+  their edges and stay local.
+* Both doorways hang two `outdoor:lamp_wall` props on the kit's documented
+  mounts (`[±1.15, 2.55, 0.20]`, `y = 2.03`); the destination's flood the
+  centred door, the source's light the way back in.
+* Both door leaves start **open**, so the interiors' own light spills through a
+  real opening (and the return route is never sealed). The destination entry
+  room adds one dim `home:ceiling_light_round` at brightness 0.9 so the finished
+  interior reads and the doorway has light to spill.
+* Trees and grass are `occludes: false` deliberately: the bake's coarse boxes
+  would turn a leaf canopy into a solid blob shadow, and alpha-cutout blades
+  must never bake as solid rectangles (§34.2, §34.5).
+
+### 35.4 The encounters
+
+| Encounter | Placement | Behaviour |
+| --- | --- | --- |
+| Carved pumpkin | On the walkway, x = 13.5, z = −89..−83 | `move_to` route at 0.5 m/s with `laugh` pauses; the hop arc is the clip. Attached `flame` glow (1.0/0.52/0.16, 0.7, range 4.5) travels with it. |
+| Three sheet ghosts | West grass band, x 0.5..1.6, z ≈ −18/−45/−70 | Independent routes and fade cycles (7.0/8.1/9.2 s, phases 0.0/0.37/0.71, opacity 0.06..0.85) with a fade-coupled cyan `body` glow. |
+| Pumpkin-head skeleton | Middle grass band at (9.6, −52.0), between the grove trees and clear of the path-lamp posts | `nav_agent` + `ai` wanderer (0.571 m/s, radius 2.0, 2 s idle) on the compiled navigation, head-socket orange glow. |
+
+All three use the shared components of §29; none of them is special-cased in
+engine code. The demo's dynamic-light budget is 8 and these five glow lights
+(one pumpkin, three ghosts, one skeleton) leave three spare.
 
 ## Known Implementation Caveats
 
@@ -5890,6 +6506,36 @@ A new *fixture id* always needs a code mesh family (section
 
 To reuse an existing family with new artwork, only steps 3–4 and 8 are needed, and
 the fixture must be the only one claiming that sheet.
+
+## Add an invisible containment collider
+
+1. Decide the box the player must not cross: `[width, height, depth]` metres,
+   centred on `(x, z)`, with its base at the local floor plus the prop's `y`.
+2. Place one `outdoor:collision_peg` per box:
+
+   ```json
+   { "id": "boundary_east", "model": "outdoor:collision_peg",
+     "x": 24.30, "z": -45.925, "y": -0.10,
+     "size": [0.30, 3.5, 91.85], "solid": true, "occludes": false,
+     "comment": "Invisible containment: the peg is buried under the floor." }
+   ```
+
+3. Sink it: `y` at or below minus the peg's own 0.06 m height keeps the drawn
+   geometry under the floor, so nothing is visible and nothing can be lit.
+   `occludes: false` keeps the box out of the baked lighting; the buried mesh
+   keeps it out of the prepared solve's line of sight.
+4. Size it so it has **no ground gap** (start below the floor) and **no
+   staircase** (the top must be well above the jump apex, 1.0 m, and above the
+   0.4 m step). A base at −0.10 with height 3.5 m satisfies both.
+5. It blocks the player, AI movers and the navigation bake exactly like a wall
+   slice, so no separate navigation authoring is needed. Never seal a door with
+   one: check every doorway's approach after placing.
+6. Annotate the perimeter for the geometry checker: add a `geometry_intent`
+   rectangle (`check: "missing-wall"` / `"room-leak"`) covering each finding the
+   open perimeter produces, with a `note` saying the boundary is invisible.
+7. Verify: `places --check-geometry --level <map>` reports 0 errors, then walk
+   and jump into the boundary in the running game and confirm the player never
+   leaves the authored area and the feet never land on the box's top.
 
 ## Add a new environment theme
 

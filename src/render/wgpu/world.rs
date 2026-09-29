@@ -84,6 +84,7 @@ use crate::render::common::mesh::{
     quantize_unit,
 };
 use crate::render::common::view::DrawableSize;
+use crate::render::common::{DynamicLightSet, MAX_DYNAMIC_LIGHTS};
 use crate::render::common::{MeshChunk, MeshPacker};
 use crate::spatial::{Aabb, Frustum};
 
@@ -368,18 +369,22 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 /// offset  48  planar_matrix      mat4x4<f32>  64 bytes
 /// offset 112  planar_plane       vec4<f32>    16 bytes
 /// offset 128  model              mat4x4<f32>  64 bytes
-/// ------------------------------------------------------ 192 bytes, align 16
+/// offset 192  opacity            f32
+/// offset 196  tail_padding       vec3<f32>    12 bytes (never read)
+/// ------------------------------------------------------ 208 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
 /// `u_lightmap_enabled`, the four fog uniforms, `u_planar_matrix` and
-/// `u_planar_plane`; `model` is the dynamic path's per-object matrix, and the
-/// two lightmap words are the prepared HDR atlas's addressing — the pages in
-/// one layer group, the switchable groups' count and live on/off mask, and the
-/// resident probe chain's top mip level (`0..=7`, bits 16..=19). The struct is
-/// 192 bytes on the wire and in Rust (`ENVIRONMENT_UNIFORM_SIZE`).
-/// `#[repr(C, align(16))]` makes the Rust layout the WGSL uniform layout
-/// explicitly; the unit tests pin it.
+/// `u_planar_plane`; `model` is the dynamic path's per-object matrix, the two
+/// lightmap words are the prepared HDR atlas's addressing — the pages in one
+/// layer group, the switchable groups' count and live on/off mask, and the
+/// resident probe chain's top mip level (`0..=7`, bits 16..=19) — and
+/// `opacity` is the per-instance fade multiplier the character path installs
+/// (`1.0` for the static world and every prop, so static output is unchanged).
+/// The struct is 208 bytes on the wire and in Rust
+/// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
+/// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct EnvironmentUniform {
@@ -411,6 +416,15 @@ pub struct EnvironmentUniform {
     /// static world and for props (whose vertices are already in world space);
     /// the moving transform for a dynamic object.
     pub model: [[f32; 4]; 4],
+    /// Per-instance opacity multiplier, `0..=1`. `1.0` for the static world and
+    /// for every draw without a fade; a character instance installs its
+    /// clamped fade opacity here, which the shader multiplies into the fragment
+    /// alpha and the emissive term.
+    pub opacity: f32,
+    /// Explicit tail padding so the 16-byte alignment is part of the struct
+    /// (WGSL pads a uniform struct to its alignment the same way) and the
+    /// `Pod` derive sees no implicit padding. Never read.
+    pub tail_padding: [f32; 3],
 }
 
 impl EnvironmentUniform {
@@ -437,6 +451,8 @@ impl EnvironmentUniform {
             planar_matrix: Mat4::IDENTITY.to_cols_array_2d(),
             planar_plane: [0.0, 0.0, 1.0, 0.0],
             model: Mat4::IDENTITY.to_cols_array_2d(),
+            opacity: 1.0,
+            tail_padding: [0.0; 3],
         }
     }
 
@@ -494,10 +510,106 @@ impl EnvironmentUniform {
         self.light_scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
         self
     }
+
+    /// The same environment with a per-instance opacity multiplier installed
+    /// (the character path's fade).
+    ///
+    /// The value is clamped to `0..=1`; a non-finite value is treated as fully
+    /// opaque so a malformed fade can never blank a draw or poison the uniform.
+    /// `1.0` — the static world's value — leaves every shader term unchanged.
+    #[must_use]
+    pub const fn with_opacity(mut self, opacity: f32) -> Self {
+        self.opacity = if opacity.is_finite() {
+            opacity.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        self
+    }
 }
 
 /// Bytes one environment uniform occupies.
 pub const ENVIRONMENT_UNIFORM_SIZE: u64 = std::mem::size_of::<EnvironmentUniform>() as u64;
+
+/// One GPU attached light: the WGSL `DynamicLight`, 32 bytes.
+///
+/// The neutral [`crate::render::common::dynamic_lights::DynamicLight`] keeps a
+/// key for replacement; the key never reaches the shader, so the GPU value
+/// carries only the position, radius, colour and intensity.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct GpuDynamicLight {
+    /// World-space position, in metres.
+    pub position: [f32; 3],
+    /// The falloff window's radius, in metres, strictly positive.
+    pub radius: f32,
+    /// Display-space colour, each channel `0..=1`.
+    pub color: [f32; 3],
+    /// Additive intensity.
+    pub intensity: f32,
+}
+
+/// The group-4 uniform: a live count, three padding words and the fixed
+/// [`MAX_DYNAMIC_LIGHTS`]-entry light array.
+///
+/// WGSL layout, pinned by tests: `count: u32` then three pad words (16 bytes),
+/// then `array<DynamicLight, 8>` at a 32-byte stride. Every unused slot is
+/// zero, so a shader that read past `count` would add nothing.
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct DynamicLightsUniform {
+    /// Number of valid entries in `lights`, `0..=MAX_DYNAMIC_LIGHTS`.
+    pub count: u32,
+    /// Explicit padding so the array starts at offset 16 (the struct's align).
+    pub padding: [u32; 3],
+    /// The frame's attached lights, the live ones first in insertion order.
+    pub lights: [GpuDynamicLight; MAX_DYNAMIC_LIGHTS],
+}
+
+impl DynamicLightsUniform {
+    /// Packs one frame's light set; every unused slot stays zero.
+    #[must_use]
+    pub fn new(lights: &DynamicLightSet) -> Self {
+        let mut uniform = Self::zeroed();
+        let live = lights.lights();
+        let count = live.len().min(MAX_DYNAMIC_LIGHTS);
+        uniform.count = u32::try_from(count).unwrap_or(u32::MAX);
+        for (slot, light) in uniform.lights.iter_mut().zip(live.iter()) {
+            *slot = GpuDynamicLight {
+                position: [light.position.x, light.position.y, light.position.z],
+                radius: light.radius,
+                color: light.color,
+                intensity: light.intensity,
+            };
+        }
+        uniform
+    }
+}
+
+/// Bytes one dynamic-lights uniform occupies.
+pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = std::mem::size_of::<DynamicLightsUniform>() as u64;
+
+/// The group-4 bind group layout: the frame's attached-light uniform.
+///
+/// Created once per world pipeline rebuild and shared by every pipeline that
+/// samples the world shader; the bind group below is rebuilt with it because a
+/// buffer binding is tied to one device buffer.
+#[must_use]
+pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("places-wgpu-world-lights-layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(DYNAMIC_LIGHTS_UNIFORM_SIZE),
+            },
+            count: None,
+        }],
+    })
+}
 
 /// The group-3 bind group layout: environment uniform, the lightmap page array
 /// and its sampler, the probe cubemap, the planar mirror image and the
@@ -1189,6 +1301,34 @@ pub fn translucent_order(draws: &[WorldDraw], eye: glam::Vec3) -> Vec<u32> {
     order
 }
 
+/// The translucent characters' draw order: farthest first.
+///
+/// `entries` pairs each character's stable scene index with its world centre.
+/// Ordering is by squared camera distance, farthest first (this frame's
+/// nearer surface blends over a farther one), with the index as the
+/// deterministic tie-break so two characters at the same distance always draw
+/// in scene order. Pure, so the ordering contract is unit-testable without a
+/// device.
+#[must_use]
+pub fn translucent_character_order(entries: &[(usize, glam::Vec3)], eye: glam::Vec3) -> Vec<usize> {
+    let mut order: Vec<(usize, f32)> = entries
+        .iter()
+        .map(|(index, centre)| {
+            // `glam` f32 arithmetic: a finite camera and finite bounds.
+            #[allow(clippy::arithmetic_side_effects)]
+            let distance_sq = (*centre - eye).length_squared();
+            (*index, distance_sq)
+        })
+        .collect();
+    order.sort_by(|left, right| {
+        right
+            .1
+            .total_cmp(&left.1)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    order.into_iter().map(|(index, _)| index).collect()
+}
+
 /// One world pipeline variant's distinguishing state.
 ///
 /// The five material passes share the shader module, vertex layout, depth
@@ -1380,6 +1520,12 @@ pub struct WorldPipeline {
     emission_cutout: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
+    /// The group-4 attached-light uniform. Created zeroed and written by
+    /// [`WorldPipeline::update_lights`]; the reflection-capture pipelines never
+    /// write it, so their captures stay light-free.
+    lights_buffer: wgpu::Buffer,
+    /// The group-4 binding over `lights_buffer`.
+    lights_bind_group: wgpu::BindGroup,
     /// The colour target format the pipelines were built for. A changed surface
     /// format (a recreated surface) rebuilds only this resource.
     format: wgpu::TextureFormat,
@@ -1454,6 +1600,10 @@ impl WorldPipeline {
                 count: None,
             }],
         });
+        // Group 4 is the frame's attached-light array: created with the
+        // pipeline set and shared by every variant, so binding it is one call
+        // per pass.
+        let lights_layout = dynamic_lights_bind_group_layout(device);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("places-wgpu-world-pipeline-layout"),
             bind_group_layouts: &[
@@ -1461,6 +1611,7 @@ impl WorldPipeline {
                 Some(texture_layout),
                 Some(material_layout),
                 Some(environment_layout),
+                Some(&lights_layout),
             ],
             immediate_size: 0,
         });
@@ -1476,6 +1627,22 @@ impl WorldPipeline {
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: camera_buffer.as_entire_binding(),
+            }],
+        });
+        // A wgpu buffer starts zeroed, so a capture that runs before the first
+        // frame's update sees an empty light set.
+        let lights_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("places-wgpu-world-lights"),
+            size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let lights_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("places-wgpu-world-lights"),
+            layout: &lights_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: lights_buffer.as_entire_binding(),
             }],
         });
         let [
@@ -1509,6 +1676,8 @@ impl WorldPipeline {
             emission_cutout,
             bind_group,
             camera_buffer,
+            lights_buffer,
+            lights_bind_group,
             format,
             uploaded: None,
         }
@@ -1552,6 +1721,26 @@ impl WorldPipeline {
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
         self.uploaded = Some(uniform);
     }
+
+    /// Uploads one frame's attached lights.
+    ///
+    /// Always writes the whole uniform, an empty set included: a zero count is
+    /// what clears the previous frame's lights, so no stale glow can linger in
+    /// a frame that attaches none. Callers are the main scene, offscreen-scene
+    /// and emissive pipelines; the reflection-capture pipelines deliberately
+    /// keep their zeroed set, so a mirror or probe never bakes a glow in.
+    pub fn update_lights(&self, queue: &wgpu::Queue, lights: &DynamicLightSet) {
+        write_dynamic_lights(queue, &self.lights_buffer, lights);
+    }
+}
+
+/// Writes one light set into a group-4 uniform buffer.
+///
+/// Split from [`WorldPipeline::update_lights`] so the byte-level contents are
+/// testable with a bare device and a copy-back buffer.
+fn write_dynamic_lights(queue: &wgpu::Queue, buffer: &wgpu::Buffer, lights: &DynamicLightSet) {
+    let uniform = DynamicLightsUniform::new(lights);
+    queue.write_buffer(buffer, 0, bytemuck::bytes_of(&uniform));
 }
 
 /// The resources and frame state one world submission needs.
@@ -1670,6 +1859,12 @@ impl WorldPipeline {
                 BatchPass::Translucent,
             ));
         }
+        // Blended character submeshes (a fading ghost) follow the blended
+        // dynamic primitives, sorted back to front so several ghosts composite
+        // in the right order.
+        if let Some(characters) = inputs.characters {
+            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, false));
+        }
         totals
     }
 
@@ -1695,7 +1890,13 @@ impl WorldPipeline {
             ));
         }
         if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_characters(pass, inputs, characters, emission_only));
+            totals.absorb(self.encode_characters(
+                pass,
+                inputs,
+                characters,
+                emission_only,
+                BatchPass::Opaque,
+            ));
         }
         totals
     }
@@ -1725,6 +1926,7 @@ impl WorldPipeline {
             pass.set_pipeline(self.pipeline_for(wanted));
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(4, &self.lights_bind_group, &[]);
         for object in 0..dynamic.object_count() {
             let Some(bounds) = dynamic.world_bounds(object) else {
                 continue;
@@ -1790,14 +1992,48 @@ impl WorldPipeline {
         totals
     }
 
-    /// Encodes the frame's character draws.
+    /// Encodes the frame's character submeshes of one pass.
     ///
     /// One draw per character per primitive, culled by the character's
     /// world-space bounds. Each character binds its own group-3 environment,
-    /// which carries the placement matrix; its vertex buffer already holds the
-    /// CPU-skinned model-space pose, so the shader path is exactly the prop
-    /// path. `emission_only` is the emissive pass.
+    /// which carries the placement matrix and the instance opacity; its vertex
+    /// buffer already holds the CPU-skinned model-space pose, so the shader
+    /// path is exactly the prop path. `emission_only` is the emissive pass, and
+    /// `wanted` filters the submesh's alpha class: the opaque call keeps
+    /// [`BatchPass::Opaque`] (which is also where a cut-out character submesh
+    /// lands, preserving its historical treatment), and the translucent pass
+    /// enters through [`Self::encode_translucent_characters`].
     fn encode_characters<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        characters: &'a super::character::WgpuCharacters,
+        emission_only: bool,
+        wanted: BatchPass,
+    ) -> WorldDrawTotals {
+        let mut totals = WorldDrawTotals::default();
+        self.bind_character_state(pass, emission_only, wanted);
+        for character in 0..characters.character_count() {
+            totals.absorb(Self::encode_character_submeshes(
+                pass,
+                inputs,
+                characters,
+                character,
+                emission_only,
+                wanted,
+            ));
+        }
+        totals
+    }
+
+    /// Encodes the frame's translucent character submeshes, farthest first.
+    ///
+    /// Drawn after the blended dynamic primitives and the static translucent
+    /// class with depth writes off, depth-testing against the opaque pass. The
+    /// order is the squared camera distance to the character's world centre,
+    /// farthest first, with the entry index as the deterministic tie-break, so
+    /// several ghosts composite consistently.
+    fn encode_translucent_characters<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
@@ -1805,71 +2041,121 @@ impl WorldPipeline {
         emission_only: bool,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
+        let entries: Vec<(usize, glam::Vec3)> = (0..characters.character_count())
+            .filter(|character| characters.has_submesh_pass(*character, BatchPass::Translucent))
+            .filter_map(|character| {
+                characters
+                    .world_bounds(character)
+                    .map(|bounds| (character, glam::Vec3::from_array(bounds.centre())))
+            })
+            .collect();
+        if entries.is_empty() {
+            return totals;
+        }
+        self.bind_character_state(pass, emission_only, BatchPass::Translucent);
+        for character in translucent_character_order(&entries, inputs.frame.eye) {
+            totals.absorb(Self::encode_character_submeshes(
+                pass,
+                inputs,
+                characters,
+                character,
+                emission_only,
+                BatchPass::Translucent,
+            ));
+        }
+        totals
+    }
+
+    /// Binds the character pass's pipeline and its frame-level groups.
+    fn bind_character_state<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        emission_only: bool,
+        wanted: BatchPass,
+    ) {
         if emission_only {
-            pass.set_pipeline(self.emission_pipeline_for(BatchPass::Opaque));
+            pass.set_pipeline(self.emission_pipeline_for(wanted));
         } else {
-            pass.set_pipeline(self.pipeline_for(BatchPass::Opaque));
+            pass.set_pipeline(self.pipeline_for(wanted));
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
-        for character in 0..characters.character_count() {
-            let Some(bounds) = characters.world_bounds(character) else {
-                continue;
-            };
-            if inputs.cull && !inputs.frame.frustum.intersects_aabb(&bounds) {
-                continue;
-            }
-            let Some(environment) = characters.environment(character) else {
-                continue;
-            };
-            pass.set_bind_group(3, environment, &[]);
-            let mut bound_texture: Option<usize> = None;
-            let mut bound_material: Option<usize> = None;
-            let mut bound_geometry: Option<usize> = None;
-            for submesh in 0..characters.submesh_count(character) {
-                if emission_only && !characters.submesh_emissive(character, submesh) {
-                    continue;
-                }
-                totals.emissive_visible |= characters.submesh_emissive(character, submesh);
-                let Some(material_slot) = characters.material_slot(character, submesh) else {
-                    continue;
-                };
-                if bound_material != Some(material_slot) {
-                    let Some(material) = characters.material(material_slot) else {
-                        continue;
-                    };
-                    pass.set_bind_group(2, material.bind_group(inputs.filtering), &[]);
-                    totals.material_binds = totals.material_binds.saturating_add(1);
-                    bound_material = Some(material_slot);
-                }
-                if bound_texture != Some(material_slot) {
-                    let Some(texture) = characters.submesh_texture(character, submesh) else {
-                        continue;
-                    };
-                    pass.set_bind_group(1, texture.bind_group(inputs.filtering), &[]);
-                    totals.texture_binds = totals.texture_binds.saturating_add(1);
-                    bound_texture = Some(material_slot);
-                }
-                let Some((vertex_buffer, index_buffer, first_index, index_count)) =
-                    characters.geometry(character, submesh)
-                else {
-                    continue;
-                };
-                if bound_geometry != Some(character) {
-                    pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                    pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    bound_geometry = Some(character);
-                }
-                let Some(end) = first_index.checked_add(index_count) else {
-                    continue;
-                };
-                pass.draw_indexed(first_index..end, 0, 0..1);
-                totals.draw_calls = totals.draw_calls.saturating_add(1);
-                totals.visible_batches = totals.visible_batches.saturating_add(1);
-            }
-            totals.visible_vertices = totals
-                .visible_vertices
-                .saturating_add(characters.character_vertex_count(character));
+        pass.set_bind_group(4, &self.lights_bind_group, &[]);
+    }
+
+    /// Encodes one character's submeshes of one pass.
+    ///
+    /// Associated rather than a method: the per-character body binds only
+    /// frame-level state the caller already bound, so it needs no access to
+    /// the pipeline set.
+    fn encode_character_submeshes<'a>(
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        characters: &'a super::character::WgpuCharacters,
+        character: usize,
+        emission_only: bool,
+        wanted: BatchPass,
+    ) -> WorldDrawTotals {
+        let mut totals = WorldDrawTotals::default();
+        let Some(bounds) = characters.world_bounds(character) else {
+            return totals;
+        };
+        if inputs.cull && !inputs.frame.frustum.intersects_aabb(&bounds) {
+            return totals;
         }
+        let Some(environment) = characters.environment(character) else {
+            return totals;
+        };
+        pass.set_bind_group(3, environment, &[]);
+        let mut bound_texture: Option<usize> = None;
+        let mut bound_material: Option<usize> = None;
+        let mut bound_geometry: Option<usize> = None;
+        for submesh in 0..characters.submesh_count(character) {
+            if characters.submesh_pass(character, submesh) != Some(wanted) {
+                continue;
+            }
+            if emission_only && !characters.submesh_emissive(character, submesh) {
+                continue;
+            }
+            totals.emissive_visible |= characters.submesh_emissive(character, submesh);
+            let Some(material_slot) = characters.material_slot(character, submesh) else {
+                continue;
+            };
+            if bound_material != Some(material_slot) {
+                let Some(material) = characters.material(material_slot) else {
+                    continue;
+                };
+                pass.set_bind_group(2, material.bind_group(inputs.filtering), &[]);
+                totals.material_binds = totals.material_binds.saturating_add(1);
+                bound_material = Some(material_slot);
+            }
+            if bound_texture != Some(material_slot) {
+                let Some(texture) = characters.submesh_texture(character, submesh) else {
+                    continue;
+                };
+                pass.set_bind_group(1, texture.bind_group(inputs.filtering), &[]);
+                totals.texture_binds = totals.texture_binds.saturating_add(1);
+                bound_texture = Some(material_slot);
+            }
+            let Some((vertex_buffer, index_buffer, first_index, index_count)) =
+                characters.geometry(character, submesh)
+            else {
+                continue;
+            };
+            if bound_geometry != Some(character) {
+                pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                bound_geometry = Some(character);
+            }
+            let Some(end) = first_index.checked_add(index_count) else {
+                continue;
+            };
+            pass.draw_indexed(first_index..end, 0, 0..1);
+            totals.draw_calls = totals.draw_calls.saturating_add(1);
+            totals.visible_batches = totals.visible_batches.saturating_add(1);
+        }
+        totals.visible_vertices = totals
+            .visible_vertices
+            .saturating_add(characters.character_vertex_count(character));
         totals
     }
 
@@ -1927,15 +2213,23 @@ impl WorldPipeline {
         if let Some(dynamic) = inputs.dynamic {
             totals.absorb(self.encode_dynamic(pass, inputs, dynamic, true, BatchPass::Translucent));
         }
+        // A translucent character's emissive submeshes join the bloom source
+        // here too, scaled by the instance opacity the shader applies, so a
+        // ghost's cyan core blooms through its fade instead of popping.
+        if let Some(characters) = inputs.characters {
+            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, true));
+        }
         totals
     }
 
     /// Encodes the frame's prop draws.
     ///
     /// One draw per submesh, culled by the batch bounds, with the prop's own
-    /// clamped sheet on group 1 and its plain `(sheet, emission)` material on
-    /// group 2. `emission_only` is the emissive pass: only submeshes whose
-    /// material emits are submitted.
+    /// clamped sheet on group 1 and its plain `(sheet, emission, alpha)`
+    /// material on group 2. `emission_only` is the emissive pass: only submeshes
+    /// whose material emits are submitted. A submesh whose glTF material is
+    /// alpha-masked switches to the cutout pipeline; everything else stays
+    /// opaque.
     fn encode_props<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -1944,13 +2238,10 @@ impl WorldPipeline {
         emission_only: bool,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
-        if emission_only {
-            pass.set_pipeline(self.emission_pipeline_for(BatchPass::Opaque));
-        } else {
-            pass.set_pipeline(self.pipeline_for(BatchPass::Opaque));
-        }
+        let mut bound_pipeline: Option<BatchPass> = None;
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(3, inputs.environment, &[]);
+        pass.set_bind_group(4, &self.lights_bind_group, &[]);
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
@@ -1963,6 +2254,14 @@ impl WorldPipeline {
             }
             if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
                 continue;
+            }
+            if bound_pipeline != Some(draw.pass) {
+                if emission_only {
+                    pass.set_pipeline(self.emission_pipeline_for(draw.pass));
+                } else {
+                    pass.set_pipeline(self.pipeline_for(draw.pass));
+                }
+                bound_pipeline = Some(draw.pass);
             }
             totals.emissive_visible |= draw.emissive;
             if bound_material != Some(draw.material) {
@@ -2024,6 +2323,7 @@ impl WorldPipeline {
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(3, inputs.environment, &[]);
+        pass.set_bind_group(4, &self.lights_bind_group, &[]);
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
@@ -2106,11 +2406,13 @@ mod tests {
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
+        clippy::print_stdout,
         clippy::suboptimal_flops,
         clippy::unwrap_used
     )]
 
     use super::*;
+    use crate::test_support::{assert_exact, assert_exact_array};
 
     #[test]
     #[ignore = "requires a GPU adapter"]
@@ -3256,12 +3558,18 @@ mod tests {
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
+        // World lighting is baked: no fixture light array, no light selection
+        // and no per-fixture attenuation loop. The one realtime addition is
+        // the attached-light array (group 4), fixed at eight entries.
         assert!(
             !WORLD_SHADER_SRC.contains("u_lights")
                 && !WORLD_SHADER_SRC.contains("light_count")
-                && !WORLD_SHADER_SRC.contains("array<Light")
                 && !WORLD_SHADER_SRC.contains("PointLight"),
-            "world lighting is baked; the shader must not contain a realtime light array"
+            "world lighting is baked; no fixture light array may exist"
+        );
+        assert!(
+            WORLD_SHADER_SRC.contains("lights: array<DynamicLight, 8>"),
+            "the attached-light array is the one bounded realtime term"
         );
         // The reflection sampling is the reference's: one probe cubemap sample
         // and one planar projection, both under the material's reflect mode.
@@ -3485,9 +3793,14 @@ mod tests {
 
     #[test]
     fn alpha_never_passes_through_the_colour_transfer_functions() {
-        // The reference's alpha is a straight scalar product; RGB transfer
-        // functions must not touch it.
-        assert!(WORLD_SHADER_SRC.contains("let alpha = base.a * in.color.a * material.opacity;"));
+        // The reference's alpha is a straight scalar product (the per-instance
+        // opacity is one more scalar factor); RGB transfer functions must not
+        // touch it.
+        assert!(
+            WORLD_SHADER_SRC.contains(
+                "let alpha = base.a * in.color.a * material.opacity * environment.opacity;"
+            )
+        );
         assert!(
             !WORLD_SHADER_SRC.contains("srgb_to_linear(vec3<f32>(base.a"),
             "alpha must not be decoded as colour"
@@ -3625,9 +3938,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 192);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 208);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 192);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 208);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -3654,12 +3967,29 @@ mod tests {
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, planar_matrix), 48);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, planar_plane), 112);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, model), 128);
-        // The two lightmap words occupy the bytes the padding used to: the
-        // struct is still 192 bytes and the matrix offsets are unchanged.
+        assert_eq!(std::mem::offset_of!(EnvironmentUniform, opacity), 192);
+        // The two lightmap words occupy the bytes the padding used to, and the
+        // per-instance opacity follows the model matrix: the matrix offsets are
+        // unchanged from the 192-byte layout.
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, planar_matrix),
             std::mem::offset_of!(EnvironmentUniform, lightmap_switchable) + 4
         );
+        // The static default and the static builder keep 1.0, so the world's
+        // alpha, emission and bypass path are bit-identical.
+        let default = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        );
+        assert_exact(default.opacity, 1.0);
+        assert_exact(default.with_opacity(1.0).opacity, 1.0);
+        assert_exact(default.with_opacity(0.25).opacity, 0.25);
+        // The clamp is `0..=1`, and a non-finite fade is fully opaque.
+        assert_exact(default.with_opacity(2.0).opacity, 1.0);
+        assert_exact(default.with_opacity(-1.0).opacity, 0.0);
+        assert_exact(default.with_opacity(f32::NAN).opacity, 1.0);
+        assert_exact(default.with_opacity(f32::INFINITY).opacity, 1.0);
         // The builder packs the four-bit count and mask.
         let environment = EnvironmentUniform::new(
             [1.0; 3],
@@ -3705,6 +4035,302 @@ mod tests {
         assert!(WORLD_SHADER_SRC.contains("planar_matrix: mat4x4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("planar_plane: vec4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("model: mat4x4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("opacity: f32"));
+        // The instance opacity reaches both the fragment alpha and the
+        // emissive term; the static world's 1.0 leaves both unchanged.
+        assert!(
+            WORLD_SHADER_SRC.contains("material.opacity * environment.opacity"),
+            "shade() must fold the instance opacity into the fragment alpha"
+        );
+        assert!(
+            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"),
+            "the emissive term must fade with the instance opacity"
+        );
+    }
+
+    #[test]
+    fn the_dynamic_lights_uniform_matches_the_wgsl_layout() {
+        // One light is 32 bytes: vec3 + f32, twice.
+        assert_eq!(std::mem::size_of::<GpuDynamicLight>(), 32);
+        assert_eq!(std::mem::offset_of!(GpuDynamicLight, position), 0);
+        assert_eq!(std::mem::offset_of!(GpuDynamicLight, radius), 12);
+        assert_eq!(std::mem::offset_of!(GpuDynamicLight, color), 16);
+        assert_eq!(std::mem::offset_of!(GpuDynamicLight, intensity), 28);
+        // The uniform is the count word plus three pads, then the array.
+        assert_eq!(std::mem::align_of::<DynamicLightsUniform>(), 16);
+        assert_eq!(
+            std::mem::size_of::<DynamicLightsUniform>(),
+            16 + 32 * MAX_DYNAMIC_LIGHTS
+        );
+        assert_eq!(
+            DYNAMIC_LIGHTS_UNIFORM_SIZE,
+            u64::try_from(16 + 32 * MAX_DYNAMIC_LIGHTS).unwrap()
+        );
+        assert_eq!(std::mem::offset_of!(DynamicLightsUniform, count), 0);
+        assert_eq!(std::mem::offset_of!(DynamicLightsUniform, padding), 4);
+        assert_eq!(std::mem::offset_of!(DynamicLightsUniform, lights), 16);
+
+        // An empty set packs a zero count and zeroed slots.
+        let empty = DynamicLightsUniform::new(&DynamicLightSet::new());
+        assert_eq!(empty.count, 0);
+        assert!(
+            empty
+                .lights
+                .iter()
+                .all(|light| *light == GpuDynamicLight::zeroed())
+        );
+
+        // A live set packs in insertion order; every unused slot stays zero.
+        let mut set = DynamicLightSet::new();
+        assert!(
+            set.insert(crate::render::common::dynamic_lights::DynamicLight {
+                key: "glow:a".to_string(),
+                position: glam::Vec3::new(1.0, 2.0, 3.0),
+                color: [0.1, 0.2, 0.3],
+                intensity: 2.0,
+                radius: 4.0,
+            })
+        );
+        let uniform = DynamicLightsUniform::new(&set);
+        assert_eq!(uniform.count, 1);
+        assert_eq!(
+            uniform.lights[0],
+            GpuDynamicLight {
+                position: [1.0, 2.0, 3.0],
+                radius: 4.0,
+                color: [0.1, 0.2, 0.3],
+                intensity: 2.0,
+            }
+        );
+        assert_eq!(uniform.lights[1], GpuDynamicLight::zeroed());
+
+        // The WGSL mirrors the struct and the term's falloff.
+        for needle in [
+            "struct DynamicLight",
+            "position: vec3<f32>",
+            "radius: f32",
+            "color: vec3<f32>",
+            "intensity: f32",
+            "count: u32",
+            "_pad0: u32",
+            "lights: array<DynamicLight, 8>",
+            "@group(4) @binding(0)",
+            "fn dynamic_light_term(",
+            "window * window",
+        ] {
+            assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
+        }
+        // The emissive pass must stay free of the dynamic term: bloom must not
+        // double the pool.
+        let emissive = WORLD_SHADER_SRC
+            .split("fn emissive_only(")
+            .nth(1)
+            .unwrap_or("");
+        assert!(
+            !emissive.contains("dynamic_light_term"),
+            "the emissive pass must not sum the attached lights"
+        );
+    }
+
+    #[test]
+    fn translucent_characters_sort_farthest_first_with_an_index_tie_break() {
+        let entries = [
+            (7, glam::Vec3::new(0.0, 0.0, -2.0)),  // 2 m from the eye
+            (2, glam::Vec3::new(0.0, 0.0, -10.0)), // 10 m
+            (5, glam::Vec3::new(0.0, 0.0, -5.0)),  // 5 m
+        ];
+        assert_eq!(
+            translucent_character_order(&entries, glam::Vec3::ZERO),
+            vec![2, 5, 7]
+        );
+        // Equal distances keep the scene index order whatever the input order.
+        let tied = [
+            (3, glam::Vec3::new(1.0, 0.0, 0.0)),
+            (1, glam::Vec3::new(-1.0, 0.0, 0.0)),
+            (2, glam::Vec3::new(0.0, 1.0, 0.0)),
+        ];
+        assert_eq!(
+            translucent_character_order(&tied, glam::Vec3::ZERO),
+            vec![1, 2, 3]
+        );
+        assert!(translucent_character_order(&[], glam::Vec3::ZERO).is_empty());
+    }
+
+    /// The group-4 write path against a real queue: the live set lands in the
+    /// buffer, and an empty set overwrites it with a zero count so no stale
+    /// frame lingers. Skips cleanly on a host with no adapter.
+    #[test]
+    fn update_lights_writes_the_uniform_contents_when_an_adapter_is_available() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let Ok(adapter) =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: None,
+                ..Default::default()
+            }))
+        else {
+            println!("[test] no GPU adapter; skipping the update_lights buffer test");
+            return;
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("dynamic-lights-buffer-test"),
+            required_limits: crate::render::wgpu::renderer::world_device_limits(),
+            ..Default::default()
+        }))
+        .expect("GPU device");
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("dynamic-lights-test"),
+            size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let readback = |label: &str| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(label),
+                size: DYNAMIC_LIGHTS_UNIFORM_SIZE,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            })
+        };
+        let read = |staging: &wgpu::Buffer| -> DynamicLightsUniform {
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("dynamic-lights-readback"),
+            });
+            encoder.copy_buffer_to_buffer(&buffer, 0, staging, 0, DYNAMIC_LIGHTS_UNIFORM_SIZE);
+            queue.submit([encoder.finish()]);
+            let slice = staging.slice(..);
+            let (sender, receiver) = std::sync::mpsc::channel();
+            slice.map_async(wgpu::MapMode::Read, move |result| {
+                let _ = sender.send(result);
+            });
+            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+            receiver.recv().expect("map callback").expect("buffer maps");
+            let data = slice.get_mapped_range().expect("mapped range");
+            let uniform = *bytemuck::from_bytes::<DynamicLightsUniform>(&data);
+            drop(data);
+            staging.unmap();
+            uniform
+        };
+
+        let mut set = DynamicLightSet::new();
+        assert!(
+            set.insert(crate::render::common::dynamic_lights::DynamicLight {
+                key: "glow:a".to_string(),
+                position: glam::Vec3::new(-1.5, 0.5, 2.0),
+                color: [0.45, 0.95, 1.0],
+                intensity: 0.6,
+                radius: 3.5,
+            })
+        );
+        write_dynamic_lights(&queue, &buffer, &set);
+        let written = read(&readback("dynamic-lights-live"));
+        assert_eq!(written.count, 1);
+        assert_exact(written.lights[0].intensity, 0.6);
+        assert_exact_array(written.lights[0].color, [0.45, 0.95, 1.0]);
+        assert_eq!(written.lights[0].position, [-1.5, 0.5, 2.0]);
+
+        // The clearing write: an empty set must reach the buffer too.
+        write_dynamic_lights(&queue, &buffer, &DynamicLightSet::new());
+        let cleared = read(&readback("dynamic-lights-cleared"));
+        assert_eq!(cleared.count, 0);
+        assert_eq!(cleared.lights[0], GpuDynamicLight::zeroed());
+    }
+
+    /// The world shader compiles against the five-group pipeline layout, and
+    /// every variant is created: the group-4 addition and the new environment
+    /// field must be valid WGSL and layout-compatible. Skips cleanly on a host
+    /// with no adapter.
+    #[test]
+    fn the_world_shader_compiles_against_the_five_group_layout_when_an_adapter_is_available() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let Ok(adapter) =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: None,
+                ..Default::default()
+            }))
+        else {
+            println!("[test] no GPU adapter; skipping the world shader compile test");
+            return;
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("world-shader-compile-test"),
+            required_limits: crate::render::wgpu::renderer::world_device_limits(),
+            ..Default::default()
+        }))
+        .expect("GPU device");
+        let buffer_entry = |binding: u32, visibility: wgpu::ShaderStages| {
+            wgpu::BindGroupLayoutEntry {
+                binding,
+                visibility,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    // Pipeline creation checks binding types, not sizes; the
+                    // real layouts pin their own minimums.
+                    min_binding_size: None,
+                },
+                count: None,
+            }
+        };
+        let texture = |binding: u32| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        };
+        let sampler = |binding: u32| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        };
+        let texture_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("world-shader-test-texture"),
+            entries: &[texture(0), sampler(1)],
+        });
+        let material_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("world-shader-test-material"),
+            entries: &[
+                buffer_entry(0, wgpu::ShaderStages::FRAGMENT),
+                texture(1),
+                sampler(2),
+                texture(3),
+                sampler(4),
+            ],
+        });
+        let environment_layout = environment_bind_group_layout(&device);
+        let pipeline = WorldPipeline::with_state(
+            &device,
+            wgpu::TextureFormat::Rgba8Unorm,
+            &texture_layout,
+            &material_layout,
+            &environment_layout,
+            wgpu::FrontFace::Ccw,
+            false,
+            false,
+        );
+        assert_eq!(pipeline.format(), wgpu::TextureFormat::Rgba8Unorm);
+        // The group-4 buffer is sized for the WGSL `DynamicLights` struct;
+        // a mismatch would be caught by binding-time validation.
+        assert_eq!(pipeline.lights_buffer.size(), DYNAMIC_LIGHTS_UNIFORM_SIZE);
+        // The real upload path runs against the real pipeline's buffer.
+        let mut lights = DynamicLightSet::new();
+        assert!(
+            lights.insert(crate::render::common::dynamic_lights::DynamicLight {
+                key: "glow:pumpkin".to_string(),
+                position: glam::Vec3::new(0.0, 1.0, 0.0),
+                color: [1.0, 0.86, 0.6],
+                intensity: 1.0,
+                radius: 3.0,
+            })
+        );
+        pipeline.update_lights(&queue, &lights);
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
     }
 
     /// The CPU mirror of the shader's `soft_clip` tone map, for the light-seam

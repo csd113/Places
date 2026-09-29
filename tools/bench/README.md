@@ -13,6 +13,11 @@ The current workflow uses the following tools:
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
 | `loading.py` | measures isolated cold/warm startup and loading with the `PLACES_LOAD_TRACE` trace; reports separately named startup, package-loading, first-usable-scene and settings-transition metrics |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
+| `capture_outdoor_kit.sh` | compiles/stages the outdoor kit fixture and captures its 17 validation views at one quality profile |
+| `capture_halloween.sh` | stages the Halloween entity fixture and captures motion sequences (jump arc, fade cycle, gait) at `high`, `medium` or `low`; `PLACES_NO_BLOOM` etc. pass through |
+| `capture_movement.sh` | captures real player-motion and moving-entity sequences in Places Demo (jumping onto the kitchen counter/stove/sink, pool entry and exit, the Home chase, the night skeleton) driven by `PLACES_MOVE_SCRIPT`, at `high`, `medium` or `low` |
+| `capture_night_route.sh` | captures Places Demo's outdoor night route: the source look-back, the forward gravel walk, the grass/path blend, the walkway and connector, the destination approach and entry, and motion sequences of the three encounters at `high`, `medium` or `low` |
+| `capture_doors.sh` | captures every maintained door leaf in Places Demo from both sides plus swing-arc and walk-through cases (compiled demo package required) at `high`, `medium` or `low` |
 | `capture_baseline_views.sh` | renders the canonical frozen reference view set (High and Low profiles), captured from the preserved GLES2 renderer, for comparison against a current build |
 | `capture_expanded_views.sh` | renders the supplementary capture view set (geometry, materials, lightmaps, reflections, props, decals, fog) for comparison between two builds |
 | `baseline_asset_root.sh` | builds a scratch asset root matching the committed revision, for baseline captures while the working tree's assets are mid-edit |
@@ -148,6 +153,18 @@ PLACES_BIN=target/agent-work/baseline/target/release/places \
 
 The suffix accumulates in the order low / nobloom / norefl, so a comparison
 run never overwrites the reference capture.
+
+`capture_movement.sh` captures real motion instead of posed stills: it drives
+the player with `PLACES_MOVE_SCRIPT` (real held controls with real press edges)
+and writes a numbered frame of the running simulation per run. It covers the
+kitchen counter/stove/sink jump-on and walk-off, a repeated pool entry and
+exit over the deck rim, the Home chase with the spawned rat, and the night
+pumpkin-head skeleton, at `high`, `medium` or `low`:
+
+```sh
+sh tools/bench/capture_movement.sh
+PLACES_QUALITY=low sh tools/bench/capture_movement.sh
+```
 
 ## Canonical renderer baseline
 
@@ -289,7 +306,10 @@ it and allocates nothing per frame.
 | `PLACES_CELL_METRES=n` | force a uniform spatial grid instead of the adaptive one |
 | `PLACES_LEVEL=<id>` | boot straight into a level |
 | `PLACES_SPAWN=x,z[,yaw]` or `x,y,z[,yaw]` | spawn override; the 3-number form drops the player onto the local floor |
+| `PLACES_MOVE_SCRIPT=control@first-last,...` | hold controls for ready-world simulation seconds (`forward@0-6.5,jump@0.2-0.6`), so a capture drives the player through real motion at any frame rate; names are `forward`, `backward`, `strafe_left`, `strafe_right`, `look_left`, `look_right`, `look_up`, `look_down`, `jump`, `crouch`, `interact` |
 | `PLACES_CAPTURE=frame.png` | render one frame, write it, exit |
+| `PLACES_CAPTURE_FRAME=n` | which ready frame to capture (default: the first) |
+| `PLACES_CAPTURE_TIME=seconds` | capture at the first ready frame at or after that simulation second (takes precedence over the frame count) |
 | `PLACES_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
 | `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
 | `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |

@@ -41,7 +41,7 @@ use crate::collision_index::CollisionIndex;
 use crate::door::{DoorPhase, Doors};
 use crate::entity::{
     ENTITY_FACE_EPS_RAD, ENTITY_MIN_RADIUS_M, ENTITY_STEP_HEIGHT_M,
-    ENTITY_TURN_RATE_DEGREES_PER_SECOND, EntityFrame, EntityRoute, EntityRoutes, PoseCue,
+    ENTITY_TURN_RATE_DEGREES_PER_SECOND, EntityFrame, EntityRoute, EntityRoutes, GlowCue, PoseCue,
     RouteState, RouteWorld, angle_difference, turn_toward,
 };
 use crate::interact::{
@@ -56,9 +56,10 @@ use crate::logging;
 use crate::nav::NavMesh;
 
 use components::{
-    Animation, AudioEmitter, Collider, ComponentTables, Interactable as InteractableComponent,
-    Lifetime, Light, Material, NavAgent, NavObstacle, ObjectState, Renderable, SequenceCtl,
-    SpawnPoint as SpawnPointComponent, StateValue, Steam, Transform, TriggerVolume, WaterVolumeCtl,
+    Animation, AudioEmitter, Collider, ComponentTables, Fade, Glow,
+    Interactable as InteractableComponent, Lifetime, Light, Material, NavAgent, NavObstacle,
+    ObjectState, Renderable, SequenceCtl, SpawnPoint as SpawnPointComponent, StateValue, Steam,
+    Transform, TriggerVolume, WaterVolumeCtl,
 };
 use events::{ConditionView, EventKind, EventQueue, EventRecord};
 use id::{EntityHandle, EntityId, EntityNames, EntityStore};
@@ -576,7 +577,7 @@ impl EntityWorld {
                     .colliders
                     .insert(handle, Collider { size, solid: true });
             }
-            self.apply_component_defs(handle, &prop.components);
+            self.apply_component_defs(handle, id, &prop.components);
             if let Some(interactable) = self.components.interactables.get_mut(handle)
                 && interactable.label.is_none()
             {
@@ -617,7 +618,7 @@ impl EntityWorld {
                     dynamic: true,
                 },
             );
-            self.apply_component_defs(handle, &def.components);
+            self.apply_component_defs(handle, id, &def.components);
             // A door carries its locked state on the door runtime, not on the
             // component, so a condition can read it through `Doors`.
             self.resolve_bindings_for(handle, &def.bindings);
@@ -889,8 +890,17 @@ impl EntityWorld {
     }
 
     /// Applies a list of authored components to one entity.
+    ///
+    /// `instance_id` is the entity's stable instance id; it resolves the
+    /// deterministic default phase of a `fade` component whose `phase` is
+    /// omitted.
     #[allow(clippy::too_many_lines)] // one cohesive component dispatcher
-    fn apply_component_defs(&mut self, handle: EntityHandle, defs: &[ComponentDef]) {
+    fn apply_component_defs(
+        &mut self,
+        handle: EntityHandle,
+        instance_id: &str,
+        defs: &[ComponentDef],
+    ) {
         for def in defs {
             match def {
                 ComponentDef::Interactable {
@@ -1071,6 +1081,44 @@ impl EntityWorld {
                         NavObstacle {
                             size,
                             affects_nav: *affects_nav,
+                        },
+                    );
+                }
+                ComponentDef::Fade(def) => {
+                    // A validated level has already rejected a bad phase; a
+                    // non-finite one is defensive here and falls back to the
+                    // deterministic per-instance default, exactly like an
+                    // omitted phase.
+                    let phase = def
+                        .phase
+                        .filter(|phase| phase.is_finite())
+                        .unwrap_or_else(|| crate::level::default_fade_phase(instance_id));
+                    self.components.fades.insert(
+                        handle,
+                        Fade {
+                            period_seconds: def.period_seconds,
+                            phase: phase.clamp(0.0, 1.0),
+                            min_opacity: def.min_opacity.clamp(0.0, 1.0),
+                            max_opacity: def.max_opacity.clamp(0.0, 1.0),
+                            enabled: def.enabled,
+                        },
+                    );
+                }
+                ComponentDef::Glow(def) => {
+                    self.components.glows.insert(
+                        handle,
+                        Glow {
+                            color: def.color,
+                            intensity: def.intensity,
+                            range: def.range,
+                            socket: def
+                                .socket
+                                .as_deref()
+                                .map(str::trim)
+                                .filter(|socket| !socket.is_empty())
+                                .map(str::to_string),
+                            offset: def.offset,
+                            fade_with_opacity: def.fade,
                         },
                     );
                 }
@@ -3099,7 +3147,7 @@ impl EntityWorld {
                 },
             );
         }
-        self.apply_component_defs(handle, &template.components);
+        self.apply_component_defs(handle, &runtime_name, &template.components);
         self.resolve_bindings_for(handle, &template.bindings);
         self.resolve_bindings_for(handle, &authored_point.bindings);
         self.spawns_this_tick = self.spawns_this_tick.saturating_add(1);
@@ -3239,9 +3287,10 @@ impl EntityWorld {
         self.tick_lifetimes(ctx.delta_seconds, &mut tick);
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
-        if tick.frames_dirty {
-            // A binding or sequence cued an animation this tick: the renderer
-            // handoff is rebuilt even when the level authors no routes.
+        if tick.frames_dirty || self.any_enabled_fade() {
+            // A binding or sequence cued an animation this tick, or an enabled
+            // fade changed the opacity: the renderer handoff is rebuilt even
+            // when the level authors no routes.
             self.rebuild_entity_frames();
         }
         tick
@@ -3577,6 +3626,12 @@ impl EntityWorld {
     #[allow(clippy::arithmetic_side_effects)] // bounded pose comparisons
     pub fn update_entities(&mut self, delta: f32, world: &RouteWorld<'_>) {
         if self.routes.is_empty() {
+            // An enabled fade advances without any route, so its frame list
+            // still has to be rebuilt every tick; without one this stays the
+            // historical cheap early return.
+            if self.any_enabled_fade() {
+                self.rebuild_entity_frames();
+            }
             return;
         }
         let mut moved = false;
@@ -3603,13 +3658,51 @@ impl EntityWorld {
         self.rebuild_entity_frames();
     }
 
+    /// The fade opacity of one entity at the current simulation time; `1.0`
+    /// when it has no `fade` component.
+    fn frame_opacity(&self, handle: EntityHandle) -> f32 {
+        self.components
+            .fades
+            .get(handle)
+            .map_or(1.0, |fade| fade.opacity_at(self.sim_time))
+    }
+
+    /// The attached-light cue of one entity, when it carries a `glow`.
+    fn frame_glow(&self, handle: EntityHandle) -> Option<GlowCue> {
+        self.components.glows.get(handle).map(|glow| GlowCue {
+            socket: glow.socket.clone(),
+            offset: glow.offset,
+            color: glow.color,
+            intensity: glow.intensity,
+            range: glow.range,
+            fade_with_opacity: glow.fade_with_opacity,
+        })
+    }
+
+    /// The fade opacity and attached-light cue of one placed instance, at the
+    /// current simulation time.
+    fn frame_visuals(&self, instance_id: &str) -> (f32, Option<GlowCue>) {
+        self.handle_of(instance_id).map_or((1.0, None), |handle| {
+            (self.frame_opacity(handle), self.frame_glow(handle))
+        })
+    }
+
+    /// True when any entity's fade is enabled: the frame list then has to be
+    /// rebuilt every tick, even when the level authors no routes.
+    fn any_enabled_fade(&self) -> bool {
+        self.components.fades.iter().any(|(_, fade)| fade.enabled)
+    }
+
     /// Rebuilds the per-frame character handoff.
     ///
     /// A routed entity's frame carries its live transform and pose; an
     /// animation override that names a non-routed placed instance (an animated
     /// prop the renderer claims as a rigid character, such as a wall switch)
     /// gets a cue-only frame, exactly as the pre-runtime handoff did, so
-    /// `play_animation`/`toggle_animation` still reach it.
+    /// `play_animation`/`toggle_animation` still reach it. Every frame also
+    /// carries the entity's fade opacity and attached glow at the current
+    /// simulation time, and a placed entity that carries either component
+    /// without a route/AI/override still gets a frame.
     pub fn rebuild_entity_frames(&mut self) {
         self.entity_frames.clear();
         // AI agents own their locomotion: their frame carries the live
@@ -3627,10 +3720,18 @@ impl EntityWorld {
             } else {
                 agent.cue()
             };
+            let (opacity, glow) = self.frame_visuals(&agent.instance_id);
             self.entity_frames.push(EntityFrame {
                 instance_id: agent.instance_id.clone(),
-                transform: Some((agent.position, agent.yaw_degrees)),
+                // The frame contract is radians with 0 facing world +Z, the
+                // same unit as `RouteState::yaw` and `Character::set_pose`.
+                // The AI stores degrees, so this handoff is the one place
+                // that converts; nothing downstream may re-interpret the
+                // value as degrees.
+                transform: Some((agent.position, agent.yaw_degrees.to_radians())),
                 cue,
+                opacity,
+                glow,
             });
         }
         let ai_owned: Vec<&str> = self
@@ -3650,10 +3751,13 @@ impl EntityWorld {
                 .animation_override(&route.instance_id)
                 .cloned()
                 .unwrap_or_else(|| state.cue.clone());
+            let (opacity, glow) = self.frame_visuals(&route.instance_id);
             self.entity_frames.push(EntityFrame {
                 instance_id: route.instance_id.clone(),
                 transform: Some((state.position, state.yaw)),
                 cue,
+                opacity,
+                glow,
             });
         }
         let routed: Vec<String> = self
@@ -3669,12 +3773,53 @@ impl EntityWorld {
             if ai_owned.contains(&instance_id.as_str()) {
                 continue;
             }
+            let (opacity, glow) = self.frame_visuals(instance_id);
             // The renderer matches frames to the characters it claimed; a
             // frame for an instance it does not draw is ignored there.
             self.entity_frames.push(EntityFrame {
                 instance_id: instance_id.clone(),
                 transform: None,
                 cue: cue.clone(),
+                opacity,
+                glow,
+            });
+        }
+        // A placed entity that carries a fade or a glow but no route, AI or
+        // animation override still needs a frame: its opacity and its attached
+        // light change every tick even though nothing moves. Without this a
+        // fade-only character would never fade.
+        let mut visual_handles: Vec<EntityHandle> = self
+            .components
+            .fades
+            .iter()
+            .map(|(handle, _)| handle)
+            .collect();
+        for (handle, _) in self.components.glows.iter() {
+            if !visual_handles.contains(&handle) {
+                visual_handles.push(handle);
+            }
+        }
+        for handle in visual_handles {
+            let Some(instance_id) = self.id_of(handle).map(str::to_string) else {
+                continue;
+            };
+            if ai_owned.contains(&instance_id.as_str())
+                || routed.iter().any(|id| id == &instance_id)
+                || self
+                    .animation_overrides
+                    .iter()
+                    .any(|(id, _)| id == &instance_id)
+            {
+                continue;
+            }
+            let opacity = self.frame_opacity(handle);
+            let glow = self.frame_glow(handle);
+            self.entity_frames.push(EntityFrame {
+                instance_id,
+                transform: None,
+                cue: PoseCue::Idle,
+                opacity,
+                glow,
             });
         }
     }
@@ -4792,6 +4937,126 @@ mod tests {
         );
     }
 
+    /// The fade opacity of one framed instance, for frame assertions.
+    fn framed_opacity(world: &EntityWorld, instance_id: &str) -> f32 {
+        world
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == instance_id)
+            .map(|frame| frame.opacity)
+            .expect("the fading entity has a frame")
+    }
+
+    #[test]
+    fn entity_frames_carry_fade_opacity_and_glow_cue() {
+        let level = base_level(
+            r#""props": [
+                { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                  "components": [
+                      { "component": "fade", "period_seconds": 4.0, "phase": 0.0,
+                        "min_opacity": 0.2, "max_opacity": 1.0 },
+                      { "component": "glow", "color": [0.45, 0.95, 1.0],
+                        "intensity": 0.6, "range": 3.5, "offset": [0.0, 0.1, 0.0] } ] }
+            ]"#,
+        );
+        let world = EntityWorld::from_level(&level);
+        let frame = world
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == "ghost")
+            .expect("the fade/glow entity has a frame");
+        assert!(frame.transform.is_none(), "nothing moves it");
+        assert_eq!(frame.cue, PoseCue::Idle);
+        assert!(
+            (frame.opacity - 0.2).abs() < 1e-6,
+            "at t = 0 a phase-0 cycle sits at min_opacity: {}",
+            frame.opacity
+        );
+        let glow = frame.glow.clone().expect("the glow cue reaches the frame");
+        for (channel, expected) in glow.color.iter().zip([0.45, 0.95, 1.0_f32]) {
+            assert!((channel - expected).abs() < 1e-6, "{channel} vs {expected}");
+        }
+        assert!((glow.intensity - 0.6).abs() < 1e-6);
+        assert!((glow.range - 3.5).abs() < 1e-6);
+        for (axis, expected) in glow.offset.iter().zip([0.0, 0.1, 0.0_f32]) {
+            assert!((axis - expected).abs() < 1e-6, "{axis} vs {expected}");
+        }
+        assert_eq!(glow.socket, None);
+        assert!(glow.fade_with_opacity);
+    }
+
+    #[test]
+    fn an_omitted_fade_phase_resolves_per_instance() {
+        let level = base_level(
+            r#""props": [
+                { "id": "ghost_a", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                  "components": [ { "component": "fade", "period_seconds": 2.0 } ] },
+                { "id": "ghost_b", "model": "entity:sheet-ghost", "x": 4.0, "z": 2.0,
+                  "components": [ { "component": "fade", "period_seconds": 2.0 } ] }
+            ]"#,
+        );
+        let world = EntityWorld::from_level(&level);
+        let phase_of = |id: &str| {
+            let handle = world.handle_of(id).expect("the entity resolves");
+            world
+                .components()
+                .fades
+                .get(handle)
+                .expect("the fade resolves")
+                .phase
+        };
+        let a = phase_of("ghost_a");
+        let b = phase_of("ghost_b");
+        assert!(
+            (a - crate::level::default_fade_phase("ghost_a")).abs() < 1e-6,
+            "the placed id resolves the default phase"
+        );
+        assert!((b - crate::level::default_fade_phase("ghost_b")).abs() < 1e-6);
+        assert_ne!(a.to_bits(), b.to_bits(), "two instances desynchronise");
+    }
+
+    #[test]
+    fn a_fade_only_entity_rebuilds_its_frame_without_routes() {
+        let level = base_level(
+            r#""props": [ { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                "components": [ { "component": "fade", "period_seconds": 4.0,
+                                  "phase": 0.0 } ] } ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        assert!(world.routes().is_empty(), "the level authors no route");
+        let feet = Vec3::new(1.0, 0.0, 1.0);
+        assert!((framed_opacity(&world, "ghost") - 0.0).abs() < 1e-6);
+
+        // A tick advances the simulation and republishes the frame: a quarter
+        // of the 4 s cycle is the midpoint opacity.
+        tick_at(&mut world, &level, feet, 1.0);
+        assert!(
+            (framed_opacity(&world, "ghost") - 0.5).abs() < 1e-6,
+            "the enabled fade changed the frame"
+        );
+
+        // With no routes the publish must still happen on `update_entities`:
+        // advance the simulation directly, then publish with a zero delta.
+        world.sim_time = 2.0;
+        assert!(
+            (framed_opacity(&world, "ghost") - 0.5).abs() < 1e-6,
+            "the frame is stale until the next publish"
+        );
+        let walls = level.collision_aabbs();
+        let index = CollisionIndex::build(&walls);
+        let floor = WalkableFloor::from_level(&level);
+        let route_world = RouteWorld {
+            walls: &walls,
+            floor: &floor,
+            index: &index,
+        };
+        world.update_entities(0.0, &route_world);
+        assert!(
+            (framed_opacity(&world, "ghost") - 1.0).abs() < 1e-6,
+            "an empty-route publish still rebuilt the fading entity's frame"
+        );
+    }
+
     #[test]
     fn a_water_volume_reports_its_authored_index_and_disables_sampling() {
         let level = base_level(
@@ -4853,6 +5118,164 @@ mod tests {
         assert!(
             depth > width,
             "the turned box is long in z: {width} x {depth}"
+        );
+    }
+
+    /// The live transform one framed instance carries.
+    fn framed_transform(world: &EntityWorld, instance_id: &str) -> (Vec3, f32) {
+        world
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == instance_id)
+            .expect("the instance has a frame")
+            .transform
+            .expect("the frame carries a live transform")
+    }
+
+    /// One tick with a baked navigation mesh, so AI agents can path and move
+    /// (the ordinary [`tick_at`] harness passes `nav: None`).
+    #[allow(clippy::arithmetic_side_effects)] // test fixture: fixed finite values
+    fn tick_with_nav(
+        world: &mut EntityWorld,
+        level: &LevelDef,
+        mesh: &NavMesh,
+        feet: Vec3,
+        delta: f32,
+    ) -> WorldTick {
+        let walls = level.collision_aabbs();
+        let index = CollisionIndex::build(&walls);
+        let floor = WalkableFloor::from_level(level);
+        let ctx = WorldContext {
+            delta_seconds: delta,
+            feet_from: feet,
+            feet,
+            eye: feet + Vec3::Y,
+            body_height: 1.8,
+            walls: &walls,
+            index: &index,
+            floor: &floor,
+            nav: Some(mesh),
+        };
+        world.tick(&ctx)
+    }
+
+    /// The AI layer stores yaw in degrees, but the entity-frame handoff is
+    /// radians, 0 facing world +Z: an agent walking east emits about +PI/2
+    /// (a raw 90.0 would rotate the model to ~2.04 rad), the heading stays
+    /// matched to the travel direction, and a turn follows the shortest arc.
+    #[test]
+    fn an_ai_agents_frame_yaw_is_radians_and_turns_the_short_way() {
+        use std::f32::consts::{FRAC_PI_2, PI};
+
+        let level = base_level(
+            r#""props": [
+                { "id": "hunter", "model": "core:crate", "x": 2.0, "z": 2.0,
+                  "rotation_degrees": 90.0,
+                  "components": [
+                      { "component": "nav_agent", "radius": 0.3, "speed_mps": 2.0 },
+                      { "component": "ai", "behavior": "predator", "role": "hunter",
+                        "reacts_to": ["prey_rat"], "sight_range": 0.0,
+                        "hearing_range": 12.0, "walk_speed": 2.0,
+                        "idle_seconds": 0.1 } ] }
+            ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+
+        // Before any movement the frame already carries the authored yaw in
+        // radians: the crate faces +X, so the frame reads +PI/2, not 90.0.
+        let (spawn, spawn_yaw) = framed_transform(&world, "hunter");
+        assert!(
+            (spawn - Vec3::new(2.0, 0.0, 2.0)).length() < 1e-4,
+            "the agent stands at its authored placement: {spawn:?}"
+        );
+        assert!(
+            (spawn_yaw - FRAC_PI_2).abs() < 1e-5,
+            "the spawn yaw is radians, 0 facing +Z: got {spawn_yaw}"
+        );
+
+        // Bake the room so the agent can walk, then call it east with a heard
+        // stimulus: travelling world +X must emit a yaw of about +PI/2.
+        let mut warnings = Vec::new();
+        let (bytes, _report) = crate::compiler::bake_navigation(&level, 1, &mut warnings)
+            .expect("the test room bakes navigation");
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let grid =
+            crate::package::navigation::read_navigation(&bytes).expect("the nav record decodes");
+        let mesh = NavMesh::from_record(grid).expect("the nav mesh validates");
+        let feet = Vec3::new(1.0, 0.0, 1.0);
+        let turn_per_tick = ENTITY_TURN_RATE_DEGREES_PER_SECOND
+            .to_radians()
+            .mul_add(1.0 / 60.0, 1e-3);
+
+        world.note_stimulus(Vec3::new(5.0, 0.0, 2.0), 30.0, "noise", None);
+        let start = framed_transform(&world, "hunter").0;
+        for _ in 0..60 {
+            tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
+            let (_, yaw) = framed_transform(&world, "hunter");
+            assert!(yaw.is_finite(), "the frame yaw stays finite");
+            assert!(
+                yaw.abs() <= PI + 1e-3,
+                "the frame yaw is a wrapped radians value: got {yaw}"
+            );
+        }
+        let (east, east_yaw) = framed_transform(&world, "hunter");
+        let travel = east - start;
+        assert!(
+            travel.x > 1.5 && travel.z.abs() < 0.3,
+            "the agent walked east along its row: {travel:?}"
+        );
+        // The emitted yaw is the travel heading in radians: a degrees value
+        // would land near +2.04 rad when aliased onto the rotation circle.
+        let heading = travel.x.atan2(travel.z);
+        assert!(
+            angle_difference(east_yaw, heading).abs() < 0.05,
+            "the frame yaw {east_yaw} matches the travel heading {heading}"
+        );
+        assert!(
+            angle_difference(east_yaw, FRAC_PI_2).abs() < 0.2,
+            "travelling +X emits a yaw of about +PI/2 radians: got {east_yaw}"
+        );
+
+        // A second stimulus due north (+Z) retargets the agent: +Z is yaw 0,
+        // so the turn runs through the shortest arc, every step stays inside
+        // the turn rate and the wrapped radians range, and the agent then
+        // walks north facing yaw ~ 0.
+        world.note_stimulus(Vec3::new(5.0, 0.0, 8.0), 30.0, "noise", None);
+        let turn_start = framed_transform(&world, "hunter").1;
+        let mut previous_yaw = turn_start;
+        let mut north_yaw = None;
+        let mut max_north = east.z;
+        for _ in 0..240 {
+            tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
+            let (position, yaw) = framed_transform(&world, "hunter");
+            assert!(
+                yaw.is_finite() && yaw.abs() <= PI + 1e-3,
+                "the frame yaw stays a finite, wrapped radian value: got {yaw}"
+            );
+            assert!(
+                position.is_finite(),
+                "the agent keeps a finite position: {position:?}"
+            );
+            let step = angle_difference(previous_yaw, yaw);
+            assert!(
+                step.abs() <= turn_per_tick,
+                "a yaw step of {step} rad exceeds the shortest-arc turn rate"
+            );
+            previous_yaw = yaw;
+            max_north = max_north.max(position.z);
+            if north_yaw.is_none() && position.z - east.z > 2.0 {
+                north_yaw = Some(yaw);
+            }
+        }
+        let north_yaw = north_yaw.expect("the agent walked north after the turn");
+        assert!(
+            max_north - east.z > 3.0,
+            "the agent covered its northward leg: {max_north} from {}",
+            east.z
+        );
+        assert!(
+            north_yaw.abs() < 0.3,
+            "facing world +Z is yaw ~ 0 radians: got {north_yaw}"
         );
     }
 }
