@@ -774,3 +774,30 @@ fn every_solved_value_is_finite_and_non_negative() {
         "atlas_health water_transmission {water} page texels, lighting_repair_cases {repair} page texels, all finite and non-negative"
     );
 }
+
+/// Explicit offline evidence run; excluded from the fast regression suite.
+#[test]
+#[ignore = "stage audit of maintained packages; run with PLACES_VERBOSE=1"]
+fn maintained_transport_stage_audit() {
+    for source in [
+        "assets/levels/places_demo.json",
+        "tests/fixtures/levels/lighting_repair_cases.json",
+        "tests/fixtures/levels/home_showcase.json",
+    ] {
+        println!("AUDIT_SOURCE {source}");
+        let level =
+            LevelDef::from_json(&std::fs::read_to_string(source).expect("source")).expect("level");
+        let materials = logical_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let mut assets = crate::props::PropAssets::default();
+        let build = build_level_geometry_timed_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            LightmapBuildOptions::for_lightmaps(crate::quality::LightmapQuality::Full),
+            None,
+        );
+        assert_eq!(build.lightmap_failure, None);
+    }
+}

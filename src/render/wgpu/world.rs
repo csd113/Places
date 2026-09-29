@@ -65,6 +65,7 @@ use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
+use wgpu::util::DeviceExt;
 
 use super::material::WorldMaterials;
 use super::surface::DEPTH_FORMAT;
@@ -1059,6 +1060,26 @@ fn entry_slot(entries: &[Arc<GpuTexture>], texture: &Arc<GpuTexture>) -> Option<
     entries.iter().position(|entry| Arc::ptr_eq(entry, texture))
 }
 
+/// Uploads 16-bit indices with wgpu's required four-byte copy padding. An odd
+/// triangle count has an odd index count; padding storage must not add indices
+/// to the draw. Mapped initialization avoids an unaligned queue write.
+pub(super) fn upload_index_buffer(
+    device: &wgpu::Device,
+    indices: &[u16],
+    label: &str,
+) -> wgpu::Buffer {
+    let contents = if indices.is_empty() {
+        &[0_u16; 2]
+    } else {
+        indices
+    };
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(label),
+        contents: bytemuck::cast_slice(contents),
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+    })
+}
+
 /// Uploads one packed chunk as a vertex/index buffer pair.
 fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -> WorldChunk {
     let vertices: Vec<WorldVertex> = chunk.vertices.iter().map(WorldVertex::from).collect();
@@ -1074,19 +1095,7 @@ fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -
         queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
     }
 
-    let index_bytes = chunk
-        .indices
-        .len()
-        .saturating_mul(std::mem::size_of::<u16>());
-    let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("places-wgpu-world-indices"),
-        size: (index_bytes as u64).max(4),
-        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    if !chunk.indices.is_empty() {
-        queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&chunk.indices));
-    }
+    let index_buffer = upload_index_buffer(device, &chunk.indices, "places-wgpu-world-indices");
 
     WorldChunk {
         vertex_buffer,
@@ -2102,6 +2111,33 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    #[ignore = "requires a GPU adapter"]
+    fn odd_triangle_indices_upload_without_changing_draw_counts() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            compatible_surface: None,
+            ..Default::default()
+        }))
+        .expect("GPU adapter");
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("odd-index-upload-regression"),
+            ..Default::default()
+        }))
+        .expect("GPU device");
+        // Independent expected storage sizes: a triangle is six bytes and
+        // needs eight for transfer; test_room's 363 indices need 728, not 726.
+        for (count, expected_bytes) in [(0, 4), (3, 8), (6, 12), (363, 728)] {
+            let chunk = MeshChunk {
+                vertices: Vec::new(),
+                indices: vec![0; count],
+            };
+            let uploaded = upload_chunk(&device, &queue, &chunk);
+            assert_eq!(uploaded.index_buffer.size(), expected_bytes);
+            assert_eq!(usize::try_from(uploaded.index_count).unwrap(), count);
+        }
+    }
     use crate::materials::{AlphaMode, MaterialAlpha};
     use crate::render::common::mesh::{
         LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE, MaterialIndex, SurfaceKey,

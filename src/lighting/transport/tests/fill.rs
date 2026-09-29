@@ -173,3 +173,123 @@ fn authored_support_is_continuous_and_excludes_switchable_lights() {
             .all(|texel| texel.irradiance == [0.0; 3])
     );
 }
+
+#[test]
+fn a_second_bounce_cannot_repeat_a_single_reflection_path() {
+    // Only the floor reflects; the ceiling is black. There are no walls.
+    // The floor cannot see itself, so K²D is exactly zero.
+    let mut triangles = floor(0.0, 0.0, 4.0, 4.0, [0.8; 3]);
+    triangles.extend(wall(
+        [4.0, 3.0, 4.0],
+        [0.0, 3.0, 4.0],
+        [0.0, 3.0, 0.0],
+        [4.0, 3.0, 0.0],
+        [0.0; 3],
+    ));
+    let scene = TransportScene::new(triangles, vec![point([2.0, 2.0, 2.0], 1.0)]).expect("scene");
+    let charts = vec![
+        ceiling_patch(0.0, 0.0, 4.0, 4.0, 16, 16),
+        floor_patch(0.0, 0.0, 4.0, 4.0, 16, 16),
+    ];
+    let once = scene
+        .solve(&charts, options(1, 3), None)
+        .expect("one bounce");
+    let twice = scene
+        .solve(&charts, options(2, 3), None)
+        .expect("two bounces");
+    let direct = scene.solve(&charts, options(0, 3), None).expect("direct");
+    assert!(first_light(&once, [0.0, -1.0, 0.0])[0] > first_light(&direct, [0.0, -1.0, 0.0])[0]);
+    for (a, b) in once.charts.iter().zip(&twice.charts) {
+        assert_eq!(
+            a.texels, b.texels,
+            "a black receiver cannot emit a second bounce"
+        );
+    }
+}
+
+#[test]
+fn diffuse_hemisphere_preserves_the_cosine_integral() {
+    // Equal solid-angle quadrature with mean cosine 1/2. For unit Lambertian
+    // radiance, integral(2*cos(theta) dOmega / 2pi) = 1, not 1.5.
+    let mut field = Accumulator::default();
+    let tangent = 0.75_f32.sqrt();
+    for direction in [
+        [tangent, 0.5, 0.0],
+        [-tangent, 0.5, 0.0],
+        [0.0, 0.5, tangent],
+        [0.0, 0.5, -tangent],
+    ] {
+        accumulate_surface_lobe(&mut field, [0.5; 3], direction, [0.0, 1.0, 0.0]);
+    }
+    let old = compress(&field).light_at([0.0, 1.0, 0.0]);
+    assert!(
+        (old[0] - 1.5).abs() < 1.0e-6,
+        "the uncalibrated moment overcounts by 50%: {old:?}"
+    );
+    let corrected = compress_surface(&field, [0.0, 1.0, 0.0]).light_at([0.0, 1.0, 0.0]);
+    for value in corrected {
+        assert!((value - 1.0).abs() < 1.0e-6);
+    }
+}
+
+#[test]
+fn opposing_tangential_emitters_cannot_light_a_floor() {
+    let scene = TransportScene::new(
+        Vec::new(),
+        vec![point([-2.0, 0.0, 0.0], 1.0), point([2.0, 0.0, 0.0], 1.0)],
+    )
+    .expect("scene");
+    let light = scene.intensity_at([0.0; 3], [0.0, 1.0, 0.0], options(0, 1));
+    assert_eq!(
+        light.light_at([0.0, 1.0, 0.0]),
+        [0.0; 3],
+        "both incident cosines are zero"
+    );
+}
+
+#[test]
+fn package_round_trip_preserves_independent_surface_energy() {
+    use crate::lighting::lightmap::{LevelLightmaps, LightmapPage, LightmapStats};
+    let mut field = Accumulator::default();
+    let tangent = 0.75_f32.sqrt();
+    for direction in [
+        [tangent, 0.5, 0.0],
+        [-tangent, 0.5, 0.0],
+        [0.0, 0.5, tangent],
+        [0.0, 0.5, -tangent],
+    ] {
+        accumulate_surface_lobe(&mut field, [1.0, 0.5, 0.25], direction, [0.0, 1.0, 0.0]);
+    }
+    let normal = [0.0, 1.0, 0.0];
+    // Four equal weights times cos(theta)=1/2, independent of compression.
+    let expected = [2.0, 1.0, 0.5];
+    assert!(!surface_energy_matches(compress(&field), normal, expected));
+    let encoded = compress_surface(&field, normal);
+    let atlas = LevelLightmaps {
+        pages: vec![LightmapPage {
+            width: 2,
+            height: 2,
+            texels: vec![encoded; 4],
+        }],
+        charts: Vec::new(),
+        stats: LightmapStats::default(),
+        cache_key: "cosine-integral".to_string(),
+        padding: 0,
+        switchable: Vec::new(),
+    };
+    let (meta, ktx) =
+        crate::package::lightmaps::write_lightmaps(&atlas).expect("write HDR package record");
+    let decoded =
+        crate::package::lightmaps::read_lightmaps(&meta, &ktx).expect("runtime package decoder");
+    let texel = decoded.pages[0].texels[0];
+    for (actual, target) in texel.light_at(normal).iter().zip(expected) {
+        assert!(
+            (*actual - target).abs() < 0.002,
+            "half-float runtime energy {actual} != {target}"
+        );
+    }
+    assert!(
+        texel.light_at(normal)[0] > 1.0,
+        "package must retain HDR, not clamp it"
+    );
+}

@@ -654,6 +654,13 @@ fn prepare_world(
         let reusable = reusable_records(&key, builds, identities);
         (key, reusable)
     };
+    crate::logging::info(format_args!(
+        "[loading] package identity level={} variant={} sha256={} source={}",
+        loaded.level.id,
+        request.lightmaps.name(),
+        key.package_sha256,
+        loaded.entry.path.display()
+    ));
     let cache_hit = reusable.is_some();
     let records = if let Some(records) = reusable {
         crate::logging::info(format_args!(

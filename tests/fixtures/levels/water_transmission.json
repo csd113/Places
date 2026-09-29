@@ -59,8 +59,8 @@
       "z": -0.1,
       "width": 0.4,
       "depth": 5.2,
-      "y": -1.2,
-      "height": 4.4,
+      "y": 0.0,
+      "height": 3.2,
       "material": "core:pool_tile_wall_01"
     }
   ],

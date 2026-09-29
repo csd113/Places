@@ -5122,6 +5122,44 @@ mod tests {
     }
 
     #[test]
+    fn water_basin_skirts_do_not_duplicate_the_divider_faces() {
+        let (mut level, report) = fixture(
+            include_str!("../tests/fixtures/levels/water_transmission.json"),
+            "water_transmission",
+        );
+        assert!(report.validated);
+        assert!(
+            !has(&report, "duplicate-surface", Severity::Error),
+            "basin skirts already close the divider below the deck: {:#?}",
+            report.findings
+        );
+
+        // Recreate the observed fault: a second face covers the entire skirt.
+        let divider = level.walls.get_mut(4).expect("the basin divider");
+        divider.y = -1.2;
+        divider.height = Some(4.4);
+        let overlapping = check_level(&level, "overlapping_water_divider", true);
+        assert!(has(&overlapping, "duplicate-surface", Severity::Error));
+    }
+
+    #[test]
+    fn rendering_diagnostic_panels_do_not_overlap_the_base_wall() {
+        let text = include_str!("../tests/fixtures/levels/rendering_diagnostic.json");
+        let (_, report) = fixture(text, "rendering_diagnostic");
+        assert!(report.validated);
+        assert_eq!(report.error_count(), 0, "{:#?}", report.findings);
+
+        // The original continuous wall also emitted trim behind both panels.
+        let mut level = LevelDef::from_json(text).expect("the fixture parses");
+        level.walls.drain(1..3);
+        level.walls.first_mut().expect("the north wall").width = 31.2;
+        let catalog = crate::assets::AssetCatalog::load_default();
+        crate::loader::prepare_level(&mut level, &catalog, None);
+        let overlapping = check_level(&level, "overlapping_rendering_panels", true);
+        assert!(has(&overlapping, "duplicate-surface", Severity::Error));
+    }
+
+    #[test]
     fn the_maintained_clean_levels_have_no_wall_joints() {
         for (name, text) in [
             (

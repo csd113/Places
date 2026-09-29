@@ -520,10 +520,12 @@ brighter values compress with a C1 exponential shoulder) before multiplying
 the surface. The directional term is the calibrated sharp cosine evaluated
 from the *interpolated* moment vector: exact for one shared direction
 (`2 * I * max(0, cos)`), zero for a receiver facing away, and collapsing
-smoothly to the isotropic mean where opposing lights cancel the moment. It
-integrates to `1/4` of the peak over the sphere, so the reconstructed field
-mean stays exactly `I`. The stored light is albedo-free: the fragment stage
-multiplies the base colour exactly once.
+smoothly to the isotropic mean where opposing lights cancel the moment. The
+compact response is an angular approximation. For static surfaces the
+compiler calibrates it to the independently accumulated cosine integral at the
+geometric normal; raw moments must never be used as bounced surface energy.
+The stored light is albedo-free: the fragment stage multiplies the base colour
+exactly once.
 
 **What is still runtime.** Sampling the prepared data (including the probe
 field and the switchable-light mask), the dynamic-object probe refresh, the
@@ -542,9 +544,12 @@ the level's `LightSource`s as point/rect/line emitters, and then:
    pattern, every tap shadow-tested; the visible tap fraction is the soft
    shadow. Ceiling fixtures keep the historical horizontal-reach falloff, so a
    tall chamber's floor stays lit; the receiver's normal supplies the incidence
-   in the reconstruction.
+   in an exact per-contribution cosine sum before compression.
 2. **Bounce**: uniform-hemisphere ray samples per texel read the previous pass's
-   solved surfaces through a side/surface-aware cache. Each cell retains a
+   solved **order** through a side/surface-aware cache. The cumulative result
+   is `D + KD + K²D`, never `D + KD + K(D + KD)`. Cache values retain the
+   exact surface irradiance, avoiding the 50% excess a uniform hemisphere
+   acquired when reconstructed from uncalibrated moments. Each cell retains a
    representative for every triangle occupying it, and answers only for the
    hit triangle, so neighboring charts cannot evict one another or transfer
    light through a wall. A shared deterministic angular sequence per pass

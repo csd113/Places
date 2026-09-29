@@ -668,9 +668,10 @@ The engine enforces several independent caps. Only some of them reject a level:
 read the "Enforced as" column carefully. The 2026 capacity pass raised every
 count cap after measuring the dense fixture
 (`tests/fixtures/levels/capacity_dense.json`, 5 000+ placements, 100+ fixtures,
-64 animated characters) and the sparse fixture
-(`tests/fixtures/levels/capacity_sparse.json`, four islands at ±2 km) on the
-release build; each value is a named constant in `src/level.rs`, not an inline
+64 animated characters) and the former sparse fixture (four islands at ±2 km)
+on the release build. The sparse source was later retired because the package
+compiler cannot represent its navigation grid; CPU coordinate regressions remain
+in `src/zoo_audit.rs`; each value is a named constant in `src/level.rs`, not an inline
 literal.
 
 | Limit | Value | Enforced as |
@@ -1148,6 +1149,10 @@ Rules that matter:
 * Regions generate real vertical transition faces (skirts). Always give recesses an
   `edge_material` — a missing one falls back to the wall default and can look like
   unfinished space.
+* Do not cover a basin skirt with a coincident divider face. When the skirt already
+  closes the divider below the surrounding deck, start the divider at deck height;
+  extending it to the basin bottom duplicates the visible face and can flicker.
+  `water_transmission.json` exercises this boundary and its geometry regression.
 * `offset_y: 0` is a legal region that only changes material (like a patch) and
   emits no skirt.
 
@@ -2659,15 +2664,31 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   fills, matching the vertex-lit model; only opaque materials (including solid
   glass) block a ray. The surface you see is unchanged: it stays a translucent
   quad outside the atlas, as section 10 describes.
-* **The authored room fill is restored.** After the physical solve, a floor,
-  wall or skirt chart whose solved mean is below its room's calibrated
-  baseline (minus the fixed `0.10` ambient floor) is lifted to that baseline
-  with one uniform value, so the calibrated fill the vertex-lit model always
-  had cannot go missing. One value per chart keeps the chart's own pool
-  structure, a chart that is already brighter than the baseline keeps all of
-  its physical light, and a room with no fixtures still has a zero target: in
-  the prepared variants, deliberate darkness is darker than in the vertex-lit
-  model, never brighter. Ceilings are left to the physical bounce.
+* **The authored room fill is continuous.** After transport, floors, walls,
+  skirts, ceilings and probes receive the receiver-local response
+  `L + T * max(1 - L/(4*T), 0)^2`, where `T` is the room-area baseline above
+  ambient, weighted by always-on fixture support and water attenuation.
+  Zero targets remain dark. Switchable layers receive no permanent fill.
+  No chart mean enters the response, so changing chart boundaries cannot
+  change illumination. This is calibrated artistic fill, not an extra bounce.
+* **Diffuse energy is integrated before encoding.** Each receiver sums
+  `weight * max(dot(direction, normal), 0)` before compressing directions.
+  The stored directional response is calibrated to that exact integral at
+  the geometric normal. Compression alone is not an irradiance integral:
+  opposing grazing sources must not manufacture illumination. Each bounce
+  transports only the previous order; two bounces mean `D + KD + K²D`.
+  Solver revision 7 invalidates all earlier atlas and package fingerprints.
+  An encoding mismatch aborts compilation with the room, surface and texel
+  diagnostic; it is not hidden by a vertex-lighting fallback.
+
+Use `PLACES_VERBOSE=1` with the compiler to log area-weighted direct, bounced,
+filtered and filled measurements by room and surface family. `shoulder_fraction`
+reports the area above 1.4 display-light units, where the existing soft shoulder
+retains less than 5% of the input lighting gradient. It is a diagnostic, not an
+artistic pass/fail threshold; fixture emission is a separate surface term.
+`tools/bench/capture_lighting_regions.py` inventories source/package copies and
+captures room grids, tall ceilings, raised floors and water regions with pinned
+quality presets, package hashes, logs and loading traces.
 
 ### The implemented vertex-lit lighting model
 
@@ -4999,17 +5020,16 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
 
 ### Capacity fixtures
 
-`tools/levels/build_capacity_fixtures.py` generates the two stress fixtures the
-raised limits are measured against:
+`tools/levels/build_capacity_fixtures.py` generates the maintained stress fixture
+the raised limits are measured against:
 
 | Fixture | What it binds |
 | --- | --- |
-| `capacity_sparse` | Four island rooms at ±2000 m, each with fixtures, props, a decal and (in one) a water volume, a floating duck, a rat route and a reset trigger. Proves geometry, lighting, collision, triggers, routes and floats work kilometres from the origin. |
 | `capacity_dense` | 5000+ placements covering every registered model, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. |
 
-Both are generated (with `--check`) and both must pass
-`places --check-geometry` with no errors; `src/zoo_audit.rs` pins their
-contracts in the test suite.
+The generated fixture supports `--check` and must pass `places --check-geometry`
+with no errors; `src/zoo_audit.rs` pins its contracts and retains an in-memory
+large-coordinate regression for the retired sparse source.
 
 ---
 

@@ -264,20 +264,11 @@ impl WgpuDynamic {
             ctx.queue
                 .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
         }
-        let index_bytes = mesh
-            .indices
-            .len()
-            .saturating_mul(std::mem::size_of::<u16>());
-        let index_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-dynamic-indices"),
-            size: (index_bytes as u64).max(4),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        if !mesh.indices.is_empty() {
-            ctx.queue
-                .write_buffer(&index_buffer, 0, bytemuck::cast_slice(&mesh.indices));
-        }
+        let index_buffer = super::world::upload_index_buffer(
+            ctx.device,
+            &mesh.indices,
+            "places-wgpu-dynamic-indices",
+        );
         DynamicMeshGpu {
             vertex_buffer,
             index_buffer,

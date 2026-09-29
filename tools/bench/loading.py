@@ -179,7 +179,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--levels", nargs="+", default=["menu", "places_demo", "model_zoo", "level0_pit", "capacity_sparse", "capacity_dense"])
+    parser.add_argument("--levels", nargs="+", default=["menu", "places_demo", "model_zoo", "level0_pit", "capacity_dense"])
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("--workers", type=int, choices=(1, 2, 3), help="runtime chart workers; defaults to the bounded hardware choice")

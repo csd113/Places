@@ -627,19 +627,8 @@ fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -
         queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
     }
 
-    let index_bytes = chunk
-        .indices
-        .len()
-        .saturating_mul(std::mem::size_of::<u16>());
-    let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("places-wgpu-decal-indices"),
-        size: (index_bytes as u64).max(4),
-        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    if !chunk.indices.is_empty() {
-        queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&chunk.indices));
-    }
+    let index_buffer =
+        super::world::upload_index_buffer(device, &chunk.indices, "places-wgpu-decal-indices");
 
     DecalChunk {
         vertex_buffer,

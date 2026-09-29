@@ -1,30 +1,11 @@
 #!/usr/bin/env python3
-"""Generates the capacity regression fixtures for Places.
+"""Generate the maintained dense capacity regression fixture for Places.
 
-The shipped game holds one playable level; the two levels built here are
-deliberately extreme development fixtures that pin the *capacity* contract
-rather than a design:
+The deterministic hall exercises instance, model, character and lighting budgets.
+The former sparse playable fixture was retired because its navigation grid cannot
+be compiled; far-coordinate CPU regressions remain in src/zoo_audit.rs.
 
-* ``capacity_sparse.json`` — the same tiny settlement (four enclosed rooms, a
-  prop cluster, fixtures, a trigger, a route and a floating prop) repeated in
-  each quadrant of a 4 km square, so geometry, collision, lighting, triggers and
-  entity routes all run kilometres from the world origin. It is the regression
-  for the raised world extent and for the collision index's large-coordinate
-  behaviour.
-* ``capacity_dense.json`` — one large hall holding every registered placeable
-  model many times over (thousands of instances), hundreds of fixtures, a cast
-  of animated entities with independent routes, decals, curved architecture and
-  a pool basin. It is the regression for the raised instance, prop-model,
-  prop-vertex, character and lightmap-page budgets, and the frame-time evidence
-  for the collision index.
-
-Both are deterministic: a fixed seed drives every pseudo-random choice, ids are
-stable per placement, and re-running the generator produces byte-identical
-files. ``--check`` re-derives both documents and compares them against the
-committed fixtures without writing.
-
-Run from the Places repository root:
-
+Run from the repository root:
     python3 tools/levels/build_capacity_fixtures.py
     python3 tools/levels/build_capacity_fixtures.py --check
 """
@@ -110,267 +91,6 @@ def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
     if animation is not None:
         components.append(animation)
     return components, [{"on": "interact", "actions": interaction["actions"]}]
-
-
-# --------------------------------------------------------------------------
-# Sparse fixture
-# --------------------------------------------------------------------------
-
-SPARSE_QUADRANTS = [
-    (2_000.0, 2_000.0),
-    (-2_000.0, 2_000.0),
-    (-2_000.0, -2_000.0),
-    (2_000.0, -2_000.0),
-]
-
-SPARSE_ROOM = {"width": 26.0, "depth": 20.0, "height": 4.0}
-
-SPARSE_FLOOR = "core:pool_tile_deck_01"
-SPARSE_WALL = "core:pool_tile_wall_01"
-SPARSE_CEILING = "core:pool_ceiling_01"
-
-
-def sparse_room_shell(cx: float, cz: float) -> Tuple[List[Dict], Dict]:
-    """One enclosed room centred on ``(cx, cz)`` with one doorway."""
-    width = SPARSE_ROOM["width"]
-    depth = SPARSE_ROOM["depth"]
-    height = SPARSE_ROOM["height"]
-    x = cx - width / 2.0
-    z = cz - depth / 2.0
-    room = {"x": x, "z": z, "width": width, "depth": depth, "height": height}
-    thickness = 0.4
-    # Walls are placed by minimum corner, exactly as the authoring guide
-    # describes. The south wall carries the doorway; the other three are solid.
-    walls = [
-        {
-            "x": x - thickness,
-            "z": z - thickness,
-            "width": width + 2 * thickness,
-            "depth": thickness,
-            "openings": [
-                {
-                    "kind": "door",
-                    "offset": width / 2.0 - 0.8,
-                    "width": 1.6,
-                    "height": 2.2,
-                    "sill": 0.0,
-                }
-            ],
-        },
-        {
-            "x": x - thickness,
-            "z": z + depth,
-            "width": width + 2 * thickness,
-            "depth": thickness,
-        },
-        {"x": x - thickness, "z": z, "width": thickness, "depth": depth},
-        {"x": x + width, "z": z, "width": thickness, "depth": depth},
-    ]
-    return walls, room
-
-
-def build_sparse(rng: Rng) -> Dict:
-    rooms: List[Dict] = []
-    walls: List[Dict] = []
-    props: List[Dict] = []
-    lights: List[Dict] = []
-    volumes: List[Dict] = []
-    routes: List[Dict] = []
-    decals: List[Dict] = []
-    water: List[Dict] = []
-
-    for index, (cx, cz) in enumerate(SPARSE_QUADRANTS):
-        shell, room = sparse_room_shell(cx, cz)
-        room["material"] = SPARSE_FLOOR
-        room["ceiling_material"] = SPARSE_CEILING
-        for wall in shell:
-            wall["material"] = SPARSE_WALL
-        walls.extend(shell)
-        rooms.append(room)
-
-        # Fixtures on a 4 m grid, plus one wall luminaire.
-        for row in range(3):
-            for column in range(3):
-                lights.append(
-                    {
-                        "id": f"far_light_{index}_{row}_{column}",
-                        "fixture": "core:pool_light_round",
-                        "x": cx - 8.0 + column * 8.0,
-                        "z": cz - 6.0 + row * 6.0,
-                        "brightness": 0.55,
-                    }
-                )
-        lights.append(
-            {
-                "id": f"far_wall_light_{index}",
-                "fixture": "core:pool_light_wall",
-                "x": cx - 12.6,
-                "z": cz,
-                "y": 2.2,
-                "rotation_degrees": 90.0,
-                "brightness": 0.5,
-            }
-        )
-
-        # A small prop cluster and one label interaction per quadrant.
-        components, bindings = interaction_v3(
-            {"prompt": "Toggle name", "actions": [{"action": "toggle_label"}]}
-        )
-        props.append(
-            {
-                "id": f"far_table_{index}",
-                "display_name": f"Quadrant {index} Table",
-                "model": "core:pool_table",
-                "x": cx - 7.0,
-                "z": cz + 4.0,
-                "size": [0.8, 0.74, 0.8],
-                "solid": True,
-                "components": components,
-                "bindings": bindings,
-            }
-        )
-        props.append(
-            {
-                "id": f"far_chair_{index}",
-                "model": "core:pool_chair",
-                "x": cx - 5.4,
-                "z": cz + 4.0,
-                "rotation_degrees": 270.0,
-                "size": [0.52, 0.85, 0.55],
-                "solid": True,
-            }
-        )
-        props.append(
-            {
-                "id": f"far_sign_{index}",
-                "model": "core:stop_sign",
-                "x": cx - 11.5,
-                "z": cz - 8.0,
-                "size": [0.45, 1.8, 0.06],
-                "solid": True,
-            }
-        )
-
-        decals.append(
-            {
-                "x": cx,
-                "z": cz,
-                "width": 1.2,
-                "height": 1.2,
-                "material": "core:decal_arrow_01",
-                "surface": "floor",
-            }
-        )
-
-        if index == 0:
-            # A shallow water dish: the floating duck must sit in it and reach
-            # the dynamic path at 2 km from the origin, not just in the demo.
-            water.append(
-                {
-                    "x": cx + 2.0,
-                    "z": cz - 2.0,
-                    "width": 6.0,
-                    "depth": 4.0,
-                    "surface_y": 0.35,
-                    "bottom_y": 0.0,
-                    "swimming": False,
-                }
-            )
-            props.append(
-                {
-                    "id": "far_duck",
-                    "model": "core:rubber_duck",
-                    "x": cx + 5.0,
-                    "z": cz,
-                    "size": [0.1, 0.12, 0.14],
-                    "solid": False,
-                    "float": {
-                        "draft": 0.03,
-                        "bob": 0.012,
-                        "bob_seconds": 2.8,
-                        "heel_degrees": 6.0,
-                        "heel_seconds": 3.6,
-                        "phase": 0.25,
-                    },
-                }
-            )
-            # A rat route in the far quadrant, and a reset trigger in the
-            # opposite one: both systems must run at 2 km.
-            props.append(
-                {
-                    "id": "far_rat",
-                    "model": "rat",
-                    "x": cx - 10.0,
-                    "z": cz + 6.0,
-                    "rotation_degrees": 0.0,
-                    "size": [0.2, 0.2, 0.7],
-                }
-            )
-            routes.append(
-                {
-                    "id": "far_rat",
-                    "loop": True,
-                    "steps": [
-                        {"step": "move_to", "x": cx - 2.0, "z": cz + 6.0, "speed": 0.1985},
-                        {"step": "wait", "seconds": 0.5},
-                        {"step": "move_to", "x": cx - 10.0, "z": cz + 6.0, "speed": 0.5731},
-                        {"step": "wait", "seconds": 0.5},
-                    ],
-                }
-            )
-        if index == 2:
-            volumes.append(
-                {
-                    "id": "far_trigger",
-                    "x": cx - 2.0,
-                    "z": cz - 2.0,
-                    "width": 4.0,
-                    "depth": 4.0,
-                    "bindings": [
-                        {
-                            "on": "enter_volume",
-                            "actions": [{"action": "reset_to_start"}],
-                            "cooldown_seconds": 0.5,
-                        }
-                    ],
-                }
-            )
-
-    return {
-        "format_version": 3,
-        "id": "capacity_sparse",
-        "name": "Capacity: Sparse World (dev)",
-        "author": "Places Team",
-        "spawn": {"x": SPARSE_QUADRANTS[0][0], "z": SPARSE_QUADRANTS[0][1] - 6.0, "yaw_degrees": 180.0},
-        "defaults": {
-            "wall": SPARSE_WALL,
-            "floor": SPARSE_FLOOR,
-            "ceiling": SPARSE_CEILING,
-        },
-        "rooms": rooms,
-        "walls": walls,
-        "ceiling_lights": lights,
-        "props": props,
-        "decals": decals,
-        "water": water,
-        "volumes": volumes,
-        "routes": routes,
-        # Each island's doorway deliberately opens onto the void: this fixture
-        # exists to prove that geometry, lighting, a trigger, a route and a
-        # float all run 2 km from the origin, not to be a walkable settlement.
-        # The annotation is one narrow rectangle per doorway.
-        "geometry_intent": [
-            {
-                "check": "room-leak",
-                "x": cx - 1.0,
-                "z": cz - SPARSE_ROOM["depth"] / 2.0 - 2.6,
-                "width": 2.0,
-                "depth": 2.2,
-                "note": "The island's only doorway opens onto the void by design.",
-            }
-            for cx, cz in SPARSE_QUADRANTS
-        ],
-    }
 
 
 # --------------------------------------------------------------------------
@@ -692,13 +412,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="derive both fixtures and compare them to the committed files",
+        help="derive the dense fixture and compare it to the committed file",
     )
     args = parser.parse_args(argv)
 
     placeables = load_placeables()
     levels = [
-        build_sparse(Rng(0x50_41_52_53)),
         build_dense(Rng(0x44_45_4E_53), placeables),
     ]
     os.makedirs(FIXTURES_DIR, exist_ok=True)

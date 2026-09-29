@@ -4363,7 +4363,29 @@ fn shipped_demo() -> crate::level::LevelDef {
 
 #[test]
 fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
-    for level in [shipped_demo(), fixture_level("rendering_diagnostic")] {
+    let mut rendering_fixture = fixture_level("rendering_diagnostic");
+    let mesh = build_level_geometry(&rendering_fixture);
+    let stained = material_vertices(&mesh, &rendering_fixture, "core:wallpaper_stained_01");
+    for (start, end) in [(1.5, 4.5), (13.0, 15.0)] {
+        let panel: Vec<_> = stained
+            .iter()
+            .copied()
+            .filter(|vertex| {
+                vertex.pos[0] >= start && vertex.pos[0] <= end && vertex.pos[2].abs() < 1e-6
+            })
+            .collect();
+        assert!(!panel.is_empty(), "the stained panel must remain visible");
+        assert_eq!(xz_bounds(&panel), (start, end, 0.0, 0.0));
+        assert_eq!(y_bounds(&panel), (0.0, 3.0));
+    }
+
+    // The maintained fixture now uses disjoint wall segments to avoid duplicate
+    // generated trim. Retain its original overlapping input as a coalescing
+    // regression, alongside the shipped demo, without requiring that overlap
+    // in the playable source.
+    rendering_fixture.walls.drain(1..3);
+    rendering_fixture.walls[0].width = 31.2;
+    for level in [shipped_demo(), rendering_fixture] {
         let name = level.id.as_str();
         let materials = logical_materials(&level);
         let lookup = MaterialLookup::new(&materials);

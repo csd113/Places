@@ -739,6 +739,14 @@ fn prepare_build_for_capture(
                 build.lightmaps = Some(std::sync::Arc::new(product.lightmaps));
                 build.lightmap_failure = None;
             }
+            crate::render::LightmapFillOutcome::Failed(
+                crate::lighting::lightmap::LightmapFailure::TransportEnergy,
+            ) => {
+                return Err(format!(
+                    "{} transport energy mismatch: the directional atlas did not preserve integrated surface irradiance; inspect the room/texel diagnostic and repair the solver before rebuilding",
+                    quality.name()
+                ));
+            }
             crate::render::LightmapFillOutcome::Failed(failure) => {
                 build.mesh = rebuild_vertex_lit_level(
                     level,
@@ -842,12 +850,7 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
     reader: &mut crate::package::PackageReader<R>,
     entry: &PackageEntry,
 ) -> Result<Vec<u8>, String> {
-    let limit = if entry.name == "semantics.json" {
-        crate::package::MAX_SEMANTICS_BYTES
-    } else {
-        crate::package::MAX_ENTRY_BYTES
-    };
-    let bytes = reader.read_entry(&entry.name, limit)?;
+    let bytes = reader.read_entry(&entry.name, declared_entry_limit(entry))?;
     let actual = sha256_hex(&bytes);
     if actual != entry.sha256 {
         return Err(format!(
@@ -866,6 +869,18 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
         }
     }
     Ok(bytes)
+}
+
+/// Use the runtime record's existing allocation contract, including for
+/// integrity-only reads. The archive-wide total cap remains authoritative.
+fn declared_entry_limit(entry: &PackageEntry) -> u64 {
+    if entry.name == "semantics.json" {
+        crate::package::MAX_SEMANTICS_BYTES
+    } else if matches!(entry.role.as_str(), "mesh" | "props") {
+        crate::package::MAX_BINARY_BYTES
+    } else {
+        crate::package::MAX_ENTRY_BYTES
+    }
 }
 
 fn validate_variant<R: std::io::Read + std::io::Seek>(
@@ -1568,12 +1583,7 @@ fn reuse_prepared_lighting(
         if entry.name == "semantics.json" {
             continue;
         }
-        let bytes = reader
-            .read_entry(&entry.name, crate::package::MAX_ENTRY_BYTES)
-            .ok()?;
-        if crate::package::hash::sha256_hex(&bytes) != entry.sha256 {
-            return None;
-        }
+        let bytes = read_declared_entry(&mut reader, entry).ok()?;
         blobs.insert(entry.name.clone(), (bytes, entry.role.clone()));
     }
     // Every variant must still name the mandatory records and every named
@@ -1695,16 +1705,7 @@ fn reuse_current(out: &Path, fingerprint: &str) -> Option<String> {
 fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), String> {
     let mut reader = open_package(path)?;
     for entry in &manifest.entries {
-        let data = reader.read_entry(&entry.name, crate::package::MAX_ENTRY_BYTES)?;
-        let actual = sha256_hex(&data);
-        if actual != entry.sha256 {
-            return Err(format!("entry '{}' no longer matches its hash", entry.name));
-        }
-        if let Some(expected) = crate::package::hash::sha256_from_blob_name(&entry.name)
-            && expected != actual
-        {
-            return Err(format!("blob '{}' no longer matches its name", entry.name));
-        }
+        read_declared_entry(&mut reader, entry)?;
     }
     Ok(())
 }
@@ -1733,6 +1734,28 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    fn maintained_dense_props_fit_the_runtime_record_budget() {
+        // Measured serialized prop record from capacity_dense, independently
+        // of the generic archive-entry limit (which is only 256 MiB).
+        let mut entry = PackageEntry {
+            name: "blobs/dense.props".to_string(),
+            role: "props".to_string(),
+            bytes: 308_295_329,
+            sha256: String::new(),
+        };
+        assert!(entry.bytes <= declared_entry_limit(&entry));
+        assert_eq!(
+            declared_entry_limit(&entry),
+            crate::package::MAX_BINARY_BYTES
+        );
+        entry.bytes = 536_870_913; // One byte beyond the runtime's 512 MiB cap.
+        assert!(entry.bytes > declared_entry_limit(&entry));
+        entry.bytes = 308_295_329;
+        entry.role = "texture".to_string();
+        assert!(entry.bytes > declared_entry_limit(&entry));
+    }
 
     /// Deterministic per-texel pattern, distinct per face.
     fn patterned_faces(edge: u32) -> [Vec<u8>; 6] {

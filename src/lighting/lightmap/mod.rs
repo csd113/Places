@@ -50,7 +50,9 @@ pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats, Switch
 /// The two stored linear HDR terms of one lightmap texel.
 ///
 /// `irradiance` is the isotropic mean term (`0.5 * sum_c w_c`) in the linear
-/// HDR "display light" units the offline transport solver produces.
+/// HDR "display light" units the offline transport solver produces. Static
+/// surface terms are calibrated to preserve the exact cosine integral at the
+/// geometric normal; the raw angular moments alone are not that integral.
 /// `direction` is the **vector sum of the per-channel first moments**,
 /// `g = sum_c m_c` with `m_c = 0.5 * sum_contributions w_c * omega`, where
 /// `omega` is the unit world-space direction from the receiver toward the
@@ -218,6 +220,8 @@ pub enum LightmapFailure {
     FillSize,
     /// The fill pass returned a non-finite colour.
     FillNonFinite,
+    /// Directional encoding changed the integrated irradiance at the surface.
+    TransportEnergy,
     /// The configured page/budget combination cannot describe an atlas.
     InvalidConfig,
     /// The static scene exceeded the transport solver's triangle budget.
@@ -236,6 +240,7 @@ impl LightmapFailure {
             Self::Layout => "atlas layout",
             Self::FillSize => "fill size",
             Self::FillNonFinite => "non-finite fill",
+            Self::TransportEnergy => "transport energy mismatch",
             Self::InvalidConfig => "invalid config",
             Self::TransportScene => "transport scene",
             Self::Upload => "page upload",

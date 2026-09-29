@@ -226,7 +226,10 @@ pub fn solver_fingerprint() -> u64 {
 ///   chart/room mean corrections.
 /// * `6` — bounce-cache cells retain each triangle's representative and bounce
 ///   ray sequences are independent of chart ordering.
-pub const SOLVER_REVISION: u64 = 6;
+/// * `7` — each diffuse order transports only the previous order, preventing
+///   repeated first-bounce energy in Full quality; surface irradiance retains
+///   the exact cosine integral instead of reusing compressed angular moments.
+pub const SOLVER_REVISION: u64 = 7;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1621,15 +1624,20 @@ impl TransportScene {
     ) -> Result<Vec<SolvedChart>, LightmapFailure> {
         let receivers = self.receivers(charts)?;
         let count = receivers.len();
-        let mut accumulators: Vec<Accumulator> = vec![Accumulator::default(); count];
-        let direct = self.direct_pass(&receivers, emitters, taps, workers, cancel)?;
-        for (slot, value) in accumulators.iter_mut().zip(direct) {
-            *slot = value;
-        }
+        let mut accumulators = self.direct_pass(&receivers, emitters, taps, workers, cancel)?;
         *direct_rays = direct_rays.saturating_add(
             count
                 .saturating_mul(emitters.len())
                 .saturating_mul(usize::from(taps.max(1))),
+        );
+        audit_stage(
+            "direct",
+            charts,
+            &receivers,
+            accumulators
+                .iter()
+                .zip(&receivers)
+                .map(|(value, receiver)| compress_surface(value, receiver.normal)),
         );
         if bounces > 0 && !emitters.is_empty() {
             let mut bounce_count = 0usize;
@@ -1638,6 +1646,7 @@ impl TransportScene {
             // against change. Build it once for every bounce pass.
             let cache = RadianceCache::build(&receivers);
             *cache_cells = cache.occupied_cells();
+            let mut previous_order = accumulators.clone();
             for pass_index in 0..bounces {
                 // Each pass traces uniform-hemisphere rays against the previous
                 // pass's solved light, so one pass is one diffuse bounce and
@@ -1647,7 +1656,7 @@ impl TransportScene {
                 // energy a truncated point-light list lost.
                 let gained = self.bounce_pass(
                     &receivers,
-                    &accumulators,
+                    &previous_order,
                     &cache,
                     bounce_samples,
                     pass_index,
@@ -1656,28 +1665,20 @@ impl TransportScene {
                 )?;
                 bounce_count = bounce_count
                     .saturating_add(count.saturating_mul(bounce_samples.clamp(1, MAX_BOUNCE_RAYS)));
-                for (slot, gained) in accumulators.iter_mut().zip(gained) {
-                    for channel in 0..3 {
-                        if let (Some(slot), Some(value)) = (
-                            slot.irradiance.get_mut(channel),
-                            gained.irradiance.get(channel),
-                        ) {
-                            *slot += value;
-                        }
-                        if let (Some(slot), Some(source)) =
-                            (slot.moment.get_mut(channel), gained.moment.get(channel))
-                        {
-                            for axis in 0..3 {
-                                if let (Some(component), Some(value)) =
-                                    (slot.get_mut(axis), source.get(axis))
-                                {
-                                    *component += value;
-                                }
-                            }
-                        }
-                    }
+                for (slot, value) in accumulators.iter_mut().zip(&gained) {
+                    add_scaled(slot, value, 1.0);
                 }
+                previous_order = gained;
             }
+            audit_stage(
+                "bounced",
+                charts,
+                &receivers,
+                accumulators
+                    .iter()
+                    .zip(&receivers)
+                    .map(|(value, receiver)| compress_surface(value, receiver.normal)),
+            );
             *bounce_rays = bounce_rays.saturating_add(bounce_count);
         }
         if let Some(probes) = probes {
@@ -1693,10 +1694,12 @@ impl TransportScene {
         // Controlled filtering: a chart-space luma-guided 3x3 pass on the
         // accumulated values removes the per-texel gather noise a point VPL
         // set leaves without blurring across a change in received light.
-        let mut filtered = filter_accumulators(charts, &accumulators);
+        let mut filtered = filter_accumulators(charts, &accumulators)?;
+        audit_stage("filtered", charts, &receivers, filtered.iter().copied());
         if apply_fill {
             self.apply_chart_fill(charts, &receivers, &mut filtered);
         }
+        audit_stage("filled", charts, &receivers, filtered.iter().copied());
         let mut out = Vec::with_capacity(charts.len());
         let mut offset = 0usize;
         for (_, chart) in charts {
@@ -1802,10 +1805,11 @@ impl TransportScene {
                 };
                 let (weight, direction) =
                     emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
-                accumulate_lobe(
+                accumulate_surface_lobe(
                     &mut accumulator,
                     attenuate(weight, receiver.attenuation),
                     direction,
+                    receiver.normal,
                 );
             }
             accumulator
@@ -1939,7 +1943,7 @@ impl TransportScene {
                 // The lookup is keyed by the triangle the ray actually hit,
                 // so a co-planar surface across a wall can never answer it.
                 let cached = cache.sample_surface(hit, triangle_index, receivers, current);
-                let radiance = compress(&cached).light_at(triangle.normal);
+                let radiance = cached.surface_light;
                 // The sampled incoming radiance, scaled by the sample's solid
                 // angle (uniform hemisphere sampling covers 2*pi over `count`
                 // samples) and multiplied by the hit surface's albedo. The
@@ -1953,10 +1957,11 @@ impl TransportScene {
                     triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
                     triangle.albedo[2] * radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
                 ];
-                accumulate_lobe(
+                accumulate_surface_lobe(
                     &mut accumulator,
                     attenuate(weight, receiver.attenuation),
                     direction,
+                    receiver.normal,
                 );
             }
             accumulator
@@ -1987,14 +1992,57 @@ impl TransportScene {
             }
             let (weight, direction) =
                 emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
-            accumulate_lobe(
+            accumulate_surface_lobe(
                 &mut accumulator,
                 attenuate(weight, receiver.attenuation),
                 direction,
+                receiver.normal,
             );
         }
-        let _ = normal;
-        compress(&accumulator)
+        compress_surface(&accumulator, normal)
+    }
+}
+
+/// Opt-in stage measurements before display compression, grouped by room and
+/// architectural family. Area weighting prevents tiny charts dominating a report.
+fn audit_stage(
+    stage: &str,
+    charts: &[(LightmapPatch, Chart)],
+    receivers: &[TransportReceiver],
+    values: impl Iterator<Item = LightmapTexel>,
+) {
+    if !crate::logging::verbose() {
+        return;
+    }
+    let mut regions = std::collections::BTreeMap::<String, (f32, f32, f32, f32)>::new();
+    let mut samples = receivers.iter().zip(values);
+    for (patch, chart) in charts {
+        let key = format!("room={:?} kind={:?}", patch.room, patch.kind);
+        let entry = regions.entry(key).or_default();
+        for _ in 0..chart.width.saturating_mul(chart.height) {
+            let Some((receiver, texel)) = samples.next() else {
+                break;
+            };
+            let light = texel.light_at(receiver.normal);
+            let luma = channel_luminance(light);
+            entry.0 += receiver.area;
+            entry.1 += receiver.area * luma;
+            entry.2 = entry.2.max(luma);
+            // At 1.4 the calibrated shoulder retains <5% of an input
+            // gradient. Report lost lighting contrast, not emissive pixels.
+            if luma > 1.4 {
+                entry.3 += receiver.area;
+            }
+        }
+    }
+    for (region, (area, sum, peak, shoulder)) in regions {
+        if area > 0.0 {
+            crate::logging::info(format_args!(
+                "[transport-audit] stage={stage} {region} mean={:.6} peak={peak:.6} shoulder_fraction={:.6}",
+                sum / area,
+                shoulder / area
+            ));
+        }
     }
 }
 
@@ -2010,6 +2058,8 @@ struct Accumulator {
     irradiance: [f32; 3],
     /// `moment[channel][axis]` = `sum 0.5 * w_channel * omega_axis`.
     moment: [[f32; 3]; 3],
+    /// Exact cosine integral at the receiver normal, before directional compression.
+    surface_light: [f32; 3],
 }
 
 /// Adds one contribution to the accumulated field with the 0.5 mean split the
@@ -2034,6 +2084,54 @@ fn accumulate_lobe(accumulator: &mut Accumulator, weight: [f32; 3], direction: [
             }
         }
     }
+}
+
+/// Retain the cosine integral before the moment representation loses the
+/// individual directions. Opposing grazing lights have zero irradiance at an
+/// upward receiver even though their stored means are positive.
+fn accumulate_surface_lobe(
+    accumulator: &mut Accumulator,
+    weight: [f32; 3],
+    direction: [f32; 3],
+    normal: [f32; 3],
+) {
+    accumulate_lobe(accumulator, weight, direction);
+    let cosine = dot(direction, normal).max(0.0);
+    for channel in 0..3 {
+        accumulator.surface_light[channel] += weight[channel] * cosine;
+    }
+}
+
+/// Preserve the exact cosine integral at the geometric normal while keeping
+/// the compact directional response for normal maps. Compression alone is not
+/// an energy integral: a uniform hemisphere reconstructed 50% too brightly.
+fn compress_surface(accumulator: &Accumulator, normal: [f32; 3]) -> LightmapTexel {
+    let mut texel = compress(accumulator);
+    let reconstructed: f32 = texel.light_at(normal).iter().sum();
+    let target: f32 = accumulator.surface_light.iter().sum();
+    if reconstructed <= 0.0 {
+        texel.irradiance = accumulator.surface_light;
+        texel.direction = [0.0; 3];
+        return texel;
+    }
+    let mean: f32 = texel.irradiance.iter().sum();
+    texel.irradiance = accumulator
+        .surface_light
+        .map(|value| value * mean / reconstructed);
+    texel.direction = scale(texel.direction, target / reconstructed);
+    texel
+}
+
+/// Floating-point encoding tolerance, independent of artistic brightness.
+fn surface_energy_matches(texel: LightmapTexel, normal: [f32; 3], expected: [f32; 3]) -> bool {
+    texel.is_finite()
+        && texel
+            .light_at(normal)
+            .iter()
+            .zip(expected)
+            .all(|(actual, target)| {
+                target.is_finite() && (*actual - target).abs() <= 1.0e-5 + 1.0e-4 * target.abs()
+            })
 }
 
 /// Multiplies one sampled weight by a receiver's per-channel attenuation.
@@ -2148,7 +2246,7 @@ fn bake_probe_field(
             };
             let hit = add(position, scale(direction, distance));
             let cached = cache.sample_surface(hit, triangle_index, receivers, values);
-            let radiance = compress(&cached).light_at(triangle.normal);
+            let radiance = cached.surface_light;
             let weight = [
                 triangle.albedo[0] * radiance[0] * 2.0 * inverse_rays,
                 triangle.albedo[1] * radiance[1] * 2.0 * inverse_rays,
@@ -2219,11 +2317,11 @@ fn uniform_sphere_sample(u1: f32, u2: f32) -> [f32; 3] {
 fn filter_accumulators(
     charts: &[(LightmapPatch, Chart)],
     values: &[Accumulator],
-) -> Vec<LightmapTexel> {
+) -> Result<Vec<LightmapTexel>, LightmapFailure> {
     let count = values.len();
     let mut out: Vec<LightmapTexel> = vec![LightmapTexel::ZERO; count];
     let mut offset = 0usize;
-    for (_, chart) in charts {
+    for (patch, chart) in charts {
         let width = usize::try_from(chart.width).unwrap_or(0);
         let height = usize::try_from(chart.height).unwrap_or(0);
         let texels = width.saturating_mul(height);
@@ -2240,8 +2338,7 @@ fn filter_accumulators(
                 };
                 let center_luma = channel_luminance(center.irradiance);
                 let mut total_weight = 1.0_f32;
-                let mut a = center.irradiance;
-                let mut b = center.moment;
+                let mut total = *center;
                 for (di, dj) in [(-1_i32, 0_i32), (1, 0), (0, -1), (0, 1)] {
                     let Some(ni) = i.checked_add_signed(di as isize) else {
                         continue;
@@ -2264,49 +2361,29 @@ fn filter_accumulators(
                         continue;
                     }
                     total_weight += weight;
-                    for channel in 0..3 {
-                        if let (Some(slot), Some(value)) =
-                            (a.get_mut(channel), source.irradiance.get(channel))
-                        {
-                            *slot += weight * value;
-                        }
-                        if let (Some(slot), Some(source_moment)) =
-                            (b.get_mut(channel), source.moment.get(channel))
-                        {
-                            for axis in 0..3 {
-                                if let (Some(component), Some(value)) =
-                                    (slot.get_mut(axis), source_moment.get(axis))
-                                {
-                                    *component += weight * value;
-                                }
-                            }
-                        }
-                    }
+                    add_scaled(&mut total, source, weight);
                 }
-                let inverse = 1.0 / total_weight;
-                for channel in 0..3 {
-                    if let Some(slot) = a.get_mut(channel) {
-                        *slot *= inverse;
-                    }
-                    if let Some(moment) = b.get_mut(channel) {
-                        for axis in 0..3 {
-                            if let Some(slot) = moment.get_mut(axis) {
-                                *slot *= inverse;
-                            }
-                        }
-                    }
-                }
+                let mut averaged = Accumulator::default();
+                add_scaled(&mut averaged, &total, 1.0 / total_weight);
+                let exact = averaged.surface_light;
                 if let Some(slot) = out.get_mut(index) {
-                    *slot = compress(&Accumulator {
-                        irradiance: a,
-                        moment: b,
-                    });
+                    *slot = compress_surface(&averaged, patch_normal(patch));
+                    if !surface_energy_matches(*slot, patch_normal(patch), exact) {
+                        crate::logging::warn(format_args!(
+                            "[transport] energy mismatch at room={:?} kind={:?} origin={:?} texel=({i},{j}): integrated={exact:?} encoded={:?}; inspect transport compression before shipping this package",
+                            patch.room,
+                            patch.kind,
+                            patch.origin,
+                            slot.light_at(patch_normal(patch))
+                        ));
+                        return Err(LightmapFailure::TransportEnergy);
+                    }
                 }
             }
         }
         offset = offset.saturating_add(texels);
     }
-    out
+    Ok(out)
 }
 
 /// The previous pass's solved light on a coarse 3D grid.
@@ -2538,6 +2615,7 @@ impl RadianceCache {
         }
         let inverse = 1.0 / weight_sum;
         for channel in 0..3 {
+            total.surface_light[channel] *= inverse;
             if let Some(slot) = total.irradiance.get_mut(channel) {
                 *slot *= inverse;
             }
@@ -2556,6 +2634,7 @@ impl RadianceCache {
 /// Adds one accumulator scaled by `weight` into `total`.
 fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
     for channel in 0..3 {
+        total.surface_light[channel] += weight * value.surface_light[channel];
         if let (Some(slot), Some(source)) = (
             total.irradiance.get_mut(channel),
             value.irradiance.get(channel),

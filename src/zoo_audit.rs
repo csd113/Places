@@ -4,10 +4,9 @@
 //! the contract that generation has to satisfy: every registered placeable is
 //! displayed, every required demonstration exists, every instance id is stable
 //! and unique, and the level loads, validates and collides like any other
-//! shipped map. The capacity fixtures are audited here too: the sparse map
-//! proves the far-from-origin behaviour, the dense map proves the raised
-//! instance/asset/light budgets, and both are the witness set for the collision
-//! index's equality with the linear scan.
+//! shipped map. The dense fixture proves the raised instance/asset/light budgets
+//! and collision-index equality. An in-memory case preserves far-coordinate
+//! coverage after retiring the unbuildable sparse level.
 //!
 //! Nothing here bakes a lightmap or uploads anything: parse, validate, resolve
 //! the collision world and query it. That keeps the audit cheap enough to run
@@ -434,8 +433,38 @@ fn the_dense_capacity_fixture_holds_and_collides_at_scale() {
 }
 
 #[test]
-fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
-    let level = capacity("capacity_sparse");
+fn collision_and_routes_work_kilometres_from_the_origin() {
+    // Preserve the retired sparse map's CPU coordinate checks without keeping
+    // a playable source that cannot compile its navigation grid.
+    let mut rooms = Vec::new();
+    let mut walls = Vec::new();
+    for (cx, cz) in [
+        (2000.0, 2000.0),
+        (-2000.0, 2000.0),
+        (-2000.0, -2000.0),
+        (2000.0, -2000.0),
+    ] {
+        rooms.push(serde_json::json!({"x": cx - 13.0, "z": cz - 10.0,
+            "width": 26.0, "depth": 20.0, "height": 4.0}));
+        for (x, z, width, depth) in [
+            (cx - 13.4, cz - 10.4, 26.8, 0.4),
+            (cx - 13.4, cz + 10.0, 26.8, 0.4),
+            (cx - 13.4, cz - 10.0, 0.4, 20.0),
+            (cx + 13.0, cz - 10.0, 0.4, 20.0),
+        ] {
+            walls.push(serde_json::json!({"x": x, "z": z, "width": width, "depth": depth}));
+        }
+    }
+    let document = serde_json::json!({
+        "format_version": 3, "id": "far_coordinate_test", "name": "Far coordinate test",
+        "spawn": {"x": 2000.0, "z": 1994.0}, "rooms": rooms, "walls": walls,
+        "props": [{"id": "far_rat", "model": "rat", "x": 1990.0, "z": 2006.0, "rotation_degrees": 0.0, "size": [0.2, 0.2, 0.7]}],
+        "water": [{"x": 2002.0, "z": 1998.0, "width": 6.0, "depth": 4.0, "surface_y": 0.35, "bottom_y": 0.0, "swimming": false}],
+        "volumes": [{"id": "far_trigger", "x": -2002.0, "z": -2002.0, "width": 4.0, "depth": 4.0, "bindings": [{"on": "enter_volume", "actions": [{"action": "reset_to_start"}], "cooldown_seconds": 0.5}]}],
+        "routes": [{"id": "far_rat", "loop": true, "steps": [{"step": "move_to", "x": 1998.0, "z": 2006.0, "speed": 0.1985}, {"step": "wait", "seconds": 0.5}, {"step": "move_to", "x": 1990.0, "z": 2006.0, "speed": 0.5731}, {"step": "wait", "seconds": 0.5}]}],
+    });
+    let level = LevelDef::from_json(&document.to_string()).expect("the coordinate case parses");
+    crate::loader::validate_level(&level).expect("the coordinate case validates");
     let world = CollisionWorld::from_level(&level);
     // Every room's floor, collision, water, trigger and route is a satellite
     // at ±2 km; the controller must stand, walk and collide there.
@@ -462,7 +491,7 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
     let routes = world.world.routes();
     let route = routes
         .get("far_rat")
-        .expect("the sparse fixture routes a rat");
+        .expect("the coordinate case routes a rat");
     let mut state = route.new_state();
     let index = CollisionIndex::build(&world.walls);
     let route_world = crate::entity::RouteWorld {
@@ -486,7 +515,7 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
         .iter()
         .find(|(handle, _)| world.world.id_of(*handle) == Some("far_trigger"))
         .map(|(_, volume)| *volume)
-        .expect("the sparse fixture's reset volume is named far_trigger");
+        .expect("the coordinate case's reset volume is named far_trigger");
     let mid_y = f32::midpoint(far.bottom_y, far.top_y);
     assert!(
         far.contains(-2002.0, -2002.0, mid_y),

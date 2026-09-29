@@ -312,19 +312,8 @@ impl WgpuProps {
         if !vertices.is_empty() {
             queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
         }
-        let index_bytes = batch
-            .indices
-            .len()
-            .saturating_mul(std::mem::size_of::<u16>());
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-prop-indices"),
-            size: (index_bytes as u64).max(4),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        if !batch.indices.is_empty() {
-            queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&batch.indices));
-        }
+        let index_buffer =
+            super::world::upload_index_buffer(device, &batch.indices, "places-wgpu-prop-indices");
         PropChunk {
             vertex_buffer,
             index_buffer,

@@ -316,18 +316,11 @@ impl WgpuCharacters {
         if submeshes.is_empty() {
             return None;
         }
-        let index_bytes = model
-            .indices
-            .len()
-            .saturating_mul(std::mem::size_of::<u16>());
-        let index_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-character-indices"),
-            size: u64::try_from(index_bytes).unwrap_or(u64::MAX).max(4),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        ctx.queue
-            .write_buffer(&index_buffer, 0, bytemuck::cast_slice(&model.indices));
+        let index_buffer = super::world::upload_index_buffer(
+            ctx.device,
+            &model.indices,
+            "places-wgpu-character-indices",
+        );
         Some(CharacterMeshGpu {
             index_buffer,
             index_count: u32::try_from(model.indices.len()).unwrap_or(u32::MAX),
