@@ -683,7 +683,12 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
         "interleaved architecture and model allocation must use disjoint shared-budget pages"
     );
 
-    assert_chart_gutters_disjoint(&config, pages, &charts);
+    let placements = inputs
+        .iter()
+        .copied()
+        .zip(charts.iter().copied())
+        .collect::<Vec<_>>();
+    assert_chart_gutters_disjoint(&config, pages, &placements);
 
     // Architecture and model pools share one cap: one full-page chart from
     // each family exhausts a two-page budget, and failure stays sticky.
@@ -713,16 +718,20 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
 fn assert_chart_gutters_disjoint(
     config: &crate::lighting::lightmap::LightmapConfig,
     pages: usize,
-    charts: &[crate::lighting::lightmap::Chart],
+    charts: &[(
+        crate::lighting::lightmap::LightmapPatch,
+        crate::lighting::lightmap::Chart,
+    )],
 ) {
     let edge = usize::try_from(config.page_edge).unwrap();
     let mut occupancy = vec![vec![false; edge * edge]; pages];
-    for chart in charts {
-        assert!(chart.x >= config.padding && chart.y >= config.padding);
-        let left = chart.x - config.padding;
-        let top = chart.y - config.padding;
-        let right = chart.x + chart.width + config.padding;
-        let bottom = chart.y + chart.height + config.padding;
+    for (patch, chart) in charts {
+        let padding = config.padding_for(patch.kind);
+        assert!(chart.x >= padding && chart.y >= padding);
+        let left = chart.x - padding;
+        let top = chart.y - padding;
+        let right = chart.x + chart.width + padding;
+        let bottom = chart.y + chart.height + padding;
         assert!(right <= config.page_edge && bottom <= config.page_edge);
         let page = &mut occupancy[usize::from(chart.page)];
         for y in top..bottom {
@@ -737,4 +746,149 @@ fn assert_chart_gutters_disjoint(
             }
         }
     }
+}
+
+#[test]
+fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preserve_neighbor_colors()
+{
+    use crate::lighting::lightmap::{
+        ChartAllocator, LightmapAtlas, LightmapConfig, LightmapPatch, PatchKind,
+    };
+    let config = LightmapConfig {
+        texels_per_metre: 8.0,
+        page_edge: 16,
+        max_pages: 2,
+        padding: 2,
+        bytes_per_texel: 16,
+    };
+    assert_eq!(config.padding_for(PatchKind::Prop), 1);
+    assert_eq!(config.padding_for(PatchKind::Floor), 2);
+    let inputs = [
+        (PatchKind::Floor, 0.25, 0.25),
+        (PatchKind::Prop, 0.25, 0.375),
+        (PatchKind::Prop, 0.375, 0.25),
+        (PatchKind::Prop, 0.25, 0.25),
+    ];
+    let mut allocator = ChartAllocator::new(config);
+    let charts = inputs
+        .into_iter()
+        .map(|(kind, width, height)| {
+            let patch = LightmapPatch {
+                origin: [0.0; 3],
+                u_axis: [width, 0.0, 0.0],
+                v_axis: [0.0, 0.0, height],
+                room: None,
+                kind,
+            };
+            let chart = allocator.allocate(&patch).unwrap();
+            (patch, chart)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(allocator.page_count(), 2);
+    assert_chart_gutters_disjoint(&config, allocator.page_count(), &charts);
+    let values = charts
+        .iter()
+        .enumerate()
+        .map(|(index, (_, chart))| {
+            let seed = index as f32 + 1.0;
+            (0..chart.width * chart.height)
+                .map(|texel| {
+                    let x = (texel % chart.width) as f32;
+                    let y = (texel / chart.width) as f32;
+                    LightmapTexel {
+                        irradiance: [
+                            x.mul_add(0.07, seed),
+                            y.mul_add(0.11, seed * 0.5),
+                            seed * 1.3,
+                        ],
+                        direction: [seed * 0.25, -seed * 0.125, (x + y) * 0.025],
+                        axis: [0.5; 2],
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let atlas = LightmapAtlas::assemble(&config, allocator.page_count(), &charts, &values).unwrap();
+    let mut written = vec![vec![false; 256]; atlas.page_count()];
+    for ((patch, chart), data) in charts.iter().zip(&values) {
+        assert_assembled_chart_gutter(
+            &config,
+            patch,
+            chart,
+            data,
+            &atlas.pages()[usize::from(chart.page)],
+            &mut written[usize::from(chart.page)],
+        );
+    }
+    for (page, touched) in atlas.pages().iter().zip(&written) {
+        for (texel, touched) in page.texels.iter().zip(touched) {
+            if !touched {
+                assert_eq!(
+                    *texel,
+                    LightmapTexel::ZERO,
+                    "assembly must not write outside any chart's real reserved gutter"
+                );
+            }
+        }
+    }
+    assert_adjacent_model_reservations(&charts);
+}
+
+fn assert_assembled_chart_gutter(
+    config: &crate::lighting::lightmap::LightmapConfig,
+    patch: &crate::lighting::lightmap::LightmapPatch,
+    chart: &crate::lighting::lightmap::Chart,
+    data: &[LightmapTexel],
+    page: &crate::lighting::lightmap::LightmapPage,
+    touched: &mut [bool],
+) {
+    let padding = config.padding_for(patch.kind);
+    let width = usize::try_from(chart.width).unwrap();
+    let edge = usize::try_from(config.page_edge).unwrap();
+    for y in chart.y - padding..chart.y + chart.height + padding {
+        for x in chart.x - padding..chart.x + chart.width + padding {
+            let source_x = x.clamp(chart.x, chart.x + chart.width - 1) - chart.x;
+            let source_y = y.clamp(chart.y, chart.y + chart.height - 1) - chart.y;
+            let offset =
+                usize::try_from(source_y).unwrap() * width + usize::try_from(source_x).unwrap();
+            assert_eq!(
+                page.texel(x, y).unwrap(),
+                data[offset],
+                "model/architecture data and gutters must keep their own exact HDR color and moment at({x},{y})"
+            );
+            touched[usize::try_from(y).unwrap() * edge + usize::try_from(x).unwrap()] = true;
+        }
+    }
+}
+
+fn assert_adjacent_model_reservations(
+    charts: &[(
+        crate::lighting::lightmap::LightmapPatch,
+        crate::lighting::lightmap::Chart,
+    )],
+) {
+    use crate::lighting::lightmap::PatchKind;
+    // Require neighboring reservations to touch: a widely separated layout
+    // would not detect accidentally dilating Prop charts with two texels.
+    let props = charts
+        .iter()
+        .filter(|(patch, _)| patch.kind == PatchKind::Prop)
+        .collect::<Vec<_>>();
+    let mut adjacent = false;
+    for (index, (_, a)) in props.iter().enumerate() {
+        for (_, b) in &props[index + 1..] {
+            if a.page == b.page {
+                let y_overlap = a.y - 1 < b.y + b.height + 1 && b.y - 1 < a.y + a.height + 1;
+                let x_overlap = a.x - 1 < b.x + b.width + 1 && b.x - 1 < a.x + a.width + 1;
+                adjacent |= (y_overlap
+                    && (a.x + a.width + 1 == b.x - 1 || b.x + b.width + 1 == a.x - 1))
+                    || (x_overlap
+                        && (a.y + a.height + 1 == b.y - 1 || b.y + b.height + 1 == a.y - 1));
+            }
+        }
+    }
+    assert!(
+        adjacent,
+        "real adjacent model reservations are required to prove color isolation"
+    );
 }
