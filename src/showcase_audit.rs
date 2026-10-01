@@ -70,6 +70,14 @@ fn showcase_all_four_cottages_allow_road_entry_bedroom_and_return() {
         let mut game = at(&level, cx, 21.8);
         walk_to(&mut game, cx, 9.0);
         walk_to(&mut game, cx, 4.2);
+        walk_to(&mut game, cx, 4.5);
+        walk_to(&mut game, cx - 3.05, 4.5);
+        walk_to(&mut game, cx - 3.05, 2.85);
+        walk_to(&mut game, cx - 2.5, 2.85);
+        walk_to(&mut game, cx - 3.05, 2.85);
+        walk_to(&mut game, cx - 3.05, 4.5);
+        walk_to(&mut game, cx, 4.5);
+        walk_to(&mut game, cx, 4.2);
         walk_to(&mut game, cx + 2.1, 4.2);
         walk_to(&mut game, cx + 2.1, 3.8);
         walk_to(&mut game, cx + 2.1, 4.2);
@@ -184,8 +192,8 @@ fn showcase_pond_supports_real_crouched_swimming_and_a_safe_exit() {
 fn showcase_84_jump_challenges_cannot_escape_visible_rock_or_gate_edges() {
     let level = level();
     for index in 0..21 {
-        let across = -39.0 + index as f32 * 3.9;
-        let along = -40.0 + index as f32 * 3.4;
+        let across = (index as f32).mul_add(3.9, -39.0);
+        let along = (index as f32).mul_add(3.4, -40.0);
         for (x, z, yaw) in [
             (across, -40.8, 0.0_f32),
             (across, 27.0, 180.0),
@@ -220,5 +228,23 @@ fn showcase_both_road_gates_and_their_rock_joints_are_closed() {
                 "road gate joint leaked at z={z}"
             );
         }
+    }
+    for (x, z, yaw) in [
+        (-38.7, -40.8, -45.0_f32),
+        (38.7, -40.8, 45.0),
+        (-38.7, 27.0, -135.0),
+        (38.7, 27.0, 135.0),
+    ] {
+        let mut game = at(&level, x, z);
+        game.player_yaw = yaw.to_radians();
+        for _ in 0..6 {
+            advance(&mut game, &[Control::MoveForward, Control::Jump], 50);
+            advance(&mut game, &[Control::MoveForward], 10);
+        }
+        let p = game.player_position;
+        assert!(
+            p.x > -43.9 && p.x < 43.9 && p.z > -45.9 && p.z < 31.9,
+            "visible diagonal corner failed from ({x},{z}): {p:?}"
+        );
     }
 }

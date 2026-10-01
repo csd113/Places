@@ -137,14 +137,20 @@ def build_level() -> dict:
     # Families 02/01/05/03 supply restrained blue, cream, white and ochre.
     family_windows = {"02": [(-.5, 1.35, 1, 1)], "01": [(-.4, 1.35, .8, .94)],
                       "05": [(-.95, 1.3, .6, .6), (.35, 1.3, .6, .6)], "03": [(-.25, 1.32, .5, 1.3)]}
-    pitch = 1.75 / 2.6
-    eave = 2.7 + .05 * pitch
-    ridge = eave + 2.7 * pitch
+    # Measured committed GLBs: slope underside y=.02 at local z=+1.29
+    # and y=1.67 at z=-1.30, with the shingle edge at y=1.75. The cap
+    # has a flat bottom; an ordinary attic void keeps the Home ceiling and
+    # fixtures below all opaque roof meshes rather than inside their slabs.
+    eave = 2.7
+    ceiling_rise = 1.6
+    # Cap top at z=3.65 is base+.11, matching the slope shingle edge 4.45.
+    ridge = 4.56
+    gable_body_base = {"01": .045217, "02": .060122, "03": .060122, "05": .045217}
     for index, (cx, family) in enumerate(zip(HOUSE_CENTERS, ("02", "01", "05", "03"))):
         prefix = f"house_{index}"
         kit = f"outdoor:house_{family}"
         level["rooms"].append({"x": cx - 4.5, "z": .8, "width": 9, "depth": 5.4,
-            "height": round(eave, 4), "ceiling": {"kind": "gable", "ridge": "x", "ridge_rise": round(2.7 * pitch, 4)},
+            "height": round(eave, 4), "ceiling": {"kind": "gable", "ridge": "x", "ridge_rise": ceiling_rise},
             "material": "home:hardwood_oak_01" if index % 2 == 0 else "home:hardwood_walnut_02",
             "ceiling_material": "home:ceiling_white_01", "comment": f"{prefix}: furnished cottage {family}, one sealed gable volume."})
         openings = [{"kind": "door", "offset": 3.93, "width": 1.14, "height": 2.15}]
@@ -171,13 +177,19 @@ def build_level() -> dict:
             prop(f"{kit}_roof_slope", cx + dx, 4.95, f"{prefix}_roof_front_{dx}", y=2.7)
             prop(f"{kit}_roof_slope", cx + dx, 2.05, f"{prefix}_roof_back_{dx}", y=2.7, yaw=180)
             prop(f"{kit}_roof_ridge", cx + dx, 3.5, f"{prefix}_ridge_{dx}", y=round(ridge - .22, 4))
+        # The kit's bargeboards extend below its cladding triangle. Measured
+        # triangle bases seat at the wall's 2.7 m eave instead of leaving an
+        # 8–11 cm slot beneath the decorative gable panel.
+        for sign, yaw in ((-1, 270), (1, 90)):
+            prop(f"{kit}_gable", cx + sign * 4.65, 3.5, f"{prefix}_gable_{sign}",
+                 y=round(eave - gable_body_base[family] * 1.8, 4), yaw=yaw, scale=1.8)
         for dx in (-4.5, 4.5):
             for z in (.8, 6.2):
                 prop(f"{kit}_corner_trim", cx + dx, z, f"{prefix}_trim_{dx}_{z}")
         region(cx - 1.5, 6.21, 3, 1.5, .24, "outdoor:concrete_pavement_01")
         prop(f"{kit}_porch_deck", cx, 6.96, f"{prefix}_porch", y=-.238)
-        for dx in (-1.43, 1.43):
-            prop(f"{kit}_porch_post", cx + dx, 7.64, f"{prefix}_post_{dx}", y=-.24, solid=True)
+        # This is an uncovered stoop: omit freestanding tall porch posts
+        # until an actual supported awning exists in the asset kit.
         patch(cx - .85, 7.71, 1.7, 2.49, "outdoor:concrete_pavement_01")
         level["doors"].append({"id": f"{prefix}_door", "x": cx - .55, "z": 6.05, "width": 1.1,
             "height": 2.15, "thickness": .045, "open_direction": "left", "swing_degrees": 90,
@@ -192,8 +204,8 @@ def build_level() -> dict:
                 "x": x, "z": z, "brightness": 1.55, "color": [1, .9, .78], "range": 7, "emission": 1.1, "align": "none"})
         # Every central aisle is >1.1 m. Kitchen upper cabinets remain non-solid
         # so counter jumps cannot trap the player's standing body beneath them.
-        items = [("core:couch", -2.5, 2.0, 0), ("core:table", -2.5, 3.65, 0),
-                 ("core:bookshelf", -.35, 1.4, 0), ("core:armchair", -.95, 3.95, 90),
+        items = [("core:couch", -2.5, 2.0, 0), ("core:table", -1.9, 3.65, 0),
+                 ("core:bookshelf", -.35, 1.4, 0), ("core:armchair", -.85, 2.4, 90),
                  ("core:bed", 3.0, 2.4, 0), ("core:cabinet", 3.0, 5.4, 180),
                  ("core:fridge", -3.8, 5.3, 90), ("core:stove", -3.8, 4.45, 90),
                  ("core:sink", -3.8, 3.6, 90), ("home:cabinet_base", -3.8, 2.75, 90)]
@@ -202,8 +214,8 @@ def build_level() -> dict:
             prop(model, cx + dx, z, f"{prefix}_furniture_{j}", yaw=yaw, solid=True, size=size)
         prop("home:cabinet_wall", cx - 4.025, 2.1, f"{prefix}_upper_cabinet", y=1.5, yaw=90)
         prop("home:crt_tv", cx + 3, 5.35, f"{prefix}_tv", y=.85, yaw=180)
-        prop("home:plate", cx - 2.65, 3.6, f"{prefix}_plate", y=.75)
-        prop("home:bowl", cx - 2.2, 3.75, f"{prefix}_bowl", y=.75)
+        prop("home:plate", cx - 2.05, 3.6, f"{prefix}_plate", y=.75)
+        prop("home:bowl", cx - 1.6, 3.75, f"{prefix}_bowl", y=.75)
         prop("home:plant_table", cx + 3.2, 5.45, f"{prefix}_plant", y=.85)
         patch(cx - 4.15, 1.25, .95, 4.35, "home:tile_home_01")
         for j, dx in enumerate((-2.1, 2.1)):
@@ -288,15 +300,16 @@ def build_level() -> dict:
     boundary = []
     for x in range(-40, 41, 4):
         boundary.extend(((x, -43.7, 0), (x, 29.7, 180)))
+    boundary.extend(((-41.6, -42, 90), (41.6, -42, 270)))
     for z in range(-40, 29, 4):
         if 14 < z < 19: continue
         boundary.extend(((-41.6, z, 90), (41.6, z, 270)))
     for i, (x, z, yaw) in enumerate(boundary):
         prop("outdoor:showcase_rock_face", x, z, f"boundary_rock_{i}", yaw=yaw,
-             solid=True, size=[4.12, 5, 2.2])
+             solid=True, size=[4, 5, 2.2])
     for i, x in enumerate((-41.6, 41.6)):
         prop("outdoor:showcase_road_gate", x, 16.6, f"road_gate_{i}", yaw=90,
-             solid=True, size=[8.24, 3.6, .24])
+             solid=True, size=[8, 3.6, .24])
 
     # Deterministic varied canopy: clearance belongs to circulation, not to
     # a visually sparse lawn. Models preserve the established low-poly art.

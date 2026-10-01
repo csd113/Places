@@ -32,6 +32,27 @@ class LanternHollowTests(unittest.TestCase):
         self.assertTrue(all(o.get('solid') and o.get('glass') for w in self.level['walls']
                             for o in w.get('openings', []) if o['kind'] == 'window'))
 
+    def test_domestic_solids_do_not_overlap_and_kitchen_aisles_fit_a_player(self):
+        solids = [p for p in self.level['props'] if p.get('solid') and '_furniture_' in p['id']]
+        def bounds(p):
+            w, _, d = p['size']
+            yaw = math.radians(p.get('rotation_degrees', 0))
+            hx = (w * abs(math.cos(yaw)) + d * abs(math.sin(yaw))) / 2
+            hz = (w * abs(math.sin(yaw)) + d * abs(math.cos(yaw))) / 2
+            return p['x'] - hx, p['z'] - hz, p['x'] + hx, p['z'] + hz
+        for i, p in enumerate(solids):
+            a = bounds(p)
+            for q in solids[i + 1:]:
+                b = bounds(q)
+                ox = min(a[2], b[2]) - max(a[0], b[0])
+                oz = min(a[3], b[3]) - max(a[1], b[1])
+                self.assertFalse(ox > 1e-4 and oz > 1e-4, (p['id'], q['id']))
+        for i in range(4):
+            furniture = {p['model']: p for p in solids if p['id'].startswith(f'house_{i}_')}
+            table_left = bounds(furniture['core:table'])[0]
+            counter_right = bounds(furniture['home:cabinet_base'])[2]
+            self.assertGreaterEqual(table_left - counter_right, .8)
+
     def test_floor_rooms_partition_the_world_without_duplicate_surfaces(self):
         rooms = self.level['rooms']
         self.assertEqual(len(rooms), 54)
