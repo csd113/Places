@@ -153,12 +153,12 @@ class RepositoryTests(unittest.TestCase):
 
 
 class ShippedLevelTests(unittest.TestCase):
-    def test_the_shipped_levels_are_the_demo_and_the_model_zoo(self):
+    def test_the_shipped_levels_include_the_playable_showcase(self):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo"},
-            "Places Demo and the generated Model Zoo are the bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow"},
+            "Places Demo, Model Zoo, and Lantern Hollow are the bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -168,6 +168,10 @@ class ShippedLevelTests(unittest.TestCase):
         self.assertEqual(zoo["id"], "model_zoo")
         self.assertEqual(zoo["name"], "Model Zoo")
         self.assertEqual(zoo["format_version"], 3)
+        showcase = shipped["lantern_hollow"]
+        self.assertEqual(showcase["id"], "lantern_hollow")
+        self.assertEqual(showcase["name"], "Lantern Hollow")
+        self.assertEqual(showcase["format_version"], 3)
         # The zoo is generated tooling output, not hand-authored content: it
         # must record the generator's stable instance-id namespace.
         self.assertTrue(zoo["props"], "the zoo must display something")
@@ -182,7 +186,7 @@ class ShippedLevelTests(unittest.TestCase):
         packages = {path.stem: path for path in package_files()}
         self.assertEqual(
             set(packages),
-            {"places_demo", "model_zoo"},
+            {"places_demo", "model_zoo", "lantern_hollow"},
             "the bundled compiled packages are Places Demo and the Model Zoo",
         )
         for stem, path in packages.items():

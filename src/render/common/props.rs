@@ -202,9 +202,9 @@ impl BatchBuilder {
                 continue;
             };
             let density = if large || submesh.alpha.mode == crate::materials::AlphaMode::Cutout {
-                4.0
+                1.0
             } else {
-                16.0
+                8.0
             };
             for triangle in indices.as_chunks::<3>().0 {
                 let [Some(a), Some(b), Some(c)] =

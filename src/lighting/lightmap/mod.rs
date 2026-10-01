@@ -621,6 +621,18 @@ impl LightmapConfig {
         }
     }
 
+    /// Reserved and dilated gutter width for this physical receiver.
+    /// Model charts need one texel for the atlas's single-mip bilinear sampler;
+    /// architecture retains its established configured padding.
+    #[must_use]
+    pub const fn padding_for(&self, kind: PatchKind) -> u32 {
+        if matches!(kind, PatchKind::Prop) && self.padding > 1 {
+            1
+        } else {
+            self.padding
+        }
+    }
+
     /// Texels of one page a chart's data rectangle may use, after both gutters.
     #[must_use]
     pub const fn usable_edge(&self) -> u32 {

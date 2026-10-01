@@ -21,7 +21,7 @@
 //! the free set stays small and the result stays deterministic. See
 //! `docs/MAP_AUTHORING_GUIDE.md` §18 for the density each profile now reaches.
 //!
-//! Every chart gets [`LightmapConfig::padding`] texels of gutter on all four
+//! Every chart gets [`LightmapConfig::padding_for`] texels of gutter on all four
 //! sides, outside its data rectangle. After a chart is filled, those gutter
 //! texels are *dilated*: each copy the nearest texel of the chart's own border,
 //! so the bilinear filter can reach half a texel past the data rectangle without
@@ -109,7 +109,8 @@ struct FreeRect {
 }
 
 /// Places chart rectangles on square pages with a deterministic
-/// best-short-side-fit MAXRECTS policy.
+/// best-short-side-fit MAXRECTS policy for architecture and disjoint guillotine
+/// pages for the many small model-triangle charts.
 ///
 /// The allocator is designed to run *inline*, while the mesh is being emitted:
 /// each chart is placed the moment its patch is built, using only the patches
@@ -119,6 +120,7 @@ struct FreeRect {
 pub struct ChartAllocator {
     config: LightmapConfig,
     pages: Vec<Vec<FreeRect>>,
+    prop_pages: Vec<bool>,
     failed: bool,
 }
 
@@ -129,6 +131,7 @@ impl ChartAllocator {
         Self {
             config,
             pages: Vec::new(),
+            prop_pages: Vec::new(),
             failed: false,
         }
     }
@@ -169,7 +172,7 @@ impl ChartAllocator {
             ..self.config
         };
         let (width, height) = config.chart_texels(patch);
-        let padding = self.config.padding;
+        let padding = self.config.padding_for(patch.kind);
         let outer_w = width.saturating_add(padding.saturating_mul(2));
         let outer_h = height.saturating_add(padding.saturating_mul(2));
         if outer_w > self.config.page_edge || outer_h > self.config.page_edge {
@@ -179,7 +182,8 @@ impl ChartAllocator {
             self.failed = true;
             return None;
         }
-        let mut placement = self.best_placement(outer_w, outer_h);
+        let prop = patch.kind == super::PatchKind::Prop;
+        let mut placement = self.best_placement(outer_w, outer_h, prop);
         if placement.is_none() && self.pages.len() < self.config.max_pages {
             let edge = self.config.page_edge;
             self.pages.push(vec![FreeRect {
@@ -188,13 +192,19 @@ impl ChartAllocator {
                 width: edge,
                 height: edge,
             }]);
-            placement = self.best_placement(outer_w, outer_h);
+            self.prop_pages.push(prop);
+            placement = self.best_placement(outer_w, outer_h, prop);
         }
         let Some((page_index, x, y)) = placement else {
             self.failed = true;
             return None;
         };
-        if !self.place(page_index, x, y, outer_w, outer_h) {
+        let placed = if prop {
+            self.place_prop(page_index, x, y, outer_w, outer_h)
+        } else {
+            self.place(page_index, x, y, outer_w, outer_h)
+        };
+        if !placed {
             // `best_placement` only returns open pages, so this is
             // unreachable; failing closed is safer than returning a chart that
             // was never placed.
@@ -209,9 +219,12 @@ impl ChartAllocator {
     /// remainder, then the lowest `y`, the leftmost `x` and finally the
     /// earliest page. Returns `(page, x, y)`, where `(x, y)` is the outer
     /// rectangle's top-left corner.
-    fn best_placement(&self, outer_w: u32, outer_h: u32) -> Option<(usize, u32, u32)> {
+    fn best_placement(&self, outer_w: u32, outer_h: u32, prop: bool) -> Option<(usize, u32, u32)> {
         let mut best: Option<(u32, u32, u32, u32, usize)> = None;
         for (page_index, page) in self.pages.iter().enumerate() {
+            if self.prop_pages.get(page_index).copied() != Some(prop) {
+                continue;
+            }
             for free in page {
                 if outer_w > free.width || outer_h > free.height {
                     continue;
@@ -227,6 +240,44 @@ impl ChartAllocator {
             }
         }
         best.map(|(_, _, y, x, page)| (page, x, y))
+    }
+
+    /// Model triangles have many small independent charts. Dedicated pages use
+    /// disjoint guillotine remainders, avoiding quadratic containment pruning on
+    /// every face. Architecture keeps its established MAXRECTS layout. Both page
+    /// kinds share the same configured budget and identical chart/gutter format.
+    fn place_prop(&mut self, page_index: usize, x: u32, y: u32, width: u32, height: u32) -> bool {
+        let Some(page) = self.pages.get_mut(page_index) else {
+            return false;
+        };
+        let Some(index) = page.iter().position(|free| {
+            free.x == x && free.y == y && width <= free.width && height <= free.height
+        }) else {
+            return false;
+        };
+        let free = page.remove(index);
+        let remaining_width = free.width.saturating_sub(width);
+        let remaining_height = free.height.saturating_sub(height);
+        // Split across the larger leftover axis. Every remainder is disjoint;
+        // no later placement can overlap an existing chart or its gutter.
+        let horizontal = remaining_width <= remaining_height;
+        if remaining_width > 0 {
+            page.push(FreeRect {
+                x: x.saturating_add(width),
+                y,
+                width: remaining_width,
+                height: if horizontal { height } else { free.height },
+            });
+        }
+        if remaining_height > 0 {
+            page.push(FreeRect {
+                x,
+                y: y.saturating_add(height),
+                width: if horizontal { free.width } else { width },
+                height: remaining_height,
+            });
+        }
+        true
     }
 
     /// Places one outer rectangle and splits every free rectangle it overlaps
@@ -395,7 +446,7 @@ impl LightmapAtlas {
         for _ in 0..page_count {
             pages.push(LightmapPage::empty(config.page_edge)?);
         }
-        for ((_, chart), chart_texels) in charts.iter().zip(texels) {
+        for ((patch, chart), chart_texels) in charts.iter().zip(texels) {
             let Some(page) = pages.get_mut(usize::from(chart.page)) else {
                 return Err(LightmapFailure::Layout);
             };
@@ -412,7 +463,7 @@ impl LightmapAtlas {
                 return Err(LightmapFailure::FillNonFinite);
             }
             write_chart(page, chart, chart_texels)?;
-            dilate(page, chart, config.padding);
+            dilate(page, chart, config.padding_for(patch.kind));
         }
         Ok(Self { pages })
     }

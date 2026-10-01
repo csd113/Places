@@ -1,0 +1,186 @@
+[
+  {
+    "name": "street",
+    "spawn": [
+      34,
+      21.8,
+      -58
+    ],
+    "camera": [
+      -58,
+      -3
+    ]
+  },
+  {
+    "name": "campfire",
+    "spawn": [
+      -18,
+      -28,
+      0
+    ],
+    "camera": [
+      0,
+      -9
+    ],
+    "capture_time": 1.5
+  },
+  {
+    "name": "pond",
+    "spawn": [
+      -25,
+      -15,
+      -90
+    ],
+    "camera": [
+      -90,
+      -9
+    ]
+  },
+  {
+    "name": "sheet-ghost",
+    "spawn": [
+      9,
+      -23,
+      -90
+    ],
+    "camera": [
+      -90,
+      -3
+    ],
+    "capture_time": 2.2
+  },
+  {
+    "name": "sheet-cat",
+    "spawn": [
+      -23,
+      -8,
+      -90
+    ],
+    "camera": [
+      -90,
+      -16
+    ],
+    "capture_time": 2.2
+  },
+  {
+    "name": "road-gate",
+    "spawn": [
+      37,
+      16.6,
+      90
+    ],
+    "camera": [
+      90,
+      -4
+    ]
+  },
+  {
+    "name": "overview",
+    "spawn": [
+      0,
+      30,
+      36,
+      0
+    ],
+    "camera": [
+      0,
+      -45
+    ]
+  },
+  {
+    "name": "cottage-1-living-kitchen",
+    "spawn": [
+      -26.4,
+      5.2,
+      -35
+    ],
+    "camera": [
+      -35,
+      -7
+    ]
+  },
+  {
+    "name": "cottage-1-bedroom",
+    "spawn": [
+      -24.9,
+      4.2,
+      0
+    ],
+    "camera": [
+      0,
+      -8
+    ]
+  },
+  {
+    "name": "cottage-2-living-kitchen",
+    "spawn": [
+      -8.4,
+      5.2,
+      -35
+    ],
+    "camera": [
+      -35,
+      -7
+    ]
+  },
+  {
+    "name": "cottage-2-bedroom",
+    "spawn": [
+      -6.9,
+      4.2,
+      0
+    ],
+    "camera": [
+      0,
+      -8
+    ]
+  },
+  {
+    "name": "cottage-3-living-kitchen",
+    "spawn": [
+      9.6,
+      5.2,
+      -35
+    ],
+    "camera": [
+      -35,
+      -7
+    ]
+  },
+  {
+    "name": "cottage-3-bedroom",
+    "spawn": [
+      11.1,
+      4.2,
+      0
+    ],
+    "camera": [
+      0,
+      -8
+    ]
+  },
+  {
+    "name": "cottage-4-living-kitchen",
+    "spawn": [
+      27.6,
+      5.2,
+      -35
+    ],
+    "camera": [
+      -35,
+      -7
+    ]
+  },
+  {
+    "name": "cottage-4-bedroom",
+    "spawn": [
+      29.1,
+      4.2,
+      0
+    ],
+    "camera": [
+      0,
+      -8
+    ]
+  }
+]
