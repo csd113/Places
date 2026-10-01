@@ -153,6 +153,8 @@ struct Environment {
     // The level's regional fog volumes, the live ones first in authoring
     // order. Unused slots are all zero, so a read past the count adds nothing.
     fog_regions: array<FogRegion, 16u>,
+    entity_irradiance: vec4<f32>,
+    entity_moment: vec4<f32>,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -401,6 +403,14 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 // The dynamic path's factor is additionally multiplied by the object's neutral
 // probe (`u_light_scale`), which is why the environment uniform carries it.
 fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    if (environment.entity_irradiance.w > 0.5) {
+        let energy = environment.entity_irradiance.rgb;
+        let moment = environment.entity_moment.xyz;
+        let k = energy.r + energy.g + energy.b;
+        let lobe = 2.0 * max(0.0, dot(moment, normal)) - length(moment);
+        let directional = energy / max(k, 1.0e-6) * lobe;
+        return soft_clip(max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), directional, k > 1.0e-6)));
+    }
     let lightmap_on = environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page));
     if (lightmap_on <= 0.5) {
         return vec3<f32>(1.0) * environment.light_scale;
@@ -433,9 +443,14 @@ fn lit_display(base_display: vec3<f32>, vertex_color: vec3<f32>, light: vec3<f32
 // back-facing fragment exactly like the reference's `gl_FrontFacing`, then
 // perturbed by the tangent-space normal map when the material binds one.
 fn material_normal(in: VsOut, front_facing: bool) -> vec3<f32> {
+    // Entity imports have no normal channel. Derive the diffuse normal from
+    // actual posed world geometry, oriented toward the visible side.
+    let geometric = cross(dpdy(in.world_position), dpdx(in.world_position));
     var normal = normalize(in.world_normal);
-    if (!front_facing) {
-        normal = -normal;
+    if (!front_facing) { normal = -normal; }
+    if (abs(environment.entity_irradiance.w) > 0.5 && dot(geometric, geometric) > 1.0e-12) {
+        normal = normalize(geometric);
+        if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
     }
     let normal_on = (material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) != 0u
         && (material.flags & MATERIAL_FLAG_NORMAL_ENABLED) != 0u;

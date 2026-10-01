@@ -34,7 +34,7 @@ def read_field(data):
         raise ValueError("invalid PLPF length")
     probes = []
     for index, values in enumerate(struct.iter_unpack("<8fi", data[38:])):
-        if not all(math.isfinite(value) for value in values[:8]) or min(values[:3]) < 0:
+        if not all(math.isfinite(value) for value in values[:8]) or min(values[:3]) < 0 or max(values[:3]) > 65504:
             raise ValueError("invalid probe energy")
         if not -1 <= values[8] <= 32767:
             raise ValueError("invalid room label")

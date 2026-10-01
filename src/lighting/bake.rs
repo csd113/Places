@@ -1849,6 +1849,58 @@ impl LevelLighting {
         self.room_zones.get(room).is_some_and(Option::is_some)
     }
 
+    /// Existing connected-area ID for capture diagnostics, paired with `room`.
+    /// An unpartitioned room has area zero; invalid rooms resolve to nothing.
+    #[must_use]
+    pub fn probe_region_at(&self, room: usize, position: [f32; 3]) -> Option<u32> {
+        // The surface-lighting height helper has a historical XZ fallback.
+        // Entity probes must occupy this room's actual air volume instead.
+        if self.indexed_room(position[0], Some(position[1]), position[2], false) != Some(room) {
+            return None;
+        }
+        self.room_zones
+            .get(room)
+            .and_then(Option::as_ref)
+            .map_or(Some(0), |zones| zones.zone_at(position[0], position[2]))
+    }
+
+    /// Whether two positions share an existing connected lighting area.
+    /// Uses the same zone lookup as the existing surface-lighting path.
+    #[must_use]
+    pub fn same_probe_region(&self, room: usize, a: [f32; 3], b: [f32; 3]) -> bool {
+        let region = self.probe_region_at(room, a);
+        region.is_some() && region == self.probe_region_at(room, b)
+    }
+
+    /// Validates the compiler's owner before testing cross-region visibility.
+    /// A corrupt label never becomes a neighbouring-room lighting source.
+    #[must_use]
+    pub fn labelled_probe_visible_from(
+        &self,
+        position: [f32; 3],
+        probe: [f32; 3],
+        label: i32,
+    ) -> bool {
+        usize::try_from(label).ok() == self.room_index_at_height(probe[0], probe[1], probe[2])
+            && self.probe_visible_from(position, probe)
+    }
+
+    /// Whether a prepared probe may contribute at an entity position.
+    /// Within an existing connected area the baked field already represents
+    /// local occlusion. Across areas, indexed compiled solids require a clear
+    /// segment, allowing an open doorway to blend both room populations.
+    #[must_use]
+    pub fn probe_visible_from(&self, position: [f32; 3], probe: [f32; 3]) -> bool {
+        let area = |point: [f32; 3]| {
+            self.indexed_room(point[0], Some(point[1]), point[2], false)
+                .and_then(|room| self.probe_region_at(room, point).map(|zone| (room, zone)))
+        };
+        let (Some(source), Some(target)) = (area(position), area(probe)) else {
+            return false;
+        };
+        source == target || !self.visibility.occludes_anywhere(position, probe)
+    }
+
     /// Baked baseline illumination of the area containing `(x, z)` in `room`.
     ///
     /// A room with no internal partition returns its room-wide

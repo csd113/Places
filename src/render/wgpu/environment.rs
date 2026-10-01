@@ -109,6 +109,12 @@ pub struct EnvironmentBindings {
 }
 
 impl EnvironmentBindings {
+    /// Exact CPU mirror of the most recent GPU upload, for capture diagnostics.
+    #[must_use]
+    pub const fn uploaded_uniform(&self) -> &EnvironmentUniform {
+        &self.uploaded
+    }
+
     /// Creates the uniform buffer and the bind groups over the level's
     /// lightmap page array, probe cubemaps and planar target.
     ///

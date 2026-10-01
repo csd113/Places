@@ -30,6 +30,9 @@ mod tests;
 mod wgpu;
 
 #[cfg(test)]
+pub(crate) use common::light_transport::{EntityLightingSource, entity_lighting};
+
+#[cfg(test)]
 pub(in crate::render) use common::WallUnit;
 pub(crate) use common::api::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,

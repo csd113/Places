@@ -112,65 +112,89 @@ pub fn build_transport_scene(
     Some((scene, stats))
 }
 
-/// The environment light one moving object reads at a world position.
-///
-/// A moving object — a character or a dynamic prop — reads the prepared
-/// irradiance field, which the compiler solved from the same transport pass as
-/// the static atlas. That field deliberately carries no authored ambient term:
-/// it stores the physical solve plus a *gated* share of the level's authored
-/// room baseline (the gate is the local emitter support), so a point in a room
-/// between fixtures can be far darker than the environment the level was
-/// authored with. Every static prop at every quality, the vertex-lit fallback
-/// and the historical ambient floor all keep that authored response, so an
-/// object that read the raw field would be the darkest thing in the frame —
-/// exactly the shipped night route's routed entities, which measured at 0-5/255
-/// where the same object is 39-45/255 at Low.
-///
-/// This is the one rule both moving-object paths share:
-///
-/// * a position in no room has no prepared probe of its own — every probe is
-///   labelled with the room it occupies — so it reads the vertex-lit
-///   environment sample (the ambient floor plus the fixture pools it is
-///   inside), never a neighbouring room's probe through the gap between them;
-/// * a position the field cannot resolve falls back to the same vertex-lit
-///   sample, exactly as before;
-/// * a resolved position takes the prepared field, floored per channel at the
-///   room's own authored baseline. The field still carries the fixture light —
-///   this is a floor, not an addition, so a lit pool is never double counted —
-///   and the object stays environment-dependent (a brighter room, or the
-///   field's own directional light, still wins).
-///
-/// With no prepared field (`irradiance` is `None`, the `off` variant) the rule
-/// is exactly the historical vertex-lit sample, so Low's look is unchanged.
+/// The runtime environment sample. Prepared values stay linear HDR until
+/// the material shader reconstructs diffuse lighting at its world normal.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EntityLighting {
+    pub prepared: Option<crate::lighting::lightmap::LightmapTexel>,
+    pub display: [f32; 3],
+    pub source: EntityLightingSource,
+}
+
+/// Detectable fallback reasons; darkness in a valid probe is intentional.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EntityLightingSource {
+    Prepared,
+    NoField,
+    Roomless,
+    Unresolved,
+    InvalidPosition,
+}
+
+/// Sample at the transformed model-bounds centre, in metres, Y up.
+/// A failed lookup uses the existing authored environment model, bounded to
+/// its display range. No brightness floor is applied to valid baked energy.
+#[must_use]
+pub fn entity_lighting(
+    lighting: &LevelLighting,
+    irradiance: Option<&crate::lighting::probes::ProbeField>,
+    position: [f32; 3],
+) -> EntityLighting {
+    let finite = position.iter().all(|v| v.is_finite());
+    let room = finite
+        .then(|| lighting.room_index_at_height(position[0], position[1], position[2]))
+        .flatten()
+        .filter(|r| lighting.probe_region_at(*r, position).is_some());
+    let prepared = room.and_then(|_| {
+        irradiance.and_then(|field| {
+            field.sample_filtered_with_rooms(position, None, |probe, label| {
+                lighting.labelled_probe_visible_from(position, probe, label)
+            })
+        })
+    });
+    let source = if !finite {
+        EntityLightingSource::InvalidPosition
+    } else if irradiance.is_none() {
+        EntityLightingSource::NoField
+    } else if room.is_none() {
+        EntityLightingSource::Roomless
+    } else if prepared.is_none() {
+        EntityLightingSource::Unresolved
+    } else {
+        EntityLightingSource::Prepared
+    };
+    let display = prepared.map_or_else(
+        || {
+            // Invalid transforms never enter the spatial lookup. The environment
+            // at the map origin supplies a deterministic diagnostic fallback.
+            let p = if finite { position } else { [0.0; 3] };
+            let light = lighting.sample(p[0], p[1], p[2]);
+            [light.r, light.g, light.b].map(|v| {
+                if v.is_finite() {
+                    v.clamp(0.0, 1.0)
+                } else {
+                    crate::lighting::AMBIENT_LEVEL
+                }
+            })
+        },
+        |t| crate::lighting::transport::soft_clip(t.irradiance),
+    );
+    EntityLighting {
+        prepared,
+        display,
+        source,
+    }
+}
+
+/// Isotropic display value used by compatibility tests.
+#[cfg(test)]
 #[must_use]
 pub fn moving_object_light(
     lighting: &LevelLighting,
     irradiance: Option<&crate::lighting::probes::ProbeField>,
     position: [f32; 3],
 ) -> [f32; 3] {
-    let room = lighting.room_index_at_height(position[0], position[1], position[2]);
-    let Some(room) = room else {
-        return vertex_lit_environment_light(lighting, position);
-    };
-    let authored = lighting
-        .baseline_in_room(room, position[0], position[2])
-        .to_array();
-    let prepared = irradiance
-        .and_then(|field| field.sample_display(position, Some(room)))
-        .unwrap_or_else(|| vertex_lit_environment_light(lighting, position));
-    std::array::from_fn(|channel| {
-        prepared
-            .get(channel)
-            .copied()
-            .unwrap_or(0.0)
-            .max(authored.get(channel).copied().unwrap_or(0.0))
-    })
-}
-
-/// The vertex-lit environment sample at a world position, as display channels.
-fn vertex_lit_environment_light(lighting: &LevelLighting, position: [f32; 3]) -> [f32; 3] {
-    let light = lighting.sample(position[0], position[1], position[2]);
-    [light.r, light.g, light.b]
+    entity_lighting(lighting, irradiance, position).display
 }
 
 /// The radiance an escaping bounce ray sees, from the level's optional sky.

@@ -11,7 +11,7 @@
 //! baked into PropMeshBatch at load     CPU-skinned every frame
 //! bind pose only                       pose follows LocomotionSnapshot
 //! one draw per model and cell          one draw per character per primitive
-//! part of the lightmap bake            baked light sampled once at spawn
+//! part of the lightmap bake            environment sampled at bounds centre
 //! ```
 //!
 //! The bind pose is *also* baked into the static prop batch, so a skinned
@@ -905,9 +905,11 @@ pub struct Character {
     asset: Arc<LoadedPropAsset>,
     transform: Mat4,
     animator: CharacterAnimator,
-    /// Model-space albedo with the baked light sampled once at spawn, parallel
+    /// Model-space material albedo, parallel
     /// to the model's `vertices`.
     albedo: Vec<[f32; 4]>,
+    entity_lighting: super::light_transport::EntityLighting,
+    lighting_local_centre: Vec3,
     world_bounds: Aabb,
     /// Placed-instance id, so a route or an interaction can address this
     /// character. `None` for a placement outside the prop id namespace.
@@ -985,10 +987,24 @@ impl Character {
         self.world_bounds = character_bounds(&self.asset, &self.transform);
     }
 
-    /// Model-space albedo x baked light per vertex.
+    /// Model-space material albedo per vertex, independent of lighting.
     #[must_use]
     pub fn albedo(&self) -> &[[f32; 4]] {
         &self.albedo
+    }
+
+    /// Stable world-space lighting anchor: transformed bind-pose bounds centre.
+    #[must_use]
+    pub fn lighting_sample_position(&self) -> [f32; 3] {
+        self.transform
+            .transform_point3(self.lighting_local_centre)
+            .to_array()
+    }
+
+    /// Current environmental light, refreshed independently of animation.
+    #[must_use]
+    pub const fn entity_lighting(&self) -> super::light_transport::EntityLighting {
+        self.entity_lighting
     }
 
     /// World-space culling bounds, conservative for every pose.
@@ -1099,10 +1115,14 @@ impl CharacterScene {
     }
 
     /// Keeps live pose/cue playback across a graphics-only rebuild while
-    /// retaining the newly prepared per-vertex lighting. Identity is per
+    /// retaining the newly prepared environmental lighting. Identity is per
     /// placement; a changed model keeps its new animator instead of applying
     /// incompatible rig state from the previous asset.
     pub fn inherit_playback_from(&mut self, previous: &mut Self) {
+        // Runtime actors have no authored placement to re-create. Retain them
+        // across a graphics rebuild and re-sample the newly installed field.
+        self.runtime = std::mem::take(&mut previous.runtime);
+        self.runtime_generation = previous.runtime_generation;
         for character in &mut self.characters {
             let Some(id) = character.instance_id.as_deref() else {
                 continue;
@@ -1122,10 +1142,9 @@ impl CharacterScene {
     /// Claims every placed prop whose resolved model carries a skin.
     ///
     /// Placement uses the same transform as the static path, so a character
-    /// stands exactly where its prop entry says. Baked lighting is sampled
-    /// once per model vertex at the rest pose; like the dynamic-object probe,
-    /// it does not follow the pose, which keeps the per-frame work a pure
-    /// matrix blend. A model whose asset fails to resolve is left to the
+    /// stands exactly where its prop entry says. Lighting uses the transformed
+    /// bind-pose bounds centre and refreshes after live transforms advance.
+    /// A model whose asset fails to resolve is left to the
     /// static path's placeholder handling.
     #[must_use]
     pub fn spawn_characters(
@@ -1200,7 +1219,9 @@ impl CharacterScene {
             };
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
             let transform = prop_instance_matrix(prop, base_y);
-            let albedo = sample_albedo(&asset, &transform, lighting, irradiance);
+            let albedo = asset.model.vertices.iter().map(|v| v.color).collect();
+            let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
+            let lighting_local_centre = model_lighting_centre(&asset);
             let world_bounds = character_bounds(&asset, &transform);
             let instance_id = instance_ids
                 .get(prop_index)
@@ -1212,6 +1233,8 @@ impl CharacterScene {
                 transform,
                 animator,
                 albedo,
+                entity_lighting,
+                lighting_local_centre,
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
@@ -1244,8 +1267,8 @@ impl CharacterScene {
     /// [`Self::spawn_characters_with_field`], accepting either a catalogue
     /// registry id or a raw model path, and requires an animatable model
     /// (`PropsModel::is_animatable` plus [`CharacterAnimator::new`]). The
-    /// per-vertex albedo is sampled once, at the placement transform, from
-    /// `lighting`/`irradiance`, exactly like a placed character's. Refuses when
+    /// initial environment is sampled from `lighting`/`irradiance` at its
+    /// bounds centre, exactly like a placed character's. Refuses when
     /// the model cannot resolve, is not animatable, the position or scale are
     /// not finite/positive, or the placed + runtime character budget
     /// ([`MAX_CHARACTERS`]) is full. A live runtime character with the same
@@ -1318,13 +1341,17 @@ impl CharacterScene {
             .floor_y_at(position.x, position.z)
             .unwrap_or(0.0);
         let transform = runtime_instance_matrix(position, base_y, yaw_degrees, scale);
-        let albedo = sample_albedo(&asset, &transform, lighting, irradiance);
+        let albedo = asset.model.vertices.iter().map(|v| v.color).collect();
+        let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
+        let lighting_local_centre = model_lighting_centre(&asset);
         let world_bounds = character_bounds(&asset, &transform);
         let character = Character {
             asset,
             transform,
             animator,
             albedo,
+            entity_lighting,
+            lighting_local_centre,
             world_bounds,
             instance_id: Some(instance_id.to_string()),
             scale,
@@ -1417,6 +1444,21 @@ impl CharacterScene {
         // against the pose the frame will draw, not the previous one.
         self.update_dynamic_lights(frames);
         CharacterUpdate { moved, finished }
+    }
+
+    /// Refreshes all environmental samples after entity transforms advance.
+    pub fn refresh_lighting(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+    ) {
+        for character in self.characters.iter_mut().chain(self.runtime.iter_mut()) {
+            character.entity_lighting = super::light_transport::entity_lighting(
+                lighting,
+                irradiance,
+                character.lighting_sample_position(),
+            );
+        }
     }
 
     /// Rebuilds the attached-light set from this frame's handoff.
@@ -1577,38 +1619,30 @@ fn runtime_instance_matrix(position: Vec3, base_y: f32, yaw_degrees: f32, scale:
         .mul_mat4(&Mat4::from_scale(Vec3::splat(scale)))
 }
 
-/// Samples each bind-pose vertex's albedo times baked light in world space.
-///
-/// The environment light is the shared moving-object rule
-/// ([`crate::render::common::light_transport::moving_object_light`]): the
-/// prepared field where it resolves, floored at the room's authored baseline,
-/// and the vertex-lit environment sample for a roomless or unresolvable
-/// position.
-fn sample_albedo(
+/// Uses the same transformed bind-pose bounds centre as dynamic props.
+/// Animation does not move the anchor within the body, avoiding pose flicker.
+fn sample_character_light(
     asset: &LoadedPropAsset,
     transform: &Mat4,
     lighting: &LevelLighting,
     irradiance: Option<&crate::lighting::probes::ProbeField>,
-) -> Vec<[f32; 4]> {
-    asset
-        .model
-        .vertices
-        .iter()
-        .map(|vertex| {
-            let position = transform.transform_point3(Vec3::from(vertex.pos));
-            let light = crate::render::common::light_transport::moving_object_light(
-                lighting,
-                irradiance,
-                [position.x, position.y, position.z],
-            );
-            [
-                vertex.color[0] * light[0],
-                vertex.color[1] * light[1],
-                vertex.color[2] * light[2],
-                vertex.color[3],
-            ]
-        })
-        .collect()
+) -> super::light_transport::EntityLighting {
+    let local = model_lighting_centre(asset);
+    super::light_transport::entity_lighting(
+        lighting,
+        irradiance,
+        transform.transform_point3(local).to_array(),
+    )
+}
+
+fn model_lighting_centre(asset: &LoadedPropAsset) -> Vec3 {
+    asset.model.bounds().map_or(Vec3::ZERO, |(min, max)| {
+        Vec3::new(
+            f32::midpoint(min[0], max[0]),
+            f32::midpoint(min[1], max[1]),
+            f32::midpoint(min[2], max[2]),
+        )
+    })
 }
 
 /// Conservative world-space culling bounds for a placed character.
@@ -2673,8 +2707,8 @@ fn swim_angles(pose: &NodePose, phase: f32, scale: f32) -> (f32, f32) {
 
 /// The neutral vertex a posed character vertex uploads as.
 ///
-/// The colour is the pre-baked albedo (light already sampled), so the world
-/// shader's vertex-lit path is exact and no lightmap channel is used.
+/// Colour contains only material albedo. The environment uniform supplies
+/// current lighting; no static lightmap channel is used.
 #[must_use]
 pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]) -> Vertex {
     Vertex {
@@ -3953,6 +3987,121 @@ mod tests {
             "a refused spawn is not a change"
         );
         assert!(scene.is_empty());
+    }
+
+    #[test]
+    fn character_lighting_matches_rigid_models_and_refreshes_after_movement_and_quality_changes() {
+        use crate::lighting::probes::{ProbeField, ProbeSample};
+        use crate::render::common::dynamic::DynamicScene;
+        let (level, catalog, mut assets, lighting) = runtime_fixtures();
+        let actor_light = |scene: &CharacterScene| {
+            scene
+                .runtime_character("neutral")
+                .expect("actor")
+                .entity_lighting()
+        };
+        let mut scene = CharacterScene::new();
+        scene
+            .spawn_runtime_character(
+                &level,
+                &catalog,
+                &mut assets,
+                &lighting,
+                None,
+                "neutral",
+                "rat",
+                Vec3::new(0.0, 1.0, 0.0),
+                0.0,
+                0.5,
+            )
+            .expect("spawn");
+        let actor = scene.runtime_character("neutral").expect("actor");
+        let asset = Arc::clone(actor.asset());
+        let centre = actor.lighting_sample_position();
+        let mut field = ProbeField {
+            min: centre.map(|v| v - 0.5),
+            cell_m: 1.0,
+            dims: [2, 1, 1],
+            probes: vec![
+                ProbeSample {
+                    irradiance: [0.1; 3],
+                    axis: [0.5; 2],
+                    room: 0,
+                    ..ProbeSample::default()
+                },
+                ProbeSample {
+                    irradiance: [0.7; 3],
+                    axis: [0.5; 2],
+                    room: 0,
+                    ..ProbeSample::default()
+                },
+            ],
+        };
+        let mut rigid = DynamicScene::new();
+        let id = rigid
+            .spawn(&asset, [0.0, 1.0, 0.0], 0.0, 0.5, 0.0)
+            .expect("rigid");
+        rigid.update_with_field(0.0, Some(&lighting), Some(&field));
+        scene.refresh_lighting(&lighting, Some(&field));
+        assert_eq!(rigid.get(id).expect("object").centre().to_array(), centre);
+        assert_eq!(
+            Some(actor_light(&scene)),
+            rigid.get(id).expect("rigid").entity_lighting()
+        );
+        let actor = scene.runtime_character("neutral").expect("actor");
+        assert_eq!(
+            actor.albedo()[0],
+            asset.model.vertices[0].color,
+            "lighting is never baked into albedo"
+        );
+        let initial = actor.entity_lighting();
+        scene.set_runtime_character_transform("neutral", Vec3::new(1.0, 1.0, 0.0), 0.0);
+        scene.refresh_lighting(&lighting, Some(&field));
+        assert!(actor_light(&scene).display[0] > initial.display[0]);
+        // Low disables the field; Medium/High replacements restore it at the
+        // actor's current transform, independently of pose revision.
+        for _ in 0..3 {
+            scene.refresh_lighting(&lighting, None);
+            assert!(actor_light(&scene).prepared.is_none());
+            for value in [0.2, 0.6] {
+                field
+                    .probes
+                    .iter_mut()
+                    .for_each(|p| p.irradiance = [value; 3]);
+                scene.refresh_lighting(&lighting, Some(&field));
+                let sample = actor_light(&scene);
+                assert!((sample.display[0] - value).abs() < 1.0e-6);
+                scene.refresh_lighting(&lighting, Some(&field));
+                assert_eq!(actor_light(&scene), sample);
+            }
+        }
+    }
+
+    #[test]
+    fn bounds_centre_is_transformed_to_world_space_exactly_once() {
+        let (_, catalog, mut assets, lighting) = runtime_fixtures();
+        let path = catalog.get("rat").model.expect("path");
+        let asset = assets.resolve(&path).expect("asset");
+        let offset_transform = Mat4::from_scale_rotation_translation(
+            Vec3::splat(2.0),
+            Quat::from_rotation_y(0.8),
+            Vec3::new(3.0, 1.0, -2.0),
+        );
+        let sample = sample_character_light(&asset, &offset_transform, &lighting, None);
+        let (min, max) = asset.model.bounds().expect("bounds");
+        let local = Vec3::new(
+            f32::midpoint(min[0], max[0]),
+            f32::midpoint(min[1], max[1]),
+            f32::midpoint(min[2], max[2]),
+        );
+        assert_eq!(
+            sample,
+            super::super::light_transport::entity_lighting(
+                &lighting,
+                None,
+                offset_transform.transform_point3(local).to_array()
+            )
+        );
     }
 
     /// A live runtime actor can be moved without restarting its animation, and

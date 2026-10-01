@@ -7,7 +7,7 @@
 //! in between — the cross-wall bleed and RGB contamination that the wall-boundary
 //! repair exists to remove, and (for stacked rooms) the floor-to-floor light
 //! leak the vertical-isolation work exists to remove. This module answers one
-//! question, once per level load and never per frame:
+//! question during lighting preparation:
 //!
 //! ```text
 //! what fraction of a fixture's emitting rectangle can a surface sample see?
@@ -20,6 +20,9 @@
 //! a hard shadow edge into a penumbra. [`ShadowSampling::HARD`] reproduces
 //! `occludes` exactly, so the vertex-lit fallback and every historical test keep
 //! their values bit for bit.
+//!
+//! Runtime probe blending also uses the indexed solids to reject blocked
+//! segments across connected-area boundaries.
 //!
 //! The geometry it tests is exactly the solid geometry the renderer emits and
 //! collision walks through, in three groups:
@@ -699,8 +702,12 @@ struct PointGrid {
 
 impl PointGrid {
     fn build<T: Footprint>(solids: &[T], base: usize) -> Self {
+        Self::try_build(solids, base, usize::MAX).unwrap_or_default()
+    }
+
+    fn try_build<T: Footprint>(solids: &[T], base: usize, max_items: usize) -> Option<Self> {
         if solids.is_empty() {
-            return Self::default();
+            return Some(Self::default());
         }
         let mut min_x = f32::INFINITY;
         let mut min_z = f32::INFINITY;
@@ -714,7 +721,7 @@ impl PointGrid {
             max_z = max_z.max(z1);
         }
         if !min_x.is_finite() || !min_z.is_finite() || !max_x.is_finite() || !max_z.is_finite() {
-            return Self::default();
+            return Some(Self::default());
         }
         let span_x = (max_x - min_x).max(0.0);
         let span_z = (max_z - min_z).max(0.0);
@@ -727,7 +734,7 @@ impl PointGrid {
         #[allow(clippy::cast_precision_loss)]
         let cell_m = (span_x.max(span_z) / MAX_GRID_CELLS_PER_AXIS as f32).max(POINT_GRID_CELL_M);
         if !cell_m.is_finite() || cell_m <= 0.0 {
-            return Self::default();
+            return Some(Self::default());
         }
         let spec = GridSpec {
             min_x,
@@ -744,11 +751,19 @@ impl PointGrid {
         // order, so every cell's list is ascending and deterministic.
         let mut counts: Vec<u32> = vec![0; cell_count.saturating_add(1)];
         let mut ranges: Vec<(u32, u32)> = Vec::with_capacity(cell_count);
+        let mut placements = 0_usize;
         for solid in solids {
             let (x0, x1, z0, z1) = solid.footprint();
             let Some((ix0, ix1, iz0, iz1)) = spec.covered(x0, x1, z0, z1) else {
                 continue;
             };
+            let covered = usize::try_from(ix1.checked_sub(ix0)?.checked_add(1)?)
+                .ok()?
+                .checked_mul(usize::try_from(iz1.checked_sub(iz0)?.checked_add(1)?).ok()?)?;
+            placements = placements.checked_add(covered)?;
+            if placements > max_items {
+                return None;
+            }
             for iz in iz0..=iz1 {
                 for ix in ix0..=ix1 {
                     let index = iz.saturating_mul(cells_x).saturating_add(ix) as usize;
@@ -786,7 +801,7 @@ impl PointGrid {
             }
         }
 
-        Self {
+        Some(Self {
             base,
             min_x,
             min_z,
@@ -795,7 +810,7 @@ impl PointGrid {
             cell_m,
             ranges,
             items,
-        }
+        })
     }
 
     /// Visits every solid whose footprint overlaps the X/Z rectangle.
@@ -856,6 +871,49 @@ impl PointGrid {
     }
 }
 
+/// A derived segment index with at most 16 MiB of solid references.
+/// Overlapping giant solids fall back to the exact linear predicate rather
+/// than multiplying decoded map geometry into an unbounded allocation.
+#[derive(Clone, Debug, Default)]
+struct SegmentGrid {
+    grid: Option<PointGrid>,
+}
+
+impl SegmentGrid {
+    fn build<T: Footprint>(solids: &[T]) -> Self {
+        Self {
+            grid: PointGrid::try_build(solids, 0, 1 << 22),
+        }
+    }
+
+    fn retained_heap_bytes(&self) -> usize {
+        self.grid.as_ref().map_or(0, |grid| {
+            allocation_bytes(&grid.ranges).saturating_add(allocation_bytes(&grid.items))
+        })
+    }
+
+    fn for_each_in_rect<T: Footprint>(
+        &self,
+        solids: &[T],
+        x0: f32,
+        x1: f32,
+        z0: f32,
+        z1: f32,
+        mut visit: impl FnMut(&T),
+    ) {
+        if let Some(grid) = &self.grid {
+            grid.for_each_in_rect(solids, x0, x1, z0, z1, visit);
+        } else {
+            for solid in solids {
+                let (min_x, max_x, min_z, max_z) = solid.footprint();
+                if min_x <= x1 && max_x >= x0 && min_z <= z1 && max_z >= z0 {
+                    visit(solid);
+                }
+            }
+        }
+    }
+}
+
 /// A solid's X/Z footprint: `(x0, x1, z0, z1)`.
 trait Footprint {
     fn footprint(&self) -> (f32, f32, f32, f32);
@@ -864,6 +922,12 @@ trait Footprint {
 impl Footprint for Blocker {
     fn footprint(&self) -> (f32, f32, f32, f32) {
         (self.min[0], self.max[0], self.min[2], self.max[2])
+    }
+}
+
+impl Footprint for OrientedBox {
+    fn footprint(&self) -> (f32, f32, f32, f32) {
+        Self::footprint(self)
     }
 }
 
@@ -986,6 +1050,9 @@ pub(super) struct Occluders {
     /// Walls only: the uniform grid behind point containment and the
     /// partition-connectivity segment queries.
     wall_grid: PointGrid,
+    /// Derived once from the serialized geometry for live probe segment queries.
+    horizontal_grid: SegmentGrid,
+    prop_grid: SegmentGrid,
     /// `(start, end)` into [`Self::props`] of every level prop's own occluder
     /// boxes, by prop index. Empty when the level places no props with attached
     /// lights, which is when the ranges are never asked for.
@@ -1042,6 +1109,8 @@ impl Occluders {
         append_void_wall_occluders(level, &mut props);
         Self {
             wall_grid: PointGrid::build(&walls, 0),
+            horizontal_grid: SegmentGrid::build(&horizontals),
+            prop_grid: SegmentGrid::build(&props),
             walls,
             horizontals,
             props,
@@ -1164,9 +1233,9 @@ impl Occluders {
     /// True when any solid geometry (wall, floor interface or ceiling body)
     /// crosses the segment.
     ///
-    /// A diagnostic query rather than a bake one — the bake goes through the
-    /// per-site pools — so the horizontal solids are scanned linearly instead
-    /// of paying for a second spatial index that only diagnostics would use.
+    /// Immutable spatial indices bound the candidate set for live probe
+    /// interpolation. Their geometry is the compiled baker geometry; no model
+    /// triangles or lighting values are rebuilt during gameplay.
     #[must_use]
     pub(super) fn blocks(&self, from: [f32; 3], to: [f32; 3]) -> bool {
         if !from.iter().chain(to.iter()).all(|value| value.is_finite()) {
@@ -1176,10 +1245,25 @@ impl Occluders {
             return true;
         }
         let from = nudge_segment_start(from, to);
-        if self.horizontals.iter().any(|solid| solid.hits(from, to)) {
+        let (x0, x1) = ordered_pair(from[0], to[0]);
+        let (z0, z1) = ordered_pair(from[2], to[2]);
+        let mut hit = false;
+        self.horizontal_grid
+            .for_each_in_rect(&self.horizontals, x0, x1, z0, z1, |solid| {
+                if !hit && solid.hits(from, to) {
+                    hit = true;
+                }
+            });
+        if hit {
             return true;
         }
-        self.props.iter().any(|prop| prop.hits(from, to))
+        self.prop_grid
+            .for_each_in_rect(&self.props, x0, x1, z0, z1, |prop| {
+                if !hit && prop.hits(from, to) {
+                    hit = true;
+                }
+            });
+        hit
     }
 
     /// Number of wall boxes.
@@ -1622,6 +1706,8 @@ impl Visibility {
             allocation_bytes(&self.occluders.prop_ranges),
             allocation_bytes(&self.occluders.wall_grid.ranges),
             allocation_bytes(&self.occluders.wall_grid.items),
+            self.occluders.horizontal_grid.retained_heap_bytes(),
+            self.occluders.prop_grid.retained_heap_bytes(),
         ]
         .into_iter()
         .fold(0_usize, usize::saturating_add)
@@ -2168,7 +2254,7 @@ impl Visibility {
     }
 
     /// [`Self::occludes`] over every registered solid, for a query that does not
-    /// belong to one fixture (used by tests and diagnostics).
+    /// belong to one fixture, including live entity-to-probe segments.
     #[must_use]
     pub fn occludes_anywhere(&self, from: [f32; 3], to: [f32; 3]) -> bool {
         self.occluders.blocks(from, to)
@@ -2361,6 +2447,8 @@ impl Visibility {
         }
         Ok(Self {
             occluders: Occluders {
+                horizontal_grid: SegmentGrid::build(&horizontals),
+                prop_grid: SegmentGrid::build(&props),
                 walls,
                 horizontals,
                 props,
@@ -2523,6 +2611,26 @@ mod tests {
 
     fn level(json: &str) -> LevelDef {
         LevelDef::from_json(json).unwrap_or_else(|error| panic!("test level must parse: {error}"))
+    }
+
+    #[test]
+    fn bounded_segment_index_falls_back_without_losing_solid_hits() {
+        let solids = [
+            Blocker {
+                min: [0.0; 3],
+                max: [100.0; 3],
+            },
+            Blocker {
+                min: [200.0; 3],
+                max: [300.0; 3],
+            },
+        ];
+        assert!(PointGrid::try_build(&solids, 0, 4).is_none());
+        let fallback = SegmentGrid { grid: None };
+        let mut found = Vec::new();
+        fallback.for_each_in_rect(&solids, 50.0, 60.0, 50.0, 60.0, |solid| found.push(*solid));
+        assert_eq!(found, vec![solids[0]]);
+        assert_eq!(fallback.retained_heap_bytes(), 0);
     }
 
     /// One 4 x 4 m room whose only wall is a full-height partition at x = 2.

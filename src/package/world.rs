@@ -363,7 +363,9 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let irradiance = match &variant.entries.irradiance {
         Some(entry) => {
             let bytes = reader.read_blob(entry, MAX_ENTRY_BYTES)?;
-            Some(Arc::new(crate::lighting::probes::ProbeField::read(&bytes)?))
+            let field = crate::lighting::probes::ProbeField::read(&bytes)?;
+            validate_probe_rooms(&field, lighting.rooms().len())?;
+            Some(Arc::new(field))
         }
         None => None,
     };
@@ -379,6 +381,21 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         navigation,
         probes,
     })
+}
+
+fn validate_probe_rooms(
+    field: &crate::lighting::probes::ProbeField,
+    rooms: usize,
+) -> Result<(), String> {
+    for probe in &field.probes {
+        if probe.room >= 0 && usize::try_from(probe.room).map_or(true, |room| room >= rooms) {
+            return Err(format!(
+                "irradiance probe references missing room {}",
+                probe.room
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn read_probes<R: std::io::Read + std::io::Seek>(
@@ -608,6 +625,26 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    fn irradiance_labels_must_reference_a_packaged_room() {
+        use crate::lighting::probes::{ProbeField, ProbeSample};
+        let mut field = ProbeField {
+            min: [0.0; 3],
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![ProbeSample {
+                room: -1,
+                ..ProbeSample::default()
+            }],
+        };
+        assert!(validate_probe_rooms(&field, 0).is_ok());
+        field.probes[0].room = 0;
+        assert!(validate_probe_rooms(&field, 1).is_ok());
+        assert!(validate_probe_rooms(&field, 0).is_err());
+        field.probes[0].room = 1;
+        assert!(validate_probe_rooms(&field, 1).is_err());
+    }
 
     /// A cube of solid `edge`-texel faces.
     fn solid_faces(edge: u32, colour: [u8; 4]) -> [Vec<u8>; 6] {

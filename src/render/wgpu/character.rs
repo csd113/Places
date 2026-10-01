@@ -13,9 +13,8 @@
 //! * one plain GPU material per mesh submesh, shared by every character of
 //!   that model, and one [`BatchPass`] per submesh from its glTF material.
 //!
-//! The colour is the pre-baked albedo x light sampled at spawn, so the
-//! character draws through the ordinary vertex-lit path and the light scale
-//! stays neutral; a submesh whose exported material is blended (the sheet
+//! Colour carries material albedo only. The per-character environment supplies
+//! the same current HDR probe payload as dynamic models. A blended submesh (the sheet
 //! ghost) draws in the sorted translucent pass with its opacity applied.
 //! Nothing here is created per frame: `sync` reuses the buffers and materials
 //! uploaded with the level and writes only the environments whose placement or
@@ -106,14 +105,12 @@ struct CharacterGpu {
     key: CharacterKey,
     /// This character's mutable, CPU-skinned vertex buffer.
     vertex_buffer: wgpu::Buffer,
-    /// This character's environment binding: placement matrix only.
+    /// This character's environment binding: placement and current irradiance.
     environment: EnvironmentBindings,
     /// The animator revision the vertex buffer currently holds.
     uploaded_revision: u64,
     /// The placement matrix the environment uniform currently holds.
     uploaded_transform: Mat4,
-    /// The opacity the environment uniform currently holds.
-    uploaded_opacity: f32,
     /// World-space culling bounds from the last applied transform.
     world_bounds: Aabb,
 }
@@ -175,6 +172,21 @@ pub struct CharacterUploadContext<'a> {
 }
 
 impl WgpuCharacters {
+    /// The exact uniform last sent for a placed or runtime entity id.
+    pub fn diagnostic_uniform(
+        &self,
+        id: &str,
+        placed_slot: Option<usize>,
+    ) -> Option<&EnvironmentUniform> {
+        self.characters
+            .iter()
+            .find(|c| match &c.key {
+                CharacterKey::Placed(slot) => Some(*slot) == placed_slot,
+                CharacterKey::Runtime(key) => key == id,
+            })
+            .map(|c| c.environment.uploaded_uniform())
+    }
+
     /// Uploads every character of one scene, building the shared meshes,
     /// per-character vertex buffers and environments.
     ///
@@ -245,7 +257,7 @@ impl WgpuCharacters {
                 ctx.planar_fallback,
                 &ctx.environment
                     .with_model(character.transform())
-                    .with_light_scale([1.0; 3])
+                    .with_entity_lighting(Some(character.entity_lighting()))
                     .with_opacity(character.opacity()),
             );
             Self::fill_vertices(character, &mut value.scratch);
@@ -258,7 +270,6 @@ impl WgpuCharacters {
                 environment,
                 uploaded_revision: character.animator().revision(),
                 uploaded_transform: character.transform(),
-                uploaded_opacity: character.opacity(),
                 world_bounds: character.world_bounds(),
             });
         }
@@ -367,7 +378,7 @@ impl WgpuCharacters {
     /// Fills the reusable scratch buffer with one character's posed vertices.
     ///
     /// Skins in model space with the animator's current deltas and attaches
-    /// the pre-baked albedo; no allocation once the buffer has been sized.
+    /// material albedo; no allocation once the buffer has been sized.
     fn fill_vertices(character: &Character, out: &mut Vec<WorldVertex>) {
         let model = &character.asset().model;
         out.clear();
@@ -458,19 +469,17 @@ impl WgpuCharacters {
             // covers opacity: a still, settled pose writes nothing, while a
             // fading ghost rewrites only its own uniform.
             let transform_changed = character.transform() != gpu.uploaded_transform;
-            let opacity_changed = character.opacity().to_bits() != gpu.uploaded_opacity.to_bits();
-            if transform_changed || opacity_changed {
-                gpu.environment.update(
-                    queue,
-                    &environment
-                        .with_model(character.transform())
-                        .with_opacity(character.opacity()),
-                );
-                gpu.uploaded_transform = character.transform();
-                gpu.uploaded_opacity = character.opacity();
-                if transform_changed {
-                    gpu.world_bounds = character.world_bounds();
-                }
+
+            gpu.environment.update(
+                queue,
+                &environment
+                    .with_model(character.transform())
+                    .with_entity_lighting(Some(character.entity_lighting()))
+                    .with_opacity(character.opacity()),
+            );
+            gpu.uploaded_transform = character.transform();
+            if transform_changed {
+                gpu.world_bounds = character.world_bounds();
             }
             if character.animator().revision() == gpu.uploaded_revision {
                 continue;

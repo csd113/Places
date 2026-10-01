@@ -405,12 +405,15 @@ emission without an authored light source is appearance, not transport emission.
 All integers/floats are little-endian, without alignment padding: the header is
 38 bytes and each sample is 36 bytes. `origin` is the **lower grid boundary**,
 not the first probe center. Centers are `origin + (index + 0.5) * cell_m`, with X
-fastest, then Y, then Z. Positions and directions are world-space metres, +Y up;
+fastest, then Y, then Z. Positions use world-space metres, +Y up; moments use world XYZ axes in irradiance units;
 there are no additional model transforms, origin offsets or exposure factors.
 
 `irradiance` is RGB, finite, nonnegative linear HDR in the engine's calibrated
-white-surface light units; it is not a normalized color or an sRGB value. No gamma,
-exposure, upper clamp or half-float quantization is applied to the PLPF record.
+white-surface light units; it is not a normalized color or an sRGB value.
+Each channel must be at most 65504, the shared static-atlas representable range;
+larger values are rejected rather than clipped. Accepted PLPF values retain f32
+precision. No gamma,
+exposure, brightness clamp or half-float quantization is applied to the PLPF record.
 `direction` is the signed world XYZ sum of the per-channel first moments, with
 `|direction| <= sum(irradiance)` up to floating-point rounding. `axis` is reserved;
 the baker writes `[0.5, 0.5]`. Reconstruction follows `LightmapTexel::light_at`.
@@ -419,21 +422,32 @@ full spherical-harmonic basis. Interpolate means and moments before reconstructi
 Never normalize the stored moment to unit length or treat its components as RGB.
 
 A valid `room` is a nonnegative index into the compiled lighting record's room
-order. `-1` means unavailable: outside relevant room air, too close to an opaque
+order. Package loading rejects labels outside that room list; cross-room
+sampling additionally verifies the label against the probe's actual air-volume
+ownership. `-1` means unavailable: outside relevant room air, too close to an opaque
 surface, inside authored solids, or detectably inside a closed prop mesh. A valid
 all-zero sample means **darkness**, not missing data. Compiler labels use actual
 floor/stair/ramp/region heights, ceilings and 3D wall bounds. Rooms without a valid
 probe are reported in build warnings. Grid spacing starts at 1.5 m, increases to
 fit 64 cells per axis, and dimensions are recomputed and centered in the bounds.
-The uniform grid can still miss narrow spaces; it does not bridge unrelated rooms.
+The uniform grid can still miss narrow spaces.
 
 Readers/writers reject non-finite values, negative energy, moments beyond their
 energy bound, invalid labels/reserved axes, invalid grid headers, wrong lengths,
 trailing bytes and unsupported versions. They do not repair or brighten malformed
 data. Unresolvable sampling returns `None`; fallback policy belongs to runtime.
-Room-constrained interpolation prevents mixing *different* rooms, but cannot
-itself prevent mixing opposite sides of an internal divider in one room. A consumer
-must assess that limitation independently of the compiler's ray-tested bake.
+Runtime uses normalized compact Shepard weights within two grid cells:
+`(1 - distance_cells / 2)^2 / distance_cells^2`, with an exact-center path.
+Energy and signed moments accumulate in f64 and convert once to f32. The anchor
+is the transformed bind-pose model-bounds center, shared by rigid and animated
+models. Actual air-volume checks reject below-floor and above-ceiling samples.
+Within a connected area, interpolation preserves the compiler's local field;
+across room/area boundaries, spatially indexed compiled-solid visibility permits
+blending through real openings while rejecting sealed walls and floors.
+The runtime preserves valid darkness and raw HDR shader input. Missing fields,
+roomless/invalid positions and unresolved support have explicit diagnostic reasons
+and use the existing authored environment sample, bounded to finite display RGB.
+No white/black constant or extra brightness floor is introduced.
 
 The payload remains PLPF v2. Solver revision 8 changes the bake identity and
 invalidates package/lightmap fingerprints; rebuild existing packages. See

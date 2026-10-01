@@ -9,7 +9,7 @@
 //! * one plain-opaque GPU material per `(object, submesh)` because an object can
 //!   override its emission while sharing the mesh with another object;
 //! * one group-3 environment per object, carrying the object's model matrix and
-//!   its per-frame baked-light probe (`u_light_scale`), so a moving object is
+//!   its per-frame linear irradiance and directional moment, so a moving object is
 //!   lit coherently without touching its vertex buffer.
 //!
 //! Nothing here is created per frame: `sync` writes the small per-object
@@ -162,12 +162,15 @@ impl WgpuDynamic {
                 }
                 textures.push(texture);
             }
+            // Untextured primitives still draw with the asset-backed white
+            // fallback; they must not borrow another primitive's texture.
+            let white = textures.len();
+            textures.push(ctx.cache.fallback());
             let submeshes: Vec<DynamicSubmeshGpu> = mesh
                 .submeshes
                 .iter()
                 .map(|submesh| DynamicSubmeshGpu {
-                    texture: usize::from(submesh.texture.unwrap_or(0))
-                        .min(textures.len().saturating_sub(1)),
+                    texture: submesh.texture.map_or(white, usize::from).min(white),
                     emission: submesh.emission,
                     alpha: submesh.alpha,
                     pass: BatchPass::of(submesh.alpha),
@@ -175,7 +178,7 @@ impl WgpuDynamic {
                         .emission
                         .mask
                         .map(|index| usize::try_from(index).unwrap_or(usize::MAX))
-                        .filter(|index| *index < textures.len()),
+                        .filter(|index| *index < white),
                     first_index: submesh.first_index,
                     index_count: submesh.index_count,
                 })
@@ -202,7 +205,7 @@ impl WgpuDynamic {
                 ctx.planar_fallback,
                 &ctx.environment
                     .with_model(object.transform())
-                    .with_light_scale(object.light_scale()),
+                    .with_entity_lighting(object.entity_lighting()),
             );
             let Some(mesh) = value.meshes.get(mesh_index) else {
                 continue;
@@ -326,10 +329,17 @@ impl WgpuDynamic {
             };
             let uniform = environment
                 .with_model(live.transform())
-                .with_light_scale(live.light_scale());
+                .with_entity_lighting(live.entity_lighting());
             object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
         }
+    }
+
+    /// The exact uniform last sent for the scene slot.
+    pub fn diagnostic_uniform(&self, slot: usize) -> Option<&EnvironmentUniform> {
+        self.objects
+            .get(slot)
+            .map(|o| o.environment.uploaded_uniform())
     }
 
     /// The upload and frame counters.

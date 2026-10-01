@@ -95,6 +95,81 @@ mod tests {
         Ok(())
     }
 
+    /// A known HDR sky value must survive every CPU stage, including real
+    /// compiler air labels and the runtime entity selector.
+    #[test]
+    fn solved_probe_round_trips_into_runtime_entity_lighting() -> Result<(), String> {
+        use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
+        use crate::lighting::transport::SolveOptions;
+        use crate::render::{EntityLightingSource, entity_lighting};
+
+        let level = level()?;
+        let lighting = LevelLighting::bake(&level);
+        let sky = [2.0, 0.125, 0.001];
+        let scene = TransportScene::new(Vec::new(), Vec::new())
+            .ok_or("scene")?
+            .with_sky(sky);
+        let charts = [(
+            LightmapPatch {
+                origin: [10.0, 10.0, 26.0],
+                u_axis: [6.0, 0.0, 0.0],
+                v_axis: [0.0, 0.0, -6.0],
+                room: Some(0),
+                kind: PatchKind::Floor,
+            },
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            },
+        )];
+        let mut field = scene
+            .solve_with_probes(&charts, SolveOptions::default(), None, true)
+            .map_err(|error| format!("{error:?}"))?
+            .probes
+            .ok_or("no field")?;
+        label(&mut field, &level, &lighting, &scene, &[]);
+        let bytes = field.write()?;
+        let decoded = ProbeField::read(&bytes)?;
+        assert_eq!(
+            decoded, field,
+            "serialization preserves f32 coefficients and labels"
+        );
+        let position = [13.0, 10.75, 23.0];
+        let candidates = decoded.sample_diagnostics_with_rooms(position, None, |probe, label| {
+            lighting.labelled_probe_visible_from(position, probe, label)
+        });
+        assert!(!candidates.is_empty());
+        assert!(
+            (candidates
+                .iter()
+                .map(|candidate| candidate.weight)
+                .sum::<f64>()
+                - 1.0)
+                .abs()
+                < 1.0e-12
+        );
+        let actual = entity_lighting(&lighting, Some(&decoded), position);
+        assert_eq!(actual.source, EntityLightingSource::Prepared);
+        let texel = actual.prepared.ok_or("runtime fallback")?;
+        for (value, expected) in texel.irradiance.into_iter().zip(sky) {
+            assert!(
+                (value - expected).abs() < 1.0e-5,
+                "HDR energy must not be display-clamped"
+            );
+        }
+        assert!(
+            texel.direction.iter().all(|value| value.abs() < 1.0e-5),
+            "antipodal uniform sky is isotropic"
+        );
+        for (value, expected) in texel.light_at([0.0, 1.0, 0.0]).into_iter().zip(sky) {
+            assert!((value - expected).abs() < 1.0e-5);
+        }
+        Ok(())
+    }
+
     #[test]
     fn wall_labels_use_height_and_preserve_clear_openings() -> Result<(), String> {
         let level = level()?;
