@@ -120,12 +120,12 @@ fn degenerate_quads_are_rejected() {
         ])
         .is_none()
     );
-    // Bow-tie: the fourth corner does not close the frame.
+    // Actual bow-tie: p1 -> p2 crosses the p3 -> p0 edge.
     assert!(
         none([
             [0.0, 0.0, 0.0],
             [2.0, 0.0, 0.0],
-            [3.0, 0.0, 9.0],
+            [-1.0, 0.0, 2.0],
             [0.0, 0.0, 2.0]
         ])
         .is_none()
@@ -965,6 +965,8 @@ fn transport_receivers_span_each_patch_and_meet_on_a_shared_edge() {
         origin: [0.0, 0.0, 0.0],
         u_axis: [2.0, 0.0, 0.0],
         v_axis: [0.0, 0.0, 2.0],
+        diagonal_correction: [0.0; 3],
+        triangle: false,
         room: None,
         kind: PatchKind::Floor,
     };

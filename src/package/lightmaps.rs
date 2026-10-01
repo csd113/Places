@@ -139,6 +139,10 @@ impl LightmapsMeta {
             if !patch.origin.iter().all(|value| value.is_finite())
                 || !patch.u_axis.iter().all(|value| value.is_finite())
                 || !patch.v_axis.iter().all(|value| value.is_finite())
+                || !patch
+                    .diagonal_correction
+                    .iter()
+                    .all(|value| value.is_finite())
             {
                 return Err("lightmap chart patch has a non-finite component".to_string());
             }

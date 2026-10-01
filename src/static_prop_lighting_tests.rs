@@ -629,6 +629,8 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
         origin: [0.0; 3],
         u_axis: [width, 0.0, 0.0],
         v_axis: [0.0, 0.0, height],
+        diagonal_correction: [0.0; 3],
+        triangle: false,
         room: None,
         kind,
     };
@@ -777,6 +779,8 @@ fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preser
                 origin: [0.0; 3],
                 u_axis: [width, 0.0, 0.0],
                 v_axis: [0.0, 0.0, height],
+                diagonal_correction: [0.0; 3],
+                triangle: false,
                 room: None,
                 kind,
             };
@@ -961,5 +965,388 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
                 .all(Vertex::is_lightmapped),
             "{suffix} must retain per-surface atlas coordinates through real package decoding"
         );
+    }
+}
+
+/// Interpolate the real emitted triangles, independently of the patch frame.
+fn native_quad_point(corners: [[f32; 3]; 4], u: f32, v: f32) -> [f32; 3] {
+    let (indices, weights) = if u >= v {
+        ([0, 1, 2], [1.0 - u, u - v, v])
+    } else {
+        ([0, 2, 3], [1.0 - v, u, v - u])
+    };
+    std::array::from_fn(|axis| {
+        weights
+            .iter()
+            .zip(indices)
+            .fold(0.0_f32, |sum, (weight, index)| {
+                corners[index][axis].mul_add(*weight, sum)
+            })
+    })
+}
+
+#[test]
+fn gable_trapezoid_chart_matches_native_triangle_interpolation_and_inverse() {
+    use crate::lighting::lightmap::{LightmapPatch, PatchKind};
+    // The two actual cottage-1 left-wall loops. Before this correction their
+    // bottom p2 receivers were 1.41037m above/below the real wall geometry.
+    let real_walls = [
+        [
+            [-31.2, 2.889_629_6, 1.12],
+            [-31.2, 4.3, 3.5],
+            [-31.2, 0.0, 3.5],
+            [-31.2, 0.0, 1.12],
+        ],
+        [
+            [-31.2, 4.3, 3.5],
+            [-31.2, 2.889_629_6, 5.88],
+            [-31.2, 0.0, 5.88],
+            [-31.2, 0.0, 3.5],
+        ],
+    ];
+    for corners in real_walls {
+        let patch = LightmapPatch::from_quad(PatchKind::Wall, corners, Some(0)).unwrap();
+        assert!(!patch.is_triangular());
+        for u in [0.0, 0.125, 0.375, 0.5, 0.875, 1.0] {
+            for v in [0.0, 0.125, 0.375, 0.5, 0.875, 1.0] {
+                let expected = Vec3::from(native_quad_point(corners, u, v));
+                let actual = Vec3::from(patch.point_at(u, v));
+                assert!(
+                    expected.distance(actual) < 8.0e-6,
+                    "({u},{v}): {actual:?} vs {expected:?}"
+                );
+                let (back_u, back_v) = patch.local_of(expected.to_array());
+                assert!((back_u - u).abs() < 4.0e-6 && (back_v - v).abs() < 4.0e-6);
+            }
+        }
+        let expected_area = 2.38 * (2.889_629_6 + 4.3) * 0.5;
+        assert!((patch.area_m2() - expected_area).abs() < 2.0e-5);
+        let (_, vertical_extent) = patch.extent_m();
+        assert!((vertical_extent - 4.3).abs() < 1.0e-6);
+        let serialized = serde_json::to_vec(&patch).unwrap();
+        let restored: LightmapPatch = serde_json::from_slice(&serialized).unwrap();
+        assert_eq!(restored, patch);
+    }
+}
+
+#[test]
+fn folded_architecture_triangles_sample_only_real_geometry_and_preserve_kind() {
+    use crate::lighting::lightmap::{LightmapPatch, PatchKind};
+    for kind in [PatchKind::Wall, PatchKind::Skirt, PatchKind::Prop] {
+        let patch = LightmapPatch::from_quad(
+            kind,
+            [
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 3.0, 0.0],
+            ],
+            Some(2),
+        )
+        .unwrap();
+        assert!(patch.is_triangular());
+        assert_eq!(patch.kind, kind);
+        assert_eq!(patch.room, Some(2));
+        assert_eq!(patch.diagonal_correction, [0.0; 3]);
+        assert_eq!(patch.area_m2(), 3.0);
+        for u in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            for v in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                let (local_u, local_v) = patch.local_of(patch.point_at(u, v));
+                assert!(local_u >= 0.0 && local_v >= 0.0 && local_u + local_v <= 1.000_001);
+                let expected = if u + v <= 1.0 {
+                    (u, v)
+                } else {
+                    (1.0 - v, 1.0 - u)
+                };
+                assert!(
+                    (local_u - expected.0).abs() < 1.0e-6 && (local_v - expected.1).abs() < 1.0e-6
+                );
+            }
+        }
+        assert_eq!(
+            serde_json::from_slice::<LightmapPatch>(&serde_json::to_vec(&patch).unwrap()).unwrap(),
+            patch
+        );
+    }
+    // The new optional fields do not enlarge ordinary rectangular records and
+    // old model records still retain their already established triangle domain.
+    let old = r#"{"origin":[0,0,0],"u_axis":[2,0,0],"v_axis":[0,3,0],"room":null,"kind":"prop"}"#;
+    let restored: LightmapPatch = serde_json::from_str(old).unwrap();
+    assert!(restored.is_triangular());
+    assert_eq!(restored.point_at(1.0, 1.0), restored.origin);
+    let rectangle = LightmapPatch::from_quad(
+        PatchKind::Wall,
+        [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 3.0, 0.0],
+            [0.0, 3.0, 0.0],
+        ],
+        None,
+    )
+    .unwrap();
+    let record = serde_json::to_string(&rectangle).unwrap();
+    assert!(!record.contains("diagonal_correction") && !record.contains("triangle"));
+}
+
+/// A physical occluder and area-independent point source for edge comparisons.
+fn sloping_wall_shadow_scene() -> crate::lighting::transport::TransportScene {
+    use crate::lighting::transport::{
+        EmitterShape, TransportEmitter, TransportScene, TransportTriangle,
+    };
+    // A cabinet-shaped blocker interrupts the middle of the wall's light.
+    let blocker = [
+        [1.6, 1.2, -1.0],
+        [2.4, 1.2, -1.0],
+        [2.4, 2.0, -1.0],
+        [1.6, 2.0, -1.0],
+    ];
+    let triangles = [[0, 1, 2], [0, 2, 3]]
+        .map(|indices| {
+            TransportTriangle::new(
+                blocker[indices[0]],
+                blocker[indices[1]],
+                blocker[indices[2]],
+                [0.5; 3],
+            )
+            .unwrap()
+        })
+        .to_vec();
+    TransportScene::new(
+        triangles,
+        vec![TransportEmitter {
+            position: [2.0, 1.5, -2.0],
+            shape: EmitterShape::Point,
+            color: [1.0, 0.8, 0.6],
+            intensity: 4.0,
+            range: 12.0,
+            falloff: crate::lighting::LightFalloff::Smooth,
+            height_factor: 1.0,
+            directional: false,
+            switchable: None,
+        }],
+    )
+    .unwrap()
+}
+
+#[test]
+fn adjacent_sloping_wall_charts_match_one_continuous_surface_without_erasing_shadows() {
+    use crate::lighting::lightmap::{Chart, LightmapPatch, PatchKind};
+    use crate::lighting::transport::SolveOptions;
+    let wall = |x0, x1, top0, top1| {
+        LightmapPatch::from_quad(
+            PatchKind::Wall,
+            [
+                [x0, top0, 0.0],
+                [x1, top1, 0.0],
+                [x1, 0.0, 0.0],
+                [x0, 0.0, 0.0],
+            ],
+            None,
+        )
+        .unwrap()
+    };
+    let whole = wall(0.0, 4.0, 2.0, 4.0);
+    let left = wall(0.0, 2.0, 2.0, 3.0);
+    let right = wall(2.0, 4.0, 3.0, 4.0);
+    let chart = |width, height| Chart {
+        page: 0,
+        x: 0,
+        y: 0,
+        width,
+        height,
+    };
+    let scene = sloping_wall_shadow_scene();
+    let options = SolveOptions {
+        taps_per_axis: 1,
+        bounces: 0,
+        gather_samples: 1,
+        workers: 2,
+    };
+    let solution = scene
+        .solve(
+            &[
+                (left, chart(33, 49)),
+                (right, chart(33, 49)),
+                (whole, chart(65, 65)),
+            ],
+            options,
+            None,
+        )
+        .unwrap();
+    let mut energies = Vec::new();
+    // The unified chart's native UV is nonlinear across its diagonal, but
+    // these rows coincide exactly with the split charts' common world edge.
+    for (split_row, whole_row, expected_y) in [(0, 0, 3.0), (24, 24, 1.5), (48, 64, 0.0)] {
+        let a = &solution.charts[0].receivers[split_row * 33 + 32];
+        let b = &solution.charts[1].receivers[split_row * 33];
+        let unified = &solution.charts[2].receivers[whole_row * 65 + 32];
+        assert!((a.position[1] - expected_y).abs() < 2.0e-6);
+        assert!(Vec3::from(a.position).distance(Vec3::from(b.position)) < 2.0e-6);
+        assert!(Vec3::from(a.position).distance(Vec3::from(unified.position)) < 2.0e-6);
+        let energy = scene
+            .intensity_at(a.position, a.normal, options)
+            .light_at(a.normal);
+        for receiver in [b, unified] {
+            let other = scene
+                .intensity_at(receiver.position, receiver.normal, options)
+                .light_at(receiver.normal);
+            for (actual, expected) in other.into_iter().zip(energy) {
+                assert!((actual - expected).abs() < 1.0e-5);
+            }
+        }
+        // Compare the actual filtered HDR data too, rather than stopping at
+        // chart position math. Dense equivalent grids tolerate only their
+        // small differing one-sided sampling footprints at the split edge.
+        let solved = solution.charts[0].texels[split_row * 33 + 32].light_at(a.normal);
+        for other in [
+            solution.charts[1].texels[split_row * 33].light_at(b.normal),
+            solution.charts[2].texels[whole_row * 65 + 32].light_at(unified.normal),
+        ] {
+            for (actual, expected) in other.into_iter().zip(solved) {
+                assert!(
+                    (actual - expected).abs() <= expected.abs().mul_add(0.02, 0.002),
+                    "a compatible coplanar chart boundary must not introduce a lighting step: {actual} vs {expected}"
+                );
+            }
+        }
+        if split_row == 24 {
+            assert_eq!(
+                solved, [0.0; 3],
+                "filtering must retain the real cabinet shadow"
+            );
+        }
+        energies.push(energy[0]);
+    }
+    assert!(
+        energies[0] > 0.1 && energies[2] > 0.1,
+        "unblocked wall must stay illuminated"
+    );
+    assert_eq!(
+        energies[1], 0.0,
+        "a genuine cabinet shadow must survive the mapping fix"
+    );
+}
+
+#[test]
+fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
+    use crate::render::SurfaceKind;
+    let level = LevelDef::from_json(
+        r#"{"format_version":3,"id":"gable_chart_regression","name":"Gable chart regression",
+        "spawn":{"x":-27,"z":3},"rooms":[{"x":-31.5,"z":0.8,"width":9,"depth":5.4,"height":2.7,
+        "ceiling":{"kind":"gable","ridge":"x","ridge_rise":1.6}}],
+        "walls":[{"x":-31.5,"z":1.12,"width":0.3,"depth":4.76,"north":"core:paint_offwhite"}] }"#,
+    )
+    .unwrap();
+    let catalog = PropCatalog::builtin();
+    let mut assets = crate::props::PropAssets::default();
+    let materials = crate::render::logical_materials(&level);
+    let prepared = crate::render::prepare_level_geometry_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::On),
+        None,
+    );
+    assert!(prepared.build.lightmap_failure.is_none());
+    let fill = prepared.fill.unwrap();
+    let mut nonrectangular = 0;
+    let mut checked = 0;
+    for range in prepared
+        .build
+        .mesh
+        .ranges
+        .iter()
+        .filter(|range| range.key.kind == SurfaceKind::Wall)
+    {
+        for vertex in &range.vertices {
+            if !vertex.is_lightmapped() {
+                continue;
+            }
+            let owner = fill
+                .charts
+                .iter()
+                .find_map(|(patch, chart)| {
+                    if chart.page != u16::from(vertex.lightmap_page) {
+                        return None;
+                    }
+                    let edge = fill.config.page_edge as f32;
+                    let u = (f32::from(vertex.lightmap[0]) / 65_535.0)
+                        .mul_add(edge, -(chart.x as f32))
+                        / chart.width as f32;
+                    let v = (f32::from(vertex.lightmap[1]) / 65_535.0)
+                        .mul_add(edge, -(chart.y as f32))
+                        / chart.height as f32;
+                    if (-0.002..=1.002).contains(&u) && (-0.002..=1.002).contains(&v) {
+                        Some((patch, u, v))
+                    } else {
+                        None
+                    }
+                })
+                .expect("every stamped vertex must belong to its own chart");
+            let (patch, u, v) = owner;
+            let baked = Vec3::from(patch.point_at(u, v));
+            let actual = Vec3::from(vertex.pos);
+            assert!(
+                baked.distance(actual) < 0.003,
+                "mesh {actual:?} baked {baked:?}: {patch:?}"
+            );
+            checked += 1;
+            if patch
+                .diagonal_correction
+                .iter()
+                .any(|value| value.abs() > 0.1)
+            {
+                nonrectangular += 1;
+            }
+        }
+    }
+    assert!(
+        checked > 20 && nonrectangular >= 4,
+        "must exercise real gable trapezoid emitters"
+    );
+}
+
+#[test]
+fn strongly_tapered_planar_quads_are_valid_but_real_bowties_and_folded_planes_are_rejected() {
+    use crate::lighting::lightmap::{LightmapPatch, PatchKind, PatchRejection};
+    // This is the old incorrectly named bow-tie fixture: its winding is valid
+    // and both triangles lie on the same plane, despite substantial taper.
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [3.0, 0.0, 9.0],
+        [0.0, 0.0, 2.0],
+    ];
+    let patch = LightmapPatch::from_quad(PatchKind::Floor, corners, None).unwrap();
+    assert!((patch.area_m2() - 12.0).abs() < 1.0e-6);
+    for u in [0.0, 0.125, 0.5, 0.875, 1.0] {
+        for v in [0.0, 0.125, 0.5, 0.875, 1.0] {
+            let point = native_quad_point(corners, u, v);
+            assert!(Vec3::from(patch.point_at(u, v)).distance(Vec3::from(point)) < 2.0e-6);
+            let (back_u, back_v) = patch.local_of(point);
+            assert!((back_u - u).abs() < 2.0e-6 && (back_v - v).abs() < 2.0e-6);
+        }
+    }
+    for broken in [
+        [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [-1.0, 0.0, 2.0],
+            [0.0, 0.0, 2.0],
+        ],
+        [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 1.0, 2.0],
+            [0.0, 0.0, 2.0],
+        ],
+    ] {
+        assert_eq!(
+            LightmapPatch::rejection(&broken),
+            Some(PatchRejection::Malformed)
+        );
+        assert!(LightmapPatch::from_quad(PatchKind::Floor, broken, None).is_none());
     }
 }

@@ -115,6 +115,8 @@ fn floor_patch(
             origin: [x0, 0.0, z1],
             u_axis: [x1 - x0, 0.0, 0.0],
             v_axis: [0.0, 0.0, z0 - z1],
+            diagonal_correction: [0.0; 3],
+            triangle: false,
             room: None,
             kind: PatchKind::Floor,
         },
@@ -564,8 +566,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 9,
-        "static model surface transport is solver revision 9"
+        SOLVER_REVISION, 10,
+        "native quad and folded-triangle receiver mapping is solver revision 10"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -656,6 +658,8 @@ fn two_room_scene_with(albedo: f32, open: bool) -> (TransportScene, Vec<(Lightma
                     origin,
                     u_axis: [width, 0.0, 0.0],
                     v_axis: [0.0, height, 0.0],
+                    diagonal_correction: [0.0; 3],
+                    triangle: false,
                     room: None,
                     kind: PatchKind::Wall,
                 },
@@ -1255,6 +1259,8 @@ fn ceiling_patch(
             origin: [x1, 3.0, z1],
             u_axis: [x0 - x1, 0.0, 0.0],
             v_axis: [0.0, 0.0, z0 - z1],
+            diagonal_correction: [0.0; 3],
+            triangle: false,
             room: None,
             kind: PatchKind::Ceiling,
         },
@@ -1285,6 +1291,8 @@ fn the_spatial_fill_includes_ceilings_and_preserves_their_physical_gradients() {
             origin: [0.0, 0.0, 4.0],
             u_axis: [0.0, 0.0, -4.0],
             v_axis: [0.0, 3.0, 0.0],
+            diagonal_correction: [0.0; 3],
+            triangle: false,
             room: None,
             kind: PatchKind::Wall,
         },

@@ -24,6 +24,8 @@ fn probe_charts() -> Vec<(LightmapPatch, Chart)> {
             origin: [0.0, 3.0, 0.0],
             u_axis: [6.0, 0.0, 0.0],
             v_axis: [0.0, 0.0, 6.0],
+            diagonal_correction: [0.0; 3],
+            triangle: false,
             room: Some(0),
             kind: PatchKind::Ceiling,
         },

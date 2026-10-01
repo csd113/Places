@@ -242,7 +242,10 @@ pub fn solver_fingerprint() -> u64 {
 ///   prop cutout cards transmit rather than manufacturing opaque card shadows.
 /// * `9` — static model triangles are real surface receivers, with neutral
 ///   albedo and triangular chart padding instead of legacy position samples.
-pub const SOLVER_REVISION: u64 = 9;
+/// * `10` — architectural trapezoids follow the native mesh's piecewise affine
+///   UV interpolation; all folded triangles reflect onto real geometry and
+///   chart density/receiver area retain both native triangle extents.
+pub const SOLVER_REVISION: u64 = 10;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1913,21 +1916,17 @@ impl TransportScene {
                 continue;
             }
             let normal = patch_normal(patch);
-            let surface_area = length(cross3(patch.u_axis, patch.v_axis))
-                * if patch.kind == PatchKind::Prop {
-                    0.5
-                } else {
-                    1.0
-                };
-            let texel_area = surface_area
-                / (f32::from(u16::try_from(width).unwrap_or(u16::MAX))
-                    * f32::from(u16::try_from(height).unwrap_or(u16::MAX)));
-            let area = if texel_area.is_finite() && texel_area > 0.0 {
-                texel_area
-            } else {
-                1.0e-4
-            };
+            let texel_count = f32::from(u16::try_from(width).unwrap_or(u16::MAX))
+                * f32::from(u16::try_from(height).unwrap_or(u16::MAX));
+            let first_area = patch.sample_area_m2(1.0, 0.0) / texel_count;
+            let second_area = patch.sample_area_m2(0.0, 1.0) / texel_count;
             for_each_texel(chart, |u, v| {
+                let texel_area = if u >= v { first_area } else { second_area };
+                let area = if texel_area.is_finite() && texel_area > 0.0 {
+                    texel_area
+                } else {
+                    1.0e-4
+                };
                 let point = patch.point_at(u, v);
                 let position = receiver_position(point, normal);
                 let ray_origin = receiver_ray_origin(patch, u, v, normal);

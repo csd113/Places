@@ -276,8 +276,8 @@ const MIN_PATCH_AREA_M2: f32 = 1.0e-8;
 
 /// Which family of static surface a lightmap patch belongs to.
 ///
-/// Architectural kinds retain their rectangular domain and room-fill contract.
-/// Model triangles use a mirrored triangular domain and physical transport
+/// Architectural kinds retain their room-fill contract. Any folded triangle
+/// uses a mirrored triangular domain; model triangles use physical transport
 /// without authored room fill. All kinds participate in the same HDR atlas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -304,14 +304,13 @@ impl PatchKind {
     }
 }
 
-/// One planar rectangle of static geometry, in world space.
+/// One planar quad or folded triangle of static geometry, in world space.
 ///
-/// Local `(u, v)` in `[0, 1]²` maps to world `origin + u*u_axis + v*v_axis`, and
-/// the emitter writes exactly those local coordinates into its vertices, in the
-/// order the quad itself winds (`p0 -> p1` is `u`, `p0 -> p3` is `v`). Because
-/// the mesh uses the quad's own frame, a floor's texel grid aligns with the
-/// world and a wall face is neither stretched nor mirrored relative to the
-/// geometry it covers.
+/// The quad's native mesh uses triangles `(p0, p1, p2)` and `(p0, p2, p3)`
+/// with square UV corners. Its exact mapping is therefore piecewise affine:
+/// `origin + u*u_axis + v*v_axis + min(u,v)*diagonal_correction`.
+/// Keeping the fourth corner matters for gable wall trapezoids: an affine
+/// rectangle would sample metres away from their real receiver positions.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LightmapPatch {
     /// World position of local `(u, v) = (0, 0)`.
@@ -320,6 +319,15 @@ pub struct LightmapPatch {
     pub u_axis: [f32; 3],
     /// World vector spanned by `v` over `0..=1`.
     pub v_axis: [f32; 3],
+    /// Difference between actual `p2` and the parallelogram's `p1 + p3 - p0`.
+    /// Zero on rectangles and folded triangles; omitted from those records.
+    #[serde(default, skip_serializing_if = "zero_vector")]
+    pub diagonal_correction: [f32; 3],
+    /// A repeated last corner emits one triangle with UVs `(0,0),(1,0),(0,1)`.
+    /// Samples outside that triangle reflect across its diagonal onto real
+    /// geometry. This domain is independent of the surface's lighting family.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub triangle: bool,
     /// Room hint for [`crate::lighting::LevelLighting::sample_in_room`].
     ///
     /// Transport baseline targets use this authoritative owner for every
@@ -362,13 +370,21 @@ impl LightmapPatch {
         if Self::rejection(&corners).is_some() {
             return None;
         }
-        let [p0, p1, _, _] = corners;
+        let [p0, p1, p2, p3] = corners;
         let u_axis = subtract(p1, p0);
-        let v_axis = subtract(corners[3], p0);
+        let v_axis = subtract(p3, p0);
+        let triangle = corners_coincident(p2, p3);
+        let diagonal_correction = if triangle {
+            [0.0; 3]
+        } else {
+            subtract(subtract(p2, p1), v_axis)
+        };
         Some(Self {
             origin: p0,
             u_axis,
             v_axis,
+            diagonal_correction,
+            triangle,
             room,
             kind,
         })
@@ -405,80 +421,162 @@ impl LightmapPatch {
         if !area.is_finite() || area < MIN_PATCH_AREA_M2 {
             return Some(PatchRejection::Sliver);
         }
-        // Guard against a bow-tie or a wildly non-planar quad: the fourth
-        // corner has to close the loop within its own frame. A quad whose last
-        // two corners coincide is really a triangle (a ramp skirt landing flush
-        // on a floor), so it has no fourth corner to close.
+        // Both native triangles must be coplanar and retain the frame's
+        // winding. Taper alone is not malformed: the exact mapping supports
+        // unequal opposing edges without an arbitrary deformation limit.
+        // Coincident last corners intentionally emit just one triangle.
         if !corners_coincident(p2, p3) {
-            let closing = subtract(add(add(p0, u_axis), v_axis), p2);
-            let diag = u_len.hypot(v_len);
-            if length(closing) > diag * 0.5 {
+            let diagonal = subtract(p2, p0);
+            let frame_normal = cross(u_axis, v_axis);
+            let first_normal = cross(u_axis, diagonal);
+            let second_normal = cross(diagonal, v_axis);
+            if dot(first_normal, frame_normal) <= 0.0
+                || dot(second_normal, frame_normal) <= 0.0
+                || dot(diagonal, frame_normal).abs() > area * u_len.hypot(v_len) * 1.0e-5
+            {
                 return Some(PatchRejection::Malformed);
             }
         }
         None
     }
 
-    /// World position of local `(u, v)`, `origin + u_axis*u + v_axis*v`, with
-    /// both coordinates clamped to `0..=1`.
+    /// Whether this chart covers one triangle, independent of its family.
+    /// The kind check preserves the triangular domain of older model records.
+    #[must_use]
+    pub fn is_triangular(&self) -> bool {
+        self.triangle || self.kind == PatchKind::Prop
+    }
+
+    /// World position corresponding exactly to the mesh's UV interpolation.
+    /// Coordinates are clamped to `0..=1`; a triangle's unused chart half
+    /// reflects onto its real geometry to provide valid diagonal edge samples.
     #[must_use]
     pub fn point_at(&self, u: f32, v: f32) -> [f32; 3] {
-        let mut u = if u.is_finite() {
-            u.clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        let mut v = if v.is_finite() {
-            v.clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        // Model charts use a triangular domain. Mirror padding across its
-        // diagonal so every solve sample belongs to actual geometry, while
-        // bilinear samples at the edge remain continuous.
-        if self.kind == PatchKind::Prop && u + v > 1.0 {
+        let mut u = finite_unit(u);
+        let mut v = finite_unit(v);
+        if self.is_triangular() && u + v > 1.0 {
             (u, v) = (1.0 - v, 1.0 - u);
         }
-        [
-            self.u_axis[0].mul_add(u, self.v_axis[0].mul_add(v, self.origin[0])),
-            self.u_axis[1].mul_add(u, self.v_axis[1].mul_add(v, self.origin[1])),
-            self.u_axis[2].mul_add(u, self.v_axis[2].mul_add(v, self.origin[2])),
-        ]
+        let diagonal = if self.is_triangular() { 0.0 } else { u.min(v) };
+        std::array::from_fn(|axis| {
+            self.diagonal_correction
+                .get(axis)
+                .copied()
+                .unwrap_or(0.0)
+                .mul_add(
+                    diagonal,
+                    self.u_axis.get(axis).copied().unwrap_or(0.0).mul_add(
+                        u,
+                        self.v_axis
+                            .get(axis)
+                            .copied()
+                            .unwrap_or(0.0)
+                            .mul_add(v, self.origin.get(axis).copied().unwrap_or(0.0)),
+                    ),
+                )
+        })
     }
 
-    /// Local `(u, v)` of a world point projected onto the patch's plane, by
-    /// solving the 2x2 normal equations of the frame.
-    ///
-    /// A point off the plane (a texel of a sloped gable patch, say) is
-    /// projected onto it, which is what the fill pass wants. A degenerate frame
-    /// returns `(0, 0)` rather than a division by zero; [`Self::from_quad`]
-    /// never produces one.
+    /// Local UV of a point projected onto the patch plane. Each half solves
+    /// its own native triangle frame, then selects the half containing the UV.
+    /// Unlike a bilinear inverse, this matches the GPU at every interior point.
     #[must_use]
     pub fn local_of(&self, point: [f32; 3]) -> (f32, f32) {
-        let d = subtract(point, self.origin);
-        let a = dot(self.u_axis, self.u_axis);
-        let b = dot(self.u_axis, self.v_axis);
-        let c = dot(self.v_axis, self.v_axis);
-        let det = a.mul_add(c, -(b * b));
-        if !det.is_finite() || det.abs() <= f32::EPSILON {
-            return (0.0, 0.0);
+        let delta = subtract(point, self.origin);
+        if self.is_triangular() {
+            return local_in_frame(delta, self.u_axis, self.v_axis);
         }
-        let du = dot(d, self.u_axis);
-        let dv = dot(d, self.v_axis);
-        (
-            c.mul_add(du, -(b * dv)) / det,
-            a.mul_add(dv, -(b * du)) / det,
-        )
+        let first = local_in_frame(
+            delta,
+            self.u_axis,
+            add(self.v_axis, self.diagonal_correction),
+        );
+        if first.0 >= first.1 {
+            first
+        } else {
+            local_in_frame(
+                delta,
+                add(self.u_axis, self.diagonal_correction),
+                self.v_axis,
+            )
+        }
     }
 
-    /// The two axis lengths, in metres: `(u length, v length)`.
-    ///
-    /// The chart's texel size is derived from these, so a curved or skewed quad
-    /// still gets a texel density close to the configured one on both axes.
+    /// Maximum physical span of each UV axis across both native triangles.
+    /// A trapezoid's two opposing edges need not have the same length.
     #[must_use]
     pub fn extent_m(&self) -> (f32, f32) {
-        (length(self.u_axis), length(self.v_axis))
+        let (u, v) = (length(self.u_axis), length(self.v_axis));
+        if self.is_triangular() {
+            (u, v)
+        } else {
+            (
+                u.max(length(add(self.u_axis, self.diagonal_correction))),
+                v.max(length(add(self.v_axis, self.diagonal_correction))),
+            )
+        }
     }
+
+    /// True polygon area in square metres, summing the two native triangles.
+    #[must_use]
+    pub fn area_m2(&self) -> f32 {
+        if self.is_triangular() {
+            length(cross(self.u_axis, self.v_axis)) * 0.5
+        } else {
+            self.sample_area_m2(1.0, 0.0)
+                .midpoint(self.sample_area_m2(0.0, 1.0))
+        }
+    }
+
+    /// World area per unit UV area at this sample. Triangle charts mirror two
+    /// UV halves onto one triangle, so each copy carries half the frame area.
+    pub(crate) fn sample_area_m2(&self, u: f32, v: f32) -> f32 {
+        if self.is_triangular() {
+            length(cross(self.u_axis, self.v_axis)) * 0.5
+        } else if u >= v {
+            length(cross(
+                self.u_axis,
+                add(self.v_axis, self.diagonal_correction),
+            ))
+        } else {
+            length(cross(
+                add(self.u_axis, self.diagonal_correction),
+                self.v_axis,
+            ))
+        }
+    }
+}
+
+/// Serde omits the common rectangle/triangle defaults from dense metadata.
+fn zero_vector(value: &[f32; 3]) -> bool {
+    value
+        .iter()
+        .all(|component| component.to_bits().trailing_zeros() >= 31)
+}
+
+const fn finite_unit(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+/// Project a world delta into one well-conditioned planar triangle frame.
+fn local_in_frame(delta: [f32; 3], u_axis: [f32; 3], v_axis: [f32; 3]) -> (f32, f32) {
+    let uu = dot(u_axis, u_axis);
+    let uv = dot(u_axis, v_axis);
+    let vv = dot(v_axis, v_axis);
+    let determinant = uu.mul_add(vv, -(uv * uv));
+    if !determinant.is_finite() || determinant <= f32::EPSILON * uu * vv {
+        return (0.0, 0.0);
+    }
+    let du = dot(delta, u_axis);
+    let dv = dot(delta, v_axis);
+    (
+        vv.mul_add(du, -(uv * dv)) / determinant,
+        uu.mul_add(dv, -(uv * du)) / determinant,
+    )
 }
 
 /// One patch's rectangle inside one atlas page.
