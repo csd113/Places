@@ -195,5 +195,202 @@
       -22
     ],
     "capture_time": 2.2
+  },
+  {
+    "name": "walk-cottage-1",
+    "spawn": [
+      -27,
+      21.8,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 14.3,
+    "move_script": "forward@0-5.87,strafe_right@6-6.7,strafe_left@6.95-7.65,backward@7.8-13.7"
+  },
+  {
+    "name": "walk-cottage-2",
+    "spawn": [
+      -9,
+      21.8,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 14.3,
+    "move_script": "forward@0-5.87,strafe_right@6-6.7,strafe_left@6.95-7.65,backward@7.8-13.7"
+  },
+  {
+    "name": "walk-cottage-3",
+    "spawn": [
+      9,
+      21.8,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 14.3,
+    "move_script": "forward@0-5.87,strafe_right@6-6.7,strafe_left@6.95-7.65,backward@7.8-13.7"
+  },
+  {
+    "name": "walk-cottage-4",
+    "spawn": [
+      27,
+      21.8,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 14.3,
+    "move_script": "forward@0-5.87,strafe_right@6-6.7,strafe_left@6.95-7.65,backward@7.8-13.7"
+  },
+  {
+    "name": "walk-pond",
+    "spawn": [
+      -25,
+      -15,
+      -90
+    ],
+    "camera": [
+      -90,
+      -8
+    ],
+    "capture_time": 7.6,
+    "move_script": "forward@0-2.35,crouch@2.5-2.56,backward@2.8-7.2,crouch@7.3-7.36"
+  },
+  {
+    "name": "walk-trail",
+    "spawn": [
+      -18,
+      10.2,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 16.6,
+    "move_script": "forward@0-5.067,look_right@5.1-5.418,forward@5.5-9.676,look_left@9.72-10.356,forward@10.44-14.616,look_right@14.68-14.998,forward@15.08-16.3"
+  },
+  {
+    "name": "walk-gate-east",
+    "spawn": [
+      37,
+      16.6,
+      90
+    ],
+    "camera": [
+      90,
+      -4
+    ],
+    "capture_time": 5.2,
+    "move_script": "forward@0-5,jump@0.5-0.56,jump@1.4-1.46,jump@2.3-2.36,jump@3.2-3.26,jump@4.1-4.16"
+  },
+  {
+    "name": "walk-gate-west",
+    "spawn": [
+      -37,
+      16.6,
+      -90
+    ],
+    "camera": [
+      -90,
+      -4
+    ],
+    "capture_time": 5.2,
+    "move_script": "forward@0-5,jump@0.5-0.56,jump@1.4-1.46,jump@2.3-2.36,jump@3.2-3.26,jump@4.1-4.16"
+  },
+  {
+    "name": "walk-forest-edge",
+    "spawn": [
+      0,
+      -40,
+      0
+    ],
+    "camera": [
+      0,
+      -4
+    ],
+    "capture_time": 5.2,
+    "move_script": "forward@0-5,jump@0.5-0.56,jump@1.4-1.46,jump@2.3-2.36,jump@3.2-3.26,jump@4.1-4.16"
+  },
+  {
+    "name": "quality-cycle",
+    "spawn": [
+      -18,
+      -28,
+      0
+    ],
+    "camera": [
+      0,
+      -9
+    ],
+    "capture_time": 1.5,
+    "actions": [
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 1000,
+        "action": {
+          "kind": "low_lighting",
+          "enabled": true
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 7000,
+        "action": {
+          "kind": "quality",
+          "level": "medium"
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 13000,
+        "action": {
+          "kind": "low_lighting",
+          "enabled": false
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 19000,
+        "action": {
+          "kind": "quality",
+          "level": "high"
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 25000,
+        "action": {
+          "kind": "quality",
+          "level": "low"
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 31000,
+        "action": {
+          "kind": "quality",
+          "level": "medium"
+        }
+      },
+      {
+        "after": "ready:lantern_hollow",
+        "delay_ms": 37000,
+        "action": {
+          "kind": "quality",
+          "level": "high"
+        }
+      }
+    ]
   }
 ]

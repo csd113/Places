@@ -54,7 +54,7 @@ def build_level() -> dict:
              "spawn": {"x": 18.0, "z": 21.6, "yaw_degrees": -35.0},
              "defaults": {"wall": "home:wall_paint_offwhite_01", "floor": "outdoor:grass_ground_01",
                           "ceiling": "home:ceiling_white_01"},
-             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.06}}
+             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.22}}
     for key in ("rooms", "walls", "floor_patches", "floor_regions", "props", "ceiling_lights", "doors",
                 "routes", "water", "geometry_intent", "decals", "fog_regions", "void_walls"):
         level[key] = []

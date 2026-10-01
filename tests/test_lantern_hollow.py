@@ -19,7 +19,7 @@ class LanternHollowTests(unittest.TestCase):
     def test_authored_source_is_current_and_repeatable(self):
         self.assertEqual(author.serialise(self.level), author.OUTPUT.read_text())
         self.assertEqual(author.serialise(self.level), author.serialise(author.build_level()))
-        self.assertEqual(self.level['sky']['ambient'], 0.06)
+        self.assertEqual(self.level['sky']['ambient'], 0.22)
         self.assertEqual(self.level['fog_regions'], [{
             'id': 'lantern_hollow_night_fog', 'min': [-50.0, -3.0, -52.0],
             'max': [50.0, 12.0, 38.0], 'density': 0.001,

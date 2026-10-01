@@ -16,7 +16,7 @@
   "sky": {
     "texture": "outdoor:tex_sky_stars_01",
     "brightness": 1.0,
-    "ambient": 0.06
+    "ambient": 0.22
   },
   "rooms": [
     {

@@ -45,10 +45,17 @@ for name in selected:
                PLACES_LEVEL='lantern_hollow', PLACES_QUALITY=args.quality,
                PLACES_SPAWN=','.join(map(str, view['spawn'])),
                PLACES_CAMERA=','.join(map(str, view['camera'])),
-               PLACES_BENCH='1', PLACES_BENCH_FRAMES='1200', PLACES_BENCH_WARMUP='120',
+               PLACES_BENCH='1', PLACES_BENCH_FRAMES='2400', PLACES_BENCH_WARMUP='120',
                PLACES_CAPTURE=str(path), PLACES_CAPTURE_TIME=str(view.get('capture_time', 1.5)),
                PLACES_BENCH_OUT=str(out / (name + '-frames.csv')),
-               PLACES_LOAD_TRACE=str(out / (name + '-load.csv')))
+               PLACES_LOAD_TRACE=str(out / (name + '-load.csv')),
+               PLACES_STATE_LOG=str(out / (name + '-player.csv')))
+    if 'move_script' in view:
+        env['PLACES_MOVE_SCRIPT'] = view['move_script']
+    if 'actions' in view:
+        actions = state / 'actions.json'
+        actions.write_text(json.dumps(view['actions']))
+        env['PLACES_BENCH_ACTIONS'] = str(actions)
     if name == 'overview':
         env['PLACES_CAPTURE_TIME'] = '0'
     start = time.monotonic()
