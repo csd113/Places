@@ -1353,3 +1353,34 @@ fn strongly_tapered_planar_quads_are_valid_but_real_bowties_and_folded_planes_ar
         assert!(LightmapPatch::from_quad(PatchKind::Floor, broken, None).is_none());
     }
 }
+
+#[test]
+fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
+    let root = crate::assets::resolve_asset_root().unwrap();
+    let package = root.join("levels/places_demo.placesmap");
+    let opened = crate::package::world::open(&package).unwrap();
+    let full = opened.manifest.variant("full").unwrap();
+    let pages = full.entries.lightmaps.as_ref().unwrap();
+    let entry = opened.manifest.entry(pages).unwrap();
+    assert!(entry.bytes > crate::package::MAX_ENTRY_BYTES);
+    assert!(entry.bytes <= crate::package::MAX_LIGHTMAP_ATLAS_BYTES);
+    let mut reader =
+        crate::package::PackageReader::new(std::fs::File::open(&package).unwrap()).unwrap();
+    assert!(
+        reader
+            .read_entry(pages, crate::package::MAX_ENTRY_BYTES)
+            .is_err()
+    );
+    drop(reader);
+    let validated = crate::compiler::validate(&package).unwrap();
+    assert!(validated.warnings.is_empty());
+    let mut assets = crate::props::PropAssets::with_root(root);
+    let loaded = crate::package::world::load_variant(
+        &package,
+        &opened.manifest,
+        crate::quality::LightmapQuality::Full,
+        &mut assets,
+    )
+    .expect("eight real HDR atlas pages must load with their KTX2 container header");
+    assert_eq!(loaded.lightmaps.as_ref().unwrap().pages.len(), 8);
+}

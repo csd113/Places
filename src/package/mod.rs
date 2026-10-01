@@ -95,6 +95,13 @@ pub const MAX_LIGHTMAP_METADATA_BYTES: u64 = 64 * 1024 * 1024;
 /// Largest accepted archive entry, in bytes (decompressed).
 pub const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 
+/// Largest encoded HDR atlas record, including its bounded KTX2 container.
+///
+/// Eight 2048px irradiance/directional pages occupy the full ordinary entry
+/// payload budget; container headers must fit without reducing that page budget.
+/// Ordinary entries and the aggregate archive limit retain their existing caps.
+pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = MAX_ENTRY_BYTES + 64 * 1024;
+
 /// Largest accepted sum of decompressed archive entry bytes.
 pub const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;
 

@@ -359,6 +359,13 @@ pub fn write_lightmaps(lightmaps: &LevelLightmaps) -> Result<(Vec<u8>, Vec<u8>),
         }
     }
     let ktx2 = ktx2::write_rgba16f_2d_array(edge, &layers)?;
+    if u64::try_from(ktx2.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
+        return Err(format!(
+            "lightmap atlas record is {} bytes (limit {})",
+            ktx2.len(),
+            super::MAX_LIGHTMAP_ATLAS_BYTES
+        ));
+    }
     // The packaged record is deterministic: the bake's wall-clock time is a
     // developer measurement, reported in the build output, and never part of
     // the archive bytes.

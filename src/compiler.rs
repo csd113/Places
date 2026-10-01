@@ -892,6 +892,8 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
 fn declared_entry_limit(entry: &PackageEntry) -> u64 {
     if entry.name == "semantics.json" {
         crate::package::MAX_SEMANTICS_BYTES
+    } else if entry.role == "lightmaps" {
+        crate::package::MAX_LIGHTMAP_ATLAS_BYTES
     } else if matches!(entry.role.as_str(), "mesh" | "props") {
         crate::package::MAX_BINARY_BYTES
     } else {
@@ -924,7 +926,7 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     let _ = crate::package::navigation::read_navigation(&navigation_bytes)?;
     if let (Some(pages), Some(meta)) = (&variant.entries.lightmaps, &variant.entries.lightmaps_meta)
     {
-        let page_bytes = reader.read_blob(pages, crate::package::MAX_ENTRY_BYTES)?;
+        let page_bytes = reader.read_blob(pages, crate::package::MAX_LIGHTMAP_ATLAS_BYTES)?;
         let meta_bytes = reader.read_entry(meta, crate::package::MAX_LIGHTMAP_METADATA_BYTES)?;
         let _ = crate::package::lightmaps::read_lightmaps(&meta_bytes, &page_bytes)?;
     }
@@ -1822,6 +1824,23 @@ mod tests {
         entry.bytes = 536_870_913; // One byte beyond the runtime's 512 MiB cap.
         assert!(entry.bytes > declared_entry_limit(&entry));
         entry.bytes = 308_295_329;
+        entry.role = "texture".to_string();
+        assert!(entry.bytes > declared_entry_limit(&entry));
+    }
+
+    #[test]
+    fn full_eight_page_atlas_includes_its_container_in_the_record_budget() {
+        let mut entry = PackageEntry {
+            name: "blobs/full.lightmaps.ktx2".to_string(),
+            role: "lightmaps".to_string(),
+            bytes: 268_435_652, // Actual final Places Demo: 256 MiB plus KTX2 header.
+            sha256: String::new(),
+        };
+        assert!(entry.bytes > crate::package::MAX_ENTRY_BYTES);
+        assert!(entry.bytes <= declared_entry_limit(&entry));
+        entry.bytes = crate::package::MAX_LIGHTMAP_ATLAS_BYTES + 1;
+        assert!(entry.bytes > declared_entry_limit(&entry));
+        entry.bytes = 268_435_652;
         entry.role = "texture".to_string();
         assert!(entry.bytes > declared_entry_limit(&entry));
     }
