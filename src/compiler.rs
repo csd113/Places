@@ -925,7 +925,7 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     if let (Some(pages), Some(meta)) = (&variant.entries.lightmaps, &variant.entries.lightmaps_meta)
     {
         let page_bytes = reader.read_blob(pages, crate::package::MAX_ENTRY_BYTES)?;
-        let meta_bytes = reader.read_entry(meta, crate::package::MAX_MATERIALS_BYTES)?;
+        let meta_bytes = reader.read_entry(meta, crate::package::MAX_LIGHTMAP_METADATA_BYTES)?;
         let _ = crate::package::lightmaps::read_lightmaps(&meta_bytes, &page_bytes)?;
     }
     if let Some(irradiance) = &variant.entries.irradiance {

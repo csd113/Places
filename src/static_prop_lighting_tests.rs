@@ -901,6 +901,9 @@ fn assert_adjacent_model_reservations(
 fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_limit() {
     let root = crate::assets::resolve_asset_root().unwrap();
     let package = root.join("levels/lantern_hollow.placesmap");
+    let validated = crate::compiler::validate(&package)
+        .expect("the compiler validator must accept the same bounded dense chart metadata");
+    assert!(validated.warnings.is_empty());
     let opened = crate::package::world::open(&package).unwrap();
     let full = opened.manifest.variant("full").unwrap();
     assert!(full.lightmap_failure.is_none());
