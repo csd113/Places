@@ -54,10 +54,16 @@ def build_level() -> dict:
              "spawn": {"x": 18.0, "z": 21.6, "yaw_degrees": -35.0},
              "defaults": {"wall": "home:wall_paint_offwhite_01", "floor": "outdoor:grass_ground_01",
                           "ceiling": "home:ceiling_white_01"},
-             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.0}}
+             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.06}}
     for key in ("rooms", "walls", "floor_patches", "floor_regions", "props", "ceiling_lights", "doors",
                 "routes", "water", "geometry_intent", "decals", "fog_regions", "void_walls"):
         level[key] = []
+    # Supported cool sky radiance and authored fog keep the forest readable at night.
+    level["fog_regions"].append({
+        "id": "lantern_hollow_night_fog", "min": [-50.0, -3.0, -52.0],
+        "max": [50.0, 12.0, 38.0], "density": 0.001,
+        "color": [0.045, 0.06, 0.095], "ground_y": 8.0, "top_y": 12.0, "falloff_m": 2.0,
+    })
 
     def prop(model, x, z, identity, *, y=0.0, yaw=0.0, scale=1.0, solid=False, size=None, **extra):
         item = {"id": identity.replace(".", "_"), "model": model, "x": round(x, 4), "z": round(z, 4)}

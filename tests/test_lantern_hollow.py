@@ -19,6 +19,12 @@ class LanternHollowTests(unittest.TestCase):
     def test_authored_source_is_current_and_repeatable(self):
         self.assertEqual(author.serialise(self.level), author.OUTPUT.read_text())
         self.assertEqual(author.serialise(self.level), author.serialise(author.build_level()))
+        self.assertEqual(self.level['sky']['ambient'], 0.06)
+        self.assertEqual(self.level['fog_regions'], [{
+            'id': 'lantern_hollow_night_fog', 'min': [-50.0, -3.0, -52.0],
+            'max': [50.0, 12.0, 38.0], 'density': 0.001,
+            'color': [0.045, 0.06, 0.095], 'ground_y': 8.0, 'top_y': 12.0, 'falloff_m': 2.0,
+        }])
 
     def test_four_real_furnished_cottages_and_clear_front_doors(self):
         homes = [r for r in self.level['rooms'] if r['ceiling']['kind'] == 'gable']

@@ -16,7 +16,7 @@
   "sky": {
     "texture": "outdoor:tex_sky_stars_01",
     "brightness": 1.0,
-    "ambient": 0.0
+    "ambient": 0.06
   },
   "rooms": [
     {
@@ -16651,6 +16651,29 @@
     }
   ],
   "decals": [],
-  "fog_regions": [],
+  "fog_regions": [
+    {
+      "id": "lantern_hollow_night_fog",
+      "min": [
+        -50.0,
+        -3.0,
+        -52.0
+      ],
+      "max": [
+        50.0,
+        12.0,
+        38.0
+      ],
+      "density": 0.001,
+      "color": [
+        0.045,
+        0.06,
+        0.095
+      ],
+      "ground_y": 8.0,
+      "top_y": 12.0,
+      "falloff_m": 2.0
+    }
+  ],
   "void_walls": []
 }
