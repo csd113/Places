@@ -564,8 +564,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 7,
-        "bounce orders without repeated energy are solver revision 7"
+        SOLVER_REVISION, 8,
+        "visibility-isolated sky and probe transport are solver revision 8"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -996,9 +996,8 @@ fn the_chart_fill_restores_the_authored_baseline_and_keeps_dark_rooms_dark() {
     );
 
     // Case 2: the real fixture, with a full-height wall across the lit room.
-    // The chart mean must still reach its authored target, never fall below
-    // it, and the unblocked side must stay visibly brighter than the blocked
-    // side (the smooth floor retains at least half the physical gradient).
+    // Recovery fill is visibility gated: the sealed side stays dark and the
+    // visible side keeps its physical pool rather than restoring a room mean.
     let blocker = wall(
         [2.0, 0.0, 0.0],
         [2.0, 0.0, 4.0],
@@ -1014,8 +1013,8 @@ fn the_chart_fill_restores_the_authored_baseline_and_keeps_dark_rooms_dark() {
     let lit_mean = chart_mean_light(&solved, 0, normal);
     for channel in 0..3 {
         assert!(
-            lit_mean[channel] >= lit_target[channel] - 1.0e-5,
-            "channel {channel}: a blocked chart mean must still reach its target: \
+            lit_mean[channel] > 0.0 && lit_mean[channel] < lit_target[channel],
+            "channel {channel}: a sealed area must not be lifted to a room-wide target: \
              {lit_mean:?} vs {lit_target:?}"
         );
     }
@@ -1582,6 +1581,7 @@ fn corner_ray_origin_stays_on_the_charts_owning_side_and_surface() {
 
 #[test]
 fn subdivided_coplanar_surfaces_keep_their_bounce_cache_light() {
+    let scene = TransportScene::new(Vec::new(), Vec::new()).expect("scene");
     let receiver = |x, surface, normal| TransportReceiver {
         position: [x, 0.0, 0.1],
         ray_origin: [x, 0.00001, 0.1],
@@ -1612,7 +1612,7 @@ fn subdivided_coplanar_surfaces_keep_their_bounce_cache_light() {
     values.push(Accumulator::default());
     let cache = RadianceCache::build(&receivers);
     for (surface, receiver) in receivers.iter().enumerate() {
-        let actual = cache.sample_surface(receiver.position, surface, &receivers, &values);
+        let actual = cache.sample_surface(&scene, receiver.position, surface, &receivers, &values);
         for (actual, expected) in actual.irradiance.iter().zip(values[surface].irradiance) {
             assert!(
                 (actual - expected).abs() < 1.0e-6,
@@ -1644,3 +1644,5 @@ fn reordering_charts_does_not_change_the_indirect_field() {
         }
     }
 }
+
+mod probes;

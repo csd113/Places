@@ -33,6 +33,8 @@
 //! package with the captured cubemaps. A package without captures is refused by
 //! the player rather than silently rendered without reflections.
 
+mod probes;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -331,8 +333,17 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 &navigation_report,
             )?;
             if let Some(capture) = capture.as_mut() {
-                variant.entries.probes = capture
-                    .capture_variant(&level, &catalog, &assets, *quality, &variant, &mut blobs)?;
+                // A custom asset root can resolve different reflection state
+                // from the logical build. Skip only a proven empty capture.
+                let same_reflections = crate::render::MaterialRenderState::from_table(&materials)
+                    .reflections
+                    == crate::render::MaterialRenderState::from_table(&capture.loaded.materials)
+                        .reflections;
+                if stats.probe_points > 0 || !same_reflections {
+                    variant.entries.probes = capture.capture_variant(
+                        &level, &catalog, &assets, *quality, &variant, &mut blobs,
+                    )?;
+                }
             }
             variants.push(variant);
             variant_stats.push(stats);
@@ -742,11 +753,13 @@ fn prepare_build_for_capture(
                 build.lightmap_failure = None;
             }
             crate::render::LightmapFillOutcome::Failed(
-                crate::lighting::lightmap::LightmapFailure::TransportEnergy,
+                failure @ (crate::lighting::lightmap::LightmapFailure::TransportEnergy
+                | crate::lighting::lightmap::LightmapFailure::FillNonFinite),
             ) => {
                 return Err(format!(
-                    "{} transport energy mismatch: the directional atlas did not preserve integrated surface irradiance; inspect the room/texel diagnostic and repair the solver before rebuilding",
-                    quality.name()
+                    "{} lighting bake failed physical validation ({}); inspect the room/texel diagnostic and repair the solver before rebuilding",
+                    quality.name(),
+                    failure.name()
                 ));
             }
             crate::render::LightmapFillOutcome::Failed(failure) => {
@@ -987,6 +1000,7 @@ fn build_variant(
     navigation_report: &crate::nav::NavBakeReport,
 ) -> Result<(Variant, VariantStats), String> {
     let options = LightmapBuildOptions::for_lightmaps(quality);
+    let collision = CollisionWorld::from_level(level);
     // The bake derives prop occlusion boxes from the same request's model
     // bytes; an edited model can never reuse stale boxes.
     crate::lighting::set_preparation_assets(catalog.clone(), assets.clone());
@@ -1022,13 +1036,31 @@ fn build_variant(
                 // inside a wall is never sampled, which is what stops light
                 // from bleeding through a floor or a full-height wall.
                 if let Some(mut field) = product.probes.take() {
-                    let lighting = &build.lighting;
-                    field.assign_rooms(|position| {
-                        if lighting.wall_contains_point(position[0], position[2]) {
-                            return None;
+                    probes::label(
+                        &mut field,
+                        level,
+                        &build.lighting,
+                        &fill.transport,
+                        &collision.walls,
+                    );
+                    let mut covered = vec![false; build.lighting.rooms().len()];
+                    for probe in &field.probes {
+                        if let Ok(room) = usize::try_from(probe.room)
+                            && let Some(covered) = covered.get_mut(room)
+                        {
+                            *covered = true;
                         }
-                        lighting.room_index_at_height(position[0], position[1], position[2])
-                    });
+                    }
+                    for (room, covered) in covered.iter().enumerate() {
+                        if !covered {
+                            warnings.push(format!(
+                                "{} room {room} has no valid irradiance probe at {:.3} m spacing",
+                                quality.name(),
+                                field.cell_m
+                            ));
+                        }
+                    }
+                    crate::lighting::transport::probe_audit::dump_labels(&field, quality.name())?;
                     let (total, valid) = field.summary();
                     crate::logging::info(format_args!(
                         "[lightmaps] irradiance field probes={total} valid={valid}"
@@ -1052,6 +1084,16 @@ fn build_variant(
                         field,
                     );
                 }
+            }
+            crate::render::LightmapFillOutcome::Failed(
+                failure @ (crate::lighting::lightmap::LightmapFailure::FillNonFinite
+                | crate::lighting::lightmap::LightmapFailure::TransportEnergy),
+            ) => {
+                return Err(format!(
+                    "{} lighting bake failed physical validation: {}",
+                    quality.name(),
+                    failure.name()
+                ));
             }
             crate::render::LightmapFillOutcome::Failed(failure) => {
                 // The runtime contract falls back to the vertex-lit build with
@@ -1079,7 +1121,6 @@ fn build_variant(
         &material_state.reflections,
         materials.entries().len(),
     );
-    let collision = CollisionWorld::from_level(level);
     let compiled_collision = CompiledCollision {
         walls: collision.walls,
         floor: collision.floor,

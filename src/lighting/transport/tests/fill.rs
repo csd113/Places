@@ -46,10 +46,12 @@ fn splitting_a_chart_cannot_change_its_baseline_correction() {
             ..LightmapTexel::ZERO
         })
         .collect();
-    let mut unsplit = physical.clone();
-    let mut partitioned = physical;
-    scene.apply_chart_fill(&whole, &receivers, &mut unsplit);
-    scene.apply_chart_fill(&split, &receivers, &mut partitioned);
+    let unsplit = scene
+        .apply_chart_fill(&whole, &receivers, physical.clone(), 1, None)
+        .expect("whole fill");
+    let partitioned = scene
+        .apply_chart_fill(&split, &receivers, physical, 12, None)
+        .expect("split parallel fill");
     assert_eq!(unsplit, partitioned);
     for adjacent in partitioned.windows(2) {
         assert!(adjacent[1].irradiance[0] > adjacent[0].irradiance[0]);

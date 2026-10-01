@@ -1,0 +1,54 @@
+"""Independent binary/header and neutral-light oracles for the report tool."""
+import struct
+import unittest
+
+from tools.bench.probe_lighting_report import atlas_samples, read_field, reconstruct
+
+
+class ProbeReportTests(unittest.TestCase):
+    def record(self):
+        return b"PLPF" + struct.pack("<H4f4I8fi",2,-10,5,20,1.5,1,1,1,1,8,0.125,0.001,-2,1,0,0.5,0.5,3)
+
+    def test_world_positions_linear_hdr_and_signed_moments(self):
+        field = read_field(self.record())
+        probe = field["probes"][0]
+        self.assertEqual(probe["position"],(-9.25,5.75,20.75))
+        self.assertEqual(probe["irradiance"][:2],(8,0.125))
+        self.assertEqual(probe["moment"],(-2,1,0))
+        self.assertEqual(probe["room"],3)
+
+    def test_truncation_nonfinite_and_negative_energy_are_rejected(self):
+        with self.assertRaises(ValueError): read_field(self.record()[:-1])
+        for invalid in (float("nan"),float("inf"),-0.01):
+            data = bytearray(self.record())
+            struct.pack_into("<f",data,38,invalid)
+            with self.assertRaises(ValueError): read_field(data)
+
+    def test_single_direction_neutral_diffuse_is_exact(self):
+        self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,1,0)),(0.5,0.25,0))
+        self.assertEqual(reconstruct((0.25,0.125,0),(0,0.375,0),(0,-1,0)),(0,0,0))
+
+    def test_packaged_half_float_atlas_uses_the_single_texel_center(self):
+        image = b"\xabKTX 20\xbb\r\n\x1a\n" + struct.pack("<9I",97,2,1,1,0,2,1,1,0)
+        image += bytes(80-len(image)) + struct.pack("<3Q",104,16,16)
+        image += struct.pack("<8e",0.25,0.125,0,0,0,0.375,0,0)
+        meta = {"record_version":3,"page_edge":1,"page_count":1,"charts":[{
+            "patch":{"origin":[-4,5,10],"u_axis":[0,0,2],"v_axis":[2,0,0],"room":3,"kind":"Floor"},
+            "chart":{"page":0,"x":0,"y":0,"width":1,"height":1}}]}
+        sample = atlas_samples(meta,image)[0]
+        self.assertEqual(sample["position"],(-3,5,11))
+        self.assertEqual(sample["normal"],(0,1,0))
+        self.assertEqual(sample["light"],(0.5,0.25,0))
+
+    def test_requested_location_reads_its_real_texel_between_coarse_taps(self):
+        image = b"\xabKTX 20\xbb\r\n\x1a\n" + struct.pack("<9I",97,2,5,5,0,2,1,1,0)
+        image += bytes(80-len(image)) + struct.pack("<3Q",104,400,400)
+        image = bytearray(image + bytes(400))
+        struct.pack_into("<4e",image,104+(3*5+3)*8,8,0.125,0.001,0)
+        meta = {"record_version":3,"page_edge":5,"page_count":1,"charts":[{
+            "patch":{"origin":[0,0,0],"u_axis":[0,0,4],"v_axis":[4,0,0],"room":3,"kind":"floor"},
+            "chart":{"page":0,"x":0,"y":0,"width":5,"height":5}}]}
+        samples = atlas_samples(meta,image,[{"position":[3,1,3],"room":3}])
+        self.assertTrue(all(sample["light"] == (0,0,0) for sample in samples[:-1]))
+        self.assertEqual(samples[-1]["position"],(3,0,3))
+        self.assertEqual(samples[-1]["light"][:2],(8,0.125))

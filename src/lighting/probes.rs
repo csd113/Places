@@ -10,11 +10,11 @@
 //! Each probe stores the same compact linear HDR values a lightmap texel
 //! stores (an irradiance mean, the vector sum of the per-channel first moments
 //! and the reserved axis pair), plus the room it belongs to. Interpolation only
-//! mixes probes of the sample's own room, so light cannot bleed through a
-//! floor, ceiling or full-height wall between rooms, and a sample whose
-//! neighbourhood has no probe of its room falls back to the nearest one, then
-//! to the caller's own sampling (the vertex-lit model), so an object is never
-//! left black.
+//! mixes probes of the sample's own room, avoiding cross-room interpolation.
+//! Internal dividers within one room need separate consumer handling. A sample whose
+//! neighbourhood has no probe of its room falls back to a bounded nearest
+//! neighbor of that room, then returns `None` for the caller's fallback policy.
+//! A valid zero-valued probe represents deliberate darkness.
 //!
 //! Probes are baked from the same transport solve as the lightmap atlas: air
 //! points receive every visible emitter's direct contribution plus one
@@ -96,7 +96,8 @@ impl ProbeSample {
 /// One prepared probe field: a uniform grid over the mapped world.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeField {
-    /// World position of the grid's `(0, 0, 0)` probe centre.
+    /// World position of the grid's lower boundary. Probe centres are
+    /// `min + (index + 0.5) * cell_m`, in metres.
     pub min: [f32; 3],
     /// Cell edge, in metres.
     pub cell_m: f32,
@@ -360,8 +361,8 @@ impl ProbeField {
     ///
     /// # Errors
     ///
-    /// Returns an error for an inconsistent grid, an out-of-range dimension or
-    /// a field beyond [`MAX_PROBE_FIELD_BYTES`].
+    /// Returns an error for an inconsistent grid, invalid numeric data,
+    /// an out-of-range dimension or a field beyond [`MAX_PROBE_FIELD_BYTES`].
     pub fn write(&self) -> Result<Vec<u8>, String> {
         if !self.is_consistent() {
             return Err("probe field dimensions do not match its probe count".to_string());
@@ -370,6 +371,22 @@ impl ProbeField {
             if *value == 0 || usize::try_from(*value).unwrap_or(usize::MAX) > MAX_PROBE_CELLS {
                 return Err(format!("probe field dimension {axis} is out of range"));
             }
+        }
+        if !self.min.iter().all(|value| value.is_finite()) {
+            return Err("probe field origin is not finite".to_string());
+        }
+        if !self.cell_m.is_finite() || self.cell_m <= 0.0 {
+            return Err("probe field cell size is out of range".to_string());
+        }
+        for (origin, count) in self.min.iter().zip(self.dims) {
+            if !(origin + self.cell_m * count as f32).is_finite() {
+                return Err("probe field world extent is not finite".to_string());
+            }
+        }
+        for (index, probe) in self.probes.iter().enumerate() {
+            probe
+                .validate()
+                .map_err(|error| format!("probe {index}: {error}"))?;
         }
         let count = self.probes.len();
         if count > MAX_PROBES {
@@ -462,36 +479,37 @@ impl ProbeField {
         if count != expected || count > MAX_PROBES {
             return Err("probe field probe count does not match its dimensions".to_string());
         }
+        let payload_bytes = count
+            .checked_mul(36)
+            .ok_or_else(|| "probe field size overflows".to_string())?;
+        if cursor.remaining() != payload_bytes {
+            return Err("probe field length does not match its probe count".to_string());
+        }
         let mut probes = Vec::with_capacity(count);
         for _ in 0..count {
             let irradiance = [cursor.f32()?, cursor.f32()?, cursor.f32()?];
             let direction = [cursor.f32()?, cursor.f32()?, cursor.f32()?];
             let axis = [cursor.f32()?, cursor.f32()?];
             let room = cursor.i32()?;
-            if !irradiance.iter().all(|value| value.is_finite())
-                || !direction.iter().all(|value| value.is_finite())
-                || !axis.iter().all(|value| value.is_finite())
-            {
-                return Err("probe field holds a non-finite value".to_string());
-            }
-            if room < -1 || room > i32::from(i16::MAX) {
-                return Err(format!("probe field room {room} is out of range"));
-            }
-            probes.push(
-                ProbeSample {
-                    irradiance,
-                    direction,
-                    axis,
-                    room,
-                }
-                .normalized(),
-            );
+            let probe = ProbeSample {
+                irradiance,
+                direction,
+                axis,
+                room,
+            };
+            probe.validate()?;
+            probes.push(probe);
         }
         if !cursor.is_at_end() {
             return Err(format!(
                 "probe field has {} trailing byte(s)",
                 cursor.remaining()
             ));
+        }
+        for (origin, count) in min.iter().zip(dims) {
+            if !(origin + cell_m * count as f32).is_finite() {
+                return Err("probe field world extent is not finite".to_string());
+            }
         }
         Ok(Self {
             min,
@@ -503,6 +521,45 @@ impl ProbeField {
 }
 
 impl ProbeSample {
+    /// Validates a record without silently repairing or normalizing its energy.
+    ///
+    /// # Errors
+    /// Returns an error for non-finite or negative energy, an unbounded moment,
+    /// an invalid reserved axis or an out-of-range room label.
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if !self
+            .irradiance
+            .iter()
+            .chain(&self.direction)
+            .chain(&self.axis)
+            .all(|value| value.is_finite())
+        {
+            return Err("probe field holds a non-finite value".to_string());
+        }
+        if self.irradiance.iter().any(|value| *value < 0.0) {
+            return Err("probe field holds negative irradiance".to_string());
+        }
+        // Use f64 for the invariant: squaring valid HDR f32 components must
+        // not overflow before checking |moment| <= sum RGB means.
+        let mean: f64 = self.irradiance.iter().map(|value| f64::from(*value)).sum();
+        let moment = self
+            .direction
+            .iter()
+            .map(|value| f64::from(*value).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        if moment > mean * (1.0 + 32.0 * f64::from(f32::EPSILON)) {
+            return Err("probe field moment exceeds its irradiance energy".to_string());
+        }
+        if self.axis.iter().any(|value| !(0.0..=1.0).contains(value)) {
+            return Err("probe field reserved axis is out of range".to_string());
+        }
+        if self.room < -1 || self.room > i32::from(i16::MAX) {
+            return Err(format!("probe field room {} is out of range", self.room));
+        }
+        Ok(())
+    }
+
     /// The probe with non-finite values zeroed, the irradiance clamped
     /// non-negative, the signed moment kept with its sign, and the reserved
     /// axis folded into `0..=1`.
@@ -736,5 +793,56 @@ mod tests {
         assert!(field.write().is_err());
         field.dims = [0, 1, 1];
         assert!(field.write().is_err());
+    }
+    #[test]
+    fn nonfinite_headers_and_probe_values_cannot_be_written() {
+        for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            for component in 0..8 {
+                let mut value = field();
+                match component {
+                    0..=2 => value.probes[0].irradiance[component] = invalid,
+                    3..=5 => value.probes[0].direction[component - 3] = invalid,
+                    _ => value.probes[0].axis[component - 6] = invalid,
+                }
+                assert!(value.write().is_err());
+            }
+            let mut value = field();
+            value.min[0] = invalid;
+            assert!(value.write().is_err());
+            value.min[0] = 0.0;
+            value.cell_m = invalid;
+            assert!(value.write().is_err());
+        }
+    }
+
+    #[test]
+    fn malformed_energy_and_corrupted_records_are_rejected_without_repair() {
+        let mut value = field();
+        value.probes[0].irradiance[0] = -0.001;
+        assert!(value.write().is_err());
+        value = field();
+        value.probes[0].direction = [10.0; 3];
+        assert!(value.write().is_err());
+        value = field();
+        value.probes[0].room = -2;
+        assert!(value.write().is_err());
+        let bytes = field().write().expect("valid bytes");
+        for invalid in [f32::NAN, f32::INFINITY, -0.01] {
+            let mut corrupted = bytes.clone();
+            corrupted[38..42].copy_from_slice(&invalid.to_le_bytes());
+            assert!(ProbeField::read(&corrupted).is_err());
+        }
+    }
+
+    #[test]
+    fn linear_hdr_precision_and_signed_moments_survive_without_gamma_or_exposure() {
+        let mut value = field();
+        value.min = [-110.25, 32.0, 70.75];
+        value.probes[0].irradiance = [16.0, 0.125, 0.000_01];
+        value.probes[0].direction = [-3.0, 4.0, -2.0];
+        let bytes = value.write().expect("linear HDR write");
+        assert_eq!(bytes.len(), 38 + 36 * value.probes.len());
+        assert_eq!(ProbeField::read(&bytes).expect("linear HDR read"), value);
+        assert_eq!(value.write().expect("repeated write"), bytes);
     }
 }
