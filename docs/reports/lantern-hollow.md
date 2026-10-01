@@ -9,7 +9,8 @@ acceptance and steady-state frame timing are blocked by the locked Mac desktop.
 
 Persistent isolated checkout: `/Users/connordawkins/Documents/GitHub/Places-night-showcase`,
 branch `agent/night-showcase`, based on integrated lighting commit
-`50e5f758f8843f324927010bb04ef6a646ca5a83`. All commits are local; no push.
+`50e5f758f8843f324927010bb04ef6a646ca5a83`. The user subsequently authorized
+publishing this branch to GitHub.
 The original checkout, unrelated local edits and stash
 `fa23032a1ce9324cf4657c9a8efffa5de9ffb1bf` are preserved.
 
@@ -243,7 +244,8 @@ installs. Refresh the report and recovery evidence after those runs. The queued
 Rust 1.99/latest-stable upgrade starts only after current showcase acceptance
 finishes. The user-authorized final `cargo clean` follows the upgrade and all
 validation, with no active target users and refreshed evidence preservation.
-Neither upgrade nor cleanup has started here. No push or publication occurred.
+Neither upgrade nor cleanup has started here. GitHub branch publication was
+subsequently authorized; the validation limits above remain in effect.
 
 ## Scope limits
 
@@ -272,3 +274,22 @@ No upload, replacement, transfer or finalization started. The eight local files
 and ordered request retain the five existing replacement identities/version
 guards for a supported parent-assisted transfer. Existing Library pictures are
 not represented as these final images.
+
+## GitHub publication prerequisites
+
+The compiled Lantern Hollow and Places Demo packages exceed GitHub's 100 MiB
+ordinary-file limit. They are tracked through Git LFS; their complete working
+files retain the exact SHA256 values recorded during acceptance. Model Zoo
+remains an ordinary Git file. Source, asset generation and rendering are unchanged.
+
+Before building a fresh Git clone, install Git LFS and materialize the packages:
+
+```sh
+git lfs install
+git lfs pull
+```
+
+The original pre-LFS commit `7caee8fc90ce55ca97b4fa90875acb798d11ddfd` remains
+available locally under `backup/night-showcase-before-lfs-20261001`. Only the
+unpublished showcase branch was converted; existing published main history
+was preserved. No merge or site deployment is part of this publication.
