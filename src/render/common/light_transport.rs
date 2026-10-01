@@ -245,10 +245,9 @@ fn append_architecture_triangles(
     }
 }
 
-/// Appends every placed prop batch's triangles: solid, opaque blockers.
-///
-/// A prop's alpha is not an opening contract the vertex-lit bake ever honoured,
-/// so these stay solid whatever their texture alpha says.
+/// Appends placed prop geometry with the cutout transmission convention used
+/// by architecture. Treating a cutout card as opaque blocks the entire card,
+/// including its transparent pixels, and can black out the ground below grass.
 fn append_prop_triangles(
     batches: &[PropMeshBatch],
     triangles: &mut Vec<TransportTriangle>,
@@ -256,6 +255,9 @@ fn append_prop_triangles(
 ) {
     for batch in batches {
         for submesh in &batch.submeshes {
+            // Static batches support MASK; BLEND is an opaque fallback on
+            // this draw route, so it must retain its existing solid behavior.
+            let transmissive = submesh.alpha.mode == AlphaMode::Cutout;
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
             let count = usize::try_from(submesh.index_count).unwrap_or(usize::MAX);
             let end = start.saturating_add(count);
@@ -282,7 +284,7 @@ fn append_prop_triangles(
                 };
                 let albedo = triangle_albedo([1.0; 3], va, vb, vc, image);
                 match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
-                    Some(triangle) => triangles.push(triangle),
+                    Some(triangle) => triangles.push(triangle.with_transmissive(transmissive)),
                     None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
                 }
             }
@@ -514,6 +516,50 @@ mod tests {
     #![allow(clippy::expect_used, clippy::float_cmp)]
 
     use super::*;
+
+    #[test]
+    fn cutout_prop_cards_transmit_but_opaque_batch_fallbacks_remain_solid() {
+        for mode in [AlphaMode::Opaque, AlphaMode::Cutout, AlphaMode::Blend] {
+            let batch = PropMeshBatch {
+                model: "alpha-contract".to_owned(),
+                textures: Vec::new(),
+                submeshes: vec![crate::render::PropSubmeshBatch {
+                    texture: None,
+                    emission: crate::materials::MaterialEmission::NONE,
+                    alpha: crate::materials::MaterialAlpha {
+                        mode,
+                        ..crate::materials::MaterialAlpha::OPAQUE
+                    },
+                    first_index: 0,
+                    index_count: 6,
+                }],
+                vertices: vec![
+                    Vertex::new([-1.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]),
+                    Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]),
+                    Vertex::new([1.0, 2.0, 0.0], [1.0; 4], [1.0, 1.0]),
+                    Vertex::new([-1.0, 2.0, 0.0], [1.0; 4], [0.0, 1.0]),
+                ],
+                indices: vec![0, 1, 2, 0, 2, 3],
+                bounds: crate::spatial::Aabb::EMPTY,
+            };
+            let mut triangles = Vec::new();
+            append_prop_triangles(
+                &[batch],
+                &mut triangles,
+                &mut TransportSceneStats::default(),
+            );
+            assert_eq!(triangles.len(), 2);
+            let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
+            assert_eq!(
+                scene.occluded([0.0, 1.0, -1.0], [0.0, 1.0, 1.0]),
+                mode != AlphaMode::Cutout
+            );
+            assert_eq!(
+                scene.probe_is_clear([0.0, 1.0, 0.0]),
+                mode == AlphaMode::Cutout
+            );
+        }
+    }
 
     #[test]
     fn a_solid_texture_reads_its_colour() {

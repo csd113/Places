@@ -145,7 +145,7 @@ Authoritative paths:
 | Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
-| Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
+| GLB MASK/cutout props; BLEND on routed characters/dynamic props | Implemented; ordinary static BLEND props use the opaque fallback |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
@@ -2147,8 +2147,9 @@ Consequences worth knowing:
   legal and explicit.
 * Transparency is alpha blending, not refraction: nothing bends, and the lighting
   bake still treats the aperture as an open hole (see the glazing note below).
-* GLB props are always drawn opaque: a prop's glTF `alphaMode` is not read. Only
-  level surfaces and fixture faces have material alpha.
+* GLB MASK props draw through the cutout pass and transmit prepared transport
+  rays, like cutout architecture. BLEND is supported by routed characters and
+  dynamic props; ordinary static BLEND props retain the opaque fallback.
 
 Authoring a transparent sheet is ordinary artwork: RGBA, with the alpha channel
 carrying the coverage (a grime film, a tint, a cut-out pattern). `tile_metres`
@@ -2955,7 +2956,7 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
 * **The authored room fill is continuous.** After transport, floors, walls,
   skirts, ceilings and probes receive the receiver-local response
   `L + T * max(1 - L/(4*T), 0)^2`, where `T` is the room-area baseline above
-  ambient, weighted by always-on fixture support and water attenuation.
+  ambient, weighted by **visible** always-on fixture support and water attenuation.
   Zero targets remain dark. Switchable layers receive no permanent fill.
   No chart mean enters the response, so changing chart boundaries cannot
   change illumination. This is calibrated artistic fill, not an extra bounce.
@@ -2965,9 +2966,19 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
   the geometric normal. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Solver revision 7 invalidates all earlier atlas and package fingerprints.
+  Solver revision 8 invalidates earlier atlas and package fingerprints; sky is
+  injected only into the first diffuse order. Cache interpolation also tests
+  visibility so one floor triangle spanning a divider cannot transfer light
+  through that divider.
   An encoding mismatch aborts compilation with the room, surface and texel
   diagnostic; it is not hidden by a vertex-lighting fallback.
+
+The probe field uses 64 shared antipodal sphere samples, including the authored
+sky on escaping rays. Compiler validation excludes non-air and embedded probes
+and reports rooms with no valid coverage. `PLACES_PROBE_DUMP_DIR=<directory>`
+enables deterministic JSON diagnostics; use `--force` and a separate directory
+per source/build. See [Probe baker audit](PROBE_BAKER_AUDIT.md) and
+[the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
 
 Use `PLACES_VERBOSE=1` with the compiler to log area-weighted direct, bounced,
 filtered and filled measurements by room and surface family. `shoulder_fraction`
@@ -3367,9 +3378,11 @@ Semantics:
   every tuft it emits. A tree's trunk shadow is lost with the canopy when a whole
   placement opts out; author the choice deliberately (see §34.5). The flag
   removes the placement's derived boxes and its vertex-bake contribution; it does
-  **not** remove the drawn triangles from the prepared solve's transport scene
-  (§18), so a prop that must not touch the light at all has to sit out of the
-  light's path as well — see §35.2 for a containment collider that does.
+  **not** remove opaque drawn triangles from the prepared transport scene
+  (§18). MASK/cutout primitives transmit prepared rays using the same open-card
+  approximation as cutout architecture; individual blade shadows are not traced.
+  An opaque prop that must not touch the light has to sit out of the light's path
+  as well — see §35.2 for a containment collider that does.
 
 | `float` | object | no | — | Water-driven motion for a floating prop: `{ "draft": 0.03, "bob": 0.012, "bob_seconds": 2.8, "heel_degrees": 6.0, "heel_seconds": 3.6, "phase": 0.0 }`. The prop is drawn by the dynamic path on the water surface, at `surface_y - draft + bob · sin(...)`, with **no horizontal drift**; `heel_degrees` rolls it about its own forward axis. It must be `solid: false`, author `size`, sit fully inside one water volume once the swept footprint (half-diagonal plus the heel's excursion) is added, and it cannot be routed. `phase` is `0..=1`; omitted, a deterministic per-placement phase keeps two floats out of lockstep. |
 

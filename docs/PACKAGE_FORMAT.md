@@ -396,19 +396,49 @@ probes count x {
 }
 ```
 
-The field is a uniform 3D grid over the mapped world, baked from the same
-transport solve as the lightmap atlas (every visible non-switchable emitter plus
-one ray-traced diffuse gather). Switchable fixtures are excluded from the field
-in every state: their contribution is prepared only as atlas layers, so
-moving objects and characters are never lit by them and a toggle does not
-change the field. Each probe carries the same compact linear HDR values a
-lightmap texel carries (`irradiance` and the signed moment vector `direction`;
-the `axis` pair is reserved and ignored) and the room it occupies; interpolation
-only mixes probes of the sample's own room, so light cannot bleed through a
-floor, ceiling or full-height wall, and an unresolvable position falls back to
-the vertex-lit model instead of going black. A probe in no room, or inside a
-wall, is never sampled. Generating the field is compile-time work; reading it is
-a handful of interpolated loads.
+The field is a bounded uniform 3D grid baked from the same physical surface
+transport solve as the lightmap atlas: visible non-switchable emitters, reflected
+surface radiance, and authored sky radiance on escaping rays. Switchable fixtures
+are excluded in every state; only their atlas layers contain their light. Material
+emission without an authored light source is appearance, not transport emission.
+
+All integers/floats are little-endian, without alignment padding: the header is
+38 bytes and each sample is 36 bytes. `origin` is the **lower grid boundary**,
+not the first probe center. Centers are `origin + (index + 0.5) * cell_m`, with X
+fastest, then Y, then Z. Positions and directions are world-space metres, +Y up;
+there are no additional model transforms, origin offsets or exposure factors.
+
+`irradiance` is RGB, finite, nonnegative linear HDR in the engine's calibrated
+white-surface light units; it is not a normalized color or an sRGB value. No gamma,
+exposure, upper clamp or half-float quantization is applied to the PLPF record.
+`direction` is the signed world XYZ sum of the per-channel first moments, with
+`|direction| <= sum(irradiance)` up to floating-point rounding. `axis` is reserved;
+the baker writes `[0.5, 0.5]`. Reconstruction follows `LightmapTexel::light_at`.
+The compact directional fit approximates a multi-direction field; it is not a
+full spherical-harmonic basis. Interpolate means and moments before reconstruction.
+Never normalize the stored moment to unit length or treat its components as RGB.
+
+A valid `room` is a nonnegative index into the compiled lighting record's room
+order. `-1` means unavailable: outside relevant room air, too close to an opaque
+surface, inside authored solids, or detectably inside a closed prop mesh. A valid
+all-zero sample means **darkness**, not missing data. Compiler labels use actual
+floor/stair/ramp/region heights, ceilings and 3D wall bounds. Rooms without a valid
+probe are reported in build warnings. Grid spacing starts at 1.5 m, increases to
+fit 64 cells per axis, and dimensions are recomputed and centered in the bounds.
+The uniform grid can still miss narrow spaces; it does not bridge unrelated rooms.
+
+Readers/writers reject non-finite values, negative energy, moments beyond their
+energy bound, invalid labels/reserved axes, invalid grid headers, wrong lengths,
+trailing bytes and unsupported versions. They do not repair or brighten malformed
+data. Unresolvable sampling returns `None`; fallback policy belongs to runtime.
+Room-constrained interpolation prevents mixing *different* rooms, but cannot
+itself prevent mixing opposite sides of an internal divider in one room. A consumer
+must assess that limitation independently of the compiler's ray-tested bake.
+
+The payload remains PLPF v2. Solver revision 8 changes the bake identity and
+invalidates package/lightmap fingerprints; rebuild existing packages. See
+[Probe baker audit](PROBE_BAKER_AUDIT.md) for diagnostics, regression evidence and
+remaining compiler/runtime limitations.
 
 ## 7. Limits
 
