@@ -729,9 +729,9 @@
     },
     {
       "x": -31.5,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
@@ -739,9 +739,9 @@
     },
     {
       "x": -22.8,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
@@ -810,9 +810,9 @@
     },
     {
       "x": -13.5,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
@@ -820,9 +820,9 @@
     },
     {
       "x": -4.8,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
@@ -909,9 +909,9 @@
     },
     {
       "x": 4.5,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
@@ -919,9 +919,9 @@
     },
     {
       "x": 13.2,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
@@ -990,9 +990,9 @@
     },
     {
       "x": 22.5,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
@@ -1000,9 +1000,9 @@
     },
     {
       "x": 31.2,
-      "z": 1.12,
+      "z": 1.08,
       "width": 0.3,
-      "depth": 4.76,
+      "depth": 4.84,
       "material": "outdoor:house_siding_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
@@ -4300,14 +4300,14 @@
       "id": "house_0_roof_front_-3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -30.4,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_0_roof_back_-3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -30.4,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -4322,14 +4322,14 @@
       "id": "house_0_roof_front_0",
       "model": "outdoor:house_02_roof_slope",
       "x": -27.0,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_0_roof_back_0",
       "model": "outdoor:house_02_roof_slope",
       "x": -27.0,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -4344,14 +4344,14 @@
       "id": "house_0_roof_front_3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -23.6,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_0_roof_back_3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -23.6,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -4773,14 +4773,14 @@
       "id": "house_1_roof_front_-3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -12.4,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_1_roof_back_-3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -12.4,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -4795,14 +4795,14 @@
       "id": "house_1_roof_front_0",
       "model": "outdoor:house_01_roof_slope",
       "x": -9.0,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_1_roof_back_0",
       "model": "outdoor:house_01_roof_slope",
       "x": -9.0,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -4817,14 +4817,14 @@
       "id": "house_1_roof_front_3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -5.6,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_1_roof_back_3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -5.6,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5246,14 +5246,14 @@
       "id": "house_2_roof_front_-3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 5.6,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_2_roof_back_-3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 5.6,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5268,14 +5268,14 @@
       "id": "house_2_roof_front_0",
       "model": "outdoor:house_05_roof_slope",
       "x": 9.0,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_2_roof_back_0",
       "model": "outdoor:house_05_roof_slope",
       "x": 9.0,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5290,14 +5290,14 @@
       "id": "house_2_roof_front_3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 12.4,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_2_roof_back_3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 12.4,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5719,14 +5719,14 @@
       "id": "house_3_roof_front_-3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 23.6,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_3_roof_back_-3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 23.6,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5741,14 +5741,14 @@
       "id": "house_3_roof_front_0",
       "model": "outdoor:house_03_roof_slope",
       "x": 27.0,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_3_roof_back_0",
       "model": "outdoor:house_03_roof_slope",
       "x": 27.0,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },
@@ -5763,14 +5763,14 @@
       "id": "house_3_roof_front_3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 30.4,
-      "z": 4.95,
+      "z": 4.98,
       "y": 2.7
     },
     {
       "id": "house_3_roof_back_3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 30.4,
-      "z": 2.05,
+      "z": 2.02,
       "y": 2.7,
       "rotation_degrees": 180
     },

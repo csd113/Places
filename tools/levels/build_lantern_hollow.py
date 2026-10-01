@@ -164,14 +164,16 @@ def build_level() -> dict:
             for wx, wy, ww, wh in family_windows[family]:
                 openings.append({"kind": "window", "offset": 4.5 + dx + wx, "width": ww, "height": wh,
                                  "sill": round(wy - wh * .5, 4), "glass": "core:glass_window_clear_01", "solid": True})
+        # Side walls overlap 2 cm into both cross walls: sealed corners
+        # with end caps behind the interior faces instead of coplanar on them.
         level["walls"].extend([
             {"x": cx - 4.5, "z": 5.9, "width": 9, "depth": .3, "material": "outdoor:house_siding_01",
              "faces": {"north": "home:wall_paint_offwhite_01"}, "openings": openings},
             {"x": cx - 4.5, "z": .8, "width": 9, "depth": .3, "material": "outdoor:house_siding_01",
              "faces": {"south": "home:wall_paint_offwhite_01"}},
-            {"x": cx - 4.5, "z": 1.12, "width": .3, "depth": 4.76, "material": "outdoor:house_siding_01",
+            {"x": cx - 4.5, "z": 1.08, "width": .3, "depth": 4.84, "material": "outdoor:house_siding_01",
              "faces": {"east": "home:wall_paint_offwhite_01"}},
-            {"x": cx + 4.2, "z": 1.12, "width": .3, "depth": 4.76, "material": "outdoor:house_siding_01",
+            {"x": cx + 4.2, "z": 1.08, "width": .3, "depth": 4.84, "material": "outdoor:house_siding_01",
              "faces": {"west": "home:wall_paint_offwhite_01"}},
             {"x": cx + 1.25, "z": 1.12, "width": .12, "depth": 4.76,
              "material": "home:wallpaper_pattern_01", "openings": [{"kind": "passage", "offset": 2.38, "width": 1.1, "height": 2.15}]},
@@ -179,9 +181,11 @@ def build_level() -> dict:
         for dx, kind in ((0, "doorway"),):
             prop(f"{kit}_wall_{kind}", cx + dx, 6.4 if kind == "doorway" else 6.32,
                  f"{prefix}_front_{kind}_{dx}", y=-.24 if dx == 0 else 0)
+        # Deep soffits end 1 cm behind the interior wall faces. Keep the
+        # measured vertical placement and the overlapping ridge cap intact.
         for dx in (-3.4, 0, 3.4):
-            prop(f"{kit}_roof_slope", cx + dx, 4.95, f"{prefix}_roof_front_{dx}", y=2.7)
-            prop(f"{kit}_roof_slope", cx + dx, 2.05, f"{prefix}_roof_back_{dx}", y=2.7, yaw=180)
+            prop(f"{kit}_roof_slope", cx + dx, 4.98, f"{prefix}_roof_front_{dx}", y=2.7)
+            prop(f"{kit}_roof_slope", cx + dx, 2.02, f"{prefix}_roof_back_{dx}", y=2.7, yaw=180)
             prop(f"{kit}_roof_ridge", cx + dx, 3.5, f"{prefix}_ridge_{dx}", y=round(ridge - .22, 4))
         # The kit's bargeboards extend below its cladding triangle. Measured
         # triangle bases seat at the wall's 2.7 m eave instead of leaving an

@@ -104,6 +104,47 @@ class LanternHollowTests(unittest.TestCase):
                 self.assertTrue(x + w <= -44 or x >= 44 or z + d <= -46 or z >= 32)
 
 
+    def test_house_corner_joins_and_actual_roof_soffits_clear_interior_faces(self):
+        # Read the shipped GLBs: catalogue boxes alone cannot catch an eave
+        # soffit protruding through a wall or a cap losing its slope overlap.
+        sys.path.insert(0, str(ROOT / 'tools/props'))
+        from glb import read_glb
+        catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
+        for index, cx in enumerate(author.HOUSE_CENTERS):
+            front, back, west, east, _ = self.level['walls'][index * 5:index * 5 + 5]
+            for side in (west, east):
+                self.assertAlmostEqual(back['z'] + back['depth'] - side['z'], .02)
+                self.assertAlmostEqual(side['z'] + side['depth'] - front['z'], .02)
+                self.assertLessEqual(front['x'], side['x'])
+                self.assertGreaterEqual(front['x'] + front['width'], side['x'] + side['width'])
+                self.assertLessEqual(back['x'], side['x'])
+                self.assertGreaterEqual(back['x'] + back['width'], side['x'] + side['width'])
+            props = [p for p in self.level['props'] if p['id'].startswith(f'house_{index}_')]
+            slopes = [p for p in props if '_roof_front_' in p['id'] or '_roof_back_' in p['id']]
+            caps = [p for p in props if '_ridge_' in p['id']]
+            for slope in slopes:
+                mesh = read_glb((ROOT / 'assets' / catalog[slope['model']]['model']).read_bytes())
+                self.assertEqual(slope['y'], 2.7)
+                # The eave soffit occupies the lowest 3.5 cm of each model.
+                low_points = [v for v in mesh.positions if v[1] <= .03501]
+                sign = -1 if slope.get('rotation_degrees') == 180 else 1
+                eave_z = [slope['z'] + sign * p[2] for p in low_points]
+                if sign == 1:
+                    self.assertGreaterEqual(min(eave_z) - front['z'], .0099)
+                else:
+                    self.assertGreaterEqual(back['z'] + back['depth'] - max(eave_z), .0099)
+                cap = next(p for p in caps if p['x'] == slope['x'])
+                cap_size = catalog[cap['model']]['size']
+                ridge_points = [p for p in mesh.positions if p[2] < -1.2999]
+                ridge_z = slope['z'] + sign * ridge_points[0][2]
+                self.assertGreater(ridge_z, cap['z'] - cap_size[2] * .5)
+                self.assertLess(ridge_z, cap['z'] + cap_size[2] * .5)
+                # The cap bottom remains inside the 8 cm shingle slab.
+                low_y = slope['y'] + min(p[1] for p in ridge_points)
+                high_y = slope['y'] + max(p[1] for p in ridge_points)
+                self.assertLess(low_y, cap['y'] + cap_size[1])
+                self.assertGreater(high_y, cap['y'])
+
     def test_trees_keep_walkable_trails_pond_and_clearing_open(self):
         trees = [p for p in self.level['props'] if p['id'].startswith('forest_tree_')]
         self.assertEqual(len(trees), 247)
