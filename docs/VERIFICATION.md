@@ -59,6 +59,7 @@ python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 python3 -m unittest tests.test_geometry_repair
 cargo build --release
+cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
@@ -131,7 +132,9 @@ default because they need an adapter or write measurement files):
 cargo test --all-features --bin places -- --ignored
 ```
 
-The intentionally ignored diagnostics include: the reflection cube round-trip
+The Low-lighting override resource tests run explicitly in the desktop gate:
+these inspect real GPU installations and selected-quality recovery. Other
+intentionally ignored diagnostics include: the reflection cube round-trip
 orientation test and the sRGB sample round-trip measurement (both need a GPU
 adapter), the lighting parity-vector regeneration, the stair-trace CSV
 developer diagnostic, and the lightmap chart-statistics measurement. They are

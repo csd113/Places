@@ -39,6 +39,7 @@ python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 python3 -m unittest tests.test_geometry_repair
 cargo build --release
+cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check

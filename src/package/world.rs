@@ -29,7 +29,8 @@ use crate::package::mesh::read_mesh;
 use crate::package::props::read_props;
 use crate::package::{
     MAX_BINARY_BYTES, MAX_COLLISION_BYTES, MAX_ENTRY_BYTES, MAX_LIGHTING_BYTES,
-    MAX_MATERIALS_BYTES, MAX_NAVIGATION_BYTES, MAX_SEMANTICS_BYTES, PackageReader,
+    MAX_LIGHTMAP_METADATA_BYTES, MAX_MATERIALS_BYTES, MAX_NAVIGATION_BYTES, MAX_SEMANTICS_BYTES,
+    PackageReader,
 };
 use crate::quality::LightmapQuality;
 use crate::render::{LevelMesh, PropMeshBatch};
@@ -355,7 +356,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let lightmaps = match (&variant.entries.lightmaps, &variant.entries.lightmaps_meta) {
         (Some(pages), Some(meta)) => {
             let page_bytes = reader.read_blob(pages, MAX_ENTRY_BYTES)?;
-            let meta_bytes = read_entry_checked(reader, meta, MAX_MATERIALS_BYTES)?;
+            let meta_bytes = read_entry_checked(reader, meta, MAX_LIGHTMAP_METADATA_BYTES)?;
             Some(Arc::new(read_lightmaps(&meta_bytes, &page_bytes)?))
         }
         _ => None,

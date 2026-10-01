@@ -26,7 +26,7 @@ use crate::lighting::lightmap::{
 };
 use crate::package::ktx2::{self, Ktx2Rgba16f};
 
-use super::{MAX_LIGHTMAP_PAGE_EDGE, MAX_LIGHTMAP_PAGES};
+use super::{MAX_LIGHTMAP_METADATA_BYTES, MAX_LIGHTMAP_PAGE_EDGE, MAX_LIGHTMAP_PAGES};
 
 /// Version of the lightmap metadata record.
 ///
@@ -385,6 +385,7 @@ pub fn write_lightmaps(lightmaps: &LevelLightmaps) -> Result<(Vec<u8>, Vec<u8>),
     let mut meta_bytes = serde_json::to_vec(&meta)
         .map_err(|error| format!("could not serialize lightmap record: {error}"))?;
     meta_bytes.push(b'\n');
+    validate_metadata_size(meta_bytes.len())?;
     Ok((meta_bytes, ktx2))
 }
 
@@ -425,11 +426,22 @@ fn push_f16_rgba(out: &mut Vec<u8>, color: [f32; 3], alpha: f32) {
 /// contract, a KTX2 payload outside the supported subset, or any mismatch
 /// between the record and the pages.
 pub fn read_lightmaps(meta_json: &[u8], ktx2_bytes: &[u8]) -> Result<LevelLightmaps, String> {
+    validate_metadata_size(meta_json.len())?;
     let meta: LightmapsMeta = serde_json::from_slice(meta_json)
         .map_err(|error| format!("lightmap record is not valid JSON: {error}"))?;
     let image = ktx2::read_rgba16f(ktx2_bytes)?;
     meta.validate(&image)?;
     meta.into_lightmaps(&image)
+}
+
+/// Enforce the same dedicated bound in direct and archive read/write routes.
+fn validate_metadata_size(bytes: usize) -> Result<(), String> {
+    if u64::try_from(bytes).unwrap_or(u64::MAX) > MAX_LIGHTMAP_METADATA_BYTES {
+        return Err(format!(
+            "lightmap chart metadata is {bytes} bytes (limit {MAX_LIGHTMAP_METADATA_BYTES})"
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

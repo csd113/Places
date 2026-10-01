@@ -86,6 +86,11 @@ pub const MAX_SEMANTICS_BYTES: u64 = 64 * 1024 * 1024;
 /// Largest accepted `materials.json`, in bytes.
 pub const MAX_MATERIALS_BYTES: u64 = 16 * 1024 * 1024;
 
+/// Largest accepted chart metadata record, in bytes. Static model receivers
+/// carry many more charts than the small material catalog; their read remains
+/// bounded independently from material metadata and the aggregate archive cap.
+pub const MAX_LIGHTMAP_METADATA_BYTES: u64 = 64 * 1024 * 1024;
+
 /// Largest accepted archive entry, in bytes (decompressed).
 pub const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 

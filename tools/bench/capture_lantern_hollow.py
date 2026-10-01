@@ -25,12 +25,18 @@ for name in selected:
     view = next(view for view in views if view['name'] == name)
     state = out / ('state-' + name)
     state.mkdir(exist_ok=True)
-    settings = {'quality': args.quality, 'texture_filtering': args.quality,
+    settings = {'bindings': {'forward': 'W', 'backward': 'S', 'strafe_left': 'A',
+                            'strafe_right': 'D', 'look_up': 'UP', 'look_down': 'DOWN',
+                            'look_left': 'LEFT', 'look_right': 'RIGHT', 'jump': 'SPACE',
+                            'crouch': 'C', 'interact': 'E'},
+                'look_speed_h': 90.0, 'look_speed_v': 60.0, 'walk_speed': 3.0,
+                'invert_look': False, 'mouse_sensitivity': 0.12,
+                'quality': args.quality, 'texture_filtering': args.quality,
                 'lightmaps': {'low': 'off', 'medium': 'medium', 'high': 'full'}[args.quality],
                 'reflections': {'low': 'off', 'medium': 'medium', 'high': 'full'}[args.quality],
                 'use_low_quality_lighting': args.low_lighting, 'vsync': True,
                 'window_mode': 'windowed', 'window_width': 1920, 'window_height': 1080,
-                'fov_degrees': 70.0}
+                'fov_degrees': 60.0}
     (state / 'settings.json').write_text(json.dumps(settings))
     path = out / (name + '.png')
     env = {key: value for key, value in os.environ.items() if not key.startswith('PLACES_')}
@@ -43,7 +49,7 @@ for name in selected:
                PLACES_BENCH_OUT=str(out / (name + '-frames.csv')),
                PLACES_LOAD_TRACE=str(out / (name + '-load.csv')))
     if name == 'overview':
-        env['PLACES_PAUSE'] = '1'
+        env['PLACES_CAPTURE_TIME'] = '0'
     start = time.monotonic()
     result = subprocess.run([str(root / 'target/release/places')], cwd=root, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
