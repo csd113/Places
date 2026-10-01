@@ -403,6 +403,8 @@ impl SettingsApply {
 /// getters, and [`Self::save`] writes exactly this structure back to
 /// `settings.json` (minus the session-only [`Self::overrides`]).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+// These are independent player preferences, not mutually exclusive states.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
     pub bindings: KeyBindings,
     #[serde(default = "default_look_speed_h")]
@@ -470,6 +472,11 @@ pub struct Settings {
         deserialize_with = "deserialize_advanced_quality"
     )]
     pub lightmaps: String,
+    /// Use the Low lighting path while retaining the selected texture quality
+    /// and filtering. Advanced lighting preferences remain saved for when
+    /// this override is turned off.
+    #[serde(default)]
+    pub use_low_quality_lighting: bool,
     /// Windowed or borderless fullscreen. Persisted as `"windowed"` /
     /// `"fullscreen"`; an unknown value falls back to `"windowed"` rather than
     /// invalidating the file.
@@ -558,6 +565,7 @@ impl Default for Settings {
             bloom: default_bloom(),
             reflections: ReflectionQuality::DEFAULT.name().to_string(),
             lightmaps: LightmapQuality::DEFAULT.name().to_string(),
+            use_low_quality_lighting: false,
             window_mode: default_window_mode(),
             window_width: default_window_width(),
             window_height: default_window_height(),
@@ -807,6 +815,27 @@ impl Settings {
             .unwrap_or_else(|| QualityLevel::parse(&self.quality).unwrap_or_default())
     }
 
+    /// The lighting path in force, independent of texture quality.
+    #[must_use]
+    pub fn lighting_quality(&self) -> QualityLevel {
+        if self.use_low_quality_lighting {
+            QualityLevel::Low
+        } else {
+            self.quality_level()
+        }
+    }
+
+    /// Selects the persistent Low lighting override and requests a live
+    /// graphics transition. Saved advanced preferences are never rewritten.
+    pub const fn set_use_low_quality_lighting(&mut self, enabled: bool) -> bool {
+        let changed = self.use_low_quality_lighting != enabled;
+        self.use_low_quality_lighting = enabled;
+        if changed {
+            self.pending.graphics = true;
+        }
+        changed
+    }
+
     /// Selects the quality level and persists it as the saved value.
     ///
     /// Clears any startup override for this option: an explicit change in
@@ -914,6 +943,9 @@ impl Settings {
     /// the saved quality level.
     #[must_use]
     pub fn reflection_quality(&self) -> ReflectionQuality {
+        if self.use_low_quality_lighting {
+            return ReflectionQuality::default_for(QualityLevel::Low);
+        }
         if let Some(overridden) = self.overrides.reflections {
             return overridden;
         }
@@ -934,9 +966,10 @@ impl Settings {
     /// outranks `PLACES_NO_REFLECTIONS`; a real change records one graphics
     /// apply.
     pub fn set_reflection_quality(&mut self, quality: ReflectionQuality) -> bool {
-        let changed = self.reflection_quality() != quality;
+        let previous = self.reflection_quality();
         self.overrides.reflections = None;
         self.reflections = quality.name().to_string();
+        let changed = previous != self.reflection_quality();
         if changed {
             self.pending.graphics = true;
         }
@@ -968,6 +1001,9 @@ impl Settings {
     /// the saved quality level.
     #[must_use]
     pub fn lightmap_quality(&self) -> LightmapQuality {
+        if self.use_low_quality_lighting {
+            return LightmapQuality::default_for(QualityLevel::Low);
+        }
         if let Some(overridden) = self.overrides.lightmaps {
             return overridden;
         }
@@ -989,9 +1025,10 @@ impl Settings {
     /// outranks `PLACES_NO_LIGHTMAPS`; a real change records one graphics
     /// apply.
     pub fn set_lightmap_quality(&mut self, quality: LightmapQuality) -> bool {
-        let changed = self.lightmap_quality() != quality;
+        let previous = self.lightmap_quality();
         self.overrides.lightmaps = None;
         self.lightmaps = quality.name().to_string();
+        let changed = previous != self.lightmap_quality();
         if changed {
             self.pending.graphics = true;
         }
@@ -1140,6 +1177,7 @@ impl Settings {
     pub fn graphics_spec(&self) -> GraphicsSpec {
         GraphicsSpec {
             quality: self.quality_level(),
+            lighting: self.lighting_quality(),
             filtering: self.texture_filtering_preset(),
             bloom: self.bloom_enabled(),
             lightmaps: self.lightmap_quality(),
@@ -1304,3 +1342,7 @@ impl Settings {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "settings/low_lighting_tests.rs"]
+mod low_lighting_tests;

@@ -200,6 +200,12 @@ impl Renderer {
         self.renderer.set_quality(quality);
     }
 
+    /// Selects the lighting path independently of texture quality. The
+    /// prepared graphics transaction installs the matching material response.
+    pub const fn set_lighting_quality(&mut self, quality: QualityLevel) {
+        self.renderer.set_lighting_quality(quality);
+    }
+
     /// Selects the Lightmaps quality.
     ///
     /// Recording only: [`Self::apply_graphics`] rebuilds the CPU lighting and

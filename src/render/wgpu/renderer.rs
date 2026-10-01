@@ -216,8 +216,10 @@ enum Acquired {
 /// immediately; resource changes become applied when preparation commits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct GraphicsConfig {
-    /// Overall quality: texture budgets, scene target, surface response.
+    /// Overall quality: texture budgets and scene target.
     quality: QualityLevel,
+    /// Lighting response, independent of texture budgets.
+    lighting_quality: QualityLevel,
     /// Ordinary world texture filtering (a sampler-handle swap at bind time).
     filtering: TextureFiltering,
     /// Whether the emissive/bloom chain runs.
@@ -232,6 +234,7 @@ impl Default for GraphicsConfig {
     fn default() -> Self {
         Self {
             quality: QualityLevel::default(),
+            lighting_quality: QualityLevel::default(),
             filtering: TextureFiltering::DEFAULT,
             bloom: true,
             lightmaps: LightmapQuality::default(),
@@ -245,6 +248,7 @@ impl GraphicsConfig {
     fn delta_from(self, next: Self) -> GraphicsDelta {
         GraphicsDelta {
             quality: self.quality != next.quality,
+            lighting: self.lighting_quality != next.lighting_quality,
             filtering: self.filtering != next.filtering,
             bloom: self.bloom != next.bloom,
             lightmaps: self.lightmaps != next.lightmaps,
@@ -261,6 +265,7 @@ impl GraphicsConfig {
     const fn spec(self) -> GraphicsSpec {
         GraphicsSpec {
             quality: self.quality,
+            lighting: self.lighting_quality,
             filtering: self.filtering.name(),
             bloom: self.bloom,
             lightmaps: self.lightmaps,
@@ -283,8 +288,10 @@ impl GraphicsConfig {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct GraphicsDelta {
-    /// Texture budgets, scene target, surface response.
+    /// Texture budgets and scene target.
     quality: bool,
+    /// Optional material response.
+    lighting: bool,
     /// The world sampler preset (recorded only).
     filtering: bool,
     /// The bloom gate (recorded only).
@@ -301,6 +308,7 @@ impl GraphicsDelta {
     const fn everything() -> Self {
         Self {
             quality: true,
+            lighting: true,
             filtering: true,
             bloom: true,
             lightmaps: true,
@@ -311,7 +319,12 @@ impl GraphicsDelta {
     /// True when no setting changed.
     #[cfg(test)]
     const fn is_empty(self) -> bool {
-        !(self.quality || self.filtering || self.bloom || self.lightmaps || self.reflections)
+        !(self.quality
+            || self.lighting
+            || self.filtering
+            || self.bloom
+            || self.lightmaps
+            || self.reflections)
     }
 
     /// True when any GPU resource work is owed.
@@ -321,7 +334,7 @@ impl GraphicsDelta {
     /// this is the predicate that proves a filtering-only or bloom-only change
     /// is zero-work.
     const fn needs_gpu_work(self) -> bool {
-        self.quality || self.lightmaps || self.reflections
+        self.quality || self.lighting || self.lightmaps || self.reflections
     }
 
     /// True when the CPU level build must run again (lighting, props and the
@@ -510,6 +523,8 @@ pub struct WgpuRenderer {
     /// offscreen targets. Kept so `set_quality` is recorded and the build can
     /// name it.
     quality: QualityLevel,
+    /// Lighting path selected independently of texture and scene budgets.
+    lighting_quality: QualityLevel,
     /// The last level upload's counters.
     level_stats: LevelBuildStats,
     /// The last submitted frame's counters.
@@ -860,6 +875,7 @@ impl WgpuRenderer {
             reflection_passes: 0,
             culling: true,
             quality: QualityLevel::default(),
+            lighting_quality: QualityLevel::default(),
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
             needs_configure: !drawable_size.is_empty(),
@@ -1840,6 +1856,7 @@ impl WgpuRenderer {
         self.graphics_requested.filtering = self.filtering;
         self.graphics_requested.bloom = self.bloom_requested;
         self.quality = self.graphics_applied.quality;
+        self.lighting_quality = self.graphics_applied.lighting_quality;
     }
 
     /// Applies a Reflections setting to the GPU targets and the frame gates.
@@ -2049,6 +2066,7 @@ impl WgpuRenderer {
                             materials: &pending.materials,
                             table: &pending.loaded.materials,
                             level: pending.graphics.quality,
+                            lighting: pending.graphics.lighting_quality,
                             animations: &animations,
                             routing: &routing,
                         },
@@ -2125,6 +2143,8 @@ impl WgpuRenderer {
         self.prop_assets = assets;
         self.textures = textures;
         self.installed_quality = graphics.quality;
+        self.quality = graphics.quality;
+        self.lighting_quality = graphics.lighting_quality;
         let uploaded = UploadedLevel {
             atlas,
             fixture_sheets,
@@ -2272,6 +2292,7 @@ impl WgpuRenderer {
                     materials: &materials,
                     table: &loaded.materials,
                     level: self.quality,
+                    lighting: self.lighting_quality,
                     animations: &animations,
                     routing: &self.reflections.routing,
                 },
@@ -2730,7 +2751,7 @@ impl WgpuRenderer {
             material_stats.cutout_draws,
             material_stats.translucent_draws,
             world_stats.draws,
-            if self.quality.draws_surface_response() {
+            if self.lighting_quality.draws_surface_response() {
                 "enabled"
             } else {
                 "disabled"
@@ -2757,6 +2778,15 @@ impl WgpuRenderer {
     pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.quality = quality;
         self.graphics_requested.quality = quality;
+        // Preserve normal Low/Medium/High callers; settings may then apply
+        // the independent Low lighting override through the explicit setter.
+        self.set_lighting_quality(quality);
+    }
+
+    /// Selects lighting response without changing texture or scene budgets.
+    pub const fn set_lighting_quality(&mut self, quality: QualityLevel) {
+        self.lighting_quality = quality;
+        self.graphics_requested.lighting_quality = quality;
     }
 
     /// Records the player's texture filtering setting.
@@ -4696,6 +4726,7 @@ mod tests {
     ) -> GraphicsConfig {
         GraphicsConfig {
             quality,
+            lighting_quality: quality,
             filtering: TextureFiltering::High,
             bloom: true,
             lightmaps,
@@ -4826,6 +4857,7 @@ mod tests {
             delta,
             GraphicsDelta {
                 quality: true,
+                lighting: true,
                 filtering: false,
                 bloom: false,
                 lightmaps: true,
@@ -4901,6 +4933,7 @@ mod tests {
                         for bloom in [false, true] {
                             let base = GraphicsConfig {
                                 quality,
+                                lighting_quality: quality,
                                 filtering,
                                 bloom,
                                 lightmaps,
@@ -5078,3 +5111,7 @@ mod tests {
 #[cfg(test)]
 #[path = "entity_lighting_tests.rs"]
 mod entity_lighting_tests;
+
+#[cfg(test)]
+#[path = "low_lighting_tests.rs"]
+mod low_lighting_tests;

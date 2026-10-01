@@ -20,6 +20,7 @@ pub enum Action {
     Resize { width: u32, height: u32 },
     Quality { level: String },
     Lightmaps { quality: String },
+    LowLighting { enabled: bool },
     Focus { focused: bool },
     Quit {},
 }
@@ -72,6 +73,7 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             | Action::Quit {}
             | Action::Quality { .. }
             | Action::Lightmaps { .. }
+            | Action::LowLighting { .. }
             | Action::Focus { .. } => {}
         }
     }

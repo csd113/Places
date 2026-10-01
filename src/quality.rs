@@ -691,7 +691,7 @@ impl ReflectionQuality {
     }
 }
 
-/// The five player-facing graphics settings as one comparable value.
+/// The effective graphics settings as one comparable value.
 ///
 /// The game loop needs to answer one question every frame: *is the
 /// configuration the player asked for the configuration the renderer holds?*
@@ -707,8 +707,11 @@ impl ReflectionQuality {
 /// the renderer never have to import each other's internals.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GraphicsSpec {
-    /// The overall quality level: texture budgets, scene target, response.
+    /// The overall quality level: texture budgets and scene target.
     pub quality: QualityLevel,
+    /// The lighting path, including optional material response. May be Low
+    /// while texture quality remains Medium or High.
+    pub lighting: QualityLevel,
     /// The canonical Texture Filtering preset name.
     pub filtering: &'static str,
     /// Whether the emissive/bloom chain runs.
@@ -723,6 +726,7 @@ impl GraphicsSpec {
     /// The fresh-install configuration.
     pub const DEFAULT: Self = Self {
         quality: QualityLevel::DEFAULT,
+        lighting: QualityLevel::DEFAULT,
         filtering: "high",
         bloom: true,
         lightmaps: LightmapQuality::DEFAULT,

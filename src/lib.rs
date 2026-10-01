@@ -48,6 +48,9 @@ pub mod render;
 pub mod settings;
 pub mod spatial;
 #[cfg(test)]
+#[path = "static_prop_lighting_tests.rs"]
+mod static_prop_lighting_tests;
+#[cfg(test)]
 mod surface_audit;
 #[cfg(test)]
 mod test_support;
@@ -476,6 +479,7 @@ fn create_renderer(
     // `docs/RENDERER.md` §12), so `Low + Lightmaps Full` loads a Full atlas
     // even though the overall level is Low.
     renderer.set_quality(settings.quality_level());
+    renderer.set_lighting_quality(settings.lighting_quality());
     renderer.set_lightmap_quality(settings.lightmap_quality());
     renderer.set_reflection_quality(settings.reflection_quality());
     // Bloom and Texture Filtering are independent player preferences too (with
@@ -1353,6 +1357,8 @@ impl FrameLoop<'_> {
         self.failed_graphics = None;
         self.renderer.set_quality(self.settings.quality_level());
         self.renderer
+            .set_lighting_quality(self.settings.lighting_quality());
+        self.renderer
             .set_lightmap_quality(self.settings.lightmap_quality());
         self.renderer
             .set_reflection_quality(self.settings.reflection_quality());
@@ -1366,6 +1372,8 @@ impl FrameLoop<'_> {
                 self.load_generation,
                 &serde_json::json!({
                     "quality": self.settings.quality_level().name(),
+                    "lighting": self.settings.lighting_quality().name(),
+                    "use_low_quality_lighting": self.settings.use_low_quality_lighting,
                     "lightmaps": self.settings.lightmap_quality().name(),
                     "reflections": self.settings.reflection_quality().name(),
                     "bloom": self.settings.bloom_enabled(),
@@ -1395,6 +1403,8 @@ impl FrameLoop<'_> {
             self.load_generation,
             &serde_json::json!({
                 "quality": self.settings.quality_level().name(),
+                "lighting": self.settings.lighting_quality().name(),
+                "use_low_quality_lighting": self.settings.use_low_quality_lighting,
                 "lightmaps": self.settings.lightmap_quality().name(),
                 "reflections": self.settings.reflection_quality().name(),
                 "bloom": self.settings.bloom_enabled(),
@@ -1718,6 +1728,11 @@ impl FrameLoop<'_> {
             perf::actions::Action::Lightmaps { quality } => {
                 if let Some(quality) = quality::LightmapQuality::parse(&quality) {
                     self.settings.set_lightmap_quality(quality);
+                }
+            }
+            perf::actions::Action::LowLighting { enabled } => {
+                if !self.settings.set_use_low_quality_lighting(enabled) {
+                    self.settings.request_graphics_reapply();
                 }
             }
             perf::actions::Action::Focus { focused } => {
@@ -2410,8 +2425,11 @@ impl FrameLoop<'_> {
             "routes": self.game.routes().len(), "triggers": self.game.volume_count(),
             "characters": self.renderer.character_count(), "dynamic_objects": self.renderer.dynamic_scene().len(),
             "player_position": position, "quality": self.settings.quality_level().name(),
+            "lighting": self.settings.lighting_quality().name(),
+            "use_low_quality_lighting": self.settings.use_low_quality_lighting,
             "lightmaps": self.settings.lightmap_quality().name(), "reflections": self.settings.reflection_quality().name(),
             "renderer_quality": renderer_quality.name(), "renderer_lightmaps": renderer_lightmaps.name(),
+            "renderer_lighting": self.renderer.graphics_applied().lighting.name(),
             "bloom": self.settings.bloom_enabled(), "window_focused": self.window_focused,
         }).to_string());
     }
@@ -2846,7 +2864,7 @@ fn log_effective_settings(settings: &Settings) {
         return;
     }
     logging::info(format!(
-        "[settings] quality {} (saved {}){} | bloom {} | reflections {}{} | lightmaps {}{} | vsync {} | filtering {} | window {} {}",
+        "[settings] quality {} (saved {}){} | lighting {} | bloom {} | reflections {}{} | lightmaps {}{} | vsync {} | filtering {} | window {} {}",
         settings.quality_level().name(),
         settings.quality,
         if settings.quality_overridden() {
@@ -2854,6 +2872,7 @@ fn log_effective_settings(settings: &Settings) {
         } else {
             ""
         },
+        settings.lighting_quality().name(),
         on_off(settings.bloom_enabled()),
         settings.reflection_quality().name(),
         if settings.reflection_quality_overridden() {

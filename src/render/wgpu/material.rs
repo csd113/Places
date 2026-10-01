@@ -547,8 +547,11 @@ pub struct WorldMaterialInputs<'a> {
     pub materials: &'a MaterialRenderState,
     /// The level's resolved material table.
     pub table: &'a MaterialTable,
-    /// The active quality level (the response gate and the texture fit).
+    /// The active texture quality level.
     pub level: QualityLevel,
+    /// The lighting quality: Low omits normal maps and sheen independently
+    /// of the retained texture budget.
+    pub lighting: QualityLevel,
     /// Per-material emission animations, indexed by material index.
     pub animations: &'a [Option<crate::render::common::animation::EmissionAnimation>],
     /// The level's reflection routing, for the planar/probe gates.
@@ -559,7 +562,7 @@ impl WorldMaterials {
     /// Resolves every world draw to its material, creating the GPU records the
     /// cache does not hold yet.
     ///
-    /// `inputs.level` supplies the response gate; the neutral resolver
+    /// `inputs.lighting` supplies the response gate; the neutral resolver
     /// applies it to the normal map and sheen (and therefore to the reflection
     /// strength), exactly as the OpenGL draw path does. Emissions resolve the
     /// same way they do there: a floor/ceiling/wall material carries
@@ -591,7 +594,7 @@ impl WorldMaterials {
             }
         }
         let (keys, per_draw) = material_identities(draws, inputs.routing);
-        let response_allowed = level.draws_surface_response();
+        let response_allowed = inputs.lighting.draws_surface_response();
         let mut entries: Vec<GpuMaterial> = Vec::with_capacity(keys.len());
         let mut animations: Vec<Option<crate::render::common::animation::EmissionAnimation>> =
             Vec::with_capacity(keys.len());

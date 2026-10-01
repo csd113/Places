@@ -633,6 +633,7 @@ fn reflection_quality_gates_are_exact() {
 fn preset(level: QualityLevel) -> GraphicsSpec {
     GraphicsSpec {
         quality: level,
+        lighting: level,
         filtering: match level {
             QualityLevel::Low => "low",
             QualityLevel::Medium => "medium",
