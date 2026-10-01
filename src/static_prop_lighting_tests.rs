@@ -479,18 +479,25 @@ fn authored_normal_triangle() -> Vec<u8> {
             binary.extend_from_slice(&channel.to_le_bytes());
         }
     }
+    for uv in [[0.0_f32, 0.0], [0.0, 1.0], [1.0, 0.0]] {
+        for channel in uv {
+            binary.extend_from_slice(&channel.to_le_bytes());
+        }
+    }
     let json = format!(
         r#"{{"asset":{{"version":"2.0"}},"scene":0,
         "scenes":[{{"nodes":[0]}}],
         "nodes":[{{"mesh":0,"scale":[2,1,0.5],"rotation":[0,{n},0,{n}]}}],
-        "meshes":[{{"primitives":[{{"attributes":{{"POSITION":0,"NORMAL":2}},"indices":1}}]}}],
-        "buffers":[{{"byteLength":80}}],
+        "meshes":[{{"primitives":[{{"attributes":{{"POSITION":0,"NORMAL":2,"TEXCOORD_0":3}},"indices":1}}]}}],
+        "buffers":[{{"byteLength":104}}],
         "bufferViews":[{{"buffer":0,"byteOffset":0,"byteLength":36}},
             {{"buffer":0,"byteOffset":36,"byteLength":6}},
-            {{"buffer":0,"byteOffset":44,"byteLength":36}}],
+            {{"buffer":0,"byteOffset":44,"byteLength":36}},
+            {{"buffer":0,"byteOffset":80,"byteLength":24}}],
         "accessors":[{{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}},
             {{"bufferView":1,"componentType":5123,"count":3,"type":"SCALAR"}},
-            {{"bufferView":2,"componentType":5126,"count":3,"type":"VEC3"}}]}}"#
+            {{"bufferView":2,"componentType":5126,"count":3,"type":"VEC3"}},
+            {{"bufferView":3,"componentType":5126,"count":3,"type":"VEC2"}}]}}"#
     );
     crate::test_support::glb_container(&json, &binary)
 }
