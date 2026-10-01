@@ -86,7 +86,7 @@ fn receiver_batch<'a>(build: &'a crate::render::LevelBuild, suffix: &str) -> &'a
 /// precedes normal reconstruction; colours are deliberately absent here.
 fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
     let page = vertices[0].lightmap_page;
-    assert!(vertices.iter().all(|vertex| vertex.is_lightmapped()));
+    assert!(vertices.iter().all(Vertex::is_lightmapped));
     assert!(vertices.iter().all(|vertex| vertex.lightmap_page == page));
     let image = &atlas.pages[usize::from(page)];
     let uv = [0, 1].map(|axis| {
@@ -96,8 +96,8 @@ fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
             .sum::<f32>()
             / 3.0
     });
-    let x = (uv[0] * image.width as f32 - 0.5).max(0.0);
-    let y = (uv[1] * image.height as f32 - 0.5).max(0.0);
+    let x = uv[0].mul_add(image.width as f32, -0.5).max(0.0);
+    let y = uv[1].mul_add(image.height as f32, -0.5).max(0.0);
     let x0 = x.floor() as u32;
     let y0 = y.floor() as u32;
     let dx = x.fract();
@@ -290,7 +290,7 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
             .zip(sample(&decoded_atlas, triangle))
         {
             assert!(
-                (before - after).abs() <= before.abs() * 0.002 + 0.0001,
+                (before - after).abs() <= before.abs().mul_add(0.002, 0.0001),
                 "half-float serialization must preserve shader illumination: {before} vs {after}"
             );
         }
@@ -382,9 +382,44 @@ fn animated_sheet_ghosts_keep_probe_lighting_and_do_not_receive_static_atlas_coo
         asset.model.skin.is_some() && !asset.model.animations.is_empty(),
         "the fixture must be an actual animated skinned ghost"
     );
-    let built = build(&level, QualityLevel::Medium, LightmapMode::On);
-    let dynamic =
-        crate::render::entity_lighting(&built.lighting, built.probes.as_deref(), [5.5, 1.6, 4.0]);
+    // Air-region labels belong to the compiler, not the intermediate inline
+    // renderer build. Exercise the packaged production records so this test
+    // checks the real dynamic-model install path without inventing labels.
+    let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("target/static-prop-fixtures")
+        .join(format!("animated-ghost-{}", std::process::id()));
+    std::fs::create_dir_all(&scratch).unwrap();
+    let source = scratch.join("receiver.json");
+    let out = scratch.join("receiver.placesmap");
+    std::fs::write(&source, serde_json::to_vec(&level).unwrap()).unwrap();
+    let request = crate::compiler::BuildRequest {
+        source,
+        out: out.clone(),
+        asset_root: assets.root().unwrap().to_path_buf(),
+        variants: vec![crate::quality::LightmapQuality::Medium],
+        workers: 2,
+        force: true,
+        capture_probes: false,
+    };
+    let report = crate::compiler::build(&request).unwrap();
+    assert!(
+        report.rebuilt && report.warnings.is_empty(),
+        "{:?}",
+        report.warnings
+    );
+    let opened = crate::package::world::open(&out).unwrap();
+    let compiled = crate::package::world::load_variant(
+        &out,
+        &opened.manifest,
+        crate::quality::LightmapQuality::Medium,
+        &mut assets,
+    )
+    .unwrap();
+    let dynamic = crate::render::entity_lighting(
+        &compiled.lighting,
+        compiled.irradiance.as_deref(),
+        [5.5, 1.6, 4.0],
+    );
     assert_eq!(
         dynamic.source,
         crate::render::EntityLightingSource::Prepared
@@ -393,7 +428,7 @@ fn animated_sheet_ghosts_keep_probe_lighting_and_do_not_receive_static_atlas_coo
         dynamic.prepared.is_some(),
         "animated models retain the prepared irradiance field"
     );
-    for batch in built.batches.iter().filter(|batch| batch.model == path) {
+    for batch in compiled.props.iter().filter(|batch| batch.model == path) {
         assert!(
             batch.vertices.iter().all(|vertex| !vertex.is_lightmapped()),
             "an animated ghost must not freeze its bind pose into static lightmap charts"
@@ -513,5 +548,56 @@ fn valid_authored_model_normals_survive_nonuniform_node_transforms() {
             normal.distance(expected) < 0.0001,
             "authored normals need inverse-transpose and normalization, not position transform: {normal:?} vs {expected:?}"
         );
+    }
+}
+
+/// Explicit developer preflight: build each bundled map's real geometry,
+/// charts and transport scene, but never run the expensive atlas fill. This
+/// diagnostic is ignored in the normal suite because bundled source content
+/// changes during authoring; invoke it after generators settle before rebakes.
+#[test]
+#[ignore = "explicit bundled-map atlas planning preflight; no lightmap fill"]
+fn bundled_static_models_fit_medium_and_full_atlas_plans() {
+    let root = crate::assets::resolve_asset_root().unwrap();
+    let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
+    for id in ["lantern_hollow", "model_zoo", "places_demo"] {
+        let json = std::fs::read_to_string(root.join("levels").join(format!("{id}.json"))).unwrap();
+        let mut level = LevelDef::from_json(&json).unwrap();
+        crate::loader::prepare_level(&mut level, catalog.assets(), None);
+        let materials = crate::render::logical_materials(&level);
+        let mut assets = crate::props::PropAssets::with_root(&root);
+        for quality in [
+            crate::quality::LightmapQuality::Medium,
+            crate::quality::LightmapQuality::Full,
+        ] {
+            let options = LightmapBuildOptions::for_lightmaps(quality);
+            let prepared = crate::render::prepare_level_geometry_with_lightmaps(
+                &level,
+                &catalog,
+                &mut assets,
+                &materials,
+                options,
+                None,
+            );
+            assert!(
+                prepared.build.lightmap_failure.is_none(),
+                "{id} {quality:?} must fit its real static-model chart budget: {:?}",
+                prepared.build.lightmap_failure
+            );
+            let request = prepared
+                .fill
+                .expect("an uncached preflight plans the atlas fill");
+            assert!(!request.charts.is_empty() && request.page_count > 0);
+            assert!(request.page_count <= request.config.max_pages);
+            assert!(
+                prepared
+                    .build
+                    .batches
+                    .iter()
+                    .flat_map(|batch| &batch.vertices)
+                    .any(Vertex::is_lightmapped),
+                "{id} must plan real static model receivers"
+            );
+        }
     }
 }
