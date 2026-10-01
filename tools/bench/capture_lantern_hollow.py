@@ -39,6 +39,7 @@ for name in selected:
                 'fov_degrees': 60.0}
     (state / 'settings.json').write_text(json.dumps(settings))
     path = out / (name + '.png')
+    path.unlink(missing_ok=True)  # A stale earlier image must never pass acceptance.
     env = {key: value for key, value in os.environ.items() if not key.startswith('PLACES_')}
     env.update(PLACES_ASSET_ROOT=str(root), PLACES_STATE_ROOT=str(state),
                PLACES_LEVEL='lantern_hollow', PLACES_QUALITY=args.quality,
