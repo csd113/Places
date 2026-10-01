@@ -892,3 +892,74 @@ fn assert_adjacent_model_reservations(
         "real adjacent model reservations are required to prove color isolation"
     );
 }
+
+#[test]
+fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_limit() {
+    let root = crate::assets::resolve_asset_root().unwrap();
+    let package = root.join("levels/lantern_hollow.placesmap");
+    let opened = crate::package::world::open(&package).unwrap();
+    let full = opened.manifest.variant("full").unwrap();
+    assert!(full.lightmap_failure.is_none());
+    let metadata = full.entries.lightmaps_meta.as_ref().unwrap();
+    let entry = opened.manifest.entry(metadata).unwrap();
+    assert!(
+        entry.bytes > crate::package::MAX_MATERIALS_BYTES,
+        "the real dense-model chart record must reproduce the previous materials-cap rejection"
+    );
+    assert!(entry.bytes <= crate::package::MAX_LIGHTMAP_METADATA_BYTES);
+    assert_eq!(
+        crate::package::MAX_LIGHTMAP_METADATA_BYTES,
+        64 * 1024 * 1024
+    );
+    let mut reader =
+        crate::package::PackageReader::new(std::fs::File::open(&package).unwrap()).unwrap();
+    assert!(
+        reader
+            .read_entry(metadata, crate::package::MAX_MATERIALS_BYTES)
+            .is_err(),
+        "this fixture must fail the old unrelated materials-record budget"
+    );
+    drop(reader);
+
+    let mut assets = crate::props::PropAssets::with_root(root);
+    let loaded = crate::package::world::load_variant(
+        &package,
+        &opened.manifest,
+        crate::quality::LightmapQuality::Full,
+        &mut assets,
+    )
+    .expect(
+        "the actual runtime record reader must accept dense model charts using their dedicated cap",
+    );
+    let atlas = loaded.lightmaps.as_ref().unwrap();
+    assert!(
+        atlas.charts.len() >= 230_000,
+        "this must exercise the real 230k-chart bake, never padded synthetic JSON"
+    );
+    assert_eq!(atlas.pages.len(), 7);
+    assert!(
+        loaded
+            .props
+            .iter()
+            .flat_map(|batch| &batch.vertices)
+            .any(Vertex::is_lightmapped)
+    );
+    for suffix in ["showcase_stump_seat.glb", "showcase_boulder.glb"] {
+        let batches = loaded
+            .props
+            .iter()
+            .filter(|batch| batch.model.ends_with(suffix))
+            .collect::<Vec<_>>();
+        assert!(
+            !batches.is_empty(),
+            "{suffix} must be a real compiled receiver"
+        );
+        assert!(
+            batches
+                .iter()
+                .flat_map(|batch| &batch.vertices)
+                .all(Vertex::is_lightmapped),
+            "{suffix} must retain per-surface atlas coordinates through real package decoding"
+        );
+    }
+}
