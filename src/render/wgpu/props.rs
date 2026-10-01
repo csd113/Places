@@ -221,7 +221,11 @@ impl PropUpload {
             let mask = submesh
                 .emission
                 .mask
-                .and_then(|index| usize::from(index).checked_add(texture_base))
+                .and_then(|index| {
+                    usize::try_from(index)
+                        .ok()
+                        .and_then(|index| index.checked_add(texture_base))
+                })
                 .filter(|index| *index < textures.len());
             let record = EmissionRecord::material(submesh.emission, mask.is_some());
             // The cutoff is part of the material identity: two primitives that

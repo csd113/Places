@@ -5,7 +5,7 @@
 #![allow(clippy::doc_markdown, clippy::expect_used)]
 
 use super::*;
-use crate::quality::{LightmapQuality, ReflectionQuality};
+use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
 use crate::test_support::{assert_exact, assert_exact_named};
 
 #[test]
@@ -1290,4 +1290,100 @@ fn without_interact_bindings() -> &'static str {
             "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
         }
     }"#
+}
+
+// ------------------------------------------- graphics configuration identity
+
+/// A saved Medium/High file loads back with exactly the graphics
+/// configuration a live selection would have produced, so the next launch
+/// applies the same quality without any repair of local user data.
+#[test]
+fn a_saved_quality_restarts_as_the_same_graphics_configuration() {
+    for level in QualityLevel::ALL {
+        let mut saved = Settings::default();
+        saved.set_quality(level);
+        let json = serde_json::to_string(&saved).expect("settings serialize");
+        let mut loaded: Settings = serde_json::from_str(&json).expect("settings parse");
+        loaded.sanitize();
+        assert_eq!(
+            loaded.quality_level(),
+            level,
+            "the saved quality survives a restart"
+        );
+        assert_eq!(
+            loaded.graphics_spec(),
+            saved.graphics_spec(),
+            "{level:?} must restart with the same applied graphics identity"
+        );
+        // A file with the advanced keys absent derives the same presets from
+        // the saved quality (`bindings` is the one required section).
+        let minimal = format!(
+            r#"{{"bindings":{{"forward":"W","backward":"S","strafe_left":"A","strafe_right":"D",
+                "look_up":"UP","look_down":"DOWN","look_left":"LEFT","look_right":"RIGHT"}},
+                "quality":"{}"}}"#,
+            level.name()
+        );
+        let mut derived: Settings = serde_json::from_str(&minimal).expect("minimal file parses");
+        derived.sanitize();
+        assert_eq!(
+            derived.graphics_spec(),
+            saved.graphics_spec(),
+            "{level:?} without the advanced keys derives the preset"
+        );
+    }
+}
+
+/// A quality reached through a lower one is the same applied configuration as
+/// selecting it directly: the cascade resets the three advanced settings to
+/// the same presets, which is the identity the renderer compares.
+#[test]
+fn a_quality_reached_through_low_is_the_same_configuration_as_a_direct_launch() {
+    let direct = |level: QualityLevel| {
+        // The direct launch: a saved file whose advanced keys are absent, so
+        // they derive from the quality exactly like a fresh selection cascades.
+        let minimal = format!(
+            r#"{{"bindings":{{"forward":"W","backward":"S","strafe_left":"A","strafe_right":"D",
+                "look_up":"UP","look_down":"DOWN","look_left":"LEFT","look_right":"RIGHT"}},
+                "quality":"{}"}}"#,
+            level.name()
+        );
+        let mut settings: Settings = serde_json::from_str(&minimal).expect("minimal file parses");
+        settings.sanitize();
+        settings.graphics_spec()
+    };
+    for level in QualityLevel::ALL {
+        for start in QualityLevel::ALL {
+            let mut settings = Settings::default();
+            settings.set_quality(start);
+            settings.set_quality(level);
+            assert_eq!(
+                settings.graphics_spec(),
+                direct(level),
+                "{start:?} -> {level:?} must equal a direct {level:?}"
+            );
+        }
+    }
+}
+
+/// A real selection records one graphics apply and cascades; a re-selection of
+/// the value already stored records the apply too, so the game loop can repair
+/// a renderer that holds an older configuration even though the saved value
+/// did not change.
+#[test]
+fn re_selecting_the_stored_quality_is_still_an_explicit_request() {
+    let mut settings = Settings::default();
+    settings.set_quality(QualityLevel::High);
+    let _ = settings.take_pending_apply();
+    assert!(!settings.set_quality(QualityLevel::High), "no value change");
+    assert!(
+        !settings.take_pending_apply().graphics,
+        "a no-op set is inert on its own"
+    );
+    settings.request_graphics_reapply();
+    let apply = settings.take_pending_apply();
+    assert!(apply.graphics, "a re-selection records the graphics apply");
+    assert!(
+        !settings.quality_overridden(),
+        "the selection is still the player's saved value"
+    );
 }

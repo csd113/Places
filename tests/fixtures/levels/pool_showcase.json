@@ -54,6 +54,276 @@
       "offset_y": -0.35,
       "material": "core:pool_tile_basin_01",
       "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.3281,
+      "z": 9.165,
+      "width": 0.0781,
+      "depth": 0.87,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.4062,
+      "z": 8.9948,
+      "width": 0.0781,
+      "depth": 1.2103,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.4844,
+      "z": 8.8713,
+      "width": 0.0781,
+      "depth": 1.4574,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.5625,
+      "z": 8.7732,
+      "width": 0.0781,
+      "depth": 1.6536,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.6406,
+      "z": 8.6923,
+      "width": 0.0781,
+      "depth": 1.8155,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.7188,
+      "z": 8.6242,
+      "width": 0.0781,
+      "depth": 1.9516,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.7969,
+      "z": 8.5665,
+      "width": 0.0781,
+      "depth": 2.067,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.875,
+      "z": 8.5175,
+      "width": 0.0781,
+      "depth": 2.1651,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.9531,
+      "z": 8.476,
+      "width": 0.0781,
+      "depth": 2.248,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.0312,
+      "z": 8.4412,
+      "width": 0.0781,
+      "depth": 2.3176,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.1094,
+      "z": 8.4126,
+      "width": 0.0781,
+      "depth": 2.3748,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.1875,
+      "z": 8.3897,
+      "width": 0.0781,
+      "depth": 2.4206,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.2656,
+      "z": 8.3722,
+      "width": 0.0781,
+      "depth": 2.4557,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.3438,
+      "z": 8.3598,
+      "width": 0.0781,
+      "depth": 2.4804,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.4219,
+      "z": 8.3524,
+      "width": 0.0781,
+      "depth": 2.4951,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.5,
+      "z": 8.3524,
+      "width": 0.0781,
+      "depth": 2.4951,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.5781,
+      "z": 8.3598,
+      "width": 0.0781,
+      "depth": 2.4804,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.6562,
+      "z": 8.3722,
+      "width": 0.0781,
+      "depth": 2.4557,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.7344,
+      "z": 8.3897,
+      "width": 0.0781,
+      "depth": 2.4206,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.8125,
+      "z": 8.4126,
+      "width": 0.0781,
+      "depth": 2.3748,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.8906,
+      "z": 8.4412,
+      "width": 0.0781,
+      "depth": 2.3176,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.9688,
+      "z": 8.476,
+      "width": 0.0781,
+      "depth": 2.248,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.0469,
+      "z": 8.5175,
+      "width": 0.0781,
+      "depth": 2.1651,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.125,
+      "z": 8.5665,
+      "width": 0.0781,
+      "depth": 2.067,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.2031,
+      "z": 8.6242,
+      "width": 0.0781,
+      "depth": 1.9516,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.2812,
+      "z": 8.6923,
+      "width": 0.0781,
+      "depth": 1.8155,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.3594,
+      "z": 8.7732,
+      "width": 0.0781,
+      "depth": 1.6536,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.4375,
+      "z": 8.8713,
+      "width": 0.0781,
+      "depth": 1.4574,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.5156,
+      "z": 8.9948,
+      "width": 0.0781,
+      "depth": 1.2103,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.5938,
+      "z": 9.165,
+      "width": 0.0781,
+      "depth": 0.87,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
     }
   ],
   "walls": [
@@ -503,6 +773,30 @@
         0.5
       ],
       "solid": true
+    },
+    {
+      "model": "core:hot_tub",
+      "x": 7.5,
+      "z": 9.6,
+      "size": [
+        2.6,
+        1.56,
+        2.6
+      ],
+      "solid": false
+    }
+  ],
+  "water": [
+    {
+      "shape": "circle",
+      "x": 6.25,
+      "z": 8.35,
+      "radius": 1.25,
+      "surface_y": -0.15,
+      "bottom_y": -1.5,
+      "material": "core:water_pool_01",
+      "opacity": 0.62,
+      "swimming": true
     }
   ]
 }

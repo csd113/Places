@@ -44,6 +44,7 @@ pub use api::{
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     logical_materials,
 };
+pub use atmosphere::{FogRegion, FogState, LevelFog};
 pub use character::{
     BLEND_TIME_CONSTANT_S, CHARACTER_BOUNDS_EXPANSION, CHARACTER_BOUNDS_MARGIN_M, Character,
     CharacterAnimator, CharacterScene, CharacterUpdate, IDLE_SWAY_HZ, MAX_CHARACTERS, SWIM_HZ,

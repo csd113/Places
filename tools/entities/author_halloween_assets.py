@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Author the shipped Halloween entity material contracts.
 
-The three Halloween entity GLBs (``carved-pumpkin``, ``sheet-ghost``,
-``pumpkin-skeleton``) were modelled and rigged outside the repository's
-toolkit. They are structurally complete but their materials do not yet carry
-the contracts the runtime needs:
+The four Halloween entity GLBs (``carved-pumpkin``, ``sheet-ghost``,
+``sheet-ghost-cat``, ``pumpkin-skeleton``) were modelled and rigged outside the
+repository's toolkit. They are structurally complete but their materials do not
+yet carry the contracts the runtime needs:
 
 * ``pumpkin-skeleton`` draws its whole body with one opaque material, so the
   pumpkin head cannot glow independently. The head triangles (every vertex
@@ -23,6 +23,10 @@ the contracts the runtime needs:
   matrices and every animation channel are untouched — only the index set is
   partitioned, so the two primitives together draw exactly the original
   triangles.
+* ``sheet-ghost-cat`` is the sheet ghost's small companion. It ships a single
+  material for the whole sheet, so it takes the same ``alphaMode: "BLEND"`` and
+  the same cyan emissive family directly; there is no face partition and no
+  geometry edit at all.
 * ``carved-pumpkin`` is already complete: its ``candle_flame`` primitive
   carries the warm emissive factor and the carved shell samples the same shared
   surface sheet. The tool only verifies that contract.
@@ -84,12 +88,18 @@ GHOST_FACE_EMISSIVE = [0.03, 0.1, 0.12]
 # Per-vertex mean RGB below this is a painted face feature (eyes/nose/mouth).
 GHOST_FACE_LUMA_THRESHOLD = 0.35
 
-# The three shipped assets this tool owns, relative to the repository root.
+# The shipped assets this tool owns, relative to the repository root.
 ASSETS: Dict[str, str] = {
     "carved-pumpkin": "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
     "pumpkin-skeleton": "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
     "sheet-ghost": "assets/entities/sheet-ghost/model/sheet-ghost.glb",
+    "sheet-ghost-cat": "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
 }
+
+# Assets whose bind pose is authored to hover: their hem stays above the
+# origin plane and a placement's own `y` lifts them further. Every other
+# asset is grounded so its lowest vertex rests on the origin plane.
+HOVERING_ASSETS = frozenset({"sheet-ghost", "sheet-ghost-cat"})
 
 # SHA-256 of the authored bytes, pinned so `--check` detects any tampering with
 # the shipped GLBs (a hand edit that preserves every structural invariant is
@@ -99,6 +109,7 @@ AUTHORED_SHA256: Dict[str, str] = {
     "carved-pumpkin": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
     "pumpkin-skeleton": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
     "sheet-ghost": "f0344ea2dc98fff90b8e4c9971ce88860eee90b3044feee9165f0b62ce7f332a",
+    "sheet-ghost-cat": "f3007576af73bd002121a4af59fd95dc4715db0bd7795ec57ccfc5fa77619a5f",
 }
 
 
@@ -612,6 +623,27 @@ def blend_ghost_material(document: dict) -> dict:
     return document
 
 
+def blend_ghost_cat_material(document: dict) -> dict:
+    """Installs the ghost cat's blended cyan material contract.
+
+    The cat ships one material for the whole sheet, so there is no face
+    partition to keep dimmer: the single material takes the same
+    ``alphaMode: "BLEND"`` and the same mild cyan emissive family as the sheet
+    ghost's cloth, which is exactly the pair the translucent, fading character
+    route expects. Geometry, UVs, vertex colours, skin, inverse bind matrices
+    and every animation channel are untouched.
+    """
+    materials = document.get("materials", [])
+    if len(materials) != 1:
+        raise AuthoringError(
+            f"sheet-ghost-cat: expected one material, found {len(materials)}"
+        )
+    material = materials[0]
+    material["alphaMode"] = "BLEND"
+    material["emissiveFactor"] = list(GHOST_EMISSIVE)
+    return document
+
+
 # --------------------------------------------------------------- checks
 
 
@@ -655,7 +687,7 @@ def planned_bytes(name: str, path: Path) -> bytes:
         check_carved_pumpkin(document, path)
         return path.read_bytes()
     document, binary = normalize_model_origin(
-        document, binary, name, ground_base=(name != "sheet-ghost")
+        document, binary, name, ground_base=(name not in HOVERING_ASSETS)
     )
     if name == "pumpkin-skeleton":
         if not is_partitioned(document, PUMPKIN_HEAD_MATERIAL):
@@ -664,6 +696,8 @@ def planned_bytes(name: str, path: Path) -> bytes:
         if not is_partitioned(document, GHOST_FACE_MATERIAL):
             document, binary = split_ghost_face(document, binary)
         document = blend_ghost_material(document)
+    elif name == "sheet-ghost-cat":
+        document = blend_ghost_cat_material(document)
     else:
         raise AuthoringError(f"unknown asset {name}")
     return write_glb(document, binary)
@@ -808,9 +842,9 @@ def verify(name: str, path: Path, report: dict) -> List[str]:
         )
     if not -ORIGIN_BASE_TOLERANCE_M <= mins[1] <= ORIGIN_BASE_TOLERANCE_M:
         # A grounded model's base sits on the origin plane; a hovering model
-        # (the sheet ghost, `ground_base: false`) must keep its lowest vertex
+        # (the sheet ghosts, `ground_base: false`) must keep its lowest vertex
         # above it and inside its bound height.
-        hovering = name == "sheet-ghost"
+        hovering = name in HOVERING_ASSETS
         if not (hovering and mins[1] > 0.0 and mins[1] <= maxs[1]):
             problems.append(
                 f"{path}: lowest vertex sits at y={mins[1]:.3f}, outside "
@@ -870,6 +904,25 @@ def verify(name: str, path: Path, report: dict) -> List[str]:
             if cloth.get("emissiveFactor") != GHOST_EMISSIVE:
                 problems.append(
                     f"{path}: cloth emissive {cloth.get('emissiveFactor')} != {GHOST_EMISSIVE}"
+                )
+        except AuthoringError as error:
+            problems.append(str(error))
+    elif name == "sheet-ghost-cat":
+        try:
+            materials = document.get("materials", [])
+            if len(materials) != 1:
+                raise AuthoringError(
+                    f"{path}: expected the single ghost-cat material, found {len(materials)}"
+                )
+            material = materials[0]
+            if material.get("alphaMode") != "BLEND":
+                problems.append(
+                    f"{path}: the ghost-cat material must keep the BLEND contract"
+                )
+            if material.get("emissiveFactor") != GHOST_EMISSIVE:
+                problems.append(
+                    f"{path}: the ghost-cat emissive {material.get('emissiveFactor')} "
+                    f"!= {GHOST_EMISSIVE}"
                 )
         except AuthoringError as error:
             problems.append(str(error))

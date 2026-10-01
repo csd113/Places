@@ -34,7 +34,7 @@ use super::{
 };
 use crate::level::{
     ArcWallDef, ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef,
-    LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef, WallAxis,
+    LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef, VoidWallDef, WallAxis,
     axis_positions, round_point, wall_solid_slices_profiled,
 };
 use crate::lighting::light_grid_cells;
@@ -104,6 +104,9 @@ pub fn emit_architecture(
     }
     for piece in &context.level.columns {
         emit_column(context, buckets, scratch, piece);
+    }
+    for piece in &context.level.void_walls {
+        emit_void_wall(context, buckets, scratch, piece);
     }
     for piece in &context.level.arc_walls {
         emit_arc_wall(context, buckets, scratch, piece);
@@ -1303,6 +1306,73 @@ fn emit_column(
         boxed.min[1] - floor > 0.02,
     );
     emit_box(context, buckets, scratch, (boxed.min, boxed.max), keys);
+}
+
+/// Emits one void wall box: each authored face as an ordinary material
+/// surface.
+///
+/// The faces come from [`VoidWallDef::faces`], so the winding, the normal and
+/// the inward/outward/both choice are exactly the contract the unit tests pin.
+/// Every face is stamped into the lightmap atlas through the shared emitter,
+/// so a void wall shades, fogs and bakes like the wall it stands in for; it is
+/// never a fade, a black overlay or a second code path.
+fn emit_void_wall(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    piece: &VoidWallDef,
+) {
+    let (min, max) = piece.bounds();
+    if !(max[0] > min[0] && max[1] > min[1] && max[2] > min[2]) {
+        return;
+    }
+    let key = wall_key(
+        context,
+        Some(MaterialRef::with_shine(&piece.material, None)),
+    );
+    let tile = context.materials.tile_metres(key);
+    for face in piece.faces() {
+        let normal = face.normal;
+        let vertical = normal[1].abs() < 0.5;
+        let up = normal[1] > 0.0;
+        // A vertical face keeps the wall vocabulary's UV convention: `u` runs
+        // along the face's horizontal extent, `v` is measured down from the
+        // box top. A horizontal face tiles in world X/Z like a floor or cap.
+        let uv: [[f32; 2]; 4] = face.points.map(|point| {
+            if vertical {
+                let horizontal = if normal[0].abs() >= normal[2].abs() {
+                    point[2]
+                } else {
+                    point[0]
+                };
+                tiled_uv(horizontal, max[1] - point[1], tile)
+            } else {
+                tiled_uv(point[0], point[2], tile)
+            }
+        });
+        // The top edge follows each corner's own height, so the reversed
+        // (inward) winding keeps the gradient on the same edge as its outward
+        // twin.
+        let top = std::array::from_fn(|index| {
+            let point = face.points.get(index).copied().unwrap_or_default();
+            (point[1] - max[1]).abs() <= 1.0e-6
+        });
+        emit_face(
+            context,
+            buckets,
+            scratch,
+            ArchitectureFace {
+                points: face.points,
+                uv,
+                top,
+                normal,
+                vertical,
+                up,
+                key,
+                kind: PatchKind::Wall,
+            },
+        );
+    }
 }
 
 /// The resolved material keys of one arc wall or pillar.

@@ -135,6 +135,19 @@ pub const MAX_MESH_VERTICES: u64 = crate::level::MAX_LEVEL_VERTICES;
 /// Six indices per quad over the level's geometry budget.
 pub const MAX_MESH_INDICES: u64 = 6 * MAX_MESH_VERTICES;
 
+/// Largest accepted material index in one mesh range.
+///
+/// Mirrors the level's own explicit material budget
+/// ([`crate::level::MAX_LEVEL_MATERIALS`]) so a package can never name a
+/// material the level format would have refused. The sentinel
+/// [`crate::render::MATERIAL_NONE`] is always accepted.
+///
+/// The literal is kept in sync with [`crate::level::MAX_LEVEL_MATERIALS`] by
+/// `src/package/tests.rs::the_mesh_material_budget_mirrors_the_level_budget`:
+/// `TryFrom` is not const-stable, so the equality cannot be expressed in the
+/// constant itself.
+pub const MAX_MESH_MATERIALS: u32 = 131_072;
+
 /// Largest accepted number of mesh ranges.
 pub const MAX_MESH_RANGES: usize = 1 << 20;
 

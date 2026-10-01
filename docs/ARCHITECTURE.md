@@ -151,8 +151,8 @@ repository sources:
 - `ReflectionRouting`, `ReflectionPlane`: which material reflects from where.
 - `RenderCamera`: the frame's camera.
 - `QualityLevel` (with its two-variant `QualityProfile` content-key boundary),
-  `LightmapQuality`, `ReflectionQuality`, `PostSettings`, `FogState`,
-  `EmissionAnimation`.
+  `LightmapQuality`, `ReflectionQuality`, `PostSettings`, `FogState` and its
+  level-resolved `LevelFog`/`FogRegion` regions, `EmissionAnimation`.
 
 None of these contains a GPU handle; none is constructed by the backend.
 

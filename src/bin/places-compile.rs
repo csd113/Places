@@ -27,11 +27,15 @@ USAGE:
   places-compile validate <package> [--json]
   places-compile inspect <package> [--json]
   places-compile verify <source.json> --package <package> [--asset-root <dir>] [--json]
+                       [--require-current]
   places-compile --help | --version
 
 OPTIONS:
   --asset-root <dir>  Asset root holding catalog.json (default: PLACES_ASSET_ROOT
                       or the discovered assets directory).
+  --require-current   verify only: exit 1 when the package is not current for the
+                      source (the gate that keeps shipped packages from going
+                      stale unnoticed).
   --workers N         Shared CPU budget for this run; 1 forces the serial path.
                       Also read from PLACES_TOOL_WORKERS; the flag wins.
   --variants <list>   Comma-separated lightmap qualities to prepare
@@ -74,6 +78,7 @@ struct Options {
     workers: usize,
     variants: Vec<LightmapQuality>,
     json: bool,
+    require_current: bool,
 }
 
 fn parse_options(args: &[String]) -> Result<Options, CliError> {
@@ -82,6 +87,7 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
         workers: 0,
         variants: LightmapQuality::ALL.to_vec(),
         json: false,
+        require_current: false,
     };
     let mut index = 0;
     while index < args.len() {
@@ -116,6 +122,10 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
             }
             Some("--json") => {
                 options.json = true;
+                index = index.saturating_add(1);
+            }
+            Some("--require-current") => {
+                options.require_current = true;
                 index = index.saturating_add(1);
             }
             Some("--force") => {
@@ -199,7 +209,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
     ];
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
-        if arg == "--json" || arg == "--force" {
+        if arg == "--json" || arg == "--force" || arg == "--require-current" {
             option_args.push(arg.clone());
         } else if known_with_value.contains(&arg.as_str()) {
             option_args.push(arg.clone());
@@ -379,6 +389,14 @@ fn run(args: &[String]) -> Result<(), CliError> {
                 for difference in &report.differences {
                     println!("  {difference}");
                 }
+            }
+            if options.require_current && !report.current {
+                return Err(CliError::Failure(format!(
+                    "{} is stale for {}: {}",
+                    report.package,
+                    report.source,
+                    report.differences.join("; ")
+                )));
             }
             Ok(())
         }

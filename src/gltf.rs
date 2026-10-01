@@ -1413,7 +1413,7 @@ impl<'a> Doc<'a> {
             None => None,
         };
         Ok(MaterialEmission::new(color, intensity)
-            .with_mask(mask)
+            .with_mask(mask.map(u32::from))
             .sanitized())
     }
 

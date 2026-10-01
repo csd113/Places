@@ -55,6 +55,7 @@ DEFAULT_ASSETS = (
     "assets/entities/mannequin/model/mannequin.glb",
     "assets/entities/skeleton/model/skeleton.glb",
     "assets/entities/sheet-ghost/model/sheet-ghost.glb",
+    "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
     "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
     "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
 )

@@ -19,6 +19,11 @@ python3 tools/levels/build_outdoor_route.py --check
 # The bundled packages must be current for their sources and must decode.
 cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json
 cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 8
+# A package must be current for its source and assets: `verify --require-current`
+# is the gate that fails when a rebuilt asset (a changed GLB or PNG) was not
+# recompiled into the shipped package.
+cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 python3 -m unittest tests.test_package

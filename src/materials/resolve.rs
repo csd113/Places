@@ -40,7 +40,11 @@ pub struct ResolvedMaterial {
     /// Session-unique texture key (logical texture id, or `pack:<ns>:<path>`).
     pub texture_key: String,
     /// Index into [`MaterialTable::textures`].
-    pub texture_index: u16,
+    ///
+    /// 32 bits wide: a level may legitimately cross the former 65 535-texture
+    /// `u16` boundary ([`crate::level::MAX_LEVEL_MATERIALS`] is the explicit,
+    /// validated bound), and the texture table shares the material index type.
+    pub texture_index: u32,
     pub origin: TextureOrigin,
     /// World metres covered by one texture repeat.
     pub tile_metres: f32,
@@ -102,7 +106,7 @@ pub struct ResolvedTexture {
 #[derive(Clone, Debug, Default)]
 pub struct MaterialTable {
     entries: Vec<ResolvedMaterial>,
-    by_id: HashMap<String, u16>,
+    by_id: HashMap<String, u32>,
     textures: Vec<ResolvedTexture>,
 }
 
@@ -125,7 +129,11 @@ impl MaterialTable {
         }
         let mut by_id = HashMap::new();
         for (index, entry) in entries.iter().enumerate() {
-            by_id.insert(entry.id.clone(), u16::try_from(index).unwrap_or(u16::MAX));
+            // `u32` holds any table a level can build: `MAX_LEVEL_MATERIALS`
+            // (131 072) is enforced by `validate_level`, so this conversion is
+            // in range for every validated level and can never saturate.
+            let index = u32::try_from(index).unwrap_or(u32::MAX);
+            by_id.insert(entry.id.clone(), index);
         }
         Self {
             entries,
@@ -160,28 +168,31 @@ impl MaterialTable {
 
     /// The material index for a level-authored id.
     #[must_use]
-    pub fn index_of(&self, material_id: &str) -> Option<u16> {
+    pub fn index_of(&self, material_id: &str) -> Option<u32> {
         self.by_id.get(material_id).copied()
     }
 
     /// The entry for a level-authored id.
     #[must_use]
     pub fn entry_of(&self, material_id: &str) -> Option<&ResolvedMaterial> {
-        self.index_of(material_id)
-            .and_then(|index| self.entries.get(index as usize))
+        self.index_of(material_id).and_then(|index| {
+            self.entries
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
+        })
     }
 
     /// The entry for a material index.
     #[must_use]
-    pub fn entry(&self, index: u16) -> Option<&ResolvedMaterial> {
-        self.entries.get(index as usize)
+    pub fn entry(&self, index: u32) -> Option<&ResolvedMaterial> {
+        self.entries
+            .get(usize::try_from(index).unwrap_or(usize::MAX))
     }
 
     /// The texture index a material index uploads/binds.
     #[must_use]
-    pub fn texture_index(&self, material_index: u16) -> Option<u16> {
+    pub fn texture_index(&self, material_index: u32) -> Option<u32> {
         self.entries
-            .get(material_index as usize)
+            .get(usize::try_from(material_index).unwrap_or(usize::MAX))
             .map(|entry| entry.texture_index)
     }
 
@@ -201,6 +212,57 @@ impl MaterialTable {
             .iter()
             .find(|entry| entry.origin == TextureOrigin::Missing)
     }
+
+    /// Summed decoded RGBA bytes of every distinct texture the table binds.
+    ///
+    /// This is the *decoded* CPU/GPU footprint of the level's texture set —
+    /// before quality downscaling, so it is an upper bound on what the
+    /// renderer uploads. It counts each [`ResolvedTexture`] once, exactly like
+    /// the upload does: two materials sharing one sheet contribute one image.
+    #[must_use]
+    pub fn decoded_texture_bytes(&self) -> usize {
+        self.textures.iter().fold(0_usize, |total, texture| {
+            total.saturating_add(texture.image.rgba.len())
+        })
+    }
+}
+
+/// The named rejection for one decoded-texture byte count.
+///
+/// # Errors
+///
+/// Returns the named rejection when `bytes` exceeds
+/// [`crate::level::MAX_LEVEL_TEXTURE_BYTES`].
+pub fn check_texture_bytes(bytes: usize) -> Result<(), String> {
+    if bytes > crate::level::MAX_LEVEL_TEXTURE_BYTES {
+        return Err(format!(
+            "Level references too many decoded texture bytes: {bytes} (limit {})",
+            crate::level::MAX_LEVEL_TEXTURE_BYTES
+        ));
+    }
+    Ok(())
+}
+
+/// The aggregate decoded-texture budget guard for one resolved level.
+///
+/// Total map capacity is what a package may *declare* (material and geometry
+/// counts, bounded by [`crate::level::MAX_LEVEL_MATERIALS`] and the geometry
+/// estimate) — that is authoring data. Simultaneous GPU residency is what the
+/// renderer actually uploads at once: the shared texture table this function
+/// bounds, plus the lightmap atlas pages, probe cubemaps, dynamic objects and
+/// characters, each with its own budget. This check is the texture half: a
+/// level whose distinct decoded images exceed
+/// [`crate::level::MAX_LEVEL_TEXTURE_BYTES`] is refused by name rather than
+/// decoded into an unbounded resident set.
+///
+/// It runs after resolution (the decoded sizes only exist then) and before any
+/// GPU upload: the loader checks the table it is about to hand the renderer.
+///
+/// # Errors
+///
+/// Returns the named rejection naming the byte count and the limit.
+pub fn check_texture_budget(table: &MaterialTable) -> Result<(), String> {
+    check_texture_bytes(table.decoded_texture_bytes())
 }
 
 /// Adds a texture to a table's texture list, reusing an existing entry with the
@@ -211,13 +273,15 @@ fn intern_texture(
     origin: TextureOrigin,
     class: crate::quality::TextureClass,
     image: Arc<RawImage>,
-) -> u16 {
+) -> u32 {
     if let Some(index) = textures.iter().position(|texture| texture.key == key) {
-        return u16::try_from(index).unwrap_or(u16::MAX);
+        // In range for the same reason as `MaterialTable::logical`: the table
+        // is built from a validated level's own texture set.
+        return u32::try_from(index).unwrap_or(u32::MAX);
     }
     // The new entry's index is the length before the push, which is also
     // `len - 1` afterwards — computed without an off-by-one subtraction.
-    let index = u16::try_from(textures.len()).unwrap_or(u16::MAX);
+    let index = u32::try_from(textures.len()).unwrap_or(u32::MAX);
     textures.push(ResolvedTexture {
         key,
         origin,
@@ -231,9 +295,9 @@ fn intern_texture(
 ///
 /// The scan covers defaults, rooms, walls (including per-face overrides),
 /// floor patches and regions, and every generic architectural piece (ramps,
-/// staircases, half walls, columns, archways, guardrails, thresholds and
-/// baseboards). It is deterministic even though `WallDef::faces` is a map, so
-/// the material index of an id never depends on hash order.
+/// staircases, half walls, columns, void walls, archways, guardrails,
+/// thresholds and baseboards). It is deterministic even though `WallDef::faces`
+/// is a map, so the material index of an id never depends on hash order.
 #[must_use]
 pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
@@ -334,6 +398,9 @@ fn push_architecture_materials(level: &LevelDef, push: &mut impl FnMut(&str)) {
     }
     for piece in &level.columns {
         push_all([piece.material.as_ref(), piece.cap_material.as_ref(), None]);
+    }
+    for piece in &level.void_walls {
+        push_all([Some(&piece.material), None, None]);
     }
     for piece in &level.arc_walls {
         push_all([

@@ -53,6 +53,8 @@
 //! ```text
 //! water volume:
 //!   x0, x1, z0, z1, surface_y, bottom_y, opacity        f32 x 7
+//!   shape           u8 (0 rect, 1 circle)
+//!   radius          f32 (0 for rect, > 0 for circle)
 //!   swimming                                            u8 boolean
 //!   material        u8 present, then u32 length + UTF-8 bytes (<= 256)
 //! ```
@@ -73,7 +75,14 @@ use super::binary::{Reader, Writer};
 use super::{MAX_COLLISION_BOXES, MAX_COLLISION_BYTES};
 
 /// Version of the compiled collision record layout.
-pub const COLLISION_RECORD_VERSION: u16 = 1;
+///
+/// Version 1 wrote a water volume as footprint, surface, bottom, opacity,
+/// swimming and material. Version 2 adds the footprint shape byte and the
+/// circle radius after `opacity`, because a rectangular-only record cannot
+/// express a circular pool's membership or its drawn disc. A version-1 record
+/// is refused by name: its `swimming` byte would be misread as the shape code,
+/// so packages built by the previous compiler must be rebuilt.
+pub const COLLISION_RECORD_VERSION: u16 = 2;
 
 /// Magic identifying a compiled collision record.
 pub const COLLISION_MAGIC: [u8; 4] = *b"PLCL";
@@ -201,6 +210,7 @@ mod tests {
     #![allow(
         clippy::arithmetic_side_effects,
         clippy::expect_used,
+        clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
         clippy::unwrap_used
@@ -243,7 +253,9 @@ mod tests {
               "material": "core:water_pool_01", "opacity": 0.5,
               "swimming": true },
             { "x": 4.5, "z": 1.0, "width": 1.0, "depth": 1.0,
-              "surface_y": 0.0, "swimming": false }
+              "surface_y": 0.0, "swimming": false },
+            { "shape": "circle", "x": 1.0, "z": 4.5, "radius": 0.75,
+              "surface_y": -0.1, "bottom_y": -1.0 }
         ],
         "ladders": [
             { "x": 3.0, "z": 5.0, "width": 0.6, "depth": 0.6,
@@ -286,13 +298,48 @@ mod tests {
             !world.ceiling.is_empty(),
             "the test level has ceiling rooms"
         );
-        assert_eq!(world.water.len(), 2, "two water volumes");
+        assert_eq!(world.water.len(), 3, "three water volumes");
         assert_eq!(world.ladders.len(), 1, "one ladder");
         let compiled = compiled_collision(&level);
 
         let bytes = write_collision(&compiled).expect("the collision encodes");
         let decoded = read_collision(&bytes).expect("the collision decodes");
         assert_eq!(decoded, compiled);
+    }
+
+    /// A circular volume survives the record round trip with its shape,
+    /// radius and circular membership intact.
+    #[test]
+    fn round_trips_a_circular_water_volume() {
+        let compiled = compiled_collision(&test_level());
+        let circle = compiled
+            .water
+            .volumes()
+            .iter()
+            .find(|volume| volume.shape == crate::level::WaterShape::Circle)
+            .expect("the test level authors one circle");
+        assert_eq!(circle.radius, 0.75);
+
+        let bytes = write_collision(&compiled).expect("the collision encodes");
+        let decoded = read_collision(&bytes).expect("the collision decodes");
+        let decoded_circle = decoded
+            .water
+            .volumes()
+            .iter()
+            .find(|volume| volume.shape == crate::level::WaterShape::Circle)
+            .expect("the decoded record keeps the circle");
+        assert_eq!(decoded_circle, circle);
+        // Membership stays circular: the bounding box corner is outside, the
+        // centre is inside, and the rim itself is the dry wall line.
+        assert!(decoded_circle.contains(1.75, 5.25), "centre");
+        assert!(
+            !decoded_circle.contains(1.0, 4.5),
+            "a bounding box corner is not water"
+        );
+        assert!(
+            !decoded_circle.contains(2.5, 5.25),
+            "the rim is the wall line and is dry"
+        );
     }
 
     #[test]
@@ -329,9 +376,15 @@ mod tests {
         bytes[0] = b'X';
         assert!(read_collision(&bytes).is_err());
 
+        // A version-1 record is the previous layout, whose `swimming` byte
+        // would be misread as a shape code; it must be refused by name.
         let mut bytes = valid_bytes(&test_level());
-        bytes[4] = 2;
-        assert!(read_collision(&bytes).is_err());
+        bytes[4..6].copy_from_slice(&1_u16.to_le_bytes());
+        let error = read_collision(&bytes).expect_err("a v1 record must be refused");
+        assert!(
+            error.contains("version 1 is not supported"),
+            "the refusal names the version: {error}"
+        );
     }
 
     #[test]

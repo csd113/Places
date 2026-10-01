@@ -336,8 +336,12 @@ class CompiledBuildSmokeTests(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
         self.assertTrue(os.path.isfile(capture), "the game must still boot")
-        self.assertIn("broken.json", output, "the authoring source must be named")
-        self.assertIn("bad_geometry.json", output, "the source must be named")
+        # Authoring sources are expected content beside their packages and are
+        # skipped silently: neither the malformed source nor the invalid one is
+        # a playable row, and neither is a startup warning to report.
+        self.assertNotIn("broken.json", output, "a malformed source is skipped silently")
+        self.assertNotIn("bad_geometry.json", output, "an invalid source is skipped silently")
+        self.assertNotIn("authoring source", output, "sources are never reported at discovery")
         self.assertIn("broken.placesmap", output, "the corrupt package must be named")
         self.assertIn("truncated.placesmap", output, "the truncated package must be named")
 

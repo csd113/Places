@@ -1,0 +1,64 @@
+{
+  "format_version": 3,
+  "id": "fog_void_validation",
+  "name": "Fog and Void Validation",
+  "author": "Places Team",
+  "comment": "Small validation scene for the regional-fog and void-wall contracts (workstream 5). One indoor room, one open-ceiling yard, a low mist and a taller denser layer over the yard, an inward courtyard shell (sight only) and one outward concrete under-plate (solid, occluding).",
+  "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 0.0 },
+  "defaults": {
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+      "ceiling": { "kind": "flat" },
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 10.0, "z": -6.0, "width": 16.0, "depth": 12.0, "height": 6.0,
+      "ceiling": { "kind": "open" },
+      "material": "outdoor:dirt_gravel_01"
+    }
+  ],
+  "walls": [
+    { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.2, "height": 3.0 },
+    { "x": 0.0, "z": 7.8, "width": 8.0, "depth": 0.2, "height": 3.0 },
+    { "x": 0.0, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.0 },
+    { "x": 7.8, "z": 0.0, "width": 0.2, "depth": 8.0, "height": 3.0 }
+  ],
+  "ceiling_lights": [
+    { "id": "indoor_lamp", "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0, "range": 7.0 },
+    { "id": "yard_lamp", "fixture": "home:ceiling_light_round", "x": 17.0, "z": 0.0, "y": 4.0, "range": 12.0 }
+  ],
+  "fog_regions": [
+    {
+      "id": "yard_mist",
+      "min": [9.0, -0.1, -7.0], "max": [27.0, 0.5, 7.0],
+      "density": 0.06, "color": [0.6, 0.63, 0.68], "falloff_m": 3.0,
+      "ground_y": -0.1, "top_y": 0.5
+    },
+    {
+      "id": "yard_depth",
+      "min": [9.0, 0.0, -7.0], "max": [27.0, 6.0, 7.0],
+      "density": 0.12, "color": [0.35, 0.4, 0.5], "falloff_m": 2.0,
+      "ground_y": 0.0, "top_y": 5.0
+    }
+  ],
+  "void_walls": [
+    {
+      "id": "yard_shell",
+      "min": [9.0, -0.2, -7.5], "max": [27.5, 7.0, 7.5],
+      "material": "outdoor:dirt_gravel_01", "faces": "inward",
+      "solid": false, "occludes": false
+    },
+    {
+      "id": "yard_underplate",
+      "min": [21.0, -2.2, -6.0], "max": [27.0, -2.0, 6.0],
+      "material": "outdoor:concrete_pavement_01", "faces": "outward",
+      "solid": true, "occludes": true
+    }
+  ]
+}

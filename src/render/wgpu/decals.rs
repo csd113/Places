@@ -908,7 +908,7 @@ fn create_sheet_bind_group(
 /// for, including the empty-material sentinel) addresses the generated atlas at
 /// slot 0; otherwise the index addresses the external sheet at that offset.
 fn sheet_slot_for(material: MaterialIndex, external: usize) -> usize {
-    let index = u32::from(material);
+    let index = material;
     if index < DECAL_EXTERNAL_BASE {
         return 0;
     }
@@ -1244,8 +1244,8 @@ mod tests {
     /// converts vertices, so the tests keep this mirror of the builder's
     /// mapping and pin the two together.
     fn decal_uv_rect_for_sheet(sheet: MaterialIndex) -> [[f32; 2]; 4] {
-        if u32::from(sheet) < DECAL_EXTERNAL_BASE {
-            decal_uv_rect(u32::from(sheet))
+        if sheet < DECAL_EXTERNAL_BASE {
+            decal_uv_rect(sheet)
         } else {
             decal_uv_rect_full()
         }

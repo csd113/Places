@@ -157,14 +157,14 @@ record.
 ### 4.1 Geometry — `blobs/<sha>.mesh`
 
 ```text
-magic "PLMW" | version u16 = 1
+magic "PLMW" | version u16 = 2
 range_count u32
 batches 6 x i32    floor, ceiling, wall, light, prop-fallback, decal (indices)
 vertex_count u32   declared total
 index_count u32    declared total
 ranges range_count x {
   kind u8          0 floor, 1 ceiling, 2 wall, 3 light, 4 prop fallback, 5 decal
-  material u16     level material index; 0xFFFF = no level material
+  material u32     level material index; 0xFFFFFFFF = no level material
   shine u8         0 = none; 1..=101 = whole-percent override (value - 1)
   bounds_min f32 x 3
   bounds_max f32 x 3
@@ -175,6 +175,14 @@ vertex (69 bytes):
   pos f32 x 3 | color f32 x 4 | uv f32 x 2 | normal f32 x 3 | tangent f32 x 3
   | handedness f32 | lightmap u16 x 2 | lightmap_page u8
 ```
+
+**Version history.** Version 1 wrote the range's `material` as a `u16`;
+version 2 widened it to `u32`, because the in-memory material index is 32 bits
+and a level may declare far more materials than a `u16` names
+(`MAX_LEVEL_MATERIALS`, 131 072). A version-1 record is refused by name — its
+`material` field would be misread as the first half of a 32-bit index — so
+packages built by the previous compiler must be rebuilt. A non-sentinel
+material above the level budget is refused too.
 
 `lightmap_page = 0xFF` marks a vertex that takes the vertex-colour path.
 `normal = (0,0,0)` is the smooth-normal sentinel; the compiler resolves it
@@ -234,14 +242,21 @@ baked content.
 ### 4.4 Static collision — `blobs/<sha>.collision`
 
 ```text
-magic "PLCL" | version u16 = 1
+magic "PLCL" | version u16 = 2
 walls    u32 count + (min_x,min_y,min_z,max_x,max_y,max_z,step_up) f32 x 7
 floor    u32 room count + rooms (footprint, floor_y, ramps, stairs, regions)
 ceiling  u32 room count + rooms (footprint, floor_y, height, profile)
-water    u32 volume count + volumes (footprint, surface_y, bottom_y, opacity,
-                                    swimming, optional material id)
+water    u32 volume count + volumes (footprint bounding box, surface_y, bottom_y,
+                                    opacity, shape u8, radius f32, swimming,
+                                    optional material id)
 ladders  u32 ladder count + ladders (footprint, bottom_y, top_y, facing)
 ```
+
+`shape` is `0` for the historical rectangle (the bounding box *is* the
+footprint and `radius` is ignored) or `1` for a circle inscribed in the
+bounding box (`radius` must equal half of both extents). Version 1 is refused
+by name: its `swimming` byte would be misread as the shape code. A prepared
+package therefore always holds the exact footprint the player queries.
 
 Interactive semantics (doors, interactables, trigger volumes, entity routes,
 lights, timers, sequences and spawns) stay derived from the validated semantic
@@ -406,8 +421,11 @@ a handful of interpolated loads.
 | aggregate (decompressed) | 1 GiB |
 | variants | 4 (one per lightmap quality) |
 | dependencies | 4096 |
-| static mesh | the level format's own vertex budget (`MAX_LEVEL_VERTICES`) |
+| fog regions (`semantics.json` `fog_regions`) | 16 |
+| void walls (`semantics.json` `void_walls`) | 256 |
+| static mesh | the level format's own vertex budget (`MAX_LEVEL_VERTICES`, 24 000 000) |
 | mesh ranges | 1 048 576 |
+| mesh material index | the level material budget (`MAX_LEVEL_MATERIALS`, 131 072), or the `0xFFFFFFFF` sentinel |
 | prop batches | 1 048 576 |
 | prop submeshes per batch | 4096 |
 | lighting record | 256 MiB |

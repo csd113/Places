@@ -68,8 +68,8 @@ pub use reflection::{
     DEFAULT_REFLECTION_STRENGTH, MAX_REFLECTION_STRENGTH, MaterialReflection, ReflectionMode,
 };
 pub use resolve::{
-    MaterialTable, ResolvedMaterial, ResolvedTexture, TextureOrigin, referenced_material_ids,
-    resolve_materials,
+    MaterialTable, ResolvedMaterial, ResolvedTexture, TextureOrigin, check_texture_budget,
+    check_texture_bytes, referenced_material_ids, resolve_materials,
 };
 pub use response::{
     AlphaMode, DEFAULT_ALPHA_CUTOFF, DEFAULT_NORMAL_STRENGTH, DEFAULT_ROUGHNESS, DEFAULT_SHINE,

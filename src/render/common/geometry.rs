@@ -276,63 +276,129 @@ fn exposed_ceiling_rectangles(
     }
     let mut covered = Vec::new();
     for coverage in context.coverages {
-        for &(start, end, bottom, top) in &coverage.solids {
-            let (x0, x1, z0, z1) = match coverage.axis {
-                WallAxis::X => (start, end, coverage.thickness.0, coverage.thickness.1),
-                WallAxis::Z => (coverage.thickness.0, coverage.thickness.1, start, end),
-            };
-            let (x0, x1, z0, z1) = (
-                x0.max(bounds.0),
-                x1.min(bounds.1),
-                z0.max(bounds.2),
-                z1.min(bounds.3),
-            );
-            if x0 >= x1 || z0 >= z1 {
-                continue;
-            }
-            let heights = [
-                room.ceiling_y_at(x0, z0),
-                room.ceiling_y_at(x1, z0),
-                room.ceiling_y_at(x0, z1),
-                room.ceiling_y_at(x1, z1),
-            ];
-            let low = heights.into_iter().fold(f32::INFINITY, f32::min);
-            let high = heights.into_iter().fold(f32::NEG_INFINITY, f32::max);
-            let flat_covered =
-                high - low <= WALL_COINCIDENCE_EPS && top >= high - WALL_COINCIDENCE_EPS;
-            let follows_roof = context.level.walls.get(coverage.index).is_some_and(|wall| {
-                if wall.height.is_some() {
-                    return false;
-                }
-                let across = f32::midpoint(coverage.thickness.0, coverage.thickness.1);
-                let (along0, along1) = match coverage.axis {
-                    WallAxis::X => (x0, x1),
-                    WallAxis::Z => (z0, z1),
-                };
-                let centre = |along| match coverage.axis {
-                    WallAxis::X => (along, across),
-                    WallAxis::Z => (across, along),
-                };
-                let (cx, cz) = centre(f32::midpoint(along0, along1));
-                if !context
-                    .surfaces
-                    .room_at(cx, cz)
-                    .is_some_and(|owner| std::ptr::eq(owner, room))
-                {
-                    return false;
-                }
-                [along0, along1].into_iter().all(|along| {
-                    let (x, z) = centre(along);
-                    let ceiling_limit = wall.y + context.surfaces.clear_ceiling_height_at(x, z);
-                    top >= ceiling_limit - WALL_COINCIDENCE_EPS
-                })
-            });
-            if bottom < low - WALL_COINCIDENCE_EPS && (flat_covered || follows_roof) {
-                covered.push((x0, x1, z0, z1));
+        for &solid in &coverage.solids {
+            if let Some(rectangle) =
+                covered_ceiling_rectangle(context, room, bounds, coverage.index, coverage, solid)
+            {
+                covered.push(rectangle);
             }
         }
     }
     subtract_rectangles(bounds, &covered)
+}
+
+/// The part of one wall coverage rectangle whose ceiling is at or below the
+/// wall's own flat top — the strip the wall really hides.
+///
+/// `None` when the wall covers none of this room's ceiling. A flat-ceiling
+/// room keeps the historical whole-rectangle rule; a sloped one keeps only the
+/// sub-strip the flat wall top reaches, so the ceiling meets the wall instead
+/// of stopping short above it and leaving the gable eave slot open.
+fn covered_ceiling_rectangle(
+    context: &EmitContext<'_, '_>,
+    room: &RoomDef,
+    bounds: (f32, f32, f32, f32),
+    wall_index: usize,
+    coverage: &WallCoverage,
+    solid: (f32, f32, f32, f32),
+) -> Option<(f32, f32, f32, f32)> {
+    let (start, end, bottom, top) = solid;
+    let (x0, x1, z0, z1) = match coverage.axis {
+        WallAxis::X => (start, end, coverage.thickness.0, coverage.thickness.1),
+        WallAxis::Z => (coverage.thickness.0, coverage.thickness.1, start, end),
+    };
+    let (x0, x1, z0, z1) = (
+        x0.max(bounds.0),
+        x1.min(bounds.1),
+        z0.max(bounds.2),
+        z1.min(bounds.3),
+    );
+    if x0 >= x1 || z0 >= z1 {
+        return None;
+    }
+    let heights = [
+        room.ceiling_y_at(x0, z0),
+        room.ceiling_y_at(x1, z0),
+        room.ceiling_y_at(x0, z1),
+        room.ceiling_y_at(x1, z1),
+    ];
+    let low = heights.into_iter().fold(f32::INFINITY, f32::min);
+    let high = heights.into_iter().fold(f32::NEG_INFINITY, f32::max);
+    if bottom >= low - WALL_COINCIDENCE_EPS {
+        return None;
+    }
+    if high - low <= WALL_COINCIDENCE_EPS && top >= high - WALL_COINCIDENCE_EPS {
+        // A flat ceiling the wall reaches: the historical whole rectangle.
+        return Some((x0, x1, z0, z1));
+    }
+    let wall = context.level.walls.get(wall_index)?;
+    if wall.height.is_some() {
+        return None;
+    }
+    let across = f32::midpoint(coverage.thickness.0, coverage.thickness.1);
+    let (along0, along1) = match coverage.axis {
+        WallAxis::X => (x0, x1),
+        WallAxis::Z => (z0, z1),
+    };
+    let centre = |along| match coverage.axis {
+        WallAxis::X => (along, across),
+        WallAxis::Z => (across, along),
+    };
+    let (cx, cz) = centre(f32::midpoint(along0, along1));
+    if !context
+        .surfaces
+        .room_at(cx, cz)
+        .is_some_and(|owner| std::ptr::eq(owner, room))
+    {
+        return None;
+    }
+    if [along0, along1].into_iter().any(|along| {
+        let (x, z) = centre(along);
+        let ceiling_limit = wall.y + context.surfaces.clear_ceiling_height_at(x, z);
+        top < ceiling_limit - WALL_COINCIDENCE_EPS
+    }) {
+        return None;
+    }
+    // The wall's flat top only reaches the ceiling on the side where the gable
+    // has fallen to it: keep the ceiling strip across the rest of the wall's
+    // thickness, or the sloped ceiling ends at the wall's inner face above its
+    // top and leaves the classic gable eave slot open to the void.
+    let (across0, across1) = coverage.thickness;
+    let sample = |across: f32| match coverage.axis {
+        WallAxis::X => room.ceiling_y_at(cx, across),
+        WallAxis::Z => room.ceiling_y_at(across, cz),
+    };
+    let limit = top + WALL_COINCIDENCE_EPS;
+    let (c0, c1) = (sample(across0), sample(across1));
+    let (kept0, kept1) = if c0 <= limit && c1 <= limit {
+        (across0, across1)
+    } else if c0 > limit && c1 > limit {
+        return None;
+    } else {
+        // The ceiling is linear across the thickness: solve for the crossing
+        // and keep the covered sub-interval.
+        let t = (limit - c0) / (c1 - c0);
+        let crossing = (across1 - across0).mul_add(t, across0);
+        if c0 <= limit {
+            (across0, crossing)
+        } else {
+            (crossing, across1)
+        }
+    };
+    let (cx0, cx1, cz0, cz1) = match coverage.axis {
+        WallAxis::X => (x0, x1, kept0, kept1),
+        WallAxis::Z => (kept0, kept1, z0, z1),
+    };
+    let (cx0, cx1, cz0, cz1) = (
+        cx0.max(bounds.0),
+        cx1.min(bounds.1),
+        cz0.max(bounds.2),
+        cz1.min(bounds.3),
+    );
+    if cx0 >= cx1 || cz0 >= cz1 {
+        return None;
+    }
+    Some((cx0, cx1, cz0, cz1))
 }
 
 /// One ceiling lattice with a shared exposed-region label. Wall cuts remain
@@ -1560,11 +1626,11 @@ fn emit_fixtures(
         // A family sheet is shared by every fixture of the family; a
         // switchable fixture gets its own slot so its face can turn off
         // without touching another fixture's material.
-        let sheet = MaterialIndex::from(crate::level::fixture_face_material_index(
+        let sheet = crate::level::fixture_face_material_index(
             fixture_index,
             light.switchable,
             profile.kind,
-        ));
+        );
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
     }

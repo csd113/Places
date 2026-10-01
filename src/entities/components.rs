@@ -17,6 +17,8 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
+use crate::level::ProximityFade;
+
 use super::id::EntityHandle;
 
 /// One typed state value. Authored JSON is `true`, `3`, `2.5` or `"on"`.
@@ -508,32 +510,57 @@ pub struct NavObstacle {
     pub affects_nav: bool,
 }
 
-/// One opacity fade cycle: the runtime of the `fade` component.
+/// One opacity fade: the authored cycle or proximity contract plus the live
+/// proximity controller state.
+///
+/// The cycle half is a pure function of the simulation clock
+/// ([`Fade::opacity_at`]). The proximity half is *stateful*: the runtime
+/// controller keeps a live opacity and the direction the hysteresis band last
+/// decided, and advances the opacity from its current value in fixed substeps
+/// ([`Fade::advance`]). Reversing mid-fade therefore continues from wherever
+/// the opacity is; nothing snaps to an endpoint.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Fade {
-    /// Cycle length in seconds, `> 0`.
+    /// Cycle length in seconds, `> 0`; ignored in proximity mode.
     pub period_seconds: f32,
     /// Cycle phase in `0..1`.
     pub phase: f32,
-    /// Lowest opacity of the cycle, `0..=1`.
+    /// Lowest opacity of the range, `0..=1`.
     pub min_opacity: f32,
-    /// Highest opacity of the cycle, `0..=1`, `>= min_opacity`.
+    /// Highest opacity of the range, `0..=1`, `>= min_opacity`.
     pub max_opacity: f32,
-    /// False holds `max_opacity` instead of cycling.
+    /// False holds `max_opacity` instead of cycling or fading.
     pub enabled: bool,
+    /// The proximity contract; `None` keeps the cosine cycle.
+    pub proximity: Option<ProximityFade>,
+    /// Live opacity of the proximity controller, in
+    /// `min_opacity..=max_opacity`; starts at `max_opacity`.
+    pub live_opacity: f32,
+    /// Direction the hysteresis band holds between the two radii: `true`
+    /// while fading out (the player is inside `near_radius`), `false` while
+    /// fading back in (the player is beyond `far_radius`).
+    pub fading_out: bool,
 }
 
 impl Fade {
     /// The opacity at simulation time `seconds`.
     ///
-    /// A full cosine cycle interpolates between the two ends, so the fade
-    /// eases in and out with no cusp where a cycle wraps; a disabled fade is
-    /// constant at `max_opacity`. A non-finite time or period is treated as
-    /// zero so a corrupt value can never poison the frame.
+    /// A cycle uses a full cosine interpolation between the two ends, so the
+    /// fade eases in and out with no cusp where a cycle wraps; a proximity
+    /// fade ignores `seconds` and reports the live controller opacity, which
+    /// [`Fade::advance`] integrates; a disabled fade is constant at
+    /// `max_opacity`. A non-finite time or period is treated as zero so a
+    /// corrupt value can never poison the frame.
     #[must_use]
     pub fn opacity_at(&self, seconds: f32) -> f32 {
         if !self.enabled {
             return self.max_opacity;
+        }
+        if self.proximity.is_some() {
+            // The live controller already keeps this inside the range (it
+            // starts at `max_opacity` and `advance` clamps every step), so no
+            // `clamp` here: an unvalidated inverted range must not panic.
+            return self.live_opacity;
         }
         let period = if self.period_seconds.is_finite() && self.period_seconds > 0.0 {
             self.period_seconds
@@ -544,6 +571,72 @@ impl Fade {
         let angle = std::f32::consts::TAU * (self.phase + seconds / period);
         let swing = 0.5 * (1.0 - angle.cos());
         (self.max_opacity - self.min_opacity).mul_add(swing, self.min_opacity)
+    }
+
+    /// True when the player's distance drives this fade instead of the cycle.
+    #[must_use]
+    pub const fn is_proximity(&self) -> bool {
+        self.proximity.is_some()
+    }
+
+    /// Holds the direction the hysteresis band decides for `distance`, in
+    /// metres.
+    ///
+    /// The entity begins fading out once the player is strictly inside
+    /// `near_radius` and begins fading back in once the player is strictly
+    /// beyond `far_radius`; between the two, the current direction holds, so
+    /// walking across the band never flaps. A non-finite distance holds too.
+    pub fn hold_direction(&mut self, distance: f32) {
+        let Some(proximity) = self.proximity else {
+            return;
+        };
+        if !distance.is_finite() {
+            return;
+        }
+        if distance < proximity.near_radius {
+            self.fading_out = true;
+        } else if distance > proximity.far_radius {
+            self.fading_out = false;
+        }
+    }
+
+    /// Advances the live opacity by `seconds` from its **current** value.
+    ///
+    /// The rate is `1 / (fade_out_seconds | fade_in_seconds)` of the full
+    /// `min_opacity..=max_opacity` range per second, so the same elapsed time
+    /// produces the same opacity change whatever the frame rate, and an
+    /// interrupted fade reverses with no jump. The caller integrates in fixed
+    /// substeps; this is one substep. A cycle fade, a disabled fade, a
+    /// zero-width range or a malformed time changes nothing.
+    pub fn advance(&mut self, seconds: f32) {
+        if self.proximity.is_none() {
+            return;
+        }
+        if !self.enabled {
+            // A disabled fade holds max_opacity at every instant; re-enabling
+            // resumes the controller from the visible end.
+            self.fading_out = false;
+            self.live_opacity = self.max_opacity;
+            return;
+        }
+        let range = self.max_opacity - self.min_opacity;
+        if !(range.is_finite() && range > 0.0 && seconds.is_finite() && seconds > 0.0) {
+            return;
+        }
+        let seconds_per_range = match self.proximity {
+            Some(proximity) if self.fading_out => proximity.fade_out_seconds,
+            Some(proximity) => proximity.fade_in_seconds,
+            None => return,
+        };
+        if !(seconds_per_range.is_finite() && seconds_per_range > 0.0) {
+            return;
+        }
+        let step = range * (seconds / seconds_per_range);
+        if self.fading_out {
+            self.live_opacity = (self.live_opacity - step).max(self.min_opacity);
+        } else {
+            self.live_opacity = (self.live_opacity + step).min(self.max_opacity);
+        }
     }
 }
 
@@ -845,6 +938,9 @@ mod tests {
             min_opacity: 0.2,
             max_opacity: 1.0,
             enabled: true,
+            proximity: None,
+            live_opacity: 1.0,
+            fading_out: false,
         };
         assert!((fade.opacity_at(0.0) - 0.2).abs() < 1e-6, "cycle start");
         assert!((fade.opacity_at(1.0) - 0.6).abs() < 1e-6, "quarter cycle");
@@ -871,6 +967,9 @@ mod tests {
             min_opacity: 0.0,
             max_opacity: 0.8,
             enabled: true,
+            proximity: None,
+            live_opacity: 0.8,
+            fading_out: false,
         };
         for seconds in [0.0, 0.5, 3.0, 12.0, 3600.0] {
             let first = fade.opacity_at(seconds);
@@ -878,6 +977,170 @@ mod tests {
             assert_eq!(first.to_bits(), second.to_bits(), "same input, same bits");
             assert!((0.0..=0.8).contains(&first), "{first} at {seconds}s");
         }
+    }
+
+    /// A fade with no proximity fields is the historical cycle, bit for bit,
+    /// and its live proximity state stays inert.
+    #[test]
+    fn a_fade_without_proximity_fields_keeps_the_historical_cycle_bits() {
+        let fade = Fade {
+            period_seconds: 6.0,
+            phase: 0.25,
+            min_opacity: 0.1,
+            max_opacity: 0.9,
+            enabled: true,
+            proximity: None,
+            live_opacity: 0.9,
+            fading_out: false,
+        };
+        assert!(!fade.is_proximity());
+        for seconds in [0.0, 0.5, 1.234, 7.5, 1000.0] {
+            let angle = std::f32::consts::TAU * (0.25 + seconds / 6.0);
+            let swing = 0.5 * (1.0 - angle.cos());
+            let expected = (0.9_f32 - 0.1).mul_add(swing, 0.1);
+            assert_eq!(
+                fade.opacity_at(seconds).to_bits(),
+                expected.to_bits(),
+                "the cycle formula at {seconds}s"
+            );
+        }
+    }
+
+    /// A proximity fade with the documented values: near 3 m, far 6 m, out
+    /// in 1 s, back in 2 s over a full `0..=1` range.
+    fn proximity_fade() -> Fade {
+        Fade {
+            period_seconds: crate::level::DEFAULT_FADE_PERIOD_SECONDS,
+            phase: 0.0,
+            min_opacity: 0.0,
+            max_opacity: 1.0,
+            enabled: true,
+            proximity: Some(ProximityFade {
+                near_radius: 3.0,
+                far_radius: 6.0,
+                fade_out_seconds: 1.0,
+                fade_in_seconds: 2.0,
+            }),
+            live_opacity: 1.0,
+            fading_out: false,
+        }
+    }
+
+    #[test]
+    fn a_proximity_fade_ignores_the_cycle() {
+        let fade = proximity_fade();
+        assert!(fade.is_proximity());
+        // The live opacity is what reports, whatever the clock value.
+        for seconds in [0.0, 3.0, 1_000.0] {
+            assert_eq!(fade.opacity_at(seconds), 1.0);
+        }
+        let mut fading = fade;
+        fading.fading_out = true;
+        for seconds in [0.0, 120.0] {
+            assert_eq!(
+                fading.opacity_at(seconds),
+                1.0,
+                "no cycle may move a proximity fade before it advances"
+            );
+        }
+    }
+
+    #[test]
+    fn proximity_hysteresis_holds_the_direction_between_the_radii() {
+        let mut fade = proximity_fade();
+        // Outside far: the direction is fade-in, and the full opacity holds.
+        fade.hold_direction(8.0);
+        assert!(!fade.fading_out);
+        // Inside near: fade out, one second crosses the whole range.
+        fade.hold_direction(2.0);
+        assert!(fade.fading_out);
+        fade.advance(1.0);
+        assert!((fade.opacity_at(0.0) - 0.0).abs() < 1e-6, "fully hidden");
+        // Between the radii the direction keeps fading out: the ghost stays
+        // hidden until the player is beyond far_radius.
+        fade.hold_direction(4.5);
+        assert!(fade.fading_out);
+        fade.advance(5.0);
+        assert_eq!(fade.opacity_at(0.0), 0.0);
+        // Beyond far: fade in at the in-time, from the current value.
+        fade.hold_direction(7.0);
+        assert!(!fade.fading_out);
+        fade.advance(0.5);
+        assert!(
+            (fade.opacity_at(0.0) - 0.25).abs() < 1e-6,
+            "half of the 2 s fade-in"
+        );
+        // Ambushing back inside near mid-fade reverses from where it is.
+        fade.hold_direction(1.0);
+        assert!(fade.fading_out);
+        fade.advance(0.125);
+        assert!(
+            (fade.opacity_at(0.0) - 0.125).abs() < 1e-6,
+            "an interrupted fade reverses with no jump"
+        );
+    }
+
+    #[test]
+    fn a_disabled_proximity_fade_holds_max_opacity() {
+        let mut fade = proximity_fade();
+        fade.fading_out = true;
+        fade.live_opacity = 0.2;
+        fade.enabled = false;
+        fade.advance(10.0);
+        assert_eq!(fade.opacity_at(0.0), 1.0);
+        assert!(
+            !fade.fading_out,
+            "a disabled fade re-arms at the visible end"
+        );
+    }
+
+    /// The total opacity change over the same elapsed time is the same at 30,
+    /// 60 and 144 fps and over one large delta.
+    #[test]
+    fn proximity_fade_is_frame_rate_independent() {
+        const SUBSTEP: f32 = 1.0 / 120.0;
+        let run = |frames_per_second: f32| {
+            let mut fade = proximity_fade();
+            fade.hold_direction(1.0);
+            let total = 0.75_f32;
+            let frame = if frames_per_second > 0.0 {
+                1.0 / frames_per_second
+            } else {
+                total
+            };
+            let mut remaining = total;
+            loop {
+                if remaining <= 0.0 {
+                    break;
+                }
+                let frame_time = frame.min(remaining);
+                remaining -= frame_time;
+                let mut chunk = frame_time;
+                loop {
+                    if chunk <= 0.0 {
+                        break;
+                    }
+                    let step = chunk.min(SUBSTEP);
+                    chunk -= step;
+                    fade.advance(step);
+                }
+            }
+            fade.opacity_at(0.0)
+        };
+        let at_30 = run(30.0);
+        let at_60 = run(60.0);
+        let at_144 = run(144.0);
+        let one_delta = run(0.0);
+        for value in [at_30, at_60, at_144, one_delta] {
+            assert!(
+                (value - 0.25).abs() < 1e-4,
+                "0.75 s of a 1 s fade-out leaves 0.25: {value}"
+            );
+        }
+        assert!(
+            (at_30 - at_144).abs() < 1e-5,
+            "30 fps {at_30} vs 144 fps {at_144}"
+        );
     }
 
     #[test]

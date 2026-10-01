@@ -15,7 +15,7 @@
 //! ```text
 //! range:
 //!   kind        u8       0 floor, 1 ceiling, 2 wall, 3 light, 4 prop fallback, 5 decal
-//!   material    u16      level material index, or 0xFFFF for a bare family
+//!   material    u32      level material index, or 0xFFFFFFFF for a bare family
 //!   shine       u8       0 = none, 1..=101 = Some(whole percent 0..=100)
 //!   bounds_min  f32 x 3
 //!   bounds_max  f32 x 3
@@ -36,16 +36,22 @@
 //! ```
 
 use crate::render::{
-    BatchRange, LevelMesh, LevelMeshBatches, LevelMeshRange, SurfaceKey, SurfaceKind, SurfaceShine,
-    Vertex,
+    BatchRange, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE, SurfaceKey,
+    SurfaceKind, SurfaceShine, Vertex,
 };
 use crate::spatial::Aabb;
 
 use super::binary::{Reader, Writer, finite3, finite4};
-use super::{MAX_MESH_INDICES, MAX_MESH_RANGES, MAX_MESH_VERTICES};
+use super::{MAX_MESH_INDICES, MAX_MESH_MATERIALS, MAX_MESH_RANGES, MAX_MESH_VERTICES};
 
 /// Version of the mesh record layout.
-pub const MESH_RECORD_VERSION: u16 = 1;
+///
+/// Version 2 widened a range's `material` field from `u16` to `u32`, because
+/// the in-memory [`crate::render::MaterialIndex`] is 32 bits and a level may
+/// declare more materials than a `u16` names. A version-1 record cannot be
+/// read by this build: its material field would be reinterpreted as the first
+/// half of a 32-bit index, so the reader rejects it by name instead.
+pub const MESH_RECORD_VERSION: u16 = 2;
 
 /// Magic identifying a mesh record.
 pub const MESH_MAGIC: [u8; 4] = *b"PLMW";
@@ -184,7 +190,7 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
 
 fn write_range(writer: &mut Writer, range: &LevelMeshRange) -> Result<(), String> {
     writer.u8(surface_kind_code(range.key.kind));
-    writer.u16(range.key.material);
+    writer.u32(range.key.material);
     match range.key.shine {
         None => writer.u8(SHINE_NONE),
         Some(shine) => {
@@ -214,7 +220,13 @@ fn read_range(
 ) -> Result<LevelMeshRange, String> {
     let kind_code = reader.u8()?;
     let kind = surface_kind_from_code(kind_code)?;
-    let material = reader.u16()?;
+    let material = reader.u32()?;
+    if material != MATERIAL_NONE && material > MAX_MESH_MATERIALS {
+        return Err(format!(
+            "mesh range material {material} is out of the level material budget \
+             (limit {MAX_MESH_MATERIALS}, or {MATERIAL_NONE} for no material)"
+        ));
+    }
     let shine_code = reader.u8()?;
     let shine = if shine_code == SHINE_NONE {
         None

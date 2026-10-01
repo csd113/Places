@@ -79,12 +79,12 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
             .map_err(|_| "prop batch has too many submeshes".to_string())?;
         writer.u32(submeshes);
         for submesh in &batch.submeshes {
-            write_optional_slot(&mut writer, submesh.texture);
+            write_optional_slot(&mut writer, submesh.texture.map(u32::from))?;
             writer.u8(alpha_mode_code(submesh.alpha));
             writer.f32(submesh.alpha.cutoff);
             writer.f32_3(submesh.emission.color);
             writer.f32(submesh.emission.intensity);
-            write_optional_slot(&mut writer, submesh.emission.mask);
+            write_optional_slot(&mut writer, submesh.emission.mask)?;
             writer.u32(submesh.first_index);
             writer.u32(submesh.index_count);
         }
@@ -207,7 +207,10 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
 }
 
 fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
-    let texture = read_optional_slot(reader)?;
+    let texture = read_optional_slot(reader)?
+        .map(u16::try_from)
+        .transpose()
+        .map_err(|_| "prop submesh texture slot does not fit a u16".to_string())?;
     let alpha_mode = reader.u8()?;
     let mode = match alpha_mode {
         0 => AlphaMode::Opaque,
@@ -253,20 +256,36 @@ const fn alpha_mode_code(alpha: MaterialAlpha) -> u8 {
     }
 }
 
-fn write_optional_slot(writer: &mut Writer, slot: Option<u16>) {
+/// Writes one optional texture slot in the record's `u16` slot width.
+///
+/// The runtime material/emission index is 32 bits, but a prop record's slots
+/// index the model's own texture list, which the model loader caps at
+/// [`crate::level::MAX_PROP_IMAGES`] (16); a slot that does not fit the record
+/// is an explicit error rather than a truncation.
+///
+/// # Errors
+/// Returns a message when the slot does not fit the record's `u16` field.
+fn write_optional_slot(writer: &mut Writer, slot: Option<u32>) -> Result<(), String> {
     match slot {
-        None => writer.u8(0),
+        None => {
+            writer.u8(0);
+            Ok(())
+        }
         Some(value) => {
+            let value = u16::try_from(value).map_err(|_| {
+                format!("prop texture slot {value} does not fit the record's u16 slot")
+            })?;
             writer.u8(1);
             writer.u16(value);
+            Ok(())
         }
     }
 }
 
-fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u16>, String> {
+fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
     match reader.u8()? {
         0 => Ok(None),
-        1 => Ok(Some(reader.u16()?)),
+        1 => Ok(Some(u32::from(reader.u16()?))),
         other => Err(format!("invalid optional slot marker {other}")),
     }
 }

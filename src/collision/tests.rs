@@ -3,6 +3,7 @@
     clippy::arithmetic_side_effects,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss,
+    clippy::indexing_slicing,
     clippy::suboptimal_flops,
     clippy::unwrap_used
 )]
@@ -838,5 +839,41 @@ fn the_sink_deck_blocks_the_floor_and_supports_the_counter() {
     assert!(
         (support - 1.1).abs() > 0.1,
         "the support must be the deck, never the old 1.1 m faucet collider: {support}"
+    );
+}
+
+/// A `solid` void wall is a real barrier; a `solid: false` shell contributes
+/// no collider at all.
+#[test]
+fn a_solid_void_wall_is_a_real_barrier_and_a_sight_only_one_is_not() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "void_collision",
+            "name": "Void Collision",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 6.0, "height": 3.0 } ],
+            "void_walls": [
+                { "id": "barrier", "min": [5.0, 0.0, 0.0], "max": [5.3, 3.0, 6.0],
+                  "material": "outdoor:dirt_gravel_01" },
+                { "id": "shell", "min": [8.0, 0.0, 0.0], "max": [8.3, 3.0, 6.0],
+                  "material": "outdoor:dirt_gravel_01", "solid": false }
+            ]
+        }"#,
+    )
+    .expect("void collision level parses");
+    let aabbs = level.collision_aabbs();
+    assert_eq!(aabbs.len(), 1, "only the solid box collides");
+    assert_exact(aabbs[0].min_x, 5.0);
+    assert_exact(aabbs[0].max_x, 5.3);
+
+    // A disc centred inside the slab is pushed clear of it, to whichever face
+    // is nearer: the slab is a wall, not a step or a trigger.
+    let resolved = resolve_player_collision(Vec2::new(5.15, 3.0), PLAYER_RADIUS, 0.0, &aabbs);
+    let clear_of_slab =
+        resolved.x <= 5.0 - PLAYER_RADIUS + 1.0e-3 || resolved.x >= 5.3 + PLAYER_RADIUS - 1.0e-3;
+    assert!(
+        clear_of_slab,
+        "the resolver left the disc inside the void wall: {resolved:?}"
     );
 }

@@ -243,7 +243,7 @@ impl WgpuCharacters {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                ctx.environment
+                &ctx.environment
                     .with_model(character.transform())
                     .with_light_scale([1.0; 3])
                     .with_opacity(character.opacity()),
@@ -321,7 +321,7 @@ impl WgpuCharacters {
             let mask = source
                 .emission
                 .mask
-                .map(usize::from)
+                .map(|index| usize::try_from(index).unwrap_or(usize::MAX))
                 .filter(|index| *index < textures.len());
             let record = EmissionRecord::material(source.emission, mask.is_some());
             let mask_texture = mask
@@ -443,7 +443,7 @@ impl WgpuCharacters {
         &mut self,
         queue: &wgpu::Queue,
         scene: &CharacterScene,
-        environment: EnvironmentUniform,
+        environment: &EnvironmentUniform,
     ) -> usize {
         let mut uploaded = 0usize;
         for gpu in &mut self.characters {
@@ -462,7 +462,7 @@ impl WgpuCharacters {
             if transform_changed || opacity_changed {
                 gpu.environment.update(
                     queue,
-                    environment
+                    &environment
                         .with_model(character.transform())
                         .with_opacity(character.opacity()),
                 );

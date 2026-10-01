@@ -719,9 +719,59 @@ fn mesh_records_round_trip_and_reject_malformed_input() {
     let mut trailing = bytes.clone();
     trailing.push(0);
     assert!(super::mesh::read_mesh(&trailing).is_err());
+    // A version-1 record is refused by name: its material field is a `u16`,
+    // which this build would misread as the first half of a 32-bit index.
     let mut wrong_version = bytes;
-    wrong_version[4..6].copy_from_slice(&2_u16.to_le_bytes());
-    assert!(super::mesh::read_mesh(&wrong_version).is_err());
+    wrong_version[4..6].copy_from_slice(&1_u16.to_le_bytes());
+    let error = super::mesh::read_mesh(&wrong_version)
+        .err()
+        .expect("version 1 must be rejected");
+    assert!(
+        error.contains("version 1") && error.contains("not supported"),
+        "the rejection names the version: {error}"
+    );
+}
+
+#[test]
+fn the_mesh_material_budget_mirrors_the_level_budget() {
+    assert_eq!(
+        u64::from(super::MAX_MESH_MATERIALS),
+        crate::level::MAX_LEVEL_MATERIALS,
+        "the package reader and the level validator must agree on the material budget"
+    );
+}
+
+#[test]
+fn a_mesh_material_past_the_former_u16_boundary_round_trips() {
+    let level = tiny_level("mesh_wide_material");
+    let build = build_level_build(&level, crate::quality::LightmapQuality::Off);
+    let mut mesh = build.mesh;
+    let Some(range) = mesh.ranges.first_mut() else {
+        panic!("the tiny level emits at least one range");
+    };
+    // 70 000 is past the former u16 index space; the record must carry it.
+    range.key.material = 70_000;
+    let bytes = super::mesh::write_mesh(&mesh).expect("mesh encodes");
+    let decoded = super::mesh::read_mesh(&bytes).expect("mesh decodes");
+    assert_eq!(
+        decoded.ranges.first().map(|range| range.key.material),
+        Some(70_000),
+        "the widened material index survives the record"
+    );
+
+    // One past the explicit level material budget is refused by name.
+    let mut too_wide = mesh;
+    if let Some(range) = too_wide.ranges.first_mut() {
+        range.key.material = super::MAX_MESH_MATERIALS.saturating_add(1);
+    }
+    let bytes = super::mesh::write_mesh(&too_wide).expect("mesh encodes");
+    let error = super::mesh::read_mesh(&bytes)
+        .err()
+        .expect("an over-budget material is rejected");
+    assert!(
+        error.contains("out of the level material budget"),
+        "the rejection names the budget: {error}"
+    );
 }
 
 #[test]
@@ -968,7 +1018,7 @@ fn one_planar_material_on_two_floor_levels_keeps_both_routes() {
         .index_of("core:pool_deck_wet_01")
         .expect("the wet deck material resolves");
     assert!(
-        state.reflections[usize::from(wet)].is_planar(),
+        state.reflections[usize::try_from(wet).unwrap_or(usize::MAX)].is_planar(),
         "the fixture material must author a planar reflection"
     );
     let mut routed: Vec<usize> = build

@@ -159,3 +159,77 @@ fn cancelled_preparation_keeps_displayed_weak_identity_without_retaining_records
     identities.retain(|(_, weak)| weak.strong_count() != 0);
     assert!(identities.is_empty(), "a dropped world leaves no identity");
 }
+
+/// A repeated Low -> Medium -> High quality cycle re-uses the exact prepared
+/// records of each (package, quality) pair and never grows the cache past its
+/// bounds: the same transition costs one decode, every later cycle costs a hit.
+#[test]
+fn repeated_quality_cycles_reuse_records_and_stay_bounded() {
+    use std::collections::VecDeque;
+    let package = "c".repeat(64);
+    let key_of = |quality: LightmapQuality| PackageKey {
+        package_sha256: package.clone(),
+        quality,
+    };
+    let mut cache = BuildCache::default();
+    let mut identities: VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)> = VecDeque::new();
+    let mut first: Vec<(LightmapQuality, Arc<PreparedRecords>)> = Vec::new();
+    let cycle = [
+        LightmapQuality::Off,
+        LightmapQuality::Medium,
+        LightmapQuality::Full,
+        LightmapQuality::Medium,
+        LightmapQuality::Off,
+        LightmapQuality::Full,
+        LightmapQuality::Off,
+    ];
+    for quality in cycle {
+        let key = key_of(quality);
+        let records = reusable_records(&key, &mut cache, &mut identities).unwrap_or_else(|| {
+            let records = empty_records();
+            cache.insert(key.clone(), Arc::clone(&records));
+            records
+        });
+        remember_build(&mut identities, key, &records);
+        match first.iter().find(|(seen, _)| *seen == quality) {
+            Some((_, original)) => assert!(
+                Arc::ptr_eq(original, &records),
+                "{quality:?} must reuse the exact records"
+            ),
+            None => first.push((quality, Arc::clone(&records))),
+        }
+        assert!(
+            cache.entries.len() <= 3,
+            "the cache bound holds across cycles: {}",
+            cache.entries.len()
+        );
+        assert!(
+            identities.len() <= 8,
+            "the weak identity deque stays bounded: {}",
+            identities.len()
+        );
+    }
+    assert_eq!(first.len(), 3, "one retained set per lightmap quality");
+    // The retained total is stable for the rest of the run: every later cycle
+    // re-uses the records instead of accumulating new ones.
+    let total: usize = cache.entries.iter().map(|(_, _, bytes)| *bytes).sum();
+    assert!(total > 0);
+    let original = first
+        .iter()
+        .find(|(quality, _)| *quality == LightmapQuality::Medium)
+        .expect("medium was retained")
+        .1
+        .clone();
+    let again = reusable_records(
+        &key_of(LightmapQuality::Medium),
+        &mut cache,
+        &mut identities,
+    )
+    .expect("the medium records are retained");
+    assert!(
+        Arc::ptr_eq(&again, &original),
+        "the cycle re-uses the exact retained records"
+    );
+    let after: usize = cache.entries.iter().map(|(_, _, bytes)| *bytes).sum();
+    assert_eq!(after, total, "a hit does not grow the retained total");
+}

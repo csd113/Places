@@ -433,6 +433,43 @@
       "z": 9.5,
       "rotation_degrees": 260.0,
       "occludes": false
+    },
+    {
+      "id": "ghost_cat",
+      "display_name": "Sheet Ghost Cat",
+      "model": "sheet-ghost-cat",
+      "x": 12.0,
+      "z": -2.0,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.226,
+        0.323,
+        0.576
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.0,
+          "max_opacity": 0.85,
+          "near_radius": 1.0,
+          "far_radius": 2.2,
+          "fade_out_seconds": 0.8,
+          "fade_in_seconds": 1.6
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1.0
+          ],
+          "intensity": 0.4,
+          "range": 2.6,
+          "socket": "body",
+          "fade": true
+        }
+      ]
     }
   ],
   "routes": [
@@ -559,6 +596,24 @@
           "x": 7.0,
           "z": -2.0,
           "speed": 0.3
+        }
+      ]
+    },
+    {
+      "id": "ghost_cat",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 12.0,
+          "z": -6.0,
+          "speed": 0.2
+        },
+        {
+          "step": "move_to",
+          "x": 12.0,
+          "z": -2.0,
+          "speed": 0.2
         }
       ]
     }

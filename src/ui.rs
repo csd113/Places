@@ -1233,9 +1233,14 @@ fn adjust_value(
     match value {
         SettingsValue::GraphicsQuality => {
             let next = Settings::quality_step(settings.quality_level(), direction);
-            if settings.set_quality(next) {
-                ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
+            // A re-selection of the value already stored is not a value
+            // change, but it is still an explicit request: it must repair a
+            // renderer that holds a different configuration after a failed or
+            // cancelled transition, so record the apply either way.
+            if !settings.set_quality(next) {
+                settings.request_graphics_reapply();
             }
+            ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
         }
         SettingsValue::Bloom => {
             let next = settings.toggle_bloom();

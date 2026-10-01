@@ -109,7 +109,7 @@ pub const fn emission_routing(kind: SurfaceKind, has_material: bool) -> Emission
 pub struct MaterialRenderState {
     /// Texture slot per material index (what `Renderer::material_textures` is
     /// indexed by). Two materials that share one texture map to one slot.
-    pub texture_slots: Vec<u16>,
+    pub texture_slots: Vec<u32>,
     /// Emission per material index.
     pub emissions: Vec<MaterialEmission>,
     /// Surface response per material index.
@@ -152,10 +152,10 @@ impl MaterialRenderState {
 pub struct ResolvedSurfaceMaterial {
     /// Base-colour texture index into `MaterialTable::textures`, or `None` for
     /// the shared fallback sheet.
-    pub texture: Option<u16>,
+    pub texture: Option<u32>,
     /// Normal-map texture index into `MaterialTable::textures`, or `None` when
     /// the material authors none or the profile gate is off.
-    pub normal: Option<u16>,
+    pub normal: Option<u32>,
     /// Multiplier applied to the decoded normal's `xy`.
     pub normal_strength: f32,
     /// Sheen colour; zeroed when the response is not drawn.
@@ -239,12 +239,17 @@ pub fn resolve_surface_material(
     {
         return ResolvedSurfaceMaterial::plain();
     }
-    let material = usize::from(key.material);
+    let material = usize::try_from(key.material).unwrap_or(usize::MAX);
     let texture = materials
         .texture_slots
         .get(material)
         .copied()
-        .filter(|slot| table.textures().get(usize::from(*slot)).is_some());
+        .filter(|slot| {
+            table
+                .textures()
+                .get(usize::try_from(*slot).unwrap_or(usize::MAX))
+                .is_some()
+        });
     let response = materials
         .responses
         .get(material)

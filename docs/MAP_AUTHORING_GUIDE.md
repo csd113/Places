@@ -124,7 +124,9 @@ Authoritative paths:
 | Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
-| Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented (engine-global; not level-authorable) |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (post-processing and the global atmosphere are engine-global; level-authored regional fog volumes add to the atmosphere — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
+| Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
+| Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
 | Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
 | Low / Medium / High runtime quality levels over the same level content | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
@@ -297,6 +299,17 @@ skeleton and the per-field tables.
     "ambient": 0.0                         // optional, default 0.0; 0.0..1.0
   },                                       // omitted = no background object (clear colour)
 
+  "fog_regions": [                         // optional; regional fog boxes, ≤ 16, see §11
+    { "id": "yard_mist",                   // REQUIRED, unique, ≤ 64 chars
+      "min": [-2.0, -2.0, -6.0],           // REQUIRED, finite, < max on every axis
+      "max": [8.0, 1.0, 2.0],
+      "density": 0.05,                     // REQUIRED, 0.0..=0.5 per metre
+      "color": [0.6, 0.63, 0.68],          // optional; default = the global fog colour
+      "falloff_m": 3.0,                    // optional; ≥ 0, default 2.0; soft edge inside
+      "ground_y": -2.0,                    // optional; default min.y
+      "top_y": 1.0 }                       // optional; default max.y (density fades to 0)
+  ],
+
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },  // x, z REQUIRED; yaw default 0.0
 
   "defaults": {                            // optional block; see the warning below
@@ -412,6 +425,16 @@ skeleton and the per-field tables.
       "height": null,                      // default: floor to local ceiling
       "material": "home:wall_paint_offwhite_01",
       "cap_material": "home:baseboard_white_01" }
+  ],
+
+  "void_walls": [                          // optional; opaque void-hiding boxes, ≤ 256, see §11
+    { "id": "yard_shell_north",            // optional, unique when present, ≤ 64 chars
+      "min": [-2.0, -0.2, -92.0],          // REQUIRED finite box, min < max
+      "max": [26.0, 9.0, 0.6],
+      "material": "outdoor:dirt_gravel_01",// REQUIRED catalog material id
+      "faces": "inward",                   // "inward" (default) | "outward" | "both"
+      "solid": true,                       // optional; default true: the box collides
+      "occludes": true }                   // optional; default true: bakes as an occluder
   ],
 
   "arc_walls": [                           // curved wall slabs, placed by circle centre
@@ -661,9 +684,12 @@ A misspelled enum is a parse error, not a silently ignored key.
 `assets/levels/*.placesmap` ships with the game; `levels/*.placesmap` are drop-in
 packages (under the writable state root, normally next to the asset root). Both appear
 in the Level Select menu. The `.json` sources beside the bundled packages are kept for
-authors and are never playable rows; a raw source dropped into `levels/` is reported as
-an authoring source with the compiler command, not as a level.
-`tests/fixtures/levels/` is for engine regression fixtures and is never packaged.
+authors and are never playable rows; discovery enumerates playable packages only and
+skips sources silently, so the normal startup log stays clean. A raw source is only
+reported when you explicitly try to open or import it: that fails with the compiler
+command (`places-compile build <source.json>`), because compiling is always an
+offline, author-side step. `tests/fixtures/levels/` is for engine regression fixtures
+and is never packaged.
 A package that fails to open or validate is reported at discovery as
 `[levels] skipping {path}: {reason}`, so check the console rather than assuming it is
 absent. `PLACES_LEVEL=<id>` boots a specific level and prints validation errors
@@ -673,81 +699,118 @@ verbatim.
 
 The engine enforces several independent caps. Only some of them reject a level:
 read the "Enforced as" column carefully. The 2026 capacity pass raised every
-count cap after measuring the dense fixture
+count cap after measuring the extended fixture
+(`tests/fixtures/levels/capacity_beyond_former_limits.json`: 20 001 props,
+20 001 walls, 2 025 rooms, more than 80 000 distinct material ids past the
+former 16-bit index boundary) and the maintained dense fixture
 (`tests/fixtures/levels/capacity_dense.json`, 5 000+ placements, 100+ fixtures,
-64 animated characters) and the former sparse fixture (four islands at ±2 km)
-on the release build. The sparse source was later retired because the package
-compiler cannot represent its navigation grid; CPU coordinate regressions remain
-in `src/zoo_audit.rs`; each value is a named constant in `src/level.rs`, not an inline
-literal.
+18 routed entities) on the release build. The sparse source was retired
+earlier because the package compiler cannot represent its navigation grid;
+CPU coordinate regressions remain in `src/zoo_audit.rs`; each value is a named
+constant in `src/level.rs`, not an inline literal.
 
 | Limit | Value | Enforced as |
 | --- | --- | --- |
-| Rooms (`rooms`) | ≤ 2000 (`MAX_LEVEL_ROOMS`) | Loader rejection: `Level contains too many rooms: …` |
-| Walls | ≤ 20 000 (`MAX_LEVEL_WALLS`) | Loader rejection |
-| Ceiling lights | ≤ 20 000 (`MAX_LEVEL_CEILING_LIGHTS`) | Loader rejection |
-| Props | ≤ 20 000 (`MAX_LEVEL_PROPS`) | Loader rejection |
-| Decals | ≤ 5000 (`MAX_LEVEL_DECALS`) | Loader rejection |
+| Rooms (`rooms`) | ≤ 8000 (`MAX_LEVEL_ROOMS`) | Loader rejection: `Level contains too many rooms: …` |
+| Walls | ≤ 60 000 (`MAX_LEVEL_WALLS`) | Loader rejection |
+| Ceiling lights | ≤ 50 000 (`MAX_LEVEL_CEILING_LIGHTS`) | Loader rejection |
+| Props | ≤ 100 000 (`MAX_LEVEL_PROPS`) | Loader rejection |
+| Decals | ≤ 20 000 (`MAX_LEVEL_DECALS`) | Loader rejection |
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
-| Floor regions | ≤ 2000 | Loader rejection |
-| Water volumes | ≤ 2000 | Loader rejection |
-| Ladders | ≤ 256 | Loader rejection |
+| Floor regions | ≤ 8000 | Loader rejection |
+| Water volumes | ≤ 8000 | Loader rejection |
+| Ladders | ≤ 1024 | Loader rejection |
 | Doors (`doors[]`) | ≤ 24 (`MAX_LEVEL_DOORS`) | Loader rejection; two dynamic objects per door share the renderer budget |
 | Door swing | 5–179° (`MIN_DOOR_SWING_DEGREES`, `MAX_DOOR_SWING_DEGREES`) | Loader rejection per door |
 | Door angular speed | 0 < speed ≤ 720°/s (`MAX_DOOR_SPEED_DEGREES`) | Loader rejection per door |
 | Door width/height/thickness | each ≤ 12 m (`MAX_DOOR_DIMENSION_M`) | Loader rejection per door |
 | Effects (`effects[]`) | ≤ 64 (`MAX_LEVEL_EFFECTS`) | Loader rejection |
 | Effect particles (`count`) | 1–128 (`MAX_EFFECT_PARTICLES`) | Loader rejection per effect |
-| Trigger volumes (`volumes`) | ≤ 1000 (`MAX_LEVEL_AREA_TRIGGERS`) | Loader rejection |
+| Trigger volumes (`volumes`) | ≤ 4000 (`MAX_LEVEL_AREA_TRIGGERS`) | Loader rejection |
 | Bindings per entity | ≤ 16 (`MAX_BINDINGS_PER_ENTITY`) | Loader rejection |
 | Actions per event binding or sequence step | ≤ 8 (`MAX_ACTIONS_PER_SOURCE`) | Loader rejection |
 | Authored interactable `reach` | ≤ 4.0 m | Loader rejection |
 | Timers | one entity per entry; `seconds` > 0 | Loader rejection per timer |
-| Sequences (`sequences`) | ≤ 256 (`MAX_LEVEL_SEQUENCES`) | Loader rejection |
-| Steps per sequence | ≤ 64 (`MAX_SEQUENCE_STEPS`) | Loader rejection per sequence |
-| Spawn templates | ≤ 64 (`MAX_LEVEL_SPAWN_TEMPLATES`) | Loader rejection |
-| Spawn points | ≤ 256 (`MAX_LEVEL_SPAWN_POINTS`) | Loader rejection |
-| Spawn groups | ≤ 64 (`MAX_LEVEL_SPAWN_GROUPS`) | Loader rejection |
-| Ramps | ≤ 500 | Loader rejection |
-| Staircases | ≤ 500 | Loader rejection |
-| Half walls | ≤ 2000 | Loader rejection |
-| Columns | ≤ 2000 | Loader rejection |
-| Arc walls | ≤ 1000 | Loader rejection |
-| Circular pillars | ≤ 2000 | Loader rejection |
+| Sequences (`sequences`) | ≤ 1024 (`MAX_LEVEL_SEQUENCES`) | Loader rejection |
+| Steps per sequence | ≤ 128 (`MAX_SEQUENCE_STEPS`) | Loader rejection per sequence |
+| Spawn templates | ≤ 256 (`MAX_LEVEL_SPAWN_TEMPLATES`) | Loader rejection |
+| Spawn points | ≤ 1024 (`MAX_LEVEL_SPAWN_POINTS`) | Loader rejection |
+| Spawn groups | ≤ 256 (`MAX_LEVEL_SPAWN_GROUPS`) | Loader rejection |
+| Ramps | ≤ 2000 | Loader rejection |
+| Staircases | ≤ 2000 | Loader rejection |
+| Half walls | ≤ 8000 | Loader rejection |
+| Columns | ≤ 8000 | Loader rejection |
+| Arc walls | ≤ 4000 | Loader rejection |
+| Circular pillars | ≤ 8000 | Loader rejection |
 | Round-primitive `segments` | 3–128 | Loader rejection per primitive |
-| Archways | ≤ 500 | Loader rejection |
-| Guardrails | ≤ 2000 | Loader rejection |
-| Thresholds | ≤ 1000 | Loader rejection |
-| Baseboards | ≤ 2000 | Loader rejection |
-| Floor patches | ≤ 2000 | Loader rejection |
+| Archways | ≤ 2000 | Loader rejection |
+| Guardrails | ≤ 8000 | Loader rejection |
+| Thresholds | ≤ 4000 | Loader rejection |
+| Baseboards | ≤ 8000 | Loader rejection |
+| Floor patches | ≤ 8000 | Loader rejection |
+| Distinct materials (`material` ids the level references) | ≤ 131 072 (`MAX_LEVEL_MATERIALS`) | Loader rejection: `Level declares too many distinct materials: …` |
+| Fog regions (`fog_regions`) | ≤ 16 (`MAX_FOG_REGIONS`) | Loader rejection; the shader's uniform array is fixed at 16 and the quality preset uploads a prefix |
+| Void walls (`void_walls`) | ≤ 256 (`MAX_VOID_WALLS`) | Loader rejection |
 | Openings per wall | ≤ 64 | Loader rejection on that wall |
 | Room width/depth | ≤ 8192 m (`MAX_ROOM_EXTENT_M`) | Loader rejection per room |
 | Room height | ≤ 50 m (`MAX_ROOM_HEIGHT_M`) | Loader rejection per room |
 | Gable `ridge_rise` | ≤ 50 m, and > 0 | Loader rejection per room |
-| Estimated floor area | ≤ 16 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
-| Estimated generated vertices | ≤ 8 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
+| Estimated floor area | ≤ 64 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
+| Estimated generated vertices | ≤ 24 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
+| Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
 | Package archive: entries / entry / aggregate | ≤ 512 entries / ≤ 256 MiB / ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
 | Package variants | one per lightmap quality (`off`/`medium`/`full`) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
-| Distinct prop models placed | ≤ 1024 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
-| Summed prop vertices (after instancing) | ≤ 6 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
+| Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
+| Summed prop vertices (after instancing) | ≤ 24 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
+
+Doors stay at 24 by derivation, not by accident: a door draws its frame and its
+leaf as two dynamic objects, one level's dynamic scene is bounded by
+`MAX_DYNAMIC_OBJECTS` (64), and the level's other dynamic content (floating
+props, the demonstration drum) needs slots in the same budget. Two objects per
+door over the cap would starve those, so 24 is the real renderer ceiling.
+
+Distinct materials are counted exactly as the renderer binds them: the loader
+counts the id set `crate::materials::referenced_material_ids` resolves and
+refuses a larger count by name *before* any image is decoded or uploaded.
+That count is the only bound on the material index: the index itself is 32 bits
+wide (it was a `u16`, which silently collapsed every material past 65 535 onto
+the "no material" sentinel).
 
 The prop-model caps (triangles, vertices, primitives, materials, images, texture edge)
 are listed in [Props and Models](#16-props-and-models); an over-budget *model* falls
 back to a placeholder box with a one-time `[props]` warning.
 
-**Measured behaviour at the raised limits.** The dense capacity fixture loads
-cold in ~45 s at Low-lightmap profile (about 19 s of prop expansion and 20 s of
-lightmap fill) and warm in ~24 s, and the level runs at interactive frame rates;
-the sparse fixture loads in about the same time as the demo. The per-frame cost
-of collision, support, headroom, aiming and route movement no longer scales with
-the wall count: those queries go through the collision index
-(`src/collision_index.rs`), and `zoo_audit` pins the indexed result equal to the
-linear scan over the real fixture. Notes that remain load-time costs: the
-lightmap fill is linear in chart texels × nearby fixtures, and the prop vertex
-expansion samples lighting per vertex. See `docs/reports/feature-expansion-handoff.md`
-for the historical measurements.
+**Map capacity versus GPU residency.** The count caps above bound what a
+*package may declare*: authored data. What the renderer uploads at once is
+bounded separately, and the two are deliberately different numbers:
+
+* the level's distinct decoded texture set is bounded by
+  `MAX_LEVEL_TEXTURE_BYTES` (1 GiB) per level;
+* the lightmap atlas is bounded by the page budget in
+  [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md);
+* dynamic objects, characters and probes each have their own budget.
+
+A level can therefore be *well-formed* and still too large in one resident
+budget; that budget names itself when it refuses.
+
+**Measured behaviour at the raised limits.** The extended capacity fixture
+(`capacity_beyond_former_limits.json`) compiles offline in 147 s at the `off`
+lightmap profile on four workers (`--workers 4`, peak RSS 856 MiB), producing a
+45.4 MiB package whose mesh, props, baked lighting, collision and navigation
+records decode through the package reader in 5.8 s (peak RSS 481 MiB). The
+compiled world carries 78 839 drawable ranges and 1 032 715 vertices, and its
+recorded material index set crosses the former 16-bit boundary. The dense
+capacity fixture loads cold in ~45 s at Low-lightmap profile (about 19 s of
+prop expansion and 20 s of lightmap fill) and warm in ~24 s, and the level runs
+at interactive frame rates. The per-frame cost of collision, support, headroom,
+aiming and route movement no longer scales with the wall count: those queries
+go through the collision index (`src/collision_index.rs`), and `zoo_audit`
+pins the indexed result equal to the linear scan over the real fixtures. Notes
+that remain load-time costs: the lightmap fill is linear in chart texels ×
+nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
+`docs/reports/feature-expansion-handoff.md` for the historical measurements.
 
 ---
 
@@ -794,8 +857,8 @@ the player should walk inside must be enclosed by authored `walls`.
 | Field | Type | Required | Default | Constraints / semantics |
 | --- | --- | --- | --- | --- |
 | `x`, `z` | number | no | `0.0` | Minimum corner of the footprint (normalised; `width`/`depth` may be negative at parse but validation rejects ≤ 0). |
-| `width` | number | **yes** | — | X extent, `> 0`, `≤ 2000` m. |
-| `depth` | number | **yes** | — | Z extent, `> 0`, `≤ 2000` m. |
+| `width` | number | **yes** | — | X extent, `> 0`, `≤ 8192` m (`MAX_ROOM_EXTENT_M`). |
+| `depth` | number | **yes** | — | Z extent, `> 0`, `≤ 8192` m (`MAX_ROOM_EXTENT_M`). |
 | `height` | number | no | **`4.0`** | Clear floor-to-eave height, room-local, `> 0`, `≤ 50` m. A gable adds `ridge_rise` above the eave. |
 | `floor_y` | number | no | `0.0` | World Y of the room's floor plane. Moves floor, walls and ceiling together. |
 | `ceiling` | object | no | `{"kind":"flat"}` | Ceiling profile; see below. |
@@ -1130,7 +1193,7 @@ low service openings.
 `material` and the geometry are required; `shine` is an optional per-patch
 glossiness override (`0`–`1`). A patch changes the floor material of an area with no
 elevation change. Later patches win over earlier ones, and a floor region's own
-material wins over patches. Patches are counted against the 2000-patch cap, but
+material wins over patches. Patches are counted against the 8000-patch cap, but
 individual patches are **not dimension-validated**: malformed values are skipped at
 build time and a patch outside a room simply covers nothing. Keep them inside a room
 and well-formed.
@@ -1234,14 +1297,19 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
 
 ### Water volumes: wading, swimming and surfacing
 
-`water[]` authors rectangular bodies of water. The
-surface draws as a translucent quad and the player controller samples the same
-rectangle, so what is drawn is exactly what is swum in. A water volume owns
-**no geometry of its own** — the basin floor, its walls and its steps still
-come from the room and its `floor_regions`; the volume adds the waterline and
-the behaviour. A prop that authors `float` (section 19) rides the same
-resolved surface, and the level validator proves its whole swept footprint
-stays inside one volume.
+`water[]` authors bodies of water as a rectangular footprint
+(`shape: "rect"`, the default) or a **circular** pool (`shape: "circle"`).
+The surface draws as a translucent quad for a rectangle and a closed fan of
+the same radius for a circle, and the player controller samples the same
+shape, so what is drawn is exactly what is swum in — a circle has no invisible
+square swimming area. A circle's rim is its wall line and is **dry**
+(membership is strictly inside the radius), so its bounding box's axis
+extremes are not water either. A water volume owns **no geometry of its own** — the
+basin floor, its walls and its steps still come from the room and its
+`floor_regions`; the volume adds the waterline and the behaviour. A prop that
+authors `float` (section 19) rides the same resolved surface, and the level
+validator proves its whole swept footprint stays inside one volume (inside the
+disc, for a circle).
 
 ```json
 "water": [
@@ -1251,27 +1319,58 @@ stays inside one volume.
 ]
 ```
 
+A **circular** hot tub or plunge pool authors its radius instead; `x`/`z`
+stay the minimum corner of the footprint's bounding box, so the disc is
+inscribed in `x..x + 2 * radius` and its centre is
+`(x + radius, z + radius)`:
+
+```json
+"water": [
+  { "shape": "circle", "x": 8.0, "z": 10.0, "radius": 2.5,
+    "surface_y": -0.4, "bottom_y": -1.9,
+    "material": "core:water_pool_01", "opacity": 0.62, "swimming": true }
+]
+```
+
+Places Demo's pool room uses the circular form for its hot tub:
+`core:hot_tub` is a joined tiled shell whose 0.13 m bottom flange covers the
+chords of a 30-strip inscribed floor recess, and the water is one disc of
+radius 1.25 m centred on the tub (`x`/`z` = `2.35`/`7.45`, surface `-1.65`,
+bottom `-3.0`). Membership, the walkable recess, the collision rim and the
+drawn 48-segment surface are the same circle, so no invisible square swimming
+area exists; the rim stands 0.06 m proud of the deck. Three gentle `steam`
+emitters sit just above the water (`hot_tub_steam_1..3`, count 10, lifetime
+2.6 s), independent of the sauna's steam switch and bounded below the rim's
+own air.
+
 | Field | Type | Required | Default | Constraints / semantics |
 | --- | --- | --- | --- | --- |
-| `x`, `z` | number | **yes** | — | Minimum corner of the footprint (normalised, like a region). |
-| `width`, `depth` | number | **yes** | — | `> 0`. |
+| `shape` | string | no | `"rect"` | `"rect"` or `"circle"`. Every field below resolves against it. |
+| `x`, `z` | number | **yes** | — | Minimum corner of the footprint's bounding box (normalised, like a region). |
+| `width`, `depth` | number | rect: **yes**; circle: no | — | `> 0`. A circle derives its bounding box from `radius` and may omit both, or stamp its own diameter (`2 * radius`) verbatim; a contradictory value is a named error. |
+| `radius` | number | circle: **yes**; rect: no | — | `> 0`. The disc's radius; rejected on a rectangle. |
 | `surface_y` | number | **yes** | — | World Y of the free surface, like a fixture's `y` — not relative to the floor. |
-| `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
+| `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom, sampled inside the rectangle or the disc's own interior. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
 | `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
 | `opacity` | number | no | `0.62` | `0.0..=1.0`; the surface's vertex alpha. The material itself stays opaque, so one material serves every volume's opacity. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
 
 How it behaves:
 
-* **The surface** is one quad per volume at `surface_y`, drawn through the
+* **The surface** is one quad per rectangle and one closed fan per circle at
+  `surface_y`, drawn through the
   material's `blend` contract in the sorted translucent pass with depth writes
   off and two-sided, so the basin floor, its walls and the submerged ladder stay
-  visible from above and the surface is seen from underwater as well. Its UVs
+  visible from above and the surface is seen from underwater as well. A
+  circle's fan has 48 segments and every rim vertex sits exactly on the
+  authored radius; its triangles carry the same material, opacity and
+  two-sided blend contract as a rectangle's quad. Its UVs
   continue the world tile grid, its colour carries the baked light of its
-  corners and it stays out of the lightmap atlas: a volume belongs to the water,
-  not to a room's chart. In a prepared (`medium`/`full`) build the *bake* also
-  treats the volume as transmissive with depth attenuation rather than as a
-  lid, so the basin keeps the light a fixture above it can deliver (section 18).
+  rim (and centre) and it stays out of the lightmap atlas: a volume belongs to
+  the water, not to a room's chart. In a prepared (`medium`/`full`) build the
+  *bake* also treats the volume as transmissive with depth attenuation rather
+  than as a lid, so the basin keeps the light a fixture above it can deliver
+  (section 18).
 * **Wading** is the ordinary walking controller: the water at the player's feet
   at or below `0.55 m` deep is waded at full walk speed, and a jump works
   normally. A standing player also keeps wading where the water is deeper than
@@ -1288,12 +1387,14 @@ How it behaves:
   the float margin plus the surface-swim margin); a **rising** player is never
   recaptured, so a ladder launch or a surfacing swimmer clears the waterline.
 * **Swimming** moves at `0.55×` walk speed. The body sinks under the reduced
-  underwater gravity at a `0.5 m/s` terminal until the eye rests `0.55 m` above
-  the floor (so a `1.35 m` basin — shallower than the standing eye height —
-  still fully submerges), and holding Jump accelerates upward to `1.1 m/s` and
-  holds the float line at `surface_y + 0.12 m` with a small idle bob, where the
-  eye stays. Every branch is delta-scaled, so entering, surfacing and releasing
-  Jump move continuously and the eye is never written to the float line in one
+  underwater gravity (`SWIM_GRAVITY`, `-4.5 m/s²`) at a `1.1 m/s` terminal
+  until the eye rests `0.55 m` above the floor (so a `1.35 m` basin — shallower
+  than the standing eye height — still fully submerges), and holding Jump
+  accelerates upward to `1.1 m/s` and holds the float line at
+  `surface_y + 0.12 m` with a small idle bob, where the eye stays. Every
+  branch is integrated in fixed `1/120 s` substeps, so entering, surfacing and
+  releasing Jump move continuously, a released Jump's sink takes the same time
+  at 30, 60 and 144 fps, and the eye is never written to the float line in one
   frame. Releasing Jump sinks again. A jump press never ground-jumps while
   submerged.
 * **Getting out** is a bounded, cancellable climb, not a stand-up teleport. The
@@ -1308,10 +1409,23 @@ How it behaves:
   clearance is validated once, when the climb begins. Horizontal movement keeps
   the ordinary swimming collision step throughout, so the player walks onto the
   real deck with ordinary input and real collision, and no horizontal position
-  is ever written. Reversing back over deeper water (the floor under the centre
-  stops being a standable exit) cancels back to the swim pose at the current eye
-  line: the surface pose over a floor deeper than `WADE_DEPTH` still counts as
-  swimming, so a cancelled climb never falls through the air beside the rim.
+  is ever written. A raised exit whose top sits above the camera is a
+  **pull-up**: the disc keeps a body radius from the rim until the camera has
+  cleared the rim top by the projection near plane (`SCENE_NEAR_M`, `0.1 m`,
+  `WATER_EXIT_EYE_CLEARANCE_M`), so the rendered camera never clips into the
+  deck it is climbing onto; the climb lifts the eye at
+  `WATER_EXIT_CLIMB_SPEED` to that clearance line and holds it, the ordinary
+  swim step then carries the centre over the few frames the hold lasts, and
+  only then does the climb stand the body up. The pull-up needs the
+  movement key held into the rim: releasing it cancels back to the swim pose,
+  exactly like reversing. Reversing back over deeper water (the floor under the
+  centre stops being a standable exit) cancels back to the swim pose at the
+  current eye line: the surface pose over a floor deeper than `WADE_DEPTH`
+  still counts as swimming, so a cancelled climb never falls through the air
+  beside the rim. A higher standable floor that comes under the centre against
+  the same waterline (the deck past a submerged walk-in step) is adopted as the
+  climb's support, so the climb is never cancelled with the virtual feet
+  embedded in it.
   Because the threshold is derived from the swim band, an exit can never
   immediately re-enter swimming and a pool edge cannot oscillate. The swimming
   wall band sits one `0.4 m` step below the surface so a ledge within a step of
@@ -1319,12 +1433,17 @@ How it behaves:
   floor-region rim on land; a solid prop or wall top is never a floor exit.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
-* **Validation**: non-finite values, a non-positive footprint, a surface at or
+* **Validation**: non-finite values, a non-positive footprint or radius, a
+  rectangle that authors a `radius`, a circle that omits `radius`, a circle
+  whose `width`/`depth` contradict `2 * radius`, a surface at or
   below the floor beneath it, a `bottom_y` at or above the surface, a blank
   `material`, an `opacity` outside `0..=1`, a volume that overlaps no room, or
-  more than 2000 volumes are named errors. A volume whose surface is below the
+  more than 8000 volumes are named errors. A volume whose surface is below the
   floor it covers would be hidden inside the geometry, so it is rejected rather
-  than silently invisible.
+  than silently invisible. An omitted `bottom_y` is resolved by sampling the
+  volume's *own* footprint — a rectangle's centre and corners, or a circle's
+  centre and four interior points — so a bounding box corner a square would
+  wrongly include never decides a circle's depth.
 
 Places Demo's pool is two adjacent volumes at one waterline: the basin
 (`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
@@ -2071,25 +2190,146 @@ Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_
 `core:glass_sign_flicker_01` (the same sheet, meant for `animated_emissions`), and
 `core:grille_vent_01` (cut-out).
 
-### Post-processing, fog and grading are engine-global
+### Post-processing and grading are engine-global
 
-Bloom, the tone shoulder, distance fog and the colour grade are **not level
-properties**. They are built from the quality level (`src/render/common/postprocess.rs`,
-`src/render/common/atmosphere.rs`) and there is no level key, material field or room field
-that authors them. Two consequences are still useful to a map author:
+Bloom, the tone shoulder and the colour grade are **not level properties**. They
+are built from the quality level (`src/render/common/postprocess.rs`) and there is
+no level key, material field or room field that authors them. Two consequences are
+still useful to a map author:
 
 * **Bloom follows emission, not brightness.** Only a surface whose material (or
   fixture face) emits blooms; a brightly lit wall never does, because the bloom pass
   draws the emissive term alone. If a fixture should glow, author emission on it.
-* **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
-  15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor. It is
-  most visible down a long corridor, and it never turns a room smoky.
 * `High` draws the level resolve (tone shoulder and grade); `Medium` keeps the
   shoulder and leaves colour alone; `Low` presents the scene unfiltered and keeps
   only the fog, which lives in the world shader.
 * Bloom is a **player setting** (Settings → Graphics → Bloom, default on), not a
   level term, so every level can bloom. The default `Low` presents unfiltered
   only when Bloom is off.
+
+### Fog: a global atmosphere plus level-authored regions
+
+Every level carries the **global atmosphere** (`src/render/common/atmosphere.rs`,
+`FogState::SHIPPED`): a squared-exponential distance term with a height gradient,
+applied in the world fragment shader after lighting, emission and reflection and
+before the display conversion. It is depth, not weather — the shipped density gives
+about 4 % at 20 m, 15 % at 40 m and 63 % at the 100 m far plane, a little denser
+near the floor, and it never turns a room smoky. The global constants are not
+level-authorable; a level that authors nothing is byte-identical to the historical
+renderer.
+
+On top of it a level may author `fog_regions`: world-space boxes that thicken the
+air **inside** them, per fragment. They are the supported way to build mist over a
+yard, a pool of cold air in a sunken room, or a low morning layer without a
+particle pass.
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `id` | string | **yes** | — | Non-empty, ≤ 64 characters, unique in the level. |
+| `min` | `[x, y, z]` | **yes** | — | World-space minimum corner, finite; strictly below `max` on every axis. |
+| `max` | `[x, y, z]` | **yes** | — | World-space maximum corner, finite; strictly above `min` on every axis. |
+| `density` | number | **yes** | — | Extinction per metre inside the layer, `0.0..=0.5` (`MAX_FOG_REGION_DENSITY`). |
+| `color` | `[r, g, b]` | no | the global fog colour | Each channel `0.0..=1.0`. |
+| `falloff_m` | number | no | `2.0` | Horizontal soft edge **inside** the box, in metres, `>= 0`; `0.0` is a hard edge. |
+| `ground_y` | number | no | `min.y` | World Y where the full-density ground layer starts. |
+| `top_y` | number | no | `max.y` | World Y the density has faded to zero at. |
+
+Per fragment, with `p` the fragment's own world position:
+
+* `horizontal_edge_factor = clamp(min(p.x - min.x, max.x - p.x, p.z - min.z, max.z - p.z) / falloff_m, 0, 1)` — zero outside the box, a linear ramp to full over the last `falloff_m` metres before each side face.
+* `vertical_factor = 1` at and below `ground_y`, `clamp((top_y - y) / (top_y - ground_y), 0, 1)` between them, `0` above `top_y`. A layer with `top_y <= ground_y` is a half-space: full below its base, nothing above.
+* The region's effective contribution is `density * horizontal_edge_factor * vertical_factor`.
+* **Regions never sum.** The region with the greatest effective contribution wins; a tie keeps the lowest authoring index. The global atmosphere's own density term is **added** to the winner's, and the colour mixed towards is the winner's colour (the global colour when no region contributes).
+
+Two concrete examples:
+
+```jsonc
+"fog_regions": [
+  // A thin low mist lying on the yard: half a metre deep, a long 8 m soft edge,
+  // light density. Its ground layer starts at the yard ground.
+  { "id": "yard_mist", "min": [-2.0, -0.1, -92.0], "max": [26.0, 0.5, 0.5],
+    "density": 0.06, "color": [0.6, 0.63, 0.68], "falloff_m": 8.0,
+    "ground_y": -0.1, "top_y": 0.5 },
+  // A tall, denser layer stacked over the same yard. Where both reach, the
+  // denser layer wins outright and the thin mist does not add to it.
+  { "id": "yard_depth", "min": [-2.0, 0.0, -92.0], "max": [26.0, 6.0, 0.5],
+    "density": 0.12, "color": [0.35, 0.4, 0.5], "falloff_m": 6.0,
+    "ground_y": 0.0, "top_y": 5.0 }
+]
+```
+
+An **indoor room adjacent to a fogged exterior stays clear**: the hall inside the
+building lies outside both boxes, so a fragment on its walls evaluates only the
+global atmosphere — even while the camera stands in the yard fog looking in through
+an open door. The test is the *fragment's* world position, never the camera's; a
+fragment inside a region is fogged regionally even when the camera is far away.
+
+Cost, presets and recovery:
+
+* `fog_regions` is capped at **16** (`MAX_FOG_REGIONS`); the loader rejects a 17th by name.
+* The fragment shader loops over a fixed 16-entry uniform array bounded by the live count, so there is no per-frame CPU work and no per-frame rebuild. Adding a region costs one uniform write at level install.
+* **Quality presets upload a prefix of the authored list**: `Low` the first `min(count, 2)` regions, `Medium` the first `min(count, 8)`, `High` all 16. The count is a uniform value, so switching presets recovers the dropped regions instantly with no level rebuild and no geometry change. Author the layers you care about most first.
+
+Interaction notes:
+
+* Fog is applied once per fragment, after lighting/emission/reflection, so floors, walls, void walls and translucent panes all mix with the same current fog. A translucent surface blends with the fogged image behind it like any other translucent draw.
+* The **sky is not fogged**: it is an infinite background, so a regional layer thins the world towards its colour while the stars stay crisp. Pick a colour that sits with the sky sheet.
+* Water surfaces take the same single fog term as any other world surface; there is no second underwater fog.
+* `fog_density == 0` and no regions is the historical raw pass-through: a level that authors no regions is pixel-identical to before this feature existed.
+
+### Void wall and floor boxes
+
+`void_walls` places real opaque box surfaces that hide the void a level did not
+build: the outside of an exterior shell, the underside of a raised platform, the
+back of a one-sided room. They are ordinary material surfaces drawn through the same
+static-mesh pipeline — never a fade, a black plane or an overlay — so they block
+sight because they are geometry, take the global and regional fog exactly once, and
+shade with the catalog material named on them.
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `id` | string | no | — | Optional; non-empty, ≤ 64 characters, unique when present. |
+| `min` | `[x, y, z]` | **yes** | — | World-space minimum corner, finite; strictly below `max` on every axis. |
+| `max` | `[x, y, z]` | **yes** | — | World-space maximum corner, finite; strictly above `min` on every axis. |
+| `material` | string | **yes** | — | An existing catalog material id; every emitted face draws it. |
+| `faces` | enum | no | `"inward"` | `inward` (the box seen from inside), `outward` (from outside) or `both`. |
+| `solid` | bool | no | `true` | The authored box collides, exactly like a solid prop's `size` box. |
+| `occludes` | bool | no | `true` | The authored box joins the baked-light occluder set like a solid prop. |
+
+`faces` selects which of the six box faces are emitted and which way their normals
+point: `inward` emits the six faces wound towards the box interior (a shell around
+the space the camera stands in), `outward` the six wound away from it (a slab or
+plate the camera looks at), `both` two quads per face. The engine shades both sides
+(it never enables backface culling), so an emitted face blocks sight from either
+side and reads as the material on each; `faces` decides the authored normal each
+side carries, not whether the surface exists.
+
+* **Collision follows the whole box**, exactly like a solid prop's `size` box: `solid: true` adds the authored volume to collision and `solid: false` adds nothing. A thin slab (a boundary wall, a floor plate) behaves exactly as expected; a box that *encloses* a walkable space is a solid block, so build a hollow enclosure from thin slabs or set `solid: false`.
+* **Bake participation is exactly a solid prop's.** In the prepared (Medium/High lightmap) transport solve, the box's drawn faces are ordinary opaque mesh triangles, so they block and bounce light exactly like a prop model's; the `occludes` flag additionally contributes the whole box to the fast occluder set the baseline/visibility bake and the vertex-lit path test (`LevelLighting::bake`). `occludes: false` therefore removes the box from the box-occluder set only — the prepared solve still sees the drawn faces, exactly as it sees a prop whose `occludes` is false. Use a transparent material if a surface must transmit.
+* An `occludes` box blocks baked light exactly like a solid prop's occluder box: it joins the bake's segment-test occluder list and shades its surroundings, but it deliberately does **not** answer the bake's wall-only room-partition queries, so a horizontal floor plate never buries the floor samples above it. A vertical slab is not a room partition for the bake; pair it with real `walls` when the bake must split a space.
+* **A level keeps its sky unless a box covers it.** A shell only affects what the author encloses; an opening with no box in front of it shows the sky exactly as before.
+* A void wall is not a light and not a fake dark overlay: it never emits. Give it a real material, and choose a dark material if it should read dark.
+
+Two concrete examples:
+
+```jsonc
+"void_walls": [
+  // The outdoor yard shell: one enclosing box seen from inside. It is a visual
+  // shell only - the level's own walls and pegs own movement and the fast
+  // occluder set - so it does not collide and does not darken the baseline.
+  { "id": "yard_shell", "min": [-2.0, -0.2, -92.0], "max": [26.0, 9.0, 0.6],
+    "material": "outdoor:dirt_gravel_01", "faces": "inward",
+    "solid": false, "occludes": false },
+  // The underside of a raised platform: a thin floor plate whose visible face
+  // is its bottom (an outward-facing box), solid and occluding like a prop.
+  { "id": "platform_underside", "min": [4.0, 2.8, 4.0], "max": [8.0, 3.0, 8.0],
+    "material": "outdoor:concrete_pavement_01", "faces": "outward" }
+]
+```
+
+Limits: `void_walls` is capped at **256** entries; the loader rejects a 257th by
+name. Each box emits six quads (twelve for `"both"`), so the geometry estimate
+budgets `MAX_VOID_WALL_QUADS` per entry.
 
 ### Community packages
 
@@ -2532,8 +2772,8 @@ an unknown id) and the level keeps working.
 | Prop texture | **256×256 native** (the normal shipped size; 32/64/128 legal for lighter props); engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
 | Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current pack is under 4 MiB |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
-| Distinct models per level | 1024 (fallback boxes beyond it) |
-| Summed baked prop vertices per level | 6 000 000 (fallback boxes beyond it) |
+| Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
+| Summed baked prop vertices per level | 24 000 000 (`MAX_LEVEL_PROP_VERTICES`; fallback boxes beyond it) |
 
 The GLB tools in `tools/props/` emit and enforce the art budget; follow it. A model
 above the art budget may still load if the engine ceiling allows it, but it does not
@@ -2544,7 +2784,7 @@ budget helpers and the preview/build commands are documented in `tools/props/REA
 
 Unknown catalog id → placeholder box (neutral size fallback `[0.6, 0.9, 0.6]` m, but
 the catalog `size` is used for the placeholder when the level does not author one).
-Missing/malformed GLB, over-budget mesh, more than 1024 distinct models, or exhausting
+Missing/malformed GLB, over-budget mesh, more than 4096 distinct models, or exhausting
 the level prop-vertex budget → placeholder box plus a one-time `[props]` warning where
 a file was involved. `solid` is never affected by any of this.
 
@@ -2564,7 +2804,7 @@ locomotion states, so an untouched switch holds its bind pose instead of
 looping its clip. Use `toggle_animation` (section 29) to ease its clip to
 either end. A model is claimed as a character, so it does not occlude the bake
 and it counts against the level's animated-character budget
-(`MAX_CHARACTERS`, 64 per level).
+(`MAX_CHARACTERS`, 128 per level).
 
 ### Adding a New Prop
 
@@ -4145,7 +4385,7 @@ Components never carry actions — the bindings do that.
 | `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
 | `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges and catch fields | The entity runs the shared AI behavior (`idler`/`wanderer`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
-| `fade` | `period_seconds` (required, finite, `0 < p ≤ 3600`), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`) | The entity's opacity cycles on a loop; `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
+| `fade` | `period_seconds` (finite, `0 < p ≤ 3600`; default `6.0`, ignored in proximity mode), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`), `near_radius?`/`far_radius?` (finite, `0 < near < far`; both together), `fade_out_seconds?`/`fade_in_seconds?` (finite, `0 < s ≤ 600`; defaults `1.5`/`3.0`, only with the radii) | The entity's opacity cycles on a loop, or — when both radii are authored — fades out as the player approaches and back in as the player retreats. `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
 | `glow` | `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
 
 A component the engine cannot honour is a named load error. Unknown component
@@ -4169,6 +4409,54 @@ An omitted `phase` resolves a deterministic per-instance value from the
 instance id (FNV-1a over its bytes), so two copies of one model desynchronise
 without an authored phase and reloading a level never re-rolls the cycle.
 A disabled fade holds `max_opacity` at every instant.
+
+**Proximity fades.** When both `near_radius` and `far_radius` are authored, the
+opacity is driven by the player's **horizontal distance to the entity's live
+position** — the routed or AI position when it moves, its placement when it
+does not — instead of by the clock. `period_seconds` and `phase` are ignored in
+this mode; `min_opacity` (default `0.0`, fully hidden) and `max_opacity` are the
+ends of the range.
+
+```json
+{ "component": "fade", "near_radius": 3.0, "far_radius": 6.0,
+  "fade_out_seconds": 1.5, "fade_in_seconds": 3.0 }
+```
+
+* **Hysteresis.** The entity begins fading **out** once the player is strictly
+  inside `near_radius` and begins fading **in** only once the player is strictly
+  beyond `far_radius`. Between the two radii the current direction holds, so
+  walking across the band never flaps. A hidden ghost stays hidden while the
+  player loiters in the band and returns only when they retreat past
+  `far_radius`.
+* **Frame-rate independent, no jumps.** The live opacity advances from its
+  *current* value at `1 / fade_out_seconds` (or `1 / fade_in_seconds`) of the
+  full `min_opacity..=max_opacity` range per second, integrated in the same
+  fixed `1/120 s` substep the vertical motion uses. A fade interrupted mid-way
+  reverses from where it is: nothing snaps to an endpoint, and 30, 60 and
+  144 fps produce the same opacity for the same elapsed time.
+* **The controller is live state, not a spawn.** The entity is never removed,
+  duplicated or re-instantiated: a fully hidden ghost keeps following its route
+  or AI (and its frame keeps being published, at opacity `0`), and the same
+  instance fades back in. `enabled: false` pins it to `max_opacity` until an
+  `enable` action resumes the controller.
+* **Coherent visuals.** The frame opacity drives the surface alpha *and* the
+  `glow.fade` intensity, so a hidden entity's attached light goes out with it.
+  A fully hidden entity draws in neither the opaque nor the translucent pass,
+  so it leaves no depth or shadow imprint. A fadeable model must export a
+  blended material (`alphaMode: "BLEND"`, as the shipped `sheet-ghost` and
+  `sheet-ghost-cat` do); an opaque character cannot express partial opacity.
+
+**Scale-appropriate values.** The hysteresis band should sit just outside the
+entity's visible body, and the out time should read as "it notices you" rather
+than "it teleported":
+
+| Entity | `near_radius` | `far_radius` | `fade_out_seconds` | `fade_in_seconds` |
+| --- | --- | --- | --- | --- |
+| ~1.6 m sheet ghost | `3.0` m | `6.0` m | `1.5` s | `3.0` s |
+| ~0.35 m ghost cat | `1.0` m | `2.2` m | `0.8` s | `1.6` s |
+
+The cat's band is tighter and quicker because its whole body is a metre smaller;
+the ghost's slower fade-in lets it re-form gradually as the player walks away.
 
 ```json
 { "component": "glow", "color": [0.45, 0.95, 1.0], "intensity": 0.6,
@@ -4610,16 +4898,16 @@ component is what lets `toggle_animation` act on it:
 dropping it, so a reset switch does not keep the pose its last press left it
 in.
 
-### Complete example: a switch that controls a light (and a door)
+### Complete example: a switch that controls a light
 
-The demo's `sauna_switch` drives a switchable fixture and the sauna leaf in one
-press. `toggle` on a light flips it between on and off; `set_light` with an
-explicit `"on"` is the deterministic alternative. The lever's animation works
-because the prop itself carries the `animation` component:
+The demo's `sauna_switch` flips its switchable fixture in one press. `toggle`
+on a light flips it between on and off; `set_light` with an explicit `"on"` is
+the deterministic alternative. The lever's animation works because the prop
+itself carries the `animation` component:
 
 ```json
 { "id": "sauna_switch", "display_name": "Sauna Switch", "model": "home:wall_switch",
-  "x": 26.16, "y": 1.2, "z": 12.2, "rotation_degrees": 90.0,
+  "x": 26.16, "y": 1.2, "z": 14.3, "rotation_degrees": 90.0,
   "size": [0.18, 0.18, 0.1], "solid": false,
   "components": [
     { "component": "interactable", "prompt": "Sauna switch", "reach": 1.6 },
@@ -4629,11 +4917,55 @@ because the prop itself carries the `animation` component:
     { "on": "interact",
       "actions": [
         { "action": "toggle_animation", "clip": "toggle" },
-        { "action": "toggle", "target": "sauna_light" },
-        { "action": "toggle", "target": "sauna_door" }
+        { "action": "toggle", "target": "sauna_light" }
       ] }
   ] }
 ```
+
+A press activates the switch and the one target it names: the sauna leaf keeps
+its own `interact` binding, so the switch must not also name the door, or one
+press would move both (see
+[Multi-action switch](#multi-action-switch-lever--light-or-lever--door)).
+
+A **second, independent switch** drives presentation-only steam through two
+mutually exclusive branches, selected by the switch's own `state` value. Each
+branch checks the state it is about to leave; exactly one `when` clause matches
+on any press, so one press toggles exactly the steam and never the lamp or a
+door:
+
+```json
+{ "id": "sauna_steam_switch", "display_name": "Sauna Steam Switch",
+  "model": "home:wall_switch", "x": 27.6, "y": 1.2, "z": 14.8,
+  "rotation_degrees": 180.0, "size": [0.18, 0.18, 0.1], "solid": false,
+  "components": [
+    { "component": "interactable", "prompt": "Sauna steam", "reach": 1.6 },
+    { "component": "animation", "clip": "toggle", "looped": false, "playing": false },
+    { "component": "state", "name": "steam", "value": "off" }
+  ],
+  "bindings": [
+    { "id": "steam_off", "on": "interact",
+      "when": [{ "check": "state", "target": "sauna_steam_switch",
+                 "name": "steam", "equals": "on" }],
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "disable", "target": "sauna_steam_a" },
+                  { "action": "disable", "target": "sauna_steam_b" },
+                  { "action": "set_state", "name": "steam", "value": "off" }] },
+    { "id": "steam_on", "on": "interact",
+      "when": [{ "check": "state", "target": "sauna_steam_switch",
+                 "name": "steam", "equals": "off" }],
+      "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                  { "action": "enable", "target": "sauna_steam_a" },
+                  { "action": "enable", "target": "sauna_steam_b" },
+                  { "action": "set_state", "name": "steam", "value": "on" }] }
+  ] }
+```
+
+A switch's interaction bound must protrude from the wall face it is mounted on
+(back plane on or in front of the face), or the wall itself can occlude the
+aimed ray at oblique or upward angles: the interaction target is the point the
+ray first enters the instance's box, so a bound buried in the wall lets the wall
+win. `home:wall_switch` instances sit `size` deep with their back plane on the
+face.
 
 ```json
 { "fixture": "core:fluorescent_panel_01", "id": "sauna_light",
@@ -4809,14 +5141,16 @@ silhouette. Each submesh samples its own material slot (leaf, frame, handle and
 the sauna glass), so `material`, `frame_material` and `handle_material`
 overrides are all visible and the sauna glass draws in the blended pass.
 
-Places Demo ships both kinds and two `sauna`
+Places Demo ships both kinds and three `sauna`
 leaves: `sauna_door` in the pool-deck wall (hinge `26.08, 0, 12.5`, rotation
-270, authored open) and `sauna_shower_door` in the shower-bay wall (hinge
-`31.1, 0, 11.0`, rotation 0, authored closed), both swinging into the sauna
-clear of the two-tier cedar benches. The shower-side leaf is the pattern for a
+270, authored open), `sauna_shower_door` in the shower-bay wall (hinge
+`31.1, 0, 11.0`, rotation 0, authored closed), and `sauna_hall_door` in the
+corridor doorway of wall 17 (hinge `33.0, 0, 12.4`, rotation 270, authored
+closed, hinged on the north jamb and swinging into the sauna clear of the
+benches), all swinging into the sauna. The shower-side leaf is the pattern for a
 second doorway into one room: its wall opening is authored on wall 15 exactly
-like any other, and both leaves share the one door state machine, collider and
-action set.
+like any other, and all three leaves share the one door state machine, collider
+and action set while keeping independent `interact` bindings.
 
 The night route's two entrances author their frame explicitly. A 0.40 m
 `outdoor:house_wall_doorway` facade panel in front of the 0.30 m wall builds the
@@ -4870,12 +5204,15 @@ demo's own labelling):
 { "kind": "passage", "offset": 7.3, "width": 1.4, "height": 2.1, "sill": 0.0 }
 ```
 
-### Multi-action switch (door + label + light)
+### Multi-action switch (lever + light, or lever + door)
 
 One press can compose several actions in order. The demo's `sauna_switch` plays
-the lever clip, flips its switchable lamp and drives the sauna door in one
-binding; the corridor's `hall_switch` toggles the hall door the same way. Both
-carry the `animation` component that `toggle_animation` requires:
+the lever clip and flips its switchable lamp in one binding; the corridor's
+`hall_switch` plays the same clip and toggles the hall door. Both carry the
+`animation` component that `toggle_animation` requires. Compose only the
+targets the press is meant to drive: a door with its own `interact` binding
+keeps that interaction, so a switch that also named the door would move two
+targets on one press.
 
 ```json
 { "id": "sauna_switch", "display_name": "Sauna Switch",
@@ -4888,8 +5225,7 @@ carry the `animation` component that `toggle_animation` requires:
   "bindings": [
     { "on": "interact",
       "actions": [{ "action": "toggle_animation", "clip": "toggle" },
-                  { "action": "toggle", "target": "sauna_light" },
-                  { "action": "toggle", "target": "sauna_door" }] }
+                  { "action": "toggle", "target": "sauna_light" }] }
   ] }
 ```
 
@@ -5016,6 +5352,33 @@ Two steam emitters in the demo's sauna:
 A level may declare at most 64 effects, and each effect at most 128 particles.
 Do not expect an effect to hide anything behind it, to block a route or to
 brighten a room.
+
+**Enabling and disabling is instant.** An `enable`/`disable` action targeting
+an effect entity (or the emitter's own `enabled: false`) flips the renderer's
+resolved emitter through the same command path as a door or a light, and a
+disabled emitter draws nothing on the very next frame — not a fading-out
+remnant, because the particle model is stateless: every particle's position,
+size and alpha is a pure function of the animation clock, so there is no
+per-particle state to drain and nothing lingers. Re-enabling draws the live
+clock's plume immediately.
+
+A switch can drive one emitter from two mutually exclusive bindings, so one
+press toggles exactly one target; the conditions are evaluated once per event,
+before any of that event's actions run, so the second binding never sees the
+first's write:
+
+```json
+{ "id": "steam_switch", "model": "home:wall_switch", "x": 26.16, "y": 1.2, "z": 12.2,
+  "solid": false,
+  "components": [ { "component": "interactable", "prompt": "Steam" } ],
+  "bindings": [
+    { "on": "interact",
+      "when": [ { "check": "enabled", "target": "sauna_steam_a" } ],
+      "actions": [ { "action": "disable", "target": "sauna_steam_a" } ] },
+    { "on": "interact",
+      "when": [ { "check": "disabled", "target": "sauna_steam_a" } ],
+      "actions": [ { "action": "enable", "target": "sauna_steam_a" } ] } ] }
+```
 
 ### Solid glass
 
@@ -5247,10 +5610,14 @@ the raised limits are measured against:
 | Fixture | What it binds |
 | --- | --- |
 | `capacity_dense` | 5000+ placements covering every registered model, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. |
+| `capacity_beyond_former_limits` | The 2026 pass's high-count source: 20 001 walls, 20 001 props, 2 025 rooms, 2 001 floor regions / patches / water volumes, and 81 582 distinct material ids (past the former 16-bit index boundary). It compiles offline to a 45.4 MiB package and is loaded through the package reader; see the Level limits section. |
 
-The generated fixture supports `--check` and must pass `places --check-geometry`
-with no errors; `src/zoo_audit.rs` pins its contracts and retains an in-memory
-large-coordinate regression for the retired sparse source.
+The generated fixtures support `--check`; the dense fixture must also pass
+`places --check-geometry` with no errors, and `src/zoo_audit.rs` pins its
+contracts while retaining an in-memory large-coordinate regression for the
+retired sparse source. The beyond-former-limits source is a capacity fixture,
+not a design-reviewed map: its rooms intentionally open onto the grid, so it is
+compiled and loaded through the package path rather than audited for leaks.
 
 ---
 
@@ -5713,6 +6080,48 @@ The destination house is assembled from normal level parts:
    local `y = 0.52`, a mount at 2.55 means `"y": 2.03` relative to the local
    floor. Add the documented point light.
 
+### 34.7a Second tree, conifer, streetlight, railings and the five facade families
+
+The kit grows with a second and third tree, a tall streetlight, a modular porch
+railing and four more complete facade families. Every id below is a real
+catalog entry; the assembled reference is
+`tests/fixtures/levels/outdoor_kit_showcase.json`.
+
+| Asset id | Size `[w,h,d]` m | Notes |
+| --- | --- | --- |
+| `outdoor:tree_02` | `[3.6, 6.2, 3.6]` | pale-barked **birch**: slender trunk, dark flecks, airy canopy; trunk collider `[0.6, 6.2, 0.6]` |
+| `outdoor:tree_03` | `[3.2, 6.8, 3.2]` | **evergreen/conifer**: tapered trunk under six ragged tiers plus needle-fringe cards; trunk collider `[0.6, 6.8, 0.6]` |
+| `outdoor:streetlight` | `[0.5, 6.4, 1.2]` | 6 m post, swan-neck arm reaching +Z, open-bottomed head with a **downward** emissive pane. Author its light at offset `[0, 6.05, 0.43]` (under the hood, inside the model's own 1.2 m bounding depth); the hood shadows upward, so the pool lands on the ground |
+| `outdoor:porch_railing_straight` | `[1.8, 1.05, 0.12]` | rail runs edge to edge; top rail 0.95–1.05, bottom rail 0.14–0.21, metal balusters |
+| `outdoor:porch_railing_corner` | `[0.3, 1.05, 0.3]` | two rail stubs cross on the module point; pair it with a `porch_post` on the same point |
+| `outdoor:porch_railing_end` | `[0.3, 1.05, 0.12]` | closed by a capped 0.12 m newel |
+| `outdoor:porch_post` | `[0.12, 1.05, 0.12]` | support post; flat cap seat at y = 1.05 |
+
+For N in `01..05`, `outdoor:house_0N_<piece>` repeats **one shared
+convention** with five distinct artworks: 3.0 × 2.7 m panels (0.24 m deep,
+0.40 m for the doorway), a real 1.10 × 2.15 m doorway with jambs, head and
+threshold, eave lamp mounts at local `[±1.15, 2.55, 0.20]` (+Z away from the
+wall), a 3.0 × 1.02 m gable panel at the kit's 1.75/2.6 pitch with its base at
+y = 0, a roof slope whose **origin is its centre** (local z −1.3..+1.3): the
+eave underside is at local `z = +1.3, y = 0` and the ridge edge at
+`z = −1.3, y = 1.75`, so placing one at an eave means putting the origin half a
+run inboard; a ridge cap with its apex at local y = 0.22; a corner board; and a
+porch deck (Z −0.75..+0.75 around its origin) with a porch post (base y = 0,
+flat top at 2.30 m).
+
+| family | cladding | trim | window | roof | porch |
+| --- | --- | --- | --- | --- | --- |
+| `01` | faded cream clapboard | dark green | two-pane vertical | grey shingle | simple stoop |
+| `02` | pale blue-grey clapboard | oxblood | four-pane 2×2 | brown shingle | covered porch |
+| `03` | ochre clapboard | white | tall narrow | dark slate | porch railings |
+| `04` | dark green board-and-batten | cream | wide three-lite | near-black | small porch |
+| `05` | weathered white shiplap | navy | two small squares | green-grey | deep deck |
+
+Mix and match any family's pieces: the grid, pivots and mounting points are
+identical, so a shell assembled from one family has no gaps (the fixture
+assembles all five). Houses are visual depth on real `walls`; the level owns
+structure and collision.
+
 ### 34.8 Night sky
 
 A level may declare one sky background:
@@ -5771,7 +6180,10 @@ recompile the demo, recapture.
 | Concrete walkway | x = 12.5..14.5 (2.0 m wide), same span: genuinely parallel, laterally offset 9 m. |
 | Connector | x = 5.8..12.5, z = −88.5..−86.3: 87.4 m from the threshold, 29.1 s at the shipped 3.0 m/s walk. |
 | Destination house | 9 × 5.4 m at x = 9.0..18.0, z = −97.1..−91.7, doorway centred on x = 13.5 (the walkway's centre), gable roof, finished entry room at y = 0. |
+| Destination envelope | The room's eave is **solved from the roof plane** (`2.8346 m` at the room edge): each family roof slope is placed half its run inboard of the eave so its eave-underside centre and pitch follow the room's gable plane (the model's own soffit and shingle thickness keep the *visible* underside a few centimetres below the plane, which the cap and wall tops cover), and the ridge cap bridges the two slopes' ridge edges. The front and back walls author the rigid eave height (`2.8346 m`), because they run parallel to the ridge and their top is that constant plane (leaving it to the room lookup would follow the yard's open ceiling at the shared seam). The gable end walls follow the slope to the ridge, so the rake is sealed with no slot; side gable walls stop 2 cm short of the perpendicular walls' inner faces, so no two wall faces are coincident. The 0.24 m stoop is a real floor region; the facade panels, door lamps and porch deck author `y = -0.24` so they meet the yard floor while the step stays walkable. |
+| Destination dressing | Front facade and roof use the blue-clapboard family (`outdoor:house_02_*`); a porch deck (a landable 0.24 m stoop, `solid` with its real size) and two posts dress the doorway. The other four families stay in the catalogue and the kit fixture. |
 | Containment | Four buried `outdoor:collision_peg` placements: the collider boxes are 0.3 m thick, 3.5 m tall from −0.10, along x = −0.30/24.30 and z = −92.00. |
+| Ground | One `void_walls[]` slab (`night_ground_slab`, x −6..30, z −98..3, top y = −0.08) 8 cm under the yard's own floor: looking over a boundary edge shows continuous night ground instead of the void. Non-solid and non-occluding; the buried pegs still own containment. |
 
 The route is measured, not assumed: `src/game/tests.rs` walks the real
 `Game::update_player_movement` from the threshold and asserts 27–33 s, a
@@ -5816,6 +6228,23 @@ The yard is bounded by **buried `outdoor:collision_peg` props**, not walls:
   gravel route, each with the kit's documented `point` light (offset
   `[0, 0.86, 0]`, intensity 0.7, range 7.0, `smooth`). The pools overlap at
   their edges and stay local.
+* Seven `outdoor:streetlight` props on ``~12 m`` spacing (six 12 m gaps and a
+  10 m one before the connector), alternating sides at x = 2.3/6.7, arms turned
+  over the route. Each authors its documented
+  downward light at offset `[0, 6.05, 0.43]` (`[1.0, 0.84, 0.66]`, intensity
+  1.5, range 14.0, `smooth`), so the tall heads and the real emitters line up
+  and the hood keeps the pool on the ground.
+* One `fog_regions[]` low mist (`night_low_mist`, x −0.15..24.15, z −90.5..−2.0,
+  density 0.055, ground layer −0.20..0.50 with a 9 m falloff) reads as
+  restrained ground haze over the yard and ends 1.2 m short of the destination
+  house's front wall, which stays dry.
+* The boundary-wall tree rows mix the leafy original, the birch and the
+  evergreen with deliberate repeats and scale variation, all outside the
+  route, connector, doorway and house keep-outs; the four original containment
+  pegs are unchanged. Trees are ordinary props: three shared models, three
+  shared embedded atlases and one draw per model per spatial cell (the prop
+  batch render-instances every repeat), with `occludes: false` keeping the
+  coarse canopy boxes out of the bake.
 * Both doorways hang two `outdoor:lamp_wall` props on the kit's documented
   mounts (`[±1.15, 2.55, 0.20]`, `y = 2.03`); the destination's flood the
   centred door, the source's light the way back in.
@@ -5832,12 +6261,14 @@ The yard is bounded by **buried `outdoor:collision_peg` props**, not walls:
 | Encounter | Placement | Behaviour |
 | --- | --- | --- |
 | Carved pumpkin | On the walkway, x = 13.5, z = −89..−83 | `move_to` route at 0.5 m/s with `laugh` pauses; the hop arc is the clip. Attached `flame` glow (1.0/0.52/0.16, 0.7, range 4.5) travels with it. |
-| Three sheet ghosts | West grass band, x 0.5..1.6, z ≈ −18/−45/−70 | Independent routes and fade cycles (7.0/8.1/9.2 s, phases 0.0/0.37/0.71, opacity 0.06..0.85) with a fade-coupled cyan `body` glow. |
+| Three sheet ghosts | West grass band, x 0.5..1.6, z ≈ −18/−45/−70 | Independent routes and the shared proximity fade for a 1.6 m figure (near 3.0 m, far 7.0 m, out 1.6 s, in 2.4 s, opacity 0.0..0.85) with a fade-coupled cyan `body` glow. |
 | Pumpkin-head skeleton | Middle grass band at (9.6, −52.0), between the grove trees and clear of the path-lamp posts | `nav_agent` + `ai` wanderer (0.571 m/s, radius 2.0, 2 s idle) on the compiled navigation, head-socket orange glow. |
+| Ghost cat | Hovers beside the concrete walkway (x 14.2..15.6, z −44..−52) at 0.2 m/s | The shared `fade` proximity form (`near_radius` 2.2, `far_radius` 5.5, out 1.2 s, in 1.8 s) and a cyan `body` glow; it fades out as the player comes close and returns from 5.5 m. |
+| Three house guards | Inside the destination house at (10.6, −95.6), (13.5, −95.7), (16.2, −94.6), facing the door | Each authors an `animation` component resting on `collapse_reassemble`; the `night_guard_zone` volume just inside the doorway starts `night_guard_wake` once, whose one step starts all three clips together. The binding needs the sequence idle, so a re-entry during the 12 s clip does nothing, and the edge re-arms after exit and completion. The pumpkin heads carry their own emissive material (no sixth dynamic light). |
 
-All three use the shared components of §29; none of them is special-cased in
-engine code. The demo's dynamic-light budget is 8 and these five glow lights
-(one pumpkin, three ghosts, one skeleton) leave three spare.
+All of these use the shared components of §29; none of them is special-cased in
+engine code. The demo's dynamic-light budget is 8, and these six glow lights
+(one pumpkin, three ghosts, one skeleton, one ghost cat) leave two spare.
 
 ## Known Implementation Caveats
 
@@ -5869,7 +6300,7 @@ authoring. They are not invitations to change the engine as part of an authoring
    both appear, and `PLACES_LEVEL` picks the first in the deterministic menu order
    (name, then id).
 10. **Spawn outside every room is accepted** and falls back to floor `0.0`. Check it.
-11. **`floor_patches` are dimension-unvalidated.** They are capped at 2000 entries,
+11. **`floor_patches` are dimension-unvalidated.** They are capped at 8000 entries,
     but a malformed patch is skipped at build time rather than rejected. Keep them
     well-formed and inside a room.
 12. **`pack:` material ids are not resolvable.** No current workflow produces a
@@ -5905,6 +6336,14 @@ authoring. They are not invitations to change the engine as part of an authoring
     A small prop with no authored `size` is aimable as a standard box, so a map that
     needs a precise aim target authors `size`. A manually interactable door's aim
     bound follows its live collider as the leaf swings.
+22. **A void wall box is a whole volume, not a per-face surface.** `solid: true`
+    (default) collides as the entire box and `occludes: true` (default) adds the
+    entire box to the bake's fast occluder set, exactly like a solid prop's `size`
+    box; a box that *encloses* a walkable space is therefore a solid block, so build
+    a hollow enclosure from thin slabs or set the flags false. `occludes: false`
+    removes the box from the fast occluder set only: the prepared (Medium/High
+    lightmap) transport solve still blocks on every drawn opaque face, exactly as it
+    does for a prop with `occludes: false`.
 
 ---
 

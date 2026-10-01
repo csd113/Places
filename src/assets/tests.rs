@@ -24,6 +24,25 @@ fn shipped_catalog() -> AssetCatalog {
     catalog
 }
 
+/// Generated capacity fixtures deliberately reference synthetic material ids.
+///
+/// The catalog-id audits below exist to catch a *typo* in authored content.
+/// `capacity_beyond_former_limits.json` is machine-generated from
+/// `tools/levels/build_capacity_fixtures.py` and its whole purpose is to cross
+/// the former 16-bit material-index boundary with more than 65 536 distinct
+/// ids — far more than the catalog holds — so the catalog-id check does not
+/// apply to it. `src/zoo_audit.rs` pins the fixture's real contracts (counts,
+/// material-id boundary, vertex estimate) instead.
+const GENERATED_CAPACITY_FIXTURES: [&str; 1] = ["capacity_beyond_former_limits.json"];
+
+/// True when `path` names a generated capacity fixture (exempt from the
+/// catalog-id audits).
+fn is_generated_capacity_fixture(path: &std::path::Path) -> bool {
+    path.file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .is_some_and(|name| GENERATED_CAPACITY_FIXTURES.contains(&name))
+}
+
 #[test]
 fn shipped_catalog_classifies_environments_themes_and_entities() {
     let catalog = shipped_catalog();
@@ -337,6 +356,9 @@ fn levels_only_reference_catalog_ids() {
             if path.extension().is_none_or(|ext| ext != "json") {
                 continue;
             }
+            if is_generated_capacity_fixture(&path) {
+                continue;
+            }
             let content = fs::read_to_string(&path).expect("level is readable");
             let level = LevelDef::from_json(&content)
                 .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
@@ -552,6 +574,9 @@ fn level_material_references_cover_floor_regions_too() {
         for file in entries.flatten() {
             let path = file.path();
             if path.extension().is_none_or(|ext| ext != "json") {
+                continue;
+            }
+            if is_generated_capacity_fixture(&path) {
                 continue;
             }
             let content = fs::read_to_string(&path).expect("level is readable");

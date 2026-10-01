@@ -231,7 +231,7 @@ pub fn decal_sheet_is_blend(
     material: crate::render::common::mesh::MaterialIndex,
     blend_sheets: &[bool],
 ) -> bool {
-    let index = u32::from(material);
+    let index = material;
     if index < DECAL_EXTERNAL_BASE {
         return false;
     }

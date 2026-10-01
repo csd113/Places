@@ -56,6 +56,15 @@ LEVEL_DIRS = (
     os.path.join(PACKAGE_ROOT, "tests", "fixtures", "levels"),
 )
 
+# Generated capacity fixtures deliberately reference synthetic material ids.
+# The catalog-id cross-check exists to catch a typo in authored content; a
+# machine-generated fixture whose purpose is to cross the former 16-bit
+# material-index boundary with more than 65 536 distinct ids cannot use the
+# catalog at all. The fixture's real contracts are pinned by src/zoo_audit.rs,
+# and every other check in this validator still applies to it. Mirror of the
+# same carve-out in src/assets/tests.rs.
+GENERATED_CAPACITY_FIXTURES = ("capacity_beyond_former_limits.json",)
+
 # Architectural classification: adding a class is deliberate (it changes what
 # tooling understands), while themes are pure data and extend freely.
 KNOWN_CLASSES = {"environment", "entity", "core", "diagnostic"}
@@ -171,10 +180,15 @@ MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
 # Mirrors src/level.rs: fade period and glow intensity/range/offset bounds.
 MAX_FADE_PERIOD_SECONDS = 3600.0
+MAX_FADE_SECONDS = 600.0
+DEFAULT_FADE_PERIOD_SECONDS = 6.0
 MAX_GLOW_INTENSITY = 8.0
 MIN_GLOW_RANGE_M = 0.05
 MAX_GLOW_RANGE_M = 64.0
 MAX_GLOW_OFFSET_M = 4.0
+# Mirrors src/level.rs: the water volume budget and the circle shape code.
+MAX_LEVEL_WATER_VOLUMES = 8000
+WATER_SHAPES = ("rect", "circle")
 MAX_ENTITY_ROUTES = 256
 MAX_LEVEL_SEQUENCES = 256
 MAX_SEQUENCE_STEPS = 64
@@ -1310,7 +1324,7 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
             ):
                 errors.append(f"{entry} size must be [width, height, depth] of positive numbers")
         elif tag == "fade":
-            period = component.get("period_seconds")
+            period = component.get("period_seconds", DEFAULT_FADE_PERIOD_SECONDS)
             if (
                 not is_finite_number(period)
                 or period <= 0.0
@@ -1335,6 +1349,41 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                 and minimum > maximum
             ):
                 errors.append(f"{entry} min_opacity must not exceed max_opacity")
+            # The proximity contract is all-or-nothing: both radii, in order,
+            # and the two fade times only alongside them. Mirrors
+            # ``loader::validate_component`` so a level that loads in the
+            # engine validates offline too.
+            near = component.get("near_radius")
+            far = component.get("far_radius")
+            if near is None and far is None:
+                if "fade_out_seconds" in component or "fade_in_seconds" in component:
+                    errors.append(
+                        f"{entry} authors fade_out_seconds/fade_in_seconds without "
+                        "near_radius and far_radius"
+                    )
+            elif near is None:
+                errors.append(f"{entry} authors far_radius without near_radius")
+            elif far is None:
+                errors.append(f"{entry} authors near_radius without far_radius")
+            else:
+                if not is_finite_number(near) or near <= 0.0:
+                    errors.append(
+                        f"{entry} near_radius must be a finite number greater than 0"
+                    )
+                elif not is_finite_number(far) or far <= near:
+                    errors.append(
+                        f"{entry} far_radius must be a finite number greater than near_radius"
+                    )
+                for key in ("fade_out_seconds", "fade_in_seconds"):
+                    value = component.get(key)
+                    if value is not None and (
+                        not is_finite_number(value)
+                        or value <= 0.0
+                        or value > MAX_FADE_SECONDS
+                    ):
+                        errors.append(
+                            f"{entry} {key} must be in (0, {MAX_FADE_SECONDS}]"
+                        )
         elif tag == "glow":
             color = component.get("color", [1.0, 0.86, 0.6])
             if (
@@ -1476,6 +1525,31 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         facts = _entity_facts("trigger volume")
         facts["is_volume"] = True
         entities[resolved] = facts
+
+    # Water volumes and effect emitters are entities too: they carry no
+    # components, but an `enable`/`disable` action must be able to name one,
+    # exactly as the runtime's controllers resolve them.
+    for index, volume in enumerate(level.get("water") or []):
+        if not isinstance(volume, dict):
+            continue
+        ident = f"water_{index + 1}"
+        context = f"water volume {index} ('{ident}')"
+        resolved = _validate_instance_id(seen, ident, context, "instance", errors)
+        if resolved is not None:
+            entities[resolved] = _entity_facts("water volume")
+    for index, effect in enumerate(level.get("effects") or []):
+        if not isinstance(effect, dict):
+            continue
+        authored = effect.get("id")
+        ident = (
+            str(authored).strip()
+            if isinstance(authored, str) and authored.strip()
+            else f"effect_{index + 1}"
+        )
+        context = f"effect {index} ('{ident}')"
+        resolved = _validate_instance_id(seen, ident, context, "instance", errors)
+        if resolved is not None:
+            entities[resolved] = _entity_facts("effect")
 
     for index, timer in enumerate(level.get("timers") or []):
         if not isinstance(timer, dict):
@@ -2158,6 +2232,164 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     validate_entity_routes(level, where, errors, index["prop_ids"])
 
 
+def water_footprints(level: dict) -> List[dict]:
+    """Every authored water volume as a resolved footprint for containment.
+
+    Mirrors ``WaterVolumeDef::bounds``: a rectangle spans `x..x + width` and
+    `z..z + depth`; a circle is the disc of `radius` inscribed in
+    `x..x + 2 * radius`. Malformed volumes are skipped; the schema check names
+    them separately.
+    """
+    footprints: List[dict] = []
+    for volume in level.get("water") or []:
+        if not isinstance(volume, dict):
+            continue
+        x, z = volume.get("x"), volume.get("z")
+        if not (is_finite_number(x) and is_finite_number(z)):
+            continue
+        shape = volume.get("shape", "rect")
+        if shape == "circle":
+            radius = volume.get("radius")
+            if not is_finite_number(radius) or radius <= 0.0:
+                continue
+            footprints.append(
+                {
+                    "shape": "circle",
+                    "x0": min(x, x + 2.0 * radius),
+                    "x1": max(x, x + 2.0 * radius),
+                    "z0": min(z, z + 2.0 * radius),
+                    "z1": max(z, z + 2.0 * radius),
+                    "radius": radius,
+                }
+            )
+        else:
+            width, depth = volume.get("width"), volume.get("depth")
+            if (
+                not is_finite_number(width)
+                or not is_finite_number(depth)
+                or width <= 0.0
+                or depth <= 0.0
+            ):
+                continue
+            footprints.append(
+                {
+                    "shape": "rect",
+                    "x0": min(x, x + width),
+                    "x1": max(x, x + width),
+                    "z0": min(z, z + depth),
+                    "z1": max(z, z + depth),
+                    "radius": 0.0,
+                }
+            )
+    return footprints
+
+
+def footprint_contains_disc(footprint: dict, x: float, z: float, radius: float) -> bool:
+    """True when a disc fits inside one resolved footprint.
+
+    Mirrors ``WaterVolume::contains_disc``: an axis-aligned rectangle needs
+    the disc inside the box, a circle needs it inside the disc. The circular
+    test carries a micrometre of slack so an exactly-rim-riding authored
+    float is not rejected by a last-bit difference between this checker and
+    the engine's squared-distance comparison.
+    """
+    if footprint["shape"] == "rect":
+        return (
+            x - radius >= footprint["x0"]
+            and x + radius <= footprint["x1"]
+            and z - radius >= footprint["z0"]
+            and z + radius <= footprint["z1"]
+        )
+    centre_x = (footprint["x0"] + footprint["x1"]) / 2.0
+    centre_z = (footprint["z0"] + footprint["z1"]) / 2.0
+    clearance = footprint["radius"] - radius
+    return clearance >= -1.0e-6 and math.hypot(
+        x - centre_x, z - centre_z
+    ) <= clearance + 1.0e-6
+
+
+def validate_water_shapes(level: dict, where: str, errors: List[str]) -> None:
+    """Water footprint shapes: the rectangle and circle authoring contracts.
+
+    Mirrors ``loader::validate_water``: a rectangle needs ``width``/``depth``
+    and no ``radius``; a circle needs a finite positive ``radius`` and may
+    author ``width``/``depth`` only as its own diameter, because the bounding
+    box is derived from the radius and must never be a second source of truth.
+    """
+    volumes = level.get("water") or []
+    if not isinstance(volumes, list):
+        errors.append(f"{where}: water must be an array")
+        return
+    if len(volumes) > MAX_LEVEL_WATER_VOLUMES:
+        errors.append(
+            f"{where}: too many water volumes ({len(volumes)}; limit {MAX_LEVEL_WATER_VOLUMES})"
+        )
+    for index, volume in enumerate(volumes):
+        context = f"{where}: water volume {index}"
+        if not isinstance(volume, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        shape = volume.get("shape", "rect")
+        if shape not in WATER_SHAPES:
+            errors.append(f"{context} shape must be one of {', '.join(WATER_SHAPES)}")
+            continue
+        for key in ("x", "z", "surface_y"):
+            if not is_finite_number(volume.get(key)):
+                errors.append(f"{context} {key} must be a finite number")
+        if shape == "rect":
+            for key in ("width", "depth"):
+                value = volume.get(key)
+                if value is None:
+                    errors.append(f"{context} is a rectangle and must author {key}")
+                elif not is_finite_number(value) or value <= 0.0:
+                    errors.append(
+                        f"{context} {key} must be a finite number greater than 0"
+                    )
+            if "radius" in volume:
+                errors.append(
+                    f"{context} authors radius on a rectangle; use \"shape\": \"circle\" "
+                    "for a circular pool"
+                )
+        else:
+            radius = volume.get("radius")
+            if radius is None:
+                errors.append(f"{context} is a circle and must author radius")
+            elif not is_finite_number(radius) or radius <= 0.0:
+                errors.append(
+                    f"{context} radius must be a finite number greater than 0"
+                )
+            else:
+                diameter = 2.0 * radius
+                for key in ("width", "depth"):
+                    value = volume.get(key)
+                    if value is not None and (
+                        not is_finite_number(value) or abs(value - diameter) > 1.0e-4
+                    ):
+                        errors.append(
+                            f"{context} {key} must be absent or equal 2 * radius "
+                            f"({diameter})"
+                        )
+        material = volume.get("material")
+        if material is not None and (
+            not isinstance(material, str) or not material.strip()
+        ):
+            errors.append(f"{context} material must be a non-empty id when specified")
+        opacity = volume.get("opacity")
+        if opacity is not None and (
+            not is_finite_number(opacity) or not 0.0 <= opacity <= 1.0
+        ):
+            errors.append(f"{context} opacity must be a finite number between 0 and 1")
+        bottom = volume.get("bottom_y")
+        surface = volume.get("surface_y")
+        if bottom is not None and (
+            not is_finite_number(bottom)
+            or (is_finite_number(surface) and bottom >= surface)
+        ):
+            errors.append(f"{context} bottom_y must be finite and below its surface_y")
+        if "swimming" in volume and not isinstance(volume["swimming"], bool):
+            errors.append(f"{context} swimming must be a boolean")
+
+
 def validate_floats(level: dict, where: str, errors: List[str]) -> None:
     """Mirrors ``loader::validate_floats``: a floating prop cannot be solid, its
     authored motion must be finite and bounded, it cannot be routed, and its
@@ -2182,23 +2414,7 @@ def validate_floats(level: dict, where: str, errors: List[str]) -> None:
         errors.append(
             f"{where}: {len(floats)} floating props; the limit is {MAX_LEVEL_FLOAT_PROPS}"
         )
-    volumes = []
-    for volume in level.get("water") or []:
-        if not isinstance(volume, dict):
-            continue
-        x, z = volume.get("x", 0.0), volume.get("z", 0.0)
-        width, depth = volume.get("width"), volume.get("depth")
-        if (
-            is_finite_number(x)
-            and is_finite_number(z)
-            and is_finite_number(width)
-            and is_finite_number(depth)
-            and width > 0.0
-            and depth > 0.0
-        ):
-            volumes.append(
-                (min(x, x + width), max(x, x + width), min(z, z + depth), max(z, z + depth))
-            )
+    volumes = water_footprints(level)
     route_ids = {
         str(route.get("id")).strip()
         for route in (level.get("routes") or [])
@@ -2266,8 +2482,7 @@ def validate_floats(level: dict, where: str, errors: List[str]) -> None:
         heel_excursion = 0.5 * height * math.sin(math.radians(heel))
         radius = half_diagonal + heel_excursion
         contained = any(
-            x - radius >= x0 and x + radius <= x1 and z - radius >= z0 and z + radius <= z1
-            for (x0, x1, z0, z1) in volumes
+            footprint_contains_disc(footprint, x, z, radius) for footprint in volumes
         )
         if not contained:
             errors.append(
@@ -2377,7 +2592,10 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             levels += 1
             with open(path, "r", encoding="utf-8") as handle:
                 level = json.load(handle)
+            catalog_ids_apply = name not in GENERATED_CAPACITY_FIXTURES
             for asset_id, what in level_ids(level):
+                if not catalog_ids_apply:
+                    break
                 if asset_id not in known:
                     errors.append(f"{os.path.relpath(path, PACKAGE_ROOT)}: {what} '{asset_id}' is not in the catalog")
                 elif what == "prop" and asset_id not in placeable:
@@ -2422,6 +2640,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_interactions(level, relative, errors)
             validate_doors(level, relative, errors)
             validate_effects(level, relative, errors)
+            validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
             validate_surface_shine(level, relative, errors)
             validate_architecture(level, relative, errors)
@@ -2437,6 +2656,16 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     )
     if not levels:
         errors.append("levels: no level JSON files were found to validate")
+    # A generated capacity fixture is synthetic by construction (scattered
+    # walls, synthetic ids, no navigation-clean layout), so its placement
+    # warnings are expected and would drown the report; errors still apply.
+    warnings = [
+        warning
+        for warning in warnings
+        if not any(
+            name in warning for name in GENERATED_CAPACITY_FIXTURES
+        )
+    ]
     return errors, warnings
 
 

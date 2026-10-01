@@ -2558,6 +2558,978 @@
       "category": "Structure",
       "solid": true,
       "description": "Deliberately tiny 6 cm grey cube that carries an authored invisible containment collider, not scenery: place it solid: true with the collider's real size (e.g. [0.3, 3.0, 3.0]), set occludes: false and author a y that buries the cube below the local floor, so the drawn geometry is never visible and the bake never sees it."
+    },
+    {
+      "id": "sheet-ghost-cat",
+      "display_name": "Sheet Ghost Cat",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+      "size": [
+        0.226,
+        0.323,
+        0.576
+      ],
+      "color": "#bfe4e8",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Small painted sheet ghost cat on a five-joint rig; floating loop float_forward (authored for 0.2 m/s) and an idle sway, sharing the sheet ghost's blended cyan cloth contract. Use fade and glow components for its cycle."
+    },
+    {
+      "id": "outdoor:tree_02",
+      "display_name": "Birch Tree",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/tree_02.glb",
+      "size": [
+        3.6,
+        6.2,
+        3.6
+      ],
+      "color": "#b9b39a",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Slender birch: pale bark with dark flecks, thin branches and an airy alpha-cutout leaf canopy. Place it solid with a level size of roughly [0.6, 6.2, 0.6] so only the trunk blocks the player."
+    },
+    {
+      "id": "outdoor:tree_03",
+      "display_name": "Evergreen Tree",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/tree_03.glb",
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "color": "#3f543f",
+      "category": "Vegetation",
+      "solid": false,
+      "description": "Conifer: a tapered trunk under five to six stacked ragged evergreen tiers. Place it solid with a level size of roughly [0.6, 6.8, 0.6] so only the trunk blocks the player."
+    },
+    {
+      "id": "outdoor:streetlight",
+      "display_name": "Streetlight",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/streetlight.glb",
+      "size": [
+        0.5,
+        6.4,
+        1.2
+      ],
+      "color": "#3f3c36",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Tall streetlight on a 6 m post with a top arm and a downward-facing warm lantern head. Author its point light at offset [0, 6.05, 0.43] under the pane (the hood shadows upward, so the pool stays on the ground); the catalogued 1.2 m depth includes the arm and the head's hood, and the emitter anchor is inside that box."
+    },
+    {
+      "id": "outdoor:porch_railing_straight",
+      "display_name": "Porch Railing Straight",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/porch_railing_straight.glb",
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "color": "#8d8577",
+      "category": "Structure",
+      "solid": false,
+      "description": "Straight 1.8 m porch railing module: top and bottom rails with balusters, origin at the floor, centred on the run. Non-solid dressing over a prop or wall collider."
+    },
+    {
+      "id": "outdoor:porch_railing_corner",
+      "display_name": "Porch Railing Corner",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/porch_railing_corner.glb",
+      "size": [
+        0.3,
+        1.05,
+        0.3
+      ],
+      "color": "#8d8577",
+      "category": "Structure",
+      "solid": false,
+      "description": "Right-angle porch railing corner joining two straight modules around a 0.12 m post; the two rail ends meet at the module grid so a run has no gap."
+    },
+    {
+      "id": "outdoor:porch_railing_end",
+      "display_name": "Porch Railing End",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/porch_railing_end.glb",
+      "size": [
+        0.3,
+        1.05,
+        0.12
+      ],
+      "color": "#8d8577",
+      "category": "Structure",
+      "solid": false,
+      "description": "Porch railing terminal: a short rail end and a newel cap closing a run without a gap."
+    },
+    {
+      "id": "outdoor:porch_post",
+      "display_name": "Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/porch_post.glb",
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "color": "#8d8577",
+      "category": "Structure",
+      "solid": false,
+      "description": "Square porch support post with a flat cap seat at y = 1.05; the railing support piece and the seat for a porch roof."
+    },
+    {
+      "id": "outdoor:house_01_wall_solid",
+      "display_name": "House 1 Cream Clapboard Wall Solid",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#cfc6ab",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's cladding, base band and corner boards."
+    },
+    {
+      "id": "outdoor:house_01_wall_window",
+      "display_name": "House 1 Cream Clapboard Wall Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#cfc6ab",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's framed window and dark glazing."
+    },
+    {
+      "id": "outdoor:house_01_wall_doorway",
+      "display_name": "House 1 Cream Clapboard Wall Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#cfc6ab",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+    },
+    {
+      "id": "outdoor:house_01_gable",
+      "display_name": "House 1 Cream Clapboard Gable Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "color": "#3f4a3a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+    },
+    {
+      "id": "outdoor:house_01_roof_slope",
+      "display_name": "House 1 Cream Clapboard Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#5b564c",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+    },
+    {
+      "id": "outdoor:house_01_roof_ridge",
+      "display_name": "House 1 Cream Clapboard Roof Ridge",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#5b564c",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+    },
+    {
+      "id": "outdoor:house_01_corner_trim",
+      "display_name": "House 1 Cream Clapboard Corner Trim",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#3f4a3a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Vertical corner board covering a panel junction."
+    },
+    {
+      "id": "outdoor:house_01_porch_deck",
+      "display_name": "House 1 Cream Clapboard Porch Deck",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "color": "#3f4a3a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+    },
+    {
+      "id": "outdoor:house_01_porch_post",
+      "display_name": "House 1 Cream Clapboard Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_01_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "color": "#3f4a3a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+    },
+    {
+      "id": "outdoor:house_02_wall_solid",
+      "display_name": "House 2 Blue Clapboard Wall Solid",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#93a3ac",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's cladding, base band and corner boards."
+    },
+    {
+      "id": "outdoor:house_02_wall_window",
+      "display_name": "House 2 Blue Clapboard Wall Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#93a3ac",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's framed window and dark glazing."
+    },
+    {
+      "id": "outdoor:house_02_wall_doorway",
+      "display_name": "House 2 Blue Clapboard Wall Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#93a3ac",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+    },
+    {
+      "id": "outdoor:house_02_gable",
+      "display_name": "House 2 Blue Clapboard Gable Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "color": "#6d2f2a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+    },
+    {
+      "id": "outdoor:house_02_roof_slope",
+      "display_name": "House 2 Blue Clapboard Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#6d5947",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+    },
+    {
+      "id": "outdoor:house_02_roof_ridge",
+      "display_name": "House 2 Blue Clapboard Roof Ridge",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#6d5947",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+    },
+    {
+      "id": "outdoor:house_02_corner_trim",
+      "display_name": "House 2 Blue Clapboard Corner Trim",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#6d2f2a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Vertical corner board covering a panel junction."
+    },
+    {
+      "id": "outdoor:house_02_porch_deck",
+      "display_name": "House 2 Blue Clapboard Porch Deck",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "color": "#6d2f2a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+    },
+    {
+      "id": "outdoor:house_02_porch_post",
+      "display_name": "House 2 Blue Clapboard Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_02_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "color": "#6d2f2a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+    },
+    {
+      "id": "outdoor:house_03_wall_solid",
+      "display_name": "House 3 Ochre Clapboard Wall Solid",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#c8a05a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's cladding, base band and corner boards."
+    },
+    {
+      "id": "outdoor:house_03_wall_window",
+      "display_name": "House 3 Ochre Clapboard Wall Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#c8a05a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's framed window and dark glazing."
+    },
+    {
+      "id": "outdoor:house_03_wall_doorway",
+      "display_name": "House 3 Ochre Clapboard Wall Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#c8a05a",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+    },
+    {
+      "id": "outdoor:house_03_gable",
+      "display_name": "House 3 Ochre Clapboard Gable Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "color": "#e6e0d2",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+    },
+    {
+      "id": "outdoor:house_03_roof_slope",
+      "display_name": "House 3 Ochre Clapboard Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#3d4249",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+    },
+    {
+      "id": "outdoor:house_03_roof_ridge",
+      "display_name": "House 3 Ochre Clapboard Roof Ridge",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#3d4249",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+    },
+    {
+      "id": "outdoor:house_03_corner_trim",
+      "display_name": "House 3 Ochre Clapboard Corner Trim",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#e6e0d2",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Vertical corner board covering a panel junction."
+    },
+    {
+      "id": "outdoor:house_03_porch_deck",
+      "display_name": "House 3 Ochre Clapboard Porch Deck",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "color": "#e6e0d2",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+    },
+    {
+      "id": "outdoor:house_03_porch_post",
+      "display_name": "House 3 Ochre Clapboard Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_03_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "color": "#e6e0d2",
+      "category": "Structure",
+      "solid": false,
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+    },
+    {
+      "id": "outdoor:house_04_wall_solid",
+      "display_name": "House 4 Green Board and Batten Wall Solid",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#41523f",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's cladding, base band and corner boards."
+    },
+    {
+      "id": "outdoor:house_04_wall_window",
+      "display_name": "House 4 Green Board and Batten Wall Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#41523f",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's framed window and dark glazing."
+    },
+    {
+      "id": "outdoor:house_04_wall_doorway",
+      "display_name": "House 4 Green Board and Batten Wall Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#41523f",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+    },
+    {
+      "id": "outdoor:house_04_gable",
+      "display_name": "House 4 Green Board and Batten Gable Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "color": "#d8d2bd",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+    },
+    {
+      "id": "outdoor:house_04_roof_slope",
+      "display_name": "House 4 Green Board and Batten Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#2f3236",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+    },
+    {
+      "id": "outdoor:house_04_roof_ridge",
+      "display_name": "House 4 Green Board and Batten Roof Ridge",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#2f3236",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+    },
+    {
+      "id": "outdoor:house_04_corner_trim",
+      "display_name": "House 4 Green Board and Batten Corner Trim",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#d8d2bd",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Vertical corner board covering a panel junction."
+    },
+    {
+      "id": "outdoor:house_04_porch_deck",
+      "display_name": "House 4 Green Board and Batten Porch Deck",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "color": "#d8d2bd",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+    },
+    {
+      "id": "outdoor:house_04_porch_post",
+      "display_name": "House 4 Green Board and Batten Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_04_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "color": "#d8d2bd",
+      "category": "Structure",
+      "solid": false,
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+    },
+    {
+      "id": "outdoor:house_05_wall_solid",
+      "display_name": "House 5 White Shiplap Wall Solid",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#d9d6cc",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's cladding, base band and corner boards."
+    },
+    {
+      "id": "outdoor:house_05_wall_window",
+      "display_name": "House 5 White Shiplap Wall Window",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "color": "#d9d6cc",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's framed window and dark glazing."
+    },
+    {
+      "id": "outdoor:house_05_wall_doorway",
+      "display_name": "House 5 White Shiplap Wall Doorway",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "color": "#d9d6cc",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+    },
+    {
+      "id": "outdoor:house_05_gable",
+      "display_name": "House 5 White Shiplap Gable Panel",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "color": "#2e3b4e",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+    },
+    {
+      "id": "outdoor:house_05_roof_slope",
+      "display_name": "House 5 White Shiplap Roof Slope",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "color": "#59645c",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+    },
+    {
+      "id": "outdoor:house_05_roof_ridge",
+      "display_name": "House 5 White Shiplap Roof Ridge",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "color": "#59645c",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+    },
+    {
+      "id": "outdoor:house_05_corner_trim",
+      "display_name": "House 5 White Shiplap Corner Trim",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "color": "#2e3b4e",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Vertical corner board covering a panel junction."
+    },
+    {
+      "id": "outdoor:house_05_porch_deck",
+      "display_name": "House 5 White Shiplap Porch Deck",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "color": "#2e3b4e",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+    },
+    {
+      "id": "outdoor:house_05_porch_post",
+      "display_name": "House 5 White Shiplap Porch Post",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/house_05_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "color": "#2e3b4e",
+      "category": "Structure",
+      "solid": false,
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+    },
+    {
+      "id": "core:hot_tub",
+      "display_name": "Circular Hot Tub",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/hot_tub.glb",
+      "size": [
+        2.6,
+        1.56,
+        2.6
+      ],
+      "color": "#7f8a90",
+      "category": "Structure",
+      "solid": false,
+      "description": "Genuinely circular hot-tub shell: a tiled basin with a dark cap rail, an outer radius of 1.30 m (a 1.335 m base apron ring, so the bounds measure 2.67 m) and an inner wall of 1.173 m. The bottom sits on the basin floor at y = 0; the rim top is 1.56 m (a 1.50 m deck line). Author a 1.50 m floor-region recess under it and a circular water volume of radius 1.25 m with its surface 1.35 m above the basin floor."
     }
   ]
 }

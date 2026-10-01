@@ -149,7 +149,16 @@ impl EventQueue {
     /// A bound, not a tuning knob: one tick can never fan out into unbounded
     /// memory, and a producer that is refused names the burst in its
     /// diagnostic instead of silently dropping work.
-    pub const MAX_QUEUED_EVENTS: usize = 256;
+    ///
+    /// Raised to 4096 from 256 in the 2026 capacity pass. The level format
+    /// admits up to [`crate::level::MAX_LEVEL_AREA_TRIGGERS`] (4000) trigger
+    /// volumes, and a tick in which every trigger gains its first occupant
+    /// produces one occurrence per trigger: a 256-slot queue would refuse
+    /// most of them. 4096 holds one occurrence per trigger plus a spawn
+    /// burst's worth of headroom, and the record is a small plain-data
+    /// struct, so the queue's worst-case footprint stays in the tens of
+    /// kilobytes.
+    pub const MAX_QUEUED_EVENTS: usize = 4096;
 
     /// An empty queue.
     #[must_use]

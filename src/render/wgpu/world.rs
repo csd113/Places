@@ -351,9 +351,61 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
     previous.is_none_or(|previous| !camera_uniform_same_bits(&previous, &next))
 }
 
+/// One regional fog volume, as the fragment shader reads it: 64 bytes.
+///
+/// WGSL layout, pinned by tests: `min_falloff` is the box minimum corner and
+/// the horizontal soft edge in metres (`.w`); `max_top` the box maximum corner
+/// and the world Y the layer fades to zero at (`.w`); `color_density` the
+/// colour the layer mixes towards and its density per metre (`.a`);
+/// `ground_pad.x` the world Y the full-density ground layer starts at. The
+/// padding lanes are never read.
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct FogRegionUniform {
+    /// `xyz` the box minimum corner, `w` the horizontal falloff in metres.
+    pub min_falloff: [f32; 4],
+    /// `xyz` the box maximum corner, `w` the fade-to-zero world Y.
+    pub max_top: [f32; 4],
+    /// `rgb` the mix-to colour, `a` the density per metre.
+    pub color_density: [f32; 4],
+    /// `x` the ground layer base; `yzw` never read.
+    pub ground_pad: [f32; 4],
+}
+
+impl FogRegionUniform {
+    /// The all-zero value an unused slot carries.
+    pub const ZERO: Self = Self {
+        min_falloff: [0.0; 4],
+        max_top: [0.0; 4],
+        color_density: [0.0; 4],
+        ground_pad: [0.0; 4],
+    };
+
+    /// Packs one resolved region.
+    #[must_use]
+    pub const fn new(region: &crate::render::common::atmosphere::FogRegion) -> Self {
+        Self {
+            min_falloff: [
+                region.min[0],
+                region.min[1],
+                region.min[2],
+                region.falloff_m,
+            ],
+            max_top: [region.max[0], region.max[1], region.max[2], region.top_y],
+            color_density: [
+                region.color[0],
+                region.color[1],
+                region.color[2],
+                region.density,
+            ],
+            ground_pad: [region.ground_y, 0.0, 0.0, 0.0],
+        }
+    }
+}
+
 /// The frame/level environment uniform: the baked-light switch and scale, the
-/// lightmap selection, the fog constants and the active planar mirror's
-/// projection and plane.
+/// lightmap selection, the fog constants and regional volumes, and the active
+/// planar mirror's projection and plane.
 ///
 /// WGSL layout, pinned by tests:
 ///
@@ -371,7 +423,10 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 /// offset 128  model              mat4x4<f32>  64 bytes
 /// offset 192  opacity            f32
 /// offset 196  tail_padding       vec3<f32>    12 bytes (never read)
-/// ------------------------------------------------------ 208 bytes, align 16
+/// offset 208  fog_region_count   u32          4 bytes
+/// offset 212  fog_region_padding [u32; 3]     12 bytes (never read)
+/// offset 224  fog_regions        [FogRegion; 16]  1024 bytes, 64 each
+/// ------------------------------------------------------ 1248 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -381,8 +436,9 @@ pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUnifo
 /// layer group, the switchable groups' count and live on/off mask, and the
 /// resident probe chain's top mip level (`0..=7`, bits 16..=19) — and
 /// `opacity` is the per-instance fade multiplier the character path installs
-/// (`1.0` for the static world and every prop, so static output is unchanged).
-/// The struct is 208 bytes on the wire and in Rust
+/// (`1.0` for the static world and every prop, so static output is unchanged);
+/// the regional fog block is the level's authored volumes, bounded by the
+/// live count word. The struct is 1248 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -425,6 +481,18 @@ pub struct EnvironmentUniform {
     /// (WGSL pads a uniform struct to its alignment the same way) and the
     /// `Pod` derive sees no implicit padding. Never read.
     pub tail_padding: [f32; 3],
+    /// Number of valid entries in [`Self::fog_regions`], `0..=MAX_FOG_REGIONS`.
+    /// The quality preset decides how many authored regions are uploaded; the
+    /// shader loop is bounded by this word, so a preset change is a uniform
+    /// write with no rebuild.
+    pub fog_region_count: u32,
+    /// Explicit padding so the fixed region array starts at its 16-byte
+    /// alignment without implicit padding. Never read.
+    pub fog_region_padding: [u32; 3],
+    /// The level's regional fog volumes, the live ones first in authoring
+    /// order. Every unused slot is [`FogRegionUniform::ZERO`], so a shader that
+    /// read past `fog_region_count` would add no fog.
+    pub fog_regions: [FogRegionUniform; crate::level::MAX_FOG_REGIONS],
 }
 
 impl EnvironmentUniform {
@@ -453,7 +521,32 @@ impl EnvironmentUniform {
             model: Mat4::IDENTITY.to_cols_array_2d(),
             opacity: 1.0,
             tail_padding: [0.0; 3],
+            fog_region_count: 0,
+            fog_region_padding: [0; 3],
+            fog_regions: [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS],
         }
+    }
+
+    /// The same environment with the level's regional fog installed.
+    ///
+    /// `regions` is the resolved authoring-order list and `cap` the quality
+    /// preset's upload budget; only the first `min(len, cap)` entries reach the
+    /// shader, the count word bounds the fragment loop, and every further slot
+    /// is cleared. A level with no regions leaves the word at zero and the
+    /// whole array zeroed, which is the historical environment bit for bit.
+    #[must_use]
+    pub fn with_fog_regions(
+        mut self,
+        regions: &[crate::render::common::atmosphere::FogRegion],
+        cap: usize,
+    ) -> Self {
+        self.fog_regions = [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS];
+        let count = regions.len().min(cap).min(crate::level::MAX_FOG_REGIONS);
+        self.fog_region_count = u32::try_from(count).unwrap_or(u32::MAX);
+        for (slot, region) in self.fog_regions.iter_mut().zip(regions.iter().take(count)) {
+            *slot = FogRegionUniform::new(region);
+        }
+        self
     }
 
     /// The same environment with the resident lightmap selection installed.
@@ -747,7 +840,7 @@ pub const fn is_world_range(range: &LevelMeshRange) -> bool {
 fn range_pass(range: &LevelMeshRange, materials: &MaterialRenderState) -> BatchPass {
     let alpha = materials
         .alphas
-        .get(usize::from(range.key.material))
+        .get(usize::try_from(range.key.material).unwrap_or(usize::MAX))
         .copied();
     batch_pass_for(range.key.kind, range.key.has_material(), alpha)
 }
@@ -967,7 +1060,11 @@ pub fn resolve_base_texture<'a>(
     let key = SurfaceKey::with_shine(draw.kind, draw.material, draw.shine);
     resolve_surface_material(key, materials, table, true)
         .texture
-        .and_then(|slot| table.textures().get(usize::from(slot)))
+        .and_then(|slot| {
+            table
+                .textures()
+                .get(usize::try_from(slot).unwrap_or(usize::MAX))
+        })
 }
 
 /// What one level's world texture resolution did, as plain counters.
@@ -1064,7 +1161,9 @@ impl WorldTextures {
                 && draw.material != crate::render::common::mesh::MATERIAL_NONE
             {
                 stats.fixture_draws = stats.fixture_draws.saturating_add(1);
-                sources.push(DrawTexture::Fixture(usize::from(draw.material)));
+                sources.push(DrawTexture::Fixture(
+                    usize::try_from(draw.material).unwrap_or(usize::MAX),
+                ));
                 continue;
             }
             let Some(resolved) = resolve_base_texture(draw, materials, table) else {
@@ -3374,8 +3473,8 @@ mod tests {
         let deck = table.index_of("core:pool_tile_deck_01").expect("deck");
         let wet = table.index_of("core:pool_deck_wet_01").expect("wet deck");
         assert_eq!(
-            materials.texture_slots[usize::from(deck)],
-            materials.texture_slots[usize::from(wet)],
+            materials.texture_slots[usize::try_from(deck).unwrap_or(usize::MAX)],
+            materials.texture_slots[usize::try_from(wet).unwrap_or(usize::MAX)],
             "the deck and the wet overlay share one texture slot"
         );
         let deck_texture =
@@ -3938,9 +4037,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 208);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1248);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 208);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 1248);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -3990,6 +4089,33 @@ mod tests {
         assert_exact(default.with_opacity(-1.0).opacity, 0.0);
         assert_exact(default.with_opacity(f32::NAN).opacity, 1.0);
         assert_exact(default.with_opacity(f32::INFINITY).opacity, 1.0);
+        // The WGSL struct declares the same field order and the same pack.
+        assert!(WORLD_SHADER_SRC.contains("light_scale: vec3<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("lightmap_enabled: f32"));
+        assert!(WORLD_SHADER_SRC.contains("lightmap_page_count: u32"));
+        assert!(WORLD_SHADER_SRC.contains("lightmap_switchable: u32"));
+        assert!(WORLD_SHADER_SRC.contains("bits 16..=19"));
+        assert!(!WORLD_SHADER_SRC.contains("_padding: vec2<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("planar_matrix: mat4x4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("planar_plane: vec4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("model: mat4x4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("opacity: f32"));
+        // The instance opacity reaches both the fragment alpha and the
+        // emissive term; the static world's 1.0 leaves both unchanged.
+        assert!(
+            WORLD_SHADER_SRC.contains("material.opacity * environment.opacity"),
+            "shade() must fold the instance opacity into the fragment alpha"
+        );
+        assert!(
+            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"),
+            "the emissive term must fade with the instance opacity"
+        );
+    }
+
+    /// The lightmap and probe words pack into the same switchable word at the
+    /// four bits each the shader reads.
+    #[test]
+    fn the_lightmap_and_probe_words_pack_into_the_switchable_word() {
         // The builder packs the four-bit count and mask.
         let environment = EnvironmentUniform::new(
             [1.0; 3],
@@ -4025,26 +4151,144 @@ mod tests {
             clamped_probes.lightmap_switchable & 0x0000_FFFF,
             0x0000_0102
         );
+    }
+
+    /// The regional fog uniform block: 64-byte entries at the tail of the
+    /// environment uniform, the count word bounding the shader loop, and the
+    /// zeroed default for a level that authors no region.
+    #[test]
+    fn the_fog_region_uniform_matches_the_wgsl_layout() {
+        // The block is appended after the historical 208 bytes: the count
+        // word, three padding words (the array is 16-byte aligned) and then
+        // the fixed 16-entry array, 64 bytes each.
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, fog_region_count),
+            208
+        );
+        assert_eq!(std::mem::offset_of!(EnvironmentUniform, fog_regions), 224);
+        assert_eq!(std::mem::size_of::<FogRegionUniform>(), 64);
+        assert_eq!(std::mem::align_of::<FogRegionUniform>(), 16);
+        assert_eq!(std::mem::offset_of!(FogRegionUniform, min_falloff), 0);
+        assert_eq!(std::mem::offset_of!(FogRegionUniform, max_top), 16);
+        assert_eq!(std::mem::offset_of!(FogRegionUniform, color_density), 32);
+        assert_eq!(std::mem::offset_of!(FogRegionUniform, ground_pad), 48);
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, fog_regions)
+                + 16 * std::mem::size_of::<FogRegionUniform>(),
+            std::mem::size_of::<EnvironmentUniform>()
+        );
+        // The static environment carries no regions and a zeroed array: the
+        // historical uniform without a level authoring any.
+        let default = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        );
+        assert_eq!(default.fog_region_count, 0);
+        assert_eq!(
+            default.fog_regions,
+            [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS]
+        );
         // The WGSL struct declares the same field order and the same pack.
-        assert!(WORLD_SHADER_SRC.contains("light_scale: vec3<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("lightmap_enabled: f32"));
-        assert!(WORLD_SHADER_SRC.contains("lightmap_page_count: u32"));
-        assert!(WORLD_SHADER_SRC.contains("lightmap_switchable: u32"));
-        assert!(WORLD_SHADER_SRC.contains("bits 16..=19"));
-        assert!(!WORLD_SHADER_SRC.contains("_padding: vec2<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("planar_matrix: mat4x4<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("planar_plane: vec4<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("model: mat4x4<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("opacity: f32"));
-        // The instance opacity reaches both the fragment alpha and the
-        // emissive term; the static world's 1.0 leaves both unchanged.
+        assert!(WORLD_SHADER_SRC.contains("fog_region_count: u32"));
+        assert!(WORLD_SHADER_SRC.contains("fog_regions: array<FogRegion, 16u>"));
+        assert!(WORLD_SHADER_SRC.contains("min_falloff: vec4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("max_top: vec4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("color_density: vec4<f32>"));
+        assert!(WORLD_SHADER_SRC.contains("ground_pad: vec4<f32>"));
+    }
+
+    /// The regional fog pack: the live entries first, the count word bounding
+    /// the loop, unused slots zero, and the preset caps exactly 2/8/16.
+    #[test]
+    fn fog_regions_pack_in_authoring_order_bounded_by_the_preset_cap() {
+        use crate::render::common::atmosphere::{FogRegion, LevelFog, fog_region_cap};
+        let regions: Vec<FogRegion> = (0..crate::level::MAX_FOG_REGIONS)
+            .map(|index| {
+                let index = f32::from(u8::try_from(index).unwrap_or(u8::MAX));
+                FogRegion {
+                    min: [index, index + 1.0, index + 2.0],
+                    max: [index + 10.0, index + 4.0, index + 8.0],
+                    density: 0.01 * (index + 1.0),
+                    color: [0.1 * index, 0.2, 0.3],
+                    falloff_m: 2.0,
+                    ground_y: index,
+                    top_y: index + 1.0,
+                }
+            })
+            .collect();
+        let level_fog = LevelFog {
+            global: crate::render::common::atmosphere::FogState::SHIPPED,
+            regions,
+        };
+        let low = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_fog_regions(
+            &level_fog.regions,
+            fog_region_cap(crate::quality::QualityLevel::Low),
+        );
+        assert_eq!(low.fog_region_count, 2);
+        assert_eq!(low.fog_regions[0].color_density[3], 0.01);
+        assert_eq!(low.fog_regions[1].color_density[3], 0.02);
+        assert_eq!(low.fog_regions[2], FogRegionUniform::ZERO);
+
+        let high = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_fog_regions(
+            &level_fog.regions,
+            fog_region_cap(crate::quality::QualityLevel::High),
+        );
+        assert_eq!(high.fog_region_count, 16);
+        // The prefix the low preset uploaded is bit-identical in both packs:
+        // a preset change only moves the count and the slots beyond it.
+        for slot in 0..2 {
+            assert_eq!(low.fog_regions[slot], high.fog_regions[slot]);
+        }
+        assert_eq!(high.fog_regions[15].min_falloff, [15.0, 16.0, 17.0, 2.0]);
+        assert_eq!(high.fog_regions[15].max_top, [25.0, 19.0, 23.0, 16.0]);
+        assert_eq!(high.fog_regions[15].ground_pad, [15.0, 0.0, 0.0, 0.0]);
+
+        // A cap of zero (or a level with no regions) clears everything.
+        let none = EnvironmentUniform::new(
+            [1.0; 3],
+            true,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_fog_regions(&level_fog.regions, 0);
+        assert_eq!(none.fog_region_count, 0);
+        assert_eq!(none.fog_regions, [FogRegionUniform::ZERO; 16]);
+    }
+
+    /// The world shader parses and validates as WGSL with no GPU adapter: the
+    /// offline half of the pipeline check, including the uniform structs the
+    /// environment layout mirrors.
+    #[test]
+    fn the_world_shader_is_valid_wgsl() {
+        use wgpu::naga::valid::{Capabilities, ValidationFlags, Validator};
+        let module = wgpu::naga::front::wgsl::parse_str(WORLD_SHADER_SRC)
+            .expect("the world shader parses as WGSL");
+        Validator::new(ValidationFlags::all(), Capabilities::all())
+            .validate(&module)
+            .expect("the world shader validates");
         assert!(
-            WORLD_SHADER_SRC.contains("material.opacity * environment.opacity"),
-            "shade() must fold the instance opacity into the fragment alpha"
+            module
+                .entry_points
+                .iter()
+                .any(|point| point.name == WORLD_FRAGMENT_ENTRY),
+            "the world shader has its main fragment entry point"
         );
         assert!(
-            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"),
-            "the emissive term must fade with the instance opacity"
+            module
+                .entry_points
+                .iter()
+                .any(|point| point.name == WORLD_VERTEX_ENTRY),
+            "the world shader has its vertex entry point"
         );
     }
 
@@ -4823,6 +5067,11 @@ mod tests {
         assert!(WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
         assert!(WORLD_SHADER_SRC.contains("all(sheen == vec3<f32>(0.0))"));
         assert!(WORLD_SHADER_SRC.contains("color = base_display;"));
+        // The bypass must also reject a level whose global density is zero but
+        // whose regions are live: the raw sample is only exact with no fog at
+        // all.
+        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_density == 0.0"));
+        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_region_count == 0u"));
     }
 
     // ------------------------------------------------------------------- fog
@@ -4860,10 +5109,11 @@ mod tests {
         for needle in [
             "let distance = length(camera.position - world_position);",
             "let below = max(0.0, environment.fog_reference_y - world_position.y);",
-            "let density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));",
+            "let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));",
+            "let density = global_density + layer_density;",
             "var fog_amount = density * distance;",
             "fog_amount = 1.0 - exp(-fog_amount * fog_amount);",
-            "return mix(color, environment.fog_color, clamp(fog_amount, 0.0, 1.0));",
+            "return mix(color, layer_color, clamp(fog_amount, 0.0, 1.0));",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
@@ -4898,6 +5148,40 @@ mod tests {
         for channel in 0..3 {
             assert!((deeper[channel] - capped[channel]).abs() < 1.0e-6);
         }
+    }
+
+    /// The regional block's tokens: per-fragment evaluation with the fragment's
+    /// own world position, the edge and layer factors, the overlap rule and the
+    /// global addition. The camera may only set the view distance.
+    #[test]
+    fn the_fog_layer_is_evaluated_per_fragment_from_the_world_position() {
+        for needle in [
+            "let region = environment.fog_regions[index];",
+            "let horizontal = min(",
+            "edge = clamp(horizontal / max(region.min_falloff.w, 1.0e-6), 0.0, 1.0);",
+            "vertical = select(0.0, 1.0, world_position.y <= ground_y);",
+            "vertical = clamp((top_y - world_position.y) / (top_y - ground_y), 0.0, 1.0);",
+            "let contribution = region.color_density.a * edge * vertical;",
+            "if (contribution > layer_density) {",
+            "layer_color = region.color_density.rgb;",
+            "let region_count = min(environment.fog_region_count, 16u);",
+        ] {
+            assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
+        }
+        // `fogged` reads the camera exactly once, for the distance. Regional
+        // membership never consults the eye.
+        let start = WORLD_SHADER_SRC.find("fn fogged").expect("fogged exists");
+        let end = WORLD_SHADER_SRC[start..]
+            .find("\n}\n")
+            .expect("fogged closes")
+            .saturating_add(start);
+        let body = &WORLD_SHADER_SRC[start..end];
+        assert_eq!(
+            body.matches("camera.position").count(),
+            1,
+            "the only camera read in fogged() is the view distance"
+        );
+        assert!(body.contains("length(camera.position - world_position)"));
     }
 
     // ------------------------------------------------------ planar reflection

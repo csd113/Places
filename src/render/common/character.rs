@@ -80,10 +80,20 @@ pub use crate::entity::{EntityFrame, PoseCue};
 /// textures and materials are shared. The historical cap of 8 could not place
 /// the required Model Zoo demonstrations (three mannequin poses, three skeleton
 /// poses, two rat routes, two Spooner-Man routes, and several wall switches).
-/// 64 is eight times the largest measured zoo cast; a level that places more
-/// keeps the extras in the static prop batch in their bind pose and reports the
+///
+/// Raised to 128 from 64 in the 2026 capacity pass. Every character path
+/// structure is `Vec`-backed and keyed by model path, so doubling the budget
+/// adds no new allocation class: one vertex buffer and one environment bind
+/// group per character, sized by the model's own bounded vertex count. The
+/// per-frame skinning cost stays bounded because a character model is clamped
+/// by the model budgets ([`crate::level::MAX_PROP_VERTICES`] at the engine
+/// ceiling, the 3 000-triangle [`ENTITY_TRIANGLE_BUDGET`](crate::level::ENTITY_TRIANGLE_BUDGET)
+/// for shipped art) and by [`crate::level::MAX_ANIMATION_CHANNELS`]; 128
+/// characters with the shipped skeleton's 94 joints is still only tens of
+/// thousands of joint evaluations per frame. A level that places more keeps
+/// the extras in the static prop batch in their bind pose and reports the
 /// budget, exactly as before.
-pub const MAX_CHARACTERS: usize = 64;
+pub const MAX_CHARACTERS: usize = 128;
 
 /// Time constant of the exponential state-weight approach, in seconds.
 ///
@@ -1568,6 +1578,12 @@ fn runtime_instance_matrix(position: Vec3, base_y: f32, yaw_degrees: f32, scale:
 }
 
 /// Samples each bind-pose vertex's albedo times baked light in world space.
+///
+/// The environment light is the shared moving-object rule
+/// ([`crate::render::common::light_transport::moving_object_light`]): the
+/// prepared field where it resolves, floored at the room's authored baseline,
+/// and the vertex-lit environment sample for a roomless or unresolvable
+/// position.
 fn sample_albedo(
     asset: &LoadedPropAsset,
     transform: &Mat4,
@@ -1580,14 +1596,11 @@ fn sample_albedo(
         .iter()
         .map(|vertex| {
             let position = transform.transform_point3(Vec3::from(vertex.pos));
-            let point = [position.x, position.y, position.z];
-            let room = lighting.room_index_at_height(point[0], point[1], point[2]);
-            let light = irradiance
-                .and_then(|field| field.sample_display(point, room))
-                .unwrap_or_else(|| {
-                    let light = lighting.sample(point[0], point[1], point[2]);
-                    [light.r, light.g, light.b]
-                });
+            let light = crate::render::common::light_transport::moving_object_light(
+                lighting,
+                irradiance,
+                [position.x, position.y, position.z],
+            );
             [
                 vertex.color[0] * light[0],
                 vertex.color[1] * light[1],

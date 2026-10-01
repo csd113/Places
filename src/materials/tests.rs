@@ -1368,3 +1368,130 @@ fn pool_tiles_keep_a_restrained_visible_sheen() {
         );
     }
 }
+
+// ------------------------------------------- 2026 material-index widening
+
+/// A wall face map is the cheapest way to *reference* many distinct material
+/// ids without authoring geometry for each: every value is a referenced
+/// material even when the face name is not one of the two the emitter draws.
+fn level_with_material_ids(count: usize) -> LevelDef {
+    let faces: Vec<String> = (0..count)
+        .map(|index| format!(r#""cap_face_{index:06}": "cap:mat_{index:06}""#))
+        .collect();
+    level_from(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "wide_materials",
+            "name": "Wide Materials",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }}],
+            "walls": [{{ "x": 0.0, "z": 2.0, "width": 4.0, "depth": 0.2,
+                         "material": "cap:wall_body", "faces": {{ {} }} }}]
+        }}"#,
+        faces.join(",")
+    ))
+}
+
+/// A table past the former `u16` material boundary keeps every id's own index.
+///
+/// The historical `MaterialIndex` was `u16`, so every material past 65 535
+/// silently collapsed onto `u16::MAX` — the `MATERIAL_NONE` sentinel — and
+/// drew the fallback sheet. The widened index must give each id a distinct
+/// slot and must never produce the sentinel.
+#[test]
+fn a_table_past_the_former_u16_material_boundary_keeps_indices_distinct() {
+    let count = 70_000;
+    let level = level_with_material_ids(count);
+    let table = MaterialTable::logical(&level, &shipped_catalog(), None);
+    let ids = referenced_material_ids(&level);
+    assert!(table.len() > 65_535, "{} entries", table.len());
+    assert_eq!(table.len(), ids.len(), "one entry per distinct id");
+    let indices: std::collections::HashSet<u32> =
+        ids.iter().filter_map(|id| table.index_of(id)).collect();
+    assert_eq!(
+        indices.len(),
+        ids.len(),
+        "every id must keep its own index; a collapse would shrink the set"
+    );
+    assert!(
+        !indices.contains(&u32::MAX),
+        "no material may alias the MATERIAL_NONE sentinel"
+    );
+    // Entries on both sides of the old boundary resolve through the same
+    // lookup the renderer uses.
+    for index in [65_534_u32, 65_535, 65_536, 69_999] {
+        let entry = table
+            .entry(index)
+            .unwrap_or_else(|| panic!("entry {index} exists"));
+        assert_eq!(table.index_of(&entry.id), Some(index));
+        assert_eq!(
+            table.texture_index(index),
+            Some(entry.texture_index),
+            "the texture lookup follows the same index"
+        );
+    }
+    // The first id outside the old range must not be the sentinel's slot.
+    let past = table
+        .index_of("cap:mat_065536")
+        .expect("the id past the boundary resolves");
+    assert!(past > 65_535, "the index is {past}");
+    assert_ne!(past, u32::MAX);
+}
+
+/// The material-count rejection is the loader's, but the table type must
+/// agree with it: a validated table never reaches the widened index's own
+/// saturation point, and the cap is what decides addressability.
+#[test]
+fn the_level_material_cap_fits_the_widened_index_with_room_to_spare() {
+    assert!(
+        crate::level::MAX_LEVEL_MATERIALS < u64::from(u32::MAX),
+        "the explicit cap is the only bound the index needs"
+    );
+}
+
+/// The aggregate decoded-texture guard names its boundary exactly.
+#[test]
+fn the_decoded_texture_budget_accepts_its_limit_and_rejects_one_over() {
+    let limit = crate::level::MAX_LEVEL_TEXTURE_BYTES;
+    assert_eq!(
+        check_texture_bytes(limit),
+        Ok(()),
+        "the limit itself is inside the budget"
+    );
+    let error = check_texture_bytes(limit.saturating_add(1))
+        .expect_err("one byte over the budget must be rejected");
+    assert!(
+        error.contains("too many decoded texture bytes"),
+        "the rejection must be named: {error}"
+    );
+    assert!(
+        error.contains(&limit.to_string()),
+        "the rejection must name the limit: {error}"
+    );
+}
+
+/// One over the explicit material budget is refused by name.
+///
+/// The table type cannot reject (it is built from whatever it is given); the
+/// rejection is the loader's, and this pins the boundary between the two: the
+/// level validator's count and the widened index agree on where the limit is.
+#[test]
+fn one_over_the_material_budget_is_rejected_by_name() {
+    let cap = usize::try_from(crate::level::MAX_LEVEL_MATERIALS).unwrap_or(usize::MAX);
+    let over = cap.saturating_add(1);
+    let level = level_with_material_ids(over.saturating_sub(4));
+    assert_eq!(
+        referenced_material_ids(&level).len(),
+        over,
+        "the level references exactly one past the budget"
+    );
+    let error = crate::loader::validate_level(&level)
+        .expect_err("a level over the material budget must be rejected");
+    assert!(
+        error.contains(&format!(
+            "declares too many distinct materials: {over} (limit {})",
+            crate::level::MAX_LEVEL_MATERIALS
+        )),
+        "{error}"
+    );
+}

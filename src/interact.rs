@@ -363,9 +363,14 @@ pub(crate) fn rotated_half_extents(
 ///
 /// `direction` need not be normalised. A target is eligible when the ray enters
 /// its bounds within that instance's reach and no wall obstructs the ray before
-/// that entry. A solid prop's own collision box is part of `walls`, so a wall
-/// exactly matching the candidate's own box is excluded from occlusion. Items
-/// with no actions (label-only targets) are not aimable and never returned.
+/// that entry. A door's aim entry is measured against the leaf's own oriented
+/// box, never the conservative axis-aligned bound that only the label uses: an
+/// open leaf's swept AABB covers a wide angle around the hinge, and a ray that
+/// misses the leaf but crosses that bound must not steal the aim from whatever
+/// is actually on the line. A solid prop's own collision box is part of
+/// `walls`, so a wall exactly matching the candidate's own box is excluded from
+/// occlusion. Items with no actions (label-only targets) are not aimable and
+/// never returned.
 #[must_use]
 pub fn nearest_target(
     origin: Vec3,
@@ -383,13 +388,9 @@ pub fn nearest_target(
         if !item.enabled {
             continue;
         }
-        let Some(entry) = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)
-        else {
+        let Some(entry) = target_entry(origin, direction, item, doors) else {
             continue;
         };
-        if entry > item.reach {
-            continue;
-        }
         if occluded_before(
             origin,
             direction,
@@ -406,6 +407,28 @@ pub fn nearest_target(
         }
     }
     best.map(|(index, _)| index)
+}
+
+/// The distance at which a ray enters one aimable instance, or `None` when it
+/// misses or is beyond the instance's own reach.
+///
+/// A door target is the one case with two representations: its item bound is
+/// the conservative AABB of the swinging leaf (used for labels), while the
+/// leaf itself is an oriented box. The oriented box is the exact one, so the
+/// entry is measured there; everything else is measured against its bound.
+#[must_use]
+fn target_entry(
+    origin: Vec3,
+    direction: Vec3,
+    item: &Interactable,
+    doors: &[DoorCollider],
+) -> Option<f32> {
+    if let Some(door_index) = item.door_index {
+        let door = doors.get(door_index)?;
+        return door.ray_entry(origin, direction, item.reach);
+    }
+    let entry = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)?;
+    (entry <= item.reach).then_some(entry)
 }
 
 /// [`nearest_target`] through the collision index and the door leaves.
@@ -431,13 +454,9 @@ pub fn nearest_target_indexed(
         if !item.enabled {
             continue;
         }
-        let Some(entry) = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)
-        else {
+        let Some(entry) = target_entry(origin, direction, item, doors) else {
             continue;
         };
-        if entry > item.reach {
-            continue;
-        }
         if occluded_before_indexed(
             origin,
             direction,
@@ -929,6 +948,95 @@ mod tests {
         assert!(
             occluded.is_empty(),
             "an occluded label and a blocked target draw nothing"
+        );
+    }
+
+    /// A door target's aim entry is measured against the oriented leaf, never
+    /// the conservative axis-aligned bound its label uses: a ray that crosses
+    /// the bound of a swung leaf but misses the leaf itself must reach the
+    /// object behind it, while a ray on the leaf still resolves the door.
+    #[test]
+    fn door_targets_use_the_oriented_leaf_for_aim_entry() {
+        // A leaf hinged at the origin and swung 45 degrees onto the +X/+Z
+        // diagonal, 1.6 m wide and 5 cm thick. Its axis-aligned bound is the
+        // diagonal slab's bounding square, which the 5 cm leaf does not fill:
+        // the corner regions of the bound are clear of the leaf.
+        let half_turn = std::f32::consts::FRAC_1_SQRT_2;
+        let door = DoorCollider::from_pose([0.0, 0.0, 0.0], [half_turn, half_turn], 1.6, 0.05, 2.1);
+        let sync = InteractableSync::from_door_collider(&door);
+        let door_item = Interactable {
+            id: "door".into(),
+            display_name: "door".into(),
+            prompt: String::new(),
+            reach: 4.0,
+            anchor: sync.anchor,
+            bounds: sync.bounds,
+            size: [1.6, 2.1, 0.05],
+            own_box: None,
+            door_index: Some(0),
+            enabled: true,
+        };
+        // A small aimable prop beyond the bound's far corner, off the leaf
+        // line. The ray runs parallel to the leaf at a fixed 0.35 m offset, so
+        // it crosses the bound and never touches the 5 cm slab.
+        let prop_item = Interactable {
+            id: "prop".into(),
+            display_name: "prop".into(),
+            prompt: String::new(),
+            reach: 4.0,
+            anchor: Vec3::new(1.4, 1.48, 0.9),
+            bounds: crate::spatial::Aabb {
+                min: [1.3, 0.0, 0.75],
+                max: [1.5, 1.2, 1.05],
+            },
+            size: [0.2, 1.2, 0.3],
+            own_box: None,
+            door_index: None,
+            enabled: true,
+        };
+        let origin = Vec3::new(0.0, 1.0, -0.5);
+        let direction = Vec3::new(1.0, 0.0, 1.0).normalize();
+        let bound_entry = ray_aabb_entry(origin, direction, sync.bounds.min, sync.bounds.max)
+            .expect("the precondition: the conservative bound is crossed");
+        assert_eq!(
+            door.ray_entry(origin, direction, 4.0),
+            None,
+            "the precondition: the ray runs parallel to the leaf, clear of it"
+        );
+        let prop_entry = ray_aabb_entry(
+            origin,
+            direction,
+            prop_item.bounds.min,
+            prop_item.bounds.max,
+        )
+        .expect("the aimable prop is on the ray");
+        assert!(
+            bound_entry < prop_entry,
+            "the bound would win if it were the aim entry: {bound_entry} < {prop_entry}"
+        );
+        assert_eq!(
+            nearest_target(
+                origin,
+                direction,
+                &[door_item.clone(), prop_item.clone()],
+                &[],
+                &[door]
+            ),
+            Some(1),
+            "a ray that misses the leaf but crosses its bound reaches the prop"
+        );
+
+        // A ray that does reach the leaf still resolves the door.
+        let on_leaf = Vec3::new(1.0, 1.0, -0.5);
+        let across_leaf = Vec3::new(0.0, 0.0, 1.0);
+        assert!(
+            door.ray_entry(on_leaf, across_leaf, 4.0).is_some(),
+            "the precondition: the second ray crosses the leaf"
+        );
+        assert_eq!(
+            nearest_target(on_leaf, across_leaf, &[door_item, prop_item], &[], &[door]),
+            Some(0),
+            "the leaf itself is still the target"
         );
     }
 }

@@ -592,3 +592,185 @@ fn the_raised_caps_accept_content_past_the_old_boundary() {
     let settings = crate::settings::Settings::default();
     game.update_player_movement(&mut input, &settings);
 }
+
+#[test]
+fn the_2026_raised_caps_accept_content_past_their_former_boundary() {
+    // The 2026 capacity pass raised the loader caps again: 2000 rooms,
+    // 20 000 walls, 20 000 ceiling lights and 20 000 props became 8000 /
+    // 60 000 / 50 000 / 100 000 (see `src/level.rs`). A level one past the
+    // *former* value of each must parse, validate, collide and step the
+    // controller: the raised values are only real if the engine handles
+    // content the previous release refused.
+    let mut rooms: Vec<String> = Vec::new();
+    let mut walls: Vec<String> = Vec::new();
+    let mut props: Vec<String> = Vec::new();
+    let mut lights: Vec<String> = Vec::new();
+    for index in 0..20_001 {
+        let x = (index % 71) as f32 * 2.0;
+        let z = (index / 71) as f32 * 2.0;
+        props.push(format!(
+            r#"{{"id": "p{index}", "model": "core:crate", "x": {x}, "z": {z}, "size": [0.6, 0.6, 0.6], "solid": false}}"#
+        ));
+    }
+    for index in 0..20_001 {
+        let x = (index % 71) as f32 * 2.0 + 1.0;
+        let z = (index / 71) as f32 * 2.0 + 1.0;
+        lights.push(format!(
+            r#"{{"id": "l{index}", "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}}}"#
+        ));
+    }
+    for index in 0..20_001 {
+        let x = (index % 71) as f32 * 2.0 + 0.5;
+        let z = (index / 71) as f32 * 2.0 + 0.5;
+        walls.push(format!(
+            r#"{{"x": {x}, "z": {z}, "width": 0.3, "depth": 0.3, "height": 2.0}}"#
+        ));
+    }
+    for index in 0..2_001 {
+        let x = (index % 45) as f32 * 6.0;
+        let z = (index / 45) as f32 * 6.0;
+        rooms.push(format!(
+            r#"{{"x": {x}, "z": {z}, "width": 5.0, "depth": 5.0, "height": 3.0}}"#
+        ));
+    }
+    let json = format!(
+        r#"{{"format_version": 3, "id": "beyond_2026_caps", "name": "Beyond 2026 Caps",
+            "spawn": {{"x": 1.0, "z": 1.0}},
+            "rooms": [{}], "walls": [{}], "ceiling_lights": [{}], "props": [{}]}}"#,
+        rooms.join(","),
+        walls.join(","),
+        lights.join(","),
+        props.join(",")
+    );
+    let level = LevelDef::from_json(&json).expect("a level past the 2026 caps parses");
+    crate::loader::validate_level(&level).expect("a level past the 2026 caps validates");
+    let world = CollisionWorld::from_level(&level);
+    assert!(world.walls.len() > 20_000);
+    let index = CollisionIndex::build(&world.walls);
+    assert_eq!(index.len(), world.walls.len());
+    // A 0.3 m wall stub at (0.5, 0.5)..(0.8, 0.8) must resolve support through
+    // both the linear and the indexed query.
+    assert_eq!(
+        crate::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls),
+        crate::collision::highest_support_top_indexed(&index, 0.6, 0.6, 3.0, &world.walls),
+    );
+    assert!(
+        crate::collision::highest_support_top(0.6, 0.6, 3.0, &world.walls).is_some(),
+        "the indexed support query must answer in a 20 001-wall world"
+    );
+    // A game built on it takes its first movement step without panicking.
+    let mut game = Game::new(crate::game::spawn_position(&level), 0.0, world);
+    game.set_app_state(crate::game::AppState::Playing);
+    let mut input = crate::input::InputState::default();
+    let settings = crate::settings::Settings::default();
+    game.update_player_movement(&mut input, &settings);
+}
+
+#[test]
+fn the_beyond_former_limits_fixture_carries_content_the_old_caps_refused() {
+    // The fixture is the measured witness for the 2026 pass: every count it
+    // carries is one past the *former* cap, and its material set crosses the
+    // former 16-bit index boundary while staying inside the new explicit
+    // budget. `capacity()` validates it, so this test fails if the generated
+    // source and the validators ever drift apart.
+    let level = capacity("capacity_beyond_former_limits");
+    assert!(
+        level.props.len() > 20_000,
+        "props must exceed the former 20 000 cap; found {}",
+        level.props.len()
+    );
+    assert!(
+        level.walls.len() > 20_000,
+        "walls must exceed the former 20 000 cap; found {}",
+        level.walls.len()
+    );
+    assert!(
+        level.room_iter().count() > 2_000,
+        "rooms must exceed the former 2000 cap; found {}",
+        level.room_iter().count()
+    );
+    assert!(level.decals.len() > 5_000);
+    assert!(level.floor_regions.len() > 2_000);
+    assert!(level.floor_patches.len() > 2_000);
+    assert!(level.water.len() > 2_000);
+    assert!(level.ramps.len() > 500);
+    assert!(level.stairs.len() > 500);
+    assert!(level.half_walls.len() > 2_000);
+    assert!(level.columns.len() > 2_000);
+    assert!(level.arc_walls.len() > 1_000);
+    assert!(level.pillars.len() > 2_000);
+    assert!(level.archways.len() > 500);
+    assert!(level.guardrails.len() > 2_000);
+    assert!(level.thresholds.len() > 1_000);
+    assert!(level.baseboards.len() > 2_000);
+    assert!(level.ladders.len() > 256);
+    let distinct = crate::materials::referenced_material_ids(&level).len();
+    assert!(
+        distinct > 65_536,
+        "the fixture must cross the former u16 material boundary; found {distinct}"
+    );
+    assert!(
+        u64::try_from(distinct).unwrap_or(u64::MAX) < crate::level::MAX_LEVEL_MATERIALS,
+        "the fixture must stay inside the new material budget; found {distinct}"
+    );
+    let estimate = level.estimate_geometry();
+    assert!(
+        estimate.total_vertices < crate::level::MAX_LEVEL_VERTICES,
+        "the fixture must stay inside the raised vertex estimate: {estimate:?}"
+    );
+}
+
+#[test]
+fn the_beyond_former_limits_package_loads_through_the_reader() {
+    // Fixture packages are build artefacts and are not committed; the offline
+    // compiler produces this one (`places-compile build
+    // tests/fixtures/levels/capacity_beyond_former_limits.json`). When it is
+    // present, every record must decode and the widened material index must
+    // survive the record.
+    let path =
+        std::path::Path::new("tests/fixtures/levels/capacity_beyond_former_limits.placesmap");
+    if !path.is_file() {
+        return;
+    }
+    let opened = crate::package::world::open(path).expect("the fixture package opens");
+    let mut assets = crate::props::PropAssets::load_default();
+    let variant = crate::package::world::load_variant(
+        path,
+        &opened.manifest,
+        crate::quality::LightmapQuality::Off,
+        &mut assets,
+    )
+    .expect("the fixture's off variant decodes");
+    assert!(
+        variant.mesh.vertex_count > 0 && !variant.mesh.ranges.is_empty(),
+        "the prepared mesh must carry geometry"
+    );
+    assert!(
+        !variant.props.is_empty(),
+        "the fixture carries 20 001 prop placements"
+    );
+    assert!(
+        !variant.collision.walls.is_empty(),
+        "the collision record must decode with the package"
+    );
+    // The widened index survives the package: ranges past the former u16
+    // boundary exist, and every non-sentinel material is inside the level's
+    // explicit budget (which the record reader also enforces).
+    let mut above_u16 = 0usize;
+    for range in &variant.mesh.ranges {
+        if range.key.material != crate::render::MATERIAL_NONE {
+            assert!(
+                u64::from(range.key.material) < crate::level::MAX_LEVEL_MATERIALS,
+                "range material {} is inside the level budget",
+                range.key.material
+            );
+        }
+        if range.key.material > 65_535 {
+            above_u16 = above_u16.saturating_add(1);
+        }
+    }
+    assert!(
+        above_u16 > 0,
+        "the fixture must decode ranges past the former u16 material boundary"
+    );
+}

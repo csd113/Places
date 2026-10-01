@@ -58,6 +58,18 @@ pub enum LevelSourceType {
     Embedded,
 }
 
+impl LevelSourceType {
+    /// Stable lower-case label, used by `--list-levels` and the diagnostics.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Bundled => "bundled",
+            Self::Installed => "installed",
+            Self::Embedded => "embedded",
+        }
+    }
+}
+
 /// Menu precedence of a source: bundled packages first, then installed ones,
 /// then the embedded fallback.
 const fn source_rank(source_type: LevelSourceType) -> u8 {
@@ -110,7 +122,7 @@ pub struct ResolvedFixtureSheet {
     /// A family sheet fills its family's slot; a switchable fixture's own face
     /// fills its private slot after
     /// [`crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE`].
-    pub slot: u16,
+    pub slot: u32,
     /// Session-unique decode/dedupe key: the catalog PNG path, or the pack's own
     /// `pack:<namespace>:<path>` key.
     pub key: String,
@@ -297,6 +309,7 @@ fn placeable_entry(entry: &crate::assets::AssetEntry) -> PropCatalogEntry {
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     validate_element_limits(level)?;
+    validate_materials(level)?;
     validate_sky(level)?;
     validate_rooms(level)?;
     validate_surface_shine(level)?;
@@ -323,7 +336,162 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_decals(level)?;
     validate_decal_surfaces(level)?;
     validate_animated_emissions(level)?;
+    validate_fog_regions(level)?;
+    validate_void_walls(level)?;
     validate_geometry_budget(level)
+}
+
+/// Regional fog volumes: identity, finite ordered bounds, bounded density,
+/// colour and falloff, and the count cap.
+///
+/// A malformed region is a level error rather than a silent clamp: a layer
+/// the author meant to sit over a yard and that instead covers the whole map
+/// (or none of it) has to be visible at build time. The check is a pure
+/// schema check; resolution against the global atmosphere happens at install.
+fn validate_fog_regions(level: &LevelDef) -> Result<(), String> {
+    let count = level.fog_regions.len();
+    if u64::try_from(count).unwrap_or(u64::MAX)
+        > u64::try_from(crate::level::MAX_FOG_REGIONS).unwrap_or(u64::MAX)
+    {
+        return Err(format!(
+            "Level contains too many fog regions: {count} (limit: {})",
+            crate::level::MAX_FOG_REGIONS
+        ));
+    }
+    let mut ids: Vec<&str> = Vec::with_capacity(count);
+    for (i, region) in level.fog_regions.iter().enumerate() {
+        let id = region.id.trim();
+        if id.is_empty() {
+            return Err(format!("fog region {i} names no id"));
+        }
+        if id.chars().count() > crate::level::MAX_FOG_REGION_ID_CHARS {
+            return Err(format!(
+                "fog region {i} ('{id}') has an id longer than {} characters",
+                crate::level::MAX_FOG_REGION_ID_CHARS
+            ));
+        }
+        if ids.contains(&id) {
+            return Err(format!("fog region {i} ('{id}') repeats an id"));
+        }
+        ids.push(id);
+        if !region
+            .min
+            .iter()
+            .chain(region.max.iter())
+            .all(|value| value.is_finite())
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') bounds must be finite numbers"
+            ));
+        }
+        if !(region.min[0] < region.max[0]
+            && region.min[1] < region.max[1]
+            && region.min[2] < region.max[2])
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') must have min below max on every axis"
+            ));
+        }
+        if !region.density.is_finite()
+            || !(0.0..=crate::level::MAX_FOG_REGION_DENSITY).contains(&region.density)
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') has density {} (limit {})",
+                region.density,
+                crate::level::MAX_FOG_REGION_DENSITY
+            ));
+        }
+        if let Some(color) = region.color
+            && !color
+                .iter()
+                .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') colour components must be between 0.0 and 1.0"
+            ));
+        }
+        if let Some(falloff) = region.falloff_m
+            && (!falloff.is_finite() || falloff < 0.0)
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') has a falloff_m of {falloff} \
+                 (must be a finite value at or above 0.0)"
+            ));
+        }
+        if region.ground_y.is_some_and(|value| !value.is_finite())
+            || region.top_y.is_some_and(|value| !value.is_finite())
+        {
+            return Err(format!(
+                "fog region {i} ('{id}') ground_y and top_y must be finite when authored"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Void walls: finite ordered boxes, a non-empty well-formed material id, the
+/// count cap, and unique ids when present.
+fn validate_void_walls(level: &LevelDef) -> Result<(), String> {
+    let count = level.void_walls.len();
+    if u64::try_from(count).unwrap_or(u64::MAX)
+        > u64::try_from(crate::level::MAX_VOID_WALLS).unwrap_or(u64::MAX)
+    {
+        return Err(format!(
+            "Level contains too many void walls: {count} (limit: {})",
+            crate::level::MAX_VOID_WALLS
+        ));
+    }
+    let mut ids: Vec<&str> = Vec::with_capacity(count);
+    for (i, piece) in level.void_walls.iter().enumerate() {
+        if let Some(authored) = &piece.id {
+            let id = authored.trim();
+            if id.is_empty() {
+                return Err(format!("void wall {i} has an empty id"));
+            }
+            if id.chars().count() > crate::level::MAX_VOID_WALL_ID_CHARS {
+                return Err(format!(
+                    "void wall {i} ('{id}') has an id longer than {} characters",
+                    crate::level::MAX_VOID_WALL_ID_CHARS
+                ));
+            }
+            if ids.contains(&id) {
+                return Err(format!("void wall {i} ('{id}') repeats an id"));
+            }
+            ids.push(id);
+        }
+        let label = piece
+            .id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map_or_else(|| i.to_string(), |id| format!("{i} ('{id}')"));
+        if !piece
+            .min
+            .iter()
+            .chain(piece.max.iter())
+            .all(|value| value.is_finite())
+        {
+            return Err(format!("void wall {label} bounds must be finite numbers"));
+        }
+        if !(piece.min[0] < piece.max[0]
+            && piece.min[1] < piece.max[1]
+            && piece.min[2] < piece.max[2])
+        {
+            return Err(format!(
+                "void wall {label} must have min below max on every axis"
+            ));
+        }
+        let material = piece.material.trim();
+        if material.is_empty() {
+            return Err(format!("void wall {label} names no material"));
+        }
+        if !crate::assets::is_valid_asset_id(material) {
+            return Err(format!(
+                "void wall {label} material `{material}` is not a well-formed logical id"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The optional sky: a well-formed texture id, a bounded brightness and a
@@ -454,11 +622,11 @@ fn validate_header(level: &LevelDef) -> Result<(), String> {
 /// structures are `Vec`/`HashMap`-backed and the per-frame queries go through
 /// the collision index, so the caps exist to refuse a pathological or
 /// accidentally huge file before it becomes resident, not to define what fits.
-/// The values are four times the largest fixture this repository tests
-/// (`tools/levels/build_capacity_fixtures.py` authors 20 000 walls / 20 000
-/// props / 3 000 lights / 20 000 collision boxes and is measured on the
-/// release build); a level above them is genuinely outside the verified
-/// envelope rather than merely large.
+/// The values are sized from the extended capacity fixture
+/// (`tools/levels/build_capacity_fixtures.py`, which authors one past the
+/// *former* cap in every category and is measured on the release build); a
+/// level above them is genuinely outside the verified envelope rather than
+/// merely large.
 fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
     let room_count = level.room_iter().count();
     if u64::try_from(room_count).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ROOMS {
@@ -504,6 +672,26 @@ fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
             "Level contains too many floor patches: {} (limit: {})",
             level.floor_patches.len(),
             crate::level::MAX_LEVEL_FLOOR_PATCHES
+        ));
+    }
+    Ok(())
+}
+
+/// The level's distinct material budget.
+///
+/// The count is exactly the id set [`crate::materials::referenced_material_ids`]
+/// resolves — the set the renderer builds its
+/// [`crate::materials::MaterialTable`] from — so this validator, the loader and
+/// the draw path agree on what "a material" is by construction. The check runs
+/// before any image is decoded or uploaded, so an over-budget file is refused
+/// by name instead of saturating a material index.
+fn validate_materials(level: &LevelDef) -> Result<(), String> {
+    let count =
+        u64::try_from(crate::materials::referenced_material_ids(level).len()).unwrap_or(u64::MAX);
+    if count > crate::level::MAX_LEVEL_MATERIALS {
+        return Err(format!(
+            "Level declares too many distinct materials: {count} (limit {})",
+            crate::level::MAX_LEVEL_MATERIALS
         ));
     }
     Ok(())
@@ -701,13 +889,17 @@ fn validate_floor_regions(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// Rectangular water volumes: position, size, surface, material and depth.
+/// Water volumes: position, shape, size/radius, surface, material and depth.
 ///
-/// A volume whose surface sits at or below the floor beneath it is a typo the
-/// author has to see (the water would be hidden inside the geometry), so the
-/// walkable floor is sampled inside the footprint and compared against the
-/// authored surface. A volume that overlaps no room is rejected like a floor
-/// region that overlaps none.
+/// A rectangle requires `width`/`depth`; a circle requires `radius` and may
+/// author `width`/`depth` only as its own bounding box (`2 * radius`), so a
+/// contradictory record can never make the drawn disc and the membership test
+/// disagree. A volume whose surface sits at or below the floor beneath it is a
+/// typo the author has to see (the water would be hidden inside the geometry),
+/// so the walkable floor is sampled inside the volume's *own* footprint — the
+/// rectangle, or the disc's interior rather than its bounding box corners —
+/// and compared against the authored surface. A volume that overlaps no room
+/// is rejected like a floor region that overlaps none.
 fn validate_water(level: &LevelDef) -> Result<(), String> {
     if u64::try_from(level.water.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_WATER_VOLUMES
     {
@@ -719,78 +911,177 @@ fn validate_water(level: &LevelDef) -> Result<(), String> {
     }
     let surfaces = crate::level::LevelSurfaces::new(level);
     for (i, volume) in level.water.iter().enumerate() {
-        if !volume.x.is_finite()
-            || !volume.z.is_finite()
-            || !volume.width.is_finite()
-            || !volume.depth.is_finite()
-            || !volume.surface_y.is_finite()
-        {
-            return Err(format!(
-                "Water volume {i} position, size, and surface must be finite numbers"
-            ));
-        }
-        if volume.width <= 0.0 || volume.depth <= 0.0 {
-            return Err(format!("Water volume {i} width and depth must be positive"));
-        }
-        if volume
-            .material
-            .as_deref()
-            .is_some_and(|material| material.trim().is_empty())
-        {
-            return Err(format!(
-                "Water volume {i} material must be a non-empty id when specified"
-            ));
-        }
-        if let Some(opacity) = volume.opacity
-            && (!opacity.is_finite() || !(0.0..=1.0).contains(&opacity))
-        {
-            return Err(format!(
-                "Water volume {i} opacity must be a finite number between 0.0 and 1.0"
-            ));
-        }
-        if let Some(bottom) = volume.bottom_y
-            && (!bottom.is_finite() || bottom >= volume.surface_y)
-        {
-            return Err(format!(
-                "Water volume {i} bottom_y must be finite and below its surface_y"
-            ));
-        }
+        validate_water_shape(i, volume)?;
+        validate_water_contract(i, volume)?;
+        validate_water_footprint(i, volume, &surfaces)?;
+    }
+    Ok(())
+}
 
-        let (x0, x1, z0, z1) = volume.bounds();
-        let mut overlaps_room = false;
-        let mut samples: [(f32, f32); 5] = [
+/// One water volume's shape contract: finite position and surface, and the
+/// matching `width`/`depth` or `radius` for its shape.
+fn validate_water_shape(i: usize, volume: &crate::level::WaterVolumeDef) -> Result<(), String> {
+    use crate::level::WaterShape;
+
+    if !volume.x.is_finite() || !volume.z.is_finite() || !volume.surface_y.is_finite() {
+        return Err(format!(
+            "Water volume {i} position and surface must be finite numbers"
+        ));
+    }
+    match volume.shape {
+        WaterShape::Rect => {
+            let Some(width) = volume.width else {
+                return Err(format!(
+                    "Water volume {i} is a rectangle and must author width"
+                ));
+            };
+            let Some(depth) = volume.depth else {
+                return Err(format!(
+                    "Water volume {i} is a rectangle and must author depth"
+                ));
+            };
+            if !width.is_finite() || width <= 0.0 || !depth.is_finite() || depth <= 0.0 {
+                return Err(format!(
+                    "Water volume {i} width and depth must be finite and positive"
+                ));
+            }
+            if volume.radius.is_some() {
+                return Err(format!(
+                    "Water volume {i} authors radius on a rectangle; use \
+                     \"shape\": \"circle\" for a circular pool"
+                ));
+            }
+        }
+        WaterShape::Circle => {
+            let Some(radius) = volume.radius else {
+                return Err(format!(
+                    "Water volume {i} is a circle and must author radius"
+                ));
+            };
+            if !radius.is_finite() || radius <= 0.0 {
+                return Err(format!(
+                    "Water volume {i} radius must be a finite number greater than 0"
+                ));
+            }
+            // The bounding box is a derivation, never a second source of
+            // truth: a circle may author `width`/`depth` only as its own
+            // diameter (a generator that stamps the box verbatim), and a
+            // mismatch is rejected by name.
+            let diameter = 2.0 * radius;
+            for (name, value) in [("width", volume.width), ("depth", volume.depth)] {
+                if let Some(value) = value
+                    && (!value.is_finite() || (value - diameter).abs() > 1.0e-4)
+                {
+                    return Err(format!(
+                        "Water volume {i} {name} ({value:?}) must be absent or equal \
+                         2 * radius ({diameter:?}); a circle's bounding box is derived"
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// One water volume's material/opacity/depth contract.
+fn validate_water_contract(i: usize, volume: &crate::level::WaterVolumeDef) -> Result<(), String> {
+    if volume
+        .material
+        .as_deref()
+        .is_some_and(|material| material.trim().is_empty())
+    {
+        return Err(format!(
+            "Water volume {i} material must be a non-empty id when specified"
+        ));
+    }
+    if let Some(opacity) = volume.opacity
+        && (!opacity.is_finite() || !(0.0..=1.0).contains(&opacity))
+    {
+        return Err(format!(
+            "Water volume {i} opacity must be a finite number between 0.0 and 1.0"
+        ));
+    }
+    if let Some(bottom) = volume.bottom_y
+        && (!bottom.is_finite() || bottom >= volume.surface_y)
+    {
+        return Err(format!(
+            "Water volume {i} bottom_y must be finite and below its surface_y"
+        ));
+    }
+    Ok(())
+}
+
+/// One water volume's non-empty footprint and its overlap with a room.
+///
+/// The floor samples are the volume's own footprint: a rectangle's centre and
+/// corners (inset off a room seam), or a circle's centre and four interior
+/// points, so a bounding box corner the disc does not cover never decides
+/// anything.
+fn validate_water_footprint(
+    i: usize,
+    volume: &crate::level::WaterVolumeDef,
+    surfaces: &crate::level::LevelSurfaces<'_>,
+) -> Result<(), String> {
+    use crate::level::WaterShape;
+
+    let (x0, x1, z0, z1) = volume.bounds();
+    if x1 <= x0 || z1 <= z0 {
+        return Err(format!(
+            "Water volume {i} has an empty footprint; its width/depth or radius \
+             must describe a positive extent"
+        ));
+    }
+    let mut overlaps_room = false;
+    let mut samples: [(f32, f32); 5] = match volume.shape {
+        WaterShape::Rect => [
             (f32::midpoint(x0, x1), f32::midpoint(z0, z1)),
             (x0, z0),
             (x1, z0),
             (x1, z1),
             (x0, z1),
-        ];
-        // Inset the corner samples so a volume that shares an edge with a room
-        // boundary is not rejected by floating-point noise on the seam. The
-        // inset is scaled down for a very small footprint so the clamp bounds
-        // can never invert (which would panic).
+        ],
+        WaterShape::Circle => {
+            let (cx, cz) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+            // The centre and four interior points at half the radius: the
+            // disc's own footprint, not the bounding box corners a square
+            // would wrongly include.
+            let offset = volume.radius.unwrap_or(0.0) * 0.353_553_4;
+            [
+                (cx, cz),
+                (cx - offset, cz - offset),
+                (cx + offset, cz - offset),
+                (cx + offset, cz + offset),
+                (cx - offset, cz + offset),
+            ]
+        }
+    };
+    if volume.shape == WaterShape::Rect {
+        // Inset the corner samples so a volume that shares an edge with a
+        // room boundary is not rejected by floating-point noise on the seam.
+        // The inset is scaled down for a very small footprint so the clamp
+        // bounds can never invert (which would panic).
         let inset_x = 1.0e-3_f32.min((x1 - x0) * 0.25);
         let inset_z = 1.0e-3_f32.min((z1 - z0) * 0.25);
         for (x, z) in &mut samples {
             *x = x.clamp(x0 + inset_x, x1 - inset_x);
             *z = z.clamp(z0 + inset_z, z1 - inset_z);
         }
-        for (x, z) in samples {
-            let Some(floor) = surfaces.floor_y_at(x, z) else {
-                continue;
-            };
-            overlaps_room = true;
-            if floor > volume.surface_y + 1.0e-2 {
-                return Err(format!(
-                    "Water volume {i} surface ({:.2} m) is below the floor at ({x:.2}, {z:.2}) \
-                     ({floor:.2} m); raise surface_y above the floor it covers",
-                    volume.surface_y
-                ));
-            }
+    }
+    for (x, z) in samples {
+        let Some(floor) = surfaces.floor_y_at(x, z) else {
+            continue;
+        };
+        overlaps_room = true;
+        if floor > volume.surface_y + 1.0e-2 {
+            return Err(format!(
+                "Water volume {i} surface ({:.2} m) is below the floor at ({x:.2}, {z:.2}) \
+                 ({floor:.2} m); raise surface_y above the floor it covers",
+                volume.surface_y
+            ));
         }
-        if !overlaps_room {
-            return Err(format!("Water volume {i} lies outside every room section"));
-        }
+    }
+    if !overlaps_room {
+        return Err(format!("Water volume {i} lies outside every room section"));
     }
     Ok(())
 }
@@ -2225,6 +2516,17 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         facts.is_volume = true;
         index.entities.insert(id.clone(), facts);
     }
+    // Water volumes and effect emitters become entities too (they carry no
+    // components), so an `enable`/`disable` action can name one: the same
+    // resolution the runtime performs when it creates their controllers.
+    for id in &water_ids {
+        index
+            .entities
+            .insert(id.clone(), EntityFacts::of("water volume"));
+    }
+    for id in &effect_ids {
+        index.entities.insert(id.clone(), EntityFacts::of("effect"));
+    }
     for timer in &level.timers {
         let id = timer.id.trim();
         let mut facts = EntityFacts::of("timer");
@@ -2571,6 +2873,58 @@ fn validate_component_value<'a>(
                      max_opacity ({:?})",
                     def.min_opacity, def.max_opacity
                 ));
+            }
+            // The proximity contract is all-or-nothing: both radii, in order,
+            // and the two fade times only alongside them.
+            match (def.near_radius, def.far_radius) {
+                (None, None) => {
+                    if def.fade_out_seconds.is_some() || def.fade_in_seconds.is_some() {
+                        return Err(format!(
+                            "{context} `fade` component {i} authors fade_out_seconds/\
+                             fade_in_seconds without near_radius and far_radius"
+                        ));
+                    }
+                }
+                (Some(near), Some(far)) => {
+                    if !near.is_finite() || near <= 0.0 {
+                        return Err(format!(
+                            "{context} `fade` component {i} near_radius ({near:?}) must be a \
+                             finite number greater than 0"
+                        ));
+                    }
+                    if !far.is_finite() || far <= near {
+                        return Err(format!(
+                            "{context} `fade` component {i} far_radius ({far:?}) must be a \
+                             finite number greater than near_radius ({near:?})"
+                        ));
+                    }
+                    for (name, value) in [
+                        ("fade_out_seconds", def.fade_out_seconds),
+                        ("fade_in_seconds", def.fade_in_seconds),
+                    ] {
+                        if let Some(value) = value
+                            && (!value.is_finite()
+                                || value <= 0.0
+                                || value > crate::level::MAX_FADE_SECONDS)
+                        {
+                            return Err(format!(
+                                "{context} `fade` component {i} {name} ({value:?}) must be a \
+                                 finite number between 0 and {}",
+                                crate::level::MAX_FADE_SECONDS
+                            ));
+                        }
+                    }
+                }
+                (Some(_), None) => {
+                    return Err(format!(
+                        "{context} `fade` component {i} authors near_radius without far_radius"
+                    ));
+                }
+                (None, Some(_)) => {
+                    return Err(format!(
+                        "{context} `fade` component {i} authors far_radius without near_radius"
+                    ));
+                }
             }
         }
         ComponentDef::Glow(def) => {
@@ -4812,7 +5166,8 @@ pub fn resolve_fixture_sheets(
         } else if source.is_some() {
             // The shared family sheet: first authored fixture of the family wins.
             let slot = crate::level::fixture_face_material_index(fixture_index, false, kind);
-            if let Some(existing) = family_sheets.get_mut(usize::from(slot))
+            if let Some(existing) =
+                family_sheets.get_mut(usize::try_from(slot).unwrap_or(usize::MAX))
                 && existing.is_none()
             {
                 *existing = source;
@@ -5324,9 +5679,13 @@ impl LevelManager {
     /// Re-scans directories for installed compiled packages.
     ///
     /// Only `.placesmap` files are playable. Authoring sources (`*.json`,
-    /// `*.zip`) are noted once per path and never appear in the menu: the
-    /// player does not compile maps. A package that does not open or validate
-    /// is skipped with one warning naming the file and the reason.
+    /// `*.zip`) are **silently skipped**: the canonical repository layout keeps
+    /// every source beside its compiled package, the player never compiles and
+    /// never reads a source, so a source is expected content rather than a
+    /// problem to report. Opening a source explicitly (the Import action or the
+    /// `import_file` API) still fails with the compiler command to run; that is
+    /// an explicit request and stays actionable. A package that does not open
+    /// or validate is skipped with one warning naming the file and the reason.
     ///
     /// Precedence: a bundled package in `assets/levels/` wins over an installed
     /// package with the same level id, and within one directory the
@@ -5340,9 +5699,6 @@ impl LevelManager {
             LevelSourceType::Installed,
             &mut discovered,
         );
-        for dir in [&self.assets_dir, &self.levels_dir] {
-            Self::note_authoring_sources(dir);
-        }
         discovered.sort_by(|a, b| {
             source_rank(a.source_type)
                 .cmp(&source_rank(b.source_type))
@@ -5395,6 +5751,10 @@ impl LevelManager {
         };
         for entry in read_dir.flatten() {
             let path = entry.path();
+            if Self::is_authoring_source(&path) {
+                // Expected content, not a problem: see `is_authoring_source`.
+                continue;
+            }
             if !crate::package::is_package_path(&path) {
                 continue;
             }
@@ -5405,28 +5765,17 @@ impl LevelManager {
         }
     }
 
-    /// Reports authoring sources that are intentionally not playable.
-    fn note_authoring_sources(dir: &Path) {
-        let Ok(read_dir) = fs::read_dir(dir) else {
-            return;
-        };
-        for entry in read_dir.flatten() {
-            let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|ext| ext == "json" || ext == "zip")
-            {
-                crate::logging::warn_once(
-                    format!("level-source:{}", path.display()),
-                    format!(
-                        "[levels] {} is an authoring source and is not playable; compile it with \
-                         `places-compile build {}`",
-                        path.display(),
-                        path.display()
-                    ),
-                );
-            }
-        }
+    /// True for an authoring source the player never plays and never reports.
+    ///
+    /// A level directory intentionally holds `.json` sources (and the occasional
+    /// `.zip` authoring bundle) beside the `.placesmap` packages compiled from
+    /// them. Discovery enumerates playable packages only and skips these
+    /// silently; an explicit open of one is rejected with the compiler command
+    /// by [`Self::import_file`].
+    #[must_use]
+    pub(crate) fn is_authoring_source(path: &Path) -> bool {
+        path.extension()
+            .is_some_and(|ext| ext == "json" || ext == "zip")
     }
 
     /// Reports one unreadable level file once per path.
@@ -5489,7 +5838,7 @@ impl LevelManager {
     fn load_embedded_demo(&self) -> Result<LoadedLevel, String> {
         let opened = crate::package::world::open_bytes(FALLBACK_DEMO_PACKAGE)
             .map_err(|error| format!("embedded Places Demo package is invalid: {error}"))?;
-        Ok(self.assembled_level(
+        self.assembled_level(
             LevelEntry {
                 id: DEMO_LEVEL_ID.into(),
                 name: "Places Demo".into(),
@@ -5498,7 +5847,7 @@ impl LevelManager {
                 path: PathBuf::new(),
             },
             opened,
-        ))
+        )
     }
 
     /// Resolves materials and fixture sheets for a validated package's level.
@@ -5506,21 +5855,31 @@ impl LevelManager {
     /// The package carries the authoring-prepared semantics and the prepared
     /// world records; only the texture pixels come from the installed asset
     /// bundle, which the manifest identifies by content hash.
+    ///
+    /// # Errors
+    ///
+    /// Returns the named aggregate texture-budget rejection when the level's
+    /// distinct decoded images exceed
+    /// [`crate::level::MAX_LEVEL_TEXTURE_BYTES`]. The check happens here,
+    /// after resolution and before any GPU upload; the material *count* is
+    /// already bounded by `validate_level`.
     fn assembled_level(
         &self,
         entry: LevelEntry,
         opened: crate::package::world::OpenedPackage,
-    ) -> LoadedLevel {
+    ) -> Result<LoadedLevel, String> {
         let level = opened.level;
         let materials = self.resolve_level_materials(&level, None);
+        crate::materials::check_texture_budget(&materials)
+            .map_err(|error| format!("level `{}`: {error}", level.id))?;
         let light_sheets = self.resolve_level_fixture_sheets(&level, None);
-        LoadedLevel {
+        Ok(LoadedLevel {
             catalog: Arc::new(self.prop_catalog.clone()),
             level,
             materials,
             light_sheets,
             entry,
-        }
+        })
     }
 
     /// Resolves a level's surface materials through the catalog and an optional
@@ -5586,7 +5945,7 @@ impl LevelManager {
         match entry.source_type {
             LevelSourceType::Bundled | LevelSourceType::Installed => {
                 let opened = crate::package::world::open(&entry.path)?;
-                Ok(self.assembled_level(entry.clone(), opened))
+                self.assembled_level(entry.clone(), opened)
             }
             LevelSourceType::Embedded => self.load_embedded_demo(),
         }

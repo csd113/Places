@@ -120,7 +120,7 @@ pub fn routing_from_mesh(
     // centroid.
     let mut clusters: Vec<ProbeCluster> = Vec::new();
     for (range_index, range) in mesh.ranges.iter().enumerate() {
-        let material = usize::from(range.key.material);
+        let material = usize::try_from(range.key.material).unwrap_or(usize::MAX);
         let Some(reflection) = reflections.get(material).copied() else {
             continue;
         };
@@ -621,7 +621,7 @@ mod tests {
     }
 
     /// A quad at height `y` facing +Y, authored as a floor.
-    fn horizontal_range(material: u16, y: f32) -> super::super::LevelMeshRange {
+    fn horizontal_range(material: u32, y: f32) -> super::super::LevelMeshRange {
         let corners = [[0.0, y, 2.0], [1.0, y, 2.0], [1.0, y, 0.0], [0.0, y, 0.0]];
         let vertices = [0usize, 1, 2, 0, 2, 3]
             .into_iter()
@@ -640,7 +640,7 @@ mod tests {
 
     /// One range with explicit bounds, for the area-estimate tests: the vertices
     /// only need to exist, the probe path reads the bounds.
-    fn bounded_range(material: u16, min: [f32; 3], max: [f32; 3]) -> super::super::LevelMeshRange {
+    fn bounded_range(material: u32, min: [f32; 3], max: [f32; 3]) -> super::super::LevelMeshRange {
         let mut range = horizontal_range(material, min[1]);
         range.bounds = crate::spatial::Aabb { min, max };
         range

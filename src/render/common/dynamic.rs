@@ -1127,9 +1127,12 @@ impl DynamicScene {
 
     /// [`Self::update`] preferring the prepared irradiance field.
     ///
-    /// A moving object reads its room's baked field first; a position the
-    /// field cannot resolve (no room, or an unlabelled probe) falls back to
-    /// the vertex-lit sample, so an object is never left unlit.
+    /// A moving object reads its room's prepared field, floored at the room's
+    /// authored baseline; a position the field cannot resolve (a roomless
+    /// point, or an unlabelled probe) falls back to the vertex-lit environment
+    /// sample, so an object is never left unlit and never darker than the
+    /// environment it moves through. See
+    /// [`crate::render::common::light_transport::moving_object_light`].
     pub fn update_with_field(
         &mut self,
         delta_seconds: f32,
@@ -1167,14 +1170,9 @@ impl DynamicScene {
             if !moved {
                 continue;
             }
-            let room = lighting.room_index_at_height(probe[0], probe[1], probe[2]);
-            let light = irradiance
-                .and_then(|field| field.sample_display(probe, room))
-                .unwrap_or_else(|| {
-                    let light = lighting.sample(probe[0], probe[1], probe[2]);
-                    [light.r, light.g, light.b]
-                });
-            object.light_scale = light;
+            object.light_scale = crate::render::common::light_transport::moving_object_light(
+                lighting, irradiance, probe,
+            );
             object.probe_position = probe;
             object.probe_valid = true;
             update.probes_refreshed = update.probes_refreshed.saturating_add(1);

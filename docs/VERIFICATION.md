@@ -40,6 +40,8 @@ python3 tools/entities/author_halloween_assets.py --check
 python3 tools/entities/check_clip_boundaries.py
 cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json
 cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 8
+cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 python3 -m unittest tests.test_package
@@ -55,7 +57,12 @@ The two `places-compile build` steps are the incremental gate: a current
 package is reused (`rebuilt: false`, bytes untouched), and a source or
 fingerprint change publishes an atomically replaced package before `validate`
 checks it. Snapshot the two `.placesmap` hashes when a change could affect the
-compiler, so a silent rewrite is visible in the evidence.
+compiler, so a silent rewrite is visible in the evidence. The
+`verify … --require-current` steps are the staleness gate: a package whose
+source, asset identities or variants changed after its build fails the run
+instead of shipping, which is exactly how a stale bundled package is caught.
+`validate` remains the decode gate: it re-reads every record and re-hashes every
+entry.
 
 The package suite runs the texture CLI `--check`; the gate does not invoke it twice.
 

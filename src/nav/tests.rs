@@ -759,12 +759,12 @@ fn settle_doors(doors: &mut Doors) {
 }
 
 /// The real Demo bakes the reference humanoid, the two actor bodies and the
-/// night route's pumpkin skeleton, all six authored doors become portals, and
-/// the frozen grid's exact report.
+/// night route's pumpkin skeleton, all seven authored doors become portals,
+/// and the frozen grid's exact report.
 #[test]
 fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
     let (level, mesh, report) = demo_nav();
-    assert!(level.doors.len() == 6, "the demo authors six doors");
+    assert!(level.doors.len() == 7, "the demo authors seven doors");
     assert_eq!(
         mesh.grid().classes.len(),
         4,
@@ -784,12 +784,13 @@ fn the_demo_bakes_three_classes_six_portals_and_the_frozen_grid() {
             "night_house_door",
             "night_source_door",
             "sauna_door",
+            "sauna_hall_door",
             "sauna_shower_door",
             "study_door"
         ],
         "every authored door is a portal"
     );
-    assert_eq!(report.portals, 6, "the bake reports six portals");
+    assert_eq!(report.portals, 7, "the bake reports seven portals");
     // Frozen grid: the same 0.2 m cells over the demo's room footprint, now
     // including the night yard and the destination house.
     assert_eq!((report.cells_x, report.cells_z), (361, 586));

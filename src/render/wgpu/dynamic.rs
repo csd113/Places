@@ -174,7 +174,7 @@ impl WgpuDynamic {
                     mask: submesh
                         .emission
                         .mask
-                        .map(usize::from)
+                        .map(|index| usize::try_from(index).unwrap_or(usize::MAX))
                         .filter(|index| *index < textures.len()),
                     first_index: submesh.first_index,
                     index_count: submesh.index_count,
@@ -200,7 +200,7 @@ impl WgpuDynamic {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                ctx.environment
+                &ctx.environment
                     .with_model(object.transform())
                     .with_light_scale(object.light_scale()),
             );
@@ -318,7 +318,7 @@ impl WgpuDynamic {
         &mut self,
         queue: &wgpu::Queue,
         scene: &DynamicScene,
-        environment: EnvironmentUniform,
+        environment: &EnvironmentUniform,
     ) {
         for (slot, object) in self.objects.iter_mut().enumerate() {
             let Some(live) = scene.objects().get(slot) else {
@@ -327,7 +327,7 @@ impl WgpuDynamic {
             let uniform = environment
                 .with_model(live.transform())
                 .with_light_scale(live.light_scale());
-            object.environment.update(queue, uniform);
+            object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
         }
     }

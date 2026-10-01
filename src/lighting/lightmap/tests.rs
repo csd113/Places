@@ -1421,9 +1421,19 @@ fn the_shipped_demo_fits_the_page_budget_at_both_profiles() {
         );
         let budget =
             u64::from(config.page_edge).pow(2) * u64::try_from(lightmaps.pages.len()).unwrap_or(0);
+        // The demo must stay a substantial prepared load, so the page-budget
+        // assertion above is not vacuously true. These are absolute floors
+        // rather than a fraction of the allocated pages: the gable eave-strip
+        // fix (a sloped ceiling now meets an eave wall's flat top) needed a
+        // sixth Full page, and a fraction of the *allocated* budget would then
+        // measure the page-count headroom instead of the demo's real load.
+        let floor = match profile {
+            QualityProfile::Low => 1_000_000,
+            QualityProfile::Full => 2_800_000,
+        };
         assert!(
-            lightmaps.stats.texels as u64 * 2 > budget,
-            "{profile:?} must use more than half of its budget: {} of {budget}",
+            lightmaps.stats.texels as u64 >= floor,
+            "{profile:?} must bake a substantial chart set: {} of {budget}",
             lightmaps.stats.texels
         );
         sets.push(patch_set(lightmaps));

@@ -1093,14 +1093,31 @@ impl EntityWorld {
                         .phase
                         .filter(|phase| phase.is_finite())
                         .unwrap_or_else(|| crate::level::default_fade_phase(instance_id));
+                    let proximity = def.proximity().filter(|proximity| {
+                        proximity.near_radius.is_finite()
+                            && proximity.near_radius > 0.0
+                            && proximity.far_radius.is_finite()
+                            && proximity.far_radius > proximity.near_radius
+                            && proximity.fade_out_seconds.is_finite()
+                            && proximity.fade_out_seconds > 0.0
+                            && proximity.fade_in_seconds.is_finite()
+                            && proximity.fade_in_seconds > 0.0
+                    });
+                    let max_opacity = def.max_opacity.clamp(0.0, 1.0);
                     self.components.fades.insert(
                         handle,
                         Fade {
                             period_seconds: def.period_seconds,
                             phase: phase.clamp(0.0, 1.0),
                             min_opacity: def.min_opacity.clamp(0.0, 1.0),
-                            max_opacity: def.max_opacity.clamp(0.0, 1.0),
+                            max_opacity,
                             enabled: def.enabled,
+                            proximity,
+                            // A proximity fade starts visible and fades out
+                            // once the first update sees the player inside
+                            // its near radius.
+                            live_opacity: max_opacity,
+                            fading_out: false,
                         },
                     );
                 }
@@ -2609,7 +2626,12 @@ impl EntityWorld {
                         run.advance(&def);
                     }
                     SequenceStepDef::Stop => {
-                        run.stop();
+                        // The docs: "ends the sequence here, as if it
+                        // completed" - so the completion path below must run:
+                        // it clears the controller's `running` (which the
+                        // `sequence_idle` condition reads) and emits
+                        // `sequence_complete`. `stop()` remains the explicit
+                        // cancellation path for `stop_sequence`/despawn.
                         run.finished = true;
                         break;
                     }
@@ -2947,6 +2969,20 @@ impl EntityWorld {
             }
             matched.push(index);
         }
+        // Every condition of one event is evaluated against the state at
+        // dispatch, before any of the event's actions run. Two mutually
+        // exclusive bindings (`when: enabled` -> disable, `when: disabled` ->
+        // enable) therefore never both run on one press: the second would
+        // otherwise see the first's write and undo it, leaving one press
+        // toggling nothing.
+        matched.retain(|index| {
+            self.bindings.get(*index).is_some_and(|binding| {
+                binding
+                    .when
+                    .iter()
+                    .all(|condition| self.condition_holds(condition))
+            })
+        });
         for index in matched {
             let Some(binding) = self.bindings.get(index).cloned() else {
                 continue;
@@ -2955,13 +2991,6 @@ impl EntityWorld {
                 continue;
             }
             if binding.cooldown_remaining > 0.0 {
-                continue;
-            }
-            if !binding
-                .when
-                .iter()
-                .all(|condition| self.condition_holds(condition))
-            {
                 continue;
             }
             let mut report = DispatchReport::default();
@@ -3622,40 +3651,155 @@ impl EntityWorld {
         self.emit(EventKind::AnimationComplete, handle, &clip, Some(handle));
     }
 
-    /// Advances every authored route and republishes the entity frames.
+    /// Advances every authored route and proximity fade, then republishes the
+    /// entity frames.
+    ///
+    /// `player` is the player's current world position: the horizontal
+    /// distance from it drives every proximity fade. `None` (load seeding and
+    /// resets) holds the controllers, so no entity fades until the first frame
+    /// the player is known.
     #[allow(clippy::arithmetic_side_effects)] // bounded pose comparisons
-    pub fn update_entities(&mut self, delta: f32, world: &RouteWorld<'_>) {
-        if self.routes.is_empty() {
-            // An enabled fade advances without any route, so its frame list
-            // still has to be rebuilt every tick; without one this stays the
-            // historical cheap early return.
-            if self.any_enabled_fade() {
-                self.rebuild_entity_frames();
-            }
+    pub fn update_entities(&mut self, delta: f32, world: &RouteWorld<'_>, player: Option<Vec3>) {
+        if self.routes.is_empty() && !self.any_enabled_fade() {
+            // Without a route or an enabled fade this stays the historical
+            // cheap early return.
             return;
         }
-        let mut moved = false;
-        for index in 0..self.routes.routes().len() {
-            let Some(route) = self.routes.routes().get(index) else {
-                continue;
-            };
-            let Some(state) = self.route_states.get_mut(index) else {
-                continue;
-            };
-            let before = state.position;
-            let before_yaw = state.yaw;
-            route.advance(state, delta, world);
-            if (state.position - before).length_squared() > f32::EPSILON
-                || (state.yaw - before_yaw).abs() > f32::EPSILON
-                || state.blocked
-            {
-                moved = true;
+        if !self.routes.is_empty() {
+            let mut moved = false;
+            for index in 0..self.routes.routes().len() {
+                let Some(route) = self.routes.routes().get(index) else {
+                    continue;
+                };
+                let Some(state) = self.route_states.get_mut(index) else {
+                    continue;
+                };
+                let before = state.position;
+                let before_yaw = state.yaw;
+                route.advance(state, delta, world);
+                if (state.position - before).length_squared() > f32::EPSILON
+                    || (state.yaw - before_yaw).abs() > f32::EPSILON
+                    || state.blocked
+                {
+                    moved = true;
+                }
+            }
+            if moved {
+                self.sync_routed_interactables();
             }
         }
-        if moved {
-            self.sync_routed_interactables();
-        }
+        self.advance_proximity_fades(delta, player);
         self.rebuild_entity_frames();
+    }
+
+    /// Fixed substep the proximity fade controller integrates in, in seconds.
+    ///
+    /// Matches the frame loop's own fixed vertical substep
+    /// (`VERTICAL_SUBSTEP`, 1/120 s), so a fade is frame-rate independent
+    /// exactly like the jump and swim integration. A test pins the two
+    /// constants together.
+    const FADE_SUBSTEP_SECONDS: f32 = 1.0 / 120.0;
+
+    /// Upper bound on one call's fade time, in seconds.
+    ///
+    /// A guard against a corrupt caller, not a tuning knob: the frame loop's
+    /// own simulation delta is clamped to 0.1 s, so a real call is far below
+    /// this and a pathological one cannot spin the substep loop.
+    const MAX_FADE_STEP_SECONDS: f32 = 60.0;
+
+    /// Upper bound on the substeps one [`Self::advance_proximity_fades`] call
+    /// integrates: [`Self::MAX_FADE_STEP_SECONDS`] (60 s) divided by
+    /// [`Self::FADE_SUBSTEP_SECONDS`] (1/120 s).
+    const MAX_FADE_SUBSTEPS: usize = 7_200;
+
+    /// Advances every proximity fade by `delta`, in fixed substeps.
+    ///
+    /// The direction each controller holds is decided once per call from the
+    /// player's horizontal distance to the entity's **live** position (routes
+    /// and AI advanced above, so a moving ghost fades against where it is);
+    /// the live opacity then advances from its current value in
+    /// [`Self::FADE_SUBSTEP_SECONDS`] substeps, so 30, 60 and 144 fps produce
+    /// the same opacity for the same elapsed time and an interrupted fade
+    /// never jumps.
+    fn advance_proximity_fades(&mut self, delta: f32, player: Option<Vec3>) {
+        if !self
+            .components
+            .fades
+            .iter()
+            .any(|(_, fade)| fade.is_proximity())
+        {
+            return;
+        }
+        let Some(player) = player.filter(|position| position.is_finite()) else {
+            return;
+        };
+        let handles: Vec<(EntityHandle, f32)> = self
+            .components
+            .fades
+            .iter()
+            .filter(|(_, fade)| fade.is_proximity())
+            .map(|(handle, _)| {
+                let distance = self
+                    .live_position(handle)
+                    .map_or(f32::INFINITY, |position| {
+                        let dx = position.x - player.x;
+                        let dz = position.z - player.z;
+                        dx.hypot(dz)
+                    });
+                (handle, distance)
+            })
+            .collect();
+        for (handle, distance) in &handles {
+            if let Some(fade) = self.components.fades.get_mut(*handle) {
+                fade.hold_direction(*distance);
+            }
+        }
+        let delta = if delta.is_finite() {
+            delta.clamp(0.0, Self::MAX_FADE_STEP_SECONDS)
+        } else {
+            0.0
+        };
+        let mut remaining = delta;
+        // A bounded float countdown: at most the 60 s guard divided by the
+        // substep, so a corrupt caller can never spin this loop.
+        for _ in 0..Self::MAX_FADE_SUBSTEPS {
+            if remaining <= 0.0 {
+                break;
+            }
+            let step = remaining.min(Self::FADE_SUBSTEP_SECONDS);
+            remaining -= step;
+            for (handle, _) in &handles {
+                if let Some(fade) = self.components.fades.get_mut(*handle) {
+                    fade.advance(step);
+                }
+            }
+        }
+    }
+
+    /// The live world position of one entity, when it has one.
+    ///
+    /// An AI agent or routed entity reports its live state; everything else
+    /// reports its transform. A proximity fade measures against this point, so
+    /// it tracks the entity wherever its route, AI or spawn took it.
+    fn live_position(&self, handle: EntityHandle) -> Option<Vec3> {
+        let instance_id = self.id_of(handle)?;
+        if let Some(agent) = self
+            .ai
+            .agents()
+            .iter()
+            .find(|agent| agent.instance_id == instance_id)
+        {
+            return Some(agent.position);
+        }
+        for (index, route) in self.routes.routes().iter().enumerate() {
+            if route.instance_id == instance_id {
+                return self.route_states.get(index).map(|state| state.position);
+            }
+        }
+        self.components
+            .transforms
+            .get(handle)
+            .map(|item| item.position)
     }
 
     /// The fade opacity of one entity at the current simulation time; `1.0`
@@ -4027,7 +4171,9 @@ fn door_pose_hits_static(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    // Test code: unwrap/expect, indexing and exact float comparisons are
+    // idiomatic here; the production lints stay enforced everywhere else.
+    #![allow(clippy::expect_used, clippy::float_cmp, clippy::indexing_slicing)]
 
     use super::*;
     use crate::collision_index::CollisionIndex;
@@ -4371,6 +4517,40 @@ mod tests {
                 .get(controller)
                 .expect("controller")
                 .running
+        );
+    }
+
+    /// The documented `stop` step "ends the sequence here, as if it
+    /// completed": it must clear the controller's `running` (the flag the
+    /// `sequence_idle` condition and every re-arm binding read) and emit the
+    /// completion event exactly like running off the end.
+    #[test]
+    fn a_stop_step_completes_the_run_and_clears_the_controller() {
+        let level = base_level(
+            r#""props": [ { "id": "controller", "model": "core:crate", "x": 2.0, "z": 2.0 } ],
+            "sequences": [ { "id": "cut_short", "steps": [
+                { "step": "wait", "seconds": 0.2 },
+                { "step": "stop" }
+            ] } ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        let controller = world.handle_of("controller").expect("controller");
+        assert!(world.start_sequence("controller", "cut_short"));
+        let feet = Vec3::new(1.0, 0.0, 1.0);
+        let tick = tick_at(&mut world, &level, feet, 0.3);
+        assert_eq!(
+            tick.sequences_completed, 1,
+            "the stop step completes the run"
+        );
+        assert_eq!(world.sequence_count(), 0);
+        assert!(
+            !world
+                .components()
+                .sequences
+                .get(controller)
+                .expect("controller")
+                .running,
+            "the controller is idle again, so a sequence_idle condition re-arms"
         );
     }
 
@@ -5050,10 +5230,265 @@ mod tests {
             floor: &floor,
             index: &index,
         };
-        world.update_entities(0.0, &route_world);
+        world.update_entities(0.0, &route_world, None);
         assert!(
             (framed_opacity(&world, "ghost") - 1.0).abs() < 1e-6,
             "an empty-route publish still rebuilt the fading entity's frame"
+        );
+    }
+
+    /// A level with one fading ghost (`entity:sheet-ghost`) at `(10, 10)`.
+    fn proximity_ghost_level(extra: &str) -> LevelDef {
+        base_level(&format!(
+            r#""props": [
+                {{ "id": "ghost", "model": "entity:sheet-ghost", "x": 10.0, "z": 10.0,
+                  "solid": false,
+                  "components": [ {{ "component": "fade", "near_radius": 3.0,
+                                    "far_radius": 6.0, "fade_out_seconds": 1.0,
+                                    "fade_in_seconds": 2.0, "min_opacity": 0.0,
+                                    "max_opacity": 1.0 }} ] }}
+            ]{extra}"#
+        ))
+    }
+
+    /// One entity update with the player standing at `feet`.
+    fn update_entities_at(world: &mut EntityWorld, level: &LevelDef, feet: Vec3, delta: f32) {
+        let walls = level.collision_aabbs();
+        let index = CollisionIndex::build(&walls);
+        let floor = WalkableFloor::from_level(level);
+        let route_world = RouteWorld {
+            walls: &walls,
+            floor: &floor,
+            index: &index,
+        };
+        world.update_entities(delta, &route_world, Some(feet));
+    }
+
+    /// Runs `seconds` of updates at `frames_per_second` with the player at
+    /// `feet`; the last frame consumes exactly the remaining time, so the
+    /// elapsed simulation time is exact.
+    fn run_entity_frames(
+        world: &mut EntityWorld,
+        level: &LevelDef,
+        feet: Vec3,
+        frames_per_second: f32,
+        seconds: f32,
+    ) {
+        let frame = 1.0 / frames_per_second;
+        let mut remaining = seconds;
+        loop {
+            if remaining <= 1.0e-6 {
+                break;
+            }
+            let delta = frame.min(remaining);
+            update_entities_at(world, level, feet, delta);
+            remaining -= delta;
+        }
+    }
+
+    /// A cycle fade authored without proximity fields stays the exact cosine
+    /// cycle it always was: same bits, and the live proximity state is inert.
+    #[test]
+    fn a_cycle_fade_without_proximity_fields_keeps_the_exact_cycle() {
+        let level = base_level(
+            r#""props": [ { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                            "components": [ { "component": "fade", "period_seconds": 6.0,
+                                              "phase": 0.25, "min_opacity": 0.1,
+                                              "max_opacity": 0.9 } ] } ]"#,
+        );
+        let world = EntityWorld::from_level(&level);
+        let handle = world.handle_of("ghost").expect("the ghost resolves");
+        let fade = world
+            .components()
+            .fades
+            .get(handle)
+            .expect("the fade resolves");
+        assert!(!fade.is_proximity(), "no proximity fields were authored");
+        assert_eq!(fade.proximity, None);
+        assert_eq!(fade.live_opacity, 0.9, "the live state starts visible");
+        for seconds in [0.0, 0.5, 1.234, 7.5, 1000.0] {
+            let angle = std::f32::consts::TAU * (0.25 + seconds / 6.0);
+            let swing = 0.5 * (1.0 - angle.cos());
+            let expected = (0.9_f32 - 0.1).mul_add(swing, 0.1);
+            assert_eq!(
+                fade.opacity_at(seconds).to_bits(),
+                expected.to_bits(),
+                "the historical cycle formula at {seconds}s"
+            );
+        }
+    }
+
+    /// The proximity controller: hysteresis between the two radii, a fade
+    /// from the current value at the authored rate, and the same result at 30,
+    /// 60 and 144 fps and over one large delta.
+    #[test]
+    fn a_proximity_fade_hides_as_the_player_approaches_and_returns() {
+        let level = proximity_ghost_level("");
+        let mut world = EntityWorld::from_level(&level);
+        let ghost = world.handle_of("ghost").expect("the ghost resolves");
+        assert_eq!(framed_opacity(&world, "ghost"), 1.0);
+
+        // At `far_radius` exactly the direction holds: the entity is neither
+        // "beyond far" nor "inside near", so it stays visible.
+        run_entity_frames(&mut world, &level, Vec3::new(16.0, 0.0, 10.0), 30.0, 1.0);
+        assert_eq!(framed_opacity(&world, "ghost"), 1.0);
+
+        // Inside `near_radius`: fade out at 1 / 1 s of the full range.
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 30.0, 0.5);
+        assert!(
+            (framed_opacity(&world, "ghost") - 0.5).abs() < 1e-4,
+            "after 0.5 s of a 1 s fade-out: {}",
+            framed_opacity(&world, "ghost")
+        );
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 144.0, 0.6);
+        assert_eq!(framed_opacity(&world, "ghost"), 0.0, "fully hidden");
+
+        // Between the radii the current direction holds: the ghost stays
+        // hidden instead of flapping back on at `near_radius + epsilon`.
+        run_entity_frames(&mut world, &level, Vec3::new(13.0, 0.0, 10.0), 60.0, 1.0);
+        assert_eq!(framed_opacity(&world, "ghost"), 0.0);
+
+        // Beyond `far_radius`: fade back in at 1 / 2 s.
+        run_entity_frames(&mut world, &level, Vec3::new(17.0, 0.0, 10.0), 60.0, 1.0);
+        assert!(
+            (framed_opacity(&world, "ghost") - 0.5).abs() < 1e-4,
+            "after 1 s of a 2 s fade-in: {}",
+            framed_opacity(&world, "ghost")
+        );
+
+        // The player ambushes back inside `near_radius`: the fade reverses
+        // from its current value with no jump.
+        run_entity_frames(&mut world, &level, Vec3::new(12.0, 0.0, 10.0), 30.0, 0.25);
+        assert!(
+            (framed_opacity(&world, "ghost") - 0.25).abs() < 1e-4,
+            "an interrupted fade reverses from where it is: {}",
+            framed_opacity(&world, "ghost")
+        );
+
+        // The live controller never spawned a second instance.
+        assert_eq!(world.entities().len(), 1);
+        assert_eq!(world.handle_of("ghost"), Some(ghost));
+        assert_eq!(
+            world
+                .entity_frames()
+                .iter()
+                .filter(|frame| frame.instance_id == "ghost")
+                .count(),
+            1,
+            "one instance, one frame"
+        );
+    }
+
+    /// The controller integrates the same elapsed time identically at 30, 60
+    /// and 144 fps and over one large delta.
+    #[test]
+    fn a_proximity_fade_is_frame_rate_independent_everywhere() {
+        let level = proximity_ghost_level("");
+        let feet = Vec3::new(10.5, 0.0, 10.0);
+        let opacity_after = |frames_per_second: f32, seconds: f32| {
+            let mut world = EntityWorld::from_level(&level);
+            run_entity_frames(&mut world, &level, feet, frames_per_second, seconds);
+            framed_opacity(&world, "ghost")
+        };
+        let at_30 = opacity_after(30.0, 0.75);
+        let at_60 = opacity_after(60.0, 0.75);
+        let at_144 = opacity_after(144.0, 0.75);
+        for value in [at_30, at_60, at_144] {
+            assert!(
+                (value - 0.25).abs() < 1e-4,
+                "0.75 s of a 1 s fade-out leaves 0.25: {value}"
+            );
+        }
+
+        // One large delta covers the same elapsed time in a single call.
+        let mut large = EntityWorld::from_level(&level);
+        update_entities_at(&mut large, &level, feet, 0.75);
+        assert!(
+            (framed_opacity(&large, "ghost") - 0.25).abs() < 1e-4,
+            "a single large delta leaves 0.25: {}",
+            framed_opacity(&large, "ghost")
+        );
+    }
+
+    /// A hidden proximity ghost keeps updating: it walks its route, stays one
+    /// entity with one frame, and fades back in once the player is beyond the
+    /// far radius.
+    #[test]
+    fn a_hidden_proximity_ghost_keeps_updating_and_returns() {
+        let level = proximity_ghost_level(
+            r#",
+            "routes": [ { "id": "ghost", "steps": [
+                { "step": "move_to", "x": 10.0, "z": 18.0, "speed": 1.0 } ] } ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        let ghost = world.handle_of("ghost").expect("the ghost resolves");
+
+        // The player stands just inside the near radius; the ghost fades out
+        // within a second and is hidden well before it has walked far.
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 60.0, 1.5);
+        assert_eq!(framed_opacity(&world, "ghost"), 0.0, "hidden");
+        let (position, _) = framed_transform(&world, "ghost");
+        assert!(
+            position.z > 10.0,
+            "the hidden ghost still walks: {position:?}"
+        );
+
+        // Around t = 4 s the ghost is 3.5 m away: between the radii, so the
+        // held fade-out keeps it hidden.
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 60.0, 2.5);
+        assert_eq!(framed_opacity(&world, "ghost"), 0.0, "still hidden");
+
+        // By t = 8 s the ghost is beyond far_radius and the 2 s fade-in has
+        // completed: the same instance is visible again.
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 60.0, 4.5);
+        assert_eq!(
+            framed_opacity(&world, "ghost"),
+            1.0,
+            "the ghost returns once it is beyond far_radius"
+        );
+        assert_eq!(
+            world.entities().len(),
+            1,
+            "no duplicate instance was created"
+        );
+        assert_eq!(world.handle_of("ghost"), Some(ghost));
+        assert_eq!(
+            world
+                .entity_frames()
+                .iter()
+                .filter(|frame| frame.instance_id == "ghost")
+                .count(),
+            1
+        );
+    }
+
+    /// A proximity fade drives the glow cue exactly like a cycle fade: the
+    /// frame carries the live opacity, and `glow.fade` marks the intensity to
+    /// scale with it.
+    #[test]
+    fn a_proximity_fade_carries_its_opacity_into_the_glow_cue() {
+        let level = base_level(
+            r#""props": [ { "id": "ghost", "model": "entity:sheet-ghost", "x": 10.0, "z": 10.0,
+                            "solid": false,
+                            "components": [
+                              { "component": "fade", "near_radius": 3.0, "far_radius": 6.0,
+                                "fade_out_seconds": 1.0, "fade_in_seconds": 2.0 },
+                              { "component": "glow", "color": [0.4, 0.95, 1.0],
+                                "intensity": 0.6, "range": 3.5, "socket": "body",
+                                "fade": true } ] } ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        run_entity_frames(&mut world, &level, Vec3::new(10.5, 0.0, 10.0), 60.0, 1.5);
+        let frame = world
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == "ghost")
+            .expect("the hidden ghost still has a frame");
+        assert_eq!(frame.opacity, 0.0, "the live opacity reaches the frame");
+        let glow = frame.glow.as_ref().expect("the glow cue reaches the frame");
+        assert!(
+            glow.fade_with_opacity,
+            "the attached light scales with the proximity fade"
         );
     }
 
@@ -5090,6 +5525,74 @@ mod tests {
         ));
     }
 
+    /// A switch can hold two mutually exclusive bindings over one steam
+    /// emitter: `enabled` disables it, `disabled` enables it, so one press
+    /// runs exactly one binding and toggles exactly one target.
+    #[test]
+    fn a_switch_with_opposite_conditions_toggles_one_steam_emitter_per_press() {
+        let level = base_level(
+            r#""props": [
+                { "id": "steam_switch", "model": "home:wall_switch", "x": 2.0, "z": 2.0,
+                  "solid": false,
+                  "components": [ { "component": "interactable", "prompt": "Steam" } ],
+                  "bindings": [
+                    { "on": "interact",
+                      "when": [ { "check": "enabled", "target": "sauna_steam" } ],
+                      "actions": [ { "action": "disable", "target": "sauna_steam" } ] },
+                    { "on": "interact",
+                      "when": [ { "check": "disabled", "target": "sauna_steam" } ],
+                      "actions": [ { "action": "enable", "target": "sauna_steam" } ] } ] }
+            ],
+            "effects": [ { "id": "sauna_steam", "kind": "steam", "x": 8.0, "z": 8.0 } ]"#,
+        );
+        let mut world = EntityWorld::from_level(&level);
+        let steam = world
+            .handle_of("sauna_steam")
+            .expect("the emitter resolves");
+        let switch = world
+            .interactables()
+            .index_of("steam_switch")
+            .expect("the switch is aimable");
+        let emitter_enabled = |world: &EntityWorld| {
+            world
+                .components()
+                .steam
+                .get(steam)
+                .expect("the steam component")
+                .enabled
+        };
+        assert!(emitter_enabled(&world), "the emitter starts on");
+
+        // Press one: the `enabled` binding runs and only it does.
+        let report = world
+            .dispatch_interaction(Some(switch))
+            .expect("the press dispatches");
+        assert_eq!(report.actions_run, 1, "exactly one binding runs per press");
+        assert!(!emitter_enabled(&world), "the press disabled the emitter");
+        assert!(matches!(
+            world.take_commands().as_slice(),
+            [WorldCommand::SetEffectEnabled {
+                index: 0,
+                enabled: false
+            }]
+        ));
+
+        // Press two: the `disabled` binding runs and re-enables the same
+        // emitter; still exactly one command, one target.
+        let report = world
+            .dispatch_interaction(Some(switch))
+            .expect("the second press dispatches");
+        assert_eq!(report.actions_run, 1, "exactly one binding per press");
+        assert!(emitter_enabled(&world), "the second press re-enabled it");
+        assert!(matches!(
+            world.take_commands().as_slice(),
+            [WorldCommand::SetEffectEnabled {
+                index: 0,
+                enabled: true
+            }]
+        ));
+    }
+
     #[test]
     fn a_route_turn_reorients_the_live_aim_bounds() {
         let level = base_level(
@@ -5109,7 +5612,7 @@ mod tests {
             index: &index,
         };
         for _ in 0..60 {
-            world.update_entities(1.0 / 60.0, &route_world);
+            world.update_entities(1.0 / 60.0, &route_world, None);
         }
         let item_index = world.interactables().index_of("turner").expect("aimable");
         let item = world.interactables().get(item_index).expect("item");

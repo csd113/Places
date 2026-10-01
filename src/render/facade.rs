@@ -94,6 +94,27 @@ impl Renderer {
         self.renderer.installed_identity()
     }
 
+    /// The graphics configuration the resident world was installed with.
+    pub const fn graphics_applied(&self) -> crate::quality::GraphicsSpec {
+        self.renderer.graphics_applied()
+    }
+
+    /// The graphics configuration the latest settings action recorded.
+    pub const fn graphics_requested(&self) -> crate::quality::GraphicsSpec {
+        self.renderer.graphics_requested()
+    }
+
+    /// The configuration an in-flight staged install will commit, if any.
+    pub fn staged_graphics(&self) -> Option<crate::quality::GraphicsSpec> {
+        self.renderer.staged_graphics()
+    }
+
+    /// Abandons an outstanding graphics request; the renderer keeps rendering
+    /// the resident configuration.
+    pub fn abort_graphics_request(&mut self) {
+        self.renderer.abort_resource_request();
+    }
+
     /// Installs a complete CPU bundle prepared by the loading worker.
     pub fn install_prepared(
         &mut self,

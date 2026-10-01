@@ -48,7 +48,21 @@ The demo is the technical reference for the door and effect authoring contract:
   an interaction target; the `study_door_approach` and `study_door_return`
   trigger volumes drive it from either side.
 - `sauna_steam_a` / `sauna_steam_b` — `effects[]` steam emitters inside the
-  sauna; presentation-only, bounded particle plumes.
+  sauna; presentation-only, bounded particle plumes. They start **off** and the
+  second wall switch (`sauna_steam_switch`, on the south wall) toggles them in
+  one press: two mutually exclusive `state` bindings hold the room filled or
+  clear, and the press never touches the lamp switch or a door.
+- `sauna_hall_door` — an additional sauna leaf in the formerly open corridor
+  doorway (wall 17), hinged on the north jamb and swinging into the sauna clear
+  of the benches; the pool-side `sauna_door` is unchanged.
+- `pool_hot_tub` / the circular `water` volume — a genuinely circular hot tub
+  on the pool deck's north-west corner: a joined shell over a 30-strip
+  inscribed recess, with a disc water volume of the same radius so membership,
+  the collision rim and the drawn surface are one circle, plus gentle surface
+  emitters independent of the sauna switch.
+- `night_guard_a/b/c` and the `night_guard_wake` sequence — three waiting
+  pumpkin-head skeletons inside the night-route house; the `night_guard_zone`
+  volume starts their remove-head clip together once per entry.
 - the windows and the transfer grille — `glass` panes that also author
   `"solid": true`, so the pane blocks the player as well as reading transparent.
 

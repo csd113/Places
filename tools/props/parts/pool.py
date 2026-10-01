@@ -472,6 +472,158 @@ def build_pool_ladder(p: PropBuilder) -> None:
     p.add_note("handrails bend on a 0.10 m radius 0.7 m over the deck; four treads at 0.305 m")
 
 
+# ------------------------------------------------------------------- hot tub
+#
+# A genuinely circular hot tub shell: an inner tiled wall from the basin floor
+# to the rim, a flat annular rim cap and an outer skirt that reaches below the
+# deck line. The level cuts the basin as a *conservative* 32-strip polygon
+# inscribed in a 1.25 m circle; its boundary dips to the minimum radius below
+# (HOT_TUB_RECESS_MIN_R, computed by hot_tub_recess_min_radius), and the wall
+# sits just inside that minimum so every polygon step hides behind it. The
+# matching circular water volume uses the full 1.25 m radius, so water
+# membership, the collision rim and the drawn disc are the same circle; the
+# deck line is 1.50 m above the basin floor and the rim cap covers the rest of
+# the polygon out to the 1.30 m outer radius.
+
+HOT_TUB_OUTER_R = 1.30
+HOT_TUB_WATER_R = 1.25
+HOT_TUB_RECESS_STRIPS = 32
+HOT_TUB_WALL_R = 1.1730
+HOT_TUB_FLANGE_R = 1.043
+HOT_TUB_RIM_TOP = 1.56
+HOT_TUB_DECK = 1.50
+HOT_TUB_SKIRT_BOTTOM = 1.30
+HOT_TUB_SEGMENTS = 48
+
+HOT_TUB_TILE = palette.hex_to_rgb("#8f9fa8")
+HOT_TUB_CAP = palette.hex_to_rgb("#4a4e52")
+
+
+def hot_tub_recess_strips(centre=(0.0, 0.0)) -> list:
+    """The level's basin recess: ``floor_regions`` dicts for the map author.
+
+    Each strip is conservative (entirely inside the ``HOT_TUB_WATER_R``
+    circle), so the walkable floor never leaves the water circle; the strips'
+    steps all stay outside ``HOT_TUB_WALL_R`` and are hidden behind the shell.
+    """
+    radius = HOT_TUB_WATER_R
+    cx, cz = centre
+    strips = []
+    for index in range(HOT_TUB_RECESS_STRIPS):
+        x0 = cx - radius + (2.0 * radius) * index / HOT_TUB_RECESS_STRIPS
+        x1 = cx - radius + (2.0 * radius) * (index + 1) / HOT_TUB_RECESS_STRIPS
+        edge = max(abs(x0 - cx), abs(x1 - cx))
+        half = math.sqrt(max(0.0, radius * radius - edge * edge))
+        if half <= 0.01:
+            continue
+        strips.append(
+            {
+                "x": round(x0, 4),
+                "z": round(cz - half, 4),
+                "width": round(x1 - x0, 4),
+                "depth": round(2.0 * half, 4),
+                "offset_y": -1.5,
+                "material": "core:pool_tile_basin_01",
+                "edge_material": "core:pool_tile_wall_01",
+            }
+        )
+    return strips
+
+
+def hot_tub_recess_min_radius() -> float:
+    """Smallest radius on the conservative polygon boundary, in metres."""
+    radius = HOT_TUB_WATER_R
+    best = radius
+    for index in range(HOT_TUB_RECESS_STRIPS):
+        x0 = -radius + 2.0 * radius * index / HOT_TUB_RECESS_STRIPS
+        x1 = -radius + 2.0 * radius * (index + 1) / HOT_TUB_RECESS_STRIPS
+        edge = max(abs(x0), abs(x1))
+        half = math.sqrt(max(0.0, radius * radius - edge * edge))
+        if half <= 0.01:
+            continue
+        for x in (x0, x1):
+            for z in (-half, half):
+                best = min(best, math.hypot(x, z))
+    return best
+
+
+def _flip(p: PropBuilder, start: int) -> None:
+    """Reverse the winding of every triangle emitted since ``start``."""
+    for index in range(start, len(p.mesh.indices), 3):
+        p.mesh.indices[index + 1], p.mesh.indices[index + 2] = (
+            p.mesh.indices[index + 2],
+            p.mesh.indices[index + 1],
+        )
+
+
+def _paint_tub_tile(tex, region: str, base, seed: int) -> None:
+    """Small square pool tile: a pale grout grid with gentle wear."""
+    tex.fill(region, base, jitter=5, seed=seed)
+    tex.noise(region, amount=3, freq=6, seed=seed + 1)
+    cols = 8
+    for index in range(cols + 1):
+        tex.bar(region, palette.shade(base, 0.80), (index / cols, 0.0, index / cols + 0.012, 1.0), alpha=150)
+        tex.bar(region, palette.shade(base, 0.80), (0.0, index / cols, 1.0, index / cols + 0.012), alpha=150)
+    tex.grain(region, palette.shade(base, 0.90), seed=seed + 2, density=0.18, alpha=22)
+    tex.spots(region, palette.hex_to_rgb(palette.GRIME), count=3, seed=seed + 3, radius=2, alpha=18)
+
+
+def build_hot_tub(p: PropBuilder) -> None:
+    """Circular hot tub: a joined tiled basin shell with a dark cap rail.
+
+    Mount: the shell's bottom flange sits on the basin floor at y = 0 (2.6 m
+    across; rim top 1.56 m, deck line 1.50 m). Author a 1.50 m floor-region
+    recess under it (``hot_tub_recess_strips``) and a circular water volume of
+    radius ``HOT_TUB_WATER_R`` with its surface 1.35 m above the basin floor;
+    the rim stands 6 cm proud of the deck.
+    """
+    assert hot_tub_recess_min_radius() > HOT_TUB_WALL_R, "the shell wall must sit inside the recess polygon"
+    tex = p.set_texture(128, seed=317)
+    tex.auto("tile", "cap")
+    _paint_tub_tile(tex, "tile", HOT_TUB_TILE, 401)
+    _paint_resin(tex, "cap", HOT_TUB_CAP, 409, wear=0.8)
+
+    tile_uv = tex.uv("tile", inset=1)
+    cap_uv = tex.uv("cap", inset=1)
+    tile_slot = p.material("tub_tile")
+    cap_slot = p.material("tub_cap")
+
+    def ring(along_y: float, r0: float, r1: float, uv, color, *, flip: bool) -> None:
+        start = len(p.mesh.indices)
+        p.mesh.lathe((0.0, along_y, 0.0), [(0.0, r0), (0.0, r1)], segments=HOT_TUB_SEGMENTS,
+                     axis="y", uv=uv, color=color, cap_start=False, cap_end=False)
+        if flip:
+            _flip(p, start)
+
+    def wall(y0: float, y1: float, radius: float, uv, color, *, flip: bool) -> None:
+        start = len(p.mesh.indices)
+        p.mesh.lathe((0.0, y0, 0.0), [(0.0, radius), (y1 - y0, radius)],
+                     segments=HOT_TUB_SEGMENTS, axis="y", uv=uv, color=color,
+                     cap_start=False, cap_end=False)
+        if flip:
+            _flip(p, start)
+
+    p.begin_material(tile_slot)
+    # Inner wall from the basin floor to the rim; the renderer draws both
+    # windings, so either flip looks the same from inside and outside.
+    wall(0.0, HOT_TUB_RIM_TOP, HOT_TUB_WALL_R, tile_uv, palette.shade(HOT_TUB_TILE, 0.96), flip=False)
+    p.begin_material(cap_slot)
+    # Flat rim cap: hides the recess polygon steps out to the outer edge.
+    ring(HOT_TUB_RIM_TOP, HOT_TUB_WALL_R, HOT_TUB_OUTER_R, cap_uv, palette.shade(HOT_TUB_CAP, 1.06), flip=False)
+    p.begin_material(tile_slot)
+    # Outer drum from the basin floor to the rim: it encloses the annular void
+    # between the wall and the outer radius, so the recess polygon's stepped
+    # cut edge is hidden from inside, outside and above.
+    wall(0.0, HOT_TUB_RIM_TOP, HOT_TUB_OUTER_R, tile_uv, palette.shade(HOT_TUB_TILE, 0.86), flip=False)
+    # A thin base apron 2 mm proud of the deck hides the recess polygon's
+    # tessellation fringe at the cut edge and reads as the tub's mounting rim.
+    ring(HOT_TUB_DECK + 0.002, HOT_TUB_WATER_R - 0.01, HOT_TUB_OUTER_R + 0.035,
+         tile_uv, palette.shade(HOT_TUB_TILE, 0.80), flip=False)
+
+    p.add_note("circular shell: wall radius 1.173 m, rim cap to 1.30 m, rim top 1.56 m, deck line 1.50 m")
+    p.add_note("level authors the 1.50 m recess strips and a circular water volume of radius 1.25 m at surface 1.35 m")
+
+
 # ----------------------------------------------------------------- curtains
 
 
@@ -481,6 +633,7 @@ PROPS = {
     "core:pool_table": build_pool_table,
     "core:pool_chair": build_pool_chair,
     "core:pool_ladder": build_pool_ladder,
+    "core:hot_tub": build_hot_tub,
     "core:pool_curtain_straight": pool_remade.curtains,
     "core:pool_curtain_end": pool_remade.curtains,
     "core:pool_curtain_corner": pool_remade.curtains,

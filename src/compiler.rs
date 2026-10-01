@@ -636,6 +636,8 @@ impl CaptureContext {
             Some(asset_root),
             &mut texture_cache,
         );
+        crate::materials::check_texture_budget(&materials)
+            .map_err(|error| format!("level `{}`: {error}", level.id))?;
         let light_sheets = crate::loader::resolve_fixture_sheets(
             level,
             catalog.assets(),

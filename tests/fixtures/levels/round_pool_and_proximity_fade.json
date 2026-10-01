@@ -1,0 +1,57 @@
+{
+  "format_version": 3,
+  "id": "round_pool_and_proximity_fade",
+  "name": "Round Pool and Proximity Fade",
+  "spawn": { "x": 2.0, "z": 2.0 },
+  "rooms": [
+    { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.2 }
+  ],
+  "floor_regions": [
+    { "x": 3.0, "z": 3.0, "width": 6.0, "depth": 6.0, "offset_y": -1.4 }
+  ],
+  "water": [
+    { "shape": "circle", "x": 4.0, "z": 4.0, "radius": 2.0,
+      "surface_y": -0.2, "bottom_y": -1.4, "opacity": 0.62, "swimming": true,
+      "comment": "A genuinely round plunge pool: x/z are the minimum corner of the bounding box, so the disc spans 4..8 in both axes and the four bounding box corners are dry deck." }
+  ],
+  "props": [
+    { "id": "round_pool_duck", "display_name": "Rubber Duck", "model": "core:rubber_duck",
+      "x": 6.0, "y": 0.0, "z": 6.0, "rotation_degrees": 180.0,
+      "size": [0.1, 0.12, 0.14], "solid": false,
+      "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.8,
+                 "heel_degrees": 6.0, "heel_seconds": 3.6, "phase": 0.0 } },
+    { "id": "proximity_cat", "model": "sheet-ghost-cat", "x": 9.0, "z": 2.5,
+      "solid": false,
+      "components": [
+        { "component": "fade", "near_radius": 1.0, "far_radius": 2.2,
+          "fade_out_seconds": 0.8, "fade_in_seconds": 1.6 },
+        { "component": "glow", "color": [0.4, 0.95, 1.0], "intensity": 0.4,
+          "range": 2.5, "socket": "body", "fade": true }
+      ] },
+    { "id": "proximity_ghost", "model": "sheet-ghost", "x": 9.0, "z": 9.0,
+      "solid": false,
+      "components": [
+        { "component": "fade", "near_radius": 3.0, "far_radius": 6.0,
+          "fade_out_seconds": 1.5, "fade_in_seconds": 3.0 },
+        { "component": "glow", "color": [0.4, 0.95, 1.0], "intensity": 0.45,
+          "range": 3.0, "socket": "body", "fade": true }
+      ] },
+    { "id": "steam_switch", "display_name": "Pool Steam", "model": "home:wall_switch",
+      "x": 1.0, "y": 1.2, "z": 6.0, "solid": false,
+      "components": [ { "component": "interactable", "prompt": "Pool steam" } ],
+      "bindings": [
+        { "on": "interact",
+          "when": [ { "check": "enabled", "target": "pool_steam" } ],
+          "actions": [ { "action": "disable", "target": "pool_steam" } ] },
+        { "on": "interact",
+          "when": [ { "check": "disabled", "target": "pool_steam" } ],
+          "actions": [ { "action": "enable", "target": "pool_steam" } ] }
+      ] }
+  ],
+  "effects": [
+    { "id": "pool_steam", "kind": "steam", "x": 6.0, "y": 0.2, "z": 6.0,
+      "width": 0.55, "depth": 0.45, "height": 0.45,
+      "count": 10, "size": 0.28, "drift": 0.05, "lifetime_seconds": 2.6,
+      "enabled": false }
+  ]
+}

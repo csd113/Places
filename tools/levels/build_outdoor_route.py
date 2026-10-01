@@ -98,12 +98,33 @@ HOUSE_X0 = HOUSE_CX - 4.5
 HOUSE_X1 = HOUSE_CX + 4.5
 HOUSE_Z0 = -97.1
 HOUSE_Z1 = -91.7
-HOUSE_HEIGHT = 2.7
 PANEL_PITCH = 3.0
 
 #: The entry room's ceiling pitch follows the roof props (1.75 m rise over a
 #: 2.6 m slope).
 ROOF_PITCH = 1.75 / 2.6
+
+#: The roof planes are placed so their undersides are exactly the room's gable
+#: ceiling planes: the room's eave is where the roof plane crosses the room's
+#: own front edge (z = -91.85) with the roof eave underside at y = 2.7 at
+#: z = -91.65. Solving for the room height gives 2.8346, and the side and
+#: front/back walls then simply follow the ceiling, so the walls, gables and
+#: roof form one watertight envelope with no rake slot.
+HOUSE_EAVE = 2.7
+HOUSE_EDGE_Z = HOUSE_Z1 - 0.15  # the room's own front edge (-91.85)
+HOUSE_EAVE_Z = HOUSE_Z1 + 0.05  # the front roof eave underside (-91.65)
+HOUSE_HEIGHT = round(HOUSE_EAVE + (HOUSE_EAVE_Z - HOUSE_EDGE_Z) * ROOF_PITCH, 4)
+#: The back roof eave mirrors the front one across the room's ridge.
+HOUSE_BACK_EAVE_Z = round(HOUSE_Z0 - 0.05, 4)
+HOUSE_RIDGE_Z = round((HOUSE_Z0 + HOUSE_Z1) * 0.5, 4)
+HOUSE_RIDGE_Y = round(HOUSE_HEIGHT + ROOF_PITCH * 2.55, 4)
+
+#: The family roof slope's half-run from its centred origin to the eave
+#: underside (the model spans local z -1.3..+1.3).
+ROOF_HALF_RUN = 1.3
+#: The stoop's raised floor height; props whose base belongs on the yard floor
+#: author a negative y of this much because prop `y` is floor-relative.
+STOOP_RISE = 0.24
 
 #: Every emitted id starts with this prefix; grass uses ``grass_night_``.
 ID_PREFIX = "night_"
@@ -188,36 +209,63 @@ DOOR_LAMP_MOUNT_Z = 0.20
 #: Wall face to lamp origin: the panel's outer face (centre + half depth).
 DOOR_LAMP_OUT = DOOR_PANEL_HALF_DEPTH + DOOR_LAMP_MOUNT_Z
 
-#: Trees: (x, z, rotation, scale). Trunks are solid; the canopy opts out of the
-#: bake (a coarse box shadow no leaf card could cast - documented on the group).
+#: Trees: ``(x, z, rotation, scale, model)``. Trunks are solid; the canopy opts
+#: out of the bake (a coarse box shadow no leaf card could cast - documented on
+#: the group). The three models are the leafy original, the pale birch and the
+#: evergreen conifer; the boundary rows give each wall side a rhythm with
+#: deliberate repeats, model changes and scale variation, and every entry stays
+#: clear of the route, the connector, the doorways and the destination house.
+TREE_LEAFY = "outdoor:tree_01"
+TREE_BIRCH = "outdoor:tree_02"
+TREE_EVERGREEN = "outdoor:tree_03"
 TREES = [
-    # west band ends
-    (1.5, -8.0, 15.0, 1.0),
-    (1.5, -88.0, 210.0, 0.95),
-    # middle band
-    (7.4, -25.0, 25.0, 1.05),
-    (10.8, -30.0, 300.0, 0.95),
-    (7.0, -38.0, 190.0, 1.1),
-    (11.4, -41.0, 70.0, 1.0),
-    (10.5, -48.5, 240.0, 0.9),
-    (6.9, -49.5, 130.0, 1.05),
-    (6.6, -52.5, 20.0, 0.95),
-    (11.0, -56.0, 350.0, 1.1),
-    (7.6, -62.0, 100.0, 1.0),
-    (10.4, -68.0, 285.0, 0.95),
-    (6.8, -76.0, 55.0, 1.05),
-    (11.2, -82.0, 160.0, 0.9),
-    # east band
-    (16.5, -12.0, 40.0, 1.0),
-    (21.0, -18.0, 220.0, 1.05),
-    (15.5, -33.0, 310.0, 0.95),
-    (20.5, -40.0, 80.0, 1.0),
-    (17.0, -55.0, 250.0, 1.1),
-    (22.0, -62.0, 120.0, 0.95),
-    (16.0, -74.0, 330.0, 1.05),
-    (20.0, -83.0, 30.0, 1.0),
+    # ---- original grove (unchanged) -----------------------------------
+    (1.5, -8.0, 15.0, 1.0, TREE_LEAFY),
+    (1.5, -88.0, 210.0, 0.95, TREE_LEAFY),
+    (7.4, -25.0, 25.0, 1.05, TREE_LEAFY),
+    (10.8, -30.0, 300.0, 0.95, TREE_LEAFY),
+    (7.0, -38.0, 190.0, 1.1, TREE_LEAFY),
+    (11.4, -41.0, 70.0, 1.0, TREE_LEAFY),
+    (10.5, -48.5, 240.0, 0.9, TREE_LEAFY),
+    (6.9, -49.5, 130.0, 1.05, TREE_LEAFY),
+    (6.6, -52.5, 20.0, 0.95, TREE_LEAFY),
+    (11.0, -56.0, 350.0, 1.1, TREE_LEAFY),
+    (7.6, -62.0, 100.0, 1.0, TREE_LEAFY),
+    (10.4, -68.0, 285.0, 0.95, TREE_LEAFY),
+    (6.8, -76.0, 55.0, 1.05, TREE_LEAFY),
+    (11.2, -82.0, 160.0, 0.9, TREE_LEAFY),
+    (16.5, -12.0, 40.0, 1.0, TREE_LEAFY),
+    (21.0, -18.0, 220.0, 1.05, TREE_LEAFY),
+    (15.5, -33.0, 310.0, 0.95, TREE_LEAFY),
+    (20.5, -40.0, 80.0, 1.0, TREE_LEAFY),
+    (17.0, -55.0, 250.0, 1.1, TREE_LEAFY),
+    (22.0, -62.0, 120.0, 0.95, TREE_LEAFY),
+    (16.0, -74.0, 330.0, 1.05, TREE_LEAFY),
+    (20.0, -83.0, 30.0, 1.0, TREE_LEAFY),
+    # ---- west boundary wall side --------------------------------------
+    (1.0, -15.5, 30.0, 1.05, TREE_BIRCH),
+    (1.2, -31.5, 200.0, 0.95, TREE_EVERGREEN),
+    (0.9, -35.5, 165.0, 1.1, TREE_LEAFY),
+    (1.3, -43.0, 75.0, 0.9, TREE_BIRCH),
+    (1.0, -57.5, 245.0, 1.0, TREE_EVERGREEN),
+    (1.2, -66.5, 40.0, 1.05, TREE_LEAFY),
+    (0.9, -79.0, 190.0, 0.95, TREE_BIRCH),
+    (1.4, -86.0, 320.0, 1.1, TREE_EVERGREEN),
+    # ---- east boundary wall side --------------------------------------
+    (23.0, -9.0, 340.0, 1.0, TREE_EVERGREEN),
+    (22.8, -21.0, 160.0, 1.05, TREE_BIRCH),
+    (23.2, -28.5, 60.0, 0.95, TREE_LEAFY),
+    (22.9, -36.5, 230.0, 1.1, TREE_EVERGREEN),
+    (23.1, -47.0, 15.0, 0.9, TREE_BIRCH),
+    (22.8, -59.5, 300.0, 1.0, TREE_LEAFY),
+    (23.2, -70.0, 105.0, 1.05, TREE_EVERGREEN),
+    (22.9, -80.5, 265.0, 0.95, TREE_BIRCH),
 ]
-TREE_SIZE = [0.8, 6.4, 0.8]
+TREE_SIZES = {
+    TREE_LEAFY: [0.8, 6.4, 0.8],
+    TREE_BIRCH: [0.6, 6.2, 0.6],
+    TREE_EVERGREEN: [0.6, 6.8, 0.6],
+}
 
 #: Grass bands: (x, z, width, depth, profile, id suffix, seed).
 GRASS_BANDS = [
@@ -250,22 +298,16 @@ GHOSTS = [
         "id": f"{ID_PREFIX}ghost_a",
         "start": (1.4, -18.0),
         "route": [(1.4, -18.0), (1.4, -23.0), (0.6, -23.0), (0.6, -18.0)],
-        "period": 7.0,
-        "phase": 0.0,
     },
     {
         "id": f"{ID_PREFIX}ghost_b",
         "start": (0.7, -45.0),
         "route": [(0.7, -45.0), (1.6, -49.0), (0.5, -52.0), (0.7, -45.0)],
-        "period": 8.1,
-        "phase": 0.37,
     },
     {
         "id": f"{ID_PREFIX}ghost_c",
         "start": (1.5, -70.0),
         "route": [(1.5, -70.0), (0.6, -73.5), (1.6, -76.5), (1.5, -70.0)],
-        "period": 9.2,
-        "phase": 0.71,
     },
 ]
 GHOST_SIZE = [0.994, 1.619, 0.716]
@@ -376,19 +418,123 @@ GEOMETRY_INTENT = [
     },
 ]
 
-#: Destination-house interior light: a dim residential flush mount so the open
-#: doorway has something to spill.
-HOUSE_LIGHT = {
-    "id": f"{ID_PREFIX}house_light",
-    "fixture": "home:ceiling_light_round",
-    "x": HOUSE_CX,
-    "z": -94.3,
-    "brightness": 0.9,
-    "color": [1.0, 0.9, 0.78],
-    "range": 5.0,
-    "emission": 0.9,
-    "align": "none",
+#: Tall streetlights: ``(x, z, arm rotation)``. The arm leaves along the
+#: prop's local +Z; the rotation turns it over the route (west posts turn +Z
+#: onto +X, east posts onto -X). The emitter anchor is the fixture's own
+#: documented offset - under the hood, 0.45 m inside the model's bounding box.
+STREETLIGHTS = [
+    (2.3, -14.0, 90.0),
+    (6.7, -26.0, 270.0),
+    (2.3, -38.0, 90.0),
+    (6.7, -50.0, 270.0),
+    (2.3, -62.0, 90.0),
+    (6.7, -74.0, 270.0),
+    (2.3, -84.0, 90.0),
+]
+STREETLIGHT_LIGHT = {
+    "shape": "point",
+    "offset": [0.0, 6.05, 0.43],
+    "color": [1.0, 0.84, 0.66],
+    "intensity": 1.5,
+    "range": 14.0,
+    "falloff": "smooth",
 }
+
+#: The ghost cat: a small hovering sheet ghost that drifts beside the walkway
+#: and fades out when the player comes close (the shared proximity fade).
+GHOST_CAT = {
+    "id": f"{ID_PREFIX}ghost_cat",
+    "start": (15.2, -44.0),
+    "route": [(15.2, -44.0), (14.2, -48.0), (15.6, -52.0), (15.2, -44.0)],
+    "size": [0.226, 0.323, 0.576],
+    "near_radius": 2.2,
+    "far_radius": 5.5,
+    "fade_out_seconds": 1.2,
+    "fade_in_seconds": 1.8,
+}
+
+#: The three pumpkin-head skeletons waiting inside the destination house, and
+#: the entry zone that wakes them once per entry with the clip that actually
+#: removes and reassembles the head.
+GUARDS = [
+    {"id": f"{ID_PREFIX}guard_a", "x": 10.6, "z": -95.6, "rotation": 0.0},
+    {"id": f"{ID_PREFIX}guard_b", "x": 13.5, "z": -95.7, "rotation": 0.0},
+    {"id": f"{ID_PREFIX}guard_c", "x": 16.2, "z": -94.6, "rotation": 0.0},
+]
+GUARD_SIZE = [0.442, 1.808, 0.403]
+GUARD_CLIP = "collapse_reassemble"
+GUARD_ZONE = {"x": 12.7, "z": -93.0, "width": 1.6, "depth": 1.2}
+
+#: Restrained regional low mist: one thin ground layer over the western and
+#: middle yard, well clear of the destination house (which must read dry).
+FOG_REGIONS = [
+    {
+        "id": f"{ID_PREFIX}low_mist",
+        "min": [-0.15, -0.30, -90.5],
+        "max": [24.15, 0.55, -2.0],
+        "density": 0.055,
+        "color": [0.58, 0.62, 0.68],
+        "falloff_m": 9.0,
+        "ground_y": -0.20,
+        "top_y": 0.50,
+    }
+]
+
+#: Invisible containment geometry (the void-wall system): one broad, thin
+#: ground slab 2 cm under the yard's own floor, extending far past every
+#: reachable boundary, so looking over an edge or down a transition shows a
+#: continuous night ground instead of the void. It is non-solid (the buried
+#: pegs own containment) and never occludes, so the bake is unchanged.
+VOID_WALLS = [
+    {
+        "id": f"{ID_PREFIX}ground_slab",
+        "min": [-6.0, -1.2, -98.0],
+        "max": [30.0, -0.08, 3.0],
+        "material": "outdoor:dirt_gravel_01",
+        "faces": "outward",
+        "solid": False,
+        "occludes": False,
+    }
+]
+
+#: Destination-house interior light: three warm residential flush mounts, so
+#: the finished room reads noticeably bright through the open doorway and from
+#: inside, and the gable ceiling carries real fixtures rather than glow.
+HOUSE_LIGHTS = [
+    {
+        "id": f"{ID_PREFIX}house_light",
+        "fixture": "home:ceiling_light_round",
+        "x": HOUSE_CX,
+        "z": -94.3,
+        "brightness": 1.25,
+        "color": [1.0, 0.9, 0.78],
+        "range": 7.0,
+        "emission": 1.1,
+        "align": "none",
+    },
+    {
+        "id": f"{ID_PREFIX}house_light_west",
+        "fixture": "home:ceiling_light_round",
+        "x": HOUSE_CX - 3.1,
+        "z": -95.6,
+        "brightness": 1.1,
+        "color": [1.0, 0.9, 0.78],
+        "range": 6.0,
+        "emission": 1.0,
+        "align": "none",
+    },
+    {
+        "id": f"{ID_PREFIX}house_light_east",
+        "fixture": "home:ceiling_light_round",
+        "x": HOUSE_CX + 3.1,
+        "z": -93.4,
+        "brightness": 1.1,
+        "color": [1.0, 0.9, 0.78],
+        "range": 6.0,
+        "emission": 1.0,
+        "align": "none",
+    },
+]
 
 
 # --------------------------------------------------------------------------
@@ -470,11 +616,16 @@ def build_slice(level: dict) -> dict:
     rooms: List[dict] = []
     walls: List[dict] = []
     floor_patches: List[dict] = []
+    floor_regions: List[dict] = []
     props: List[dict] = []
     decals: List[dict] = []
     doors: List[dict] = []
     routes: List[dict] = []
     ceiling_lights: List[dict] = []
+    volumes: List[dict] = []
+    sequences: List[dict] = []
+    fog_regions: List[dict] = []
+    void_walls: List[dict] = []
 
     # ---- the yard -------------------------------------------------------
     rooms.append(
@@ -499,6 +650,9 @@ def build_slice(level: dict) -> dict:
         "z": HOUSE_Z0 + 0.15,
         "width": (HOUSE_X1 - HOUSE_X0) - 0.3,
         "depth": (HOUSE_Z1 - HOUSE_Z0) - 0.3,
+        # The eave is solved from the roof plane (see HOUSE_HEIGHT): the
+        # ceiling and the roof's underside are the same plane, so every wall
+        # that follows the ceiling is also sealed against the roof.
         "height": HOUSE_HEIGHT,
         "ceiling": {"kind": "gable", "ridge": "x", "ridge_rise": round(ROOF_PITCH * 2.55, 4)},
         "material": "home:hardwood_oak_01",
@@ -511,10 +665,16 @@ def build_slice(level: dict) -> dict:
     walls.extend(
         [
             {
+                # No authored height: the front wall's top follows the eave
+                # ceiling, which is the roof's underside.
                 "x": HOUSE_X0,
                 "z": HOUSE_Z1 - 0.3,
                 "width": 9.0,
                 "depth": 0.3,
+                # A rigid eave height: this wall is parallel to the ridge, so
+                # its top is the constant eave plane, and an authored height
+                # keeps it there instead of trusting the room lookup at a
+                # boundary shared with the yard's open 6 m ceiling.
                 "height": HOUSE_HEIGHT,
                 "material": "outdoor:house_siding_01",
                 "faces": {"north": "home:wall_paint_offwhite_01"},
@@ -527,7 +687,7 @@ def build_slice(level: dict) -> dict:
                         "sill": 0.0,
                     }
                 ],
-                "comment": "Destination front wall: the centred doorway.",
+                "comment": "Destination front wall: the centred doorway under a rigid eave-height top.",
             },
             {
                 "x": HOUSE_X0,
@@ -537,46 +697,102 @@ def build_slice(level: dict) -> dict:
                 "height": HOUSE_HEIGHT,
                 "material": "outdoor:house_siding_01",
                 "faces": {"south": "home:wall_paint_offwhite_01"},
+                "comment": "Destination back wall: a rigid eave height, like the front wall.",
             },
             {
+                # The gable end walls: with no authored height their tops
+                # follow the room's gable ceiling, which is exactly the roof
+                # plane, so wall, rake and roof meet with no slot.
                 "x": HOUSE_X0,
-                "z": HOUSE_Z0 + 0.3,
+                # 2 cm short of each front/back wall's inner face: the gable
+                # end faces stay clear of the perpendicular walls instead of
+                # landing exactly on their plane (a coincident surface), and
+                # the corner reads as an ordinary 2 cm return.
+                "z": HOUSE_Z0 + 0.32,
                 "width": 0.3,
-                "depth": 4.8,
-                "height": HOUSE_HEIGHT,
+                "depth": 4.76,
                 "material": "outdoor:house_siding_01",
                 "faces": {"east": "home:wall_paint_offwhite_01"},
-                "comment": "Butts the front and back walls: their shared end planes only touch.",
+                "comment": "West gable wall: its top follows the roof plane to the ridge.",
             },
             {
                 "x": HOUSE_X1 - 0.3,
-                "z": HOUSE_Z0 + 0.3,
+                "z": HOUSE_Z0 + 0.32,
                 "width": 0.3,
-                "depth": 4.8,
-                "height": HOUSE_HEIGHT,
+                "depth": 4.76,
                 "material": "outdoor:house_siding_01",
                 "faces": {"west": "home:wall_paint_offwhite_01"},
+                "comment": "East gable wall: its top follows the roof plane to the ridge.",
             },
         ]
     )
 
-    # Front facade panels: three kit modules, the centred one carrying the door.
+    # Front facade panels: three modules of the blue-clapboard family (house
+    # 02), the centred one carrying the real door; a covered stoop dresses the
+    # destination with the same kit. The five families stay available in the
+    # catalogue and the kit fixture; the demo needs only one.
+    HOUSE_FACADE = "outdoor:house_02"
+    # The stoop is a raised floor region under the porch; panels, lamps and the
+    # deck must still meet the yard floor (their authored `y` is relative to
+    # the local walkable floor), so their origin is lowered by the stoop rise.
     for x, kind in ((10.5, "window"), (13.5, "doorway"), (16.5, "window")):
         props.append(
             _prop(
-                {
-                    "window": "outdoor:house_wall_window",
-                    "doorway": "outdoor:house_wall_doorway",
-                }[kind],
+                f"{HOUSE_FACADE}_{'wall_' + kind}",
                 x,
                 HOUSE_Z1 + (0.20 if kind == "doorway" else 0.12),
                 prop_id=f"{ID_PREFIX}house_facade_{int(x * 10)}",
+                y=-STOOP_RISE,
                 comment=(
                     "Centred destination doorway panel; its 0.40 m jamb depth "
                     "reads on both faces of the real wall opening."
                     if kind == "doorway"
-                    else "Destination facade panel."
+                    else "Destination facade panel (blue clapboard family)."
                 ),
+            )
+        )
+
+    # The stoop is real floor: a 0.24 m raised region outside the door, so the
+    # step rule walks the player up and down it (a rigid prop box would block).
+    floor_regions.append(
+        {
+            "x": HOUSE_CX - 1.5,
+            # 1 cm south of the wall's outer face: the stoop's 0.24 m skirt
+            # would otherwise be exactly coplanar with the wall face above it.
+            "z": HOUSE_Z1 + 0.01,
+            "width": 3.0,
+            "depth": 1.5,
+            "offset_y": 0.24,
+            "material": "outdoor:concrete_pavement_01",
+            "edge_material": "outdoor:concrete_pavement_01",
+            "comment": (
+                "[night-route] The destination doorway's 0.24 m stoop: real "
+                "raised floor, so the step rule walks it; the porch deck prop "
+                "dresses this exact footprint."
+            ),
+        }
+    )
+    # A three-module porch deck outside the door, carried by two posts.
+    props.append(
+        _prop(
+            f"{HOUSE_FACADE}_porch_deck",
+            HOUSE_CX,
+            HOUSE_Z1 + 0.75,
+            prop_id=f"{ID_PREFIX}house_porch",
+            y=-STOOP_RISE,
+            comment="Porch deck dressing the doorway stoop: its top meets the raised region's surface, and the 0.24 m step itself is real floor so it walks.",
+        )
+    )
+    for side in (-1, 1):
+        props.append(
+            _prop(
+                f"{HOUSE_FACADE}_porch_post",
+                HOUSE_CX + side * 1.43,
+                HOUSE_Z1 + 1.43,
+                prop_id=f"{ID_PREFIX}house_porch_post_{'w' if side < 0 else 'e'}",
+                size=[0.14, 2.3, 0.14],
+                solid=True,
+                comment="Porch post standing through the deck's front edge.",
             )
         )
 
@@ -585,7 +801,7 @@ def build_slice(level: dict) -> dict:
         for z in (HOUSE_Z1, HOUSE_Z0):
             props.append(
                 _prop(
-                    "outdoor:house_corner_trim",
+                    f"{HOUSE_FACADE}_corner_trim",
                     x,
                     z,
                     prop_id=f"{ID_PREFIX}house_trim_{int(abs(x) * 10)}_{int(abs(z) * 10)}",
@@ -593,44 +809,54 @@ def build_slice(level: dict) -> dict:
             )
 
     # Destination roof: two slopes meeting on a ridge cap over the front door.
+    # The slopes' undersides are the room's own gable planes (HOUSE_EAVE at
+    # HOUSE_EAVE_Z / HOUSE_BACK_EAVE_Z, ridge at HOUSE_RIDGE_Y), so the gable
+    # walls that follow the ceiling are sealed against the roof.
+    # The family's roof slope is centred: its eave underside sits at local
+    # z = +1.3 and its ridge edge at -1.3 (the original kit's panel instead
+    # puts the origin *at* the eave). Place the origin half a run inboard of
+    # the eave so the underside plane is exactly the room's gable plane.
     slope_x_centers = [HOUSE_CX - 3.4, HOUSE_CX, HOUSE_CX + 3.4]
     for index, x in enumerate(slope_x_centers):
         props.append(
             _prop(
-                "outdoor:house_roof_slope",
+                f"{HOUSE_FACADE}_roof_slope",
                 x,
-                HOUSE_Z1 + 0.05,
+                HOUSE_EAVE_Z - ROOF_HALF_RUN,
                 prop_id=f"{ID_PREFIX}house_roof_front_{index}",
                 rotation=0.0,
-                y=HOUSE_HEIGHT,
+                y=HOUSE_EAVE,
+                comment="Front roof slope: its underside is the room's front gable plane.",
             )
         )
         props.append(
             _prop(
-                "outdoor:house_roof_slope",
+                f"{HOUSE_FACADE}_roof_slope",
                 x,
-                HOUSE_Z0 + 0.25,
+                HOUSE_BACK_EAVE_Z + ROOF_HALF_RUN,
                 prop_id=f"{ID_PREFIX}house_roof_back_{index}",
                 rotation=180.0,
-                y=HOUSE_HEIGHT,
+                y=HOUSE_EAVE,
+                comment="Back roof slope: its underside is the room's back gable plane.",
             )
         )
         props.append(
             _prop(
-                "outdoor:house_roof_ridge",
+                f"{HOUSE_FACADE}_roof_ridge",
                 x,
-                HOUSE_Z1 - 2.55,
+                HOUSE_RIDGE_Z,
                 prop_id=f"{ID_PREFIX}house_ridge_{index}",
-                y=round(HOUSE_HEIGHT + 1.75 - 0.22, 4),
+                y=round(HOUSE_RIDGE_Y - 0.22, 4),
             )
         )
 
-    # Entry-room dressing and its dim flush mount.
+    # Entry-room dressing and its lit ceiling.
     for entry in HOUSE_PROPS:
         props.append(_prop(entry["model"], entry["x"], entry["z"], prop_id=entry["id"],
                            rotation=entry.get("rotation_degrees", 0.0),
                            size=entry.get("size"), solid=entry.get("solid", False)))
-    ceiling_lights.append(dict(HOUSE_LIGHT))
+    for light in HOUSE_LIGHTS:
+        ceiling_lights.append(dict(light))
 
     # Destination doorway lamps: one each side, hung from the eave mounts.
     for side in (-1, 1):
@@ -641,7 +867,7 @@ def build_slice(level: dict) -> dict:
                 x,
                 HOUSE_Z1 + DOOR_LAMP_OUT,
                 prop_id=f"{ID_PREFIX}house_lamp_{'w' if side < 0 else 'e'}",
-                y=round(DOOR_LAMP_MOUNT_Y - 0.52, 4),
+                y=round(DOOR_LAMP_MOUNT_Y - 0.52 - STOOP_RISE, 4),
                 lights=[copy.deepcopy(DOOR_LAMP_LIGHT)],
                 comment="Hangs from the eave on the doorway mount the kit documents.",
             )
@@ -905,21 +1131,41 @@ def build_slice(level: dict) -> dict:
             )
         )
 
-    for index, (x, z, rotation, scale) in enumerate(TREES):
+    for index, (x, z, rotation, scale, model) in enumerate(TREES):
         props.append(
             _prop(
-                "outdoor:tree_01",
+                model,
                 x,
                 z,
                 prop_id=f"{ID_NAME_TREE}{index:02d}",
                 rotation=rotation,
                 scale=scale,
-                size=TREE_SIZE,
+                size=TREE_SIZES[model],
                 solid=True,
                 occludes=False,
                 comment=(
                     "Night tree: trunk-sized collider, canopy opted out of the "
                     "bake so no leaf blob shadow is ground into the lightmap."
+                ),
+            )
+        )
+
+    # Tall streetlights: one every ~12 m, alternating sides, arm turned over
+    # the route. The emitter anchor sits under the downward hood, and the light
+    # is a bounded warm point so the pool lands on the route and never reads
+    # through the houses.
+    for index, (x, z, rotation) in enumerate(STREETLIGHTS):
+        props.append(
+            _prop(
+                "outdoor:streetlight",
+                x,
+                z,
+                prop_id=f"{ID_PREFIX}streetlight_{index:02d}",
+                rotation=rotation,
+                lights=[copy.deepcopy(STREETLIGHT_LIGHT)],
+                comment=(
+                    "Canopy-height streetlight: warm, bounded, downward light "
+                    "from the real fixture under the hood."
                 ),
             )
         )
@@ -933,12 +1179,14 @@ def build_slice(level: dict) -> dict:
         (3.2, -2.4, 2.6, 2.4),
         (11.9, -92.6, 3.2, 2.6),
     ]
-    for x, z, _rotation, _scale in TREES:
+    for x, z, _rotation, _scale, _model in TREES:
         keep_outs.append((x - 0.6, z - 0.6, 1.2, 1.2))
     for index in range(12):
         z = LAMP_Z0 - LAMP_Z_STEP * index
         x = LAMP_WEST_X if index % 2 == 0 else LAMP_EAST_X
         keep_outs.append((x - 0.5, z - 0.5, 1.0, 1.0))
+    for x, z, _rotation in STREETLIGHTS:
+        keep_outs.append((x - 0.7, z - 0.7, 1.4, 1.4))
 
     for area_x, area_z, width, depth, profile, suffix, seed in GRASS_BANDS:
         band = scatter_grass.scatter(
@@ -1010,11 +1258,17 @@ def build_slice(level: dict) -> dict:
                 size=GHOST_SIZE,
                 components=[
                     {
+                        # The proximity form replaces the old cosine cycle: the
+                        # ghost fades out as the player comes inside 3 m and
+                        # returns only beyond 7 m, with a scale-appropriate
+                        # in/out time for a 1.6 m figure.
                         "component": "fade",
-                        "period_seconds": ghost["period"],
-                        "phase": ghost["phase"],
-                        "min_opacity": 0.06,
+                        "min_opacity": 0.0,
                         "max_opacity": 0.85,
+                        "near_radius": 3.0,
+                        "far_radius": 7.0,
+                        "fade_out_seconds": 1.6,
+                        "fade_in_seconds": 2.4,
                     },
                     {
                         "component": "glow",
@@ -1074,16 +1328,174 @@ def build_slice(level: dict) -> dict:
         )
     )
 
+    # ---- the ghost cat ---------------------------------------------------
+    props.append(
+        _prop(
+            "sheet-ghost-cat",
+            GHOST_CAT["start"][0],
+            GHOST_CAT["start"][1],
+            prop_id=GHOST_CAT["id"],
+            size=GHOST_CAT["size"],
+            components=[
+                {
+                    # Proximity fade: inside near_radius the cat fades out,
+                    # beyond the farther far_radius it fades back in.
+                    "component": "fade",
+                    "min_opacity": 0.0,
+                    "max_opacity": 0.85,
+                    "near_radius": GHOST_CAT["near_radius"],
+                    "far_radius": GHOST_CAT["far_radius"],
+                    "fade_out_seconds": GHOST_CAT["fade_out_seconds"],
+                    "fade_in_seconds": GHOST_CAT["fade_in_seconds"],
+                },
+                {
+                    "component": "glow",
+                    "color": [0.4, 0.95, 1.0],
+                    "intensity": 0.4,
+                    "range": 2.6,
+                    "socket": "body",
+                    "fade": True,
+                },
+            ],
+        )
+    )
+    routes.append(
+        {
+            "id": GHOST_CAT["id"],
+            "loop": True,
+            "steps": [
+                {"step": "move_to", "x": x, "z": z, "speed": 0.2}
+                for (x, z) in GHOST_CAT["route"]
+            ],
+        }
+    )
+
+    # ---- the three waiting guards ---------------------------------------
+    for guard in GUARDS:
+        props.append(
+            _prop(
+                "pumpkin-skeleton",
+                guard["x"],
+                guard["z"],
+                prop_id=guard["id"],
+                rotation=guard["rotation"],
+                size=GUARD_SIZE,
+                components=[
+                    {
+                        "component": "animation",
+                        "clip": GUARD_CLIP,
+                        "looped": False,
+                        "playing": False,
+                    }
+                ],
+                comment=(
+                    "One of the three waiting skeletons inside the house: it "
+                    "rests on the authored pose until the entry zone plays "
+                    "collapse_reassemble on it."
+                ),
+            )
+        )
+    volumes.append(
+        {
+            "id": f"{ID_PREFIX}guard_zone",
+            "x": GUARD_ZONE["x"],
+            "z": GUARD_ZONE["z"],
+            "width": GUARD_ZONE["width"],
+            "depth": GUARD_ZONE["depth"],
+            "bottom_y": -0.1,
+            "top_y": 2.0,
+            "bindings": [
+                {
+                    "id": "wake",
+                    "on": "enter_volume",
+                    "cooldown_seconds": 1.0,
+                    "when": [
+                        {
+                            "check": "sequence_idle",
+                            "target": f"{ID_PREFIX}guard_zone",
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "action": "start_sequence",
+                            "sequence": f"{ID_PREFIX}guard_wake",
+                        }
+                    ],
+                }
+            ],
+            "comment": (
+                "The house's entry band just inside the doorway. Entering it "
+                "starts the shared wake sequence once; because the binding "
+                "needs the sequence idle, walking out and back in during the "
+                "12 s clip does nothing, and the edge re-arms after exit and "
+                "completion. The player's own feet are the only trigger."
+            ),
+        }
+    )
+    sequences.append(
+        {
+            "id": f"{ID_PREFIX}guard_wake",
+            "steps": [
+                {"step": "wait", "seconds": 0.4},
+                {
+                    "step": "action",
+                    "action": {
+                        "action": "play_animation",
+                        "target": GUARDS[0]["id"],
+                        "clip": GUARD_CLIP,
+                        "loop": False,
+                    },
+                },
+                {
+                    "step": "action",
+                    "action": {
+                        "action": "play_animation",
+                        "target": GUARDS[1]["id"],
+                        "clip": GUARD_CLIP,
+                        "loop": False,
+                    },
+                },
+                {
+                    "step": "action",
+                    "action": {
+                        "action": "play_animation",
+                        "target": GUARDS[2]["id"],
+                        "clip": GUARD_CLIP,
+                        "loop": False,
+                    },
+                },
+                {"step": "wait", "seconds": 12.6},
+                {"step": "stop"},
+            ],
+            "comment": (
+                "Runs on the entry zone: one step starts all three guards' "
+                "collapse_reassemble clips together, then the sequence holds "
+                "until the 12 s clip is done so a re-entry cannot interleave."
+            ),
+        }
+    )
+
+    # ---- mist and containment ground ------------------------------------
+    for region in FOG_REGIONS:
+        fog_regions.append(copy.deepcopy(region))
+    for slab in VOID_WALLS:
+        void_walls.append(copy.deepcopy(slab))
+
     return {
         "geometry_intent": [copy.deepcopy(entry) for entry in GEOMETRY_INTENT],
         "rooms": rooms,
         "walls": walls,
         "floor_patches": floor_patches,
+        "floor_regions": floor_regions,
         "props": props,
         "decals": decals,
         "doors": doors,
         "routes": routes,
         "ceiling_lights": ceiling_lights,
+        "volumes": volumes,
+        "sequences": sequences,
+        "fog_regions": fog_regions,
+        "void_walls": void_walls,
     }
 
 
@@ -1183,11 +1595,16 @@ def strip_slice(level: dict) -> None:
         "rooms",
         "walls",
         "floor_patches",
+        "floor_regions",
         "props",
         "decals",
         "doors",
         "routes",
         "ceiling_lights",
+        "volumes",
+        "sequences",
+        "fog_regions",
+        "void_walls",
     ):
         existing = level.get(field)
         if not isinstance(existing, list):

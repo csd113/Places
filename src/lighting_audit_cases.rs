@@ -148,7 +148,7 @@ fn group_a_larger_area_lowers_the_baseline_and_stays_continuous() {
 #[test]
 fn group_a_room_area_extremes_stay_inside_the_budget() {
     // 1000 x 1000 m is well inside the raised floor-area budget and must still
-    // bake; the raised budget is 16x the historical 1 000 000 m^2 one.
+    // bake; the raised budget is 64x the historical 1 000 000 m^2 one.
     let level = parse_current(&level_json(
         &room(0.0, 0.0, 1000.0, 1000.0, 3.5),
         &light(500.0, 500.0, None),
@@ -160,9 +160,10 @@ fn group_a_room_area_extremes_stay_inside_the_budget() {
     build_checked(&level);
 
     // Past the budget the loader must reject rather than try to reserve.
-    // Seventeen fully-overlapping 1000 x 1000 m rooms estimate 17 000 000 m^2 of
-    // floor: past the raised budget without building (or baking) anything.
-    let rooms: Vec<String> = (0..17)
+    // Sixty-five fully-overlapping 1000 x 1000 m rooms estimate 65 000 000 m^2
+    // of floor: past the raised 64 000 000 m^2 budget without building (or
+    // baking) anything.
+    let rooms: Vec<String> = (0..65)
         .map(|_| room(0.0, 0.0, 1000.0, 1000.0, 3.5))
         .collect();
     let over = parse_current(&level_json(&rooms.join(","), &light(500.0, 500.0, None)));
@@ -1679,7 +1680,9 @@ fn empty_level() -> LevelDef {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     }
 }
 

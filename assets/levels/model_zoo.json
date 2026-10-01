@@ -18,7 +18,7 @@
       "x": 0.0,
       "z": 0.0,
       "width": 49.2,
-      "depth": 76.7,
+      "depth": 118.7,
       "height": 5.0,
       "material": "core:pool_tile_deck_01",
       "ceiling_material": "core:pool_ceiling_01"
@@ -34,7 +34,7 @@
     },
     {
       "x": -0.4,
-      "z": 76.7,
+      "z": 118.7,
       "width": 50.0,
       "depth": 0.4,
       "material": "core:pool_tile_wall_01"
@@ -43,19 +43,19 @@
       "x": -0.4,
       "z": 0.0,
       "width": 0.4,
-      "depth": 76.7,
+      "depth": 118.7,
       "material": "core:pool_tile_wall_01"
     },
     {
       "x": 49.2,
       "z": 0.0,
       "width": 0.4,
-      "depth": 76.7,
+      "depth": 118.7,
       "material": "core:pool_tile_wall_01",
       "openings": [
         {
           "kind": "passage",
-          "offset": 36.35,
+          "offset": 57.35,
           "width": 4.0,
           "height": 3.0,
           "sill": 0.0
@@ -66,7 +66,7 @@
   "floor_regions": [
     {
       "x": 3.6,
-      "z": 67.1,
+      "z": 109.1,
       "width": 8.0,
       "depth": 6.0,
       "offset_y": -1.5,
@@ -77,7 +77,7 @@
   "water": [
     {
       "x": 3.6,
-      "z": 67.1,
+      "z": 109.1,
       "width": 8.0,
       "depth": 6.0,
       "surface_y": -0.2,
@@ -88,7 +88,7 @@
   "ladders": [
     {
       "x": 7.3,
-      "z": 66.8,
+      "z": 108.8,
       "width": 0.6,
       "depth": 0.6,
       "bottom_y": -1.5,
@@ -127,7 +127,7 @@
   "pillars": [
     {
       "x": 41.6,
-      "z": 62.1,
+      "z": 104.1,
       "radius": 0.3,
       "height": 5.0,
       "segments": 16,
@@ -136,7 +136,7 @@
     },
     {
       "x": 38.6,
-      "z": 62.1,
+      "z": 104.1,
       "radius": 0.3,
       "height": 5.0,
       "segments": 16,
@@ -151,1190 +151,1820 @@
       "id": "zoo:light:0:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 74.35,
+      "z": 75.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:17:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 79.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:18:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 84.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:19:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 88.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:20:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 93.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:21:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 97.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:22:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 102.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:23:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 106.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:24:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 111.1,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:0",
+      "fixture": "core:pool_light_round",
+      "x": 4.35,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:1",
+      "fixture": "core:pool_light_round",
+      "x": 8.85,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:2",
+      "fixture": "core:pool_light_round",
+      "x": 13.35,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:3",
+      "fixture": "core:pool_light_round",
+      "x": 17.85,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:4",
+      "fixture": "core:pool_light_round",
+      "x": 22.35,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:5",
+      "fixture": "core:pool_light_round",
+      "x": 26.85,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:6",
+      "fixture": "core:pool_light_round",
+      "x": 31.35,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:7",
+      "fixture": "core:pool_light_round",
+      "x": 35.85,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:8",
+      "fixture": "core:pool_light_round",
+      "x": 40.35,
+      "z": 115.6,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:25:9",
+      "fixture": "core:pool_light_round",
+      "x": 44.85,
+      "z": 115.6,
       "brightness": 0.52
     }
   ],
@@ -1663,10 +2293,39 @@
       ]
     },
     {
+      "id": "zoo:core-hot_tub:floor",
+      "display_name": "Circular Hot Tub",
+      "model": "core:hot_tub",
+      "x": 36.6,
+      "z": 18.1,
+      "size": [
+        2.6,
+        1.56,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:core-lamp:floor",
       "display_name": "Floor Lamp",
       "model": "core:lamp",
-      "x": 36.6,
+      "x": 42.6,
       "z": 18.1,
       "size": [
         0.35,
@@ -1695,8 +2354,8 @@
       "id": "zoo:core-plant:floor",
       "display_name": "Plant",
       "model": "core:plant",
-      "x": 42.6,
-      "z": 18.1,
+      "x": 6.6,
+      "z": 24.1,
       "size": [
         0.4,
         1.0,
@@ -1724,7 +2383,7 @@
       "id": "zoo:core-pool_chair:floor",
       "display_name": "Pool Patio Chair",
       "model": "core:pool_chair",
-      "x": 6.6,
+      "x": 12.6,
       "z": 24.1,
       "size": [
         0.52,
@@ -1753,7 +2412,7 @@
       "id": "zoo:core-pool_curtain_corner:floor",
       "display_name": "Pool Curtain, Corner",
       "model": "core:pool_curtain_corner",
-      "x": 12.6,
+      "x": 18.6,
       "z": 24.1,
       "size": [
         0.6,
@@ -1782,7 +2441,7 @@
       "id": "zoo:core-pool_curtain_end:floor",
       "display_name": "Pool Curtain, End",
       "model": "core:pool_curtain_end",
-      "x": 18.6,
+      "x": 24.6,
       "z": 24.1,
       "size": [
         0.6,
@@ -1811,7 +2470,7 @@
       "id": "zoo:core-pool_curtain_straight:floor",
       "display_name": "Pool Curtain, Straight",
       "model": "core:pool_curtain_straight",
-      "x": 24.6,
+      "x": 30.6,
       "z": 24.1,
       "size": [
         1.2,
@@ -1840,7 +2499,7 @@
       "id": "zoo:core-pool_guardrail_corner:floor",
       "display_name": "Pool Guardrail, Corner",
       "model": "core:pool_guardrail_corner",
-      "x": 30.6,
+      "x": 36.6,
       "z": 24.1,
       "size": [
         0.6,
@@ -1869,7 +2528,7 @@
       "id": "zoo:core-pool_guardrail_end:floor",
       "display_name": "Pool Guardrail, End",
       "model": "core:pool_guardrail_end",
-      "x": 36.6,
+      "x": 42.6,
       "z": 24.1,
       "size": [
         0.6,
@@ -1898,8 +2557,8 @@
       "id": "zoo:core-pool_guardrail_straight:floor",
       "display_name": "Pool Guardrail, Straight",
       "model": "core:pool_guardrail_straight",
-      "x": 42.6,
-      "z": 24.1,
+      "x": 6.6,
+      "z": 30.1,
       "size": [
         2.0,
         1.05,
@@ -1927,7 +2586,7 @@
       "id": "zoo:core-pool_ladder:floor",
       "display_name": "Pool Ladder",
       "model": "core:pool_ladder",
-      "x": 6.6,
+      "x": 12.6,
       "z": 30.1,
       "size": [
         0.55,
@@ -1956,7 +2615,7 @@
       "id": "zoo:core-pool_table:floor",
       "display_name": "Pool Patio Table",
       "model": "core:pool_table",
-      "x": 12.6,
+      "x": 18.6,
       "z": 30.1,
       "size": [
         0.8,
@@ -1985,7 +2644,7 @@
       "id": "zoo:core-rug:floor",
       "display_name": "Rug",
       "model": "core:rug",
-      "x": 18.6,
+      "x": 24.6,
       "z": 30.1,
       "size": [
         2.0,
@@ -2014,7 +2673,7 @@
       "id": "zoo:core-sink:floor",
       "display_name": "Sink",
       "model": "core:sink",
-      "x": 24.6,
+      "x": 30.6,
       "z": 30.1,
       "size": [
         0.6,
@@ -2043,7 +2702,7 @@
       "id": "zoo:core-stop_sign:floor",
       "display_name": "Stop Sign",
       "model": "core:stop_sign",
-      "x": 30.6,
+      "x": 36.6,
       "z": 30.1,
       "size": [
         0.45,
@@ -2072,7 +2731,7 @@
       "id": "zoo:core-stove:floor",
       "display_name": "Stove",
       "model": "core:stove",
-      "x": 36.6,
+      "x": 42.6,
       "z": 30.1,
       "size": [
         0.6,
@@ -2101,8 +2760,8 @@
       "id": "zoo:core-table:floor",
       "display_name": "Table",
       "model": "core:table",
-      "x": 42.6,
-      "z": 30.1,
+      "x": 6.6,
+      "z": 36.1,
       "size": [
         1.4,
         0.75,
@@ -2130,7 +2789,7 @@
       "id": "zoo:core-vending_machine:floor",
       "display_name": "Vending Machine",
       "model": "core:vending_machine",
-      "x": 6.6,
+      "x": 12.6,
       "z": 36.1,
       "size": [
         1.0,
@@ -2159,7 +2818,7 @@
       "id": "zoo:core-washer_drum:floor",
       "display_name": "Washer Drum",
       "model": "core:washer_drum",
-      "x": 12.6,
+      "x": 18.6,
       "z": 36.1,
       "size": [
         0.42,
@@ -2188,7 +2847,7 @@
       "id": "zoo:core-washing_machine:floor",
       "display_name": "Washing Machine",
       "model": "core:washing_machine",
-      "x": 18.6,
+      "x": 24.6,
       "z": 36.1,
       "size": [
         0.6,
@@ -2217,7 +2876,7 @@
       "id": "zoo:core-water_cooler:floor",
       "display_name": "Water Cooler",
       "model": "core:water_cooler",
-      "x": 24.6,
+      "x": 30.6,
       "z": 36.1,
       "size": [
         0.35,
@@ -2246,7 +2905,7 @@
       "id": "zoo:home-cabinet_base:floor",
       "display_name": "Base Kitchen Cabinet",
       "model": "home:cabinet_base",
-      "x": 30.6,
+      "x": 36.6,
       "z": 36.1,
       "size": [
         0.6,
@@ -2275,7 +2934,7 @@
       "id": "zoo:outdoor-collision_peg:floor",
       "display_name": "Containment Collider Peg",
       "model": "outdoor:collision_peg",
-      "x": 36.6,
+      "x": 42.6,
       "z": 36.1,
       "size": [
         0.06,
@@ -2304,8 +2963,8 @@
       "id": "zoo:outdoor-concrete_step:floor",
       "display_name": "Concrete Step",
       "model": "outdoor:concrete_step",
-      "x": 42.6,
-      "z": 36.1,
+      "x": 6.6,
+      "z": 42.1,
       "size": [
         1.4,
         0.18,
@@ -2333,7 +2992,7 @@
       "id": "zoo:outdoor-fence_post:floor",
       "display_name": "Wooden Fence Post",
       "model": "outdoor:fence_post",
-      "x": 6.6,
+      "x": 12.6,
       "z": 42.1,
       "size": [
         0.12,
@@ -2362,7 +3021,7 @@
       "id": "zoo:outdoor-grass_patch_large:floor",
       "display_name": "Large Grass Tuft",
       "model": "outdoor:grass_patch_large",
-      "x": 12.6,
+      "x": 18.6,
       "z": 42.1,
       "size": [
         0.95,
@@ -2391,7 +3050,7 @@
       "id": "zoo:outdoor-grass_patch_small:floor",
       "display_name": "Small Grass Tuft",
       "model": "outdoor:grass_patch_small",
-      "x": 18.6,
+      "x": 24.6,
       "z": 42.1,
       "size": [
         0.55,
@@ -2417,11 +3076,1316 @@
       ]
     },
     {
+      "id": "zoo:outdoor-house_01_corner_trim:floor",
+      "display_name": "House 1 Cream Clapboard Corner Trim",
+      "model": "outdoor:house_01_corner_trim",
+      "x": 30.6,
+      "z": 42.1,
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_gable:floor",
+      "display_name": "House 1 Cream Clapboard Gable Panel",
+      "model": "outdoor:house_01_gable",
+      "x": 36.6,
+      "z": 42.1,
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_porch_deck:floor",
+      "display_name": "House 1 Cream Clapboard Porch Deck",
+      "model": "outdoor:house_01_porch_deck",
+      "x": 42.6,
+      "z": 42.1,
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_porch_post:floor",
+      "display_name": "House 1 Cream Clapboard Porch Post",
+      "model": "outdoor:house_01_porch_post",
+      "x": 6.6,
+      "z": 48.1,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_roof_ridge:floor",
+      "display_name": "House 1 Cream Clapboard Roof Ridge",
+      "model": "outdoor:house_01_roof_ridge",
+      "x": 12.6,
+      "z": 48.1,
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_roof_slope:floor",
+      "display_name": "House 1 Cream Clapboard Roof Slope",
+      "model": "outdoor:house_01_roof_slope",
+      "x": 18.6,
+      "z": 48.1,
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_wall_doorway:floor",
+      "display_name": "House 1 Cream Clapboard Wall Doorway",
+      "model": "outdoor:house_01_wall_doorway",
+      "x": 24.6,
+      "z": 48.1,
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_wall_solid:floor",
+      "display_name": "House 1 Cream Clapboard Wall Solid",
+      "model": "outdoor:house_01_wall_solid",
+      "x": 30.6,
+      "z": 48.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_01_wall_window:floor",
+      "display_name": "House 1 Cream Clapboard Wall Window",
+      "model": "outdoor:house_01_wall_window",
+      "x": 36.6,
+      "z": 48.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_corner_trim:floor",
+      "display_name": "House 2 Blue Clapboard Corner Trim",
+      "model": "outdoor:house_02_corner_trim",
+      "x": 42.6,
+      "z": 48.1,
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_gable:floor",
+      "display_name": "House 2 Blue Clapboard Gable Panel",
+      "model": "outdoor:house_02_gable",
+      "x": 6.6,
+      "z": 54.1,
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_porch_deck:floor",
+      "display_name": "House 2 Blue Clapboard Porch Deck",
+      "model": "outdoor:house_02_porch_deck",
+      "x": 12.6,
+      "z": 54.1,
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_porch_post:floor",
+      "display_name": "House 2 Blue Clapboard Porch Post",
+      "model": "outdoor:house_02_porch_post",
+      "x": 18.6,
+      "z": 54.1,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_roof_ridge:floor",
+      "display_name": "House 2 Blue Clapboard Roof Ridge",
+      "model": "outdoor:house_02_roof_ridge",
+      "x": 24.6,
+      "z": 54.1,
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_roof_slope:floor",
+      "display_name": "House 2 Blue Clapboard Roof Slope",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 30.6,
+      "z": 54.1,
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_wall_doorway:floor",
+      "display_name": "House 2 Blue Clapboard Wall Doorway",
+      "model": "outdoor:house_02_wall_doorway",
+      "x": 36.6,
+      "z": 54.1,
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_wall_solid:floor",
+      "display_name": "House 2 Blue Clapboard Wall Solid",
+      "model": "outdoor:house_02_wall_solid",
+      "x": 42.6,
+      "z": 54.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_02_wall_window:floor",
+      "display_name": "House 2 Blue Clapboard Wall Window",
+      "model": "outdoor:house_02_wall_window",
+      "x": 6.6,
+      "z": 60.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_corner_trim:floor",
+      "display_name": "House 3 Ochre Clapboard Corner Trim",
+      "model": "outdoor:house_03_corner_trim",
+      "x": 12.6,
+      "z": 60.1,
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_gable:floor",
+      "display_name": "House 3 Ochre Clapboard Gable Panel",
+      "model": "outdoor:house_03_gable",
+      "x": 18.6,
+      "z": 60.1,
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_porch_deck:floor",
+      "display_name": "House 3 Ochre Clapboard Porch Deck",
+      "model": "outdoor:house_03_porch_deck",
+      "x": 24.6,
+      "z": 60.1,
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_porch_post:floor",
+      "display_name": "House 3 Ochre Clapboard Porch Post",
+      "model": "outdoor:house_03_porch_post",
+      "x": 30.6,
+      "z": 60.1,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_roof_ridge:floor",
+      "display_name": "House 3 Ochre Clapboard Roof Ridge",
+      "model": "outdoor:house_03_roof_ridge",
+      "x": 36.6,
+      "z": 60.1,
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_roof_slope:floor",
+      "display_name": "House 3 Ochre Clapboard Roof Slope",
+      "model": "outdoor:house_03_roof_slope",
+      "x": 42.6,
+      "z": 60.1,
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_wall_doorway:floor",
+      "display_name": "House 3 Ochre Clapboard Wall Doorway",
+      "model": "outdoor:house_03_wall_doorway",
+      "x": 6.6,
+      "z": 66.1,
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_wall_solid:floor",
+      "display_name": "House 3 Ochre Clapboard Wall Solid",
+      "model": "outdoor:house_03_wall_solid",
+      "x": 12.6,
+      "z": 66.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_03_wall_window:floor",
+      "display_name": "House 3 Ochre Clapboard Wall Window",
+      "model": "outdoor:house_03_wall_window",
+      "x": 18.6,
+      "z": 66.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_corner_trim:floor",
+      "display_name": "House 4 Green Board and Batten Corner Trim",
+      "model": "outdoor:house_04_corner_trim",
+      "x": 24.6,
+      "z": 66.1,
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_gable:floor",
+      "display_name": "House 4 Green Board and Batten Gable Panel",
+      "model": "outdoor:house_04_gable",
+      "x": 30.6,
+      "z": 66.1,
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_porch_deck:floor",
+      "display_name": "House 4 Green Board and Batten Porch Deck",
+      "model": "outdoor:house_04_porch_deck",
+      "x": 36.6,
+      "z": 66.1,
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_porch_post:floor",
+      "display_name": "House 4 Green Board and Batten Porch Post",
+      "model": "outdoor:house_04_porch_post",
+      "x": 42.6,
+      "z": 66.1,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_roof_ridge:floor",
+      "display_name": "House 4 Green Board and Batten Roof Ridge",
+      "model": "outdoor:house_04_roof_ridge",
+      "x": 6.6,
+      "z": 72.1,
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_roof_slope:floor",
+      "display_name": "House 4 Green Board and Batten Roof Slope",
+      "model": "outdoor:house_04_roof_slope",
+      "x": 12.6,
+      "z": 72.1,
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_wall_doorway:floor",
+      "display_name": "House 4 Green Board and Batten Wall Doorway",
+      "model": "outdoor:house_04_wall_doorway",
+      "x": 18.6,
+      "z": 72.1,
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_wall_solid:floor",
+      "display_name": "House 4 Green Board and Batten Wall Solid",
+      "model": "outdoor:house_04_wall_solid",
+      "x": 24.6,
+      "z": 72.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_04_wall_window:floor",
+      "display_name": "House 4 Green Board and Batten Wall Window",
+      "model": "outdoor:house_04_wall_window",
+      "x": 30.6,
+      "z": 72.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_corner_trim:floor",
+      "display_name": "House 5 White Shiplap Corner Trim",
+      "model": "outdoor:house_05_corner_trim",
+      "x": 36.6,
+      "z": 72.1,
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_gable:floor",
+      "display_name": "House 5 White Shiplap Gable Panel",
+      "model": "outdoor:house_05_gable",
+      "x": 42.6,
+      "z": 72.1,
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_porch_deck:floor",
+      "display_name": "House 5 White Shiplap Porch Deck",
+      "model": "outdoor:house_05_porch_deck",
+      "x": 6.6,
+      "z": 78.1,
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_porch_post:floor",
+      "display_name": "House 5 White Shiplap Porch Post",
+      "model": "outdoor:house_05_porch_post",
+      "x": 12.6,
+      "z": 78.1,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_roof_ridge:floor",
+      "display_name": "House 5 White Shiplap Roof Ridge",
+      "model": "outdoor:house_05_roof_ridge",
+      "x": 18.6,
+      "z": 78.1,
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_roof_slope:floor",
+      "display_name": "House 5 White Shiplap Roof Slope",
+      "model": "outdoor:house_05_roof_slope",
+      "x": 24.6,
+      "z": 78.1,
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_wall_doorway:floor",
+      "display_name": "House 5 White Shiplap Wall Doorway",
+      "model": "outdoor:house_05_wall_doorway",
+      "x": 30.6,
+      "z": 78.1,
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_wall_solid:floor",
+      "display_name": "House 5 White Shiplap Wall Solid",
+      "model": "outdoor:house_05_wall_solid",
+      "x": 36.6,
+      "z": 78.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-house_05_wall_window:floor",
+      "display_name": "House 5 White Shiplap Wall Window",
+      "model": "outdoor:house_05_wall_window",
+      "x": 42.6,
+      "z": 78.1,
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:outdoor-house_corner_trim:floor",
       "display_name": "House Corner Board",
       "model": "outdoor:house_corner_trim",
-      "x": 24.6,
-      "z": 42.1,
+      "x": 6.6,
+      "z": 84.1,
       "size": [
         0.18,
         2.7,
@@ -2449,8 +4413,8 @@
       "id": "zoo:outdoor-house_roof_ridge:floor",
       "display_name": "House Roof Ridge Cap",
       "model": "outdoor:house_roof_ridge",
-      "x": 30.6,
-      "z": 42.1,
+      "x": 12.6,
+      "z": 84.1,
       "size": [
         3.4,
         0.22,
@@ -2478,8 +4442,8 @@
       "id": "zoo:outdoor-house_roof_slope:floor",
       "display_name": "House Roof Slope",
       "model": "outdoor:house_roof_slope",
-      "x": 36.6,
-      "z": 42.1,
+      "x": 18.6,
+      "z": 84.1,
       "size": [
         3.4,
         1.75,
@@ -2507,8 +4471,8 @@
       "id": "zoo:outdoor-house_wall_doorway:floor",
       "display_name": "House Wall Panel, Doorway",
       "model": "outdoor:house_wall_doorway",
-      "x": 42.6,
-      "z": 42.1,
+      "x": 24.6,
+      "z": 84.1,
       "size": [
         3.0,
         2.7,
@@ -2536,8 +4500,8 @@
       "id": "zoo:outdoor-house_wall_solid:floor",
       "display_name": "House Wall Panel",
       "model": "outdoor:house_wall_solid",
-      "x": 6.6,
-      "z": 48.1,
+      "x": 30.6,
+      "z": 84.1,
       "size": [
         3.0,
         2.7,
@@ -2565,8 +4529,8 @@
       "id": "zoo:outdoor-house_wall_window:floor",
       "display_name": "House Wall Panel, Window",
       "model": "outdoor:house_wall_window",
-      "x": 12.6,
-      "z": 48.1,
+      "x": 36.6,
+      "z": 84.1,
       "size": [
         3.0,
         2.7,
@@ -2594,8 +4558,8 @@
       "id": "zoo:outdoor-lamp_fence:floor",
       "display_name": "Fence-Post Lamp",
       "model": "outdoor:lamp_fence",
-      "x": 18.6,
-      "z": 48.1,
+      "x": 42.6,
+      "z": 84.1,
       "size": [
         0.32,
         0.42,
@@ -2623,8 +4587,8 @@
       "id": "zoo:outdoor-lamp_stand:floor",
       "display_name": "Standing Exterior Lamp",
       "model": "outdoor:lamp_stand",
-      "x": 24.6,
-      "z": 48.1,
+      "x": 6.6,
+      "z": 90.1,
       "size": [
         0.34,
         1.05,
@@ -2652,8 +4616,8 @@
       "id": "zoo:outdoor-lamp_wall:floor",
       "display_name": "Hanging Eave Lamp",
       "model": "outdoor:lamp_wall",
-      "x": 30.6,
-      "z": 48.1,
+      "x": 12.6,
+      "z": 90.1,
       "size": [
         0.3,
         0.52,
@@ -2678,11 +4642,156 @@
       ]
     },
     {
+      "id": "zoo:outdoor-porch_post:floor",
+      "display_name": "Porch Post",
+      "model": "outdoor:porch_post",
+      "x": 18.6,
+      "z": 90.1,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-porch_railing_corner:floor",
+      "display_name": "Porch Railing Corner",
+      "model": "outdoor:porch_railing_corner",
+      "x": 24.6,
+      "z": 90.1,
+      "size": [
+        0.3,
+        1.05,
+        0.3
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-porch_railing_end:floor",
+      "display_name": "Porch Railing End",
+      "model": "outdoor:porch_railing_end",
+      "x": 30.6,
+      "z": 90.1,
+      "size": [
+        0.3,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-porch_railing_straight:floor",
+      "display_name": "Porch Railing Straight",
+      "model": "outdoor:porch_railing_straight",
+      "x": 36.6,
+      "z": 90.1,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-streetlight:floor",
+      "display_name": "Streetlight",
+      "model": "outdoor:streetlight",
+      "x": 42.6,
+      "z": 90.1,
+      "size": [
+        0.5,
+        6.4,
+        1.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:outdoor-tree_01:floor",
       "display_name": "Leafy Tree",
       "model": "outdoor:tree_01",
-      "x": 36.6,
-      "z": 48.1,
+      "x": 6.6,
+      "z": 96.1,
       "size": [
         4.6,
         6.4,
@@ -2707,11 +4816,69 @@
       ]
     },
     {
+      "id": "zoo:outdoor-tree_02:floor",
+      "display_name": "Birch Tree",
+      "model": "outdoor:tree_02",
+      "x": 12.6,
+      "z": 96.1,
+      "size": [
+        3.6,
+        6.2,
+        3.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:outdoor-tree_03:floor",
+      "display_name": "Evergreen Tree",
+      "model": "outdoor:tree_03",
+      "x": 18.6,
+      "z": 96.1,
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:pumpkin-skeleton:floor",
       "display_name": "Pumpkin-Head Skeleton",
       "model": "pumpkin-skeleton",
-      "x": 42.6,
-      "z": 48.1,
+      "x": 24.6,
+      "z": 96.1,
       "size": [
         0.442,
         1.808,
@@ -2739,8 +4906,8 @@
       "id": "zoo:sheet-ghost:floor",
       "display_name": "Sheet Ghost",
       "model": "sheet-ghost",
-      "x": 6.6,
-      "z": 54.1,
+      "x": 30.6,
+      "z": 96.1,
       "size": [
         0.994,
         1.619,
@@ -2765,11 +4932,40 @@
       ]
     },
     {
+      "id": "zoo:sheet-ghost-cat:floor",
+      "display_name": "Sheet Ghost Cat",
+      "model": "sheet-ghost-cat",
+      "x": 36.6,
+      "z": 96.1,
+      "size": [
+        0.226,
+        0.323,
+        0.576
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "zoo:mannequin:pose",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 12.6,
-      "z": 54.1,
+      "x": 42.6,
+      "z": 96.1,
       "size": [
         0.42,
         1.72,
@@ -2797,8 +4993,8 @@
       "id": "zoo:skeleton:pose",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 18.6,
-      "z": 54.1,
+      "x": 6.6,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -2826,8 +5022,8 @@
       "id": "zoo:mannequin:stand",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 24.6,
-      "z": 54.1,
+      "x": 12.6,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -2866,8 +5062,8 @@
       "id": "zoo:mannequin:arms-up",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 30.6,
-      "z": 54.1,
+      "x": 18.6,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -2906,8 +5102,8 @@
       "id": "zoo:mannequin:arms-forward",
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
-      "x": 36.6,
-      "z": 54.1,
+      "x": 24.6,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -2946,8 +5142,8 @@
       "id": "zoo:skeleton:stand",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 42.6,
-      "z": 54.1,
+      "x": 30.6,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -2986,8 +5182,8 @@
       "id": "zoo:skeleton:floor-sit",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 6.6,
-      "z": 60.1,
+      "x": 36.6,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -3026,8 +5222,8 @@
       "id": "zoo:skeleton:chair-sit",
       "display_name": "Skeleton",
       "model": "skeleton",
-      "x": 12.6,
-      "z": 60.105,
+      "x": 42.6,
+      "z": 102.105,
       "size": [
         0.427,
         1.72,
@@ -3068,7 +5264,7 @@
       "display_name": "Rat",
       "model": "rat",
       "x": 14.1,
-      "z": 68.1,
+      "z": 110.1,
       "size": [
         0.095,
         0.139,
@@ -3105,7 +5301,7 @@
       "display_name": "Spooner-Man",
       "model": "spooner-man",
       "x": 21.1,
-      "z": 68.1,
+      "z": 110.1,
       "size": [
         0.165,
         0.389,
@@ -3142,7 +5338,7 @@
       "display_name": "Rat",
       "model": "rat",
       "x": 28.1,
-      "z": 68.1,
+      "z": 110.1,
       "size": [
         0.095,
         0.139,
@@ -3179,7 +5375,7 @@
       "display_name": "Spooner-Man",
       "model": "spooner-man",
       "x": 35.1,
-      "z": 68.1,
+      "z": 110.1,
       "size": [
         0.165,
         0.389,
@@ -3362,7 +5558,7 @@
       "display_name": "Exit Sign",
       "model": "core:exit_sign",
       "x": 16.4,
-      "z": 71.1,
+      "z": 113.1,
       "size": [
         0.45,
         0.57,
@@ -3411,7 +5607,7 @@
       "display_name": "Hanging Ball Light",
       "model": "home:ball_light",
       "x": 32.8,
-      "z": 71.1,
+      "z": 113.1,
       "size": [
         0.2,
         0.8,
@@ -3735,7 +5931,7 @@
       "display_name": "Rubber Duck",
       "model": "core:rubber_duck",
       "x": 7.6,
-      "z": 70.1,
+      "z": 112.1,
       "size": [
         0.1,
         0.12,
@@ -3756,7 +5952,7 @@
       "display_name": "Pool Ladder",
       "model": "core:pool_ladder",
       "x": 7.25,
-      "z": 66.55,
+      "z": 108.55,
       "size": [
         0.55,
         2.2,
@@ -3785,8 +5981,8 @@
       "id": "zoo:core-chair:skeleton-seat",
       "display_name": "Chair",
       "model": "core:chair",
-      "x": 12.6,
-      "z": 60.102,
+      "x": 42.6,
+      "z": 102.103,
       "size": [
         0.5,
         0.9,
@@ -3815,7 +6011,7 @@
   "decals": [
     {
       "x": 6.6,
-      "z": 38.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -3824,7 +6020,7 @@
     },
     {
       "x": 12.6,
-      "z": 38.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -3833,7 +6029,7 @@
     },
     {
       "x": 18.6,
-      "z": 38.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -3842,7 +6038,7 @@
     },
     {
       "x": 24.6,
-      "z": 38.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -3851,7 +6047,7 @@
     },
     {
       "x": 5.6,
-      "z": 71.7,
+      "z": 113.7,
       "width": 1.2,
       "height": 1.2,
       "material": "core:decal_arrow_01",
@@ -3859,7 +6055,7 @@
     },
     {
       "x": 8.6,
-      "z": 71.7,
+      "z": 113.7,
       "width": 1.2,
       "height": 1.2,
       "material": "core:decal_arrow_01",
@@ -3952,7 +6148,7 @@
         {
           "step": "move_to",
           "x": 17.3,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.1985
         },
         {
@@ -3964,7 +6160,7 @@
         {
           "step": "move_to",
           "x": 14.1,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.1985
         }
       ]
@@ -3982,7 +6178,7 @@
         {
           "step": "move_to",
           "x": 32.1,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.5731
         },
         {
@@ -3994,7 +6190,7 @@
         {
           "step": "move_to",
           "x": 28.1,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.5731
         }
       ]
@@ -4012,7 +6208,7 @@
         {
           "step": "move_to",
           "x": 23.5,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.26
         },
         {
@@ -4040,7 +6236,7 @@
         {
           "step": "move_to",
           "x": 21.1,
-          "z": 68.1,
+          "z": 110.1,
           "speed": 0.26
         }
       ]
@@ -4068,7 +6264,7 @@
         {
           "step": "move_to",
           "x": 35.1,
-          "z": 70.1,
+          "z": 112.1,
           "speed": 0.26
         },
         {
@@ -4113,7 +6309,7 @@
     {
       "check": "room-leak",
       "x": 48.2,
-      "z": 35.35,
+      "z": 56.35,
       "width": 4.0,
       "depth": 6.0,
       "note": "The showroom's exit passage opens onto the void by design."

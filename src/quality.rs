@@ -691,6 +691,117 @@ impl ReflectionQuality {
     }
 }
 
+/// The five player-facing graphics settings as one comparable value.
+///
+/// The game loop needs to answer one question every frame: *is the
+/// configuration the player asked for the configuration the renderer holds?*
+/// Comparing the whole [`Settings`](crate::settings::Settings) struct would
+/// compare unrelated fields (a window size, a binding), and comparing raw
+/// strings would let two spellings of one preset look different. This value is
+/// the engine-neutral projection both sides agree on: the effective settings
+/// produce one, the renderer produces the same one for what it has resident,
+/// and equality is the settled state.
+///
+/// The filtering preset is carried as its canonical name (`"low"`,
+/// `"medium"`, `"high"`) rather than a renderer type, so the settings layer and
+/// the renderer never have to import each other's internals.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GraphicsSpec {
+    /// The overall quality level: texture budgets, scene target, response.
+    pub quality: QualityLevel,
+    /// The canonical Texture Filtering preset name.
+    pub filtering: &'static str,
+    /// Whether the emissive/bloom chain runs.
+    pub bloom: bool,
+    /// The lightmap atlas quality the level's variant must provide.
+    pub lightmaps: LightmapQuality,
+    /// Whether probe cubemaps and the planar mirror exist.
+    pub reflections: ReflectionQuality,
+}
+
+impl GraphicsSpec {
+    /// The fresh-install configuration.
+    pub const DEFAULT: Self = Self {
+        quality: QualityLevel::DEFAULT,
+        filtering: "high",
+        bloom: true,
+        lightmaps: LightmapQuality::DEFAULT,
+        reflections: ReflectionQuality::DEFAULT,
+    };
+}
+
+/// What the game loop owes the outstanding graphics request.
+///
+/// Derived only from engine-neutral values: the effective settings, what the
+/// renderer has resident, the configuration a staged GPU install will commit
+/// (`None` while the CPU preparation is still running, which snapshots the
+/// request when staging starts) and the request that most recently failed to
+/// apply.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GraphicsAction {
+    /// The requested configuration is resident and nothing outstanding will
+    /// replace it: no work is owed.
+    Settled,
+    /// An outstanding preparation targets exactly the requested configuration;
+    /// let it finish.
+    AwaitCommit,
+    /// The requested configuration is not resident and nothing outstanding
+    /// will produce it: schedule (or restart) the transition.
+    Schedule,
+    /// An outstanding install targets a superseded configuration while the
+    /// requested configuration is already resident: cancel it instead of
+    /// letting it commit an older selection.
+    CancelStale,
+    /// The requested configuration already failed to apply. The player's
+    /// selection stands, but the same request is not retried until it changes.
+    Held,
+}
+
+/// What the game loop should do about the outstanding graphics request.
+///
+/// Pure and total, so the transition contract is testable without a GPU:
+/// `staged` is the configuration an in-flight GPU install will commit (`None`
+/// when the CPU preparation has not staged its resources yet, in which case it
+/// will snapshot whatever is requested when it does), and `in_flight` is true
+/// while any preparation is outstanding.
+///
+/// The rules, in order: a stale staged install never wins over the resident
+/// configuration the player asked for again; an install that matches the
+/// request is awaited; a request that already failed is held; everything else
+/// is scheduled.
+#[must_use]
+pub fn graphics_action(
+    requested: GraphicsSpec,
+    applied: GraphicsSpec,
+    staged: Option<GraphicsSpec>,
+    failed: Option<GraphicsSpec>,
+    in_flight: bool,
+) -> GraphicsAction {
+    if requested == applied {
+        return match staged {
+            // An install of the configuration already resident changes
+            // nothing: let it commit rather than restarting identical work.
+            Some(staged) if staged == requested => GraphicsAction::AwaitCommit,
+            // An install of a superseded configuration can only overwrite the
+            // resident one; cancel it.
+            Some(_) => GraphicsAction::CancelStale,
+            None => GraphicsAction::Settled,
+        };
+    }
+    if staged == Some(requested) {
+        return GraphicsAction::AwaitCommit;
+    }
+    if in_flight && staged.is_none() {
+        // The CPU preparation has not staged its resources yet; it will
+        // snapshot the current request, so it already targets it.
+        return GraphicsAction::AwaitCommit;
+    }
+    if failed == Some(requested) {
+        return GraphicsAction::Held;
+    }
+    GraphicsAction::Schedule
+}
+
 #[cfg(test)]
 mod tests;
 

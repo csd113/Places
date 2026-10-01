@@ -625,3 +625,222 @@ fn reflection_quality_gates_are_exact() {
         assert!(level.draws_planar());
     }
 }
+
+// ------------------------------------------------- graphics transition matrix
+
+/// The [`GraphicsSpec`] a quality preset cascades to, without going through
+/// `Settings`: the documented preset table.
+fn preset(level: QualityLevel) -> GraphicsSpec {
+    GraphicsSpec {
+        quality: level,
+        filtering: match level {
+            QualityLevel::Low => "low",
+            QualityLevel::Medium => "medium",
+            QualityLevel::High => "high",
+        },
+        bloom: true,
+        lightmaps: LightmapQuality::default_for(level),
+        reflections: ReflectionQuality::default_for(level),
+    }
+}
+
+#[test]
+fn every_graphics_spec_names_its_expected_configuration() {
+    assert_eq!(GraphicsSpec::DEFAULT, preset(QualityLevel::High));
+    for level in QualityLevel::ALL {
+        let spec = preset(level);
+        assert_eq!(spec.quality, level);
+        // A different quality is never equal to another one's preset: the six
+        // directed transitions below rely on every pair being distinguishable.
+        for other in QualityLevel::ALL {
+            if other != level {
+                assert_ne!(spec, preset(other), "{level:?} vs {other:?}");
+            }
+        }
+    }
+}
+
+/// The six directed quality transitions all schedule work from the
+/// configuration they start at.
+#[test]
+fn every_quality_transition_is_scheduled() {
+    for from in QualityLevel::ALL {
+        for to in QualityLevel::ALL {
+            if from == to {
+                assert_eq!(
+                    graphics_action(preset(from), preset(from), None, None, false),
+                    GraphicsAction::Settled
+                );
+                continue;
+            }
+            assert_eq!(
+                graphics_action(preset(to), preset(from), None, None, false),
+                GraphicsAction::Schedule,
+                "{from:?} -> {to:?} must be scheduled"
+            );
+        }
+    }
+}
+
+/// A late install never overwrites a newer selection, and a commit that
+/// delivered an older configuration leaves the remainder to be scheduled.
+#[test]
+fn a_stale_install_never_wins_over_a_newer_selection() {
+    // Low is resident and an install that snapshotted Low is staging while the
+    // player selects High: the High request must supersede the staged install.
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::High),
+            preset(QualityLevel::Low),
+            Some(preset(QualityLevel::Low)),
+            None,
+            true
+        ),
+        GraphicsAction::Schedule
+    );
+    // The High install is staging; the player selects Medium instead.
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::Medium),
+            preset(QualityLevel::Low),
+            Some(preset(QualityLevel::High)),
+            None,
+            true
+        ),
+        GraphicsAction::Schedule
+    );
+    // The install that matches the request is awaited, in both the staged and
+    // the still-on-CPU shapes.
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::High),
+            preset(QualityLevel::Low),
+            Some(preset(QualityLevel::High)),
+            None,
+            true
+        ),
+        GraphicsAction::AwaitCommit
+    );
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::High),
+            preset(QualityLevel::Low),
+            None,
+            None,
+            true
+        ),
+        GraphicsAction::AwaitCommit
+    );
+    // The stale install committed the older configuration anyway: the request
+    // is still outstanding and is scheduled again from the truth.
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::High),
+            preset(QualityLevel::Low),
+            None,
+            None,
+            false
+        ),
+        GraphicsAction::Schedule
+    );
+}
+
+/// Choosing the resident configuration again cancels an install of the
+/// superseded one instead of letting it commit.
+#[test]
+fn returning_to_the_resident_configuration_cancels_a_stale_install() {
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::Low),
+            preset(QualityLevel::Low),
+            Some(preset(QualityLevel::High)),
+            None,
+            true
+        ),
+        GraphicsAction::CancelStale
+    );
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::Low),
+            preset(QualityLevel::Low),
+            Some(preset(QualityLevel::Low)),
+            None,
+            true
+        ),
+        GraphicsAction::AwaitCommit,
+        "an install of the configuration already resident is harmless"
+    );
+}
+
+/// A request that already failed is held until it changes; an explicit new
+/// selection is scheduled again.
+#[test]
+fn a_failed_request_is_held_until_the_request_changes() {
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::High),
+            preset(QualityLevel::Low),
+            None,
+            Some(preset(QualityLevel::High)),
+            false
+        ),
+        GraphicsAction::Held
+    );
+    // The player answers the actionable message by choosing a configuration
+    // the package can serve: the held request is gone and the new one runs.
+    let mut overridden = preset(QualityLevel::High);
+    overridden.lightmaps = LightmapQuality::Off;
+    assert_eq!(
+        graphics_action(
+            overridden,
+            preset(QualityLevel::Low),
+            None,
+            Some(preset(QualityLevel::High)),
+            false
+        ),
+        GraphicsAction::Schedule
+    );
+    // A settled state clears the record of the failure.
+    assert_eq!(
+        graphics_action(
+            preset(QualityLevel::Low),
+            preset(QualityLevel::Low),
+            None,
+            Some(preset(QualityLevel::High)),
+            false
+        ),
+        GraphicsAction::Settled
+    );
+}
+
+/// A repeated cycle of selections ends settled at the last one, with every
+/// step scheduled in the direction asked for.
+#[test]
+fn repeated_quality_cycles_end_settled_at_the_last_selection() {
+    let cycle = [
+        QualityLevel::Low,
+        QualityLevel::Medium,
+        QualityLevel::High,
+        QualityLevel::Medium,
+        QualityLevel::Low,
+        QualityLevel::High,
+        QualityLevel::Medium,
+        QualityLevel::High,
+    ];
+    let mut applied = preset(QualityLevel::High);
+    for requested_level in cycle {
+        let requested = preset(requested_level);
+        assert_eq!(
+            graphics_action(requested, applied, None, None, false),
+            GraphicsAction::Schedule,
+            "{requested_level:?} after {applied:?}"
+        );
+        // The commit of that request installs exactly it.
+        applied = requested;
+    }
+    assert_eq!(applied, preset(QualityLevel::High));
+    assert_eq!(
+        graphics_action(applied, applied, None, None, false),
+        GraphicsAction::Settled
+    );
+}

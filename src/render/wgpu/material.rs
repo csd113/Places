@@ -465,13 +465,17 @@ fn resolver_emission(
             let emission = inputs
                 .materials
                 .emissions
-                .get(usize::from(material))
+                .get(usize::try_from(material).unwrap_or(usize::MAX))
                 .copied()
                 .unwrap_or_default();
             if emission.is_emissive() {
-                let mask = emission
-                    .mask
-                    .is_some_and(|index| inputs.table.textures().get(usize::from(index)).is_some());
+                let mask = emission.mask.is_some_and(|index| {
+                    inputs
+                        .table
+                        .textures()
+                        .get(usize::try_from(index).unwrap_or(usize::MAX))
+                        .is_some()
+                });
                 EmissionRecord::material(emission, mask)
             } else {
                 EmissionRecord::NONE
@@ -598,17 +602,25 @@ impl WorldMaterials {
                 inputs.table,
                 response_allowed,
             );
-            let normal = resolved
-                .normal
-                .and_then(|index| inputs.table.textures().get(usize::from(index)));
+            let normal = resolved.normal.and_then(|index| {
+                inputs
+                    .table
+                    .textures()
+                    .get(usize::try_from(index).unwrap_or(usize::MAX))
+            });
             let emission_record = resolver_emission(*kind, key.material, &inputs);
             let mask_texture = if emission_record.mask {
                 inputs
                     .materials
                     .emissions
-                    .get(usize::from(key.material))
+                    .get(usize::try_from(key.material).unwrap_or(usize::MAX))
                     .and_then(|emission| emission.mask)
-                    .and_then(|index| inputs.table.textures().get(usize::from(index)))
+                    .and_then(|index| {
+                        inputs
+                            .table
+                            .textures()
+                            .get(usize::try_from(index).unwrap_or(usize::MAX))
+                    })
             } else {
                 None
             };
@@ -618,7 +630,7 @@ impl WorldMaterials {
             ) {
                 inputs
                     .animations
-                    .get(usize::from(key.material))
+                    .get(usize::try_from(key.material).unwrap_or(usize::MAX))
                     .copied()
                     .flatten()
             } else {

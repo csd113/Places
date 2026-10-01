@@ -91,7 +91,9 @@ fn test_validate_level_success() {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -139,7 +141,9 @@ fn test_validate_level_invalid_version() {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     };
     assert!(validate_level(&level).is_err());
 }
@@ -301,7 +305,9 @@ fn test_validate_level_preserves_overlapping_geometry() {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -381,7 +387,9 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     };
 
     // No custom textures supplied: the two `pack:` materials resolve to the
@@ -496,10 +504,11 @@ fn test_validate_accepts_moderately_large_level() {
 
 #[test]
 fn test_validate_rejects_pathological_huge_room() {
-    // 25 000 000 m^2 of floor is past the raised 16 000 000 m^2 budget (the
-    // historical budget was 1 000 000); the rejection names the floor area.
+    // 8001 x 8001 m is 64 016 001 m^2: past the raised 64 000 000 m^2 budget
+    // (the historical budget was 16 000 000 m^2) while each edge stays inside
+    // the room-extent cap, so the rejection names the floor area.
     let level = level_from_rooms_json(
-        r#"[{ "x": 0.0, "z": 0.0, "width": 5000.0, "depth": 5000.0, "height": 3.5 }]"#,
+        r#"[{ "x": 0.0, "z": 0.0, "width": 8001.0, "depth": 8001.0, "height": 3.5 }]"#,
     );
     let err = validate_level(&level).expect_err("huge room must be rejected");
     assert!(
@@ -1406,6 +1415,96 @@ fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
     fs::remove_dir_all(&root).expect("clean up the test directory");
 }
 
+/// Authoring sources are expected content in a level directory: a `.json` (with
+/// or without a sibling package) and a `.zip` are skipped silently, never
+/// become rows, and the explicit-open path still names the compiler.
+#[test]
+fn test_authoring_sources_are_skipped_silently() {
+    let root = std::env::temp_dir().join(format!(
+        "places-authoring-source-test-{}",
+        std::process::id()
+    ));
+    let assets_dir = root.join("assets/levels");
+    let levels_dir = root.join("levels");
+    let import_dir = root.join("import");
+    fs::create_dir_all(&assets_dir).expect("test assets dir");
+    fs::create_dir_all(&levels_dir).expect("test levels dir");
+
+    let level_json = r#"{
+        "format_version": 3,
+        "id": "source_room",
+        "name": "Source Room",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
+    }"#;
+    compile_fixture(&levels_dir, "source_room.json", level_json);
+    // The repository layout: every source sits beside its compiled package.
+    // The authoring workflow also leaves sources the player has never compiled
+    // and zip bundles; all of them are silently skipped.
+    fs::write(levels_dir.join("source_room.json"), level_json).expect("source beside package");
+    fs::write(levels_dir.join("uncompiled_source.json"), level_json).expect("source only");
+    fs::write(levels_dir.join("bundle.zip"), b"not a real archive").expect("zip source");
+
+    let manager = LevelManager::with_paths(assets_dir, levels_dir.clone(), import_dir.clone());
+    let rows: Vec<(&str, LevelSourceType, bool)> = manager
+        .entries()
+        .iter()
+        .map(|entry| {
+            (
+                entry.id.as_str(),
+                entry.source_type,
+                entry.path.to_string_lossy().ends_with(".placesmap"),
+            )
+        })
+        .collect();
+    assert!(
+        rows.iter().any(|(id, source, package)| *id == "source_room"
+            && *source == LevelSourceType::Installed
+            && *package),
+        "the compiled package is a row: {rows:?}"
+    );
+    assert_eq!(
+        rows.iter().filter(|(id, ..)| *id == "source_room").count(),
+        1,
+        "the sources beside the package add no duplicate row: {rows:?}"
+    );
+    for (id, source, package) in &rows {
+        assert!(
+            *package || *source == LevelSourceType::Embedded,
+            "{id} is a package row or the embedded fallback"
+        );
+    }
+    for source in ["source_room.json", "uncompiled_source.json", "bundle.zip"] {
+        assert!(
+            LevelManager::is_authoring_source(&levels_dir.join(source)),
+            "{source} is classified as an authoring source"
+        );
+    }
+    assert_eq!(
+        LevelSourceType::Bundled.label(),
+        "bundled",
+        "the CLI label is stable"
+    );
+
+    // Explicitly opening a source stays actionable: it names the compiler.
+    let mut manager = LevelManager::with_paths(
+        root.join("assets/levels"),
+        levels_dir.clone(),
+        import_dir.clone(),
+    );
+    for source in ["source_room.json", "uncompiled_source.json"] {
+        let error = manager
+            .import_file(&levels_dir.join(source))
+            .expect_err("a source is not importable");
+        assert!(
+            error.contains("places-compile"),
+            "{source} rejection names the compiler: {error}"
+        );
+    }
+
+    fs::remove_dir_all(&root).expect("clean up the test directory");
+}
+
 /// Compiles a tiny level source into a package, without GPU capture.
 fn compile_fixture(
     dir: &std::path::Path,
@@ -1712,7 +1811,7 @@ fn test_validate_level_rejects_malformed_decals() {
 fn test_the_decal_count_is_bounded() {
     let decal = r#"{ "x": 1.0, "y": 1.0, "z": 0.0, "width": 1.0, "height": 0.5,
                      "material": "core:decal_test_01", "surface": "wall_south" }"#;
-    let decals = std::iter::repeat_n(decal, 5001)
+    let decals = std::iter::repeat_n(decal, crate::level::MAX_LEVEL_DECALS as usize + 1)
         .collect::<Vec<_>>()
         .join(",");
     let level = LevelDef::from_json(&decal_level(&decals)).expect("large decal list still parses");
@@ -1871,7 +1970,7 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
             crate::lighting::FixtureKind::RoundRecessed,
         ]
     );
-    let slots: Vec<u16> = sheets.iter().map(|sheet| sheet.slot).collect();
+    let slots: Vec<u32> = sheets.iter().map(|sheet| sheet.slot).collect();
     assert_eq!(
         slots,
         [
@@ -4613,5 +4712,730 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
     assert_eq!(
         revision, 2,
         "the current geometry revision is documented as 2"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Regional fog and void wall validation
+// ---------------------------------------------------------------------------
+
+/// A minimal valid level with the given `fog_regions` array body.
+fn fog_level(regions_json: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "fog_validation",
+            "name": "Fog Validation",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }} ],
+            "fog_regions": {regions_json}
+        }}"#
+    ))
+    .expect("fog validation level parses")
+}
+
+#[test]
+fn fog_regions_at_the_cap_and_at_every_bound_are_accepted() {
+    let full = fog_level(&format!(
+        "[{}]",
+        (0..crate::level::MAX_FOG_REGIONS)
+            .map(|index| format!(
+                r#"{{ "id": "r{index}", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                     "density": 0.5, "color": [1.0, 1.0, 1.0], "falloff_m": 0.0,
+                     "ground_y": 0.0, "top_y": 1.0 }}"#
+            ))
+            .collect::<Vec<_>>()
+            .join(",")
+    ));
+    assert!(
+        validate_level(&full).is_ok(),
+        "exactly 16 regions are legal"
+    );
+}
+
+#[test]
+fn fog_regions_beyond_every_bound_are_named_errors() {
+    let cases: [(&str, &str, &str); 10] = [
+        (
+            "one over the cap",
+            &format!("[{}]", vec![
+                r#"{ "id": "r", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 }"#;
+                crate::level::MAX_FOG_REGIONS + 1
+            ].join(",")),
+            "too many fog regions",
+        ),
+        (
+            "empty id",
+            r#"[{ "id": "  ", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 }]"#,
+            "names no id",
+        ),
+        (
+            "duplicate id",
+            r#"[{ "id": "dup", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 },
+                { "id": "dup", "min": [2.0, 0.0, 0.0], "max": [3.0, 1.0, 1.0], "density": 0.1 }]"#,
+            "repeats an id",
+        ),
+        (
+            "inverted bounds",
+            r#"[{ "id": "inverted", "min": [1.0, 0.0, 0.0], "max": [0.0, 1.0, 1.0], "density": 0.1 }]"#,
+            "min below max on every axis",
+        ),
+        (
+            "non-finite bounds",
+            r#"[{ "id": "nan", "min": [0.0, 0.0, 0.0], "max": [1.0, 1e40, 1.0], "density": 0.1 }]"#,
+            "bounds must be finite numbers",
+        ),
+        (
+            "density over the limit",
+            r#"[{ "id": "yard_mist", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.9 }]"#,
+            "has density 0.9 (limit 0.5)",
+        ),
+        (
+            "negative density",
+            r#"[{ "id": "negative", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": -0.1 }]"#,
+            "has density",
+        ),
+        (
+            "colour out of range",
+            r#"[{ "id": "tinted", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1,
+                 "color": [1.2, 0.0, 0.0] }]"#,
+            "colour components must be between 0.0 and 1.0",
+        ),
+        (
+            "negative falloff",
+            r#"[{ "id": "hard", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1,
+                 "falloff_m": -1.0 }]"#,
+            "falloff_m",
+        ),
+        (
+            "non-finite layer",
+            r#"[{ "id": "layer", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1,
+                 "top_y": 1e40 }]"#,
+            "ground_y and top_y must be finite",
+        ),
+    ];
+    for (case, regions, expected) in cases {
+        let error = validate_level(&fog_level(regions)).expect_err(case);
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in: {error}"
+        );
+    }
+}
+
+/// The named density error carries the authored position, exactly as the
+/// authoring guide documents it.
+#[test]
+fn a_fog_region_error_names_the_index_and_id() {
+    let level = fog_level(
+        r#"[{ "id": "a", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 },
+            { "id": "b", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 },
+            { "id": "c", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "density": 0.1 },
+            { "id": "yard_mist", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+              "density": 0.9 }]"#,
+    );
+    let error = validate_level(&level).expect_err("density over the limit");
+    assert_eq!(
+        error,
+        "fog region 3 ('yard_mist') has density 0.9 (limit 0.5)"
+    );
+}
+
+/// A minimal valid level with the given `void_walls` array body.
+fn void_wall_level(walls_json: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "void_validation",
+            "name": "Void Validation",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }} ],
+            "void_walls": {walls_json}
+        }}"#
+    ))
+    .expect("void validation level parses")
+}
+
+#[test]
+fn void_walls_at_the_cap_are_accepted_and_one_over_is_rejected() {
+    let entry = r#"{ "id": "wall", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                     "material": "core:wallpaper_yellow_01" }"#;
+    let full = void_wall_level(&format!(
+        "[{}]",
+        (0..crate::level::MAX_VOID_WALLS)
+            .map(|index| entry.replace("\"wall\"", &format!("\"wall_{index}\"")))
+            .collect::<Vec<_>>()
+            .join(",")
+    ));
+    assert!(
+        validate_level(&full).is_ok(),
+        "exactly 256 void walls are legal"
+    );
+    let over = void_wall_level(&format!(
+        "[{}]",
+        (0..=crate::level::MAX_VOID_WALLS)
+            .map(|index| entry.replace("\"wall\"", &format!("\"wall_{index}\"")))
+            .collect::<Vec<_>>()
+            .join(",")
+    ));
+    let error = validate_level(&over).expect_err("one over the cap");
+    assert!(error.contains("too many void walls"), "{error}");
+}
+
+#[test]
+fn void_walls_reject_named_bounds_ids_and_materials() {
+    let cases: [(&str, &str, &str); 8] = [
+        (
+            "inverted bounds",
+            r#"[{ "min": [1.0, 0.0, 0.0], "max": [0.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01" }]"#,
+            "min below max on every axis",
+        ),
+        (
+            "non-finite bounds",
+            r#"[{ "min": [0.0, 0.0, 0.0], "max": [1.0, 1e40, 1.0],
+                 "material": "core:wallpaper_yellow_01" }]"#,
+            "bounds must be finite numbers",
+        ),
+        (
+            "empty material",
+            r#"[{ "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "material": "  " }]"#,
+            "names no material",
+        ),
+        (
+            "malformed material id",
+            r#"[{ "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "material": "not a material" }]"#,
+            "not a well-formed logical id",
+        ),
+        (
+            "empty id",
+            r#"[{ "id": "", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01" }]"#,
+            "has an empty id",
+        ),
+        (
+            "duplicate id",
+            r#"[{ "id": "shell", "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01" },
+                { "id": "shell", "min": [2.0, 0.0, 0.0], "max": [3.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01" }]"#,
+            "repeats an id",
+        ),
+        (
+            "id too long",
+            r#"[{ "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                 "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01" }]"#,
+            "longer than",
+        ),
+        (
+            "unknown face mode",
+            r#"[{ "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0],
+                 "material": "core:wallpaper_yellow_01", "faces": "sideways" }]"#,
+            "unknown variant",
+        ),
+    ];
+    for (case, walls, expected) in cases {
+        let error = match LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "void_validation",
+                "name": "Void Validation",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }} ],
+                "void_walls": {walls}
+            }}"#
+        )) {
+            Ok(level) => validate_level(&level).expect_err(case),
+            Err(parse) => parse.to_string(),
+        };
+        assert!(
+            error.contains(expected),
+            "expected `{expected}` in: {error}"
+        );
+    }
+}
+
+/// A fog/void level survives the authoring → `semantics.json` → reader path:
+/// serialize the prepared `LevelDef`, parse it back and validate it, and the
+/// new records are bit-identical.
+#[test]
+fn fog_regions_and_void_walls_round_trip_through_semantics_json() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "round_trip",
+            "name": "Round Trip",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 } ],
+            "fog_regions": [
+                { "id": "mist", "min": [0.0, -1.0, 0.0], "max": [4.0, 1.0, 4.0],
+                  "density": 0.05, "color": [0.2, 0.3, 0.4], "falloff_m": 1.5,
+                  "ground_y": -0.5, "top_y": 0.5 }
+            ],
+            "void_walls": [
+                { "id": "shell", "min": [-1.0, 0.0, -1.0], "max": [1.0, 3.0, 1.0],
+                  "material": "outdoor:dirt_gravel_01", "faces": "both",
+                  "solid": false, "occludes": true }
+            ]
+        }"#,
+    )
+    .expect("round-trip level parses");
+    assert!(validate_level(&level).is_ok());
+    let encoded = serde_json::to_string(&level).expect("prepared semantics serialize");
+    let decoded = LevelDef::from_json(&encoded).expect("prepared semantics parse");
+    assert!(validate_level(&decoded).is_ok());
+    assert_eq!(decoded.fog_regions, level.fog_regions);
+    assert_eq!(decoded.void_walls, level.void_walls);
+    assert_eq!(
+        serde_json::to_string(&decoded).expect("decoded semantics serialize"),
+        encoded,
+        "serialization is stable across a semantics round trip"
+    );
+}
+
+// ------------------------------------------------- 2026 raised element caps
+//
+// The capacity pass raised every per-element count cap. Each raised cap is
+// pinned twice here: a level at the limit validates, and one past it is
+// rejected by name. The table shares the entry makers so the two halves can
+// never test different content.
+
+/// One raised element cap under test.
+struct RaisedCapCase {
+    /// The level field the entries live in.
+    field: &'static str,
+    /// Further top-level fields the case needs (spawn templates, say).
+    extra: &'static str,
+    /// Rooms the case authors; the geometry estimate rejects a level that
+    /// stacks every piece in one room before the cap under test can name
+    /// itself, so a case places one piece per room where the estimate needs it.
+    rooms: usize,
+    /// One entry, by authored index.
+    make: fn(usize) -> String,
+    /// The cap's value.
+    limit: usize,
+    /// Fragment the one-over rejection must contain.
+    fragment: &'static str,
+}
+
+/// The room lattice a case's entries are placed on: 4 m × 4 m rooms on a 6 m
+/// pitch, row-major, 90 per row.
+fn cap_room_position(index: usize) -> (f32, f32) {
+    ((index % 90) as f32 * 6.0, (index / 90) as f32 * 6.0)
+}
+
+/// `count` rooms on the same lattice as [`cap_room_position`].
+fn cap_rooms(count: usize) -> String {
+    let entries: Vec<String> = (0..count)
+        .map(|index| {
+            let (x, z) = cap_room_position(index);
+            format!(r#"{{ "x": {x}, "z": {z}, "width": 4.0, "depth": 4.0, "height": 3.5 }}"#)
+        })
+        .collect();
+    format!("[{}]", entries.join(","))
+}
+
+/// A level with `rooms` and the case's collection.
+fn raised_cap_level(case: &RaisedCapCase, count: usize) -> LevelDef {
+    let entries: Vec<String> = (0..count).map(case.make).collect();
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "raised_cap",
+            "name": "Raised Cap",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": {}{},
+            "{}": [{}]
+        }}"#,
+        cap_rooms(case.rooms),
+        case.extra,
+        case.field,
+        entries.join(",")
+    ))
+    .unwrap_or_else(|error| panic!("the {} cap level parses: {error}", case.field))
+}
+
+/// Every raised element cap, its current constant and its one-entry JSON.
+fn raised_cap_cases() -> Vec<RaisedCapCase> {
+    vec![
+        RaisedCapCase {
+            field: "walls",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 1.0, "z": 1.0, "width": 0.4, "depth": 0.4, "height": 2.0 }"#.to_string()
+            },
+            limit: crate::level::MAX_LEVEL_WALLS as usize,
+            fragment: "too many walls",
+        },
+        RaisedCapCase {
+            field: "ceiling_lights",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }"#.to_string()
+            },
+            limit: crate::level::MAX_LEVEL_CEILING_LIGHTS as usize,
+            fragment: "too many ceiling lights",
+        },
+        RaisedCapCase {
+            field: "props",
+            extra: "",
+            rooms: 1,
+            make: |_| r#"{ "model": "core:crate", "x": 2.0, "z": 2.0 }"#.to_string(),
+            limit: crate::level::MAX_LEVEL_PROPS as usize,
+            fragment: "too many props",
+        },
+        RaisedCapCase {
+            field: "decals",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "y": 0.0, "z": 2.0, "width": 0.5, "height": 0.5,
+                     "material": "core:decal_test_01", "surface": "floor" }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_DECALS as usize,
+            fragment: "too many decals",
+        },
+        RaisedCapCase {
+            field: "floor_regions",
+            extra: "",
+            rooms: crate::level::MAX_LEVEL_FLOOR_REGIONS as usize,
+            make: |index| {
+                let (x, z) = cap_room_position(index);
+                format!(
+                    r#"{{ "x": {}, "z": {}, "width": 1.0, "depth": 1.0, "offset_y": 0.1 }}"#,
+                    x + 1.0,
+                    z + 1.0
+                )
+            },
+            limit: crate::level::MAX_LEVEL_FLOOR_REGIONS as usize,
+            fragment: "too many floor regions",
+        },
+        RaisedCapCase {
+            field: "floor_patches",
+            extra: "",
+            rooms: crate::level::MAX_LEVEL_FLOOR_PATCHES as usize,
+            make: |index| {
+                let (x, z) = cap_room_position(index);
+                format!(
+                    r#"{{ "x": {}, "z": {}, "width": 1.0, "depth": 1.0,
+                         "material": "core:carpet_beige_01" }}"#,
+                    x + 1.0,
+                    z + 1.0
+                )
+            },
+            limit: crate::level::MAX_LEVEL_FLOOR_PATCHES as usize,
+            fragment: "too many floor patches",
+        },
+        RaisedCapCase {
+            field: "water",
+            extra: "",
+            rooms: crate::level::MAX_LEVEL_WATER_VOLUMES as usize,
+            make: |index| {
+                let (x, z) = cap_room_position(index);
+                format!(
+                    r#"{{ "x": {}, "z": {}, "width": 1.0, "depth": 1.0, "surface_y": 0.2 }}"#,
+                    x + 1.0,
+                    z + 1.0
+                )
+            },
+            limit: crate::level::MAX_LEVEL_WATER_VOLUMES as usize,
+            fragment: "too many water volumes",
+        },
+        RaisedCapCase {
+            field: "ladders",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.2,
+                     "bottom_y": 0.0, "top_y": 2.0, "facing_degrees": 0.0 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_LADDERS as usize,
+            fragment: "too many ladders",
+        },
+        RaisedCapCase {
+            field: "ramps",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0,
+                     "offset_y": 0.0, "rise": 0.25 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_RAMPS as usize,
+            fragment: "too many ramps",
+        },
+        RaisedCapCase {
+            field: "stairs",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.2,
+                     "offset_y": 0.0, "rise": 0.4, "steps": 3 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_STAIRS as usize,
+            fragment: "too many staircases",
+        },
+        RaisedCapCase {
+            field: "half_walls",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 0.2, "height": 1.0 }"#.to_string()
+            },
+            limit: crate::level::MAX_LEVEL_HALF_WALLS as usize,
+            fragment: "too many half walls",
+        },
+        RaisedCapCase {
+            field: "columns",
+            extra: "",
+            rooms: 1,
+            make: |_| r#"{ "x": 1.0, "z": 1.0, "width": 0.3, "depth": 0.3 }"#.to_string(),
+            limit: crate::level::MAX_LEVEL_COLUMNS as usize,
+            fragment: "too many columns",
+        },
+        RaisedCapCase {
+            field: "arc_walls",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "radius": 1.2, "thickness": 0.2,
+                     "height": 2.4, "start_degrees": 0.0, "sweep_degrees": 90.0,
+                     "segments": 8 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_ARC_WALLS as usize,
+            fragment: "too many arc walls",
+        },
+        RaisedCapCase {
+            field: "pillars",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "radius": 0.2, "height": 3.0, "segments": 8 }"#.to_string()
+            },
+            limit: crate::level::MAX_LEVEL_PILLARS as usize,
+            fragment: "too many pillars",
+        },
+        RaisedCapCase {
+            field: "archways",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "width": 2.4, "depth": 0.4, "height": 2.5,
+                     "opening_width": 1.0, "opening_height": 2.0, "arch_rise": 0.2 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_ARCHWAYS as usize,
+            fragment: "too many archways",
+        },
+        RaisedCapCase {
+            field: "guardrails",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "length": 2.0, "rotation_degrees": 0.0,
+                     "height": 0.9 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_GUARDRAILS as usize,
+            fragment: "too many guardrails",
+        },
+        RaisedCapCase {
+            field: "thresholds",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "length": 1.0, "thickness": 0.08,
+                     "height": 0.02, "rotation_degrees": 90.0 }"#
+                    .to_string()
+            },
+            limit: crate::level::MAX_LEVEL_THRESHOLDS as usize,
+            fragment: "too many thresholds",
+        },
+        RaisedCapCase {
+            field: "baseboards",
+            extra: "",
+            rooms: 1,
+            make: |_| {
+                r#"{ "x": 2.0, "z": 2.0, "length": 2.0, "rotation_degrees": 90.0 }"#.to_string()
+            },
+            limit: crate::level::MAX_LEVEL_BASEBOARDS as usize,
+            fragment: "too many baseboards",
+        },
+        RaisedCapCase {
+            field: "volumes",
+            extra: "",
+            rooms: 1,
+            make: |_| r#"{ "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0 }"#.to_string(),
+            limit: crate::level::MAX_LEVEL_AREA_TRIGGERS as usize,
+            fragment: "too many trigger volumes",
+        },
+        RaisedCapCase {
+            field: "sequences",
+            extra: "",
+            rooms: 1,
+            make: |index| {
+                format!(
+                    r#"{{ "id": "cap_sequence_{index}", "steps": [ {{ "step": "wait", "seconds": 0.1 }} ] }}"#
+                )
+            },
+            limit: crate::entities::sequences::MAX_LEVEL_SEQUENCES,
+            fragment: "too many sequences",
+        },
+        RaisedCapCase {
+            field: "spawn_templates",
+            extra: "",
+            rooms: 1,
+            make: |index| {
+                format!(
+                    r#"{{ "id": "cap_template_{index}", "model": "core:crate", "scale": 1.0 }}"#
+                )
+            },
+            limit: crate::entities::spawn::MAX_LEVEL_SPAWN_TEMPLATES,
+            fragment: "too many spawn templates",
+        },
+        RaisedCapCase {
+            field: "spawn_points",
+            extra: r#", "spawn_templates": [ { "id": "cap_template", "model": "core:crate" } ]"#,
+            rooms: 1,
+            make: |index| {
+                format!(
+                    r#"{{ "id": "cap_point_{index}", "x": 2.0, "z": 2.0, "template": "cap_template" }}"#
+                )
+            },
+            limit: crate::entities::spawn::MAX_LEVEL_SPAWN_POINTS,
+            fragment: "too many spawn points",
+        },
+        RaisedCapCase {
+            field: "spawn_groups",
+            extra: "",
+            rooms: 1,
+            make: |index| format!(r#"{{ "id": "cap_group_{index}" }}"#),
+            limit: crate::entities::spawn::MAX_LEVEL_SPAWN_GROUPS,
+            fragment: "too many spawn groups",
+        },
+    ]
+}
+
+#[test]
+fn test_validate_accepts_every_raised_element_cap_at_its_limit() {
+    for case in raised_cap_cases() {
+        let level = raised_cap_level(&case, case.limit);
+        validate_level(&level).unwrap_or_else(|error| {
+            panic!("a level at the {} cap must validate: {error}", case.field)
+        });
+    }
+}
+
+#[test]
+fn test_validate_rejects_one_over_every_raised_element_cap() {
+    for case in raised_cap_cases() {
+        let level = raised_cap_level(&case, case.limit.saturating_add(1));
+        let error =
+            validate_level(&level).expect_err("a level one past a raised cap must be rejected");
+        assert!(
+            error.contains(case.fragment),
+            "the {} over-cap error must contain `{}`: {error}",
+            case.field,
+            case.fragment
+        );
+    }
+}
+
+#[test]
+fn test_validate_rejects_too_many_rooms() {
+    let rooms = crate::level::MAX_LEVEL_ROOMS as usize;
+    let build = |count: usize| {
+        LevelDef::from_json(&format!(
+            r#"{{ "format_version": 3, "id": "rooms_cap", "name": "Rooms Cap",
+                 "spawn": {{ "x": 1.0, "z": 1.0 }}, "rooms": {} }}"#,
+            cap_rooms(count)
+        ))
+        .expect("the rooms cap level parses")
+    };
+    validate_level(&build(rooms)).expect("a level at the rooms cap must validate");
+    let error = validate_level(&build(rooms.saturating_add(1)))
+        .expect_err("one over the rooms cap must be rejected");
+    assert!(error.contains("too many rooms"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_too_many_sequence_steps() {
+    let steps = |count: usize| -> String {
+        let entries: Vec<String> = (0..count)
+            .map(|_| r#"{ "step": "wait", "seconds": 0.1 }"#.to_string())
+            .collect();
+        format!(r#"{{ "id": "long", "steps": [{}] }}"#, entries.join(","))
+    };
+    let build = |count: usize| {
+        LevelDef::from_json(&format!(
+            r#"{{ "format_version": 3, "id": "steps_cap", "name": "Steps Cap",
+                 "spawn": {{ "x": 1.0, "z": 1.0 }},
+                 "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }} ],
+                 "sequences": [ {} ] }}"#,
+            steps(count)
+        ))
+        .expect("the step cap level parses")
+    };
+    let cap = crate::entities::sequences::MAX_SEQUENCE_STEPS;
+    validate_level(&build(cap)).expect("a sequence at the step cap must validate");
+    let error = validate_level(&build(cap.saturating_add(1)))
+        .expect_err("one over the step cap must be rejected");
+    assert!(error.contains("steps"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_too_many_distinct_materials_by_name() {
+    // Distinct material ids are manufactured through one wall's face map:
+    // every value is a referenced material, and the count is exactly the set
+    // `referenced_material_ids` resolves. The wall itself plus the three
+    // defaults are the other four ids.
+    let faces = |count: usize| -> String {
+        let entries: Vec<String> = (0..count)
+            .map(|index| format!(r#""cap_face_{index:06}": "cap:mat_{index:06}""#))
+            .collect();
+        format!("{{ {} }}", entries.join(","))
+    };
+    let level = |count: usize| -> LevelDef {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "materials_cap",
+                "name": "Materials Cap",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "defaults": {{ "wall": "cap:default_wall", "floor": "cap:default_floor",
+                               "ceiling": "cap:default_ceiling" }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }} ],
+                "walls": [ {{ "x": 0.0, "z": 2.0, "width": 4.0, "depth": 0.2,
+                              "material": "cap:wall_body", "faces": {} }} ]
+            }}"#,
+            faces(count)
+        ))
+        .expect("the materials cap level parses")
+    };
+    // 4 ids outside the face map: three defaults plus the wall body.
+    let face_budget = (crate::level::MAX_LEVEL_MATERIALS as usize).saturating_sub(4);
+    let at_limit = level(face_budget);
+    assert_eq!(
+        crate::materials::referenced_material_ids(&at_limit).len(),
+        crate::level::MAX_LEVEL_MATERIALS as usize,
+        "the at-limit level must resolve exactly the cap"
+    );
+    validate_level(&at_limit).expect("a level at the material cap must validate");
+    let over = level(face_budget.saturating_add(1));
+    let error = validate_level(&over).expect_err("one over the material cap must be rejected");
+    assert!(
+        error.contains(&format!(
+            "Level declares too many distinct materials: {} (limit {})",
+            crate::level::MAX_LEVEL_MATERIALS.saturating_add(1),
+            crate::level::MAX_LEVEL_MATERIALS
+        )),
+        "{error}"
     );
 }

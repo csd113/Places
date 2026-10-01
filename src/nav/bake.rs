@@ -679,15 +679,12 @@ impl BakeScene<'_> {
     }
 
     /// True when a swimming-depth water volume covers the point.
+    ///
+    /// The volume's own shape decides membership, so an AI path never treats
+    /// a circular pool's empty bounding-box corners as water.
     fn deep_water_at(&self, x: f32, z: f32, surface: f32, step_height: f32) -> bool {
         self.level.water.iter().any(|volume| {
-            if !volume.swimming {
-                return false;
-            }
-            let (x0, x1) = min_max(volume.x, volume.x + volume.width);
-            let (z0, z1) = min_max(volume.z, volume.z + volume.depth);
-            let inside = x >= x0 && x <= x1 && z >= z0 && z <= z1;
-            inside && volume.surface_y > surface + step_height
+            volume.swimming && volume.contains(x, z) && volume.surface_y > surface + step_height
         })
     }
 }

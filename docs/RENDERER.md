@@ -634,6 +634,29 @@ position falls back to the vertex-lit sample instead of going black. The GPU
 receives the sampled display value through the per-object `light_scale`
 uniform — no per-frame bake and no ray is cast at runtime.
 
+The resolution rule (`moving_object_light`, shared by the character and
+dynamic-object paths) is:
+
+* A position in **no room** has no prepared probe of its own — every probe is
+  labelled with the room it occupies — so it reads the vertex-lit environment
+  sample: the ambient floor plus the fixture pools it is inside. A roomless
+  object therefore never reads a neighbouring room's probe through the gap
+  between the rooms, which the raw field would otherwise allow because a
+  roomless sample cannot filter by room.
+* A position the field **cannot resolve** falls back to that same vertex-lit
+  sample.
+* A **resolved** position takes the prepared field, floored per channel at the
+  room's own authored baseline (`LevelLighting::baseline_in_room`). The
+  prepared solve deliberately carries no global `0.10` ambient floor, and its
+  baseline fill is gated by the local emitter support (§7.1.1), so between two
+  fixtures a room's field can be far below the environment the level was
+  authored with — the shipped night route's entities measured 0-5/255 where
+  the same objects are 39-45/255 under the vertex-lit preset. The floor is a
+  floor, not an addition: the field's fixture light still wins wherever it is
+  brighter, a lit pool is never double counted, and the object stays
+  environment-dependent. With no prepared field (the `off` variant) the rule
+  is exactly the historical vertex-lit sample, so Low's look is unchanged.
+
 ### 7.1.3 Changeable lights
 
 A `switchable` ceiling fixture's contribution is solved into its **own layer
@@ -931,6 +954,8 @@ The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer p
 
 A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into the fragment alpha and the emissive term — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` rewrites a character's environment only when its transform **or** its opacity changed, so a still, settled character writes nothing while a fading one rewrites one uniform. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in a second, sorted back-to-front character pass after the blended dynamic primitives, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh keeps the historical opaque treatment, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
 
+Up to `MAX_CHARACTERS` (128) characters are drawn per level. Each owns one CPU-skinned vertex buffer and one group-3 environment, both sized by its own model's bounded vertex count, so the budget is a per-frame skinning bound rather than one fixed GPU allocation; a level that places more keeps the extras in the static prop batch in their bind pose and reports the budget.
+
 **Entity cues, live transforms and routes.** A map-authored route or a
 `play_animation` action addresses a character by its placed-instance id
 (`entity::EntityFrame`). `CharacterScene::update(delta, locomotion, frames)`
@@ -969,6 +994,8 @@ Both constants are defined once in `src/render/common/decals.rs` and applied in 
 
 **Fog** is a scalar mix in the world shader: a squared-exponential distance term with a height term, applied after emission and before the display conversion. The height contribution is capped at 12 m. Fog state (`color`, `density`, `reference_y`, `height_gain`) comes from the neutral level/atmosphere data and travels in the group-3 environment uniform.
 
+On top of the global term a level may author up to 16 **regional fog volumes** (`fog_regions`, `src/render/common/atmosphere.rs`). The group-3 uniform carries a count word and a fixed `array<FogRegion, 16>` (64 bytes per entry: box minimum + horizontal falloff, box maximum + fade-to-zero height, mix colour + density, ground-layer base); the fragment loop is bounded by the count and evaluates each region from the **fragment's** world position, never from camera membership. A region contributes `density * horizontal_edge * vertical_layer`; the greatest contribution wins (ties keep the lowest authoring index), the global density is added to the winner and the winner's colour is mixed towards. Densities never sum. The count is a uniform value, so the quality preset (Low 2 / Medium 8 / High 16) changes only the uploaded prefix — switching presets recovers the dropped regions with no rebuild. A level with no regions packs a zero count and a zeroed array: the global path is bit-identical to the historical one.
+
 **Bloom and resolve.** The scene is drawn into an offscreen colour+depth target and resolved into the display image by one fullscreen pass. Bloom is drawn from the world's **emissive term alone** — never from brightness — so a brightly lit wall cannot glow. The emissive pass shares the scene's depth (an emissive draw that did not survive produces no pass), followed by a quarter-size two-pass 5-tap blur. The resolve adds bloom, exposure, a tone shoulder that leaves everything below 0.75 untouched, and a subtle grade; it is the only place a scene pixel becomes a display pixel. Bloom is a **player setting** (Settings → Graphics → Bloom, plus the `PLACES_NO_BLOOM=1` startup override), not part of the quality level, so `High + Bloom Off` and `Low + Bloom On` are both valid. With Bloom off no emissive or blur pass is submitted and the bloom targets are left allocated but unused; with `Low` plus Bloom off the resolve stage is the identity and presents the scene with the plain copy quad. The resolve and HUD run at the drawable's resolution at every level; the scene target is the level-sized one (§12). The emissive and blur targets remain raw display space.
 
 **HUD.** The renderer-owned UI pass (`ui.wgsl`) draws into the raw presented target over the resolved image, at the drawable's resolution, with depth testing off and straight-alpha blending, so semi-transparent panels blend in display space. The layout is authored against a 480×272 reference canvas and scaled by `UiViewport`; the presented target is copied to the sRGB surface with one encode afterwards.
@@ -1000,7 +1027,7 @@ The lightmap and reflection budgets are owned by the advanced settings, not the 
 | Planar reflection | off | on | on | `ReflectionQuality::draws_planar` |
 | Probe face edge | none | 48 | 64 | `probe_face_size` |
 | Post tone knee / grade | 1.0 / none | 0.75 / none | 0.75 / 1.03, 1.02 | `PostSettings::for_level` |
-| Fog, emission and its animation, decals, effects, UI | identical | identical | identical | shared code paths |
+| Fog, emission and its animation, decals, effects, UI | identical (regional fog: first 2 volumes) | identical (first 8) | identical (all 16) | shared code paths; `fog_region_cap` |
 
 The lightmap and bake configuration columns are the resolved preset defaults; with the Advanced settings in play the actual bake follows `LightmapQuality`, not the level. `LightmapQuality::lightmap_config`/`bake_config` carry the density, page budget, tap count and prop-occlusion cell, and `LightmapBuildOptions::for_lightmaps` is the renderer's entry point, so `Low + Lightmaps Full` bakes a Full atlas and `High + Lightmaps Off` stays vertex-lit. The content key hashes the concrete configuration and the `Full` profile name, so Medium and Full never share an atlas entry while a Full atlas baked for any overall level does.
 
@@ -1044,6 +1071,38 @@ promise a hard latency bound. Measurements belong in dated reports, not this
 execution contract.
 
 Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width; Medium draws the response and renders at half the drawable; High keeps the native artwork and the drawable-sized scene: the same level, the same materials and the same ids. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→High switch releases the level-fitted textures and re-resolves, so the map appears.
+
+#### 12.2.1 The transition contract
+
+The game loop treats the player's graphics configuration as one comparable
+value (`quality::GraphicsSpec`: overall level, canonical Texture Filtering
+name, Bloom, Lightmaps, Reflections) and reconciles it against what the
+renderer actually holds every frame. The decision is the pure
+`quality::graphics_action`:
+
+| Requested vs applied | Outstanding work | Action |
+|---|---|---|
+| equal | none | settled |
+| equal | an install of the resident configuration | await it |
+| equal | an install of a superseded configuration | cancel it |
+| differs | an install of exactly the request | await it |
+| differs | a still-decoding preparation (no staged install yet) | await it |
+| differs | nothing | schedule it |
+| differs | nothing, and this exact request already failed | hold it |
+
+The last selection therefore always wins, and a commit that delivered an older
+configuration (an install that started before a newer selection) does not claim
+the newer one: the renderer reports what it installed, and the reconciliation
+schedules the remainder.
+
+Failure and cancellation never rewrite the saved selection. A package that
+cannot serve the requested lightmap variant fails with an actionable message
+that names the package, the missing variant and the variants it does provide,
+and the player's selection stays in `settings.json`; the renderer keeps
+rendering the resident configuration and the same request is not retried until
+it changes. Escape during a graphics transition backs out of the screen it is
+showing instead of rolling the selection back; a cancelled *level* load leaves
+any outstanding graphics change to be re-scheduled.
 
 ### 12.1 Texture Filtering (player option)
 

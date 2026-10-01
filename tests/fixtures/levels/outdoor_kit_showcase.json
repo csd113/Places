@@ -800,6 +800,687 @@
       "comment": "Buried invisible containment collider: a 6 cm peg sunk 6 cm below the floor, so only its level-sized solid box exists. The box lies flush along the east perimeter wall up to the north-east corner; occludes: false keeps it out of the bake."
     },
     {
+      "model": "outdoor:house_01_wall_doorway",
+      "x": 13.2,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_01_0"
+    },
+    {
+      "model": "outdoor:house_01_wall_window",
+      "x": 11.7,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_01_1"
+    },
+    {
+      "model": "outdoor:house_01_wall_window",
+      "x": 14.7,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_01_2"
+    },
+    {
+      "model": "outdoor:house_01_wall_solid",
+      "x": 13.2,
+      "z": 18.9,
+      "id": "kit_house_01_3"
+    },
+    {
+      "model": "outdoor:house_01_gable",
+      "x": 13.2,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "y": 2.7,
+      "id": "kit_house_01_4"
+    },
+    {
+      "model": "outdoor:house_01_gable",
+      "x": 13.2,
+      "z": 18.9,
+      "y": 2.7,
+      "id": "kit_house_01_5"
+    },
+    {
+      "model": "outdoor:house_01_corner_trim",
+      "x": 14.7,
+      "z": 18.9,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_01_6"
+    },
+    {
+      "model": "outdoor:house_01_corner_trim",
+      "x": 14.7,
+      "z": 15.899999999999999,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_01_7"
+    },
+    {
+      "model": "outdoor:house_01_corner_trim",
+      "x": 11.7,
+      "z": 15.899999999999999,
+      "id": "kit_house_01_8"
+    },
+    {
+      "model": "outdoor:house_01_corner_trim",
+      "x": 11.7,
+      "z": 18.9,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_01_9"
+    },
+    {
+      "model": "outdoor:house_01_roof_slope",
+      "x": 11.889999999999999,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 1.98,
+      "id": "kit_house_01_10"
+    },
+    {
+      "model": "outdoor:house_01_roof_slope",
+      "x": 14.51,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "y": 1.98,
+      "id": "kit_house_01_11"
+    },
+    {
+      "model": "outdoor:house_01_roof_ridge",
+      "x": 13.2,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 3.51,
+      "id": "kit_house_01_12"
+    },
+    {
+      "model": "outdoor:house_01_porch_deck",
+      "x": 13.2,
+      "z": 15.029999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_01_13"
+    },
+    {
+      "model": "outdoor:house_01_porch_post",
+      "x": 11.77,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_01_14"
+    },
+    {
+      "model": "outdoor:house_01_porch_post",
+      "x": 14.629999999999999,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_01_15"
+    },
+    {
+      "model": "outdoor:house_02_wall_doorway",
+      "x": 16.8,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_02_0"
+    },
+    {
+      "model": "outdoor:house_02_wall_window",
+      "x": 15.3,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_02_1"
+    },
+    {
+      "model": "outdoor:house_02_wall_window",
+      "x": 18.3,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_02_2"
+    },
+    {
+      "model": "outdoor:house_02_wall_solid",
+      "x": 16.8,
+      "z": 18.9,
+      "id": "kit_house_02_3"
+    },
+    {
+      "model": "outdoor:house_02_gable",
+      "x": 16.8,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "y": 2.7,
+      "id": "kit_house_02_4"
+    },
+    {
+      "model": "outdoor:house_02_gable",
+      "x": 16.8,
+      "z": 18.9,
+      "y": 2.7,
+      "id": "kit_house_02_5"
+    },
+    {
+      "model": "outdoor:house_02_corner_trim",
+      "x": 18.3,
+      "z": 18.9,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_02_6"
+    },
+    {
+      "model": "outdoor:house_02_corner_trim",
+      "x": 18.3,
+      "z": 15.899999999999999,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_02_7"
+    },
+    {
+      "model": "outdoor:house_02_corner_trim",
+      "x": 15.3,
+      "z": 15.899999999999999,
+      "id": "kit_house_02_8"
+    },
+    {
+      "model": "outdoor:house_02_corner_trim",
+      "x": 15.3,
+      "z": 18.9,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_02_9"
+    },
+    {
+      "model": "outdoor:house_02_roof_slope",
+      "x": 15.49,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 1.98,
+      "id": "kit_house_02_10"
+    },
+    {
+      "model": "outdoor:house_02_roof_slope",
+      "x": 18.11,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "y": 1.98,
+      "id": "kit_house_02_11"
+    },
+    {
+      "model": "outdoor:house_02_roof_ridge",
+      "x": 16.8,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 3.51,
+      "id": "kit_house_02_12"
+    },
+    {
+      "model": "outdoor:house_02_porch_deck",
+      "x": 16.8,
+      "z": 15.029999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_02_13"
+    },
+    {
+      "model": "outdoor:house_02_porch_post",
+      "x": 15.370000000000001,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_02_14"
+    },
+    {
+      "model": "outdoor:house_02_porch_post",
+      "x": 18.23,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_02_15"
+    },
+    {
+      "model": "outdoor:house_03_wall_doorway",
+      "x": 20.4,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_03_0"
+    },
+    {
+      "model": "outdoor:house_03_wall_window",
+      "x": 18.9,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_03_1"
+    },
+    {
+      "model": "outdoor:house_03_wall_window",
+      "x": 21.9,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_03_2"
+    },
+    {
+      "model": "outdoor:house_03_wall_solid",
+      "x": 20.4,
+      "z": 18.9,
+      "id": "kit_house_03_3"
+    },
+    {
+      "model": "outdoor:house_03_gable",
+      "x": 20.4,
+      "z": 15.899999999999999,
+      "rotation_degrees": 180.0,
+      "y": 2.7,
+      "id": "kit_house_03_4"
+    },
+    {
+      "model": "outdoor:house_03_gable",
+      "x": 20.4,
+      "z": 18.9,
+      "y": 2.7,
+      "id": "kit_house_03_5"
+    },
+    {
+      "model": "outdoor:house_03_corner_trim",
+      "x": 21.9,
+      "z": 18.9,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_03_6"
+    },
+    {
+      "model": "outdoor:house_03_corner_trim",
+      "x": 21.9,
+      "z": 15.899999999999999,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_03_7"
+    },
+    {
+      "model": "outdoor:house_03_corner_trim",
+      "x": 18.9,
+      "z": 15.899999999999999,
+      "id": "kit_house_03_8"
+    },
+    {
+      "model": "outdoor:house_03_corner_trim",
+      "x": 18.9,
+      "z": 18.9,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_03_9"
+    },
+    {
+      "model": "outdoor:house_03_roof_slope",
+      "x": 19.09,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 1.98,
+      "id": "kit_house_03_10"
+    },
+    {
+      "model": "outdoor:house_03_roof_slope",
+      "x": 21.709999999999997,
+      "z": 17.4,
+      "rotation_degrees": 90.0,
+      "y": 1.98,
+      "id": "kit_house_03_11"
+    },
+    {
+      "model": "outdoor:house_03_roof_ridge",
+      "x": 20.4,
+      "z": 17.4,
+      "rotation_degrees": 270.0,
+      "y": 3.51,
+      "id": "kit_house_03_12"
+    },
+    {
+      "model": "outdoor:house_03_porch_deck",
+      "x": 20.4,
+      "z": 15.029999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_03_13"
+    },
+    {
+      "model": "outdoor:house_03_porch_post",
+      "x": 18.97,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_03_14"
+    },
+    {
+      "model": "outdoor:house_03_porch_post",
+      "x": 21.83,
+      "z": 14.349999999999998,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_03_15"
+    },
+    {
+      "model": "outdoor:house_04_wall_doorway",
+      "x": 18.6,
+      "z": 9.1,
+      "id": "kit_house_04_0"
+    },
+    {
+      "model": "outdoor:house_04_wall_window",
+      "x": 20.1,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_04_1"
+    },
+    {
+      "model": "outdoor:house_04_wall_window",
+      "x": 17.1,
+      "z": 7.6,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_04_2"
+    },
+    {
+      "model": "outdoor:house_04_wall_solid",
+      "x": 18.6,
+      "z": 6.1,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_04_3"
+    },
+    {
+      "model": "outdoor:house_04_gable",
+      "x": 18.6,
+      "z": 9.1,
+      "y": 2.7,
+      "id": "kit_house_04_4"
+    },
+    {
+      "model": "outdoor:house_04_gable",
+      "x": 18.6,
+      "z": 6.1,
+      "rotation_degrees": 180.0,
+      "y": 2.7,
+      "id": "kit_house_04_5"
+    },
+    {
+      "model": "outdoor:house_04_corner_trim",
+      "x": 17.1,
+      "z": 6.1,
+      "id": "kit_house_04_6"
+    },
+    {
+      "model": "outdoor:house_04_corner_trim",
+      "x": 17.1,
+      "z": 9.1,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_04_7"
+    },
+    {
+      "model": "outdoor:house_04_corner_trim",
+      "x": 20.1,
+      "z": 9.1,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_04_8"
+    },
+    {
+      "model": "outdoor:house_04_corner_trim",
+      "x": 20.1,
+      "z": 6.1,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_04_9"
+    },
+    {
+      "model": "outdoor:house_04_roof_slope",
+      "x": 19.91,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "y": 1.98,
+      "id": "kit_house_04_10"
+    },
+    {
+      "model": "outdoor:house_04_roof_slope",
+      "x": 17.290000000000003,
+      "z": 7.6,
+      "rotation_degrees": 270.0,
+      "y": 1.98,
+      "id": "kit_house_04_11"
+    },
+    {
+      "model": "outdoor:house_04_roof_ridge",
+      "x": 18.6,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "y": 3.51,
+      "id": "kit_house_04_12"
+    },
+    {
+      "model": "outdoor:house_04_porch_deck",
+      "x": 18.6,
+      "z": 9.969999999999999,
+      "id": "kit_house_04_13"
+    },
+    {
+      "model": "outdoor:house_04_porch_post",
+      "x": 20.03,
+      "z": 10.649999999999999,
+      "id": "kit_house_04_14"
+    },
+    {
+      "model": "outdoor:house_04_porch_post",
+      "x": 17.17,
+      "z": 10.649999999999999,
+      "id": "kit_house_04_15"
+    },
+    {
+      "model": "outdoor:house_05_wall_doorway",
+      "x": 22.2,
+      "z": 9.1,
+      "id": "kit_house_05_0"
+    },
+    {
+      "model": "outdoor:house_05_wall_window",
+      "x": 23.7,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_05_1"
+    },
+    {
+      "model": "outdoor:house_05_wall_window",
+      "x": 20.7,
+      "z": 7.6,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_05_2"
+    },
+    {
+      "model": "outdoor:house_05_wall_solid",
+      "x": 22.2,
+      "z": 6.1,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_05_3"
+    },
+    {
+      "model": "outdoor:house_05_gable",
+      "x": 22.2,
+      "z": 9.1,
+      "y": 2.7,
+      "id": "kit_house_05_4"
+    },
+    {
+      "model": "outdoor:house_05_gable",
+      "x": 22.2,
+      "z": 6.1,
+      "rotation_degrees": 180.0,
+      "y": 2.7,
+      "id": "kit_house_05_5"
+    },
+    {
+      "model": "outdoor:house_05_corner_trim",
+      "x": 20.7,
+      "z": 6.1,
+      "id": "kit_house_05_6"
+    },
+    {
+      "model": "outdoor:house_05_corner_trim",
+      "x": 20.7,
+      "z": 9.1,
+      "rotation_degrees": 90.0,
+      "id": "kit_house_05_7"
+    },
+    {
+      "model": "outdoor:house_05_corner_trim",
+      "x": 23.7,
+      "z": 9.1,
+      "rotation_degrees": 180.0,
+      "id": "kit_house_05_8"
+    },
+    {
+      "model": "outdoor:house_05_corner_trim",
+      "x": 23.7,
+      "z": 6.1,
+      "rotation_degrees": 270.0,
+      "id": "kit_house_05_9"
+    },
+    {
+      "model": "outdoor:house_05_roof_slope",
+      "x": 23.509999999999998,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "y": 1.98,
+      "id": "kit_house_05_10"
+    },
+    {
+      "model": "outdoor:house_05_roof_slope",
+      "x": 20.89,
+      "z": 7.6,
+      "rotation_degrees": 270.0,
+      "y": 1.98,
+      "id": "kit_house_05_11"
+    },
+    {
+      "model": "outdoor:house_05_roof_ridge",
+      "x": 22.2,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "y": 3.51,
+      "id": "kit_house_05_12"
+    },
+    {
+      "model": "outdoor:house_05_porch_deck",
+      "x": 22.2,
+      "z": 9.969999999999999,
+      "id": "kit_house_05_13"
+    },
+    {
+      "model": "outdoor:house_05_porch_post",
+      "x": 23.63,
+      "z": 10.649999999999999,
+      "id": "kit_house_05_14"
+    },
+    {
+      "model": "outdoor:house_05_porch_post",
+      "x": 20.77,
+      "z": 10.649999999999999,
+      "id": "kit_house_05_15"
+    },
+    {
+      "model": "outdoor:tree_02",
+      "x": 3.6,
+      "z": 12.2,
+      "rotation_degrees": 15.0,
+      "scale": 1.05,
+      "solid": true,
+      "size": [
+        0.6,
+        6.2,
+        0.6
+      ],
+      "occludes": false,
+      "id": "kit_birch"
+    },
+    {
+      "model": "outdoor:tree_03",
+      "x": 6.0,
+      "z": 16.2,
+      "rotation_degrees": 200.0,
+      "scale": 1.1,
+      "solid": true,
+      "size": [
+        0.6,
+        6.8,
+        0.6
+      ],
+      "occludes": false,
+      "id": "kit_conifer"
+    },
+    {
+      "model": "outdoor:streetlight",
+      "x": 11.5,
+      "z": 13.2,
+      "rotation_degrees": 270.0,
+      "id": "kit_streetlight_1",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            6.05,
+            0.43
+          ],
+          "color": [
+            1.0,
+            0.84,
+            0.66
+          ],
+          "intensity": 1.5,
+          "range": 14.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:streetlight",
+      "x": 24.6,
+      "z": 13.0,
+      "rotation_degrees": 270.0,
+      "id": "kit_streetlight_2",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            6.05,
+            0.43
+          ],
+          "color": [
+            1.0,
+            0.84,
+            0.66
+          ],
+          "intensity": 1.5,
+          "range": 14.0,
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "model": "outdoor:porch_post",
+      "x": 23.0,
+      "z": 16.4,
+      "id": "kit_rail_post",
+      "comment": "Railing support on the module corner: the corner piece wraps it."
+    },
+    {
+      "model": "outdoor:porch_railing_corner",
+      "x": 23.0,
+      "z": 16.4,
+      "id": "kit_rail_corner"
+    },
+    {
+      "model": "outdoor:porch_railing_straight",
+      "x": 24.05,
+      "z": 16.4,
+      "id": "kit_rail_east_1"
+    },
+    {
+      "model": "outdoor:porch_railing_end",
+      "x": 25.1,
+      "z": 16.4,
+      "id": "kit_rail_east_end"
+    },
+    {
+      "model": "outdoor:porch_railing_straight",
+      "x": 23.0,
+      "z": 17.45,
+      "id": "kit_rail_south_1"
+    },
+    {
+      "model": "outdoor:porch_railing_end",
+      "x": 23.0,
+      "z": 18.5,
+      "id": "kit_rail_south_end"
+    },
+    {
       "id": "grass_low_1",
       "model": "outdoor:grass_patch_small",
       "x": 20.475,
@@ -1090,8 +1771,8 @@
     {
       "id": "grass_low_33",
       "model": "outdoor:grass_patch_large",
-      "x": 18.096,
-      "z": 5.739,
+      "x": 25.228,
+      "z": 5.837,
       "rotation_degrees": 359.7,
       "scale": 0.983,
       "occludes": false
@@ -1099,8 +1780,8 @@
     {
       "id": "grass_low_34",
       "model": "outdoor:grass_patch_large",
-      "x": 22.07,
-      "z": 5.77,
+      "x": 13.899,
+      "z": 6.798,
       "rotation_degrees": 0.3,
       "scale": 1.047,
       "occludes": false
@@ -1108,8 +1789,8 @@
     {
       "id": "grass_low_35",
       "model": "outdoor:grass_patch_small",
-      "x": 25.228,
-      "z": 5.837,
+      "x": 25.192,
+      "z": 7.259,
       "rotation_degrees": 40.1,
       "scale": 0.925,
       "occludes": false
@@ -1117,8 +1798,8 @@
     {
       "id": "grass_low_36",
       "model": "outdoor:grass_patch_small",
-      "x": 18.911,
-      "z": 5.859,
+      "x": 14.648,
+      "z": 7.274,
       "rotation_degrees": 276.8,
       "scale": 0.937,
       "occludes": false
@@ -1126,8 +1807,8 @@
     {
       "id": "grass_low_37",
       "model": "outdoor:grass_patch_small",
-      "x": 23.094,
-      "z": 6.62,
+      "x": 25.041,
+      "z": 7.995,
       "rotation_degrees": 241.6,
       "scale": 1.136,
       "occludes": false
@@ -1135,8 +1816,8 @@
     {
       "id": "grass_low_38",
       "model": "outdoor:grass_patch_small",
-      "x": 19.605,
-      "z": 6.698,
+      "x": 15.454,
+      "z": 8.193,
       "rotation_degrees": 298.2,
       "scale": 0.937,
       "occludes": false
@@ -1144,8 +1825,8 @@
     {
       "id": "grass_low_39",
       "model": "outdoor:grass_patch_small",
-      "x": 16.679,
-      "z": 6.779,
+      "x": 13.583,
+      "z": 8.618,
       "rotation_degrees": 165.8,
       "scale": 0.858,
       "occludes": false
@@ -1153,136 +1834,10 @@
     {
       "id": "grass_low_40",
       "model": "outdoor:grass_patch_large",
-      "x": 13.899,
-      "z": 6.798,
-      "rotation_degrees": 176.3,
-      "scale": 1.037,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_41",
-      "model": "outdoor:grass_patch_small",
-      "x": 17.449,
-      "z": 6.829,
-      "rotation_degrees": 351.0,
-      "scale": 0.87,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_42",
-      "model": "outdoor:grass_patch_small",
-      "x": 21.762,
-      "z": 6.901,
-      "rotation_degrees": 260.9,
-      "scale": 0.883,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_43",
-      "model": "outdoor:grass_patch_small",
-      "x": 20.221,
-      "z": 7.116,
-      "rotation_degrees": 38.5,
-      "scale": 1.038,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_44",
-      "model": "outdoor:grass_patch_small",
-      "x": 25.192,
-      "z": 7.259,
-      "rotation_degrees": 136.1,
-      "scale": 0.976,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_45",
-      "model": "outdoor:grass_patch_small",
-      "x": 14.648,
-      "z": 7.274,
-      "rotation_degrees": 41.3,
-      "scale": 1.011,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_46",
-      "model": "outdoor:grass_patch_small",
-      "x": 21.761,
-      "z": 7.906,
-      "rotation_degrees": 309.5,
-      "scale": 1.018,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_47",
-      "model": "outdoor:grass_patch_small",
-      "x": 25.041,
-      "z": 7.995,
-      "rotation_degrees": 129.1,
-      "scale": 0.935,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_48",
-      "model": "outdoor:grass_patch_small",
-      "x": 15.454,
-      "z": 8.193,
-      "rotation_degrees": 232.5,
-      "scale": 1.049,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_49",
-      "model": "outdoor:grass_patch_large",
-      "x": 23.882,
-      "z": 8.237,
-      "rotation_degrees": 290.7,
-      "scale": 0.954,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_50",
-      "model": "outdoor:grass_patch_large",
-      "x": 17.632,
-      "z": 8.317,
-      "rotation_degrees": 253.4,
-      "scale": 1.055,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_51",
-      "model": "outdoor:grass_patch_small",
-      "x": 20.52,
-      "z": 8.446,
-      "rotation_degrees": 106.7,
-      "scale": 0.976,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_52",
-      "model": "outdoor:grass_patch_small",
-      "x": 13.583,
-      "z": 8.618,
-      "rotation_degrees": 288.1,
-      "scale": 1.144,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_53",
-      "model": "outdoor:grass_patch_small",
       "x": 16.414,
       "z": 8.731,
-      "rotation_degrees": 341.9,
-      "scale": 1.125,
-      "occludes": false
-    },
-    {
-      "id": "grass_low_54",
-      "model": "outdoor:grass_patch_small",
-      "x": 19.139,
-      "z": 8.737,
-      "rotation_degrees": 285.9,
-      "scale": 0.915,
+      "rotation_degrees": 176.3,
+      "scale": 1.037,
       "occludes": false
     },
     {
@@ -1513,8 +2068,8 @@
     {
       "id": "grass_medium_26",
       "model": "outdoor:grass_patch_small",
-      "x": 3.566,
-      "z": 11.779,
+      "x": 8.11,
+      "z": 11.805,
       "rotation_degrees": 190.4,
       "scale": 0.874,
       "occludes": false
@@ -1522,8 +2077,8 @@
     {
       "id": "grass_medium_27",
       "model": "outdoor:grass_patch_large",
-      "x": 8.11,
-      "z": 11.805,
+      "x": 2.837,
+      "z": 11.985,
       "rotation_degrees": 22.3,
       "scale": 0.864,
       "occludes": false
@@ -1531,8 +2086,8 @@
     {
       "id": "grass_medium_28",
       "model": "outdoor:grass_patch_small",
-      "x": 2.837,
-      "z": 11.985,
+      "x": 5.438,
+      "z": 12.015,
       "rotation_degrees": 82.3,
       "scale": 1.047,
       "occludes": false
@@ -1540,8 +2095,8 @@
     {
       "id": "grass_medium_29",
       "model": "outdoor:grass_patch_large",
-      "x": 5.438,
-      "z": 12.015,
+      "x": 6.178,
+      "z": 12.049,
       "rotation_degrees": 120.3,
       "scale": 0.881,
       "occludes": false
@@ -1549,8 +2104,8 @@
     {
       "id": "grass_medium_30",
       "model": "outdoor:grass_patch_small",
-      "x": 6.178,
-      "z": 12.049,
+      "x": 4.341,
+      "z": 12.06,
       "rotation_degrees": 135.1,
       "scale": 0.905,
       "occludes": false
@@ -1558,8 +2113,8 @@
     {
       "id": "grass_medium_31",
       "model": "outdoor:grass_patch_large",
-      "x": 4.341,
-      "z": 12.06,
+      "x": 7.053,
+      "z": 12.066,
       "rotation_degrees": 216.5,
       "scale": 0.904,
       "occludes": false
@@ -1567,8 +2122,8 @@
     {
       "id": "grass_medium_32",
       "model": "outdoor:grass_patch_small",
-      "x": 7.053,
-      "z": 12.066,
+      "x": 1.9,
+      "z": 12.071,
       "rotation_degrees": 172.8,
       "scale": 0.865,
       "occludes": false
@@ -1576,8 +2131,8 @@
     {
       "id": "grass_medium_33",
       "model": "outdoor:grass_patch_large",
-      "x": 1.9,
-      "z": 12.071,
+      "x": 2.584,
+      "z": 12.599,
       "rotation_degrees": 262.2,
       "scale": 1.145,
       "occludes": false
@@ -1585,8 +2140,8 @@
     {
       "id": "grass_medium_34",
       "model": "outdoor:grass_patch_small",
-      "x": 2.584,
-      "z": 12.599,
+      "x": 4.561,
+      "z": 12.649,
       "rotation_degrees": 341.9,
       "scale": 1.122,
       "occludes": false
@@ -1594,8 +2149,8 @@
     {
       "id": "grass_medium_35",
       "model": "outdoor:grass_patch_large",
-      "x": 3.422,
-      "z": 12.61,
+      "x": 5.249,
+      "z": 12.658,
       "rotation_degrees": 345.6,
       "scale": 1.039,
       "occludes": false
@@ -1603,8 +2158,8 @@
     {
       "id": "grass_medium_36",
       "model": "outdoor:grass_patch_small",
-      "x": 4.561,
-      "z": 12.649,
+      "x": 6.324,
+      "z": 12.684,
       "rotation_degrees": 287.9,
       "scale": 1.08,
       "occludes": false
@@ -1612,8 +2167,8 @@
     {
       "id": "grass_medium_37",
       "model": "outdoor:grass_patch_large",
-      "x": 5.249,
-      "z": 12.658,
+      "x": 1.746,
+      "z": 12.703,
       "rotation_degrees": 4.1,
       "scale": 0.93,
       "occludes": false
@@ -1621,8 +2176,8 @@
     {
       "id": "grass_medium_38",
       "model": "outdoor:grass_patch_small",
-      "x": 6.324,
-      "z": 12.684,
+      "x": 8.063,
+      "z": 12.738,
       "rotation_degrees": 104.7,
       "scale": 0.986,
       "occludes": false
@@ -1630,8 +2185,8 @@
     {
       "id": "grass_medium_39",
       "model": "outdoor:grass_patch_large",
-      "x": 1.746,
-      "z": 12.703,
+      "x": 7.349,
+      "z": 12.867,
       "rotation_degrees": 181.0,
       "scale": 0.93,
       "occludes": false
@@ -1639,8 +2194,8 @@
     {
       "id": "grass_medium_40",
       "model": "outdoor:grass_patch_small",
-      "x": 8.063,
-      "z": 12.738,
+      "x": 0.756,
+      "z": 12.918,
       "rotation_degrees": 226.6,
       "scale": 1.149,
       "occludes": false
@@ -1648,8 +2203,8 @@
     {
       "id": "grass_medium_41",
       "model": "outdoor:grass_patch_large",
-      "x": 7.349,
-      "z": 12.867,
+      "x": 7.326,
+      "z": 13.394,
       "rotation_degrees": 26.7,
       "scale": 0.936,
       "occludes": false
@@ -1657,8 +2212,8 @@
     {
       "id": "grass_medium_42",
       "model": "outdoor:grass_patch_small",
-      "x": 0.756,
-      "z": 12.918,
+      "x": 3.561,
+      "z": 13.418,
       "rotation_degrees": 198.5,
       "scale": 1.15,
       "occludes": false
@@ -1666,8 +2221,8 @@
     {
       "id": "grass_medium_43",
       "model": "outdoor:grass_patch_large",
-      "x": 7.326,
-      "z": 13.394,
+      "x": 2.039,
+      "z": 13.444,
       "rotation_degrees": 151.9,
       "scale": 0.884,
       "occludes": false
@@ -1675,8 +2230,8 @@
     {
       "id": "grass_medium_44",
       "model": "outdoor:grass_patch_small",
-      "x": 3.561,
-      "z": 13.418,
+      "x": 5.499,
+      "z": 13.447,
       "rotation_degrees": 10.0,
       "scale": 1.107,
       "occludes": false
@@ -1684,8 +2239,8 @@
     {
       "id": "grass_medium_45",
       "model": "outdoor:grass_patch_large",
-      "x": 2.039,
-      "z": 13.444,
+      "x": 6.333,
+      "z": 13.487,
       "rotation_degrees": 8.0,
       "scale": 0.869,
       "occludes": false
@@ -1693,8 +2248,8 @@
     {
       "id": "grass_medium_46",
       "model": "outdoor:grass_patch_small",
-      "x": 5.499,
-      "z": 13.447,
+      "x": 7.868,
+      "z": 13.53,
       "rotation_degrees": 23.6,
       "scale": 1.089,
       "occludes": false
@@ -1702,8 +2257,8 @@
     {
       "id": "grass_medium_47",
       "model": "outdoor:grass_patch_large",
-      "x": 6.333,
-      "z": 13.487,
+      "x": 2.938,
+      "z": 13.735,
       "rotation_degrees": 69.0,
       "scale": 0.897,
       "occludes": false
@@ -1711,8 +2266,8 @@
     {
       "id": "grass_medium_48",
       "model": "outdoor:grass_patch_small",
-      "x": 7.868,
-      "z": 13.53,
+      "x": 4.381,
+      "z": 13.748,
       "rotation_degrees": 240.0,
       "scale": 0.965,
       "occludes": false
@@ -1720,8 +2275,8 @@
     {
       "id": "grass_medium_49",
       "model": "outdoor:grass_patch_large",
-      "x": 2.938,
-      "z": 13.735,
+      "x": 2.733,
+      "z": 14.234,
       "rotation_degrees": 275.2,
       "scale": 1.038,
       "occludes": false
@@ -1729,8 +2284,8 @@
     {
       "id": "grass_medium_50",
       "model": "outdoor:grass_patch_small",
-      "x": 4.381,
-      "z": 13.748,
+      "x": 8.191,
+      "z": 14.271,
       "rotation_degrees": 12.8,
       "scale": 1.126,
       "occludes": false
@@ -1738,8 +2293,8 @@
     {
       "id": "grass_medium_51",
       "model": "outdoor:grass_patch_large",
-      "x": 2.733,
-      "z": 14.234,
+      "x": 6.27,
+      "z": 14.291,
       "rotation_degrees": 285.2,
       "scale": 1.048,
       "occludes": false
@@ -1747,8 +2302,8 @@
     {
       "id": "grass_medium_52",
       "model": "outdoor:grass_patch_small",
-      "x": 8.191,
-      "z": 14.271,
+      "x": 1.985,
+      "z": 14.356,
       "rotation_degrees": 48.3,
       "scale": 1.145,
       "occludes": false
@@ -1756,8 +2311,8 @@
     {
       "id": "grass_medium_53",
       "model": "outdoor:grass_patch_large",
-      "x": 6.27,
-      "z": 14.291,
+      "x": 7.383,
+      "z": 14.373,
       "rotation_degrees": 234.5,
       "scale": 0.984,
       "occludes": false
@@ -1765,8 +2320,8 @@
     {
       "id": "grass_medium_54",
       "model": "outdoor:grass_patch_small",
-      "x": 1.985,
-      "z": 14.356,
+      "x": 5.442,
+      "z": 14.44,
       "rotation_degrees": 97.8,
       "scale": 0.892,
       "occludes": false
@@ -1774,8 +2329,8 @@
     {
       "id": "grass_medium_55",
       "model": "outdoor:grass_patch_large",
-      "x": 7.383,
-      "z": 14.373,
+      "x": 4.306,
+      "z": 14.487,
       "rotation_degrees": 203.7,
       "scale": 0.905,
       "occludes": false
@@ -1783,8 +2338,8 @@
     {
       "id": "grass_medium_56",
       "model": "outdoor:grass_patch_small",
-      "x": 5.442,
-      "z": 14.44,
+      "x": 3.392,
+      "z": 14.559,
       "rotation_degrees": 210.6,
       "scale": 1.138,
       "occludes": false
@@ -1792,8 +2347,8 @@
     {
       "id": "grass_medium_57",
       "model": "outdoor:grass_patch_large",
-      "x": 4.306,
-      "z": 14.487,
+      "x": 7.954,
+      "z": 15.063,
       "rotation_degrees": 48.6,
       "scale": 1.063,
       "occludes": false
@@ -1801,8 +2356,8 @@
     {
       "id": "grass_medium_58",
       "model": "outdoor:grass_patch_small",
-      "x": 3.392,
-      "z": 14.559,
+      "x": 5.533,
+      "z": 15.064,
       "rotation_degrees": 233.1,
       "scale": 1.041,
       "occludes": false
@@ -1810,8 +2365,8 @@
     {
       "id": "grass_medium_59",
       "model": "outdoor:grass_patch_large",
-      "x": 7.954,
-      "z": 15.063,
+      "x": 0.807,
+      "z": 15.169,
       "rotation_degrees": 290.7,
       "scale": 1.064,
       "occludes": false
@@ -1819,8 +2374,8 @@
     {
       "id": "grass_medium_60",
       "model": "outdoor:grass_patch_small",
-      "x": 5.533,
-      "z": 15.064,
+      "x": 2.766,
+      "z": 15.178,
       "rotation_degrees": 17.4,
       "scale": 1.148,
       "occludes": false
@@ -1828,8 +2383,8 @@
     {
       "id": "grass_medium_61",
       "model": "outdoor:grass_patch_large",
-      "x": 0.807,
-      "z": 15.169,
+      "x": 7.118,
+      "z": 15.264,
       "rotation_degrees": 251.0,
       "scale": 1.005,
       "occludes": false
@@ -1837,8 +2392,8 @@
     {
       "id": "grass_medium_62",
       "model": "outdoor:grass_patch_small",
-      "x": 2.766,
-      "z": 15.178,
+      "x": 6.102,
+      "z": 15.282,
       "rotation_degrees": 72.2,
       "scale": 1.025,
       "occludes": false
@@ -1846,8 +2401,8 @@
     {
       "id": "grass_medium_63",
       "model": "outdoor:grass_patch_large",
-      "x": 7.118,
-      "z": 15.264,
+      "x": 1.845,
+      "z": 15.31,
       "rotation_degrees": 165.7,
       "scale": 1.02,
       "occludes": false
@@ -1855,8 +2410,8 @@
     {
       "id": "grass_medium_64",
       "model": "outdoor:grass_patch_small",
-      "x": 6.102,
-      "z": 15.282,
+      "x": 3.488,
+      "z": 15.353,
       "rotation_degrees": 332.3,
       "scale": 1.051,
       "occludes": false
@@ -1864,8 +2419,8 @@
     {
       "id": "grass_medium_65",
       "model": "outdoor:grass_patch_large",
-      "x": 1.845,
-      "z": 15.31,
+      "x": 4.465,
+      "z": 15.369,
       "rotation_degrees": 188.4,
       "scale": 0.935,
       "occludes": false
@@ -1873,8 +2428,8 @@
     {
       "id": "grass_medium_66",
       "model": "outdoor:grass_patch_small",
-      "x": 3.488,
-      "z": 15.353,
+      "x": 6.987,
+      "z": 15.907,
       "rotation_degrees": 15.2,
       "scale": 1.081,
       "occludes": false
@@ -1882,8 +2437,8 @@
     {
       "id": "grass_medium_67",
       "model": "outdoor:grass_patch_large",
-      "x": 4.465,
-      "z": 15.369,
+      "x": 4.711,
+      "z": 16.015,
       "rotation_degrees": 184.8,
       "scale": 1.146,
       "occludes": false
@@ -1891,8 +2446,8 @@
     {
       "id": "grass_medium_68",
       "model": "outdoor:grass_patch_small",
-      "x": 6.987,
-      "z": 15.907,
+      "x": 1.925,
+      "z": 16.091,
       "rotation_degrees": 170.9,
       "scale": 0.974,
       "occludes": false
@@ -1900,8 +2455,8 @@
     {
       "id": "grass_medium_69",
       "model": "outdoor:grass_patch_large",
-      "x": 4.711,
-      "z": 16.015,
+      "x": 0.818,
+      "z": 16.118,
       "rotation_degrees": 236.1,
       "scale": 1.125,
       "occludes": false
@@ -1909,8 +2464,8 @@
     {
       "id": "grass_medium_70",
       "model": "outdoor:grass_patch_small",
-      "x": 1.925,
-      "z": 16.091,
+      "x": 3.509,
+      "z": 16.245,
       "rotation_degrees": 182.8,
       "scale": 1.096,
       "occludes": false
@@ -1918,8 +2473,8 @@
     {
       "id": "grass_medium_71",
       "model": "outdoor:grass_patch_large",
-      "x": 5.557,
-      "z": 16.095,
+      "x": 2.851,
+      "z": 16.275,
       "rotation_degrees": 349.7,
       "scale": 1.047,
       "occludes": false
@@ -1927,8 +2482,8 @@
     {
       "id": "grass_medium_72",
       "model": "outdoor:grass_patch_small",
-      "x": 6.117,
-      "z": 16.115,
+      "x": 1.953,
+      "z": 16.758,
       "rotation_degrees": 131.6,
       "scale": 0.984,
       "occludes": false
@@ -1936,8 +2491,8 @@
     {
       "id": "grass_medium_73",
       "model": "outdoor:grass_patch_large",
-      "x": 0.818,
-      "z": 16.118,
+      "x": 6.97,
+      "z": 16.793,
       "rotation_degrees": 221.4,
       "scale": 1.013,
       "occludes": false
@@ -1945,8 +2500,8 @@
     {
       "id": "grass_medium_74",
       "model": "outdoor:grass_patch_small",
-      "x": 3.509,
-      "z": 16.245,
+      "x": 8.033,
+      "z": 16.831,
       "rotation_degrees": 75.7,
       "scale": 1.05,
       "occludes": false
@@ -1954,8 +2509,8 @@
     {
       "id": "grass_medium_75",
       "model": "outdoor:grass_patch_large",
-      "x": 2.851,
-      "z": 16.275,
+      "x": 2.585,
+      "z": 16.914,
       "rotation_degrees": 179.5,
       "scale": 0.987,
       "occludes": false
@@ -1963,8 +2518,8 @@
     {
       "id": "grass_medium_76",
       "model": "outdoor:grass_patch_small",
-      "x": 1.953,
-      "z": 16.758,
+      "x": 5.48,
+      "z": 16.916,
       "rotation_degrees": 189.0,
       "scale": 1.041,
       "occludes": false
@@ -1972,8 +2527,8 @@
     {
       "id": "grass_medium_77",
       "model": "outdoor:grass_patch_large",
-      "x": 6.97,
-      "z": 16.793,
+      "x": 4.288,
+      "z": 16.937,
       "rotation_degrees": 259.3,
       "scale": 1.095,
       "occludes": false
@@ -1981,8 +2536,8 @@
     {
       "id": "grass_medium_78",
       "model": "outdoor:grass_patch_small",
-      "x": 8.033,
-      "z": 16.831,
+      "x": 3.489,
+      "z": 17.084,
       "rotation_degrees": 332.4,
       "scale": 0.953,
       "occludes": false
@@ -1990,8 +2545,8 @@
     {
       "id": "grass_medium_79",
       "model": "outdoor:grass_patch_large",
-      "x": 2.585,
-      "z": 16.914,
+      "x": 6.264,
+      "z": 17.103,
       "rotation_degrees": 35.4,
       "scale": 0.922,
       "occludes": false
@@ -1999,8 +2554,8 @@
     {
       "id": "grass_medium_80",
       "model": "outdoor:grass_patch_small",
-      "x": 5.48,
-      "z": 16.916,
+      "x": 8.024,
+      "z": 17.56,
       "rotation_degrees": 325.5,
       "scale": 0.944,
       "occludes": false
@@ -2008,8 +2563,8 @@
     {
       "id": "grass_medium_81",
       "model": "outdoor:grass_patch_large",
-      "x": 4.288,
-      "z": 16.937,
+      "x": 2.76,
+      "z": 17.582,
       "rotation_degrees": 214.2,
       "scale": 0.901,
       "occludes": false
@@ -2017,8 +2572,8 @@
     {
       "id": "grass_medium_82",
       "model": "outdoor:grass_patch_small",
-      "x": 3.489,
-      "z": 17.084,
+      "x": 4.523,
+      "z": 17.597,
       "rotation_degrees": 168.9,
       "scale": 0.928,
       "occludes": false
@@ -2026,8 +2581,8 @@
     {
       "id": "grass_medium_83",
       "model": "outdoor:grass_patch_large",
-      "x": 6.264,
-      "z": 17.103,
+      "x": 0.785,
+      "z": 17.612,
       "rotation_degrees": 158.4,
       "scale": 0.989,
       "occludes": false
@@ -2035,8 +2590,8 @@
     {
       "id": "grass_medium_84",
       "model": "outdoor:grass_patch_small",
-      "x": 8.024,
-      "z": 17.56,
+      "x": 6.354,
+      "z": 17.681,
       "rotation_degrees": 327.4,
       "scale": 0.986,
       "occludes": false
@@ -2044,8 +2599,8 @@
     {
       "id": "grass_medium_85",
       "model": "outdoor:grass_patch_large",
-      "x": 2.76,
-      "z": 17.582,
+      "x": 5.209,
+      "z": 17.689,
       "rotation_degrees": 212.7,
       "scale": 0.986,
       "occludes": false
@@ -2053,8 +2608,8 @@
     {
       "id": "grass_medium_86",
       "model": "outdoor:grass_patch_small",
-      "x": 4.523,
-      "z": 17.597,
+      "x": 3.567,
+      "z": 17.765,
       "rotation_degrees": 8.1,
       "scale": 0.995,
       "occludes": false
@@ -2062,8 +2617,8 @@
     {
       "id": "grass_medium_87",
       "model": "outdoor:grass_patch_large",
-      "x": 0.785,
-      "z": 17.612,
+      "x": 1.637,
+      "z": 17.786,
       "rotation_degrees": 248.6,
       "scale": 1.121,
       "occludes": false
@@ -2071,8 +2626,8 @@
     {
       "id": "grass_medium_88",
       "model": "outdoor:grass_patch_small",
-      "x": 6.354,
-      "z": 17.681,
+      "x": 7.343,
+      "z": 17.866,
       "rotation_degrees": 203.1,
       "scale": 1.093,
       "occludes": false
@@ -2080,8 +2635,8 @@
     {
       "id": "grass_medium_89",
       "model": "outdoor:grass_patch_large",
-      "x": 5.209,
-      "z": 17.689,
+      "x": 3.587,
+      "z": 18.422,
       "rotation_degrees": 41.6,
       "scale": 1.114,
       "occludes": false
@@ -2089,8 +2644,8 @@
     {
       "id": "grass_medium_90",
       "model": "outdoor:grass_patch_small",
-      "x": 3.567,
-      "z": 17.765,
+      "x": 4.537,
+      "z": 18.508,
       "rotation_degrees": 185.7,
       "scale": 1.078,
       "occludes": false
@@ -2098,8 +2653,8 @@
     {
       "id": "grass_medium_91",
       "model": "outdoor:grass_patch_large",
-      "x": 1.637,
-      "z": 17.786,
+      "x": 5.185,
+      "z": 18.531,
       "rotation_degrees": 345.2,
       "scale": 1.106,
       "occludes": false
@@ -2107,8 +2662,8 @@
     {
       "id": "grass_medium_92",
       "model": "outdoor:grass_patch_small",
-      "x": 7.343,
-      "z": 17.866,
+      "x": 7.079,
+      "z": 18.603,
       "rotation_degrees": 250.1,
       "scale": 1.11,
       "occludes": false
@@ -2116,8 +2671,8 @@
     {
       "id": "grass_medium_93",
       "model": "outdoor:grass_patch_large",
-      "x": 3.587,
-      "z": 18.422,
+      "x": 1.805,
+      "z": 18.614,
       "rotation_degrees": 35.2,
       "scale": 0.914,
       "occludes": false
@@ -2125,8 +2680,8 @@
     {
       "id": "grass_medium_94",
       "model": "outdoor:grass_patch_small",
-      "x": 4.537,
-      "z": 18.508,
+      "x": 1.004,
+      "z": 18.621,
       "rotation_degrees": 21.1,
       "scale": 0.921,
       "occludes": false
@@ -2134,8 +2689,8 @@
     {
       "id": "grass_medium_95",
       "model": "outdoor:grass_patch_large",
-      "x": 5.185,
-      "z": 18.531,
+      "x": 6.335,
+      "z": 18.646,
       "rotation_degrees": 257.5,
       "scale": 0.988,
       "occludes": false
@@ -2143,8 +2698,8 @@
     {
       "id": "grass_medium_96",
       "model": "outdoor:grass_patch_small",
-      "x": 7.079,
-      "z": 18.603,
+      "x": 2.605,
+      "z": 18.678,
       "rotation_degrees": 248.0,
       "scale": 1.065,
       "occludes": false
@@ -2152,46 +2707,10 @@
     {
       "id": "grass_medium_97",
       "model": "outdoor:grass_patch_large",
-      "x": 1.805,
-      "z": 18.614,
-      "rotation_degrees": 27.1,
-      "scale": 1.019,
-      "occludes": false
-    },
-    {
-      "id": "grass_medium_98",
-      "model": "outdoor:grass_patch_small",
-      "x": 1.004,
-      "z": 18.621,
-      "rotation_degrees": 195.2,
-      "scale": 0.895,
-      "occludes": false
-    },
-    {
-      "id": "grass_medium_99",
-      "model": "outdoor:grass_patch_large",
-      "x": 6.335,
-      "z": 18.646,
-      "rotation_degrees": 285.3,
-      "scale": 0.904,
-      "occludes": false
-    },
-    {
-      "id": "grass_medium_100",
-      "model": "outdoor:grass_patch_small",
-      "x": 2.605,
-      "z": 18.678,
-      "rotation_degrees": 223.4,
-      "scale": 0.918,
-      "occludes": false
-    },
-    {
-      "id": "grass_medium_101",
-      "model": "outdoor:grass_patch_large",
       "x": 8.136,
       "z": 18.768,
-      "rotation_degrees": 229.3,
-      "scale": 0.944,
+      "rotation_degrees": 27.1,
+      "scale": 1.019,
       "occludes": false
     },
     {

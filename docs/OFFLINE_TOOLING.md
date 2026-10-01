@@ -56,6 +56,11 @@ cargo build --release
     --package assets/levels/places_demo.placesmap
 PLACES_LEVEL=places_demo ./target/release/places
 
+# Discovery only: the playable rows the Level Select menu would show, without a
+# window or a GPU. One `id<TAB>source<TAB>path` row per compiled package; the
+# `.json` authoring sources beside them are skipped silently.
+./target/release/places --list-levels
+
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 python3 tools/props/preview.py --all --workers 8 --out target/previews
 python3 tools/textures/build.py --check

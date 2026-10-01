@@ -13,7 +13,7 @@ Covered: dry-run mutates nothing, apply is atomic, concurrent change and stale
 ``old`` values are refused, malformed pointers are refused, a non-clean
 post-check refuses before publishing, a non-empty second plan restores the
 published bytes, a clean map writes nothing, unrelated fields and key order
-survive byte-for-byte, and the wall-37 acceptance case (both the current
+survive byte-for-byte, and the Home-south-wall acceptance case (both the current
 maintained source and a seeded pre-repair scratch copy).
 """
 
@@ -42,11 +42,13 @@ SCRATCH = os.path.join(
     ROOT, "target", "agent-work", "06-wall-alignment-audit-and-repair", "runs", "agent-a", "python-tests"
 )
 
-# The confirmed wall-37 repair plan (Job 06 defect D1): the exact pointers,
-# values and coupling of the accepted plan. The maintained source was repaired
-# with it, so the demo test reconstructs the pre-repair state from its inverse.
+# The confirmed home-south-wall repair plan (Job 06 defect D1): the exact
+# pointers, values and coupling of the accepted plan. The maintained source was
+# repaired with it, so the demo test reconstructs the pre-repair state from its
+# inverse. The wall's index moved 37 -> 35 when Job 02 joined the Home's three
+# overlapping west-wall patches into one wall; the plan's values are unchanged.
 DEMO_REPAIR_EDITS = (
-    ("/walls/37/z", 14.7, 14.85, "wall"),
+    ("/walls/35/z", 14.7, 14.85, "wall"),
     ("/baseboards/3/z", 14.72, 14.87, "baseboard-end"),
     ("/baseboards/3/length", 0.798, 0.948, "baseboard-end"),
     ("/baseboards/10/length", 2.9713333, 3.1213, "baseboard-end"),
@@ -140,10 +142,10 @@ class RepairScratch(unittest.TestCase):
         return source
 
     def assert_demo_repair_plan(self, plan: dict) -> None:
-        """The accepted wall-37 plan: one step finding and the exact 11 edits."""
+        """The accepted Home-south-wall plan: one step finding and the exact 11 edits."""
         self.assertEqual(len(plan["findings"]), 1, plan["findings"])
         finding = plan["findings"][0]
-        self.assertEqual((finding["first"], finding["second"]), (31, 37))
+        self.assertEqual((finding["first"], finding["second"]), (32, 35))
         self.assertEqual(finding["kind"], "step")
         self.assertTrue(finding["auto_repairable"])
         self.assertAlmostEqual(finding["shift"], 0.15, places=4)
@@ -346,7 +348,7 @@ class RepairApplierTests(RepairScratch):
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertEqual(self.read(DEMO), before)
         if plan["findings"]:
-            # A source regression: only the known wall-37 step may appear.
+            # A source regression: only the known Home-south-wall step may appear.
             self.assert_demo_repair_plan(plan)
         else:
             self.assertEqual(plan["edits"], [])
@@ -365,7 +367,7 @@ class RepairApplierTests(RepairScratch):
         self.assertEqual(self.temp_siblings(), [])
         with open(source, "r", encoding="utf-8") as handle:
             fixed = json.load(handle)
-        self.assertEqual(fixed["walls"][37]["z"], 14.85)
+        self.assertEqual(fixed["walls"][35]["z"], 14.85)
         self.assertEqual(fixed["baseboards"][3]["z"], 14.87)
         self.assertEqual(fixed["baseboards"][3]["length"], 0.948)
         self.assertEqual(fixed["baseboards"][10]["length"], 3.1213)

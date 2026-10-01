@@ -133,7 +133,7 @@ impl EnvironmentBindings {
         planar: &wgpu::TextureView,
         fallback_probe: &wgpu::TextureView,
         fallback_planar: &wgpu::TextureView,
-        uniform: EnvironmentUniform,
+        uniform: &EnvironmentUniform,
     ) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-environment"),
@@ -141,7 +141,7 @@ impl EnvironmentBindings {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(&buffer, 0, bytemuck::bytes_of(&uniform));
+        queue.write_buffer(&buffer, 0, bytemuck::bytes_of(uniform));
         let lightmap_sampler = cache.sampler(SamplerPolicy::ClampLinear);
         let reflection_sampler = cache.sampler(SamplerPolicy::ClampLinear);
         let mut probe_bind_groups: Vec<wgpu::BindGroup> = probes
@@ -185,7 +185,7 @@ impl EnvironmentBindings {
             buffer,
             probe_bind_groups,
             capture_bind_group,
-            uploaded: uniform,
+            uploaded: *uniform,
         }
     }
 
@@ -215,12 +215,12 @@ impl EnvironmentBindings {
     /// Returns true when the buffer was written. The predicate compares every
     /// field the shader reads; a frame whose environment did not change writes
     /// nothing.
-    pub fn update(&mut self, queue: &wgpu::Queue, uniform: EnvironmentUniform) -> bool {
-        if self.uploaded == uniform {
+    pub fn update(&mut self, queue: &wgpu::Queue, uniform: &EnvironmentUniform) -> bool {
+        if self.uploaded == *uniform {
             return false;
         }
-        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&uniform));
-        self.uploaded = uniform;
+        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(uniform));
+        self.uploaded = *uniform;
         true
     }
 }

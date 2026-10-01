@@ -2043,8 +2043,8 @@ impl Checker<'_> {
     }
 
     /// The resolved material indices a wall's two length faces can emit.
-    fn resolved_wall_materials(&self, materials: &MaterialTable, index: usize) -> Vec<u16> {
-        let mut out: Vec<u16> = Vec::new();
+    fn resolved_wall_materials(&self, materials: &MaterialTable, index: usize) -> Vec<u32> {
+        let mut out: Vec<u32> = Vec::new();
         let Some(wall) = self.level.walls.get(index) else {
             return out;
         };
@@ -2175,7 +2175,7 @@ impl Checker<'_> {
             + JOINT_MAX_AUTO_SHIFT_M
             + JOINT_PLANE_TOL_M;
         let mut reported: Vec<f32> = Vec::new();
-        let mut allowed: Vec<u16> = first_materials.clone();
+        let mut allowed: Vec<u32> = first_materials.clone();
         allowed.extend(second_materials.iter().copied());
         for (plane, slot) in index.within(axis, low, high) {
             let Some(triangle) = triangles.get(*slot) else {
@@ -3770,11 +3770,12 @@ fn element_footprints(level: &LevelDef) -> Vec<ElementFootprint> {
         );
     }
     for (index, water) in level.water.iter().enumerate() {
+        let (x0, x1, z0, z1) = water.bounds();
         footprint_rect(
             &mut out,
             format!("water {index}"),
             format!("/water/{index}"),
-            [water.x, water.z, water.width, water.depth],
+            [x0, z0, x1 - x0, z1 - z0],
             Some((water.surface_y - 0.5, water.surface_y)),
         );
     }
@@ -4611,7 +4612,7 @@ mod tests {
     }
 
     /// One emitted X-axis wall face triangle (normal ±Z).
-    fn x_axis_triangle(z: f32, a: [f32; 2], b: [f32; 2], c: [f32; 2], material: u16) -> Tri {
+    fn x_axis_triangle(z: f32, a: [f32; 2], b: [f32; 2], c: [f32; 2], material: u32) -> Tri {
         let points = [[a[0], a[1], z], [b[0], b[1], z], [c[0], c[1], z]];
         let cross = cross3(sub3(points[1], points[0]), sub3(points[2], points[0]));
         Tri {
@@ -4624,7 +4625,7 @@ mod tests {
     }
 
     /// One emitted X-axis wall face quad as two triangles.
-    fn x_axis_quad(z: f32, x0: f32, x1: f32, y0: f32, y1: f32, material: u16) -> Vec<Tri> {
+    fn x_axis_quad(z: f32, x0: f32, x1: f32, y0: f32, y1: f32, material: u32) -> Vec<Tri> {
         vec![
             x_axis_triangle(z, [x0, y0], [x1, y0], [x1, y1], material),
             x_axis_triangle(z, [x0, y0], [x1, y1], [x0, y1], material),
@@ -5425,7 +5426,7 @@ mod tests {
         // Material variety: the fixture's curves together resolve several
         // distinct wall materials in the emitted mesh.
         let mesh = crate::render::build_level_geometry_with_materials(&level, &materials);
-        let used: BTreeSet<u16> = mesh
+        let used: BTreeSet<u32> = mesh
             .ranges
             .iter()
             .filter(|range| range.key.kind == SurfaceKind::Wall)

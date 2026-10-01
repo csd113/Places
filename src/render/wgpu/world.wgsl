@@ -86,10 +86,23 @@ struct Material {
     _padding1: f32,
 };
 
+// One authored regional fog volume, in world space. `min_falloff.xyz` is the
+// box minimum corner and `.w` the horizontal soft edge inside it, in metres;
+// `max_top.xyz` the maximum corner and `.w` the world Y the layer has faded to
+// zero at; `color_density.rgb` the colour the layer mixes towards and `.a` its
+// density per metre; `ground_pad.x` the world Y the full-density ground layer
+// starts at. 64 bytes, matching `FogRegionUniform`.
+struct FogRegion {
+    min_falloff: vec4<f32>,
+    max_top: vec4<f32>,
+    color_density: vec4<f32>,
+    ground_pad: vec4<f32>,
+};
+
 // The whole frame/level environment: the baked-light switch and scale, the
-// fog constants, the prepared lightmap layers' addressing, and the flat-data
-// the reflection terms need (the mirrored planar view-projection and the
-// active mirror plane).
+// global fog constants and the level's regional fog volumes, the prepared
+// lightmap layers' addressing, and the flat-data the reflection terms need
+// (the mirrored planar view-projection and the active mirror plane).
 struct Environment {
     // The reference's `u_light_scale`; `1` for static geometry.
     light_scale: vec3<f32>,
@@ -123,6 +136,23 @@ struct Environment {
     // clamped fade opacity, which multiplies the fragment alpha and the
     // emissive term (so a faded ghost neither covers nor blooms).
     opacity: f32,
+    // The three pad words that keep `fog_region_count` at offset 208, exactly
+    // where `EnvironmentUniform::tail_padding` sits. Never read.
+    _tail0: f32,
+    _tail1: f32,
+    _tail2: f32,
+    // Live entries in `fog_regions` (offset 208). The quality preset decides
+    // how many authored regions are uploaded; the fragment loop is bounded by
+    // this word, so a preset change moves the count with no rebuild.
+    fog_region_count: u32,
+    // Explicit padding so the fixed array starts 16-byte aligned at offset
+    // 224. Never read.
+    _fog_region_pad0: u32,
+    _fog_region_pad1: u32,
+    _fog_region_pad2: u32,
+    // The level's regional fog volumes, the live ones first in authoring
+    // order. Unused slots are all zero, so a read past the count adds nothing.
+    fog_regions: array<FogRegion, 16u>,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -505,13 +535,58 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
 
 // The reference's fog term, in display space, applied to the finished surface
 // colour: emission is a surface property, not a hole punched through the air.
+//
+// The global atmosphere is the reference's height-graded distance term. On top
+// of it the level may author regional volumes: per *fragment* (never from
+// camera membership), each live region contributes
+// `density * horizontal_edge * vertical_layer`, where the horizontal edge ramps
+// from 0 at the box side to 1 a `falloff_m` inside it and the vertical layer is
+// 1 at and below `ground_y`, fading linearly to 0 at `top_y`. Densities never
+// sum: the greatest effective contribution wins, ties keep the lowest authoring
+// index, the global density is added to the winner, and the mixed-to colour is
+// the winner's colour (else the global one). The one place fog is evaluated.
 fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
     let distance = length(camera.position - world_position);
     let below = max(0.0, environment.fog_reference_y - world_position.y);
-    let density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
+    let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
+    var layer_density = 0.0;
+    var layer_color = environment.fog_color;
+    let region_count = min(environment.fog_region_count, 16u);
+    for (var index = 0u; index < region_count; index = index + 1u) {
+        let region = environment.fog_regions[index];
+        let min_edge = region.min_falloff.xyz;
+        let max_edge = region.max_top.xyz;
+        let horizontal = min(
+            min(world_position.x - min_edge.x, max_edge.x - world_position.x),
+            min(world_position.z - min_edge.z, max_edge.z - world_position.z),
+        );
+        // A hard edge (falloff 0) is the same ramp with no distance to run: a
+        // floor guard keeps the division finite for every authored value.
+        var edge = 0.0;
+        if (horizontal > 0.0) {
+            edge = clamp(horizontal / max(region.min_falloff.w, 1.0e-6), 0.0, 1.0);
+        }
+        let ground_y = region.ground_pad.x;
+        let top_y = region.max_top.w;
+        var vertical = 0.0;
+        if (top_y <= ground_y) {
+            // A degenerate layer is a half-space: full below its base.
+            vertical = select(0.0, 1.0, world_position.y <= ground_y);
+        } else if (world_position.y <= ground_y) {
+            vertical = 1.0;
+        } else if (world_position.y < top_y) {
+            vertical = clamp((top_y - world_position.y) / (top_y - ground_y), 0.0, 1.0);
+        }
+        let contribution = region.color_density.a * edge * vertical;
+        if (contribution > layer_density) {
+            layer_density = contribution;
+            layer_color = region.color_density.rgb;
+        }
+    }
+    let density = global_density + layer_density;
     var fog_amount = density * distance;
     fog_amount = 1.0 - exp(-fog_amount * fog_amount);
-    return mix(color, environment.fog_color, clamp(fog_amount, 0.0, 1.0));
+    return mix(color, layer_color, clamp(fog_amount, 0.0, 1.0));
 }
 
 // The emissive term, in display space: `mix(u_emission_color, v_color.rgb,
@@ -561,15 +636,16 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let lit = lit_display(base_display, in.color.rgb, light, material.emission_vertex);
     var color = fogged(lit + sheen + reflection + emission, in.world_position);
     // The unlit bypass contract: an all-white vertex colour, the unit light
-    // factor, no sheen, no reflection, no emission and no fog is exactly the
-    // raw base-texture sample; the assignment spells that out so the bypass
-    // cannot drift from the assembled value.
+    // factor, no sheen, no reflection, no emission and no fog (global or
+    // regional) is exactly the raw base-texture sample; the assignment spells
+    // that out so the bypass cannot drift from the assembled value.
     if (all(in.color.rgb >= vec3<f32>(1.0))
         && all(light >= vec3<f32>(1.0))
         && all(sheen == vec3<f32>(0.0))
         && all(reflection == vec3<f32>(0.0))
         && all(emission == vec3<f32>(0.0))
-        && environment.fog_density == 0.0) {
+        && environment.fog_density == 0.0
+        && environment.fog_region_count == 0u) {
         color = base_display;
     }
     var out: Shaded;

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the maintained dense capacity regression fixture for Places.
+"""Generate the maintained capacity regression fixtures for Places.
 
-The deterministic hall exercises instance, model, character and lighting budgets.
-The former sparse playable fixture was retired because its navigation grid cannot
-be compiled; far-coordinate CPU regressions remain in src/zoo_audit.rs.
+`capacity_dense.json` is the deterministic hall that exercises instance, model,
+character and lighting budgets. `capacity_beyond_former_limits.json` is the
+2026 capacity pass's high-count source: one past the *previous* value of every
+loader count cap it carries, with more than 65 536 distinct material ids so the
+former 16-bit material index would have collapsed, and without reaching the new
+`MAX_LEVEL_MATERIALS` budget. The former sparse playable fixture was retired
+because its navigation grid cannot be compiled; far-coordinate CPU regressions
+remain in src/zoo_audit.rs.
 
 Run from the repository root:
     python3 tools/levels/build_capacity_fixtures.py
@@ -17,7 +22,7 @@ import json
 import math
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 FIXTURES_DIR = os.path.join(APP_ROOT, "tests", "fixtures", "levels")
@@ -399,6 +404,476 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
 
 
 # --------------------------------------------------------------------------
+# Beyond-former-limits fixture
+# --------------------------------------------------------------------------
+#
+# The 2026 capacity pass raised every loader count cap (see
+# docs/MAP_AUTHORING_GUIDE.md). This fixture carries *one past the previous
+# value* of each cap it exercises, so the raised caps are proven by content the
+# old validators rejected, and it crosses the former 16-bit material index
+# boundary with more than 65 536 distinct material ids while staying under the
+# new MAX_LEVEL_MATERIALS budget (131 072). Like the dense fixture it is
+# deterministic, and `--check` verifies it has not drifted.
+
+BEYOND_ROOMS_PER_SIDE = 45
+BEYOND_ROOM_PITCH = 6.0
+BEYOND_ROOM_EXTENT = 5.0
+BEYOND_ROOM_HEIGHT = 4.0
+BEYOND_WALL_TARGET = 20_001
+BEYOND_PROP_TARGET = 20_001
+BEYOND_LIGHT_TARGET = 400
+BEYOND_DECAL_TARGET = 5_001
+BEYOND_REGION_TARGET = 2_001
+BEYOND_PATCH_TARGET = 2_001
+BEYOND_WATER_TARGET = 2_001
+BEYOND_LADDER_TARGET = 257
+BEYOND_RAMP_TARGET = 501
+BEYOND_STAIR_TARGET = 501
+BEYOND_HALF_WALL_TARGET = 2_001
+BEYOND_COLUMN_TARGET = 2_001
+BEYOND_ARC_WALL_TARGET = 1_001
+BEYOND_PILLAR_TARGET = 2_001
+BEYOND_ARCHWAY_TARGET = 501
+BEYOND_GUARDRAIL_TARGET = 2_001
+BEYOND_THRESHOLD_TARGET = 1_001
+BEYOND_BASEBOARD_TARGET = 2_001
+# The property the material-id generator must satisfy: above the former 16-bit
+# collapse point (65 536), below the new explicit budget (131 072).
+BEYOND_MATERIAL_FLOOR = 65_536
+BEYOND_MATERIAL_CEILING = 131_072
+
+
+def build_beyond_former_limits(rng: Rng, placeables: List[Dict]) -> Dict:
+    """One past the former loader caps, with 65 536+ distinct materials."""
+    # The fixture places two cheap models many times; the catalogue list is
+    # intentionally unused so the prop budget is exercised without dragging
+    # every registered model's geometry into one package record.
+    del placeables
+
+    material_ids: Set[str] = set()
+    counter = 0
+
+    def material(tag: str) -> str:
+        nonlocal counter
+        counter += 1
+        value = f"cap:{tag}_{counter:06d}"
+        material_ids.add(value)
+        return value
+
+    rooms: List[Dict] = []
+    for row in range(BEYOND_ROOMS_PER_SIDE):
+        for column in range(BEYOND_ROOMS_PER_SIDE):
+            rooms.append(
+                {
+                    "x": column * BEYOND_ROOM_PITCH,
+                    "z": row * BEYOND_ROOM_PITCH,
+                    "width": BEYOND_ROOM_EXTENT,
+                    "depth": BEYOND_ROOM_EXTENT,
+                    "height": BEYOND_ROOM_HEIGHT,
+                    "material": material("floor"),
+                    "ceiling_material": material("ceiling"),
+                }
+            )
+
+    # Walls live in the 1 m gaps between rooms: 450 stubs along each of the 45
+    # vertical gap lines. Each stub carries its own two face materials, which is
+    # what pushes the distinct-id count past the former 16-bit boundary; the
+    # body material is shared so the count stays inside the new budget.
+    wall_body = material("wall_body")
+    walls: List[Dict] = []
+    for index in range(BEYOND_WALL_TARGET):
+        line = index // 450
+        along = index % 450
+        walls.append(
+            {
+                "x": round(line * BEYOND_ROOM_PITCH + BEYOND_ROOM_EXTENT + 0.5, 3),
+                "z": round(along * 0.55, 3),
+                "width": 0.4,
+                "depth": 0.4,
+                "height": 2.0,
+                "material": wall_body,
+                "faces": {
+                    "north": material("wall_north"),
+                    "south": material("wall_south"),
+                },
+            }
+        )
+
+    # Props on a 1.9 m field, jittered by the shared LCG so the fixture is
+    # deterministic; the two cheapest catalogue models keep the prepared prop
+    # record inside the package's per-entry byte budget at 20 001 placements.
+    # The whole fixture stays inside a ~270 m square so the baked navigation
+    # grid stays inside the package's cell budget.
+    prop_models = ["core:crate", "core:cardboard_box"]
+    props: List[Dict] = []
+    for index in range(BEYOND_PROP_TARGET):
+        column = index % 142
+        row = index // 142
+        props.append(
+            {
+                "id": f"cap_prop_{index:05d}",
+                "model": prop_models[index % len(prop_models)],
+                "x": round(column * 1.9 + rng.between(0.0, 1.0), 3),
+                "z": round(row * 1.9 + rng.between(0.0, 1.0), 3),
+                "rotation_degrees": round(rng.between(0.0, 359.0), 1),
+                "size": [0.6, 0.6, 0.6],
+                "solid": False,
+            }
+        )
+
+    lights: List[Dict] = []
+    for index in range(BEYOND_LIGHT_TARGET):
+        room = rooms[index % len(rooms)]
+        lights.append(
+            {
+                "id": f"cap_light_{index:04d}",
+                "fixture": "core:fluorescent_panel_01",
+                "x": round(room["x"] + BEYOND_ROOM_EXTENT * 0.5, 3),
+                "z": round(room["z"] + BEYOND_ROOM_EXTENT * 0.5, 3),
+                "brightness": 0.45,
+            }
+        )
+
+    decals: List[Dict] = []
+    # Decals live in rooms 501 and up: the ramp and stair rooms carry raised
+    # walking surfaces, and a decal that straddles one would span a floor
+    # height change (which is exactly what the validator refuses). The patch,
+    # region and pool of the first 2 001 rooms sit at the floor plane (the
+    # region's `offset_y` is zero), so they add no height change.
+    decal_rooms = rooms[BEYOND_RAMP_TARGET:]
+    for index in range(BEYOND_DECAL_TARGET):
+        room = decal_rooms[index % len(decal_rooms)]
+        slot = index // len(decal_rooms)
+        decals.append(
+            {
+                "x": round(room["x"] + 1.0 + (slot % 2) * 2.0, 3),
+                "z": round(room["z"] + 1.0 + (slot // 2) * 2.0, 3),
+                "width": 0.8,
+                "height": 0.8,
+                "material": "core:decal_arrow_01",
+                "surface": "floor",
+            }
+        )
+
+    # A patch, a flat region and a decorative pool share the first 2 001 rooms.
+    # Each sits in a different corner so the region and the water never
+    # overlap, and the patch is only a material override.
+    patches: List[Dict] = []
+    regions: List[Dict] = []
+    water: List[Dict] = []
+    for index in range(BEYOND_PATCH_TARGET):
+        room = rooms[index]
+        patches.append(
+            {
+                "x": round(room["x"] + BEYOND_ROOM_EXTENT * 0.5 - 1.0, 3),
+                "z": round(room["z"] + BEYOND_ROOM_EXTENT * 0.5 - 1.0, 3),
+                "width": 2.0,
+                "depth": 2.0,
+                "material": material("patch"),
+            }
+        )
+    for index in range(BEYOND_REGION_TARGET):
+        room = rooms[index]
+        regions.append(
+            {
+                "x": round(room["x"] + 0.5, 3),
+                "z": round(room["z"] + 0.5, 3),
+                "width": 1.0,
+                "depth": 1.0,
+                "offset_y": 0.0,
+                "material": material("region"),
+                "edge_material": material("region_edge"),
+            }
+        )
+    for index in range(BEYOND_WATER_TARGET):
+        room = rooms[index]
+        water.append(
+            {
+                "x": round(room["x"] + 3.0, 3),
+                "z": round(room["z"] + 3.0, 3),
+                "width": 1.0,
+                "depth": 1.0,
+                "surface_y": 0.05,
+                "bottom_y": -0.5,
+                "material": material("water"),
+                "swimming": False,
+            }
+        )
+
+    ladders: List[Dict] = []
+    for index in range(BEYOND_LADDER_TARGET):
+        room = rooms[index]
+        ladders.append(
+            {
+                "x": round(room["x"] + 3.5, 3),
+                "z": round(room["z"] + 0.5, 3),
+                "width": 0.6,
+                "depth": 0.2,
+                "bottom_y": 0.0,
+                "top_y": 2.5,
+                "facing_degrees": 0.0,
+            }
+        )
+
+    ramps: List[Dict] = []
+    for index in range(BEYOND_RAMP_TARGET):
+        room = rooms[index]
+        ramps.append(
+            {
+                "x": round(room["x"] + 0.5, 3),
+                "z": round(room["z"] + 2.0, 3),
+                "width": 1.0,
+                "depth": 2.0,
+                "offset_y": 0.0,
+                "rise": 0.25,
+                "material": material("ramp"),
+                "edge_material": material("ramp_edge"),
+            }
+        )
+
+    stairs: List[Dict] = []
+    for index in range(BEYOND_STAIR_TARGET):
+        room = rooms[index]
+        stairs.append(
+            {
+                "x": round(room["x"] + 2.0, 3),
+                "z": round(room["z"] + 0.5, 3),
+                "width": 1.0,
+                "depth": 1.2,
+                "offset_y": 0.0,
+                "rise": 0.4,
+                "steps": 3,
+                "material": material("stair"),
+                "riser_material": material("stair_riser"),
+                "side_material": material("stair_side"),
+            }
+        )
+
+    half_walls: List[Dict] = []
+    for index in range(BEYOND_HALF_WALL_TARGET):
+        room = rooms[index]
+        half_walls.append(
+            {
+                "x": round(room["x"] + 1.5, 3),
+                "z": round(room["z"] + 0.5, 3),
+                "width": 2.0,
+                "depth": 0.2,
+                "height": 1.0,
+                "material": material("half_wall"),
+                "end_material": material("half_wall_end"),
+                "cap_material": material("half_wall_cap"),
+            }
+        )
+
+    columns: List[Dict] = []
+    for index in range(BEYOND_COLUMN_TARGET):
+        room = rooms[index]
+        columns.append(
+            {
+                "x": round(room["x"] + 0.5, 3),
+                "z": round(room["z"] + 3.5, 3),
+                "width": 0.3,
+                "depth": 0.3,
+                "material": material("column"),
+                "cap_material": material("column_cap"),
+            }
+        )
+
+    arc_walls: List[Dict] = []
+    for index in range(BEYOND_ARC_WALL_TARGET):
+        room = rooms[index]
+        arc_walls.append(
+            {
+                "x": round(room["x"] + 2.5, 3),
+                "z": round(room["z"] + 2.5, 3),
+                "radius": 1.2,
+                "thickness": 0.2,
+                "height": 2.4,
+                "start_degrees": 0.0,
+                "sweep_degrees": 90.0,
+                "segments": 8,
+                "material": material("arc"),
+                "inner_material": material("arc_inner"),
+                "outer_material": material("arc_outer"),
+                "cap_material": material("arc_cap"),
+                "end_material": material("arc_end"),
+            }
+        )
+
+    pillars: List[Dict] = []
+    for index in range(BEYOND_PILLAR_TARGET):
+        room = rooms[index]
+        pillars.append(
+            {
+                "x": round(room["x"] + 3.5, 3),
+                "z": round(room["z"] + 0.5, 3),
+                "radius": 0.2,
+                "height": 3.0,
+                "segments": 8,
+                "material": material("pillar"),
+                "cap_material": material("pillar_cap"),
+            }
+        )
+
+    archways: List[Dict] = []
+    for index in range(BEYOND_ARCHWAY_TARGET):
+        room = rooms[index]
+        archways.append(
+            {
+                "x": round(room["x"] + 1.0, 3),
+                "z": round(room["z"] + 3.5, 3),
+                "width": 2.4,
+                "depth": 0.4,
+                "height": 2.5,
+                "opening_width": 1.0,
+                "opening_height": 2.0,
+                "arch_rise": 0.2,
+                "material": material("archway"),
+                "reveal_material": material("archway_reveal"),
+            }
+        )
+
+    guardrails: List[Dict] = []
+    for index in range(BEYOND_GUARDRAIL_TARGET):
+        room = rooms[index]
+        guardrails.append(
+            {
+                "x": round(room["x"] + 4.0, 3),
+                "z": round(room["z"] + 2.0, 3),
+                "length": 2.0,
+                "rotation_degrees": 0.0,
+                "height": 0.9,
+                "material": material("guardrail"),
+                "post_material": material("guardrail_post"),
+            }
+        )
+
+    thresholds: List[Dict] = []
+    for index in range(BEYOND_THRESHOLD_TARGET):
+        room = rooms[index]
+        thresholds.append(
+            {
+                "x": round(room["x"] + 2.5, 3),
+                "z": round(room["z"] + 3.5, 3),
+                "length": 1.0,
+                "thickness": 0.08,
+                "height": 0.02,
+                "rotation_degrees": 90.0,
+                "material": material("threshold"),
+            }
+        )
+
+    baseboards: List[Dict] = []
+    for index in range(BEYOND_BASEBOARD_TARGET):
+        room = rooms[index]
+        baseboards.append(
+            {
+                "x": round(room["x"] + 2.5, 3),
+                "z": round(room["z"] + 1.5, 3),
+                "length": 2.0,
+                "rotation_degrees": 90.0,
+                "material": material("baseboard"),
+            }
+        )
+
+    # Entities: a handful of authored records, enough that a package carries
+    # the whole interaction schema without duplicating the loader's per-cap
+    # at/over test coverage.
+    spawn_templates = [
+        {"id": "cap_crate", "model": "core:crate", "scale": 1.0},
+        {"id": "cap_box", "model": "core:cardboard_box", "scale": 1.0},
+    ]
+    spawn_points = [
+        {
+            "id": f"cap_point_{index}",
+            "x": round(rooms[index]["x"] + 1.0, 3),
+            "z": round(rooms[index]["z"] + 1.5, 3),
+            "template": spawn_templates[index % len(spawn_templates)]["id"],
+        }
+        for index in range(4)
+    ]
+    spawn_groups = [{"id": "cap_group", "at_most_one_active": True}]
+    sequences = [
+        {
+            "id": "cap_sequence",
+            "steps": [
+                {"step": "wait", "seconds": 0.5},
+                {
+                    "step": "action",
+                    "action": {
+                        "action": "spawn_entity",
+                        "point": "cap_point_0",
+                        "group": "cap_group",
+                    },
+                },
+            ],
+        }
+    ]
+    volumes = [
+        {
+            "id": f"cap_trigger_{index}",
+            "x": round(rooms[index]["x"] + 2.0, 3),
+            "z": round(rooms[index]["z"] + 2.0, 3),
+            "width": 2.0,
+            "depth": 2.0,
+            "bindings": [
+                {
+                    "on": "enter_volume",
+                    "actions": [{"action": "reset_to_start"}],
+                    "cooldown_seconds": 1.0,
+                }
+            ],
+        }
+        for index in range(4)
+    ]
+
+    distinct = len(material_ids)
+    if not BEYOND_MATERIAL_FLOOR < distinct < BEYOND_MATERIAL_CEILING:
+        raise SystemExit(
+            f"the beyond-former-limits fixture declares {distinct} distinct materials; "
+            f"it must be above {BEYOND_MATERIAL_FLOOR} (the former 16-bit boundary) "
+            f"and below {BEYOND_MATERIAL_CEILING} (MAX_LEVEL_MATERIALS)"
+        )
+
+    return {
+        "format_version": 3,
+        "id": "capacity_beyond_former_limits",
+        "name": "Capacity: Beyond Former Limits (dev)",
+        "author": "Places Team",
+        "spawn": {"x": 4.5, "z": 0.5, "yaw_degrees": 0.0},
+        "defaults": {
+            "wall": wall_body,
+            "floor": material("default_floor"),
+            "ceiling": material("default_ceiling"),
+        },
+        "rooms": rooms,
+        "walls": walls,
+        "floor_patches": patches,
+        "floor_regions": regions,
+        "water": water,
+        "ladders": ladders,
+        "ramps": ramps,
+        "stairs": stairs,
+        "half_walls": half_walls,
+        "columns": columns,
+        "arc_walls": arc_walls,
+        "pillars": pillars,
+        "archways": archways,
+        "guardrails": guardrails,
+        "thresholds": thresholds,
+        "baseboards": baseboards,
+        "ceiling_lights": lights,
+        "props": props,
+        "decals": decals,
+        "spawn_templates": spawn_templates,
+        "spawn_points": spawn_points,
+        "spawn_groups": spawn_groups,
+        "sequences": sequences,
+        "volumes": volumes,
+    }
+
+
+# --------------------------------------------------------------------------
 
 
 def write_level(level: Dict, path: str) -> None:
@@ -419,6 +894,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     placeables = load_placeables()
     levels = [
         build_dense(Rng(0x44_45_4E_53), placeables),
+        build_beyond_former_limits(Rng(0x42_45_59_4F), placeables),
     ]
     os.makedirs(FIXTURES_DIR, exist_ok=True)
     failures = 0

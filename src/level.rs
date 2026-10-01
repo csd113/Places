@@ -468,14 +468,39 @@ impl FloorRegionDef {
     }
 }
 
-/// One rectangular body of water: a footprint, a horizontal surface and the
-/// vertical extent below it.
+/// The footprint shape of one authored water volume.
+///
+/// `rect` is the historical rectangular footprint from `width` × `depth`.
+/// `circle` is a disc of `radius` inscribed in its bounding box: `x`/`z` stay
+/// the minimum corner of that box, so the centre is `(x + radius, z + radius)`
+/// and the footprint spans `x..x + 2 * radius`. The disc is what the surface
+/// draws and what the controller samples, so a circle has no invisible square
+/// swimming area.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaterShape {
+    /// A rectangular footprint: `width` × `depth` from the `x`/`z` corner.
+    #[default]
+    Rect,
+    /// A circular footprint: a disc of `radius` around the bounding box centre.
+    Circle,
+}
+
+/// One body of water: a footprint, a horizontal surface and the vertical
+/// extent below it. The footprint is a rectangle (`shape: "rect"`, the
+/// default) or a disc (`shape: "circle"`).
 ///
 /// The volume is the authoring form of the engine's water feature. The surface
-/// is a translucent quad drawn from the `material` (default
-/// [`DEFAULT_WATER_MATERIAL`]); the same footprint and surface height are what
-/// the player controller samples to decide between walking, wading and
-/// swimming, so what an author draws is exactly what the player swims in.
+/// is drawn from the `material` (default [`DEFAULT_WATER_MATERIAL`]); the same
+/// footprint and surface height are what the player controller samples to
+/// decide between walking, wading and swimming, so what an author draws is
+/// exactly what the player swims in.
+///
+/// `x`/`z` are always the minimum corner of the footprint's bounding box
+/// (normalised, like a floor region): a rectangle spans `x..x + width`, and a
+/// circle is the disc of `radius` inscribed in `x..x + 2 * radius`. A circle
+/// may omit `width`/`depth`; if authored they must equal `2 * radius` (they
+/// are the bounding box) or the volume is rejected.
 ///
 /// `surface_y` is an absolute world height, like a fixture's `y`, so a pool
 /// whose water level should sit below its deck can say so directly. `bottom_y`
@@ -487,12 +512,31 @@ impl FloorRegionDef {
 /// { "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
 ///   "surface_y": -1.65, "bottom_y": -3.0 }
 /// ```
+/// ```json
+/// { "shape": "circle", "x": 8.0, "z": 10.0, "radius": 2.5,
+///   "surface_y": -1.65, "bottom_y": -3.0 }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaterVolumeDef {
+    /// Footprint shape; defaults to the historical `rect`.
+    #[serde(default)]
+    pub shape: WaterShape,
+    /// Minimum X of the footprint's bounding box.
     pub x: f32,
+    /// Minimum Z of the footprint's bounding box.
     pub z: f32,
-    pub width: f32,
-    pub depth: f32,
+    /// Rectangle extent along X, `> 0`. Required for `rect`; for `circle`
+    /// omitted, or exactly `2 * radius`.
+    #[serde(default)]
+    pub width: Option<f32>,
+    /// Rectangle extent along Z, `> 0`. Required for `rect`; for `circle`
+    /// omitted, or exactly `2 * radius`.
+    #[serde(default)]
+    pub depth: Option<f32>,
+    /// Circle radius in metres, `> 0`. Required for `circle`, rejected for
+    /// `rect`.
+    #[serde(default)]
+    pub radius: Option<f32>,
     /// World Y of the free surface.
     pub surface_y: f32,
     /// World Y of the volume's bottom; `None` resolves the lowest walkable
@@ -518,24 +562,48 @@ const fn default_true() -> bool {
 
 impl WaterVolumeDef {
     /// Footprint as `(x0, x1, z0, z1)`, normalised.
+    ///
+    /// A rectangle's fallback `0.0` extent or a circle's fallback `0.0` radius
+    /// is a malformed volume the loader rejects; resolution skips a degenerate
+    /// footprint so it can never draw or answer a query.
     #[must_use]
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        let (width, depth) = match self.shape {
+            WaterShape::Rect => (self.width.unwrap_or(0.0), self.depth.unwrap_or(0.0)),
+            WaterShape::Circle => {
+                let diameter = 2.0 * self.radius.unwrap_or(0.0);
+                (diameter, diameter)
+            }
+        };
         (
-            self.x.min(self.x + self.width),
-            self.x.max(self.x + self.width),
-            self.z.min(self.z + self.depth),
-            self.z.max(self.z + self.depth),
+            self.x.min(self.x + width),
+            self.x.max(self.x + width),
+            self.z.min(self.z + depth),
+            self.z.max(self.z + depth),
         )
     }
 
-    /// True when `(x, z)` lies inside the footprint.
+    /// True when `(x, z)` lies inside the footprint: the rectangle, or the
+    /// disc of [`WaterVolumeDef::radius`] around the bounding box centre.
+    ///
+    /// A circle's rim is the wall line and is **dry**: membership is strictly
+    /// inside the radius, so the four axis extremes of the bounding box are not
+    /// water the way a square's edges would be.
     #[must_use]
     pub fn contains(&self, x: f32, z: f32) -> bool {
         if !x.is_finite() || !z.is_finite() {
             return false;
         }
         let (x0, x1, z0, z1) = self.bounds();
-        x >= x0 && x <= x1 && z >= z0 && z <= z1
+        match self.shape {
+            WaterShape::Rect => x >= x0 && x <= x1 && z >= z0 && z <= z1,
+            WaterShape::Circle => {
+                let radius = 0.5 * (x1 - x0);
+                let dx = x - f32::midpoint(x0, x1);
+                let dz = z - f32::midpoint(z0, z1);
+                dx.mul_add(dx, dz * dz) < radius * radius
+            }
+        }
     }
 
     /// Surface material id: the authored one, or [`DEFAULT_WATER_MATERIAL`].
@@ -1237,16 +1305,32 @@ pub enum ComponentDef {
     Glow(GlowDef),
 }
 
-/// One authored `fade` cycle: a looping opacity animation.
+/// One authored `fade` cycle or proximity fade: a looping opacity animation,
+/// or an opacity driven by the player's distance from the entity.
+///
+/// The cycle form (the historical one):
 ///
 /// ```json
 /// { "component": "fade", "period_seconds": 6.0, "phase": 0.25,
 ///   "min_opacity": 0.0, "max_opacity": 1.0, "enabled": true }
 /// ```
+///
+/// The proximity form: when `near_radius` and `far_radius` are authored, the
+/// entity fades out as the player approaches and fades back in as the player
+/// retreats. `x`/`z` are irrelevant here; the distance is the player's
+/// horizontal distance to the entity's live position.
+///
+/// ```json
+/// { "component": "fade", "near_radius": 3.0, "far_radius": 6.0,
+///   "fade_out_seconds": 1.5, "fade_in_seconds": 3.0 }
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FadeDef {
-    /// Cycle length in seconds; required, finite, `0 < p` and at most
-    /// [`MAX_FADE_PERIOD_SECONDS`].
+    /// Cycle length in seconds; finite, `0 < p` and at most
+    /// [`MAX_FADE_PERIOD_SECONDS`]. Defaults to
+    /// [`DEFAULT_FADE_PERIOD_SECONDS`]; ignored when the proximity fields are
+    /// authored.
+    #[serde(default = "default_fade_period")]
     pub period_seconds: f32,
     /// Cycle phase in `0..=1`; omitted resolves the deterministic
     /// per-instance phase from [`default_fade_phase`].
@@ -1262,6 +1346,65 @@ pub struct FadeDef {
     /// true.
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Distance in metres at which the entity begins fading out as the player
+    /// approaches; finite and `> 0`. Omitted keeps the cosine cycle.
+    #[serde(default)]
+    pub near_radius: Option<f32>,
+    /// Distance in metres beyond which the entity begins fading back in;
+    /// finite and `> near_radius`. Required exactly when `near_radius` is
+    /// authored.
+    #[serde(default)]
+    pub far_radius: Option<f32>,
+    /// Seconds the fade out takes across the full opacity range; finite,
+    /// `> 0` and at most [`MAX_FADE_SECONDS`]. Defaults to
+    /// [`DEFAULT_FADE_OUT_SECONDS`].
+    #[serde(default)]
+    pub fade_out_seconds: Option<f32>,
+    /// Seconds the fade in takes across the full opacity range; finite, `> 0`
+    /// and at most [`MAX_FADE_SECONDS`]. Defaults to
+    /// [`DEFAULT_FADE_IN_SECONDS`].
+    #[serde(default)]
+    pub fade_in_seconds: Option<f32>,
+}
+
+impl FadeDef {
+    /// The proximity contract, when both radii are authored.
+    ///
+    /// The two fade times resolve their documented defaults, so a validated
+    /// level always carries a complete contract.
+    #[must_use]
+    pub fn proximity(&self) -> Option<ProximityFade> {
+        let near_radius = self.near_radius?;
+        let far_radius = self.far_radius?;
+        Some(ProximityFade {
+            near_radius,
+            far_radius,
+            fade_out_seconds: self.fade_out_seconds.unwrap_or(DEFAULT_FADE_OUT_SECONDS),
+            fade_in_seconds: self.fade_in_seconds.unwrap_or(DEFAULT_FADE_IN_SECONDS),
+        })
+    }
+}
+
+/// The proximity half of a `fade` component: two hysteresis radii and the two
+/// linear fade times.
+///
+/// The contract is the same the runtime controller implements: the entity
+/// starts fading out once the player is inside `near_radius`, starts fading in
+/// only once the player is beyond `far_radius`, and holds its current
+/// direction between the two, so walking across the band never flaps. A fade
+/// always advances from its *current* opacity at `1 / seconds` of the
+/// `min_opacity..=max_opacity` range per second, so an interrupted fade
+/// reverses with no jump.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProximityFade {
+    /// Distance in metres at which the entity begins fading out.
+    pub near_radius: f32,
+    /// Distance in metres beyond which the entity begins fading back in.
+    pub far_radius: f32,
+    /// Seconds the fade out takes across the full opacity range.
+    pub fade_out_seconds: f32,
+    /// Seconds the fade in takes across the full opacity range.
+    pub fade_in_seconds: f32,
 }
 
 /// Largest authored fade period, in seconds.
@@ -1269,6 +1412,26 @@ pub struct FadeDef {
 /// A bound, not a tuning knob: a fade shorter than a frame would alias and a
 /// cycle longer than an hour is a typo that reads as a stuck entity.
 pub const MAX_FADE_PERIOD_SECONDS: f32 = 3600.0;
+
+/// Largest authored proximity fade time, in seconds.
+///
+/// A bound, not a tuning knob: ten minutes is already slower than any ghost
+/// entrance, and a longer value is a typo that reads as a stuck entity.
+pub const MAX_FADE_SECONDS: f32 = 600.0;
+
+/// Cycle length a `fade` component uses when it authors none. The cycle is
+/// ignored in proximity mode, so a proximity fade may omit it.
+pub const DEFAULT_FADE_PERIOD_SECONDS: f32 = 6.0;
+
+/// How long the proximity fade out takes when it authors no time.
+pub const DEFAULT_FADE_OUT_SECONDS: f32 = 1.5;
+
+/// How long the proximity fade in takes when it authors no time.
+pub const DEFAULT_FADE_IN_SECONDS: f32 = 3.0;
+
+const fn default_fade_period() -> f32 {
+    DEFAULT_FADE_PERIOD_SECONDS
+}
 
 /// One authored `glow` component: a light attached to the entity or one of
 /// its animated sockets.
@@ -2006,8 +2169,10 @@ pub const OPENING_GLASS_THICKNESS_M: f32 = 0.06;
 /// slot after the family sheets; see [`fixture_face_material_index`].
 ///
 /// Equal to the fixture family count (asserted by a test so the two tables
-/// cannot drift).
-pub const FIXTURE_SWITCHABLE_MATERIAL_BASE: u16 = 4;
+/// cannot drift). 32 bits wide like every other material/sheet slot; the
+/// highest slot a level can reach is this base plus the level's last fixture
+/// index, which stays far inside [`MAX_LEVEL_MATERIALS`].
+pub const FIXTURE_SWITCHABLE_MATERIAL_BASE: u32 = 4;
 
 /// Material index of one ceiling fixture's luminous face.
 ///
@@ -2022,12 +2187,12 @@ pub fn fixture_face_material_index(
     fixture_index: usize,
     switchable: bool,
     kind: crate::lighting::FixtureKind,
-) -> u16 {
+) -> u32 {
     if switchable {
         FIXTURE_SWITCHABLE_MATERIAL_BASE
-            .saturating_add(u16::try_from(fixture_index).unwrap_or(u16::MAX))
+            .saturating_add(u32::try_from(fixture_index).unwrap_or(u32::MAX))
     } else {
-        u16::try_from(kind.index()).unwrap_or(0)
+        u32::try_from(kind.index()).unwrap_or(0)
     }
 }
 
@@ -3522,9 +3687,18 @@ pub const PILLAR_COLLISION_BANDS: usize = 2;
 /// boxes per pillar whatever the tessellation.
 pub const PILLAR_COLLISION_MAX_SPAN_DEGREES: f32 = 3.0;
 /// Hard ceiling on the number of arc walls a level may define.
-pub const MAX_LEVEL_ARC_WALLS: u64 = 1000;
+///
+/// Raised to 4000 from 1000: an arc wall is tessellated into at most
+/// [`MAX_ROUND_SEGMENTS`](crate::level::round_segments) quads per band and is
+/// otherwise ordinary static geometry, so the count bound is the same kind of
+/// authoring budget as the wall cap.
+pub const MAX_LEVEL_ARC_WALLS: u64 = 4_000;
 /// Hard ceiling on the number of circular pillars a level may define.
-pub const MAX_LEVEL_PILLARS: u64 = 2000;
+///
+/// Raised to 8000 from 2000, matching the column budget: a pillar is a
+/// tessellated round body with a bounded per-primitive segment count, so the
+/// count is an authoring bound, not a per-frame cost.
+pub const MAX_LEVEL_PILLARS: u64 = 8_000;
 
 /// World `(x, z)` of a point at `angle_degrees` around `(origin_x, origin_z)`.
 ///
@@ -5041,7 +5215,11 @@ const fn decal_align_is_none(align: &DecalAlign) -> bool {
 /// than an intentional overlay.
 pub const MAX_DECAL_SIZE_M: f32 = 10.0;
 /// Hard ceiling on the number of decals a level may place.
-pub const MAX_LEVEL_DECALS: u64 = 5000;
+///
+/// Raised to 20 000 from 5000: one decal is one quad in the decal pass, drawn
+/// through the same per-sheet batching as every other range, and the extended
+/// capacity fixture validates 20 000 decals across a handful of sheets.
+pub const MAX_LEVEL_DECALS: u64 = 20_000;
 /// Number of quads one decal generates.
 pub const MAX_DECAL_QUADS: u64 = 1;
 
@@ -5648,6 +5826,272 @@ const fn default_sky_brightness() -> f32 {
     1.0
 }
 
+// ---------------------------------------------------------------------------
+// Regional fog
+// ---------------------------------------------------------------------------
+
+/// Hard ceiling on the number of fog regions a level may declare.
+///
+/// The renderer uploads a fixed-size uniform array of this many regions, so the
+/// cap is a shader-budget bound rather than a parse bound: a level above it is
+/// genuinely outside the verified envelope. The quality presets upload only a
+/// prefix of the authored list (see `render::common::atmosphere`).
+pub const MAX_FOG_REGIONS: usize = 16;
+
+/// Largest per-metre extinction one fog region may author.
+///
+/// A regional layer is weather, not a blackout: at 0.5 per metre a 10 m view
+/// is already `1 - exp(-25)` opaque, and the global atmosphere is meant to
+/// stay readable through the layer.
+pub const MAX_FOG_REGION_DENSITY: f32 = 0.5;
+
+/// Longest fog region id the loader accepts, in characters.
+pub const MAX_FOG_REGION_ID_CHARS: usize = 64;
+
+/// Default horizontal soft edge of a fog region, in metres.
+///
+/// The authored box is the region's full-extinction core; the last
+/// [`DEFAULT_FOG_FALLOFF_M`] metres before a side face ramp the contribution
+/// down, so a region reads as a rolling layer rather than a cut-out.
+pub const DEFAULT_FOG_FALLOFF_M: f32 = 2.0;
+
+/// One authored regional fog volume.
+///
+/// A region is a world-space box that thickens the air *inside* it: the
+/// contribution is `density * horizontal_edge_factor * vertical_factor` per
+/// fragment. The horizontal factor ramps from zero at the box side to one
+/// `falloff_m` inside it; the vertical factor is one at and below `ground_y`
+/// and fades linearly to zero at `top_y`. Regions never sum: the greatest
+/// effective contribution wins (ties keep the lowest authoring index) and the
+/// global atmosphere's own density is added to the winner.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FogRegionDef {
+    /// Stable authoring id, required, non-empty, at most
+    /// [`MAX_FOG_REGION_ID_CHARS`] characters and unique in the level.
+    pub id: String,
+    /// Minimum world corner of the box.
+    pub min: [f32; 3],
+    /// Maximum world corner of the box; strictly above `min` on every axis.
+    pub max: [f32; 3],
+    /// Extinction per metre inside the region; at most
+    /// [`MAX_FOG_REGION_DENSITY`].
+    pub density: f32,
+    /// Colour the region mixes towards, each channel `0.0..=1.0`. Omitted uses
+    /// the global fog colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<[f32; 3]>,
+    /// Horizontal soft edge inside the box, in metres. Omitted is
+    /// [`DEFAULT_FOG_FALLOFF_M`]; `0.0` is a hard edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falloff_m: Option<f32>,
+    /// World Y the full-density ground layer starts at. Omitted is `min.y`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ground_y: Option<f32>,
+    /// World Y the density has faded to zero at. Omitted is `max.y`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_y: Option<f32>,
+}
+
+// ---------------------------------------------------------------------------
+// Void walls
+// ---------------------------------------------------------------------------
+
+/// Hard ceiling on the number of void walls a level may declare.
+///
+/// Each box is six quads (twelve for `faces: "both"`) and at most one occluder
+/// box, so this bounds the emitted geometry and the bake's extra blockers
+/// without a new data structure.
+pub const MAX_VOID_WALLS: usize = 256;
+
+/// Longest void wall id the loader accepts, in characters.
+pub const MAX_VOID_WALL_ID_CHARS: usize = 64;
+
+/// Upper bound on the quads one void wall emits: six faces, two quads each for
+/// `faces: "both"`.
+pub const MAX_VOID_WALL_QUADS: u64 = 12;
+
+/// Which of a void wall box's faces are emitted, and which way their normals
+/// point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VoidWallFaces {
+    /// The box seen from inside it: every emitted face's normal points into
+    /// the box (a shell around a space the camera stands in).
+    #[default]
+    Inward,
+    /// The box seen from outside it: every emitted face's normal points away
+    /// from the box (a slab or plate the camera looks at).
+    Outward,
+    /// Both directions: two quads per face, one per direction.
+    Both,
+}
+
+impl VoidWallFaces {
+    /// The default, `inward`, so serde can skip the key.
+    #[must_use]
+    pub const fn is_inward(self) -> bool {
+        matches!(self, Self::Inward)
+    }
+}
+
+/// `skip_serializing_if` helper: the default `inward` facing is never written,
+/// so a level that omits it round-trips byte-identically.
+///
+/// Takes a reference because that is serde's `skip_serializing_if` contract;
+/// the type is a one-byte enum, and the signature is not ours to choose.
+#[must_use]
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn void_wall_faces_is_inward(faces: &VoidWallFaces) -> bool {
+    faces.is_inward()
+}
+
+/// `skip_serializing_if` helper: a default-true flag is never written.
+///
+/// Takes a reference because that is serde's `skip_serializing_if` contract.
+#[must_use]
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn bool_is_true(value: &bool) -> bool {
+    *value
+}
+
+/// One opaque void wall / floor box: a real surface slab that hides the void
+/// the level did not build.
+///
+/// Unlike a `wall` slab, a void wall is not tied to a room, its footprint can
+/// lie anywhere in the world, and each of its box faces is emitted with an
+/// explicitly authored normal ([`VoidWallFaces`]). It is ordinary opaque
+/// geometry: it blocks sight because it is drawn, it is fogged exactly once
+/// like every other surface, and it shades through the same material pipeline.
+/// It is never a fade or a black overlay.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoidWallDef {
+    /// Optional authoring id; non-empty, at most [`MAX_VOID_WALL_ID_CHARS`]
+    /// characters and unique when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// Minimum world corner of the box.
+    pub min: [f32; 3],
+    /// Maximum world corner of the box; strictly above `min` on every axis.
+    pub max: [f32; 3],
+    /// Level material id every face draws.
+    pub material: String,
+    /// Which faces are emitted and which way their normals point.
+    #[serde(default, skip_serializing_if = "void_wall_faces_is_inward")]
+    pub faces: VoidWallFaces,
+    /// Whether the authored box collides, exactly like a solid prop's `size`
+    /// box. Defaults to true.
+    #[serde(default = "default_true", skip_serializing_if = "bool_is_true")]
+    pub solid: bool,
+    /// Whether the authored box joins the baked-light occluder set exactly
+    /// like a solid prop's occluder boxes. Defaults to true.
+    #[serde(default = "default_true", skip_serializing_if = "bool_is_true")]
+    pub occludes: bool,
+}
+
+/// One planar face of a void wall box: the quad's corners in winding order
+/// (its front points along `normal`) and its unit normal.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoidWallFace {
+    /// Corners in winding order.
+    pub points: [[f32; 3]; 4],
+    /// Outward unit normal of the emitted quad.
+    pub normal: [f32; 3],
+}
+
+impl VoidWallDef {
+    /// The box's two corners, normalised so `min` is the low corner.
+    #[must_use]
+    pub const fn bounds(&self) -> ([f32; 3], [f32; 3]) {
+        (
+            [
+                self.min[0].min(self.max[0]),
+                self.min[1].min(self.max[1]),
+                self.min[2].min(self.max[2]),
+            ],
+            [
+                self.min[0].max(self.max[0]),
+                self.min[1].max(self.max[1]),
+                self.min[2].max(self.max[2]),
+            ],
+        )
+    }
+
+    /// The box as a solid volume, or `None` when it has no usable extent.
+    #[must_use]
+    pub fn resolved_box(&self) -> Option<ArchitectureBox> {
+        ArchitectureBox::from_corners(self.min, self.max)
+    }
+
+    /// The box's faces as drawn, in a fixed order: the three negative faces
+    /// (-X, -Y, -Z) then the three positive ones (+X, +Y, +Z), each with its
+    /// authored facing.
+    ///
+    /// `inward` and `outward` return one quad per face (6 total); `both`
+    /// returns the outward set then the inward set (12 total). Inward quads
+    /// are the same rectangles with reversed winding, and their `normal`
+    /// points into the box.
+    #[must_use]
+    pub fn faces(&self) -> Vec<VoidWallFace> {
+        let (min, max) = self.bounds();
+        let outward = outward_faces(min, max);
+        match self.faces {
+            VoidWallFaces::Outward => outward.to_vec(),
+            VoidWallFaces::Inward => outward.iter().map(reversed).collect(),
+            VoidWallFaces::Both => {
+                let mut faces: Vec<VoidWallFace> = outward.to_vec();
+                faces.extend(outward.iter().map(reversed));
+                faces
+            }
+        }
+    }
+}
+
+/// A face with the same rectangle wound the other way and its normal negated.
+fn reversed(face: &VoidWallFace) -> VoidWallFace {
+    let [a, b, c, d] = face.points;
+    VoidWallFace {
+        points: [a, d, c, b],
+        normal: [-face.normal[0], -face.normal[1], -face.normal[2]],
+    }
+}
+
+/// The six outward-wound faces of an axis-aligned box.
+///
+/// Every quad's front (`p0 -> p1 -> p2` right-hand rule) points along its own
+/// outward normal, matching the winding the box-like architecture emitters
+/// already use.
+#[must_use]
+const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
+    let [x0, y0, z0] = min;
+    let [x1, y1, z1] = max;
+    [
+        VoidWallFace {
+            points: [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
+            normal: [-1.0, 0.0, 0.0],
+        },
+        VoidWallFace {
+            points: [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
+            normal: [0.0, -1.0, 0.0],
+        },
+        VoidWallFace {
+            points: [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]],
+            normal: [0.0, 0.0, -1.0],
+        },
+        VoidWallFace {
+            points: [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]],
+            normal: [1.0, 0.0, 0.0],
+        },
+        VoidWallFace {
+            points: [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]],
+            normal: [0.0, 1.0, 0.0],
+        },
+        VoidWallFace {
+            points: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]],
+            normal: [0.0, 0.0, 1.0],
+        },
+    ]
+}
+
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
@@ -5663,6 +6107,13 @@ pub struct LevelDef {
     /// light, and it is a separate, explicit authoring choice.
     #[serde(default)]
     pub sky: Option<SkyDef>,
+    /// Optional regional fog volumes, in authoring order.
+    ///
+    /// Each region thickens the air inside its own world-space box. Empty on
+    /// every level that does not ask for one, and omitted from the serialized
+    /// level entirely, so a fog-less level round-trips byte-identically.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fog_regions: Vec<FogRegionDef>,
     /// Every room section, in ownership order.
     #[serde(default)]
     pub rooms: Vec<RoomDef>,
@@ -5696,6 +6147,12 @@ pub struct LevelDef {
     /// Solid square or rectangular columns/posts.
     #[serde(default)]
     pub columns: Vec<ColumnDef>,
+    /// Opaque void wall / floor boxes: real surfaces that hide the void.
+    ///
+    /// Omitted from the serialized level when empty, so a level without one
+    /// round-trips byte-identically.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub void_walls: Vec<VoidWallDef>,
     /// Data-authored arc (curved) walls on a circular plan.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub arc_walls: Vec<ArcWallDef>,
@@ -5892,32 +6349,57 @@ pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 64 * 1024 * 1024;
 
 /// Hard ceiling on the number of distinct prop models a single level may use.
 ///
-/// Raised to 1024 from the historical 256: the cap is a lookup-table bound
+/// Raised to 4096 from the previous 1024: the cap is a lookup-table bound
 /// (one decoded-and-uploaded model set), not a per-frame cost, and a generated
 /// level may legitimately reference every registered model plus user imports.
 /// Like [`MAX_LEVEL_PROP_VERTICES`] this is *not* a level rejection: placements
 /// past the cap draw their placeholder boxes, exactly as they did at 256, and
 /// the level still loads and collides. The cap exists so one level's decoded
 /// model set stays bounded.
-pub const MAX_LEVEL_PROP_MODELS: usize = 1_024;
+pub const MAX_LEVEL_PROP_MODELS: usize = 4_096;
 /// Upper bound on the summed prop vertex count a level may expand into after
 /// instance transforms are baked, keeping one level's prop geometry bounded.
 ///
-/// Raised to 6 000 000 from the historical 1 500 000: the dense capacity
-/// fixture (`tools/levels/build_capacity_fixtures.py`, ~6 000 props) expands to
-/// about 1.9 M vertices, so this is three times the measured workload while
-/// still bounding the resident vertex data to a few hundred megabytes. The
+/// Raised to 24 000 000 from the previous 6 000 000, in lockstep with
+/// [`MAX_LEVEL_VERTICES`]: prop vertices are one half of the level's generated
+/// geometry budget, and the extended capacity fixture
+/// (`capacity_beyond_former_limits.json`, 20 001+ props) expands to roughly
+/// 6.3 M prop vertices — the cap is four times that measured workload. The
 /// loader reports the count when a level exceeds it, and the remaining
 /// placements draw their placeholder boxes instead of disappearing.
-pub const MAX_LEVEL_PROP_VERTICES: usize = 6_000_000;
+pub const MAX_LEVEL_PROP_VERTICES: usize = 24_000_000;
 /// Hard ceiling on the number of rooms a level may define.
-pub const MAX_LEVEL_ROOMS: u64 = 2_000;
+///
+/// Raised to 8000 from 2000 in the 2026 capacity pass: the extended capacity
+/// fixture authors 8 000 rooms and validates, and rooms are `Vec`-backed
+/// footprints read through [`crate::level::LevelSurfaces`]' lookup grid, so
+/// the cap is an authoring bound rather than a per-frame cost. It stays a
+/// *rejection*: a file above it is outside the measured envelope.
+pub const MAX_LEVEL_ROOMS: u64 = 8_000;
 /// Hard ceiling on the number of walls a level may define.
-pub const MAX_LEVEL_WALLS: u64 = 20_000;
+///
+/// Raised to 60 000 from 20 000: collision goes through the spatial
+/// [`crate::collision_index::CollisionIndex`], so per-frame wall queries no
+/// longer scale with the wall count, and the extended capacity fixture
+/// validates 60 000 walls while `zoo_audit` pins the indexed query equal to
+/// the linear scan.
+pub const MAX_LEVEL_WALLS: u64 = 60_000;
 /// Hard ceiling on the number of ceiling light fixtures a level may define.
-pub const MAX_LEVEL_CEILING_LIGHTS: u64 = 20_000;
+///
+/// Raised to 50 000 from 20 000. Fixtures are opaque static geometry plus one
+/// baked-light record each; the lightmap atlas bounds what can actually be
+/// baked, and a level past that budget falls back to vertex lighting by name
+/// rather than silently dropping fixtures.
+pub const MAX_LEVEL_CEILING_LIGHTS: u64 = 50_000;
 /// Hard ceiling on the number of placed props a level may define.
-pub const MAX_LEVEL_PROPS: u64 = 20_000;
+///
+/// Raised to 100 000 from 20 000: a prop placement is one `PropDef` and one
+/// instanced transform, and the extended capacity fixture validates 100 000
+/// placements, expanding to about 600 000 vertices with the shipped prop
+/// geometry budget. The expansion itself stays bounded by
+/// [`MAX_LEVEL_PROP_VERTICES`] and [`MAX_LEVEL_PROP_MODELS`], which are not
+/// rejections.
+pub const MAX_LEVEL_PROPS: u64 = 100_000;
 /// Largest room width or depth a level may author, in metres.
 ///
 /// The historical cap was 2000 m. The sparse capacity fixture spans ±4 km with
@@ -5928,24 +6410,29 @@ pub const MAX_ROOM_EXTENT_M: f32 = 8_192.0;
 /// Largest room clear height a level may author, in metres.
 pub const MAX_ROOM_HEIGHT_M: f32 = 50.0;
 /// Hard ceiling on the number of local floor regions a level may define.
-pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 2000;
+///
+/// Raised to 8000 from 2000 in the 2026 capacity pass; regions are queried
+/// through the floor's own lookup rather than scanned linearly, so the cap is
+/// an authoring bound.
+pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 8_000;
 /// Hard ceiling on the number of floor patches a level may define.
 ///
 /// A patch is a material override, not geometry, so this only bounds parse and
 /// lookup cost; it is deliberately the same order as the region budget.
-pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 2000;
+pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 8_000;
 /// Hard ceiling on the number of water volumes a level may define.
 ///
 /// One volume draws one surface quad, so this only bounds the per-frame water
 /// sample loop and the static mesh's footprint; it matches the floor-region
 /// budget deliberately.
-pub const MAX_LEVEL_WATER_VOLUMES: u64 = 2000;
+pub const MAX_LEVEL_WATER_VOLUMES: u64 = 8_000;
 /// Hard ceiling on the number of ladders a level may define.
 ///
 /// Ladders are sampled linearly by the controller like water volumes, and they
 /// do not draw geometry of their own (the visual ladder is a prop), so this is
-/// a generous authoring bound rather than a rendering budget.
-pub const MAX_LEVEL_LADDERS: u64 = 256;
+/// a generous authoring bound rather than a rendering budget. Raised to 1024
+/// from 256: even the linear scan is a handful of comparisons per ladder.
+pub const MAX_LEVEL_LADDERS: u64 = 1_024;
 /// Hard ceiling on the number of timers a level may define.
 ///
 /// Timers are advanced linearly every tick and each carries one small runtime
@@ -5955,26 +6442,29 @@ pub const MAX_LEVEL_TIMERS: usize = 256;
 ///
 /// Triggers are sampled linearly by the controller (a swept box test per
 /// frame), do not draw geometry and are not in the collision world, so this is
-/// an authoring bound, not a rendering budget.
-pub const MAX_LEVEL_AREA_TRIGGERS: u64 = 1000;
+/// an authoring bound, not a rendering budget. Raised to 4000 from 1000 in the
+/// 2026 capacity pass; 4000 swept tests per frame stay well inside one frame's
+/// budget, and [`crate::entities::events::EventQueue::MAX_QUEUED_EVENTS`] is
+/// sized to hold one occurrence per trigger so a busy tick cannot drop work.
+pub const MAX_LEVEL_AREA_TRIGGERS: u64 = 4_000;
 /// Hard ceiling on the number of openings a single wall may declare.
 pub const MAX_WALL_OPENINGS: usize = 64;
 /// Hard ceiling on the number of ramps a level may define.
-pub const MAX_LEVEL_RAMPS: u64 = 500;
+pub const MAX_LEVEL_RAMPS: u64 = 2_000;
 /// Hard ceiling on the number of staircases a level may define.
-pub const MAX_LEVEL_STAIRS: u64 = 500;
+pub const MAX_LEVEL_STAIRS: u64 = 2_000;
 /// Hard ceiling on the number of half walls a level may define.
-pub const MAX_LEVEL_HALF_WALLS: u64 = 2000;
+pub const MAX_LEVEL_HALF_WALLS: u64 = 8_000;
 /// Hard ceiling on the number of columns a level may define.
-pub const MAX_LEVEL_COLUMNS: u64 = 2000;
+pub const MAX_LEVEL_COLUMNS: u64 = 8_000;
 /// Hard ceiling on the number of archways a level may define.
-pub const MAX_LEVEL_ARCHWAYS: u64 = 500;
+pub const MAX_LEVEL_ARCHWAYS: u64 = 2_000;
 /// Hard ceiling on the number of guardrails a level may define.
-pub const MAX_LEVEL_GUARDRAILS: u64 = 2000;
+pub const MAX_LEVEL_GUARDRAILS: u64 = 8_000;
 /// Hard ceiling on the number of threshold strips a level may define.
-pub const MAX_LEVEL_THRESHOLDS: u64 = 1000;
+pub const MAX_LEVEL_THRESHOLDS: u64 = 4_000;
 /// Hard ceiling on the number of baseboard runs a level may define.
-pub const MAX_LEVEL_BASEBOARDS: u64 = 2000;
+pub const MAX_LEVEL_BASEBOARDS: u64 = 8_000;
 /// Upper bound on the quads a ramp emits beyond its top-surface cells: two
 /// side skirts, two end faces and their lightmap tiling.
 pub const MAX_RAMP_EXTRA_QUADS: u64 = 12;
@@ -5997,23 +6487,57 @@ pub const MAX_THRESHOLD_QUADS: u64 = 5;
 pub const MAX_BASEBOARD_QUADS: u64 = 8;
 /// Hard byte ceiling on a standalone level JSON file before it is parsed.
 ///
-/// The shipped demo is about 62 KB and the dense capacity fixture about 5 MB,
-/// so this is ample headroom for a hand-authored or generated level while still
-/// refusing an accidentally huge file before it is read into memory. The
-/// embedded fallback demo is exempt (it is compiled in).
+/// The shipped demo's source is about 0.8 MB and the extended capacity
+/// fixture (`capacity_beyond_former_limits.json`) about 14.4 MB, so this is
+/// ample headroom for a hand-authored or generated level while still refusing
+/// an accidentally huge file before it is read into memory. The embedded
+/// fallback demo is exempt (it is compiled in).
 pub const MAX_LEVEL_JSON_BYTES: u64 = 32 * 1024 * 1024;
 /// Sanity budget for total authored floor area, in square metres.
 ///
 /// Floor rendering no longer scales with area, but absurdly large levels still
 /// stress collision, fill rate and level-design tooling, so a generous cap is
-/// kept as a sanity guard. 16 km² covers the sparse capacity fixture (four
-/// 4 km × 4 km quadrant rooms, ~8 km across) with headroom.
-pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 16_000_000;
+/// kept as a sanity guard. Raised to 64 km² from 16 km² in the 2026 capacity
+/// pass, so four 4 km × 4 km quadrant rooms (the sparse coordinate regression)
+/// plus a dense interior fit together with the same headroom the previous cap
+/// gave the sparse fixture alone.
+pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 64_000_000;
 /// Sanity budget on the estimated number of generated vertices.
 ///
-/// Four times the historical two million, matching the prop-vertex ceiling
-/// above; it is the loader's upper-bound estimate, not an allocation.
-pub const MAX_LEVEL_VERTICES: u64 = 8_000_000;
+/// Raised to 24 000 000 from the previous 8 000 000, in lockstep with
+/// [`MAX_LEVEL_PROP_VERTICES`]: the estimate counts six vertices per generated
+/// quad (an upper bound for a quad emitted without index sharing), so this is
+/// four million quads. The extended capacity fixture's estimate is measured in
+/// `target/agent-work/places-expansion-compact/01/lane-b/evidence.md`. It
+/// remains the loader's upper-bound estimate, not an allocation.
+pub const MAX_LEVEL_VERTICES: u64 = 24_000_000;
+/// Hard ceiling on the number of distinct materials a level may reference.
+///
+/// This is the explicit replacement for the silent `u16` collapse the
+/// material index used to have: [`crate::render::MaterialIndex`] is 32 bits,
+/// but 131 072 (2 × 65 536) distinct materials in one map is already far
+/// beyond any authored level, and refusing the count by name — before a
+/// single image is decoded or uploaded — is honest where saturation is not.
+/// The loader counts exactly the ids
+/// [`crate::materials::referenced_material_ids`] resolves, which is the set
+/// the renderer binds, so the validator and the draw path agree by
+/// construction.
+pub const MAX_LEVEL_MATERIALS: u64 = 131_072;
+/// Hard ceiling on the distinct decoded RGBA texture bytes one level's
+/// resolved material table may hold.
+///
+/// Total map *capacity* is what a package may declare — the counts above bound
+/// authored data. This constant is the simultaneous GPU-residency guard for
+/// the texture half of that data: the renderer uploads the shared
+/// [`crate::materials::MaterialTable`] texture set at once, and one level
+/// declaring more than 1 GiB of decoded images (1 073 741 824 bytes: 256
+/// images at the 1024×1024 hard edge, or tens of thousands of ordinary
+/// sheets) is refused by name by
+/// [`crate::materials::check_texture_budget`] before any upload. The other
+/// resident budgets are separate and unchanged: the lightmap atlas page budget
+/// ([`crate::package::MAX_LIGHTMAP_PAGES`]), probe cubemaps, and the
+/// dynamic-object/character caps.
+pub const MAX_LEVEL_TEXTURE_BYTES: usize = 1 << 30;
 
 /// Estimated generated geometry for a level, used to bound memory use before
 /// building vertex data. This conservative upper bound is not a reservation.
@@ -6615,6 +7139,11 @@ impl LevelDef {
         for _ in &self.baseboards {
             wall_quads = wall_quads.saturating_add(MAX_BASEBOARD_QUADS);
         }
+        // A void wall is six faces of one quad (twelve for `faces: "both"`),
+        // all wall-like.
+        for _ in &self.void_walls {
+            wall_quads = wall_quads.saturating_add(MAX_VOID_WALL_QUADS);
+        }
         (floor_quads, wall_quads)
     }
 
@@ -6823,6 +7352,20 @@ impl LevelDef {
         // they are trim the player walks over.
         for boxed in self.architecture_solids() {
             aabbs.push(boxed.to_wall_aabb());
+        }
+
+        // Void wall / floor boxes: a `solid` box collides as its whole
+        // authored volume, exactly like a solid prop's `size` box. A box that
+        // encloses a walkable space is therefore a solid block; build a hollow
+        // enclosure from thin slabs, or set `solid: false` for a sight-only
+        // shell the player walks through.
+        for piece in &self.void_walls {
+            if !piece.solid {
+                continue;
+            }
+            if let Some(boxed) = piece.resolved_box() {
+                aabbs.push(boxed.to_wall_aabb());
+            }
         }
 
         for prop in &self.props {
@@ -8234,10 +8777,15 @@ fn read_ceiling_room(reader: &mut Reader<'_>) -> Result<WalkableCeilingRoom, Str
 /// renders can reason about the body as a whole.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WaterVolume {
+    /// Footprint shape: the rectangle `x0..x1` × `z0..z1`, or the disc of
+    /// [`WaterVolume::radius`] inscribed in that bounding box.
+    pub shape: WaterShape,
     pub x0: f32,
     pub x1: f32,
     pub z0: f32,
     pub z1: f32,
+    /// Circle radius in metres; `0.0` for a rectangle.
+    pub radius: f32,
     /// World Y of the free surface.
     pub surface_y: f32,
     /// World Y of the resolved bottom, always below `surface_y`.
@@ -8256,13 +8804,63 @@ pub struct WaterVolume {
 }
 
 impl WaterVolume {
-    /// True when `(x, z)` lies inside the footprint.
+    /// Footprint centre `(x, z)`: the bounding box midpoint for a rectangle
+    /// and the disc's centre for a circle.
+    #[must_use]
+    pub const fn center(&self) -> (f32, f32) {
+        (
+            f32::midpoint(self.x0, self.x1),
+            f32::midpoint(self.z0, self.z1),
+        )
+    }
+
+    /// True when `(x, z)` lies inside the footprint: the rectangle, or the
+    /// disc.
+    ///
+    /// A circle's rim is the wall line and is **dry** (strictly inside the
+    /// radius), so its bounding box's axis extremes are not water.
     #[must_use]
     pub fn contains(&self, x: f32, z: f32) -> bool {
         if !x.is_finite() || !z.is_finite() {
             return false;
         }
-        x >= self.x0 && x <= self.x1 && z >= self.z0 && z <= self.z1
+        match self.shape {
+            WaterShape::Rect => x >= self.x0 && x <= self.x1 && z >= self.z0 && z <= self.z1,
+            WaterShape::Circle => {
+                let (cx, cz) = self.center();
+                let dx = x - cx;
+                let dz = z - cz;
+                dx.mul_add(dx, dz * dz) < self.radius * self.radius
+            }
+        }
+    }
+
+    /// True when the whole disc of `radius` around `(x, z)` lies inside this
+    /// volume's own footprint.
+    ///
+    /// A rectangle keeps the historical box containment; a circle requires the
+    /// disc to fit inside the circle, so a floating prop can never poke past
+    /// the rim of a round pool.
+    #[must_use]
+    pub fn contains_disc(&self, x: f32, z: f32, radius: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return false;
+        }
+        match self.shape {
+            WaterShape::Rect => {
+                x - radius >= self.x0
+                    && x + radius <= self.x1
+                    && z - radius >= self.z0
+                    && z + radius <= self.z1
+            }
+            WaterShape::Circle => {
+                let (cx, cz) = self.center();
+                let dx = x - cx;
+                let dz = z - cz;
+                let clearance = self.radius - radius;
+                clearance >= 0.0 && dx.mul_add(dx, dz * dz) <= clearance * clearance
+            }
+        }
     }
 
     /// Resolved depth below the surface, in metres; always positive.
@@ -8302,10 +8900,22 @@ pub struct WaterVolumes {
     volumes: Vec<WaterVolume>,
 }
 
-/// Points sampled per volume when resolving an omitted `bottom_y`: the centre
-/// and the four footprint corners.
+/// Points sampled per rectangle when resolving an omitted `bottom_y`: the
+/// centre and the four footprint corners.
 const WATER_BOTTOM_SAMPLES: [(f32, f32); 5] =
     [(0.5, 0.5), (0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+
+/// Points sampled per circle when resolving an omitted `bottom_y`: the centre
+/// and four points at half the radius, on the diagonals. They lie strictly
+/// inside the disc, so the resolution samples the circle's own footprint
+/// rather than the bounding box corners a square would wrongly include.
+const WATER_CIRCLE_SAMPLES: [(f32, f32); 5] = [
+    (0.0, 0.0),
+    (-0.353_553_4, -0.353_553_4),
+    (0.353_553_4, -0.353_553_4),
+    (0.353_553_4, 0.353_553_4),
+    (-0.353_553_4, 0.353_553_4),
+];
 
 impl WaterVolumes {
     /// An empty set: every query misses.
@@ -8326,6 +8936,18 @@ impl WaterVolumes {
             if !x0.is_finite() || !x1.is_finite() || !z0.is_finite() || !z1.is_finite() {
                 continue;
             }
+            // A degenerate footprint is malformed input the loader rejects;
+            // resolution skips it so it can never draw or answer a query.
+            if x1 <= x0 || z1 <= z0 {
+                continue;
+            }
+            let radius = match def.shape {
+                WaterShape::Circle => match def.radius {
+                    Some(radius) if radius.is_finite() && radius > 0.0 => radius,
+                    _ => continue,
+                },
+                WaterShape::Rect => 0.0,
+            };
             let surface_y = def.surface_y;
             if !surface_y.is_finite() {
                 continue;
@@ -8335,11 +8957,25 @@ impl WaterVolumes {
                 .filter(|value| value.is_finite())
                 .unwrap_or_else(|| {
                     let mut lowest = f32::INFINITY;
-                    for (u, v) in WATER_BOTTOM_SAMPLES {
-                        let x = (x1 - x0).mul_add(u, x0);
-                        let z = (z1 - z0).mul_add(v, z0);
-                        if let Some(floor) = surfaces.floor_y_at(x, z) {
-                            lowest = lowest.min(floor);
+                    match def.shape {
+                        WaterShape::Rect => {
+                            for (u, v) in WATER_BOTTOM_SAMPLES {
+                                let x = (x1 - x0).mul_add(u, x0);
+                                let z = (z1 - z0).mul_add(v, z0);
+                                if let Some(floor) = surfaces.floor_y_at(x, z) {
+                                    lowest = lowest.min(floor);
+                                }
+                            }
+                        }
+                        WaterShape::Circle => {
+                            let (cx, cz) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+                            for (du, dv) in WATER_CIRCLE_SAMPLES {
+                                let x = radius.mul_add(du, cx);
+                                let z = radius.mul_add(dv, cz);
+                                if let Some(floor) = surfaces.floor_y_at(x, z) {
+                                    lowest = lowest.min(floor);
+                                }
+                            }
                         }
                     }
                     if lowest.is_finite() {
@@ -8356,10 +8992,12 @@ impl WaterVolumes {
                 surface_y - 0.05
             };
             volumes.push(WaterVolume {
+                shape: def.shape,
                 x0,
                 x1,
                 z0,
                 z1,
+                radius,
                 surface_y,
                 bottom_y,
                 material: def.material.clone(),
@@ -8444,7 +9082,9 @@ impl WaterVolumes {
     ///
     /// This is the containment guarantee behind a floating prop: the authored
     /// footprint (plus its heel excursion) must fit inside one basin, so the
-    /// hull can never poke through a rim, whatever the phase.
+    /// hull can never poke through a rim, whatever the phase. A circle
+    /// requires the disc to fit inside the circle, not merely inside its
+    /// bounding box.
     #[must_use]
     pub fn contains_disc(&self, x: f32, z: f32, radius: f32) -> bool {
         if !x.is_finite() || !z.is_finite() || !radius.is_finite() || radius < 0.0 {
@@ -8453,12 +9093,7 @@ impl WaterVolumes {
         self.volumes
             .iter()
             .filter(|volume| volume.enabled)
-            .any(|volume| {
-                x - radius >= volume.x0
-                    && x + radius <= volume.x1
-                    && z - radius >= volume.z0
-                    && z + radius <= volume.z1
-            })
+            .any(|volume| volume.contains_disc(x, z, radius))
     }
 
     /// Encodes this volume set into a compiled collision record: the volume
@@ -8497,8 +9132,17 @@ impl WaterVolumes {
     }
 }
 
-/// Encodes one water volume: footprint, surface, bottom, contract and
+/// Shape code of a rectangular compiled water volume.
+const WATER_SHAPE_RECT: u8 = 0;
+/// Shape code of a circular compiled water volume.
+const WATER_SHAPE_CIRCLE: u8 = 1;
+
+/// Encodes one water volume: footprint, shape, surface, bottom, contract and
 /// material.
+///
+/// Record version 2 adds the shape byte and the circle radius after
+/// `opacity`; a version-1 record would misread the shape byte as `swimming`,
+/// so it is refused by name.
 fn write_water_volume(writer: &mut Writer, volume: &WaterVolume) -> Result<(), String> {
     writer.f32(volume.x0);
     writer.f32(volume.x1);
@@ -8507,6 +9151,16 @@ fn write_water_volume(writer: &mut Writer, volume: &WaterVolume) -> Result<(), S
     writer.f32(volume.surface_y);
     writer.f32(volume.bottom_y);
     writer.f32(volume.opacity);
+    match volume.shape {
+        WaterShape::Rect => {
+            writer.u8(WATER_SHAPE_RECT);
+            writer.f32(0.0);
+        }
+        WaterShape::Circle => {
+            writer.u8(WATER_SHAPE_CIRCLE);
+            writer.f32(volume.radius);
+        }
+    }
     writer.bool(volume.swimming);
     match volume.material.as_deref() {
         None => writer.u8(0),
@@ -8527,7 +9181,7 @@ fn write_water_volume(writer: &mut Writer, volume: &WaterVolume) -> Result<(), S
     Ok(())
 }
 
-/// Decodes one water volume.
+/// Decodes one water volume, rejecting a malformed shape/radius combination.
 fn read_water_volume(reader: &mut Reader<'_>) -> Result<WaterVolume, String> {
     let x0 = reader.f32()?;
     let x1 = reader.f32()?;
@@ -8539,8 +9193,36 @@ fn read_water_volume(reader: &mut Reader<'_>) -> Result<WaterVolume, String> {
     if !collision_values_finite(&[x0, x1, z0, z1, surface_y, bottom_y, opacity]) {
         return Err("water volume has a non-finite value".to_string());
     }
-    if x0 > x1 || z0 > z1 {
-        return Err("water volume bounds are inverted".to_string());
+    if x1 <= x0 || z1 <= z0 {
+        return Err("water volume bounds are inverted or empty".to_string());
+    }
+    let shape = match reader.u8()? {
+        WATER_SHAPE_RECT => WaterShape::Rect,
+        WATER_SHAPE_CIRCLE => WaterShape::Circle,
+        other => return Err(format!("unknown water volume shape code {other}")),
+    };
+    let radius = reader.f32()?;
+    if !radius.is_finite() {
+        return Err("water volume has a non-finite radius".to_string());
+    }
+    match shape {
+        WaterShape::Rect => {
+            if radius != 0.0 {
+                return Err("rectangular water volume carries a radius".to_string());
+            }
+        }
+        WaterShape::Circle => {
+            if radius <= 0.0 {
+                return Err("circular water volume radius must be positive".to_string());
+            }
+            // The bounding box and the radius describe one disc; a record
+            // whose box does not match a radius would make the drawn surface
+            // and the membership test disagree.
+            let diameter = 2.0 * radius;
+            if (x1 - x0 - diameter).abs() > 1.0e-3 || (z1 - z0 - diameter).abs() > 1.0e-3 {
+                return Err("circular water volume bounds do not match its radius".to_string());
+            }
+        }
     }
     let swimming = reader.bool()?;
     let material = match reader.u8()? {
@@ -8549,10 +9231,12 @@ fn read_water_volume(reader: &mut Reader<'_>) -> Result<WaterVolume, String> {
         other => return Err(format!("invalid water material marker {other}")),
     };
     Ok(WaterVolume {
+        shape,
         x0,
         x1,
         z0,
         z1,
+        radius,
         surface_y,
         bottom_y,
         material,

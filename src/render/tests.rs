@@ -4312,6 +4312,54 @@ fn test_gable_end_wall_follows_the_sloped_ceiling() {
     );
 }
 
+/// A gable room's eave wall (an X-axis wall parallel to the ridge) has a flat
+/// top at the eave ceiling, while the ceiling rises across the wall's own
+/// thickness. The ceiling must keep the strip its flat top does not reach, or
+/// the sloped ceiling stops at the wall's inner face above the wall top and
+/// leaves the classic open eave slot to the void.
+#[test]
+fn test_gable_eave_wall_keeps_the_ceiling_strip_its_flat_top_does_not_reach() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "gable_eave_wall",
+            "name": "Gable Eave Wall",
+            "spawn": { "x": 4.0, "z": 4.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } } ],
+            "walls": [
+                { "x": 0.0, "z": 7.7, "width": 8.0, "depth": 0.3 }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
+            ]
+        }"#,
+    )
+    .expect("gable eave wall json");
+    let mesh = build_level_geometry(&level);
+    let ceiling = batch_slice(&mesh, SurfaceKind::Ceiling);
+    assert!(!ceiling.is_empty());
+    // The wall's centre line is z = 7.85 (its flat top sits at the ceiling
+    // there): the covered strip is z 7.85..8.0, and it must stay drawn.
+    let strip = ceiling
+        .iter()
+        .filter(|vertex| vertex.pos[2] > 7.85 - 1e-4 && vertex.pos[2] <= 8.0 + 1e-4)
+        .count();
+    assert!(
+        strip > 0,
+        "the ceiling keeps the eave-wall strip its flat top cannot reach"
+    );
+    let max_z = ceiling
+        .iter()
+        .fold(f32::NEG_INFINITY, |acc, vertex| acc.max(vertex.pos[2]));
+    assert!(
+        (max_z - 8.0).abs() < 1e-3,
+        "the ceiling reaches the room's own edge: {max_z}"
+    );
+    // And nothing is drawn beyond the room.
+    assert!(max_z <= 8.0 + 1e-3);
+}
+
 #[test]
 fn test_vertical_diagnostic_geometry_has_no_degenerate_or_misoriented_faces() {
     let level = fixture_level("vertical_diagnostic");
@@ -6342,18 +6390,18 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
         .expect("linoleum");
     let carpet = logical.index_of("core:carpet_beige_01").expect("carpet");
     assert_eq!(
-        reflections[usize::from(wet)].mode,
+        reflections[usize::try_from(wet).unwrap_or(usize::MAX)].mode,
         ReflectionMode::Planar,
         "the wet deck is the demo's planar mirror"
     );
-    assert!(reflections[usize::from(wet)].strength > 0.0);
+    assert!(reflections[usize::try_from(wet).unwrap_or(usize::MAX)].strength > 0.0);
     assert_eq!(
-        reflections[usize::from(linoleum)].mode,
+        reflections[usize::try_from(linoleum).unwrap_or(usize::MAX)].mode,
         ReflectionMode::Probe,
         "polished linoleum reads a static probe"
     );
     assert_eq!(
-        reflections[usize::from(carpet)],
+        reflections[usize::try_from(carpet).unwrap_or(usize::MAX)],
         MaterialReflection::NONE,
         "an unmarked material must never reflect"
     );
@@ -6406,8 +6454,8 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
         linoleum_ranges > 0,
         "the demo must emit polished-linoleum ranges"
     );
-    assert!(routing.probe_for_material[usize::from(linoleum)]);
-    assert!(!routing.probe_for_material[usize::from(wet)]);
+    assert!(routing.probe_for_material[usize::try_from(linoleum).unwrap_or(usize::MAX)]);
+    assert!(!routing.probe_for_material[usize::try_from(wet).unwrap_or(usize::MAX)]);
     assert!(
         !routing.probe_points.is_empty(),
         "the demo's polished floors want a probe"
@@ -7450,16 +7498,17 @@ fn a_water_volume_honours_its_opacity_and_material() {
     }
 }
 
-/// The demo's pool is a real body of water: two adjacent volumes at one
-/// waterline, the basin and the submerged walk-in step.
+/// The demo's pool is a real body of water: two adjacent rectangular volumes
+/// at one waterline (the basin and the submerged walk-in step) plus the hot
+/// tub's circular volume.
 #[test]
 fn the_demo_authors_water_over_the_basin_and_the_walk_in_step() {
     let level = shipped_demo();
     let volumes = crate::level::WaterVolumes::from_level(&level);
     assert_eq!(
         volumes.len(),
-        2,
-        "the basin and the step are two adjacent volumes"
+        3,
+        "the basin, the step and the hot tub are three volumes"
     );
 
     let basin = &volumes.volumes()[0];
@@ -7488,14 +7537,30 @@ fn the_demo_authors_water_over_the_basin_and_the_walk_in_step() {
     );
     assert!((step.depth() - 0.2).abs() < 1e-6);
 
-    // The two volumes draw exactly two translucent quads.
+    let tub = &volumes.volumes()[2];
+    assert_eq!(tub.shape, crate::level::WaterShape::Circle);
+    assert_eq!(tub.center(), (3.6, 8.7), "the tub is centred on its shell");
+    assert!((tub.radius - 1.25).abs() < 1e-6, "the disc radius");
+    assert!((tub.surface_y + 1.65).abs() < 1e-6);
+    assert!((tub.bottom_y + 3.0).abs() < 1e-6);
+    assert!(tub.swimming);
+    assert!(!tub.contains(2.4, 7.5), "a bounding-box corner is dry");
+    assert!(tub.contains(4.6, 8.7), "the axis line is water");
+
+    // The volumes draw the two rectangles and the disc: two six-index quads
+    // plus one three-index fan segment per disc segment.
     let materials = logical_materials(&level);
     let water = materials
         .index_of(crate::level::DEFAULT_WATER_MATERIAL)
         .expect("the demo's water material resolves");
     let mesh = build_level_geometry(&level);
     let key = SurfaceKey::new(SurfaceKind::Floor, water);
-    assert_eq!(mesh.index_count_for_key(key), 12, "one quad per volume");
+    let expected = 2 * 6 + crate::render::common::water::WATER_DISC_SEGMENTS * 3;
+    assert_eq!(
+        mesh.index_count_for_key(key),
+        expected,
+        "two quads plus one fan segment per disc segment"
+    );
     let surface = mesh.triangles_for_key(key);
     for vertex in &surface {
         assert!((vertex.pos[1] + 1.65).abs() < 1e-6);
@@ -7689,6 +7754,7 @@ fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String>
         "home:wall_switch",
         "carved-pumpkin",
         "sheet-ghost",
+        "sheet-ghost-cat",
         "pumpkin-skeleton",
     ]
     .iter()
@@ -7706,11 +7772,11 @@ fn demo_claimed_model_paths(catalog: &crate::loader::PropCatalog) -> Vec<String>
 /// The shipped demo level places its skinned props, and the character path
 /// claims each model without touching the rest of the prop field.
 ///
-/// The demo places eleven animatable props: two skinned Spooner-Men (the pool
-/// route actor and the home encounter predator), the three Halloween entities
-/// the night route adds (a routed carved pumpkin, three routed sheet ghosts
-/// and a navigation-driven pumpkin skeleton) and four rigid (skinless) wall
-/// switches. A model with any unclaimed placement stays in the static batch;
+/// The demo places sixteen animatable props: two skinned Spooner-Men (the
+/// pool route actor and the home encounter predator), the night route's
+/// creatures (a routed carved pumpkin, three routed sheet ghosts, a routed
+/// ghost cat, a navigation-driven pumpkin skeleton and the three waiting
+/// house guards) and five rigid (skinless) wall switches. A model with any unclaimed placement stays in the static batch;
 /// here every placement of every one of those models is claimed.
 #[test]
 fn the_places_demo_level_places_its_animated_props_once() {
@@ -7721,7 +7787,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
     let mut assets = shipped_assets();
     let lighting = LevelLighting::bake(&level);
     let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 11, "the demo places eleven animatable props");
+    assert_eq!(scene.len(), 16, "the demo places sixteen animatable props");
     let mut ids: Vec<&str> = scene
         .characters()
         .iter()
@@ -7736,9 +7802,14 @@ fn the_places_demo_level_places_its_animated_props_once() {
             "night_ghost_a",
             "night_ghost_b",
             "night_ghost_c",
+            "night_ghost_cat",
+            "night_guard_a",
+            "night_guard_b",
+            "night_guard_c",
             "night_pumpkin",
             "night_skeleton",
             "rat_release_switch",
+            "sauna_steam_switch",
             "sauna_switch",
             "spooner_man",
             "spooner_man_home"
@@ -7751,8 +7822,8 @@ fn the_places_demo_level_places_its_animated_props_once() {
         .collect();
     assert_eq!(
         skinned.len(),
-        7,
-        "two skinned Spooner-Men and the five skinned night-route entities"
+        11,
+        "two skinned Spooner-Men, the five skinned night-route creatures and the three skinned house guards"
     );
     assert!(
         skinned
@@ -7765,7 +7836,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
         .iter()
         .filter(|character| character.animator().is_rigid())
         .collect();
-    assert_eq!(rigid.len(), 4, "four rigid animated props");
+    assert_eq!(rigid.len(), 5, "five rigid animated props");
     let mut rigid_ids: Vec<Option<&str>> = rigid
         .iter()
         .map(|character| character.instance_id())
@@ -7777,6 +7848,7 @@ fn the_places_demo_level_places_its_animated_props_once() {
             Some("hall_switch"),
             Some("kitchen_switch"),
             Some("rat_release_switch"),
+            Some("sauna_steam_switch"),
             Some("sauna_switch")
         ]
     );
@@ -9004,7 +9076,7 @@ fn a_switchable_fixture_owns_its_luminous_face_material() {
     )
     .expect("the switchable-fixture level parses");
     let mesh = build_level_geometry(&level);
-    let materials: Vec<u16> = mesh
+    let materials: Vec<u32> = mesh
         .ranges
         .iter()
         .filter(|range| range.key.kind == SurfaceKind::Light)
@@ -9198,12 +9270,23 @@ fn ceiling_lightmap_edges_stop_at_wall_air_faces_instead_of_buried_texels() {
     };
     let gable_build = lightmap_build(&gable, crate::quality::QualityLevel::High, LightmapMode::On);
     let gable_atlas = gable_build.lightmaps.as_ref().expect("gable atlas");
+    // A gable room's eave wall has a flat top at the eave while the ceiling
+    // rises across the wall's thickness: the chart may reach into the wall's
+    // footprint exactly as far as the ceiling is *above* the wall's top (that
+    // sliver is visible through the eave junction), but nothing may be charted
+    // below the wall top, where the surface would be buried in the wall.
     for (patch, _) in &gable_atlas.charts {
-        if patch.kind == crate::lighting::lightmap::PatchKind::Ceiling {
-            assert!(
-                patch.origin[2] >= 0.15 - 1.0e-6,
-                "ceiling-bounded gable wall must also exclude buried chart strip: {patch:?}"
-            );
+        if patch.kind != crate::lighting::lightmap::PatchKind::Ceiling {
+            continue;
+        }
+        for (u, v) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)] {
+            let point = patch.point_at(u, v);
+            if point[2] < 0.15 - 1.0e-6 {
+                assert!(
+                    point[1] >= 3.0 - 1.0e-6,
+                    "buried gable ceiling sample at {point:?}"
+                );
+            }
         }
     }
 
@@ -9273,4 +9356,391 @@ fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
             );
         }
     }
+}
+
+// ------------------------------------------------------------- void walls
+
+/// A void wall is emitted through the ordinary static mesh: six quads per
+/// face set (twelve for `both`), the authored material and the authored box
+/// extent. Nothing here is a fade or a black overlay.
+#[test]
+fn void_walls_emit_their_faces_as_ordinary_material_geometry() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "void_emit",
+            "name": "Void Emit",
+            "spawn": { "x": 4.0, "z": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
+            "void_walls": [
+                { "id": "shell", "min": [1.0, 0.0, 1.0], "max": [3.0, 4.0, 5.0],
+                  "material": "outdoor:dirt_gravel_01", "faces": "outward" },
+                { "id": "shell_in", "min": [6.0, 0.0, 1.0], "max": [8.0, 4.0, 5.0],
+                  "material": "outdoor:dirt_gravel_01", "faces": "inward" },
+                { "id": "both", "min": [1.0, 0.0, 7.0], "max": [3.0, 4.0, 9.0],
+                  "material": "outdoor:dirt_gravel_01", "faces": "both" }
+            ]
+        }"#,
+    )
+    .expect("valid void emit json");
+    let mesh = build_level_geometry(&level);
+    let gravel = material_vertices(&mesh, &level, "outdoor:dirt_gravel_01");
+    // Outward: 6 quads; inward: 6; both: 12. Each quad is 6 vertices.
+    assert_eq!(gravel.len(), (6 + 6 + 12) * 6);
+    let (min_x, max_x, min_z, max_z) = xz_bounds(&gravel);
+    assert_exact(min_x, 1.0);
+    assert_exact(max_x, 8.0);
+    assert_exact(min_z, 1.0);
+    assert_exact(max_z, 9.0);
+
+    // Every vertex carries the wall-family key, so the geometry batches with
+    // the static wall set (and joins the lightmap atlas through it).
+    let wall_vertices: Vec<Vertex> = batch_slice(&mesh, SurfaceKind::Wall);
+    assert!(
+        wall_vertices.len() >= gravel.len(),
+        "void walls are wall-kind geometry"
+    );
+
+    // The estimate is an upper bound on the emitted wall quads.
+    let estimate = level.estimate_geometry();
+    let emitted_wall_quads = wall_vertices.len() / 6;
+    assert!(
+        u64::try_from(emitted_wall_quads).unwrap_or(u64::MAX) <= estimate.wall_quads,
+        "{emitted_wall_quads} wall quads exceed the estimate {}",
+        estimate.wall_quads
+    );
+}
+
+/// A void wall marked `occludes` blocks baked light like a solid prop: a
+/// lamp's pool does not reach a floor sample behind the slab.
+#[test]
+fn an_occluding_void_wall_blocks_a_baked_light_pool() {
+    let build = |occludes: bool| {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "void_shade",
+                "name": "Void Shade",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 4.0, "height": 3.0 }} ],
+                "void_walls": [
+                    {{ "id": "slab", "min": [6.0, 0.0, 0.5], "max": [6.3, 3.0, 3.5],
+                       "material": "core:wallpaper_yellow_01", "occludes": {occludes} }}
+                ],
+                "ceiling_lights": [ {{ "fixture": "core:fluorescent_panel_01", "x": 4.5, "z": 2.0 }} ]
+            }}"#
+        ))
+        .expect("void shade level parses")
+    };
+    let lit_side = |occludes: bool| {
+        let level = build(occludes);
+        let lighting = LevelLighting::bake(&level);
+        lighting.sample_luminance(8.0, 0.5, 2.0)
+    };
+    let open = lit_side(false);
+    let shaded = lit_side(true);
+    assert!(
+        shaded < open * 0.8,
+        "the occluding slab must remove light from the sample behind it: \
+         open {open}, occluded {shaded}"
+    );
+}
+
+/// A 10 x 10 m room whose origin corner is `(0, 0)` with one ceiling fixture at
+/// `(0, 0)`, for the moving-object rule.
+fn one_fixture_room() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "moving_object_light",
+            "name": "Moving Object Light",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
+            "ceiling_lights": [ { "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 } ]
+        }"#,
+    )
+    .expect("one-fixture room parses")
+}
+
+/// One probe covering `position`, labelled with `room`.
+fn single_probe(
+    position: [f32; 3],
+    irradiance: [f32; 3],
+    room: i32,
+) -> crate::lighting::probes::ProbeField {
+    crate::lighting::probes::ProbeField {
+        min: [position[0] - 1.0, position[1] - 1.0, position[2] - 1.0],
+        cell_m: 2.0,
+        dims: [1, 1, 1],
+        probes: vec![crate::lighting::probes::ProbeSample {
+            irradiance,
+            direction: [0.0; 3],
+            axis: [0.5, 0.5],
+            room,
+        }],
+    }
+}
+
+/// The moving-object rule: the prepared field where it resolves, floored per
+/// channel at the level's authored environment response — a room's baseline
+/// inside it, the vertex-lit environment sample outside every room.
+#[test]
+fn the_moving_object_light_never_drops_below_the_authored_environment() {
+    use crate::render::common::light_transport::moving_object_light;
+    let level = one_fixture_room();
+    let lighting = LevelLighting::bake(&level);
+    let inside = [0.0_f32, 1.5, 0.0];
+    let room = lighting.room_index_at_height(inside[0], inside[1], inside[2]);
+    assert_eq!(room, Some(0), "the sample point is inside the room");
+    let baseline = lighting
+        .baseline_in_room(0, inside[0], inside[2])
+        .to_array();
+    assert!(
+        baseline[0] > crate::lighting::AMBIENT_LEVEL,
+        "the fixture raises the room's baseline above the ambient floor: {baseline:?}"
+    );
+
+    // The dark field the shipped night route's air field resembles: a resolved
+    // probe carrying no light. The entity must not fall below the authored
+    // environment response.
+    let dark = single_probe(inside, [0.0; 3], 0);
+    let raw = dark
+        .sample_display(inside, room)
+        .expect("the dark probe resolves");
+    assert!(raw[0] < 0.05, "the control field is effectively dark");
+    let lit = moving_object_light(&lighting, Some(&dark), inside);
+    for channel in 0..3 {
+        assert!(
+            (lit[channel] - baseline[channel]).abs() < 1.0e-6,
+            "channel {channel}: {lit:?} must equal the authored baseline {baseline:?}"
+        );
+    }
+
+    // A field that is brighter than the environment still wins.
+    let bright = single_probe(inside, [0.9; 3], 0);
+    let lit = moving_object_light(&lighting, Some(&bright), inside);
+    for channel in 0..3 {
+        assert!(
+            lit[channel] > 0.8 && lit[channel] > baseline[channel],
+            "channel {channel}: the prepared field must still carry the light"
+        );
+    }
+
+    // With no prepared field (the `off` variant) the rule is exactly the
+    // historical vertex-lit sample: Low's look is unchanged.
+    let historical = lighting.sample(inside[0], inside[1], inside[2]);
+    let lit = moving_object_light(&lighting, None, inside);
+    assert_eq!(lit, [historical.r, historical.g, historical.b]);
+}
+
+/// A roomless point has no prepared probe of its own: it reads the vertex-lit
+/// environment — the ambient floor plus the fixture pools it is inside — and
+/// never a neighbouring room's probe through the gap between the rooms.
+#[test]
+fn a_roomless_moving_object_reads_the_environment_not_a_rooms_probe() {
+    use crate::render::common::light_transport::moving_object_light;
+    let level = one_fixture_room();
+    let lighting = LevelLighting::bake(&level);
+    // The room spans x in 0..10, so x = -1.5 is in no room and still within the
+    // fixture's pool.
+    let outside = [-1.5_f32, 1.5, 5.0];
+    assert_eq!(
+        lighting.room_index_at_height(outside[0], outside[1], outside[2]),
+        None
+    );
+    let environment = lighting.sample(outside[0], outside[1], outside[2]);
+    let terms = lighting.bake_terms(outside[0], outside[1], outside[2]);
+    assert!(
+        environment.r > crate::lighting::AMBIENT_LEVEL,
+        "the roomless point is inside the fixture's pool: {environment:?}"
+    );
+    assert!(
+        terms.pool.r > 0.0,
+        "the fixture's contribution at the roomless point is real"
+    );
+
+    // A dark probe of the room next door must not be readable from here.
+    let neighbour_probe = single_probe([0.0, 1.5, 0.0], [0.0; 3], 0);
+    let lit = moving_object_light(&lighting, Some(&neighbour_probe), outside);
+    for channel in 0..3 {
+        assert!(
+            (lit[channel] - [environment.r, environment.g, environment.b][channel]).abs() < 1.0e-6,
+            "channel {channel}: {lit:?} must be the environment sample"
+        );
+    }
+}
+
+/// The shipped night route's routed entities are the regression this rule was
+/// written for: the prepared field there is near black, while the level's
+/// authored environment (and every static prop beside them) is lit.
+#[test]
+fn the_shipped_night_route_entities_are_floored_at_the_authored_baseline() {
+    use crate::render::common::light_transport::moving_object_light;
+    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("valid places_demo json");
+    let lighting = LevelLighting::bake(&level);
+    // The routed pumpkin / skeleton positions from the shipped level: both
+    // resolve to the night route's open-air room.
+    for (name, position) in [
+        ("pumpkin", [13.5_f32, 0.3_f32, -83.0_f32]),
+        ("skeleton", [9.6, 0.9, -52.0]),
+    ] {
+        let room = lighting
+            .room_index_at_height(position[0], position[1], position[2])
+            .unwrap_or_else(|| panic!("{name} resolves to a room"));
+        let baseline = lighting
+            .baseline_in_room(room, position[0], position[2])
+            .to_array();
+        assert!(
+            baseline[0] > crate::lighting::AMBIENT_LEVEL + 0.1,
+            "{name}: the night route has an authored ambience: {baseline:?}"
+        );
+        // The air field near both positions is near black (measured from the
+        // packaged `full` variant: 0.00-0.05), which is exactly what made the
+        // entities read 0-5/255 at Medium/High.
+        let dark = single_probe(position, [0.0; 3], i32::try_from(room).expect("room fits"));
+        let lit = moving_object_light(&lighting, Some(&dark), position);
+        for channel in 0..3 {
+            assert!(
+                (lit[channel] - baseline[channel]).abs() < 1.0e-6,
+                "{name} channel {channel}: {lit:?} must be the authored baseline {baseline:?}"
+            );
+        }
+        let raw = dark
+            .sample_display(position, Some(room))
+            .expect("the dark probe resolves");
+        assert!(raw[0] < 0.05, "{name}: the control field is dark");
+    }
+}
+// -------------------------------------------- 2026 widened material index
+
+/// One 4-vertex wall quad range carrying `material`.
+fn wide_material_quad(material: u32) -> LevelMeshRange {
+    LevelMeshRange {
+        key: SurfaceKey::new(SurfaceKind::Wall, material),
+        vertices: vec![
+            Vertex::new([0.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]),
+            Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]),
+            Vertex::new([1.0, 0.0, 1.0], [1.0; 4], [1.0, 1.0]),
+            Vertex::new([0.0, 0.0, 1.0], [1.0; 4], [0.0, 1.0]),
+        ],
+        indices: vec![0, 1, 2, 0, 2, 3],
+        bounds: crate::spatial::Aabb {
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 1.0, 1.0],
+        },
+    }
+}
+
+/// A level whose one wall's face map references `count` distinct ids.
+fn wide_material_level(count: u32) -> LevelDef {
+    let faces: Vec<String> = (0..count)
+        .map(|index| format!(r#""cap_face_{index}": "cap:mat_{index}""#))
+        .collect();
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "wide_material_mesh",
+            "name": "Wide Material Mesh",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }} ],
+            "walls": [ {{ "x": 0.0, "z": 2.0, "width": 4.0, "depth": 0.2,
+                          "material": "cap:wall_body", "faces": {{ {} }} }} ]
+        }}"#,
+        faces.join(",")
+    ))
+    .expect("the wide-material level parses")
+}
+
+/// Above the former 16-bit material boundary every range keeps its own index:
+/// the draw set batches without aliasing any material onto `MATERIAL_NONE`,
+/// no index is truncated, and every chunk stays inside the 16-bit index space.
+#[test]
+fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
+    use std::collections::HashSet;
+
+    use super::common::materials::MaterialRenderState;
+    use super::wgpu::world::pack_world_ranges;
+
+    // One past the former `u16` index space, and comfortably inside the
+    // explicit level material budget (`MAX_LEVEL_MATERIALS`, 131 072).
+    let material_count = 66_000_u32;
+    let level = wide_material_level(material_count);
+    let table = logical_materials(&level);
+    assert!(
+        table.len() >= material_count as usize,
+        "the table holds one entry per referenced id: {}",
+        table.len()
+    );
+    let state = MaterialRenderState::from_table(&table);
+
+    let ranges: Vec<LevelMeshRange> = (0..material_count).map(wide_material_quad).collect();
+    let vertex_count = ranges.iter().map(|range| range.vertices.len()).sum();
+    let index_count = ranges.iter().map(|range| range.indices.len()).sum();
+    let mesh = LevelMesh {
+        ranges,
+        batches: LevelMeshBatches::default(),
+        vertex_count,
+        index_count,
+    };
+
+    let (packer, draws) = pack_world_ranges(&mesh, &state);
+    assert_eq!(
+        draws.len(),
+        material_count as usize,
+        "every range must produce one drawable placement"
+    );
+    let used: HashSet<u32> = draws.iter().map(|draw| draw.material).collect();
+    assert_eq!(
+        used.len(),
+        material_count as usize,
+        "two materials must never share a draw slot"
+    );
+    assert!(
+        !used.contains(&MATERIAL_NONE),
+        "no range may alias the empty-material sentinel"
+    );
+    assert!(
+        used.contains(&material_count.saturating_sub(1)),
+        "the highest index must survive batching"
+    );
+
+    // The packer's chunks stay addressable with 16-bit indices, and no index
+    // is dropped: the two halves of the old failure (wrapping and truncation).
+    let mut packed_indices = 0_usize;
+    for chunk in &packer.chunks {
+        assert!(
+            chunk.vertices.len() <= crate::spatial::MAX_INDEX_VERTICES,
+            "a chunk may not exceed the 16-bit index space"
+        );
+        for index in &chunk.indices {
+            assert!(
+                (*index as usize) < chunk.vertices.len(),
+                "index {index} escapes its chunk"
+            );
+        }
+        packed_indices = packed_indices.saturating_add(chunk.indices.len());
+    }
+    assert_eq!(
+        packed_indices, mesh.index_count,
+        "every index must be packed exactly once"
+    );
+
+    // The renderer's material identities are one per material, and each draw
+    // resolves to its own entry (never a shared fallback).
+    let routing = crate::render::common::reflections::ReflectionRouting::default();
+    let (identities, per_draw) = super::wgpu::material::material_identities(&draws, &routing);
+    assert_eq!(identities.len(), material_count as usize);
+    assert_eq!(per_draw.len(), draws.len());
+    let above = material_count.saturating_sub(1);
+    let entry = table
+        .entry(above)
+        .expect("the index past the old boundary resolves");
+    let first = table.entry(0).expect("index zero resolves");
+    assert_ne!(entry.id, first.id, "neighbouring indices are distinct ids");
+    assert_eq!(
+        table.index_of(&entry.id),
+        Some(above),
+        "the id maps back to its own index"
+    );
 }

@@ -11,6 +11,8 @@ pub mod display;
 pub mod door;
 pub mod entities;
 pub mod entity;
+#[cfg(test)]
+mod fog_void_audit;
 pub mod font;
 pub mod game;
 pub mod geometry_check;
@@ -794,7 +796,12 @@ struct FrameLoop<'a> {
     presentation: PresentationState,
     trace: perf::loading::LoadTrace,
     actions: Option<perf::actions::Actions>,
-    applied_graphics_settings: Settings,
+    /// The graphics request that most recently failed to apply.
+    ///
+    /// The player's selection stands (it is never rewritten to hide a failed
+    /// transition); this only keeps the state-driven reconciliation from
+    /// retrying the same request every frame. An explicit selection clears it.
+    failed_graphics: Option<quality::GraphicsSpec>,
     /// The exact "Applying ..." hint currently owned by
     /// [`Self::refresh_graphics_status_hint`], so it is cleared only when it is
     /// still the message on screen.
@@ -1247,9 +1254,6 @@ impl FrameLoop<'_> {
     /// already resident, leaving the player, camera and pause state untouched.
     fn apply_pending_settings(&mut self) {
         let apply = self.settings.take_pending_apply();
-        if !apply.any() {
-            return;
-        }
         if apply.window
             && let Err(error) = self.apply_window_settings()
         {
@@ -1263,8 +1267,142 @@ impl FrameLoop<'_> {
             self.bench.set_reported_swap_interval(interval);
         }
         if apply.graphics {
-            self.rebuild_graphics_resources();
+            // An explicit graphics change is a fresh request: a previous
+            // failure of the same configuration must not hold it back, and a
+            // re-selection repairs a renderer that holds an older one.
+            self.failed_graphics = None;
+            self.schedule_graphics_transition();
         }
+        // State-driven: even with nothing pending, the requested configuration
+        // may differ from what the renderer holds (a commit that delivered an
+        // older configuration, a cancelled transition, a failed renderer
+        // apply). This schedules the outstanding work and is a handful of
+        // comparisons when there is none.
+        self.reconcile_graphics();
+    }
+
+    /// Reconciles the requested graphics configuration against the renderer.
+    ///
+    /// Runs every frame: a graphics transition is a non-blocking background
+    /// job, so the game loop is the one place that can guarantee the last
+    /// selection eventually wins. The decision itself is
+    /// [`quality::graphics_action`]; this only performs it on the live
+    /// systems.
+    fn reconcile_graphics(&mut self) {
+        let action = quality::graphics_action(
+            self.settings.graphics_spec(),
+            self.renderer.graphics_applied(),
+            self.renderer.staged_graphics(),
+            self.failed_graphics,
+            self.load_intent.is_some(),
+        );
+        match action {
+            quality::GraphicsAction::Settled => self.failed_graphics = None,
+            // An outstanding install of a superseded configuration would
+            // overwrite the configuration the player asked for again.
+            quality::GraphicsAction::CancelStale => {
+                if matches!(self.load_intent, Some(LoadIntent::Graphics)) {
+                    self.cancel_graphics_transition();
+                }
+            }
+            quality::GraphicsAction::Schedule => {
+                if self
+                    .load_intent
+                    .is_none_or(|intent| matches!(intent, LoadIntent::Graphics))
+                {
+                    self.schedule_graphics_transition();
+                }
+            }
+            quality::GraphicsAction::AwaitCommit | quality::GraphicsAction::Held => {}
+        }
+    }
+
+    /// Abandons an outstanding graphics transition, keeping the selection.
+    ///
+    /// Used when a newer selection makes the outstanding install stale. The
+    /// settings are untouched (the player asked for them), the renderer is
+    /// left holding the resident configuration, and the state-driven
+    /// reconciliation picks the remaining transition up on a later frame.
+    fn cancel_graphics_transition(&mut self) {
+        self.loader.cancel();
+        self.renderer.abort_graphics_request();
+        self.pending_commit = None;
+        self.load_intent = None;
+        self.load_source = None;
+        self.load_phase = None;
+        self.game.set_app_state(self.load_return_state);
+        self.ui_state.clear_status();
+        self.trace
+            .record("graphics_cancelled", self.load_generation, "");
+    }
+
+    /// Applies every changed graphics setting as one transaction, or schedules
+    /// the preparation it needs.
+    ///
+    /// The renderer records the requested configuration; this hands over the
+    /// level already resident and lets the renderer diff it against what is
+    /// applied. Filtering and Bloom cost no resource work, a quality change
+    /// re-fits the retained build, a Reflections change retires or creates the
+    /// probe/planar resources, and a Lightmaps change rebuilds the CPU level
+    /// once and fills an uncached atlas on a worker while the previous world
+    /// keeps rendering. The game world — player position, camera, pause state,
+    /// the `Game` struct — is not touched: this is a renderer reconfiguration,
+    /// not a level load.
+    fn schedule_graphics_transition(&mut self) {
+        // Any explicit schedule is a fresh attempt at the current request.
+        self.failed_graphics = None;
+        self.renderer.set_quality(self.settings.quality_level());
+        self.renderer
+            .set_lightmap_quality(self.settings.lightmap_quality());
+        self.renderer
+            .set_reflection_quality(self.settings.reflection_quality());
+        self.renderer
+            .set_bloom_enabled(self.settings.bloom_enabled());
+        self.renderer
+            .set_texture_filtering(self.settings.texture_filtering_preset());
+        if self.load_intent.is_none() && self.renderer.apply_frame_graphics() {
+            self.trace.record(
+                "settings_applied",
+                self.load_generation,
+                &serde_json::json!({
+                    "quality": self.settings.quality_level().name(),
+                    "lightmaps": self.settings.lightmap_quality().name(),
+                    "reflections": self.settings.reflection_quality().name(),
+                    "bloom": self.settings.bloom_enabled(),
+                    "filtering": self.settings.texture_filtering_preset(),
+                })
+                .to_string(),
+            );
+            return;
+        }
+        let source = self.load_source.clone().or_else(|| {
+            self.current_level
+                .as_ref()
+                .map(|level| loading::Source::retained(level.clone()))
+        });
+        let Some(source) = source else {
+            // Nothing to rebuild from: the request cannot be scheduled here.
+            // Hold it so the reconciliation does not retry every frame; the
+            // next world commit makes the request schedulable again.
+            self.failed_graphics = Some(self.settings.graphics_spec());
+            return;
+        };
+        let intent = self.load_intent.unwrap_or(LoadIntent::Graphics);
+        // The transition starts here: the harness measures settings changes
+        // from this mark to the completion mark (the world commit).
+        self.trace.record(
+            "settings_change",
+            self.load_generation,
+            &serde_json::json!({
+                "quality": self.settings.quality_level().name(),
+                "lightmaps": self.settings.lightmap_quality().name(),
+                "reflections": self.settings.reflection_quality().name(),
+                "bloom": self.settings.bloom_enabled(),
+                "filtering": self.settings.texture_filtering_preset(),
+            })
+            .to_string(),
+        );
+        self.request_load(source, intent);
     }
 
     /// Keeps the one-line "Applying ..." hint in step with the renderer.
@@ -1379,60 +1517,6 @@ impl FrameLoop<'_> {
         // that for a player resize (see `refresh_display_status`).
         self.window_apply_in_flight = true;
         Ok(())
-    }
-
-    /// Applies every changed graphics setting as one transaction.
-    ///
-    /// The renderer records the requested configuration; this hands over the
-    /// level already resident and lets the renderer diff it against what is
-    /// applied. Filtering and Bloom cost no resource work, a quality change
-    /// re-fits the retained build, a Reflections change retires or creates the
-    /// probe/planar resources, and a Lightmaps change rebuilds the CPU level
-    /// once and fills an uncached atlas on a worker while the previous world
-    /// keeps rendering. The game world — player position, camera, pause state,
-    /// the `Game` struct — is not touched: this is a renderer reconfiguration,
-    /// not a level load.
-    fn rebuild_graphics_resources(&mut self) {
-        // The transition starts here: the harness measures settings changes
-        // from this mark to the completion mark (the immediate apply below, or
-        // the world commit when a preparation is required).
-        self.trace.record(
-            "settings_change",
-            self.load_generation,
-            &serde_json::json!({
-                "quality": self.settings.quality_level().name(),
-                "lightmaps": self.settings.lightmap_quality().name(),
-                "reflections": self.settings.reflection_quality().name(),
-                "bloom": self.settings.bloom_enabled(),
-                "filtering": self.settings.texture_filtering_preset(),
-            })
-            .to_string(),
-        );
-        self.renderer.set_quality(self.settings.quality_level());
-        self.renderer
-            .set_lightmap_quality(self.settings.lightmap_quality());
-        self.renderer
-            .set_reflection_quality(self.settings.reflection_quality());
-        self.renderer
-            .set_bloom_enabled(self.settings.bloom_enabled());
-        self.renderer
-            .set_texture_filtering(self.settings.texture_filtering_preset());
-        if self.load_intent.is_none() && self.renderer.apply_frame_graphics() {
-            self.applied_graphics_settings = self.settings.clone();
-            self.trace
-                .record("settings_applied", self.load_generation, "immediate");
-            return;
-        }
-        let source = self.load_source.clone().or_else(|| {
-            self.current_level
-                .as_ref()
-                .map(|level| loading::Source::retained(level.clone()))
-        });
-        let Some(source) = source else {
-            return;
-        };
-        let intent = self.load_intent.unwrap_or(LoadIntent::Graphics);
-        self.request_load(source, intent);
     }
 
     /// Refreshes the actual window/display state the Display screen reports.
@@ -1622,8 +1706,13 @@ impl FrameLoop<'_> {
                 }
             }
             perf::actions::Action::Quality { level } => {
-                if let Some(quality) = quality::QualityLevel::parse(&level) {
-                    self.settings.set_quality(quality);
+                if let Some(quality) = quality::QualityLevel::parse(&level)
+                    && !self.settings.set_quality(quality)
+                {
+                    // The script asked for the configuration already stored:
+                    // still an explicit request, so it may repair a renderer
+                    // that holds an older one.
+                    self.settings.request_graphics_reapply();
                 }
             }
             perf::actions::Action::Lightmaps { quality } => {
@@ -1698,8 +1787,15 @@ impl FrameLoop<'_> {
                 }
             )
         {
-            self.cancel_loading();
-            return true;
+            // A graphics transition owns no screen and blocks nothing, so
+            // Escape backs out of whatever screen is showing (or resumes the
+            // game) and leaves the transition running; it must never rewrite
+            // the player's saved selection with a rolled-back value. A level
+            // load is still cancellable.
+            if !matches!(self.load_intent, Some(LoadIntent::Graphics)) {
+                self.cancel_loading();
+                return true;
+            }
         }
 
         // 1. If currently waiting for key rebinding in Settings
@@ -2059,10 +2155,13 @@ impl FrameLoop<'_> {
 
     /// True when the request already being prepared covers `source` exactly.
     ///
-    /// A completed-but-uploading install may only be reused while no GPU
-    /// setting changed since it was captured: the install uploads with the
-    /// configuration it recorded when it was created, so a changed quality,
-    /// reflection, bloom or filtering setting must issue a fresh request.
+    /// A staged GPU install may only be reused while the configuration it
+    /// recorded is still the requested one: the install uploads with the
+    /// configuration snapshot it took when staging started, so a selection made
+    /// meanwhile must supersede it instead of being coalesced into it. The
+    /// lightmap variant is part of that snapshot but is also carried by the
+    /// loader request, so it is checked separately while the CPU preparation is
+    /// still running.
     fn reuse_outstanding_preparation(
         &mut self,
         source: &loading::Source,
@@ -2071,7 +2170,11 @@ impl FrameLoop<'_> {
         if self.load_intent.is_none() || self.load_lightmaps != self.settings.lightmap_quality() {
             return false;
         }
-        if self.pending_commit.is_some() && self.gpu_settings_changed() {
+        if self
+            .renderer
+            .staged_graphics()
+            .is_some_and(|staged| staged != self.settings.graphics_spec())
+        {
             return false;
         }
         let Some(active_intent) = self.load_intent else {
@@ -2100,47 +2203,6 @@ impl FrameLoop<'_> {
         true
     }
 
-    /// True when an installed or uploading world's GPU configuration no longer
-    /// matches the current settings.
-    fn gpu_settings_changed(&self) -> bool {
-        self.settings.quality_level() != self.applied_graphics_settings.quality_level()
-            || self.settings.reflection_quality()
-                != self.applied_graphics_settings.reflection_quality()
-            || self.settings.bloom_enabled() != self.applied_graphics_settings.bloom_enabled()
-            || self.settings.texture_filtering_preset()
-                != self.applied_graphics_settings.texture_filtering_preset()
-    }
-
-    fn restore_applied_graphics(&mut self) {
-        if self.current_level.is_none() {
-            return;
-        }
-        let previous = &self.applied_graphics_settings;
-        self.settings.quality.clone_from(&previous.quality);
-        self.settings
-            .texture_filtering
-            .clone_from(&previous.texture_filtering);
-        self.settings.lightmaps.clone_from(&previous.lightmaps);
-        self.settings.reflections.clone_from(&previous.reflections);
-        self.settings.bloom = previous.bloom;
-        self.settings.overrides.quality = previous.overrides.quality;
-        self.settings.overrides.lightmaps = previous.overrides.lightmaps;
-        self.settings.overrides.reflections = previous.overrides.reflections;
-        self.settings.overrides.bloom = previous.overrides.bloom;
-        self.settings.pending.graphics = false;
-        self.renderer.set_quality(self.settings.quality_level());
-        self.renderer
-            .set_lightmap_quality(self.settings.lightmap_quality());
-        self.renderer
-            .set_reflection_quality(self.settings.reflection_quality());
-        self.renderer
-            .set_bloom_enabled(self.settings.bloom_enabled());
-        self.renderer
-            .set_texture_filtering(self.settings.texture_filtering_preset());
-        let _ = self.renderer.apply_frame_graphics();
-        self.save_settings();
-    }
-
     fn cancel_loading(&mut self) {
         // Before the first world exists, the outstanding preparation is the
         // only thing that can produce a usable background; cancelling it would
@@ -2148,14 +2210,24 @@ impl FrameLoop<'_> {
         if self.startup != StartupPhase::Ready {
             return;
         }
+        // A graphics transition is not a level load: it owns no screen, blocks
+        // nothing, and cancelling it used to rewrite the player's saved
+        // selection with the rolled-back value. Escape backs out of whatever
+        // screen is showing and leaves the transition running instead.
+        if matches!(self.load_intent, Some(LoadIntent::Graphics)) {
+            return;
+        }
         self.loader.cancel();
         self.trace
             .record("cancel_disposal_begin", self.load_generation, "");
         self.renderer.cancel_prepared_install();
+        self.renderer.abort_graphics_request();
         self.pending_commit = None;
         self.trace
             .record("cancel_disposal_end", self.load_generation, "");
-        self.restore_applied_graphics();
+        // The player's graphics selection is never rewritten or saved here: an
+        // outstanding change is re-scheduled by `reconcile_graphics` once this
+        // cancellation is complete.
         self.load_intent = None;
         self.load_source = None;
         self.load_phase = None;
@@ -2254,8 +2326,14 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// Handles one failed preparation: restores the last good configuration
-    /// and either retries the essential first world or returns to a screen.
+    /// Handles one failed preparation.
+    ///
+    /// A failed *graphics* transition keeps the player's selection: the saved
+    /// configuration is never rewritten to hide the failure (an unsupported
+    /// quality is an actionable message, not a silent rollback), the renderer
+    /// is left holding the resident configuration, and the failed request is
+    /// remembered so the reconciliation does not retry it every frame. A
+    /// failed *level* preparation still reveals the previous screen.
     fn recover_from_preparation_failure(&mut self, id: u64, error: &str) {
         if let (Some(actions), Some(source)) = (&self.actions, &self.load_source)
             && let Err(notify_error) = actions.notify(&format!("failed:{}", source.level_id()))
@@ -2263,13 +2341,35 @@ impl FrameLoop<'_> {
             self.fatal_error = Some(notify_error);
             self.game.stop();
         }
-        self.restore_applied_graphics();
+        let graphics = matches!(self.load_intent, Some(LoadIntent::Graphics));
+        if graphics {
+            let spec = self.settings.graphics_spec();
+            self.failed_graphics = Some(spec);
+            crate::logging::warn(format!(
+                "graphics change to {} did not apply: {error}",
+                spec.quality.label()
+            ));
+        }
+        self.renderer.abort_graphics_request();
         self.load_intent = None;
         self.load_source = None;
         self.trace_world("load_recovered");
         self.trace.record("failed", id, error);
-        self.ui_state
-            .set_status(format!("Could not load level: {error}"), true);
+        if graphics {
+            // The error names the package and what it provides, which is the
+            // actionable part: the selection stands and the player can pick a
+            // supported one.
+            self.ui_state.set_status(
+                format!(
+                    "Could not apply {}: {error}",
+                    self.settings.graphics_spec().quality.label()
+                ),
+                true,
+            );
+        } else {
+            self.ui_state
+                .set_status(format!("Could not load level: {error}"), true);
+        }
         // The initial world is what gives the menu its background, so a
         // failure here retries the default level once rather than leaving no
         // preparation and a black menu.
@@ -2357,7 +2457,11 @@ impl FrameLoop<'_> {
         if !matches!(intent, LoadIntent::Graphics) {
             self.presentation.pending_scene = Some(self.load_generation);
         }
-        self.applied_graphics_settings = self.settings.clone();
+        // What the renderer actually installed is the renderer's own answer,
+        // never an assumption that the current settings were applied: a commit
+        // can deliver an older configuration (an install that started before a
+        // newer selection). The state-driven reconciliation compares the
+        // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
         *self.current_level = Some(loaded);
         // The first committed world is the menu background; the normal menu
@@ -2853,6 +2957,32 @@ fn dispatch_geometry_cli(args: &[String]) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
+/// Headless player CLI: `places --list-levels` prints what discovery found and
+/// exits before any window is created.
+///
+/// One tab-separated row per playable entry: level id, source (`bundled`,
+/// `installed`, `embedded`) and package path (empty for the embedded fallback).
+/// The rows are the same list the Level Select menu builds, so a quiet startup
+/// from any working directory or a staged packaged layout can be checked
+/// without a display or a GPU. Returns true when the flag was handled.
+// Startup CLI output has no logger to route through.
+#[allow(clippy::print_stdout)]
+fn dispatch_list_levels_cli(args: &[String]) -> bool {
+    if !args.iter().any(|argument| argument == "--list-levels") {
+        return false;
+    }
+    let manager = loader::LevelManager::new();
+    for entry in manager.entries() {
+        println!(
+            "{}\t{}\t{}",
+            entry.id,
+            entry.source_type.label(),
+            entry.path.display()
+        );
+    }
+    true
+}
+
 /// Runs the Places player: window, renderer, discovery, loading and the frame loop.
 ///
 /// The library root exists so the offline compiler (`places-compile`) shares the
@@ -2865,6 +2995,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // or wgpu bootstrap, and it exits the process with its own status.
     let args: Vec<String> = std::env::args().skip(1).collect();
     dispatch_geometry_cli(&args)?;
+    if dispatch_list_levels_cli(&args) {
+        return Ok(());
+    }
     let mut trace = perf::loading::LoadTrace::new();
     trace.record("entry", 0, "");
     perf::startup_begin();
@@ -2906,7 +3039,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let capture_at_frame = capture_frame_from_env();
     let capture_at_seconds = capture_time_from_env();
 
-    let applied_graphics_settings = settings.clone();
     let initial_lightmaps = settings.lightmap_quality();
     let mut frame_loop = FrameLoop {
         window: &mut window,
@@ -2950,7 +3082,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         presentation: PresentationState::default(),
         trace,
         actions,
-        applied_graphics_settings,
+        failed_graphics: None,
         graphics_hint: None,
         nav_debug_dir: std::env::var_os("PLACES_NAV_DEBUG").map(PathBuf::from),
         nav_debug_age: 0,

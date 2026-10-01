@@ -1028,12 +1028,18 @@ impl Occluders {
         // The historical cell takes the historical derivation entry point, so a
         // HARD bake is bit-for-bit unchanged and `level_occluders` keeps a
         // production caller.
-        let props = if cell_m.to_bits() == super::tuning::PROP_OCCLUSION_CELL_M.to_bits() {
+        let mut props = if cell_m.to_bits() == super::tuning::PROP_OCCLUSION_CELL_M.to_bits() {
             super::occlusion::level_occluders(level, &surfaces)
         } else {
             super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m)
         };
         let prop_ranges = prop_occluder_ranges(level, &surfaces, cell_m, props.len());
+        // Void wall boxes marked `occludes` block baked light exactly like
+        // solid props: they join the prop occluder list (segment tests only),
+        // appended after every prop so the ranges above stay valid. A wall
+        // slab therefore shades its surroundings, while a horizontal floor
+        // plate never answers the wall-only point or partition queries.
+        append_void_wall_occluders(level, &mut props);
         Self {
             wall_grid: PointGrid::build(&walls, 0),
             walls,
@@ -1053,7 +1059,7 @@ impl Occluders {
             .filter(|(start, end)| end > start)
     }
 
-    /// Number of static prop occluder boxes.
+    /// Number of static prop and void-wall occluder boxes.
     #[must_use]
     pub(super) const fn prop_count(&self) -> usize {
         self.props.len()
@@ -1242,6 +1248,38 @@ impl Occluders {
             hash_f32(&mut hash, prop.cos);
         }
         hash
+    }
+}
+
+/// Contributes one axis-aligned occluder box per `occludes` void wall, in
+/// authored order, after every prop box.
+///
+/// The boxes join the prop occluder set deliberately: that set is a pure
+/// segment-test list, so a void wall blocks light and a fixture's pool exactly
+/// like a solid prop, while never answering the wall-only point-containment or
+/// partition queries — a horizontal floor plate would otherwise bury every
+/// light sample above it. Appending after the props keeps `prop_ranges` valid.
+fn append_void_wall_occluders(level: &LevelDef, out: &mut Vec<OrientedBox>) {
+    for piece in &level.void_walls {
+        if !piece.occludes {
+            continue;
+        }
+        let Some(boxed) = piece.resolved_box() else {
+            continue;
+        };
+        let center = [
+            f32::midpoint(boxed.min[0], boxed.max[0]),
+            f32::midpoint(boxed.min[1], boxed.max[1]),
+            f32::midpoint(boxed.min[2], boxed.max[2]),
+        ];
+        let half = [
+            (boxed.max[0] - boxed.min[0]) * 0.5,
+            (boxed.max[1] - boxed.min[1]) * 0.5,
+            (boxed.max[2] - boxed.min[2]) * 0.5,
+        ];
+        if let Some(oriented) = OrientedBox::new(center, half, 0.0) {
+            out.push(oriented);
+        }
     }
 }
 

@@ -3,9 +3,13 @@
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
+    clippy::arithmetic_side_effects,
     clippy::expect_used,
+    clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::suboptimal_flops
+    clippy::many_single_char_names,
+    clippy::suboptimal_flops,
+    clippy::unwrap_used
 )]
 
 use super::*;
@@ -229,7 +233,9 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         animated_emissions: Vec::new(),
         arc_walls: Vec::new(),
         pillars: Vec::new(),
+        void_walls: Vec::new(),
         geometry_intent: Vec::new(),
+        fog_regions: Vec::new(),
     };
     let estimate = level.estimate_geometry();
     // Values are clamped before multiplication, so no wrap-around occurs and
@@ -1348,6 +1354,339 @@ fn test_water_volumes_resolve_surface_bottom_and_the_dry_default() {
     );
 }
 
+/// A circular volume resolves as a disc: membership excludes the bounding box
+/// corners a square would wrongly include, the bottom samples the circle's own
+/// interior, and a swimmer's sample reports the round pool.
+#[test]
+fn test_circular_water_volumes_are_discs_not_bounding_boxes() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "round_pool",
+            "name": "Round Pool",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "floor_regions": [
+                { "x": 1.0, "z": 1.0, "width": 1.5, "depth": 1.5, "offset_y": -1.5 }
+            ],
+            "water": [
+                { "shape": "circle", "x": 2.0, "z": 2.0, "radius": 2.0,
+                  "surface_y": 0.5, "swimming": true }
+            ]
+        }"#,
+    )
+    .expect("circular water level");
+    let volumes = WaterVolumes::from_level(&level);
+    assert_eq!(volumes.len(), 1);
+    let volume = &volumes.volumes()[0];
+    assert_eq!(volume.shape, WaterShape::Circle);
+    assert_exact(volume.radius, 2.0);
+    assert_exact(volume.x0, 2.0);
+    assert_exact(volume.x1, 6.0);
+    assert_exact(volume.z0, 2.0);
+    assert_exact(volume.z1, 6.0);
+    assert_eq!(volume.center(), (4.0, 4.0));
+
+    // A square would include these four bounding box corners; the circle must
+    // not.
+    for (x, z) in [(2.0, 2.0), (6.0, 2.0), (6.0, 6.0), (2.0, 6.0)] {
+        assert!(
+            !volume.contains(x, z),
+            "a bounding box corner is not water: ({x}, {z})"
+        );
+        assert!(
+            volumes.sample(x, z, 0.0).is_none(),
+            "the swimmer's sample misses the corner: ({x}, {z})"
+        );
+        assert!(
+            volumes.surface_y_at(x, z).is_none(),
+            "the surface query misses the corner: ({x}, {z})"
+        );
+    }
+    // The centre and points strictly inside the disc are water; the rim
+    // itself (the wall line) is dry, which is what keeps the four bounding box
+    // axis extremes from reading as water.
+    for (x, z) in [(4.0, 4.0), (5.9, 4.0), (4.0, 2.1), (5.4, 5.4)] {
+        assert!(volume.contains(x, z), "inside the disc: ({x}, {z})");
+    }
+    for (x, z) in [(6.0, 4.0), (4.0, 2.0)] {
+        assert!(
+            !volume.contains(x, z),
+            "the rim is the wall line and is dry: ({x}, {z})"
+        );
+    }
+    let sample = volumes
+        .sample(4.0, 4.0, 0.2)
+        .expect("a swimming player's sample reports the circular volume");
+    assert_exact(sample.surface_y, 0.5);
+    assert!(sample.swimming);
+    assert_exact(volumes.surface_y_at(5.4, 5.4).expect("surface"), 0.5);
+
+    // The resolved bottom samples the disc's own interior. The only recessed
+    // region covers the (1.5, 1.5) bounding box corner, which is outside the
+    // circle: a corner-sampling implementation would resolve -1.0, the disc
+    // resolves the room's own floor.
+    assert_exact(volume.bottom_y, 0.0);
+
+    // A floating disc fits the round pool; one that would poke past the rim
+    // does not, however well it fits the bounding box.
+    assert!(volumes.contains_disc(4.0, 4.0, 1.5));
+    assert!(!volumes.contains_disc(5.4, 4.0, 0.8), "past the rim");
+    assert!(
+        volumes.contains_disc(4.0, 4.0, 2.0),
+        "the exact inscribed disc fits"
+    );
+}
+
+/// The first `fade` component of the level's first prop.
+fn first_fade(level: &LevelDef) -> &FadeDef {
+    let prop = level.props.first().expect("the level authors a prop");
+    prop.components
+        .iter()
+        .find_map(|component| {
+            if let ComponentDef::Fade(def) = component {
+                Some(def)
+            } else {
+                None
+            }
+        })
+        .expect("the prop authors a fade")
+}
+
+/// `fade` proximity fields: the radii activate the mode and the times resolve
+/// their documented defaults.
+#[test]
+fn test_fade_proximity_fields_resolve_defaults() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "fade_proximity",
+            "name": "Fade Proximity",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "props": [
+                { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                  "components": [ { "component": "fade", "near_radius": 3.0,
+                                    "far_radius": 6.0 } ] }
+            ]
+        }"#,
+    )
+    .expect("the proximity fade parses");
+    let fade = first_fade(&level);
+    let proximity = fade.proximity().expect("both radii activate the mode");
+    assert_exact(proximity.near_radius, 3.0);
+    assert_exact(proximity.far_radius, 6.0);
+    assert_exact(proximity.fade_out_seconds, DEFAULT_FADE_OUT_SECONDS);
+    assert_exact(proximity.fade_in_seconds, DEFAULT_FADE_IN_SECONDS);
+    assert_exact(fade.period_seconds, DEFAULT_FADE_PERIOD_SECONDS);
+    assert!(
+        fade.proximity()
+            .is_some_and(|proximity| proximity.far_radius > proximity.near_radius),
+        "the hysteresis band is positive"
+    );
+
+    // A partial contract is not a proximity fade.
+    let partial = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "fade_partial",
+            "name": "Fade Partial",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "props": [
+                { "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                  "components": [ { "component": "fade", "near_radius": 3.0 } ] }
+            ]
+        }"#,
+    )
+    .expect("a partial contract still parses");
+    assert!(
+        first_fade(&partial).proximity().is_none(),
+        "a lone near_radius is not a proximity fade"
+    );
+    // The loader rejects it by name; the parser alone is permissive.
+    let error = crate::loader::validate_level(&partial).expect_err("partial contract");
+    assert!(
+        error.contains("far_radius") && error.contains("near_radius"),
+        "the refusal names both radii: {error}"
+    );
+}
+
+/// Every malformed proximity contract is refused by name.
+#[test]
+fn test_fade_proximity_rejects_malformed_contracts() {
+    let cases = [
+        (
+            r#"{ "component": "fade", "near_radius": 6.0, "far_radius": 3.0 }"#,
+            "far_radius",
+            "an inverted band",
+        ),
+        (
+            r#"{ "component": "fade", "near_radius": 0.0, "far_radius": 3.0 }"#,
+            "near_radius",
+            "a zero near radius",
+        ),
+        (
+            r#"{ "component": "fade", "near_radius": 3.0, "far_radius": 6.0,
+                "fade_out_seconds": 601.0 }"#,
+            "fade_out_seconds",
+            "a fade time above the cap",
+        ),
+        (
+            r#"{ "component": "fade", "fade_in_seconds": 1.0 }"#,
+            "fade_in_seconds",
+            "a fade time without radii",
+        ),
+    ];
+    for (component, needle, label) in cases {
+        let level = LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "fade_case",
+                "name": "Fade Case",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }} ],
+                "props": [ {{ "id": "ghost", "model": "entity:sheet-ghost", "x": 2.0, "z": 2.0,
+                              "components": [ {component} ] }} ]
+            }}"#
+        ))
+        .expect("the case parses");
+        let error = crate::loader::validate_level(&level).expect_err(label);
+        assert!(error.contains(needle), "{label}: {error}");
+    }
+}
+
+/// The round-pool/proximity-fade fixture validates end to end and resolves
+/// the circular volume and the proximity fade the way the runtime does.
+#[test]
+fn test_round_pool_and_proximity_fade_fixture_validates() {
+    let level = LevelDef::from_json(include_str!(
+        "../../tests/fixtures/levels/round_pool_and_proximity_fade.json"
+    ))
+    .expect("the fixture parses");
+    crate::loader::validate_level(&level).expect("the fixture validates");
+
+    let volumes = WaterVolumes::from_level(&level);
+    assert_eq!(volumes.len(), 1);
+    let pool = &volumes.volumes()[0];
+    assert_eq!(pool.shape, WaterShape::Circle);
+    assert_eq!(pool.center(), (6.0, 6.0));
+    assert_exact(pool.radius, 2.0);
+    assert!(pool.contains(6.0, 6.0), "the centre is water");
+    assert!(
+        !pool.contains(4.0, 4.0),
+        "a bounding box corner is dry deck"
+    );
+    assert!(
+        volumes.contains_disc(6.0, 6.0, 0.1),
+        "the floating duck's disc fits the round pool"
+    );
+    assert!(
+        !volumes.contains_disc(7.9, 6.0, 0.2),
+        "a float drifting to the rim would not fit"
+    );
+
+    let cat = level
+        .props
+        .iter()
+        .find(|prop| prop.id.as_deref() == Some("proximity_cat"))
+        .expect("the fixture authors the ghost cat");
+    let fade = cat
+        .components
+        .iter()
+        .find_map(|component| {
+            if let ComponentDef::Fade(def) = component {
+                Some(def)
+            } else {
+                None
+            }
+        })
+        .expect("the cat authors a fade");
+    let proximity = fade.proximity().expect("the cat authors a proximity fade");
+    assert_exact(proximity.near_radius, 1.0);
+    assert_exact(proximity.far_radius, 2.2);
+    assert_exact(proximity.fade_out_seconds, 0.8);
+    assert_exact(proximity.fade_in_seconds, 1.6);
+}
+
+/// Water volume shapes: the loader accepts the documented rectangle and
+/// circle forms and refuses every malformed combination by name.
+#[test]
+fn test_water_shape_validation_names_bad_combinations() {
+    let level = |water: &str| {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "water_validation",
+                "name": "Water Validation",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }} ],
+                "water": [ {water} ]
+            }}"#
+        ))
+        .expect("the case parses")
+    };
+
+    // The documented forms validate.
+    crate::loader::validate_level(&level(
+        r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": 0.5 }"#,
+    ))
+    .expect("a rectangle validates");
+    crate::loader::validate_level(&level(
+        r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "radius": 2.0, "surface_y": 0.5 }"#,
+    ))
+    .expect("a circle with no width/depth validates");
+    crate::loader::validate_level(&level(
+        r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "width": 4.0, "depth": 4.0,
+            "radius": 2.0, "surface_y": 0.5 }"#,
+    ))
+    .expect("a circle may author its own bounding box verbatim");
+
+    let cases = [
+        (
+            r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "surface_y": 0.5 }"#,
+            "must author radius",
+            "a circle without a radius",
+        ),
+        (
+            r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "radius": 0.0, "surface_y": 0.5 }"#,
+            "radius must be a finite number greater than 0",
+            "a zero radius",
+        ),
+        (
+            r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "radius": -2.0, "surface_y": 0.5 }"#,
+            "radius must be a finite number greater than 0",
+            "a negative radius",
+        ),
+        (
+            r#"{ "shape": "circle", "x": 1.0, "z": 1.0, "width": 4.0, "radius": 1.5,
+                "surface_y": 0.5 }"#,
+            "must be absent or equal",
+            "a circle whose box contradicts its radius",
+        ),
+        (
+            r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "radius": 1.5,
+                "surface_y": 0.5 }"#,
+            "authors radius on a rectangle",
+            "a rectangle with a radius",
+        ),
+        (
+            r#"{ "x": 1.0, "z": 1.0, "depth": 2.0, "surface_y": 0.5 }"#,
+            "must author width",
+            "a rectangle without a width",
+        ),
+        (
+            r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "surface_y": 0.5 }"#,
+            "must author depth",
+            "a rectangle without a depth",
+        ),
+    ];
+    for (water, needle, label) in cases {
+        let error = crate::loader::validate_level(&level(water)).expect_err(label);
+        assert!(error.contains(needle), "{label}: {error}");
+    }
+}
+
 // ------------------------------------------------------- fixture grid alignment
 
 /// A synthetic catalog with a 2 m and a 1 m ceiling material, enough to resolve
@@ -2111,7 +2450,7 @@ fn the_switchable_fixture_material_base_starts_after_the_family_sheets() {
     // family were added without moving the base, a switchable fixture would
     // overwrite a family's sheet.
     assert_eq!(
-        usize::from(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE),
+        usize::try_from(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE).unwrap_or(usize::MAX),
         crate::lighting::FixtureKind::ALL.len()
     );
     assert_eq!(
@@ -2120,7 +2459,7 @@ fn the_switchable_fixture_material_base_starts_after_the_family_sheets() {
             false,
             crate::lighting::FixtureKind::WallSconce
         ),
-        u16::try_from(crate::lighting::FixtureKind::WallSconce.index()).expect("fits")
+        u32::try_from(crate::lighting::FixtureKind::WallSconce.index()).expect("fits")
     );
     assert_eq!(
         crate::level::fixture_face_material_index(
@@ -2255,4 +2594,439 @@ fn the_shipped_demo_counters_are_clear_above_their_tops() {
         counter_boxes, 6,
         "the counter run contributes four bases, the stove and the sink"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Regional fog
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fog_regions_parse_defaults_and_fogless_levels_serialize_without_the_key() {
+    let json = r#"{
+        "format_version": 3,
+        "id": "foggy",
+        "name": "Foggy",
+        "spawn": { "x": 0.0, "z": 0.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0 } ],
+        "fog_regions": [
+            { "id": "yard_mist", "min": [0.0, -2.0, 0.0], "max": [10.0, 1.0, 10.0],
+              "density": 0.05 },
+            { "id": "stack", "min": [0.0, 0.0, 0.0], "max": [4.0, 3.0, 4.0],
+              "density": 0.2, "color": [0.6, 0.63, 0.68], "falloff_m": 3.0,
+              "ground_y": 0.5, "top_y": 2.5 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("valid fog json");
+    assert_eq!(level.fog_regions.len(), 2);
+    let mist = &level.fog_regions[0];
+    assert_eq!(mist.id, "yard_mist");
+    assert_eq!(mist.min, [0.0, -2.0, 0.0]);
+    assert_eq!(mist.max, [10.0, 1.0, 10.0]);
+    assert_exact(mist.density, 0.05);
+    assert_eq!(mist.color, None);
+    assert_eq!(mist.falloff_m, None);
+    assert_eq!(mist.ground_y, None);
+    assert_eq!(mist.top_y, None);
+    let stack = &level.fog_regions[1];
+    assert_eq!(stack.color, Some([0.6, 0.63, 0.68]));
+    assert_exact(stack.falloff_m.unwrap(), 3.0);
+    assert_exact(stack.ground_y.unwrap(), 0.5);
+    assert_exact(stack.top_y.unwrap(), 2.5);
+
+    // The omitted optionals are not written back, so the level round-trips.
+    let encoded = serde_json::to_string(&level).expect("fog level serializes");
+    assert!(!encoded.contains("\"falloff_m\":null"));
+    assert!(!encoded.contains("\"ground_y\":null"));
+    assert!(!encoded.contains("\"top_y\":null"));
+    assert!(!encoded.contains("\"color\":null"));
+    assert!(encoded.contains("\"id\":\"yard_mist\""));
+
+    // A level with no regions keeps the key out of the serialized document
+    // entirely: fog-less levels and packages stay byte-identical.
+    let clean = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "clear",
+            "name": "Clear",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ]
+        }"#,
+    )
+    .expect("clear level parses");
+    let encoded = serde_json::to_string(&clean).expect("clear level serializes");
+    assert!(!encoded.contains("fog_regions"));
+    assert!(!encoded.contains("void_walls"));
+}
+
+// ---------------------------------------------------------------------------
+// Void walls
+// ---------------------------------------------------------------------------
+
+/// `10 x 10 x 10` box at the origin with every optional field default.
+fn test_void_wall(faces: VoidWallFaces) -> VoidWallDef {
+    VoidWallDef {
+        id: None,
+        min: [0.0, 0.0, 0.0],
+        max: [10.0, 10.0, 10.0],
+        material: "core:wallpaper_yellow_01".into(),
+        faces,
+        solid: true,
+        occludes: true,
+    }
+}
+
+/// `a - b`.
+fn sub3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+/// The right-handed normal of the first triangle of a quad.
+fn quad_normal(points: [[f32; 3]; 4]) -> [f32; 3] {
+    let edge_a = sub3(points[1], points[0]);
+    let edge_b = sub3(points[2], points[0]);
+    [
+        edge_a[1] * edge_b[2] - edge_a[2] * edge_b[1],
+        edge_a[2] * edge_b[0] - edge_a[0] * edge_b[2],
+        edge_a[0] * edge_b[1] - edge_a[1] * edge_b[0],
+    ]
+}
+
+/// The unit vector along `value`.
+fn normalized3(value: [f32; 3]) -> [f32; 3] {
+    let length = (value[0] * value[0] + value[1] * value[1] + value[2] * value[2]).sqrt();
+    [value[0] / length, value[1] / length, value[2] / length]
+}
+
+/// Two-sided Möller–Trumbore: the segment fraction `t` of a hit, or `None`.
+fn segment_triangle_t(
+    origin: [f32; 3],
+    direction: [f32; 3],
+    triangle: [[f32; 3]; 3],
+) -> Option<f32> {
+    let edge_a = sub3(triangle[1], triangle[0]);
+    let edge_b = sub3(triangle[2], triangle[0]);
+    let p = [
+        direction[1] * edge_b[2] - direction[2] * edge_b[1],
+        direction[2] * edge_b[0] - direction[0] * edge_b[2],
+        direction[0] * edge_b[1] - direction[1] * edge_b[0],
+    ];
+    let det = edge_a[0] * p[0] + edge_a[1] * p[1] + edge_a[2] * p[2];
+    if det.abs() < 1.0e-9 {
+        return None;
+    }
+    let inv = 1.0 / det;
+    let t_vec = sub3(origin, triangle[0]);
+    let u = (t_vec[0] * p[0] + t_vec[1] * p[1] + t_vec[2] * p[2]) * inv;
+    if !(-1.0e-6..=1.0 + 1.0e-6).contains(&u) {
+        return None;
+    }
+    let q = [
+        t_vec[1] * edge_a[2] - t_vec[2] * edge_a[1],
+        t_vec[2] * edge_a[0] - t_vec[0] * edge_a[2],
+        t_vec[0] * edge_a[1] - t_vec[1] * edge_a[0],
+    ];
+    let v = (direction[0] * q[0] + direction[1] * q[1] + direction[2] * q[2]) * inv;
+    if v < -1.0e-6 || u + v > 1.0 + 1.0e-6 {
+        return None;
+    }
+    let t = (edge_b[0] * q[0] + edge_b[1] * q[1] + edge_b[2] * q[2]) * inv;
+    (0.0..=1.0).contains(&t).then_some(t)
+}
+
+/// The nearest segment hit over a face list: `(face index, t, hit point)`.
+fn nearest_face_hit(
+    faces: &[VoidWallFace],
+    from: [f32; 3],
+    to: [f32; 3],
+) -> Option<(usize, [f32; 3])> {
+    let direction = sub3(to, from);
+    let mut best: Option<(usize, f32)> = None;
+    for (index, face) in faces.iter().enumerate() {
+        let triangles = [
+            [face.points[0], face.points[1], face.points[2]],
+            [face.points[0], face.points[2], face.points[3]],
+        ];
+        for triangle in triangles {
+            if let Some(t) = segment_triangle_t(from, direction, triangle)
+                && best.is_none_or(|(_, current)| t < current)
+            {
+                best = Some((index, t));
+            }
+        }
+    }
+    best.map(|(index, t)| {
+        (
+            index,
+            [
+                from[0] + direction[0] * t,
+                from[1] + direction[1] * t,
+                from[2] + direction[2] * t,
+            ],
+        )
+    })
+}
+
+/// True when some emitted face crosses `from -> to` with its front side
+/// towards `from` (the authored normal points back at the origin).
+fn front_facing_hit(faces: &[VoidWallFace], from: [f32; 3], to: [f32; 3]) -> bool {
+    let direction = sub3(to, from);
+    for face in faces {
+        let triangles = [
+            [face.points[0], face.points[1], face.points[2]],
+            [face.points[0], face.points[2], face.points[3]],
+        ];
+        for triangle in triangles {
+            let Some(t) = segment_triangle_t(from, direction, triangle) else {
+                continue;
+            };
+            let hit = [
+                from[0] + direction[0] * t,
+                from[1] + direction[1] * t,
+                from[2] + direction[2] * t,
+            ];
+            let to_origin = sub3(from, hit);
+            if face.normal[0] * to_origin[0]
+                + face.normal[1] * to_origin[1]
+                + face.normal[2] * to_origin[2]
+                > 0.0
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[test]
+fn void_wall_face_modes_carry_the_authored_winding_and_normal() {
+    let centre = [5.0, 5.0, 5.0];
+    for faces in [
+        VoidWallFaces::Inward,
+        VoidWallFaces::Outward,
+        VoidWallFaces::Both,
+    ] {
+        let piece = test_void_wall(faces);
+        let emitted = piece.faces();
+        assert_eq!(
+            emitted.len(),
+            if faces == VoidWallFaces::Both { 12 } else { 6 },
+            "{faces:?} emits one quad per face, two for both"
+        );
+        let mut inward = 0usize;
+        let mut outward = 0usize;
+        for face in &emitted {
+            // The winding normal is the authored normal.
+            let winding = normalized3(quad_normal(face.points));
+            for channel in 0..3 {
+                assert!(
+                    (winding[channel] - face.normal[channel]).abs() < 1.0e-5,
+                    "{faces:?} winding {winding:?} vs normal {:?}",
+                    face.normal
+                );
+            }
+            // The authored normal points into or out of the box.
+            let face_centre = [
+                (face.points[0][0] + face.points[1][0] + face.points[2][0] + face.points[3][0])
+                    * 0.25,
+                (face.points[0][1] + face.points[1][1] + face.points[2][1] + face.points[3][1])
+                    * 0.25,
+                (face.points[0][2] + face.points[1][2] + face.points[2][2] + face.points[3][2])
+                    * 0.25,
+            ];
+            let toward_centre = face.normal[0] * (centre[0] - face_centre[0])
+                + face.normal[1] * (centre[1] - face_centre[1])
+                + face.normal[2] * (centre[2] - face_centre[2]);
+            assert!(toward_centre.abs() > 1.0, "a box face is not central");
+            if toward_centre > 0.0 {
+                inward += 1;
+            } else {
+                outward += 1;
+            }
+        }
+        match faces {
+            VoidWallFaces::Inward => assert_eq!((inward, outward), (6, 0)),
+            VoidWallFaces::Outward => assert_eq!((inward, outward), (0, 6)),
+            VoidWallFaces::Both => assert_eq!((inward, outward), (6, 6)),
+        }
+    }
+}
+
+#[test]
+fn a_sight_ray_through_a_void_wall_is_blocked_and_front_facing_per_mode() {
+    let inside = [5.0, 5.0, 5.0];
+    let outside = [20.0, 5.0, 5.0];
+    for faces in [
+        VoidWallFaces::Inward,
+        VoidWallFaces::Outward,
+        VoidWallFaces::Both,
+    ] {
+        let piece = test_void_wall(faces);
+        let emitted = piece.faces();
+        // Both directions cross the +X face at x = 10: the surface blocks the
+        // sight line because it is real geometry.
+        let (from_inside, hit_inside) =
+            nearest_face_hit(&emitted, inside, outside).expect("inside ray crosses the shell");
+        assert!(
+            hit_inside[0] >= 9.99 && hit_inside[0] <= 10.01,
+            "{hit_inside:?}"
+        );
+        let (from_outside, hit_outside) =
+            nearest_face_hit(&emitted, outside, inside).expect("outside ray crosses the shell");
+        assert!(
+            hit_outside[0] >= 9.99 && hit_outside[0] <= 10.01,
+            "{hit_outside:?}"
+        );
+
+        // `both` is two coplanar quads per face, so the nearest-hit face is
+        // whichever duplicate the scan reaches first; the honest question is
+        // whether *a* front-facing quad exists on the hit plane from each side.
+        // The authored facing decides that: the engine shades both sides, so
+        // the mode is an orientation, not a visibility switch.
+        let inside_front = front_facing_hit(&emitted, inside, outside);
+        let outside_front = front_facing_hit(&emitted, outside, inside);
+        match faces {
+            VoidWallFaces::Inward => assert!(inside_front && !outside_front),
+            VoidWallFaces::Outward => assert!(!inside_front && outside_front),
+            VoidWallFaces::Both => assert!(inside_front && outside_front),
+        }
+        // The face each direction actually reaches is the +X plane either way.
+        assert_eq!(
+            from_inside, from_outside,
+            "{faces:?} duplicates are coplanar"
+        );
+        assert!(hit_inside[0] >= 9.99 && hit_inside[0] <= 10.01);
+        assert!(hit_outside[0] >= 9.99 && hit_outside[0] <= 10.01);
+    }
+}
+
+#[test]
+fn void_walls_parse_defaults_and_a_solid_box_reaches_collision() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3,
+            "id": "voided",
+            "name": "Voided",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 } ],
+            "void_walls": [
+                { "id": "yard_shell_north", "min": [-1.0, 0.0, -1.0], "max": [1.0, 3.0, 15.0],
+                  "material": "outdoor:dirt_gravel_01" },
+                { "min": [4.0, 0.0, 4.0], "max": [6.0, 4.0, 6.0],
+                  "material": "core:wallpaper_yellow_01", "faces": "outward",
+                  "solid": false, "occludes": false }
+            ]
+        }"#,
+    )
+    .expect("valid void json");
+    assert_eq!(level.void_walls.len(), 2);
+    let shell = &level.void_walls[0];
+    assert_eq!(shell.id.as_deref(), Some("yard_shell_north"));
+    assert_eq!(shell.faces, VoidWallFaces::Inward);
+    assert!(shell.solid && shell.occludes);
+    let plate = &level.void_walls[1];
+    assert_eq!(plate.id, None);
+    assert_eq!(plate.faces, VoidWallFaces::Outward);
+    assert!(!plate.solid && !plate.occludes);
+
+    // Only the `solid` box collides; the plate is sight-only.
+    let aabbs = level.collision_aabbs();
+    assert_eq!(aabbs.len(), 1, "one solid void wall");
+    assert_exact(aabbs[0].min_x, -1.0);
+    assert_exact(aabbs[0].max_x, 1.0);
+    assert_exact(aabbs[0].min_z, -1.0);
+    assert_exact(aabbs[0].max_z, 15.0);
+    assert_exact(aabbs[0].max_y, 3.0);
+
+    // The estimate still bounds what the emitter produces: six quads per
+    // face set, twelve for `both`.
+    let estimate = level.estimate_geometry();
+    assert!(
+        estimate.wall_quads >= 2 * MAX_VOID_WALL_QUADS,
+        "two void walls need at least {} wall quads, got {}",
+        2 * MAX_VOID_WALL_QUADS,
+        estimate.wall_quads
+    );
+
+    // Every optional default is omitted from the serialized form.
+    let encoded = serde_json::to_string(&level).expect("void level serializes");
+    assert!(!encoded.contains("\"faces\":\"inward\""));
+    assert!(!encoded.contains("\"solid\":true"));
+    assert!(!encoded.contains("\"occludes\":true"));
+    assert!(encoded.contains("\"faces\":\"outward\""));
+    assert!(encoded.contains("\"solid\":false"));
+}
+
+// --------------------------------------------- 2026 raised geometry budgets
+
+#[test]
+fn test_the_raised_floor_area_budget_accepts_its_limit_and_rejects_one_over() {
+    // One 8 000 m × 8 000 m room is exactly `MAX_LEVEL_FLOOR_AREA_M2`.
+    let build = |depth: f32| {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 3,
+                "id": "area_cap",
+                "name": "Area Cap",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 8000.0, "depth": {depth},
+                              "height": 3.5 }} ]
+            }}"#
+        ))
+        .expect("the area cap level parses")
+    };
+    let at_limit = build(8000.0);
+    assert_eq!(
+        at_limit.estimate_geometry().floor_area_m2,
+        MAX_LEVEL_FLOOR_AREA_M2,
+        "8 000 × 8 000 m must be exactly the raised area budget"
+    );
+    crate::loader::validate_level(&at_limit)
+        .expect("a level at the raised floor-area budget must validate");
+    let over = build(8001.0);
+    let error = crate::loader::validate_level(&over)
+        .expect_err("one square metre over the area budget must be rejected");
+    assert!(error.contains("floor area is too large"), "{error}");
+}
+
+#[test]
+fn test_the_raised_vertex_budget_rejects_an_over_budget_estimate() {
+    // The estimate's floor grid is cut by every patch and region edge, so a
+    // small room with the patch cap is a geometry-complexity case while its
+    // floor area stays tiny: exactly the shape the vertex budget refuses.
+    let patches: Vec<String> = (0..crate::level::MAX_LEVEL_FLOOR_PATCHES)
+        .map(|index| {
+            format!(
+                r#"{{ "x": {}, "z": {}, "width": 0.4, "depth": 0.4,
+                     "material": "core:carpet_beige_01" }}"#,
+                index % 100,
+                index / 100
+            )
+        })
+        .collect();
+    let level = LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 3,
+            "id": "vertex_cap",
+            "name": "Vertex Cap",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 1000.0, "depth": 1000.0,
+                          "height": 3.5 }} ],
+            "floor_patches": [{}]
+        }}"#,
+        patches.join(",")
+    ))
+    .expect("the vertex cap level parses");
+    let estimate = level.estimate_geometry();
+    assert!(
+        estimate.total_vertices > MAX_LEVEL_VERTICES,
+        "the cut-line estimate must exceed the raised vertex budget, got {}",
+        estimate.total_vertices
+    );
+    assert!(
+        estimate.floor_area_m2 <= MAX_LEVEL_FLOOR_AREA_M2,
+        "the case must be refused for its vertex estimate, not its area"
+    );
+    let error = crate::loader::validate_level(&level)
+        .expect_err("an over-budget geometry estimate must be rejected");
+    assert!(error.contains("geometry is too complex"), "{error}");
 }

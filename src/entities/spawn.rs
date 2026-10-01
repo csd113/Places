@@ -252,19 +252,37 @@ impl<'a> IntoIterator for &'a SpawnGroups {
 }
 
 /// The maximum spawn templates one level may author.
-pub const MAX_LEVEL_SPAWN_TEMPLATES: usize = 64;
+///
+/// Raised to 256 from 64: a template is one small authored record cloned at
+/// spawn, and the live-spawn budget below (not the template list) bounds what
+/// can exist at once.
+pub const MAX_LEVEL_SPAWN_TEMPLATES: usize = 256;
 
 /// The maximum spawn points one level may author.
-pub const MAX_LEVEL_SPAWN_POINTS: usize = 256;
+///
+/// Raised to 1024 from 256: a spawn point is a placement record; at most
+/// [`MAX_LIVE_SPAWNS`] spawned entities exist at once.
+pub const MAX_LEVEL_SPAWN_POINTS: usize = 1024;
 
 /// The maximum spawn groups one level may author.
-pub const MAX_LEVEL_SPAWN_GROUPS: usize = 64;
+///
+/// Raised to 256 from 64, matching the template budget.
+pub const MAX_LEVEL_SPAWN_GROUPS: usize = 256;
 
 /// The maximum number of entities spawned by actions and alive at once.
-pub const MAX_LIVE_SPAWNS: usize = 128;
+///
+/// Raised to 512 from 128. Each live spawn is one entity handle plus the
+/// runtime object the template instantiates; spawned skinned actors draw from
+/// the shared [`crate::render::MAX_CHARACTERS`] budget, so this list is the
+/// gameplay-side bound and characters are the render-side one.
+pub const MAX_LIVE_SPAWNS: usize = 512;
 
 /// The maximum number of spawn requests one tick may apply.
-pub const MAX_SPAWNS_PER_TICK: usize = 16;
+///
+/// Raised to 64 from 16: a tick that runs a sequence pushing a burst of
+/// spawns should drain the burst rather than half of it, and 64 instantiations
+/// per tick is bounded, deterministic work.
+pub const MAX_SPAWNS_PER_TICK: usize = 64;
 
 #[cfg(test)]
 mod tests {

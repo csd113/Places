@@ -206,10 +206,23 @@ pub enum SurfaceKind {
 /// that binds its own shared fallback sheet instead: the untextured white sheet
 /// for a light's metal housing, a prop placeholder box, or the diagnostic decal
 /// pattern.
-pub type MaterialIndex = u16;
+///
+/// The index is 32 bits wide. It was historically `u16`, which silently
+/// collapsed every level past 65 535 distinct materials onto
+/// [`MATERIAL_NONE`](crate::render::MATERIAL_NONE) — a level could
+/// *parse* with more materials than the type could address, and the extra ones
+/// drew the fallback sheet. `u32` matches the level's material budget
+/// ([`crate::level::MAX_LEVEL_MATERIALS`], 131 072) with four orders of
+/// magnitude of headroom, so the only bound that decides whether a material is
+/// addressable is the explicit, validated level cap.
+pub type MaterialIndex = u32;
 
 /// Sentinel material index for a key that does not bind a level material.
-pub const MATERIAL_NONE: MaterialIndex = u16::MAX;
+///
+/// `u32::MAX` is far outside any validated table
+/// ([`crate::level::MAX_LEVEL_MATERIALS`] bounds a level's material list), so
+/// a real material index can never collide with the sentinel.
+pub const MATERIAL_NONE: MaterialIndex = u32::MAX;
 
 /// Which surface a material id resolves against.
 ///

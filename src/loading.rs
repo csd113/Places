@@ -801,6 +801,11 @@ impl Loader {
 
 /// Decodes one package variant, resolving the embedded fallback's bytes when
 /// the entry is the embedded demo.
+///
+/// A package that does not declare the requested variant cannot serve it at
+/// any quality, so the error is the actionable one: it names the package, the
+/// variant it lacks and the variants it has, so the player can pick a
+/// supported Lightmaps setting instead of only seeing the load fail.
 fn load_entry_variant(
     entry: &LevelEntry,
     quality: LightmapQuality,
@@ -809,6 +814,7 @@ fn load_entry_variant(
     match entry.source_type {
         LevelSourceType::Embedded => {
             let opened = crate::package::world::open_bytes(crate::loader::embedded_demo_package())?;
+            ensure_variant_supported(entry, &opened.manifest, quality)?;
             load_variant_bytes(
                 crate::loader::embedded_demo_package(),
                 &opened.manifest,
@@ -818,9 +824,46 @@ fn load_entry_variant(
         }
         LevelSourceType::Bundled | LevelSourceType::Installed => {
             let opened = crate::package::world::open(&entry.path)?;
+            ensure_variant_supported(entry, &opened.manifest, quality)?;
             load_variant(&entry.path, &opened.manifest, quality, assets)
         }
     }
+}
+
+/// The actionable error for a package that cannot serve `quality`.
+///
+/// `Ok(())` when the variant exists. The message names the package, the
+/// missing variant and every variant the package does provide, including the
+/// compiler command that would add it, because an unsupported selection is a
+/// content fact the player has to be told about — never a reason to silently
+/// rewrite the selection.
+fn ensure_variant_supported(
+    entry: &LevelEntry,
+    manifest: &crate::package::manifest::Manifest,
+    quality: LightmapQuality,
+) -> Result<(), String> {
+    if manifest.variant(quality.name()).is_some() {
+        return Ok(());
+    }
+    let available: Vec<&str> = manifest
+        .variants
+        .iter()
+        .map(|variant| variant.lightmap_quality.as_str())
+        .collect();
+    let available = if available.is_empty() {
+        "none".to_string()
+    } else {
+        available.join(", ")
+    };
+    Err(format!(
+        "package '{}' ({}) has no '{}' lightmap variant; it provides {}. \
+         Choose a Lightmaps setting it provides, or rebuild it with \
+         'places-compile build <source> --variants off,medium,full'",
+        manifest.id,
+        entry.path.display(),
+        quality.name(),
+        available
+    ))
 }
 
 #[cfg(test)]
@@ -1201,6 +1244,68 @@ mod tests {
             std::thread::yield_now();
         }
         assert!(worker.join_finished().expect("joined"));
+    }
+
+    /// A package that declares only the `off` variant can never serve Medium or
+    /// Full. The failure is the actionable message that names the package, the
+    /// variant it lacks and what it does provide — never a silent rewrite of
+    /// the player's selection (the caller keeps the request and reports this).
+    #[test]
+    fn an_unsupported_variant_names_the_package_and_what_it_provides() {
+        use crate::package::manifest::{Manifest, Variant, VariantEntries};
+        let variant = |quality: &str| Variant {
+            lightmap_quality: quality.to_string(),
+            quality_profile: "low".to_string(),
+            lightmap_failure: None,
+            entries: VariantEntries {
+                mesh: "blobs/mesh".to_string(),
+                props: "blobs/props".to_string(),
+                lighting: "blobs/lighting".to_string(),
+                collision: "blobs/collision".to_string(),
+                navigation: "blobs/navigation".to_string(),
+                lightmaps: None,
+                lightmaps_meta: None,
+                irradiance: None,
+                probes: Vec::new(),
+            },
+        };
+        let manifest = Manifest {
+            package_format: crate::package::FORMAT_VERSION,
+            id: "stripped_fixture".to_string(),
+            name: "Stripped Fixture".to_string(),
+            author: String::new(),
+            created_by: "lane-c-test".to_string(),
+            compiler_fingerprint: "off-only".to_string(),
+            lighting_fingerprint: None,
+            required_capabilities: vec!["geometry".to_string(), "lighting".to_string()],
+            dependencies: Vec::new(),
+            entries: Vec::new(),
+            variants: vec![variant("off"), variant("medium")],
+        };
+        let entry = LevelEntry {
+            id: "stripped_fixture".to_string(),
+            name: "Stripped Fixture".to_string(),
+            author: String::new(),
+            source_type: LevelSourceType::Installed,
+            path: std::path::PathBuf::from("/levels/stripped_fixture.placesmap"),
+        };
+        // What the package declares is supported.
+        assert!(ensure_variant_supported(&entry, &manifest, LightmapQuality::Off).is_ok());
+        assert!(ensure_variant_supported(&entry, &manifest, LightmapQuality::Medium).is_ok());
+        // What it does not declare is the actionable message.
+        let error = ensure_variant_supported(&entry, &manifest, LightmapQuality::Full)
+            .expect_err("full is not declared");
+        assert!(error.contains("stripped_fixture"), "{error}");
+        assert!(
+            error.contains("/levels/stripped_fixture.placesmap"),
+            "{error}"
+        );
+        assert!(error.contains("'full'"), "{error}");
+        assert!(
+            error.contains("off, medium"),
+            "it lists what it has: {error}"
+        );
+        assert!(error.contains("--variants"), "it is actionable: {error}");
     }
 }
 

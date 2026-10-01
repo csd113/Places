@@ -1231,10 +1231,11 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         # The demonstration objects and the level's door leaves/frames belong to
         # the level that spawned them: the boot demo spawns the drum, the
-        # floating rubber duck and six doors (frame + leaf each: the four
-        # interior doors plus the front and destination doorways the night
-        # route added), and replacing the level must clear the neutral dynamic
-        # scene instead of carrying it into the new level.
+        # floating rubber duck and seven doors (frame + leaf each: the four
+        # interior doors, the additional sauna hallway leaf, and the front and
+        # destination doorways the night route added), and replacing the level
+        # must clear the neutral dynamic scene instead of carrying it into the
+        # new level.
         dynamic_counts = [
             tuple(map(int, match.groups()))
             for match in re.finditer(
@@ -1245,8 +1246,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(len(dynamic_counts), 2, output)
         self.assertEqual(
             dynamic_counts[0][:2],
-            (14, 22),
-            "the demo's drum, floating duck and six door frames and leaves",
+            (16, 26),
+            "the demo's drum, floating duck and seven door frames and leaves",
         )
         self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
         self.assertEqual(

@@ -141,7 +141,7 @@ pub struct MaterialResponse {
     /// Optional normal-map texture, as an index into the owner's texture list
     /// (the material table for level materials). `None` means the geometric
     /// normal alone.
-    pub normal: Option<u16>,
+    pub normal: Option<u32>,
     /// Multiplier applied to the normal map's decoded `xy`, `0.0..=2.0`.
     pub normal_strength: f32,
     /// Sheen colour: a scalar strength premultiplied by white, or an authored
@@ -163,7 +163,7 @@ impl MaterialResponse {
 
     /// A response with a normal map and no sheen.
     #[must_use]
-    pub const fn with_normal(normal: Option<u16>, normal_strength: f32) -> Self {
+    pub const fn with_normal(normal: Option<u32>, normal_strength: f32) -> Self {
         Self {
             normal,
             normal_strength,

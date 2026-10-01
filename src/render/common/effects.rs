@@ -523,7 +523,7 @@ fn resolve_effect_material(
     entry.image.as_ref()?;
     let texture = materials
         .textures()
-        .get(usize::from(entry.texture_index))?
+        .get(usize::try_from(entry.texture_index).unwrap_or(usize::MAX))?
         .clone();
     let slot = if let Some(index) = textures
         .iter()
@@ -869,16 +869,39 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_demo_resolves_both_sauna_plumes() {
+    fn the_shipped_demo_resolves_its_authored_plumes() {
         let level = LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
             .expect("the shipped demo parses");
         let materials = materials(&level);
         let scene = EffectScene::build(&level, &materials);
-        assert_eq!(scene.len(), 2, "the demo authors two steam emitters");
-        assert_eq!(scene.particle_count(), 44);
+        // The demo authors the two sauna plumes first, then the hot tub's
+        // gentle surface haze; every one of them resolves.
+        assert!(
+            scene.len() >= 2,
+            "the demo authors at least the two sauna plumes"
+        );
+        let sauna: Vec<&EffectEmitter> = scene
+            .emitters()
+            .iter()
+            .filter(|emitter| emitter.authored_index < 2)
+            .collect();
+        assert_eq!(sauna.len(), 2, "the sauna pair is authored first");
+        assert!(
+            sauna.iter().all(|emitter| !emitter.enabled),
+            "the sauna plumes start off until their switch enables them"
+        );
+        assert_eq!(
+            sauna.iter().map(|emitter| emitter.count).sum::<usize>(),
+            44,
+            "the pair's authored particle budget"
+        );
         assert_eq!(scene.textures().len(), 1, "both default to core:steam_01");
         assert_eq!(scene.draw_groups().len(), 1, "one material is one draw");
-        assert_eq!(scene.draw_groups()[0].particles, 44);
+        assert_eq!(
+            scene.draw_groups()[0].particles,
+            scene.particle_count(),
+            "the enabled plumes form one contiguous draw"
+        );
     }
 
     // ---------------------------------------------------------------- budget
@@ -950,6 +973,107 @@ mod tests {
                 assert!(pose.alpha >= 0.0 && pose.alpha <= 1.0);
                 assert!(pose.size >= emitter.size);
             }
+        }
+    }
+
+    /// The bounds hold at every clock, including with a large drift and a
+    /// non-lattice time step: the centre stays inside the authored
+    /// width/depth/height box plus the drift, and nothing ever goes non-finite.
+    #[test]
+    fn drift_keeps_every_centre_inside_the_authored_bounds_at_every_clock() {
+        let mut effect = steam_effect(3.0, 3.0);
+        effect["drift"] = json!(0.6);
+        effect["count"] = json!(MAX_EFFECT_PARTICLES);
+        let scene = scene(&[effect]);
+        let emitter = &scene.emitters()[0];
+        let max_x = emitter.width.mul_add(0.5, emitter.drift) + 1.0e-3;
+        let max_z = emitter.depth.mul_add(0.5, emitter.drift) + 1.0e-3;
+        let mut seconds = 0.0_f32;
+        for _ in 0..1_500 {
+            // An irrational-ish step so the sampling never aligns with a
+            // particle's life or drift phase.
+            seconds += 0.013_717;
+            for particle in 0..emitter.count {
+                let pose = particle_pose(emitter, seconds, particle);
+                let [x, y, z] = pose.position;
+                assert!(pose.position.iter().all(|value| value.is_finite()));
+                assert!(
+                    (x - emitter.base[0]).abs() <= max_x,
+                    "x escaped at t={seconds}: {x}"
+                );
+                assert!(
+                    (z - emitter.base[2]).abs() <= max_z,
+                    "z escaped at t={seconds}: {z}"
+                );
+                assert!(
+                    y >= emitter.base[1] - 1.0e-3 && y <= emitter.base[1] + emitter.height + 1.0e-3,
+                    "y escaped at t={seconds}: {y}"
+                );
+                assert!(pose.alpha.is_finite() && (0.0..=1.0).contains(&pose.alpha));
+                assert!(pose.size.is_finite() && pose.size >= emitter.size);
+            }
+        }
+    }
+
+    /// Disabling an emitter is an instant clear: it draws nothing at every
+    /// clock, and re-enabling it draws the same stateless pose the clock
+    /// implies — there is no lingering plume to fade out.
+    #[test]
+    fn a_disabled_emitter_draws_nothing_and_re_enables_at_the_live_clock() {
+        let mut scene = one_emitter();
+        assert_eq!(scene.particle_count(), scene.emitters()[0].count);
+        assert!(scene.vertex_count() > 0);
+        assert_eq!(scene.draw_groups().len(), 1);
+        let mut vertices = Vec::new();
+        let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
+        assert!(drawn > 0 && !vertices.is_empty());
+
+        // Disable: nothing draws, no group is submitted, from any clock.
+        assert!(scene.set_enabled(0, false));
+        assert_eq!(scene.particle_count(), 0);
+        assert_eq!(scene.vertex_count(), 0);
+        assert!(scene.draw_groups().is_empty());
+        for clock in [0.0, 1.0, 30.0, 1_000.0] {
+            scene.update(clock);
+            let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
+            assert_eq!(drawn, 0, "a disabled emitter draws nothing at {clock}s");
+            assert!(
+                vertices.is_empty(),
+                "a disabled emitter leaves no vertices at {clock}s"
+            );
+        }
+        // The state change is reported once, not per frame.
+        assert!(!scene.set_enabled(0, false), "already disabled");
+        assert!(!scene.set_enabled(99, true), "no such emitter");
+
+        // Re-enable: the very next evaluation is the live clock's pose, with
+        // no leftover particles or fade-in from nowhere.
+        assert!(scene.set_enabled(0, true));
+        assert_eq!(scene.particle_count(), scene.emitters()[0].count);
+        assert_eq!(scene.draw_groups().len(), 1);
+        let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
+        assert_eq!(
+            drawn,
+            scene.particle_count(),
+            "every particle draws again on the re-enable frame"
+        );
+        // The four corners of the first billboard average to its centre, which
+        // is the live clock's pose: no restart at zero and no fade-in.
+        let expected = particle_pose(&scene.emitters()[0], 1_000.0, 0);
+        let centre = vertices[..4].iter().fold([0.0_f32; 3], |total, vertex| {
+            [
+                vertex.position[0].mul_add(0.25, total[0]),
+                vertex.position[1].mul_add(0.25, total[1]),
+                vertex.position[2].mul_add(0.25, total[2]),
+            ]
+        });
+        for axis in 0..3 {
+            assert!(
+                (centre[axis] - expected.position[axis]).abs() < 1.0e-5,
+                "axis {axis}: {:?} vs {:?}",
+                centre,
+                expected.position
+            );
         }
     }
 

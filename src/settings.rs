@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
+use crate::quality::{GraphicsSpec, LightmapQuality, QualityLevel, ReflectionQuality};
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
 
@@ -1126,6 +1126,39 @@ impl Settings {
     #[must_use]
     pub fn take_pending_apply(&mut self) -> SettingsApply {
         std::mem::take(&mut self.pending)
+    }
+
+    /// The effective graphics configuration as one comparable value.
+    ///
+    /// Every field is read through its effective getter, so a startup override
+    /// is included (that is what the process is really running with), and the
+    /// filtering name is canonicalised through
+    /// [`texture_filtering_preset`](Self::texture_filtering_preset). This is
+    /// the requested side of the game loop's settled-state comparison; the
+    /// renderer answers with the same projection for what it holds.
+    #[must_use]
+    pub fn graphics_spec(&self) -> GraphicsSpec {
+        GraphicsSpec {
+            quality: self.quality_level(),
+            filtering: self.texture_filtering_preset(),
+            bloom: self.bloom_enabled(),
+            lightmaps: self.lightmap_quality(),
+            reflections: self.reflection_quality(),
+        }
+    }
+
+    /// Records that the player asked for the current graphics configuration
+    /// again.
+    ///
+    /// Re-selecting a value is not a value change, but it is still an explicit
+    /// request: after a transition failed or was cancelled, the renderer may
+    /// hold a different configuration than the menu shows, and a re-selection
+    /// is the player asking for it to be applied. The game loop treats a
+    /// recorded graphics apply as a fresh request (it clears a previous
+    /// failure) and compares the request against what the renderer holds, so
+    /// this repairs the desync without touching the saved value.
+    pub const fn request_graphics_reapply(&mut self) {
+        self.pending.graphics = true;
     }
 
     /// Saves settings to a JSON file.

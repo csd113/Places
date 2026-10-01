@@ -8,6 +8,12 @@ around a real doorway, and a faint-star sky above an open-ceiling room. A
 closed shed on the east side is the indoor control: it has a real ceiling, so
 the sky can never leak through it, and its doorway looks back onto the yard.
 
+The expanded kit's yard sits in the yard's south-east quarter: the three tree
+models (leafy, birch, conifer), two streetlights whose heads reach over the
+dirt path, five assembled facade shells (each family's doorway front, window
+side, gable, roof slopes, ridge, corner boards and porch deck with posts) and
+a porch railing run with a 90 degree corner and two terminals.
+
 The fixture is deterministic and derived from the real tools:
 
 * grass placements come from ``tools/levels/scatter_grass.py`` (the same
@@ -25,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -53,7 +60,7 @@ GRASS_DENSE = (3.0, 3.0, 5.0, 4.5)
 #: Seed per profile: fixed, so the fixture is byte-stable.
 SEEDS = {"low": 21, "medium": 22, "dense": 23}
 #: Rectangles no grass may enter: path, walkway, house, shed, fence run, lamps,
-#: tree trunk and the spawn.
+#: tree trunk, spawn and the expanded kit's shells, trees and streetlights.
 KEEP_OUTS = [
     (9.2, 4.2, 1.6, 14.4),   # dirt path
     (8.0, 1.6, 4.0, 2.6),    # concrete walkway
@@ -66,7 +73,154 @@ KEEP_OUTS = [
     (13.1, 3.3, 0.6, 0.6),   # stand lamp
     (5.0, 5.0, 1.0, 1.0),    # tree trunk
     (9.4, 15.4, 1.2, 1.2),   # spawn
+    # --- the expanded outdoor kit's yard -----------------------------------
+    (11.4, 13.9, 11.2, 5.5),  # three assembled facade shells, south row
+    (16.6, 5.6, 7.6, 5.5),    # two assembled facade shells, north row
+    (3.1, 11.7, 1.0, 1.0),    # birch trunk (outdoor:tree_02)
+    (5.5, 15.7, 1.0, 1.0),    # conifer trunk (outdoor:tree_03)
+    (11.2, 12.9, 0.6, 0.6),   # streetlight at the street's west end
+    (24.3, 12.7, 0.6, 0.6),   # streetlight at the street's east end
 ]
+
+# ------------------------------------------------------------- kit yard
+#
+# The second kit's reference assembly: five facade shells (walls, gable, two
+# roof slopes, ridge, corner trims and a porch deck with posts), the two new
+# trees, two streetlights and a porch railing run with both a corner and an
+# end. Every placement below is the convention the prop notes document:
+#
+# * a shell is a 3 m bay with 3 m returns; its front and back walls carry the
+#   gable, the two roof slopes are rotated +/-90 degrees with their eave at
+#   local x = +/-1.31 and their origin 1.98 m above the floor (the roof plane
+#   then passes through the 2.7 m wall top at x = 1.62 and the gable apex at
+#   x = 0), and the ridge cap seats 0.22 m under that plane;
+# * the porch deck's origin sits 0.75 m out from the wall face and the two
+#   porch posts stand at the deck's front corners;
+# * a railing run starts 0.15 m out from a corner's module point, and each
+#   leg ends in a terminal piece whose newel closes the run.
+
+KIT_SHELLS = (
+    # Two rows facing each other across a 3.5 m street: the south row (01-03)
+    # faces north, the north row (04-05) faces south, so every porch is
+    # visible from the street between them.
+    ("01", 13.2, 17.4, 180.0),
+    ("02", 16.8, 17.4, 180.0),
+    ("03", 20.4, 17.4, 180.0),
+    ("04", 18.6, 7.6, 0.0),
+    ("05", 22.2, 7.6, 0.0),
+)
+
+#: The yaw of each shell's four walls and two gables, in shell-local degrees.
+_SHELL_FRONT, _SHELL_BACK = 0.0, 180.0
+_SHELL_EAST, _SHELL_WEST = 90.0, 270.0
+#: Corner board rotation per local corner: its outer faces look at -X/-Z, so
+#: the four corners need 0/90/180/270 degrees.
+_CORNER_ROTATIONS = {(-1.5, -1.5): 0.0, (-1.5, 1.5): 90.0, (1.5, 1.5): 180.0, (1.5, -1.5): 270.0}
+
+
+def _rotated(x, z, yaw, local_x, local_z):
+    """Local kit offset to world, using the prop yaw convention.
+
+    A prop at yaw 0 has +Z towards world +Z and +X towards world +X; yaw is a
+    right-handed rotation about Y, so a local point maps to
+    ``(x + lx*cos + lz*sin, z - lx*sin + lz*cos)``.
+    """
+    radians = math.radians(yaw)
+    return (x + local_x * math.cos(radians) + local_z * math.sin(radians),
+            z - local_x * math.sin(radians) + local_z * math.cos(radians))
+
+
+def kit_shell(number: str, x: float, z: float, yaw: float) -> List[Dict]:
+    """One assembled facade shell for family ``number`` at ``(x, z)``."""
+    props: List[Dict] = []
+
+    def place(model, local_x, local_z, local_yaw=0.0, y=0.0, **kwargs):
+        world_x, world_z = _rotated(x, z, yaw, local_x, local_z)
+        props.append(prop(model, world_x, world_z,
+                          rotation=(yaw + local_yaw) % 360.0, y=y,
+                          identifier=f"kit_house_{number}_{len(props)}", **kwargs))
+
+    # Walls: a real doorway on the front, the type's window on both side
+    # returns (so the window pattern reads from the street in perspective),
+    # and a plain panel closing the back.
+    place(f"outdoor:house_{number}_wall_doorway", 0.0, 1.5)
+    place(f"outdoor:house_{number}_wall_window", 1.5, 0.0, _SHELL_EAST)
+    place(f"outdoor:house_{number}_wall_window", -1.5, 0.0, _SHELL_WEST)
+    place(f"outdoor:house_{number}_wall_solid", 0.0, -1.5, _SHELL_BACK)
+    # Gable panels on both ends of the bay's roof.
+    place(f"outdoor:house_{number}_gable", 0.0, 1.5, _SHELL_FRONT, y=2.7)
+    place(f"outdoor:house_{number}_gable", 0.0, -1.5, _SHELL_BACK, y=2.7)
+    # Corner boards on the four vertical corners.
+    for (corner_x, corner_z), rotation in _CORNER_ROTATIONS.items():
+        place(f"outdoor:house_{number}_corner_trim", corner_x, corner_z, rotation)
+    # The roof: two slopes rotated +/-90 degrees meeting under the ridge cap.
+    place(f"outdoor:house_{number}_roof_slope", 1.31, 0.0, 90.0, y=1.98)
+    place(f"outdoor:house_{number}_roof_slope", -1.31, 0.0, 270.0, y=1.98)
+    place(f"outdoor:house_{number}_roof_ridge", 0.0, 0.0, 90.0, y=3.51)
+    # The porch: deck 0.75 m out from the wall face, posts on its front corners.
+    place(f"outdoor:house_{number}_porch_deck", 0.0, 2.37)
+    place(f"outdoor:house_{number}_porch_post", 1.43, 3.05)
+    place(f"outdoor:house_{number}_porch_post", -1.43, 3.05)
+    return props
+
+
+def kit_yard() -> List[Dict]:
+    """The expanded kit's yard: shells, trees, streetlights and railings."""
+    props: List[Dict] = []
+
+    for number, x, z, yaw in KIT_SHELLS:
+        props.extend(kit_shell(number, x, z, yaw))
+
+    # The two new trees: a birch and a conifer among the medium grass band,
+    # each placed solid with the trunk-sized collider its notes document.
+    props.append(
+        prop("outdoor:tree_02", 3.6, 12.2, rotation=15.0, scale=1.05,
+             size=[0.6, 6.2, 0.6], solid=True, occludes=False, identifier="kit_birch")
+    )
+    props.append(
+        prop("outdoor:tree_03", 6.0, 16.2, rotation=200.0, scale=1.1,
+             size=[0.6, 6.8, 0.6], solid=True, occludes=False, identifier="kit_conifer")
+    )
+
+    # Two streetlights: one head reaches west over the dirt path, the other
+    # closes the east end of the shell street and lights both rows. The light
+    # offset is the asset's real pane centre (see the report's streetlight
+    # anchor note: the catalogue's [0, 6.05, 0.85] cannot sit under the pane
+    # of a 1.2 m deep, bounding-box-centred model).
+    for index, (x, z, rotation) in enumerate(((11.5, 13.2, 270.0), (24.6, 13.0, 270.0))):
+        props.append(
+            prop(
+                "outdoor:streetlight", x, z, rotation=rotation,
+                identifier=f"kit_streetlight_{index + 1}",
+                lights=[{
+                    "shape": "point",
+                    "offset": [0.0, 6.05, 0.43],
+                    "color": [1.0, 0.84, 0.66],
+                    "intensity": 1.5,
+                    "range": 14.0,
+                    "falloff": "smooth",
+                }],
+            )
+        )
+
+    # A railing run in the south-east corner: one corner with its support
+    # post, two straight modules and two terminals, so the 90 degree join and
+    # the run ends are both visible from the yard.
+    corner_x, corner_z = 23.0, 16.4
+    props.append(prop("outdoor:porch_post", corner_x, corner_z,
+                      identifier="kit_rail_post", comment=(
+                          "Railing support on the module corner: the corner piece wraps it.")))
+    props.append(prop("outdoor:porch_railing_corner", corner_x, corner_z,
+                      identifier="kit_rail_corner"))
+    props.append(prop("outdoor:porch_railing_straight", corner_x + 1.05, corner_z,
+                      identifier="kit_rail_east_1"))
+    props.append(prop("outdoor:porch_railing_end", corner_x + 2.10, corner_z,
+                      identifier="kit_rail_east_end"))
+    props.append(prop("outdoor:porch_railing_straight", corner_x, corner_z + 1.05,
+                      identifier="kit_rail_south_1"))
+    props.append(prop("outdoor:porch_railing_end", corner_x, corner_z + 2.10,
+                      identifier="kit_rail_south_end"))
+    return props
 
 
 def wall(x, z, width, depth, height=2.7, material=None, openings=None) -> Dict:
@@ -313,7 +467,7 @@ def level() -> Dict:
                 "bindings": [{"on": "interact", "actions": [{"action": "toggle"}]}],
             }
         ],
-        "props": structure_level["props"] + grass,
+        "props": structure_level["props"] + kit_yard() + grass,
     }
 
 

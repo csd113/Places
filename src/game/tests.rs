@@ -10,6 +10,7 @@ use std::fmt::Write as _;
 use super::*;
 use crate::entities::WorldCommand;
 use crate::entities::components::StateValue;
+use crate::render::SCENE_NEAR_M;
 use crate::test_support::assert_exact;
 
 /// Advances `frames` deterministic 60 Hz simulation frames with no input.
@@ -2969,7 +2970,7 @@ fn a_ladder_obstruction_holds_the_climber_in_place() {
 fn the_pool_ladder_releases_on_backing_away_and_jump() {
     let settings = Settings::default();
     let make_attached = || {
-        let mut game = demo_game_at(19.3, -3.0, 12.0, 90.0, 1.0 / 60.0);
+        let mut game = demo_game_at(19.5, -3.0, 12.0, 90.0, 1.0 / 60.0);
         game.grounded = false;
         set_eye_y(&mut game, -1.55);
         game.swimming = true;
@@ -3339,7 +3340,7 @@ fn stance_changes_on_stairs_in_air_and_on_ladders_anchor_the_feet() {
     assert!(game.grounded, "the crouched jump still lands");
 
     // On the demo ladder: crouching anchors the feet and keeps the attachment.
-    let mut game = demo_game_at(19.3, -3.0, 12.0, 90.0, 1.0 / 60.0);
+    let mut game = demo_game_at(19.5, -3.0, 12.0, 90.0, 1.0 / 60.0);
     game.grounded = false;
     set_eye_y(&mut game, -1.9);
     game.swimming = false;
@@ -4617,8 +4618,8 @@ fn the_halloween_fixture_runs_jumping_pumpkins_fading_ghosts_and_wandering_skele
     let mut game = game_for(&level);
     assert_eq!(
         game.routes().len(),
-        4,
-        "the pumpkin and three ghosts each carry a route"
+        5,
+        "the pumpkin, three ghosts and the ghost cat each carry a route"
     );
 
     game.set_app_state(AppState::Playing);
@@ -6468,9 +6469,9 @@ fn demo_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) {
         "the demo bakes a real mesh"
     );
     assert_eq!(
-        report.portals, 6,
-        "the demo's six doors (hall, pool-side sauna, shower-side sauna, study, front, house) \
-         are portal links"
+        report.portals, 7,
+        "the demo's seven doors (hall, pool-side sauna, shower-side sauna, corridor-side sauna, \
+         study, front, house) are portal links"
     );
     let bytes = crate::package::navigation::write_navigation(
         &crate::package::navigation::read_navigation(&bytes).expect("the record decodes"),
@@ -7576,8 +7577,9 @@ fn water_transitions_hold_at_30_60_and_144_fps() {
 }
 
 /// A swimmer over the submerged walk-in step stands up with no jump at all —
-/// the step's floor is below the surface — in a bounded climb onto the real
-/// step floor (-1.85).
+/// the step's floor is below the surface — in a bounded climb that ends
+/// grounded on the step floor (-1.85) or, once the body has crossed it, the
+/// deck past it (-1.5).
 #[test]
 fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
     let settings = Settings::default();
@@ -7607,14 +7609,17 @@ fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
             eye - previous_eye
         );
         previous_eye = eye;
-        if game.grounded && (game.player_floor_y - (-1.85)).abs() < 1e-3 {
+        if game.grounded
+            && ((game.player_floor_y - (-1.85)).abs() < 1e-3
+                || (game.player_floor_y - (-1.5)).abs() < 1e-3)
+        {
             stood = true;
             break;
         }
     }
     assert!(
         stood,
-        "the swimmer stands on the submerged step: {:?} floor {}",
+        "the swimmer stands on the submerged step or the deck past it: {:?} floor {}",
         game.player_position, game.player_floor_y
     );
     assert!(!game.is_swimming(), "the step exit leaves the swim state");
@@ -8570,10 +8575,18 @@ fn a_closed_destination_entrance_blocks_and_an_open_one_passes() {
         }
     }
     assert_eq!(game.doors().get(leaf).expect("leaf").phase().name(), "open");
-    let through = audited_walk(&mut game, 240, 1e-3, None, |game| {
+    // The walk crosses the doorway's 0.24 m stoop, so the eye's bounded step
+    // is the stoop height plus a frame of slack, not the flat 1 mm.
+    let stoop_step = 0.24 + 1e-3;
+    let through = audited_walk(&mut game, 240, stoop_step, None, |game| {
         game.player_position.z > -90.5
     });
-    through.assert_flat("open night doorway");
+    through.assert_walkable("open night doorway");
+    assert!(
+        through.max_eye_step <= stoop_step + 1e-3,
+        "the walk over the stoop never steps more than the stoop height: {}",
+        through.max_eye_step
+    );
     assert!(
         game.player_position.z > -90.5,
         "the open leaf leaves a traversable opening: {:?}",
@@ -8651,11 +8664,14 @@ fn a_closed_source_entrance_blocks_and_an_open_one_passes() {
 #[test]
 fn every_demo_door_frames_the_wall_it_sits_in() {
     let level = demo_level();
-    let expected: [(&str, f32, f32); 6] = [
+    let expected: [(&str, f32, f32); 7] = [
         ("hall_door", 0.3, 0.0),
         ("sauna_door", 0.3, 0.08),
         ("study_door", 0.3, 0.0),
         ("sauna_shower_door", 0.3, 0.0),
+        // The additional corridor-side sauna leaf sits in wall 17's own
+        // 0.30 m opening, so its liner resolves to that wall.
+        ("sauna_hall_door", 0.3, 0.0),
         // The two night-route entrances author the façade's visible tunnel: the
         // 0.30 m wall plus the 0.40 m doorway panel in front of it.
         ("night_source_door", 0.7, -0.2),
@@ -8683,6 +8699,408 @@ fn every_demo_door_frames_the_wall_it_sits_in() {
             "{id} liner offset {} (expected {center})",
             frame.center
         );
+    }
+}
+
+/// Distance from `point` to the axis-aligned box `[min, max]`, in metres;
+/// zero when the point is inside.
+fn point_box_distance(point: Vec3, min: [f32; 3], max: [f32; 3]) -> f32 {
+    let dx = point.x - point.x.clamp(min[0], max[0]);
+    let dy = point.y - point.y.clamp(min[1], max[1]);
+    let dz = point.z - point.z.clamp(min[2], max[2]);
+    (dx.mul_add(dx, dy.mul_add(dy, dz * dz))).sqrt()
+}
+
+/// Distance from `point` to a door leaf's oriented box, in metres; zero when
+/// the point is inside the leaf.
+fn point_leaf_distance(door: &crate::collision::DoorCollider, point: Vec3) -> f32 {
+    let dx = point.x - door.hinge_x;
+    let dz = point.z - door.hinge_z;
+    let u = dx.mul_add(door.dir_x, dz * door.dir_z);
+    let v = dx.mul_add(-door.dir_z, dz * door.dir_x);
+    let half_thickness = door.thickness * 0.5;
+    let du = u - u.clamp(0.0, door.width);
+    let dv = v - v.clamp(-half_thickness, half_thickness);
+    let dy = point.y - point.y.clamp(door.hinge_y, door.hinge_y + door.height);
+    (du.mul_add(du, dv.mul_add(dv, dy * dy))).sqrt()
+}
+
+/// Describes how `game`'s rendered camera sits outside the walkable world, if
+/// it does: inside a collision box, inside a door leaf, below the walkable
+/// floor under it, above the local ceiling, or within the projection near
+/// plane ([`SCENE_NEAR_M`]) of any of those surfaces.
+///
+/// The near-plane distance is the rendered guarantee: geometry closer than it
+/// is clipped by the projection, so the camera must never be within one near
+/// plane of a wall, a leaf, the floor under it or the local ceiling. A camera
+/// exactly on a surface plane is a see-through failure, not a margin case.
+fn camera_outside_world(game: &Game) -> Option<String> {
+    let eye = game.player_position;
+    let margin = 1.0e-3;
+    let clearance = SCENE_NEAR_M - margin;
+    for wall in game.walls() {
+        if eye.x > wall.min_x + margin
+            && eye.x < wall.max_x - margin
+            && eye.y > wall.min_y + margin
+            && eye.y < wall.max_y - margin
+            && eye.z > wall.min_z + margin
+            && eye.z < wall.max_z - margin
+        {
+            return Some(format!("inside wall box {wall:?}"));
+        }
+        let distance = point_box_distance(
+            eye,
+            [wall.min_x, wall.min_y, wall.min_z],
+            [wall.max_x, wall.max_y, wall.max_z],
+        );
+        if distance < clearance {
+            return Some(format!("eye within {distance:.3} m of wall box {wall:?}"));
+        }
+    }
+    for (index, door) in game.door_colliders().iter().enumerate() {
+        if door.contains_point(eye.x, eye.y, eye.z) {
+            return Some(format!("inside door leaf {index}"));
+        }
+        let distance = point_leaf_distance(door, eye);
+        if distance < clearance {
+            return Some(format!("eye within {distance:.3} m of door leaf {index}"));
+        }
+    }
+    if let Some(surface) = game.floor.walk_height_at(eye.x, eye.z) {
+        if eye.y < surface - margin {
+            return Some(format!(
+                "eye {:.3} below the walkable floor {surface:.3} at ({:.2},{:.2})",
+                eye.y, eye.x, eye.z
+            ));
+        }
+        if eye.y - surface < clearance {
+            return Some(format!(
+                "eye {:.3} above the walkable floor {surface:.3} at ({:.2},{:.2}): \
+                 nearer than the {SCENE_NEAR_M} m near plane",
+                eye.y - surface,
+                eye.x,
+                eye.z
+            ));
+        }
+    }
+    if let Some(ceiling) = game.ceiling.ceiling_y_at(eye.x, eye.z) {
+        if eye.y > ceiling + margin {
+            return Some(format!("eye {:.3} above the ceiling {ceiling:.3}", eye.y));
+        }
+        if ceiling - eye.y < clearance {
+            return Some(format!(
+                "eye {:.3} below the ceiling {ceiling:.3}: nearer than the \
+                 {SCENE_NEAR_M} m near plane",
+                ceiling - eye.y
+            ));
+        }
+    }
+    // The pull-up holds the eye one near plane above a raised rim until the
+    // swim step carries the centre over it: the body climbing past the hold
+    // while it is still in the water is the old unbounded climb, which ran
+    // the camera up at the climb speed for as long as the key stayed down.
+    if let Some(exit) = game.water_exit
+        && exit.support_y > exit.surface_y
+        && !game
+            .floor
+            .walk_height_at(eye.x, eye.z)
+            .is_some_and(|support| (support - exit.support_y).abs() <= margin)
+        && eye.y > exit.support_y + SCENE_NEAR_M + PLAYER_RADIUS
+    {
+        return Some(format!(
+            "the pull-up rose past its hold line: eye {:.3}, rim {:.3}",
+            eye.y, exit.support_y
+        ));
+    }
+    None
+}
+
+/// Runs `frames` Playing frames, asserting every frame that the rendered
+/// camera stays inside the walkable world. Returns true when `stop` fired.
+fn run_camera_clear(
+    game: &mut Game,
+    input: &mut InputState,
+    settings: &Settings,
+    frames: usize,
+    mut stop: impl FnMut(&Game) -> bool,
+) -> bool {
+    for _ in 0..frames {
+        game.update_player_movement(input, settings);
+        if let Some(what) = camera_outside_world(game) {
+            panic!(
+                "the camera left the world: {what}; eye {:?}; feet {:.3}; floor {:.3}; \
+                 swimming {} exit {}",
+                game.player_position,
+                game.feet_y(),
+                game.player_floor_y,
+                game.swimming,
+                game.water_exit.is_some()
+            );
+        }
+        if stop(game) {
+            return true;
+        }
+    }
+    false
+}
+
+/// The demo pool exit never puts the rendered camera inside geometry.
+///
+/// Straight and diagonal approaches, a submerged start, a crouched exit and
+/// the walk-in step are all sampled frame by frame, and the camera must stay
+/// clear of every collision box, door leaf, the floor under it and the local
+/// ceiling by the projection near plane. The old climb carried the centre
+/// onto the deck (and the walk-in step) while the eye was still below the rim
+/// top, so the camera sat inside the rim's collision volume for up to ~0.35 s;
+/// the bounded pull-up lifts the eye at the rim first and the swim step
+/// crosses only once the camera has cleared it. This test fails on that old
+/// code.
+#[test]
+fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
+    let settings = Settings::default();
+    // Out of the basin and standing on the -1.5 m deck: a diagonal approach
+    // legitimately leaves over whichever rim it reaches first, so the stop is
+    // "not over the basin", not a specific x.
+    let over_basin = |x: f32, z: f32| (8.0..20.0).contains(&x) && (10.0..16.0).contains(&z);
+    let on_deck = |game: &Game| {
+        game.grounded
+            && (game.player_floor_y - (-1.5)).abs() < 1e-3
+            && !over_basin(game.player_position.x, game.player_position.z)
+    };
+    let mut idle = InputState::default();
+
+    // Surface and submerged approaches into the east rim, straight and both
+    // diagonals, at every supported frame rate.
+    for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
+        for (x, z, yaw) in [(12.0, 14.0, 90.0), (12.0, 13.0, 45.0), (12.0, 15.0, 135.0)] {
+            let mut game = demo_game_at(x, -3.0, z, yaw, delta);
+            for _ in 0..240 {
+                game.update_player_movement(&mut idle, &settings);
+            }
+            assert!(
+                game.is_swimming(),
+                "the approach starts deep in the basin: {:?}",
+                game.player_position
+            );
+            let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+            assert!(
+                run_camera_clear(&mut game, &mut input, &settings, 900, on_deck),
+                "the exit at ({x},{z}) yaw {yaw} completes at {:.0} fps: {:?} floor {}",
+                1.0 / delta,
+                game.player_position,
+                game.player_floor_y
+            );
+        }
+    }
+
+    // Crouched: the crouched swim pose and climb must clear the rim too.
+    let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    let mut crouch = InputState::holding(&[Control::Crouch]);
+    game.update_player_movement(&mut crouch, &settings);
+    for _ in 0..30 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert!(game.is_crouched(), "the crouched pose settles");
+    let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    assert!(
+        run_camera_clear(&mut game, &mut input, &settings, 900, |game| {
+            game.grounded
+                && (game.player_floor_y - (-1.5)).abs() < 1e-3
+                && game.player_position.x > 20.0
+                && game.is_crouched()
+        }),
+        "the crouched exit completes: {:?} floor {}",
+        game.player_position,
+        game.player_floor_y
+    );
+
+    // The submerged walk-in step, with no Jump: the pull-up lifts the eye at
+    // the step edge before the body crosses it, and the climb then stands the
+    // body up on the deck past the step (a higher standable support under the
+    // centre is adopted, never cancelled with the body embedded in it).
+    let mut game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
+    for _ in 0..240 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert!(game.is_swimming(), "the step approach starts deep");
+    let mut forward = InputState::holding(&[Control::MoveForward]);
+    assert!(
+        run_camera_clear(&mut game, &mut forward, &settings, 600, |game| {
+            game.grounded && game.player_position.z > 16.0 && game.player_floor_y >= -1.85 - 1e-3
+        }),
+        "the walk-in step exit completes: {:?} floor {}",
+        game.player_position,
+        game.player_floor_y
+    );
+    assert!(
+        (game.player_floor_y + 1.85).abs() < 1e-3 || (game.player_floor_y + 1.5).abs() < 1e-3,
+        "the walk-in exit ends on the submerged step or the deck: floor {}",
+        game.player_floor_y
+    );
+}
+
+/// The demo pool ladder climbs to the deck without ever putting the camera
+/// inside the deck's collision volume.
+#[test]
+fn the_demo_pool_ladder_exit_never_puts_the_camera_inside_geometry() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(18.0, -3.0, 12.0, 90.0, 1.0 / 60.0);
+    let mut idle = InputState::default();
+    for _ in 0..240 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert!(game.is_swimming(), "the approach starts in the water");
+    let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    let mut attached = false;
+    assert!(
+        run_camera_clear(&mut game, &mut input, &settings, 600, |game| {
+            attached |= game.is_climbing();
+            attached && game.grounded && (game.player_floor_y - (-1.5)).abs() < 1e-3
+        }),
+        "the ladder climb tops out on the deck: {:?} floor {}",
+        game.player_position,
+        game.player_floor_y
+    );
+}
+
+/// Runs the released-Jump sink on the pool level at `delta`, returning
+/// `(seconds from the float line to the -1.5 m target, terminal rate over the
+/// measured segment)`. Releasing Jump is the only input; the held float pose
+/// is seeded directly, so this is the sink path, not the entry.
+fn released_sink_segment(delta: f32) -> (f32, f32) {
+    let settings = Settings::default();
+    let start_eye = -0.5 + FLOAT_EYE_MARGIN;
+    // Past this depth the sink has long reached its terminal: gravity 4.5
+    // spends 0.24 s and 0.13 m reaching 1.1 m/s, so a 0.42 m drop is terminal.
+    let terminal_eye = -0.8_f32;
+    let target_eye = -1.5_f32;
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, delta);
+    game.swimming = true;
+    game.grounded = false;
+    game.float_hold = false;
+    game.bob_phase = 0.0;
+    game.vertical_velocity = 0.0;
+    game.vertical_accumulator = 0.0;
+    set_eye_y(&mut game, start_eye);
+
+    let mut idle = InputState::default();
+    let mut seconds = 0.0_f32;
+    let mut reached_terminal: Option<f32> = None;
+    let mut reached = false;
+    for _ in 0..2000 {
+        game.update_player_movement(&mut idle, &settings);
+        seconds += delta;
+        assert!(
+            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
+            "the swimmer never passes the basin floor: {}",
+            game.player_position.y
+        );
+        if game.player_position.y <= terminal_eye && reached_terminal.is_none() {
+            reached_terminal = Some(seconds);
+        }
+        if game.player_position.y <= target_eye {
+            reached = true;
+            break;
+        }
+    }
+    assert!(
+        reached,
+        "the released swimmer sinks past {target_eye} at {:.0} fps: {}",
+        1.0 / delta,
+        game.player_position.y
+    );
+    assert!(
+        game.player_position.y >= SWIM_SINK_TERMINAL.mul_add(-delta, target_eye) - 1e-3,
+        "the sink stops at the target, not past it: {}",
+        game.player_position.y
+    );
+    let Some(terminal_time) = reached_terminal else {
+        panic!(
+            "the sink never reached its terminal rate at {:.0} fps",
+            1.0 / delta
+        );
+    };
+    let rate = (terminal_eye - target_eye) / (seconds - terminal_time);
+    // One coarse frame of sampling error at either end of the measured
+    // segment; the old 0.5 m/s terminal is far outside it.
+    assert!(
+        (0.9..=1.35).contains(&rate),
+        "the terminal sink is the new 1.1 m/s rate, not a crawl or a snap: \
+         {rate:.3} m/s at {:.0} fps",
+        1.0 / delta
+    );
+    (seconds, rate)
+}
+
+/// Releasing Jump sinks under the stronger underwater gravity at the same
+/// trajectory at 30, 60 and 144 fps: the fixed substep shares one integration
+/// sequence, so the time from the float line to a given depth matches within
+/// one coarse frame, the terminal rate is the new 1.1 m/s, and the descent is
+/// materially faster than the old 0.5 m/s crawl.
+#[test]
+fn sinking_in_deep_water_is_frame_rate_independent() {
+    let settings = Settings::default();
+    let start_eye = -0.5 + FLOAT_EYE_MARGIN;
+    let target_eye = -1.5_f32;
+    let mut times = Vec::new();
+    let mut rates = Vec::new();
+    for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
+        let (time, rate) = released_sink_segment(delta);
+        times.push(time);
+        rates.push(rate);
+    }
+    let low = times.iter().copied().fold(f32::INFINITY, f32::min);
+    let high = times.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        high - low <= 1.0 / 30.0 + 1e-3,
+        "the sink time is frame-rate independent: {times:?}"
+    );
+    // The old constants (gravity -2.2, terminal 0.5) take this 1.12 m drop in
+    // about 2.35 s; the stronger sink must finish in well under three quarters
+    // of that, which no 0.5 m/s terminal could.
+    let old_time = {
+        let accel = 2.2_f32;
+        let old_terminal = 0.5_f32;
+        let drop = start_eye - target_eye;
+        let spin_up = old_terminal / accel;
+        let spun = 0.5 * accel * spin_up * spin_up;
+        spin_up + (drop - spun) / old_terminal
+    };
+    assert!(
+        high < old_time * 0.75,
+        "the unassisted sink is materially faster than the old {old_time:.2} s crawl: \
+         {high:.3} s of {old_time:.2} s"
+    );
+    // The measured segment rates confirm the same terminal at every frame
+    // rate, not just a matching overall time.
+    assert!(
+        rates
+            .iter()
+            .all(|rate| (rate - SWIM_SINK_TERMINAL).abs() < 0.25),
+        "every frame rate sinks at the authored terminal: {rates:?}"
+    );
+
+    // And the sink stays smooth: no frame moves the eye more than the
+    // terminal speed times the frame.
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+    game.swimming = true;
+    game.grounded = false;
+    game.float_hold = false;
+    set_eye_y(&mut game, start_eye);
+    let mut idle = InputState::default();
+    let mut previous = game.player_position.y;
+    for _ in 0..200 {
+        game.update_player_movement(&mut idle, &settings);
+        let eye = game.player_position.y;
+        assert!(
+            (eye - previous).abs() <= SWIM_SINK_TERMINAL / 60.0 + 1e-3,
+            "the sink is bounded per frame: {previous} then {eye}"
+        );
+        previous = eye;
     }
 }
 
@@ -8735,5 +9153,583 @@ fn a_scripted_interact_press_closes_the_open_hall_door() {
         "closed",
         "the press closes the open leaf (angle {:.1})",
         game.doors().get(leaf).expect("leaf").angle()
+    );
+}
+
+/// One Interact press while aiming at the demo's `sauna_switch` plays its own
+/// lever clip and flips its switchable lamp; the authored-open sauna leaf
+/// keeps its own interaction and is never driven by the switch.
+#[test]
+fn demo_sauna_switch_toggles_only_its_lamp() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(27.0, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    let switch = game
+        .interactables()
+        .index_of("sauna_switch")
+        .expect("the demo authors the sauna switch");
+    let leaf = game
+        .doors()
+        .index_of("sauna_door")
+        .expect("the demo authors the sauna door");
+    let lamp = game
+        .entities()
+        .handle_of("sauna_light")
+        .expect("the demo authors the sauna lamp");
+    let lamp_on = |game: &Game| {
+        game.entities()
+            .components()
+            .lights
+            .get(lamp)
+            .expect("the light component")
+            .enabled
+    };
+    assert!(lamp_on(&game), "the sauna lamp starts on");
+
+    aim_at(&mut game, 26.16, 14.3, 0.39);
+    assert_eq!(
+        game.interaction_target(),
+        Some(switch),
+        "the switch is the aimed target on the door's opposite side"
+    );
+    let mut input = InputState::holding(&[Control::Interact]);
+    game.update_player_movement(&mut input, &settings);
+    assert!(game.take_interact_press(), "the press latches");
+    let report = game
+        .dispatch_interaction()
+        .expect("the switch fires its own bindings");
+    assert_eq!(report.actions_run, 2, "the lever clip and the lamp toggle");
+    assert!(!lamp_on(&game), "the lamp flipped off");
+    let toggles = game.take_light_toggles();
+    assert_eq!(toggles.len(), 1, "exactly one fixture changed: {toggles:?}");
+    assert!(
+        !toggles.first().expect("one toggle").1,
+        "the sauna lamp is the fixture that changed"
+    );
+    assert!(game.take_light_toggles().is_empty(), "and never repeats");
+    assert_eq!(
+        game.doors().get(leaf).expect("sauna leaf").phase().name(),
+        "open",
+        "the switch never drives the door"
+    );
+}
+
+/// One Interact press while aiming at the open `sauna_door` toggles the leaf
+/// and never touches the switch's lamp: the leaf's own binding is the only one
+/// that runs.
+#[test]
+fn demo_sauna_door_toggles_only_itself() {
+    let settings = Settings::default();
+    // The eye stays outside the leaf's swing arc: the leaf is aimed, but the
+    // closing sweep never meets the body (or the leaf would stop, as authored).
+    let mut game = demo_game_at(27.6, -0.9, 12.0, 0.0, 1.0 / 60.0);
+    let leaf = game
+        .doors()
+        .index_of("sauna_door")
+        .expect("the demo authors the sauna door");
+    let door_target = game
+        .interactables()
+        .index_of("sauna_door")
+        .expect("the open leaf is an interaction target");
+    let lamp = game
+        .entities()
+        .handle_of("sauna_light")
+        .expect("the demo authors the sauna lamp");
+    let lamp_on = |game: &Game| {
+        game.entities()
+            .components()
+            .lights
+            .get(lamp)
+            .expect("the light component")
+            .enabled
+    };
+    assert!(lamp_on(&game), "the sauna lamp starts on");
+
+    aim_at(&mut game, 27.0, 12.42, 0.15);
+    assert_eq!(
+        game.interaction_target(),
+        Some(door_target),
+        "the open leaf is aimed, not the switch"
+    );
+    let mut input = InputState::holding(&[Control::Interact]);
+    game.update_player_movement(&mut input, &settings);
+    assert!(game.take_interact_press(), "the press latches");
+    let report = game
+        .dispatch_interaction()
+        .expect("the leaf fires its own binding");
+    assert_eq!(report.actions_run, 1, "one toggle action ran");
+    assert_eq!(
+        game.doors().get(leaf).expect("sauna leaf").phase().name(),
+        "closing",
+        "the leaf toggled from open"
+    );
+    assert!(
+        game.take_light_toggles().is_empty(),
+        "the leaf never drives the lamp"
+    );
+    assert!(lamp_on(&game), "the lamp stays on");
+
+    let mut idle = InputState::default();
+    for _ in 0..120 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert_eq!(
+        game.doors().get(leaf).expect("sauna leaf").phase().name(),
+        "closed",
+        "the leaf reaches its closed end"
+    );
+    assert!(lamp_on(&game), "the lamp is still a separate target");
+}
+
+/// The aimed target respects occlusion, reach and a nearer door leaf on the
+/// line: from the sauna the relay switch resolves, the pool-deck wall occludes
+/// it, its 1.6 m reach is honoured, and the open leaf's conservative bound
+/// never steals a clear line to the switch on the door's opposite side.
+#[test]
+fn demo_sauna_switch_aim_respects_occlusion_and_reach() {
+    let switch = {
+        let level = demo_level();
+        let game = game_for(&level);
+        game.interactables()
+            .index_of("sauna_switch")
+            .expect("the demo authors the sauna switch")
+    };
+    let door_target = {
+        let level = demo_level();
+        let game = game_for(&level);
+        game.interactables()
+            .index_of("sauna_door")
+            .expect("the demo authors the sauna door")
+    };
+
+    // In the sauna south of the doorway, the line to the switch is clear: the
+    // open leaf is north of it, so nothing may steal the aim.
+    let mut game = demo_game_at(26.9, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    aim_at(&mut game, 26.16, 14.3, 0.39);
+    let ray_origin = game.player_position;
+    let ray_direction = game.view_direction();
+    let leaf_index = game
+        .doors()
+        .index_of("sauna_door")
+        .expect("the demo authors the sauna door");
+    let leaf = *game
+        .door_colliders()
+        .get(leaf_index)
+        .expect("the sauna leaf collider");
+    assert_eq!(
+        leaf.ray_entry(ray_origin, ray_direction, 4.0),
+        None,
+        "the precondition: the open leaf is not on the line"
+    );
+    let door_item = game
+        .interactables()
+        .get(door_target)
+        .expect("the door item");
+    assert_eq!(
+        crate::collision::ray_aabb_entry(
+            ray_origin,
+            ray_direction,
+            door_item.bounds.min,
+            door_item.bounds.max
+        ),
+        None,
+        "the precondition: not even the leaf's conservative bound is crossed"
+    );
+    assert_eq!(
+        game.interaction_target(),
+        Some(switch),
+        "the switch resolves with the open leaf beside it"
+    );
+
+    // From the pool deck the sauna wall is between the eye and the switch:
+    // occluded targets are never aimed even inside their reach.
+    let mut game = demo_game_at(25.4, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    aim_at(&mut game, 26.16, 14.3, 0.39);
+    assert_eq!(
+        game.interaction_target(),
+        None,
+        "the wall occludes the switch from the deck"
+    );
+
+    // The switch's authored reach is 1.6 m: from further back it is not a
+    // candidate at all.
+    let mut game = demo_game_at(28.6, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    aim_at(&mut game, 26.16, 14.3, 0.39);
+    assert_eq!(
+        game.interaction_target(),
+        None,
+        "the switch is out of reach from 2.4 m"
+    );
+
+    // Aiming at the open leaf from just inside the doorway resolves the leaf,
+    // and the switch stays a separate target.
+    let mut game = demo_game_at(27.4, -0.9, 12.9, 0.0, 1.0 / 60.0);
+    aim_at(&mut game, 27.0, 12.45, 0.39);
+    assert_eq!(
+        game.interaction_target(),
+        Some(door_target),
+        "the open leaf is the aimed target when it is on the line"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// reply-02 content: the house guards, the hot tub and the sauna steam switch
+// ---------------------------------------------------------------------------
+
+/// Holds one control for a fixed number of frames at the test delta.
+fn hold_for(game: &mut Game, control: Control, frames: usize) {
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[control]);
+    for _ in 0..frames {
+        game.update_player_movement(&mut input, &settings);
+    }
+}
+
+/// The guards' animation state and per-clip progress, by instance id.
+fn guard_state(game: &Game, guards: &[&str]) -> Vec<(bool, f32)> {
+    guards
+        .iter()
+        .map(|id| {
+            game.entities()
+                .handle_of(id)
+                .and_then(|handle| game.entities().components().animations.get(handle))
+                .map_or((false, 0.0), |animation| {
+                    (animation.playing, animation.progress)
+                })
+        })
+        .collect()
+}
+
+/// The three waiting skeletons inside the destination house start their shared
+/// `collapse_reassemble` clip together on the first entry and refuse to restart
+/// while the clip runs (leave and re-enter mid-clip).
+#[test]
+fn demo_house_guards_wake_once_per_entry_without_restarting_mid_clip() {
+    const DELTA: f32 = 1.0 / 60.0;
+    let guards = ["night_guard_a", "night_guard_b", "night_guard_c"];
+
+    // Stand on the stoop outside the open doorway, facing into the house.
+    let mut game = demo_game_at(13.5, 0.24, -90.6, 0.0, DELTA);
+    assert_eq!(
+        guard_state(&game, &guards)
+            .iter()
+            .filter(|(playing, _)| *playing)
+            .count(),
+        0,
+        "the guards wait before entry"
+    );
+    assert!(
+        guards.iter().all(|id| game
+            .entities()
+            .handle_of(id)
+            .and_then(|handle| game.entities().components().transforms.get(handle))
+            .is_some_and(|transform| transform.position.y.abs() < 1e-3)),
+        "the guards stand on the house floor"
+    );
+
+    let settings = Settings::default();
+    let mut inside = InputState::holding(&[Control::MoveForward]);
+    let mut woken = false;
+    for _ in 0..180 {
+        game.update_player_movement(&mut inside, &settings);
+        if guard_state(&game, &guards)
+            .iter()
+            .all(|(playing, _)| *playing)
+        {
+            woken = true;
+            break;
+        }
+    }
+    assert!(
+        woken,
+        "all three guards start their clips together: {:?}",
+        game.player_position
+    );
+    assert_eq!(
+        guard_state(&game, &guards)
+            .iter()
+            .filter(|(playing, _)| *playing)
+            .count(),
+        3
+    );
+
+    // Leave while the clip runs, then re-enter: the running clip is never
+    // restarted (its progress never drops) and the sequence does not re-run.
+    let before = guard_state(&game, &guards);
+    hold_for(&mut game, Control::MoveBackward, 150);
+    assert!(
+        game.player_position.z > -91.9,
+        "the player is back outside: {:?}",
+        game.player_position
+    );
+    hold_for(&mut game, Control::MoveForward, 90);
+    let after = guard_state(&game, &guards);
+    for ((_, a), (_, b)) in after.iter().zip(before.iter()) {
+        assert!(
+            *b <= a + 1e-4,
+            "the running clip was never restarted: {before:?} -> {after:?}"
+        );
+    }
+}
+
+/// After the player exits and the shared sequence completes, a fresh entry
+/// re-arms the guards: the sequence is idle and the three clips start again.
+#[test]
+fn demo_house_guards_rearm_after_exit_and_completion() {
+    const DELTA: f32 = 1.0 / 60.0;
+    let guards = ["night_guard_a", "night_guard_b", "night_guard_c"];
+    let mut game = demo_game_at(13.5, 0.24, -90.6, 0.0, DELTA);
+    let zone = game
+        .entities()
+        .handle_of("night_guard_zone")
+        .expect("the entry zone entity");
+    let sequence_running = |game: &Game| {
+        game.entities()
+            .components()
+            .sequences
+            .get(zone)
+            .is_some_and(|sequence| sequence.running)
+    };
+    hold_for(&mut game, Control::MoveForward, 180);
+    assert!(
+        guard_state(&game, &guards)
+            .iter()
+            .all(|(playing, _)| *playing),
+        "the entry starts the guards"
+    );
+    assert!(sequence_running(&game), "the shared sequence is running");
+
+    // Step outside and let the shared sequence's holds finish.
+    hold_for(&mut game, Control::MoveBackward, 150);
+    assert!(game.player_position.z > -91.9, "the player is outside");
+    let settings = Settings::default();
+    let mut idle = InputState::default();
+    let mut completed = false;
+    for _ in 0..(60 * 16) {
+        game.update_player_movement(&mut idle, &settings);
+        if !sequence_running(&game) {
+            completed = true;
+            break;
+        }
+    }
+    assert!(
+        completed,
+        "the shared sequence ran to completion at rest: running={}",
+        sequence_running(&game)
+    );
+
+    // A fresh entry after the exit and completion re-arms the guards.
+    hold_for(&mut game, Control::MoveForward, 240);
+    assert!(
+        guard_state(&game, &guards)
+            .iter()
+            .all(|(playing, _)| *playing),
+        "a fresh entry re-arms all three guards"
+    );
+    assert!(
+        sequence_running(&game),
+        "the sequence restarted for the entry"
+    );
+}
+
+/// The hot tub's water is a disc, not a square: the centre and the axis points
+/// are water, the bounding box's corners are dry, the basin floor is the strip
+/// recess, and a walk-off entry can swim back out over the rim.
+#[test]
+fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
+    const DELTA: f32 = 1.0 / 60.0;
+    let settings = Settings::default();
+    let mut game = demo_game_at(3.6, -1.5, 10.9, 0.0, DELTA);
+
+    let wet = |game: &Game, x: f32, z: f32| game.water.sample(x, z, -2.0).is_some();
+    assert!(wet(&game, 3.6, 8.7), "the disc centre is water");
+    assert!(wet(&game, 4.6, 8.7), "1.0 m east of centre is water");
+    assert!(
+        !wet(&game, 4.85, 8.7),
+        "the bounding box's east edge is dry"
+    );
+    assert!(!wet(&game, 2.35, 7.45), "the bounding box's corner is dry");
+    assert!(!wet(&game, 3.6, 9.95), "the south corner is dry");
+
+    // Walk north off the deck: the plunge enters the water.
+    let mut forward = InputState::holding(&[Control::MoveForward]);
+    let mut entered = false;
+    for _ in 0..300 {
+        game.update_player_movement(&mut forward, &settings);
+        if game.is_swimming() {
+            entered = true;
+            break;
+        }
+    }
+    assert!(
+        entered,
+        "the walk off the rim enters the water: {:?}",
+        game.player_position
+    );
+    assert!(
+        (game.player_floor_y - (-3.0)).abs() < 1e-3,
+        "the basin floor is the strip recess: {}",
+        game.player_floor_y
+    );
+
+    // Keep swimming into the far rim: the bounded climb stands up on the deck.
+    let mut climb = InputState::holding(&[Control::MoveForward]);
+    let mut out = false;
+    for _ in 0..900 {
+        game.update_player_movement(&mut climb, &settings);
+        if !game.is_swimming()
+            && game.water_exit.is_none()
+            && game.grounded
+            && (game.feet_y() - (-1.5)).abs() < 1e-3
+        {
+            out = true;
+            break;
+        }
+    }
+    assert!(
+        out,
+        "the swimmer climbs out onto the deck: {:?}",
+        game.player_position
+    );
+    assert!(
+        game.player_position.z < 7.6,
+        "the exit lands north of the tub: {:?}",
+        game.player_position
+    );
+}
+
+/// One press on the sauna steam switch fills the sauna (both emitters), a
+/// second clears it, and neither press touches the lamp switch, the lamp or a
+/// door.
+#[test]
+fn demo_sauna_steam_switch_toggles_only_the_steam() {
+    let settings = Settings::default();
+    let mut game = demo_game_at(27.6, -0.9, 13.6, 180.0, 1.0 / 60.0);
+    let steam = |game: &Game, id: &str| {
+        let handle = game
+            .entities()
+            .handle_of(id)
+            .unwrap_or_else(|| panic!("`{id}` effect entity"));
+        game.entities()
+            .components()
+            .steam
+            .get(handle)
+            .unwrap_or_else(|| panic!("`{id}` steam component"))
+            .enabled
+    };
+    let lamp = game
+        .entities()
+        .handle_of("sauna_light")
+        .expect("the sauna lamp");
+    let lamp_on = |game: &Game| {
+        game.entities()
+            .components()
+            .lights
+            .get(lamp)
+            .expect("the light component")
+            .enabled
+    };
+    let leaf = game
+        .doors()
+        .index_of("sauna_hall_door")
+        .expect("the additional hallway sauna door");
+    assert!(
+        !steam(&game, "sauna_steam_a") && !steam(&game, "sauna_steam_b"),
+        "the sauna starts dry"
+    );
+    assert!(lamp_on(&game), "the sauna lamp starts on");
+
+    // Aim at the switch on the south wall, press, and the steam fills.
+    aim_at(&mut game, 27.6, 14.8, 0.39);
+    let switch = game
+        .interactables()
+        .index_of("sauna_steam_switch")
+        .expect("the demo authors the steam switch");
+    assert_eq!(
+        game.interaction_target(),
+        Some(switch),
+        "the steam switch is the aimed target"
+    );
+    let mut input = InputState::holding(&[Control::Interact]);
+    game.update_player_movement(&mut input, &settings);
+    assert!(game.take_interact_press(), "the press latches");
+    let report = game
+        .dispatch_interaction()
+        .expect("the steam switch fires its own binding");
+    assert_eq!(report.actions_run, 4, "the lever clip and both emitters");
+    assert!(
+        steam(&game, "sauna_steam_a") && steam(&game, "sauna_steam_b"),
+        "both sauna emitters are on"
+    );
+    assert!(lamp_on(&game), "the lamp switch is untouched");
+    assert_eq!(
+        game.doors().get(leaf).expect("hall door").phase().name(),
+        "closed",
+        "the hallway sauna leaf stays closed"
+    );
+
+    // A second press clears the steam again; the key must be released first
+    // (the press is edge-latched).
+    let mut released = InputState::default();
+    for _ in 0..2 {
+        game.update_player_movement(&mut released, &settings);
+    }
+    let mut second = InputState::holding(&[Control::Interact]);
+    game.update_player_movement(&mut second, &settings);
+    assert!(game.take_interact_press(), "the second press latches");
+    let report = game
+        .dispatch_interaction()
+        .expect("the second press fires the other branch");
+    assert_eq!(report.actions_run, 4, "the lever clip and both disables");
+    assert!(
+        !steam(&game, "sauna_steam_a") && !steam(&game, "sauna_steam_b"),
+        "the sauna clears"
+    );
+
+    // The light switch keeps its own target and never drives the steam; the
+    // key is released first so the next press is a fresh edge.
+    let mut released = InputState::default();
+    for _ in 0..2 {
+        game.update_player_movement(&mut released, &settings);
+    }
+    let mut press_light = InputState::holding(&[Control::Interact]);
+    aim_at(&mut game, 26.16, 14.3, 0.39);
+    let light_switch = game
+        .interactables()
+        .index_of("sauna_switch")
+        .expect("the demo authors the sauna light switch");
+    assert_eq!(game.interaction_target(), Some(light_switch));
+    game.update_player_movement(&mut press_light, &settings);
+    assert!(game.take_interact_press(), "the light press latches");
+    game.dispatch_interaction().expect("the light switch fires");
+    assert!(!lamp_on(&game), "the lamp flipped");
+    assert!(
+        !steam(&game, "sauna_steam_a") && !steam(&game, "sauna_steam_b"),
+        "the light switch never fills the steam"
+    );
+}
+
+/// The steam switch's interaction bound protrudes from the south wall face
+/// (its back plane sits on the slab's inner plane at z 14.85). A bound buried
+/// inside the slab lets the wall itself win the aimed ray, because the target
+/// entry is measured at the first point the ray crosses the instance's box.
+#[test]
+fn demo_sauna_steam_switch_bound_protrudes_from_the_wall() {
+    let game = demo_game_at(27.6, -0.9, 13.4, 180.0, 1.0 / 60.0);
+    let switch = game
+        .interactables()
+        .index_of("sauna_steam_switch")
+        .expect("the demo authors the steam switch");
+    let bound = game
+        .interactables()
+        .get(switch)
+        .expect("the steam switch item")
+        .bounds;
+    assert!(
+        bound.min[2] < 14.85 && bound.max[2] <= 14.85 + 1e-3,
+        "the bound spans the wall face instead of sitting inside the slab: {bound:?}"
+    );
+    assert!(
+        bound.max[2] - bound.min[2] > 0.05,
+        "the bound has real depth"
     );
 }

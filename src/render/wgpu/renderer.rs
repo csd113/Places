@@ -65,7 +65,9 @@ use crate::game::LocomotionSnapshot;
 use crate::lighting::lightmap::{LightmapFailure, LightmapMode};
 use crate::loader::LoadedLevel;
 use crate::logging;
-use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality, TextureClass};
+use crate::quality::{
+    GraphicsSpec, LightmapQuality, QualityLevel, ReflectionQuality, TextureClass,
+};
 use crate::render::RenderCamera;
 use crate::render::common::SurfaceKind;
 use crate::render::common::Vertex;
@@ -73,7 +75,7 @@ use crate::render::common::animation::{AnimationEffect, EmissionAnimation};
 use crate::render::common::api::{
     GraphicsTransition, LevelBuild, LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
 };
-use crate::render::common::atmosphere::FogState;
+use crate::render::common::atmosphere::LevelFog;
 use crate::render::common::character::{CharacterScene, EntityFrame};
 use crate::render::common::dynamic::{
     DynamicId, DynamicObject, DynamicScene, DynamicUpdate, SpawnOrientation,
@@ -247,6 +249,22 @@ impl GraphicsConfig {
             bloom: self.bloom != next.bloom,
             lightmaps: self.lightmaps != next.lightmaps,
             reflections: self.reflections != next.reflections,
+        }
+    }
+
+    /// The engine-neutral projection the game loop compares.
+    ///
+    /// The filtering preset crosses the seam as its canonical name so the
+    /// settings layer and the renderer never share an internal type; equality
+    /// is still exact because both sides canonicalise through the same three
+    /// names.
+    const fn spec(self) -> GraphicsSpec {
+        GraphicsSpec {
+            quality: self.quality,
+            filtering: self.filtering.name(),
+            bloom: self.bloom,
+            lightmaps: self.lightmaps,
+            reflections: self.reflections,
         }
     }
 }
@@ -451,8 +469,9 @@ pub struct WgpuRenderer {
     material_animations: Vec<Option<EmissionAnimation>>,
     /// Seconds of emission-animation time accumulated since the level load.
     animation_seconds: f32,
-    /// The level's atmosphere, applied by every world draw.
-    fog: FogState,
+    /// The level's atmosphere (global fog plus any regional volumes), applied
+    /// by every world draw from the shared group-3 uniform.
+    fog: LevelFog,
     /// Whether the player asked for bloom. The emissive/bloom pass gates on it;
     /// recorded here so `set_bloom_enabled` can be applied without a rebuild.
     bloom_requested: bool,
@@ -828,7 +847,7 @@ impl WgpuRenderer {
             fixture_sheets: Vec::new(),
             material_animations: Vec::new(),
             animation_seconds: 0.0,
-            fog: FogState::SHIPPED,
+            fog: LevelFog::global_only(),
             bloom_requested: true,
             reflections_enabled: true,
             reflections: Reflections::default(),
@@ -1062,7 +1081,7 @@ impl WgpuRenderer {
         );
         let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
-            dynamic.sync(&self.queue, &self.dynamic, environment);
+            dynamic.sync(&self.queue, &self.dynamic, &environment);
         }
         update
     }
@@ -1446,7 +1465,7 @@ impl WgpuRenderer {
         if changed {
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
-                environment.update(&self.queue, uniform);
+                environment.update(&self.queue, &uniform);
             }
         }
     }
@@ -1609,7 +1628,7 @@ impl WgpuRenderer {
         }
         let environment = self.level_environment();
         if let Some(characters) = self.world_characters.as_mut() {
-            characters.sync(&self.queue, &self.characters, environment);
+            characters.sync(&self.queue, &self.characters, &environment);
         }
         update
     }
@@ -1764,6 +1783,59 @@ impl WgpuRenderer {
         } else {
             GraphicsTransition::Idle
         }
+    }
+
+    /// The graphics configuration the resident world was installed with.
+    ///
+    /// This is the renderer's ground truth: the engine compares the player's
+    /// request against this value to decide whether the last selection has
+    /// really been applied.
+    #[must_use]
+    pub const fn graphics_applied(&self) -> GraphicsSpec {
+        self.graphics_applied.spec()
+    }
+
+    /// The graphics configuration the latest settings action recorded.
+    ///
+    /// Setters record it before any work is scheduled; a staged install
+    /// snapshots the same value when it starts, so a mismatch with
+    /// [`Self::staged_graphics`] means a newer selection superseded the
+    /// install.
+    #[must_use]
+    pub const fn graphics_requested(&self) -> GraphicsSpec {
+        self.graphics_requested.spec()
+    }
+
+    /// The configuration an in-flight staged install will commit.
+    ///
+    /// `None` while no GPU upload is staged: the CPU preparation has not taken
+    /// its snapshot yet, so it will install whatever is requested when staging
+    /// starts.
+    #[must_use]
+    pub fn staged_graphics(&self) -> Option<GraphicsSpec> {
+        self.prepared_install
+            .as_ref()
+            .map(|pending| pending.graphics.spec())
+    }
+
+    /// Abandons an outstanding graphics request and follows the resident
+    /// configuration again.
+    ///
+    /// Used when a transition fails or is superseded by a newer selection: the
+    /// renderer must keep rendering exactly what it holds, so the requested
+    /// quality, lightmaps and reflections return to what is resident, and the
+    /// live quality gate follows them. The engine's own request (the player's
+    /// selection) is untouched and is re-scheduled from there.
+    ///
+    /// Filtering and bloom are zero-resource frame gates the game loop applies
+    /// directly from the settings, so they keep their live values rather than
+    /// being reverted here.
+    pub fn abort_resource_request(&mut self) {
+        self.prepared_install = None;
+        self.graphics_requested = self.graphics_applied;
+        self.graphics_requested.filtering = self.filtering;
+        self.graphics_requested.bloom = self.bloom_requested;
+        self.quality = self.graphics_applied.quality;
     }
 
     /// Applies a Reflections setting to the GPU targets and the frame gates.
@@ -2304,6 +2376,11 @@ impl WgpuRenderer {
         // dropped before the probe bake so the bake cannot draw stale
         // characters; `upload_characters_gpu` rebuilds it after the probes.
         self.world_characters = None;
+        // The level's regional fog travels in its semantics: resolve it once
+        // per install, before the group-3 bindings are created, so every draw's
+        // environment carries the same set. A level with no regions resolves to
+        // the global shipped atmosphere and an empty list.
+        self.fog = LevelFog::from_level(&loaded.level);
         // The prepared CPU pages and the live lighting field the environment's
         // lightmap selection is derived from, installed before the group-3
         // bindings are created so they carry the level's real page and
@@ -2449,14 +2526,19 @@ impl WgpuRenderer {
 
     /// The level environment every shared uniform is derived from: unit light
     /// scale, the resident lightmap selection, the resident probe chain's top
-    /// mip, the fog constants and no active mirror.
+    /// mip, the level's fog (global plus the preset's prefix of its regions)
+    /// and no active mirror.
     ///
     /// The static world, the props and every per-object dynamic/character
-    /// uniform build from this, so a light switch and a probe chain change
-    /// reach all of them at once.
+    /// uniform build from this, so a light switch, a probe chain change and a
+    /// quality preset change reach all of them at once. The region count is a
+    /// uniform word recomputed here from the already-resolved level fog, so a
+    /// preset switch recovers the fuller set without a rebuild.
     fn level_environment(&self) -> EnvironmentUniform {
         let (page_count, switchable_count, mask) = self.lightmap_selection();
-        static_environment(self.lightmaps_resident, self.fog)
+        let fog_regions = self.fog.uploaded_region_count(self.quality);
+        static_environment(self.lightmaps_resident, self.fog.global)
+            .with_fog_regions(&self.fog.regions, fog_regions)
             .with_lightmaps(page_count, switchable_count, mask)
             .with_probe_mips(self.probe_max_mip)
     }
@@ -2484,7 +2566,7 @@ impl WgpuRenderer {
             planar,
             &self.probe_fallback_view,
             &self.planar_fallback_view,
-            self.level_environment(),
+            &self.level_environment(),
         )
     }
 
@@ -2527,7 +2609,7 @@ impl WgpuRenderer {
         let highest = loaded
             .light_sheets
             .iter()
-            .map(|sheet| usize::from(sheet.slot))
+            .map(|sheet| usize::try_from(sheet.slot).unwrap_or(usize::MAX))
             .max()
             .map_or(families, |slot| slot.saturating_add(1));
         let mut slots: Vec<std::sync::Arc<super::texture::GpuTexture>> =
@@ -2536,7 +2618,8 @@ impl WgpuRenderer {
             slots.push(textures.fallback());
         }
         for sheet in &loaded.light_sheets {
-            let Some(slot) = slots.get_mut(usize::from(sheet.slot)) else {
+            let Some(slot) = slots.get_mut(usize::try_from(sheet.slot).unwrap_or(usize::MAX))
+            else {
                 continue;
             };
             let (_, texture) = textures.get_or_upload_fitted(
@@ -2578,7 +2661,7 @@ impl WgpuRenderer {
                 phase: animation.phase.unwrap_or(0.0),
             }
             .sanitized();
-            if let Some(slot) = animations.get_mut(usize::from(index)) {
+            if let Some(slot) = animations.get_mut(usize::try_from(index).unwrap_or(usize::MAX)) {
                 *slot = resolved.is_active().then_some(resolved);
             }
         }
@@ -2856,7 +2939,7 @@ impl WgpuRenderer {
                 Some((matrix, plane)) => environment_template.with_planar(matrix, plane),
                 None => environment_template,
             };
-            environment.update(&self.queue, uniform);
+            environment.update(&self.queue, &uniform);
         }
         if let Some(pipeline) = self.world_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);

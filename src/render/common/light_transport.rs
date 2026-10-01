@@ -112,6 +112,67 @@ pub fn build_transport_scene(
     Some((scene, stats))
 }
 
+/// The environment light one moving object reads at a world position.
+///
+/// A moving object — a character or a dynamic prop — reads the prepared
+/// irradiance field, which the compiler solved from the same transport pass as
+/// the static atlas. That field deliberately carries no authored ambient term:
+/// it stores the physical solve plus a *gated* share of the level's authored
+/// room baseline (the gate is the local emitter support), so a point in a room
+/// between fixtures can be far darker than the environment the level was
+/// authored with. Every static prop at every quality, the vertex-lit fallback
+/// and the historical ambient floor all keep that authored response, so an
+/// object that read the raw field would be the darkest thing in the frame —
+/// exactly the shipped night route's routed entities, which measured at 0-5/255
+/// where the same object is 39-45/255 at Low.
+///
+/// This is the one rule both moving-object paths share:
+///
+/// * a position in no room has no prepared probe of its own — every probe is
+///   labelled with the room it occupies — so it reads the vertex-lit
+///   environment sample (the ambient floor plus the fixture pools it is
+///   inside), never a neighbouring room's probe through the gap between them;
+/// * a position the field cannot resolve falls back to the same vertex-lit
+///   sample, exactly as before;
+/// * a resolved position takes the prepared field, floored per channel at the
+///   room's own authored baseline. The field still carries the fixture light —
+///   this is a floor, not an addition, so a lit pool is never double counted —
+///   and the object stays environment-dependent (a brighter room, or the
+///   field's own directional light, still wins).
+///
+/// With no prepared field (`irradiance` is `None`, the `off` variant) the rule
+/// is exactly the historical vertex-lit sample, so Low's look is unchanged.
+#[must_use]
+pub fn moving_object_light(
+    lighting: &LevelLighting,
+    irradiance: Option<&crate::lighting::probes::ProbeField>,
+    position: [f32; 3],
+) -> [f32; 3] {
+    let room = lighting.room_index_at_height(position[0], position[1], position[2]);
+    let Some(room) = room else {
+        return vertex_lit_environment_light(lighting, position);
+    };
+    let authored = lighting
+        .baseline_in_room(room, position[0], position[2])
+        .to_array();
+    let prepared = irradiance
+        .and_then(|field| field.sample_display(position, Some(room)))
+        .unwrap_or_else(|| vertex_lit_environment_light(lighting, position));
+    std::array::from_fn(|channel| {
+        prepared
+            .get(channel)
+            .copied()
+            .unwrap_or(0.0)
+            .max(authored.get(channel).copied().unwrap_or(0.0))
+    })
+}
+
+/// The vertex-lit environment sample at a world position, as display channels.
+fn vertex_lit_environment_light(lighting: &LevelLighting, position: [f32; 3]) -> [f32; 3] {
+    let light = lighting.sample(position[0], position[1], position[2]);
+    [light.r, light.g, light.b]
+}
+
 /// The radiance an escaping bounce ray sees, from the level's optional sky.
 ///
 /// Zero without a sky (or with `ambient` 0.0), which preserves the historical
@@ -231,7 +292,7 @@ fn append_prop_triangles(
 
 /// The level material id one surface key resolves to, or `None` when the key
 /// binds no level material (a fixture housing or a prop fallback).
-fn material_id(materials: &MaterialTable, material: u16) -> Option<&str> {
+fn material_id(materials: &MaterialTable, material: u32) -> Option<&str> {
     if material == MATERIAL_NONE {
         return None;
     }
@@ -245,7 +306,7 @@ fn material_id(materials: &MaterialTable, material: u16) -> Option<&str> {
 /// uses to route a surface into the translucent or alpha-tested pass; the
 /// vertex-lit bake transmits light through both, so the transport solve must
 /// too. A material that does not resolve stays solid.
-fn material_transmits(materials: &MaterialTable, material: u16) -> bool {
+fn material_transmits(materials: &MaterialTable, material: u32) -> bool {
     if material == MATERIAL_NONE {
         return false;
     }
@@ -339,7 +400,7 @@ fn triangle_albedo(
 
 /// The averaged albedo of one level material, or a neutral white for a slot
 /// with no level material.
-fn material_albedo(materials: &MaterialTable, material: u16) -> [f32; 3] {
+fn material_albedo(materials: &MaterialTable, material: u32) -> [f32; 3] {
     if material == MATERIAL_NONE {
         return [0.8; 3];
     }
@@ -501,7 +562,7 @@ mod tests {
     }
 
     /// A hand-built vertical wall pane at `z = 0`, one quad, one material.
-    fn pane_mesh(material: u16) -> LevelMesh {
+    fn pane_mesh(material: u32) -> LevelMesh {
         let vertices = vec![
             Vertex::new([-1.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]),
             Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]),
@@ -548,6 +609,41 @@ mod tests {
                 if transmits { "transmit" } else { "block" }
             );
         }
+    }
+
+    /// A void wall's drawn faces are real transport geometry: the prepared
+    /// solve blocks on them exactly as it blocks on a solid prop's drawn
+    /// triangles, independent of the fast-path `occludes` flag. Transparency
+    /// is the only transmission, exactly like every other drawn surface.
+    #[test]
+    fn void_wall_faces_block_the_prepared_transport_solve() {
+        let level = LevelDef::from_json(
+            r#"{
+                "format_version": 3,
+                "id": "transport_void",
+                "name": "Transport Void",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [ { "x": -4.0, "z": -4.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+                "void_walls": [
+                    { "id": "slab", "min": [-0.15, 0.0, -2.0], "max": [0.15, 3.0, 2.0],
+                      "material": "core:wallpaper_yellow_01", "occludes": false }
+                ]
+            }"#,
+        )
+        .expect("transport void level parses");
+        let materials = crate::render::logical_materials(&level);
+        let mesh = crate::render::build_level_geometry(&level);
+        let lighting = LevelLighting::bake(&level);
+        let (scene, _) = build_transport_scene(&level, &mesh, &[], &materials, &lighting, &[])
+            .expect("scene builds");
+        assert!(
+            scene.occluded([-2.0, 1.0, 0.0], [2.0, 1.0, 0.0]),
+            "the drawn faces block the solve even with occludes: false"
+        );
+        assert!(
+            !scene.occluded([-2.0, 4.0, 0.0], [2.0, 4.0, 0.0]),
+            "above the box the ray escapes"
+        );
     }
 
     /// The authored water volume reaches the solver as a transmissive surface

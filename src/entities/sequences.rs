@@ -285,10 +285,18 @@ impl Sequences {
 }
 
 /// The maximum sequences one level may author.
-pub const MAX_LEVEL_SEQUENCES: usize = 256;
+///
+/// Raised to 1024 from 256: sequences are authored records advanced by the
+/// entity runtime; how many *run at once* is bounded separately by
+/// [`MAX_ACTIVE_SEQUENCES`], so a large library of sequences is an authoring
+/// convenience, not per-frame work.
+pub const MAX_LEVEL_SEQUENCES: usize = 1024;
 
 /// The maximum steps one sequence may declare.
-pub const MAX_SEQUENCE_STEPS: usize = 64;
+///
+/// Raised to 128 from 64: a step is one small record, and a sequence is
+/// advanced by walking its step list, so the count is an authoring bound.
+pub const MAX_SEQUENCE_STEPS: usize = 128;
 
 /// The maximum sequences running at once across a level.
 pub const MAX_ACTIVE_SEQUENCES: usize = 64;

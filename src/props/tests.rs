@@ -241,6 +241,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         "carved-pumpkin",
         "sheet-ghost",
         "pumpkin-skeleton",
+        "sheet-ghost-cat",
     ];
     let over_review: Vec<(String, usize)> = entries
         .iter()

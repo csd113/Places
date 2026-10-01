@@ -54,7 +54,7 @@ pub struct MaterialEmission {
     /// table the owner uses (the material table for level materials, the model
     /// texture list for GLB props). `None` means the surface's own texture
     /// shapes the emission.
-    pub mask: Option<u16>,
+    pub mask: Option<u32>,
 }
 
 impl MaterialEmission {
@@ -78,7 +78,7 @@ impl MaterialEmission {
 
     /// The same emission restricted to a mask texture.
     #[must_use]
-    pub const fn with_mask(self, mask: Option<u16>) -> Self {
+    pub const fn with_mask(self, mask: Option<u32>) -> Self {
         Self { mask, ..self }
     }
 
