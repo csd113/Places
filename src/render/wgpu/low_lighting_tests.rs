@@ -36,7 +36,7 @@ fn fixture() -> LoadedLevel {
         "spawn":{"x":1.5,"z":1.5},
         "defaults":{"floor":"core:linoleum_polished_01","wall":"core:metal_brushed_01"},
         "rooms":[{"x":0,"z":0,"width":3,"depth":3,"height":3}],
-        "walls":[{"x1":0,"z1":0,"x2":3,"z2":0}],
+        "walls":[{"x":0,"z":0,"width":3,"depth":0.18,"height":3}],
         "ceiling_lights":[{"fixture":"core:fluorescent_panel_01","x":1.5,"z":1.5,"align":"none"}],
         "props":[{"model":"outdoor:showcase_stump_seat","x":1,"z":1.5}]}
         "#,
