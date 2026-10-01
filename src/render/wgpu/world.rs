@@ -426,7 +426,9 @@ impl FogRegionUniform {
 /// offset 208  fog_region_count   u32          4 bytes
 /// offset 212  fog_region_padding [u32; 3]     12 bytes (never read)
 /// offset 224  fog_regions        [FogRegion; 16]  1024 bytes, 64 each
-/// ------------------------------------------------------ 1248 bytes, align 16
+/// offset 1248 entity_irradiance   [f32; 4]     16 bytes
+/// offset 1264 entity_moment       [f32; 4]     16 bytes
+/// ------------------------------------------------------ 1280 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -438,7 +440,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 1248 bytes on the wire and in Rust
+/// live count word. The struct is 1280 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -493,6 +495,10 @@ pub struct EnvironmentUniform {
     /// order. Every unused slot is [`FogRegionUniform::ZERO`], so a shader that
     /// read past `fog_region_count` would add no fog.
     pub fog_regions: [FogRegionUniform; crate::level::MAX_FOG_REGIONS],
+    /// Linear entity irradiance; w enables the probe material path.
+    pub entity_irradiance: [f32; 4],
+    /// Signed linear first moment; reserved w is zero.
+    pub entity_moment: [f32; 4],
 }
 
 impl EnvironmentUniform {
@@ -524,7 +530,28 @@ impl EnvironmentUniform {
             fog_region_count: 0,
             fog_region_padding: [0; 3],
             fog_regions: [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS],
+            entity_irradiance: [0.0; 4],
+            entity_moment: [0.0; 4],
         }
+    }
+
+    /// Installs the same environmental payload for rigid and animated models.
+    #[must_use]
+    pub fn with_entity_lighting(
+        mut self,
+        sample: Option<crate::render::common::light_transport::EntityLighting>,
+    ) -> Self {
+        self.entity_irradiance = [0.0, 0.0, 0.0, -1.0];
+        self.entity_moment = [0.0; 4];
+        self.light_scale = sample.map_or([crate::lighting::AMBIENT_LEVEL; 3], |s| s.display);
+        if let Some(texel) = sample.and_then(|s| s.prepared) {
+            self.light_scale = [1.0; 3];
+            let [red, green, blue] = texel.irradiance;
+            let [x, y, z] = texel.direction;
+            self.entity_irradiance = [red, green, blue, 1.0];
+            self.entity_moment = [x, y, z, 0.0];
+        }
+        self
     }
 
     /// The same environment with the level's regional fog installed.
@@ -593,14 +620,6 @@ impl EnvironmentUniform {
     #[must_use]
     pub const fn with_model(mut self, model: Mat4) -> Self {
         self.model = model.to_cols_array_2d();
-        self
-    }
-
-    /// The same environment with a per-object baked-light scale (dynamic path,
-    /// the reference's `u_light_scale`).
-    #[must_use]
-    pub fn with_light_scale(mut self, scale: [f32; 3]) -> Self {
-        self.light_scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
         self
     }
 
@@ -4037,9 +4056,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1248);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1280);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 1248);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 1280);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4154,7 +4173,8 @@ mod tests {
     }
 
     /// The regional fog uniform block: 64-byte entries at the tail of the
-    /// environment uniform, the count word bounding the shader loop, and the
+    /// environment uniform before the entity payload, with a count bounding the
+    /// shader loop and the
     /// zeroed default for a level that authors no region.
     #[test]
     fn the_fog_region_uniform_matches_the_wgsl_layout() {
@@ -4175,8 +4195,17 @@ mod tests {
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, fog_regions)
                 + 16 * std::mem::size_of::<FogRegionUniform>(),
-            std::mem::size_of::<EnvironmentUniform>()
+            std::mem::offset_of!(EnvironmentUniform, entity_irradiance)
         );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_irradiance),
+            1248
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_moment),
+            1264
+        );
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1280);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(

@@ -1058,8 +1058,8 @@ impl WgpuRenderer {
 
     /// Advances the dynamic scene and the emission-animation clock.
     ///
-    /// The neutral scene updates transforms and refreshes a moved object's
-    /// baked-light probe; the GPU side then writes each object's new model
+    /// The neutral scene updates transforms and refreshes environmental
+    /// lighting each frame; the GPU side then writes each object's new model
     /// matrix and light scale into its environment uniform. A still scene
     /// writes nothing.
     pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
@@ -1621,6 +1621,10 @@ impl WgpuRenderer {
         frames: &[EntityFrame],
     ) -> crate::render::CharacterUpdate {
         let update = self.characters.update(delta_seconds, locomotion, frames);
+        if let Some(lighting) = self.dynamic_lighting.as_ref() {
+            self.characters
+                .refresh_lighting(lighting, self.dynamic_field.as_deref());
+        }
         let generation = self.characters.runtime_generation();
         if generation != self.character_runtime_generation {
             self.character_runtime_generation = generation;
@@ -2371,6 +2375,15 @@ impl WgpuRenderer {
             self.effects = EffectScene::build(&loaded.level, &loaded.materials);
         }
         self.spawn_doors();
+        self.dynamic.update_with_field(
+            0.0,
+            self.dynamic_lighting.as_ref(),
+            self.dynamic_field.as_deref(),
+        );
+        if let Some(lighting) = self.dynamic_lighting.as_ref() {
+            self.characters
+                .refresh_lighting(lighting, self.dynamic_field.as_deref());
+        }
         self.world_dynamic = None;
         // The previous level's (or previous quality's) character GPU state is
         // dropped before the probe bake so the bake cannot draw stale
@@ -3934,6 +3947,110 @@ impl WgpuRenderer {
         let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
     }
 
+    /// Reports a selected entity only on the explicit capture path:
+    /// `PLACES_ENTITY_LIGHT_TRACE=all`, an instance id, or a model path.
+    fn trace_entity_lighting(&self, selector: &str) {
+        for (slot, object) in self.dynamic.objects().iter().enumerate() {
+            let name = format!("{:?}", object.id());
+            if selector != "all" && selector != name && selector != object.mesh().model_path {
+                continue;
+            }
+            let uniform = self
+                .world_dynamic
+                .as_ref()
+                .and_then(|gpu| gpu.diagnostic_uniform(slot));
+            self.trace_lighting_sample(
+                &name,
+                &format!("dynamic:{}", object.mesh().model_path),
+                object.transform(),
+                object.centre().to_array(),
+                uniform,
+            );
+        }
+        let entries = self
+            .characters
+            .characters()
+            .iter()
+            .enumerate()
+            .map(|(slot, c)| (Some(slot), c))
+            .chain(
+                self.characters
+                    .runtime_characters()
+                    .iter()
+                    .map(|c| (None, c)),
+            );
+        for (slot, character) in entries {
+            let name = character.instance_id().unwrap_or("unnamed");
+            if selector != "all" && selector != name && selector != character.asset().model_path {
+                continue;
+            }
+            let uniform = self
+                .world_characters
+                .as_ref()
+                .and_then(|gpu| gpu.diagnostic_uniform(name, slot));
+            self.trace_lighting_sample(
+                name,
+                &format!("character:{}", character.asset().model_path),
+                character.transform(),
+                character.lighting_sample_position(),
+                uniform,
+            );
+        }
+    }
+
+    fn trace_lighting_sample(
+        &self,
+        name: &str,
+        path: &str,
+        transform: glam::Mat4,
+        position: [f32; 3],
+        uniform: Option<&EnvironmentUniform>,
+    ) {
+        let Some(lighting) = self.dynamic_lighting.as_ref() else {
+            return;
+        };
+        let room = lighting
+            .room_index_at_height(position[0], position[1], position[2])
+            .filter(|r| lighting.probe_region_at(*r, position).is_some());
+        let sample = crate::render::common::light_transport::entity_lighting(
+            lighting,
+            self.dynamic_field.as_deref(),
+            position,
+        );
+        let candidates = room.and_then(|room| {
+            self.dynamic_field.as_ref().map(|field| {
+                field.sample_diagnostics_filtered(position, Some(room), |p| {
+                    lighting.same_probe_region(room, position, p)
+                })
+            })
+        });
+        let cell = self.dynamic_field.as_ref().map(|field| {
+            std::array::from_fn::<_, 3, _>(|axis| {
+                ((position.get(axis).copied().unwrap_or(0.0)
+                    - field.min.get(axis).copied().unwrap_or(0.0))
+                    / field.cell_m
+                    - 0.5)
+                    .floor()
+            })
+        });
+        let region = room.and_then(|r| lighting.probe_region_at(r, position));
+        let uploaded = uniform.map(|u| (u.entity_irradiance, u.entity_moment, u.light_scale));
+        let normals = [
+            [1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, -1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, -1.0],
+        ];
+        let directional = sample.prepared.map(|t| normals.map(|n| (n, t.light_at(n))));
+        logging::info(format!(
+            "[entity-light] name={name} path={path} map={:?} graphics={:?} transform={transform:?} sample_position={position:?} cell={cell:?} room={room:?} region={region:?} sample={sample:?} candidates={candidates:?} uploaded_energy_moment_scale={uploaded:?} pre_tonemap_normal_samples={directional:?}",
+            self.level_id,
+            self.graphics_applied.spec()
+        ));
+    }
+
     /// Reads back the last rendered frame as a top-down RGBA8 image.
     ///
     /// The post path's presented image already carries the resolved scene and
@@ -3956,6 +4073,9 @@ impl WgpuRenderer {
     /// Returns a message when the drawable is empty, no frame has been
     /// rendered, or the world pipeline/depth target has not been built.
     pub fn capture_default_framebuffer(&mut self) -> Result<crate::loader::RawImage, String> {
+        if let Ok(selector) = std::env::var("PLACES_ENTITY_LIGHT_TRACE") {
+            self.trace_entity_lighting(&selector);
+        }
         if self.drawable_size.is_empty() {
             return Err("drawable has zero size; nothing to capture".to_string());
         }
@@ -4954,3 +5074,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "entity_lighting_tests.rs"]
+mod entity_lighting_tests;

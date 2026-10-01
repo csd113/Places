@@ -38,17 +38,15 @@
 //! Lighting (probe-based)
 //! ----------------------
 //! Baked static light cannot follow a moving object, so each object carries a
-//! **probe**: the baked [`LevelLighting::sample`] value at its world-space
-//! centre, refreshed only when the object has moved by more than
-//! [`PROBE_EPSILON_M`]. The renderer feeds the probe through the world
-//! program's `u_light_scale` uniform, and the object's per-vertex colour carries
-//! albedo/tint only — exactly like a lightmapped static vertex. The object then
-//! reads coherently as it crosses a pool of light and a dark corner.
+//! **probe**: the prepared HDR field at its transformed model-bounds centre,
+//! refreshed every frame. The renderer reconstructs its directional diffuse
+//! response from the posed world geometry. Vertex colour carries albedo/tint
+//! only, and missing probes use the authored environment sample.
 //!
 //! Documented limits of that model:
 //!
-//! * **One probe per object.** The whole object is lit uniformly; a long object
-//!   lying across a light/dark boundary cannot shade across its length.
+//! * **One sample position per object.** Direction varies with the surface
+//!   normal, but a long object cannot sample both sides of a spatial boundary.
 //! * **No self-occlusion and no shadows.** The probe is the room's baked light
 //!   at the object's centre, so the object does not darken the floor beneath it,
 //!   does not shadow itself and casts no shadow of any kind.
@@ -84,9 +82,8 @@ pub const MAX_DYNAMIC_OBJECTS: usize = 64;
 /// buffer. Matches the static prop path's practical model budget.
 pub const MAX_DYNAMIC_MESHES: usize = 16;
 
-/// Smallest world-space movement, in metres, that refreshes an object's light
-/// probe. A rotation about the object's own centre moves no point of the probe,
-/// so a spinning object re-probes exactly never.
+/// Historical movement threshold, retained for API compatibility. Runtime
+/// lighting now samples every frame; this value no longer creates a dead zone.
 pub const PROBE_EPSILON_M: f32 = 0.05;
 
 /// Degrees per second the demonstration drum turns.
@@ -355,6 +352,7 @@ pub struct DynamicObject {
     /// emission off.
     emission_scale: f32,
     light_scale: [f32; 3],
+    entity_lighting: Option<super::light_transport::EntityLighting>,
     probe_position: [f32; 3],
     probe_valid: bool,
     /// Authored water-driven motion, for a floating prop. `None` for an
@@ -545,6 +543,12 @@ impl DynamicObject {
     #[must_use]
     pub const fn light_scale(&self) -> [f32; 3] {
         self.light_scale
+    }
+
+    /// Linear probe payload and fallback reason for the material uniform.
+    #[must_use]
+    pub const fn entity_lighting(&self) -> Option<super::light_transport::EntityLighting> {
+        self.entity_lighting
     }
 
     /// True when [`Self::light_scale`] has been sampled from the bake.
@@ -912,7 +916,8 @@ impl DynamicScene {
             spin_degrees_per_second: 0.0,
             emission: None,
             emission_scale: 1.0,
-            light_scale: [1.0; 3],
+            light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
+            entity_lighting: None,
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,
@@ -1002,7 +1007,8 @@ impl DynamicScene {
             spin_degrees_per_second,
             emission: None,
             emission_scale: 1.0,
-            light_scale: [1.0; 3],
+            light_scale: [crate::lighting::AMBIENT_LEVEL; 3],
+            entity_lighting: None,
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,
@@ -1111,12 +1117,8 @@ impl DynamicScene {
         object.set_emission_scale(scale)
     }
 
-    /// Advances every spinning object and refreshes the light probes of the
-    /// objects that moved appreciably.
-    ///
-    /// This is the whole per-frame update: no allocation, no geometry work and
-    /// no GPU traffic — only `f32` arithmetic and, when an object crossed
-    /// [`PROBE_EPSILON_M`], one [`LevelLighting::sample`] call.
+    /// Advances spinning objects and refreshes environmental lighting.
+    /// Samples allocate nothing; unchanged uniforms require no GPU write.
     pub fn update(
         &mut self,
         delta_seconds: f32,
@@ -1125,14 +1127,9 @@ impl DynamicScene {
         self.update_with_field(delta_seconds, lighting, None)
     }
 
-    /// [`Self::update`] preferring the prepared irradiance field.
-    ///
-    /// A moving object reads its room's prepared field, floored at the room's
-    /// authored baseline; a position the field cannot resolve (a roomless
-    /// point, or an unlabelled probe) falls back to the vertex-lit environment
-    /// sample, so an object is never left unlit and never darker than the
-    /// environment it moves through. See
-    /// [`crate::render::common::light_transport::moving_object_light`].
+    /// [`Self::update`] preferring the prepared HDR irradiance field.
+    /// Valid darkness is preserved. Missing, invalid or roomless samples use
+    /// the existing authored environment response with a diagnostic reason.
     pub fn update_with_field(
         &mut self,
         delta_seconds: f32,
@@ -1159,23 +1156,19 @@ impl DynamicScene {
             if !probe.iter().all(|value| value.is_finite()) {
                 continue;
             }
-            let moved = if object.probe_valid {
-                let dx = probe[0] - object.probe_position[0];
-                let dy = probe[1] - object.probe_position[1];
-                let dz = probe[2] - object.probe_position[2];
-                dx.mul_add(dx, dy.mul_add(dy, dz * dz)) > PROBE_EPSILON_M * PROBE_EPSILON_M
-            } else {
-                true
-            };
-            if !moved {
-                continue;
-            }
-            object.light_scale = crate::render::common::light_transport::moving_object_light(
-                lighting, irradiance, probe,
-            );
+            // Re-evaluate every frame: movement, resource replacement and
+            // light switches all affect this value. GPU writes still compare
+            // uniforms, so stationary unchanged objects upload nothing.
+            let sample = super::light_transport::entity_lighting(lighting, irradiance, probe);
+            let changed = object.entity_lighting != Some(sample)
+                || object.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
+            object.light_scale = sample.display;
+            object.entity_lighting = Some(sample);
             object.probe_position = probe;
             object.probe_valid = true;
-            update.probes_refreshed = update.probes_refreshed.saturating_add(1);
+            if changed {
+                update.probes_refreshed = update.probes_refreshed.saturating_add(1);
+            }
         }
         update
     }
@@ -1575,32 +1568,30 @@ mod tests {
     // ------------------------------------------------------------------ probes
 
     #[test]
-    fn a_light_probe_refreshes_on_movement_and_not_on_spin() {
+    fn a_light_probe_tracks_small_movement_and_stays_stable_when_stationary() {
         let level = demo_level();
         let lighting = LevelLighting::bake(&level);
         let (catalog, mut assets) = washers();
         let path = catalog.get(DEMO_DRUM_ID).model.expect("drum model");
         let asset = assets.resolve(&path).expect("drum loads");
         let mut scene = DynamicScene::new();
-        let id = scene
-            .spawn(&asset, [2.0, 1.5, 2.0], 0.0, 1.0, 30.0)
-            .unwrap();
+        let id = scene.spawn(&asset, [2.0, 1.5, 2.0], 0.0, 1.0, 0.0).unwrap();
         assert!(!scene.get(id).unwrap().probe_valid());
         let update = scene.update(0.016, Some(&lighting));
         assert_eq!(update.probes_refreshed, 1);
         assert!(scene.get(id).unwrap().probe_valid());
         let first_probe = scene.get(id).unwrap().light_scale();
         assert!(first_probe.iter().all(|value| *value > 0.0));
-        // The drum spins every frame, but its centre never moves: no re-probe.
+        // Stationary unchanged lighting requires no new GPU payload.
         for _ in 0..10 {
             let update = scene.update(0.016, Some(&lighting));
-            assert_eq!(update.moved, 1);
+            assert_eq!(update.moved, 0);
             assert_eq!(update.probes_refreshed, 0);
         }
         assert_eq!(scene.get(id).unwrap().light_scale(), first_probe);
-        // A move smaller than the epsilon is also ignored.
-        scene.set_transform(id, [2.0, 1.5, PROBE_EPSILON_M.mul_add(0.25, 2.0)], 0.0, 1.0);
-        assert_eq!(scene.update(0.016, Some(&lighting)).probes_refreshed, 0);
+        // Small movements are sampled too, without a 5 cm lighting dead zone.
+        scene.set_transform(id, [2.0, 1.5, 0.0125 + 2.0], 0.0, 1.0);
+        assert_eq!(scene.update(0.016, Some(&lighting)).probes_refreshed, 1);
         // A real move re-samples the probe at the new position.
         scene.set_transform(id, [4.5, 1.5, 4.5], 0.0, 1.0);
         let update = scene.update(0.016, Some(&lighting));
@@ -1611,6 +1602,58 @@ mod tests {
         scene.set_transform(id, [0.5, 1.5, 0.5], 0.0, 1.0);
         assert_eq!(scene.update(0.016, None).probes_refreshed, 0);
         assert_eq!(scene.get(id).unwrap().light_scale(), before);
+    }
+
+    #[test]
+    fn stationary_models_follow_replaced_fields_and_low_medium_high_cycles() {
+        use crate::lighting::probes::{ProbeField, ProbeSample};
+        let lighting = LevelLighting::bake(&demo_level());
+        let asset = synthetic_asset(MaterialEmission::NONE);
+        let mut scene = DynamicScene::new();
+        let id = scene
+            .spawn(&asset, [2.0, 1.0, 2.0], 0.0, 1.0, 0.0)
+            .expect("spawn");
+        let centre = scene.get(id).expect("object").centre().to_array();
+        let mut field = ProbeField {
+            min: centre.map(|v| v - 0.5),
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![ProbeSample {
+                irradiance: [0.2; 3],
+                axis: [0.5; 2],
+                room: 0,
+                ..ProbeSample::default()
+            }],
+        };
+        for _ in 0..3 {
+            scene.update_with_field(0.0, Some(&lighting), None);
+            assert!(
+                scene
+                    .get(id)
+                    .expect("object")
+                    .entity_lighting()
+                    .expect("sample")
+                    .prepared
+                    .is_none()
+            );
+            for value in [0.2, 0.6] {
+                field.probes[0].irradiance = [value; 3];
+                scene.update_with_field(0.0, Some(&lighting), Some(&field));
+                assert!((scene.get(id).expect("object").light_scale()[0] - value).abs() < 1.0e-6);
+                assert_eq!(
+                    scene
+                        .update_with_field(0.0, Some(&lighting), Some(&field))
+                        .probes_refreshed,
+                    0
+                );
+            }
+        }
+        scene.clear_all();
+        assert!(scene.objects().is_empty());
+        let id = scene
+            .spawn(&asset, [2.0, 1.0, 2.0], 0.0, 1.0, 0.0)
+            .expect("reload");
+        assert!(!scene.get(id).expect("fresh object").probe_valid());
     }
 
     #[test]

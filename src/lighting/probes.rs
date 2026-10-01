@@ -9,12 +9,10 @@
 //!
 //! Each probe stores the same compact linear HDR values a lightmap texel
 //! stores (an irradiance mean, the vector sum of the per-channel first moments
-//! and the reserved axis pair), plus the room it belongs to. Interpolation only
-//! mixes probes of the sample's own room, so light cannot bleed through a
-//! floor, ceiling or full-height wall between rooms, and a sample whose
-//! neighbourhood has no probe of its room falls back to the nearest one, then
-//! to the caller's own sampling (the vertex-lit model), so an object is never
-//! left black.
+//! and the reserved axis pair), plus the room it belongs to. Runtime blends
+//! valid probes within two cells, restricted to the sample's room and existing
+//! connected-area metadata. Missing samples request an explicit authored
+//! environment fallback; valid dark samples are never brightened.
 //!
 //! Probes are baked from the same transport solve as the lightmap atlas: air
 //! points receive every visible emitter's direct contribution plus one
@@ -78,8 +76,25 @@ pub struct ProbeSample {
 impl ProbeSample {
     /// True when this probe belongs to a room and can be sampled.
     #[must_use]
-    pub const fn is_valid(&self) -> bool {
-        self.room >= 0
+    pub fn is_valid(&self) -> bool {
+        self.room >= 0 && self.values_valid()
+    }
+
+    /// Finite, non-negative energy and a physically bounded first moment.
+    fn values_valid(&self) -> bool {
+        let k: f64 = self.irradiance.iter().map(|v| f64::from(*v)).sum();
+        let length = self
+            .direction
+            .iter()
+            .map(|v| f64::from(*v).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        self.irradiance.iter().all(|v| v.is_finite() && *v >= 0.0 && *v <= 65_504.0)
+            && self.direction.iter().all(|v| v.is_finite())
+            && self.axis.iter().all(|v| v.is_finite())
+            // Surface lighting uses half floats; exclude values that overflow
+            // its representation or the shared reconstruction arithmetic.
+            && length <= k.mul_add(1.000_01, 1.0e-6)
     }
 
     /// The probe's stored values as a lightmap texel.
@@ -93,10 +108,20 @@ impl ProbeSample {
     }
 }
 
+/// One contribution to an explicitly requested runtime lighting trace.
+#[derive(Clone, Copy, Debug)]
+pub struct ProbeContribution {
+    pub id: usize,
+    pub world_position: [f32; 3],
+    pub distance_m: f64,
+    pub weight: f64,
+    pub probe: ProbeSample,
+}
+
 /// One prepared probe field: a uniform grid over the mapped world.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeField {
-    /// World position of the grid's `(0, 0, 0)` probe centre.
+    /// World-space lower grid corner; probe centres add half a cell.
     pub min: [f32; 3],
     /// Cell edge, in metres.
     pub cell_m: f32,
@@ -193,131 +218,202 @@ impl ProbeField {
 
     /// The interpolated field at a world position, restricted to `room`.
     ///
-    /// Returns `None` when the position cannot be resolved to any probe of the
-    /// requested room: the caller then falls back to its own light sampling, so
-    /// an unresolvable position degrades instead of going black.
+    /// Compact Shepard weights `(1 - distance / 2)^2 / distance^2`, in
+    /// lattice units, blend valid probes within two cells. Weights vanish at
+    /// the support boundary, including across sparse grid cells. An exact
+    /// centre reads that probe alone. No probe of another room is used.
+    /// `None` requests the caller's environment fallback.
     #[must_use]
     pub fn sample(&self, position: [f32; 3], room: Option<usize>) -> Option<LightmapTexel> {
-        if !self.is_consistent() || self.cell_m <= 0.0 || !position.iter().all(|v| v.is_finite()) {
+        self.sample_filtered(position, room, |_| true)
+    }
+
+    /// Samples with the caller's existing region metadata, without changing
+    /// the serialized field or relabelling compiler-owned room indices.
+    #[must_use]
+    pub fn sample_filtered<F>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        accept: F,
+    ) -> Option<LightmapTexel>
+    where
+        F: Fn([f32; 3]) -> bool,
+    {
+        let mut energy = [0.0_f64; 3];
+        let mut moment = [0.0_f64; 3];
+        let sum = self.visit_candidates(position, room, accept, |_, _, probe, weight| {
+            for channel in 0..3 {
+                energy[channel] += weight * f64::from(probe.irradiance[channel]);
+                moment[channel] += weight * f64::from(probe.direction[channel]);
+            }
+        })?;
+        if sum <= 0.0 {
             return None;
         }
-        let room = room.map(|room| i32::try_from(room).unwrap_or(i32::MAX));
-        let coords = [
-            (position[0] - self.min[0]) / self.cell_m - 0.5,
-            (position[1] - self.min[1]) / self.cell_m - 0.5,
-            (position[2] - self.min[2]) / self.cell_m - 0.5,
-        ];
-        let base = [coords[0].floor(), coords[1].floor(), coords[2].floor()];
-        let frac = [
-            (coords[0] - base[0]).clamp(0.0, 1.0),
-            (coords[1] - base[1]).clamp(0.0, 1.0),
-            (coords[2] - base[2]).clamp(0.0, 1.0),
-        ];
-        let mut total = [0.0_f32; 3];
-        let mut moment = [0.0_f32; 3];
-        let mut weight_sum = 0.0_f32;
-        for dz in 0..2 {
-            for dy in 0..2 {
-                for dx in 0..2 {
-                    let weight = (if dx == 0 { 1.0 - frac[0] } else { frac[0] })
-                        * (if dy == 0 { 1.0 - frac[1] } else { frac[1] })
-                        * (if dz == 0 { 1.0 - frac[2] } else { frac[2] });
-                    if weight <= 0.0 {
-                        continue;
-                    }
-                    let Some(probe) = lattice_probe(
-                        self,
-                        base[0] + dx as f32,
-                        base[1] + dy as f32,
-                        base[2] + dz as f32,
-                    ) else {
-                        continue;
-                    };
-                    if !probe.is_valid() {
-                        continue;
-                    }
-                    if let Some(room) = room
-                        && probe.room != room
-                    {
-                        continue;
-                    }
-                    weight_sum += weight;
-                    for channel in 0..3 {
-                        if let (Some(slot), Some(value)) =
-                            (total.get_mut(channel), probe.irradiance.get(channel))
-                        {
-                            *slot += weight * value;
+        // A normalized convex combination of validated f32 values fits f32.
+        #[allow(clippy::cast_possible_truncation)]
+        let texel = LightmapTexel {
+            irradiance: energy.map(|v| (v / sum) as f32),
+            direction: moment.map(|v| (v / sum) as f32),
+            axis: [0.5; 2],
+        };
+        Some(texel)
+    }
+
+    /// Selected probe IDs, world positions, metre distances, normalized
+    /// weights and original values. Allocates only when explicitly requested.
+    #[must_use]
+    pub fn sample_diagnostics(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+    ) -> Vec<ProbeContribution> {
+        self.sample_diagnostics_filtered(position, room, |_| true)
+    }
+
+    /// The same filtered selection as [`Self::sample_filtered`], for reports.
+    #[must_use]
+    pub fn sample_diagnostics_filtered<F>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        accept: F,
+    ) -> Vec<ProbeContribution>
+    where
+        F: Fn([f32; 3]) -> bool,
+    {
+        let mut candidates = Vec::new();
+        let sum = self
+            .visit_candidates(
+                position,
+                room,
+                accept,
+                |id, world_position, probe, weight| {
+                    let distance_m = world_position
+                        .iter()
+                        .zip(position)
+                        .map(|(a, b)| (f64::from(*a) - f64::from(b)).powi(2))
+                        .sum::<f64>()
+                        .sqrt();
+                    candidates.push(ProbeContribution {
+                        id,
+                        world_position,
+                        distance_m,
+                        weight,
+                        probe,
+                    });
+                },
+            )
+            .unwrap_or(0.0);
+        for candidate in &mut candidates {
+            candidate.weight /= sum;
+        }
+        candidates
+    }
+
+    fn visit_candidates<F, A>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        accept: A,
+        mut visit: F,
+    ) -> Option<f64>
+    where
+        A: Fn([f32; 3]) -> bool,
+        F: FnMut(usize, [f32; 3], ProbeSample, f64),
+    {
+        if !self.is_consistent()
+            || !self.cell_m.is_finite()
+            || self.cell_m <= 0.0
+            || !self
+                .min
+                .iter()
+                .chain(position.iter())
+                .all(|v| v.is_finite())
+        {
+            return None;
+        }
+        let room = room.map(i32::try_from).transpose().ok()?;
+        let coords: [f64; 3] = std::array::from_fn(|axis| {
+            (f64::from(position[axis]) - f64::from(self.min[axis])) / f64::from(self.cell_m) - 0.5
+        });
+        let dims = self.dims_usize();
+        if coords
+            .iter()
+            .zip(dims)
+            .any(|(v, dim)| *v < -2.0 || *v > dim as f64 + 1.0)
+        {
+            return None;
+        }
+        let mut ranges = [(0usize, 0usize); 3];
+        for axis in 0..3 {
+            // Coordinates are finite and bounded to the grid's small support.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let low = (coords[axis] - 2.0).ceil().max(0.0) as usize;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let high = (coords[axis] + 2.0).floor().max(0.0) as usize;
+            ranges[axis] = (low, high.min(dims[axis].saturating_sub(1)));
+        }
+        // Exact lookup is checked first so no previously visited candidate
+        // survives when the sample coincides with a valid probe centre.
+        let mut exact = None;
+        let mut sum = 0.0;
+        for pass in 0..2 {
+            for z in ranges[2].0..=ranges[2].1 {
+                for y in ranges[1].0..=ranges[1].1 {
+                    for x in ranges[0].0..=ranges[0].1 {
+                        let probe = self.probe(x, y, z)?;
+                        if !probe.is_valid() || room.is_some_and(|r| r != probe.room) {
+                            continue;
                         }
-                        if let (Some(slot), Some(value)) =
-                            (moment.get_mut(channel), probe.direction.get(channel))
-                        {
-                            *slot += weight * value;
+                        let d2 = [x, y, z]
+                            .iter()
+                            .zip(coords)
+                            .map(|(a, b)| (*a as f64 - b).powi(2))
+                            .sum::<f64>();
+                        let id = (z * dims[1] + y) * dims[0] + x;
+                        let lattice = [x, y, z];
+                        let world_position = std::array::from_fn(|axis| {
+                            self.min[axis] + (lattice[axis] as f32 + 0.5) * self.cell_m
+                        });
+                        if !accept(world_position) {
+                            continue;
                         }
+                        if pass == 0 {
+                            if d2 <= 1.0e-20
+                                || world_position.map(f32::to_bits) == position.map(f32::to_bits)
+                            {
+                                exact = Some((id, world_position, probe));
+                            }
+                            continue;
+                        }
+                        if d2 >= 4.0 {
+                            continue;
+                        }
+                        let weight = (1.0 - d2.sqrt() / 2.0).powi(2) / d2;
+                        sum += weight;
+                        visit(id, world_position, probe, weight);
                     }
                 }
             }
-        }
-        if weight_sum > 0.0 {
-            let inverse = 1.0 / weight_sum;
-            for channel in 0..3 {
-                if let Some(slot) = total.get_mut(channel) {
-                    *slot *= inverse;
-                }
-                if let Some(slot) = moment.get_mut(channel) {
-                    *slot *= inverse;
-                }
-            }
-            return Some(LightmapTexel {
-                irradiance: total,
-                direction: moment,
-                // The axis is reserved; the moment is the whole directional
-                // payload now.
-                axis: [0.5, 0.5],
-            });
-        }
-        // Bounded fallback: the nearest valid probe of the requested room
-        // within a two-cell neighbourhood, then nothing (the caller's own
-        // sample takes over).
-        let mut best: Option<(f32, ProbeSample)> = None;
-        for dz in -2_isize..=2 {
-            for dy in -2_isize..=2 {
-                for dx in -2_isize..=2 {
-                    let Some(probe) = lattice_probe(
-                        self,
-                        base[0] + dx as f32,
-                        base[1] + dy as f32,
-                        base[2] + dz as f32,
-                    ) else {
-                        continue;
-                    };
-                    if !probe.is_valid() {
-                        continue;
-                    }
-                    if let Some(room) = room
-                        && probe.room != room
-                    {
-                        continue;
-                    }
-                    let distance = dx.abs() + dy.abs() + dz.abs();
-                    let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
-                    if best.is_none_or(|(current, _)| distance < current) {
-                        best = Some((distance, probe));
-                    }
-                }
+            if let Some((id, world_position, probe)) = exact {
+                visit(id, world_position, probe, 1.0);
+                return Some(1.0);
             }
         }
-        best.map(|(_, probe)| probe.texel())
+        Some(sum)
     }
 
     /// The display-space light a moving object reads at a world position.
     ///
-    /// The moving-object path has no surface normal, so it reads the stored
+    /// This diagnostic convenience method reads the stored
     /// isotropic term — the orientation-free component the static shader
     /// reconstructs around. The value goes through the same tone map the
-    /// static shader applies; this is the value the object's per-instance
-    /// light uniform carries. (The full reconstruction's sphere mean is
-    /// `I * (1 - |g| / (2k))`; the dynamic path deliberately uses the
-    /// isotropic term, exactly as it did before the moment representation.)
+    /// static shader applies; runtime entities instead carry the raw
+    /// coefficients and reconstruct against their posed surface normals. (The full reconstruction's sphere mean is
+    /// `I * (1 - |g| / (2k))`; this diagnostic deliberately uses the
+    /// isotropic term.)
     #[must_use]
     pub fn sample_display(&self, position: [f32; 3], room: Option<usize>) -> Option<[f32; 3]> {
         let texel = self.sample(position, room)?;
@@ -462,6 +558,9 @@ impl ProbeField {
         if count != expected || count > MAX_PROBES {
             return Err("probe field probe count does not match its dimensions".to_string());
         }
+        if cursor.remaining() != count.saturating_mul(36) {
+            return Err("probe field payload length does not match its dimensions".to_string());
+        }
         let mut probes = Vec::with_capacity(count);
         for _ in 0..count {
             let irradiance = [cursor.f32()?, cursor.f32()?, cursor.f32()?];
@@ -477,15 +576,16 @@ impl ProbeField {
             if room < -1 || room > i32::from(i16::MAX) {
                 return Err(format!("probe field room {room} is out of range"));
             }
-            probes.push(
-                ProbeSample {
-                    irradiance,
-                    direction,
-                    axis,
-                    room,
-                }
-                .normalized(),
-            );
+            let probe = ProbeSample {
+                irradiance,
+                direction,
+                axis,
+                room,
+            };
+            if !probe.values_valid() {
+                return Err("probe field holds invalid energy or moment values".to_string());
+            }
+            probes.push(probe);
         }
         if !cursor.is_at_end() {
             return Err(format!(
@@ -536,26 +636,6 @@ impl ProbeSample {
         }
         out
     }
-}
-
-/// The probe at a floating-point lattice position, if inside the grid.
-fn lattice_probe(field: &ProbeField, x: f32, y: f32, z: f32) -> Option<ProbeSample> {
-    let dims = field.dims_usize();
-    let mut lattice = [0usize; 3];
-    for (axis, value) in [x, y, z].into_iter().enumerate() {
-        if !value.is_finite() || value < 0.0 {
-            return None;
-        }
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        // `value` is finite and non-negative; the range check below rejects
-        // anything that would truncate past the grid.
-        let cell = value as usize;
-        if cell >= dims.get(axis).copied().unwrap_or(0) {
-            return None;
-        }
-        lattice[axis] = cell;
-    }
-    field.probe(lattice[0], lattice[1], lattice[2])
 }
 
 /// A bounds-checked little-endian cursor over a byte slice.
@@ -652,6 +732,160 @@ mod tests {
                     room: 3,
                 },
             ],
+        }
+    }
+
+    #[test]
+    fn exact_centres_hdr_and_signed_moments_survive_without_conversion() {
+        let mut f = field();
+        f.probes[0].irradiance = [4.0, 2.0, 1.0];
+        f.probes[0].direction = [-1.0, 2.0, -0.5];
+        let read = ProbeField::read(&f.write().expect("write")).expect("read");
+        assert_eq!(read, f);
+        let position = [0.5; 3];
+        let sample = read.sample(position, Some(3)).expect("exact centre");
+        assert_eq!(sample.irradiance, f.probes[0].irradiance);
+        assert_eq!(sample.direction, f.probes[0].direction);
+        let candidates = read.sample_diagnostics(position, Some(3));
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].id, 0);
+        assert_eq!(candidates[0].weight, 1.0);
+        assert_eq!(candidates[0].distance_m, 0.0);
+    }
+
+    #[test]
+    fn shifted_non_integral_grid_centres_resolve_exactly_in_world_space() {
+        let mut f = field();
+        f.min = [-2400.25, 1200.3, -8100.4];
+        f.cell_m = 1.830_469_6;
+        let position = f.min.map(|v| v + 0.5 * f.cell_m);
+        let sample = f.sample(position, Some(3)).expect("centre");
+        assert_eq!(sample.irradiance, f.probes[0].irradiance);
+        assert_eq!(sample.direction, f.probes[0].direction);
+        assert_eq!(f.sample_diagnostics(position, Some(3)).len(), 1);
+    }
+
+    #[test]
+    fn weights_are_normalized_and_movement_is_continuous_in_three_dimensions() {
+        let mut f = field();
+        f.dims = [2, 2, 2];
+        f.probes = (0_u16..8)
+            .map(|i| ProbeSample {
+                irradiance: [f32::from(i) * 0.1; 3],
+                room: 3,
+                axis: [0.5; 2],
+                ..ProbeSample::default()
+            })
+            .collect();
+        for axis in 0..3 {
+            let mut last: Option<f32> = None;
+            for step in 0_u16..=200 {
+                let mut p = [1.0; 3];
+                p[axis] = f32::from(step).mul_add(0.01, 0.1);
+                let sample = f.sample(p, Some(3)).expect("sample");
+                let candidates = f.sample_diagnostics(p, Some(3));
+                let sum: f64 = candidates.iter().map(|c| c.weight).sum();
+                assert!((sum - 1.0).abs() < 1.0e-12);
+                assert!(
+                    candidates
+                        .iter()
+                        .all(|c| c.weight.is_finite() && c.weight >= 0.0)
+                );
+                if let Some(previous) = last {
+                    assert!((sample.irradiance[0] - previous).abs() < 0.02);
+                }
+                last = Some(sample.irradiance[0]);
+                assert_eq!(
+                    f.sample(p, Some(3)),
+                    Some(sample),
+                    "stationary samples are deterministic"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sparse_neighbours_blend_without_nearest_probe_snaps() {
+        let mut f = field();
+        f.dims = [3, 1, 1];
+        f.probes.insert(
+            1,
+            ProbeSample {
+                room: -1,
+                ..ProbeSample::default()
+            },
+        );
+        let left = f.sample([1.49, 0.5, 0.5], Some(3)).expect("left");
+        let right = f.sample([1.51, 0.5, 0.5], Some(3)).expect("right");
+        assert!((left.irradiance[0] - right.irradiance[0]).abs() < 0.02);
+        let middle = f.sample([1.5, 0.5, 0.5], Some(3)).expect("middle");
+        assert!((middle.irradiance[0] - 0.3).abs() < 1.0e-6);
+        assert!(f.sample([20.0; 3], Some(3)).is_none());
+        assert!(
+            f.sample_filtered([1.5, 0.5, 0.5], Some(3), |p| p[0] < 1.0)
+                .is_some()
+        );
+        assert!(
+            f.sample_filtered([1.5, 0.5, 0.5], Some(3), |_| false)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn malformed_data_is_rejected_and_never_poisoned_or_sanitized_to_black() {
+        for bad in [f32::NAN, f32::INFINITY, -1.0, f32::MAX] {
+            let mut f = field();
+            f.probes[0].irradiance[0] = bad;
+            let bytes = f.write().expect("fixture encodes invalid bytes");
+            assert!(ProbeField::read(&bytes).is_err());
+            let sample = f
+                .sample([0.5; 3], Some(3))
+                .expect("other valid neighbour answers");
+            assert!(
+                sample
+                    .irradiance
+                    .iter()
+                    .all(|v| v.is_finite() && *v > 0.0 && *v < 1.0)
+            );
+            f.probes[1].irradiance[0] = bad;
+            assert!(f.sample([0.5; 3], Some(3)).is_none());
+        }
+        let mut f = field();
+        f.probes[0].direction = [100.0; 3];
+        assert!(ProbeField::read(&f.write().expect("bytes")).is_err());
+        for bad in [f32::NAN, f32::INFINITY, 0.0, -1.0] {
+            f.cell_m = bad;
+            assert!(f.sample([0.5; 3], Some(3)).is_none());
+        }
+        assert!(field().sample([f32::NAN; 3], Some(3)).is_none());
+        assert!(field().sample([f32::MAX; 3], Some(3)).is_none());
+        let mut empty = field();
+        empty.probes.clear();
+        assert!(empty.sample([0.5; 3], Some(3)).is_none());
+    }
+
+    #[test]
+    fn raw_shipped_payload_agrees_bit_for_bit_with_runtime_decode() {
+        use std::io::Read;
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(include_bytes!(
+            "../../assets/levels/places_demo.placesmap"
+        )))
+        .expect("archive");
+        let manifest: serde_json::Value =
+            serde_json::from_reader(archive.by_name("manifest.json").expect("manifest"))
+                .expect("json");
+        for variant in manifest["variants"].as_array().expect("variants") {
+            let Some(entry) = variant["entries"]["irradiance"].as_str() else {
+                continue;
+            };
+            let mut bytes = Vec::new();
+            archive
+                .by_name(entry)
+                .expect("field")
+                .read_to_end(&mut bytes)
+                .expect("bytes");
+            let f = ProbeField::read(&bytes).expect("runtime decode");
+            assert_eq!(f.write().expect("encode"), bytes);
         }
     }
 

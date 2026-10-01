@@ -9485,7 +9485,7 @@ fn single_probe(
 /// channel at the level's authored environment response — a room's baseline
 /// inside it, the vertex-lit environment sample outside every room.
 #[test]
-fn the_moving_object_light_never_drops_below_the_authored_environment() {
+fn valid_dark_probes_are_not_replaced_by_authored_brightness() {
     use crate::render::common::light_transport::moving_object_light;
     let level = one_fixture_room();
     let lighting = LevelLighting::bake(&level);
@@ -9511,8 +9511,8 @@ fn the_moving_object_light_never_drops_below_the_authored_environment() {
     let lit = moving_object_light(&lighting, Some(&dark), inside);
     for channel in 0..3 {
         assert!(
-            (lit[channel] - baseline[channel]).abs() < 1.0e-6,
-            "channel {channel}: {lit:?} must equal the authored baseline {baseline:?}"
+            lit[channel].abs() < 1.0e-6,
+            "channel {channel}: valid darkness must survive: {lit:?}"
         );
     }
 
@@ -9574,7 +9574,7 @@ fn a_roomless_moving_object_reads_the_environment_not_a_rooms_probe() {
 /// written for: the prepared field there is near black, while the level's
 /// authored environment (and every static prop beside them) is lit.
 #[test]
-fn the_shipped_night_route_entities_are_floored_at_the_authored_baseline() {
+fn the_shipped_night_route_does_not_hide_dark_compiler_data() {
     use crate::render::common::light_transport::moving_object_light;
     let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
         .expect("valid places_demo json");
@@ -9602,8 +9602,8 @@ fn the_shipped_night_route_entities_are_floored_at_the_authored_baseline() {
         let lit = moving_object_light(&lighting, Some(&dark), position);
         for channel in 0..3 {
             assert!(
-                (lit[channel] - baseline[channel]).abs() < 1.0e-6,
-                "{name} channel {channel}: {lit:?} must be the authored baseline {baseline:?}"
+                lit[channel].abs() < 1.0e-6,
+                "{name} channel {channel}: valid baked darkness survives: {lit:?}"
             );
         }
         let raw = dark
@@ -9742,5 +9742,82 @@ fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
         table.index_of(&entry.id),
         Some(above),
         "the id maps back to its own index"
+    );
+}
+
+#[test]
+fn entity_fallback_reasons_are_explicit_and_environment_dependent() {
+    use crate::render::common::light_transport::{EntityLightingSource, entity_lighting};
+    let lighting = LevelLighting::bake(&one_fixture_room());
+    let position = [1.0, 1.0, 1.0];
+    let absent = entity_lighting(&lighting, None, position);
+    assert_eq!(absent.source, EntityLightingSource::NoField);
+    assert!(
+        absent
+            .display
+            .iter()
+            .all(|v| v.is_finite() && *v > 0.0 && *v <= 1.0)
+    );
+    let mut invalid = single_probe(position, [f32::NAN; 3], 0);
+    let unresolved = entity_lighting(&lighting, Some(&invalid), position);
+    assert_eq!(unresolved.source, EntityLightingSource::Unresolved);
+    assert_eq!(unresolved.display, absent.display);
+    invalid.probes.clear();
+    assert_eq!(
+        entity_lighting(&lighting, Some(&invalid), position),
+        unresolved
+    );
+    let roomless = entity_lighting(&lighting, Some(&invalid), [900.0; 3]);
+    assert_eq!(roomless.source, EntityLightingSource::Roomless);
+    assert!(
+        roomless
+            .display
+            .iter()
+            .all(|v| v.is_finite() && *v > 0.0 && *v <= 1.0)
+    );
+    let malformed = entity_lighting(&lighting, Some(&invalid), [f32::NAN; 3]);
+    assert_eq!(malformed.source, EntityLightingSource::InvalidPosition);
+    assert!(malformed.display.iter().all(|v| v.is_finite()));
+}
+
+#[test]
+fn entity_probes_reject_room_labels_below_floors_and_above_ceilings() {
+    use crate::lighting::probes::{ProbeField, ProbeSample};
+    use crate::render::common::light_transport::entity_lighting;
+    let lighting = LevelLighting::bake(&one_fixture_room());
+    let field = ProbeField {
+        min: [0.0, -2.0, 0.0],
+        cell_m: 2.0,
+        dims: [1, 3, 1],
+        probes: [-1.0_f32, 0.2, 1.0]
+            .map(|v| ProbeSample {
+                irradiance: [v.abs(); 3],
+                room: 0,
+                ..ProbeSample::default()
+            })
+            .to_vec(),
+    };
+    // Centres Y=-1,1,3. The below-floor label is wrong; Y=3 is the
+    // ceiling boundary. Only actual air/boundary probes may contribute.
+    let position = [1.0, 1.0, 1.0];
+    let candidates = field.sample_diagnostics_filtered(position, Some(0), |p| {
+        lighting.same_probe_region(0, position, p)
+    });
+    assert!(candidates.iter().all(|c| c.world_position[1] >= 0.0));
+    let mut outside = single_probe([1.0, -1.0, 1.0], [1.0; 3], 0);
+    assert!(
+        entity_lighting(&lighting, Some(&outside), position)
+            .prepared
+            .is_none()
+    );
+    assert_eq!(
+        entity_lighting(&lighting, Some(&outside), [1.0, -1.0, 1.0]).source,
+        crate::render::common::light_transport::EntityLightingSource::Roomless
+    );
+    outside.min[1] = 3.0; // centre Y=4, above the ceiling
+    assert!(
+        entity_lighting(&lighting, Some(&outside), position)
+            .prepared
+            .is_none()
     );
 }

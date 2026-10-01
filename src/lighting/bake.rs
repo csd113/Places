@@ -1849,6 +1849,29 @@ impl LevelLighting {
         self.room_zones.get(room).is_some_and(Option::is_some)
     }
 
+    /// Existing connected-area ID for capture diagnostics, paired with `room`.
+    /// An unpartitioned room has area zero; invalid rooms resolve to nothing.
+    #[must_use]
+    pub fn probe_region_at(&self, room: usize, position: [f32; 3]) -> Option<u32> {
+        // The surface-lighting height helper has a historical XZ fallback.
+        // Entity probes must occupy this room's actual air volume instead.
+        if self.indexed_room(position[0], Some(position[1]), position[2], false) != Some(room) {
+            return None;
+        }
+        self.room_zones
+            .get(room)
+            .and_then(Option::as_ref)
+            .map_or(Some(0), |zones| zones.zone_at(position[0], position[2]))
+    }
+
+    /// Whether two positions share an existing connected lighting area.
+    /// Uses the same zone lookup as the existing surface-lighting path.
+    #[must_use]
+    pub fn same_probe_region(&self, room: usize, a: [f32; 3], b: [f32; 3]) -> bool {
+        let region = self.probe_region_at(room, a);
+        region.is_some() && region == self.probe_region_at(room, b)
+    }
+
     /// Baked baseline illumination of the area containing `(x, z)` in `room`.
     ///
     /// A room with no internal partition returns its room-wide

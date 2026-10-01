@@ -3032,6 +3032,10 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     .expect("partition level parses");
     let lighting = LevelLighting::bake(&partitioned);
     assert!(lighting.is_partitioned(0));
+    assert!(lighting.same_probe_region(0, [2.0, 1.5, 5.0], [3.0, 1.5, 5.0]));
+    assert!(!lighting.same_probe_region(0, [2.0, 1.5, 5.0], [2.0, -1.0, 5.0]));
+    assert!(!lighting.same_probe_region(0, [2.0, 1.5, 5.0], [2.0, 10.0, 5.0]));
+    assert!(!lighting.same_probe_region(0, [4.5, 1.5, 5.0], [5.5, 1.5, 5.0]));
     let zones = lighting.zones_in_room(0);
     assert_eq!(zones.len(), 2, "the wall must split the room");
     let total: f32 = zones.iter().map(|zone| zone.area_m2).sum();
