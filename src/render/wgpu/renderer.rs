@@ -518,10 +518,8 @@ pub struct WgpuRenderer {
     reflection_passes: usize,
     /// Whether the CPU frustum test is applied to the world draw ranges.
     culling: bool,
-    /// The active quality level. The world geometry does not vary by level;
-    /// the level gates the surface response, fits textures and sizes the
-    /// offscreen targets. Kept so `set_quality` is recorded and the build can
-    /// name it.
+    /// The active texture and scene-target quality. Lighting response has its
+    /// own selection so Low lighting retains the chosen texture budgets.
     quality: QualityLevel,
     /// Lighting path selected independently of texture and scene budgets.
     lighting_quality: QualityLevel,
@@ -2773,8 +2771,9 @@ impl WgpuRenderer {
     /// Recording changes no GPU state; the work (re-fitting the retained
     /// build's textures, or rebuilding it when the lightmaps changed too) runs
     /// in the prepared installation. The level is also recorded in the live
-    /// `quality` field because the per-frame scene target and surface-response
-    /// gates read it directly, exactly as they always have.
+    /// `quality` field because the per-frame scene target reads it directly.
+    /// It also selects matching lighting until the independent setter overrides
+    /// that baseline.
     pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.quality = quality;
         self.graphics_requested.quality = quality;

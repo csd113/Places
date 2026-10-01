@@ -97,7 +97,7 @@ fn repeated_toggles_restore_advanced_preferences_and_cancel_stale_installs() {
     settings.set_lightmap_quality(LightmapQuality::Medium);
     settings.set_reflection_quality(ReflectionQuality::Off);
     settings.set_bloom(false);
-    settings.take_pending_apply();
+    let _ = settings.take_pending_apply();
     let saved = settings.graphics_spec();
     for _ in 0..8 {
         assert!(settings.set_use_low_quality_lighting(true));

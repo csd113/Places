@@ -940,7 +940,8 @@ impl Settings {
     ///
     /// The saved value, with the `PLACES_NO_REFLECTIONS` startup override
     /// applied for this process; a missing or unknown value resolves against
-    /// the saved quality level.
+    /// the saved quality level. Low lighting takes precedence while enabled,
+    /// without changing either saved or startup preferences.
     #[must_use]
     pub fn reflection_quality(&self) -> ReflectionQuality {
         if self.use_low_quality_lighting {
@@ -998,7 +999,8 @@ impl Settings {
     ///
     /// The saved value, with the `PLACES_NO_LIGHTMAPS` startup override
     /// applied for this process; a missing or unknown value resolves against
-    /// the saved quality level.
+    /// the saved quality level. Low lighting selects the historical vertex-lit
+    /// path while enabled, without changing saved or startup preferences.
     #[must_use]
     pub fn lightmap_quality(&self) -> LightmapQuality {
         if self.use_low_quality_lighting {
