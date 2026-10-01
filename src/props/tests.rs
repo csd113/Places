@@ -341,6 +341,7 @@ fn rgba_bytes(width: u32, height: u32) -> usize {
 fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
     PropModel {
         vertices: vec![PropVertex {
+            normal: None,
             pos: [0.0; 3],
             color: [1.0; 4],
             uv: [0.0; 2],

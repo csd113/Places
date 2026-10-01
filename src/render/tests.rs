@@ -5951,16 +5951,19 @@ fn runtime_emissive_model() -> crate::gltf::PropModel {
     PropModel {
         vertices: vec![
             PropVertex {
+                normal: None,
                 pos: [0.0, 0.0, 0.0],
                 color: [1.0, 1.0, 1.0, 1.0],
                 uv: [0.0, 0.0],
             },
             PropVertex {
+                normal: None,
                 pos: [1.0, 0.0, 0.0],
                 color: [1.0, 1.0, 1.0, 1.0],
                 uv: [1.0, 0.0],
             },
             PropVertex {
+                normal: None,
                 pos: [0.0, 1.0, 0.0],
                 color: [1.0, 1.0, 1.0, 1.0],
                 uv: [0.0, 1.0],

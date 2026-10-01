@@ -912,6 +912,7 @@ mod tests {
             for position in triangle {
                 indices.push(u16::try_from(vertices.len()).expect("small test mesh"));
                 vertices.push(PropVertex {
+                    normal: None,
                     pos: *position,
                     color: [1.0, 1.0, 1.0, 1.0],
                     uv: [0.0, 0.0],
@@ -1567,6 +1568,7 @@ mod tests {
             let base = u16::try_from(vertices.len()).expect("small test mesh");
             for (x, y) in [(x0, 0.0), (x1, 0.0), (x1, 1.0), (x0, 1.0)] {
                 vertices.push(PropVertex {
+                    normal: None,
                     pos: [x, y, 0.0],
                     color: [1.0, 1.0, 1.0, 1.0],
                     uv: [0.0, 0.0],

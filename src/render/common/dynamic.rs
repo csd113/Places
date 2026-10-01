@@ -1340,16 +1340,19 @@ mod tests {
         PropModel {
             vertices: vec![
                 PropVertex {
+                    normal: None,
                     pos: [0.0, 0.0, 0.0],
                     color: [1.0, 1.0, 1.0, 1.0],
                     uv: [0.0, 0.0],
                 },
                 PropVertex {
+                    normal: None,
                     pos: [1.0, 0.0, 0.0],
                     color: [1.0, 0.5, 0.25, 1.0],
                     uv: [1.0, 0.0],
                 },
                 PropVertex {
+                    normal: None,
                     pos: [0.0, 1.0, 0.0],
                     color: [0.5, 1.0, 0.5, 1.0],
                     uv: [0.0, 1.0],

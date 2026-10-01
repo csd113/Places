@@ -106,6 +106,7 @@ fn triangle() -> Arc<LoadedPropAsset> {
         model: PropModel {
             vertices: [[-0.7, 0.3, 0.0], [0.7, 0.3, 0.0], [0.0, 1.7, -0.01]]
                 .map(|pos| PropVertex {
+                    normal: None,
                     pos,
                     color: [1.0; 4],
                     uv: [0.0; 2],

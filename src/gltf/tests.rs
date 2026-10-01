@@ -584,7 +584,7 @@ fn a_primitive_without_a_material_uses_the_default_slot() {
         "the implicit glTF default material uses the synthetic slot after the declared list"
     );
     assert_eq!(model.submeshes[0].texture, None);
-    assert!(model.textures.is_empty());
+    assert_eq!(model.textures.len(), 0);
     assert!((model.vertices[0].color[0] - 1.0).abs() < 1e-6);
 }
 
@@ -2095,4 +2095,171 @@ fn morph_tangent_deltas_are_vec3_without_handedness() {
     let mut invalid = json;
     invalid["accessors"][1]["type"] = serde_json::json!("VEC4");
     assert!(read_morph_targets(&invalid, &binary, &primitive, 0).is_err());
+}
+
+/// Minimal real GLB exercising optional surface normals and their default morphs.
+fn normal_triangle_document(
+    normals: &[[f32; 3]],
+    node: &serde_json::Value,
+    morph: Option<[f32; 3]>,
+) -> Vec<u8> {
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let normals = builder.vec3s(normals);
+    let mut primitive = serde_json::json!({"attributes": {
+        "POSITION": positions, "TEXCOORD_0": uvs, "NORMAL": normals
+    }});
+    if let Some(delta) = morph {
+        let positions = builder.positions(&[[0.0; 3]; 3]);
+        let normals = builder.vec3s(&[delta; 3]);
+        primitive["targets"] = serde_json::json!([{"POSITION": positions, "NORMAL": normals}]);
+        primitive["weights"] = serde_json::json!([0.5]);
+    }
+    let json = serde_json::json!({
+        "asset": {"version":"2.0"},
+        "scene":0, "scenes":[{"nodes":[0]}], "nodes":[node],
+        "meshes":[{"primitives":[primitive]}],
+        "accessors":serde_json::from_str::<serde_json::Value>(&format!("[{}]", builder.accessors())).expect("fixture accessor JSON"),
+        "bufferViews":serde_json::from_str::<serde_json::Value>(&format!("[{}]", builder.buffer_views())).expect("fixture bufferView JSON"),
+        "buffers":[{"byteLength":builder.bytes().len()}]
+    });
+    glb_container(&json.to_string(), builder.bytes())
+}
+
+#[test]
+fn surface_normals_use_inverse_transpose_under_nonuniform_node_scale_and_yaw() {
+    let n = std::f32::consts::FRAC_1_SQRT_2;
+    let glb = normal_triangle_document(
+        &[[n, n, 0.0]; 3],
+        &serde_json::json!({
+            "mesh":0, "scale":[2.0,1.0,0.5], "rotation":[0.0,n,0.0,n]
+        }),
+        None,
+    );
+    let model = parse_glb(&glb).expect("valid authored normals");
+    for vertex in &model.vertices {
+        let actual = Vec3::from(vertex.normal.expect("NORMAL retained"));
+        let expected = Vec3::new(0.0, 2.0, -1.0).normalize();
+        assert!(
+            actual.distance(expected) < 1.0e-5,
+            "inverse transpose: {actual:?}"
+        );
+    }
+    let missing = parse_glb(&minimal_triangle_glb()).expect("NORMAL remains optional");
+    assert!(
+        missing
+            .vertices
+            .iter()
+            .all(|vertex| vertex.normal.is_none())
+    );
+}
+
+#[test]
+fn surface_normals_apply_default_morph_before_node_transform() {
+    let glb = normal_triangle_document(
+        &[[0.0, 1.0, 0.0]; 3],
+        &serde_json::json!({
+            "mesh":0, "scale":[2.0,1.0,0.5]
+        }),
+        Some([1.0, 0.0, 1.0]),
+    );
+    let model = parse_glb(&glb).expect("valid normal morph");
+    let expected = Vec3::new(0.25, 1.0, 1.0).normalize();
+    for vertex in &model.vertices {
+        let actual = Vec3::from(vertex.normal.expect("morphed normal retained"));
+        assert!(actual.distance(expected) < 1.0e-5);
+    }
+    assert_eq!(model.morph_targets[0].normal, vec![[0.5, 0.0, 2.0]; 3]);
+}
+
+#[test]
+fn surface_normals_reject_wrong_counts_zero_nonfinite_and_singular_transforms() {
+    for normals in [
+        vec![[0.0, 1.0, 0.0]; 2],
+        vec![[0.0; 3]; 3],
+        vec![[f32::NAN, 1.0, 0.0]; 3],
+        vec![[f32::INFINITY, 1.0, 0.0]; 3],
+    ] {
+        let glb = normal_triangle_document(&normals, &serde_json::json!({"mesh":0}), None);
+        assert!(
+            parse_glb(&glb)
+                .expect_err("malformed NORMAL rejected")
+                .0
+                .contains("NORMAL")
+        );
+    }
+    let glb = normal_triangle_document(
+        &[[0.0, 1.0, 0.0]; 3],
+        &serde_json::json!({"mesh":0,"scale":[0.0,1.0,1.0]}),
+        None,
+    );
+    assert!(
+        parse_glb(&glb)
+            .expect_err("singular normal transform rejected")
+            .0
+            .contains("NORMAL")
+    );
+    let glb = normal_triangle_document(
+        &[[0.0, 1.0, 0.0]; 3],
+        &serde_json::json!({"mesh":0}),
+        Some([0.0, -2.0, 0.0]),
+    );
+    assert!(
+        parse_glb(&glb)
+            .expect_err("collapsed morphed normal rejected")
+            .0
+            .contains("NORMAL")
+    );
+    let glb = normal_triangle_document(
+        &[[0.0, 1.0, 0.0]; 3],
+        &serde_json::json!({"mesh":0}),
+        Some([f32::NAN, 0.0, 0.0]),
+    );
+    assert!(
+        parse_glb(&glb)
+            .expect_err("nonfinite normal delta rejected")
+            .0
+            .contains("NORMAL")
+    );
+}
+
+#[test]
+fn surface_normals_skin_with_weighted_inverse_transpose_and_normalize_after_blend() {
+    let attributes = PrimitiveAttributes {
+        positions: vec![vec![0.0, 0.0, 0.0]],
+        normals: Some(vec![[
+            std::f32::consts::FRAC_1_SQRT_2,
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+        ]]),
+        uvs: vec![vec![0.0, 0.0]],
+        colors: vec![vec![1.0; 4]],
+        joints: Some(vec![[0, 1, 0, 0]]),
+        weights: Some(vec![[1.0, 3.0, 0.0, 0.0]]),
+        targets: vec![PropMorphTarget {
+            position: vec![[0.0; 3]],
+            normal: vec![[1.0, 0.0, 0.0]],
+            tangent: Vec::new(),
+        }],
+        morph_defaults: vec![0.0],
+    };
+    let mut vertices = Vec::new();
+    let matrices = [
+        Mat4::from_scale(Vec3::new(2.0, 1.0, 1.0)),
+        Mat4::from_scale(Vec3::new(1.0, 2.0, 1.0)),
+    ];
+    let morphs = append_skinned_vertices(
+        &mut vertices,
+        &mut Vec::new(),
+        &mut Vec::new(),
+        &attributes,
+        &matrices,
+        [1.0; 4],
+    )
+    .expect("valid skin normals");
+    let actual = Vec3::from(vertices[0].normal.expect("skinned normal retained"));
+    let expected = Vec3::new(0.875, 0.625, 0.0).normalize();
+    assert!(actual.distance(expected) < 1.0e-5);
+    assert_eq!(morphs[0].normal, vec![[0.875, 0.0, 0.0]]);
 }

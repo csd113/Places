@@ -12,6 +12,7 @@
 //! * any number of nodes, meshes, primitives and materials up to the engine
 //!   ceilings in [`crate::level`], each primitive keeping its own material;
 //! * `POSITION` (float32), `TEXCOORD_0` (float32 or normalised integer),
+//!   `NORMAL` (optional float32, retained in model space),
 //!   `COLOR_0` (optional; float32 or normalised integer), 16/32-bit indices;
 //! * `mode: 4` (triangles) only;
 //! * optional morph targets (`POSITION` required, `NORMAL`/`TANGENT`
@@ -98,10 +99,12 @@ impl GltfError {
     }
 }
 
-/// One vertex of a loaded prop model: position, baked diffuse tint and UV.
+/// One vertex of a loaded prop model: position, diffuse tint, UV and optional authored normal.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PropVertex {
     pub pos: [f32; 3],
+    /// Unit normal in model space; absent when the asset supplies no NORMAL attribute.
+    pub normal: Option<[f32; 3]>,
     pub color: [f32; 4],
     pub uv: [f32; 2],
 }
@@ -2253,6 +2256,7 @@ fn parse_animation_times(
 /// The vertex attribute lists one primitive reads, before assembly.
 struct PrimitiveAttributes {
     positions: Vec<Vec<f32>>,
+    normals: Option<Vec<[f32; 3]>>,
     uvs: Vec<Vec<f32>>,
     colors: Vec<Vec<f32>>,
     /// `JOINTS_0` joint slots, when the primitive declares them.
@@ -2266,7 +2270,7 @@ struct PrimitiveAttributes {
 }
 
 /// Reads one primitive's `POSITION`, `TEXCOORD_0`, `COLOR_0` and optional
-/// `JOINTS_0`/`WEIGHTS_0` attributes.
+/// `NORMAL`/`JOINTS_0`/`WEIGHTS_0` attributes.
 ///
 /// `COLOR_0` stays optional (default white); `TEXCOORD_0` is required because
 /// every prop is UV mapped. Joint attributes are read raw here; whether the
@@ -2288,6 +2292,7 @@ fn read_attributes(
             ))
         })?;
     let positions = read_vec(json, binary, attribute(attributes, "POSITION")?, 3)?;
+    let normals = read_normals(json, binary, attributes, positions.len())?;
     let Some(uv_accessor) = attributes.get("TEXCOORD_0") else {
         return Err(GltfError::new(
             "primitive has no TEXCOORD_0; every prop vertex must be UV mapped",
@@ -2362,6 +2367,7 @@ fn read_attributes(
     }
     Ok(PrimitiveAttributes {
         positions,
+        normals,
         uvs,
         colors,
         joints,
@@ -2369,6 +2375,38 @@ fn read_attributes(
         targets,
         morph_defaults: defaults,
     })
+}
+
+/// Validates optional authored normals independently of the other vertex attributes.
+fn read_normals(
+    json: &serde_json::Value,
+    binary: &[u8],
+    attributes: &serde_json::Map<String, serde_json::Value>,
+    vertex_count: usize,
+) -> Result<Option<Vec<[f32; 3]>>, GltfError> {
+    match attributes.get("NORMAL") {
+        Some(value) => {
+            let index = accessor_index(value, "NORMAL")?;
+            if accessor_view(json, binary, index, 3)?.component_type != COMPONENT_FLOAT {
+                return Err(GltfError::new("NORMAL must use float32 components"));
+            }
+            let rows = read_vec(json, binary, index, 3)?;
+            if rows.len() != vertex_count {
+                return Err(GltfError::new(
+                    "POSITION and NORMAL attribute counts differ",
+                ));
+            }
+            Ok(Some(
+                rows.iter()
+                    .map(|row| {
+                        components::<3>(row)
+                            .and_then(|normal| normalized_normal(Vec3::from(normal)))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            ))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Reads one primitive's `targets`: POSITION is required per target, NORMAL
@@ -2458,9 +2496,13 @@ fn read_morph_targets(
                 return Err(GltfError::new("morph POSITION contains a non-finite delta"));
             }
         }
+        let normal = convert3(normal)?;
+        if normal.iter().flatten().any(|value| !value.is_finite()) {
+            return Err(GltfError::new("morph NORMAL contains a non-finite delta"));
+        }
         targets.push(PropMorphTarget {
             position,
-            normal: convert3(normal)?,
+            normal,
             tangent: convert_tangent(tangent)?,
         });
     }
@@ -2597,6 +2639,63 @@ fn primitive_indices(
     }
 }
 
+/// Validates and normalizes an authored or transformed surface normal.
+fn normalized_normal(normal: Vec3) -> Result<[f32; 3], GltfError> {
+    normal
+        .is_finite()
+        .then(|| normal.try_normalize())
+        .flatten()
+        .map(|normal| normal.to_array())
+        .ok_or_else(|| GltfError::new("NORMAL must be finite and nonzero after transformation"))
+}
+
+/// Normal deltas and surface directions use the inverse transpose, never position scaling.
+fn primitive_normal_transform(
+    attributes: &PrimitiveAttributes,
+    transform: &Mat4,
+) -> Result<Option<Mat4>, GltfError> {
+    if attributes.normals.is_none()
+        && attributes
+            .targets
+            .iter()
+            .all(|target| target.normal.is_empty())
+    {
+        return Ok(None);
+    }
+    let matrix = transform.inverse().transpose();
+    if !matrix.is_finite() {
+        return Err(GltfError::new(
+            "NORMAL cannot be transformed through a singular node or skin matrix",
+        ));
+    }
+    Ok(Some(matrix))
+}
+
+/// Applies default morph weights before transforming the authored normal into model space.
+fn default_normal(
+    attributes: &PrimitiveAttributes,
+    index: usize,
+) -> Result<Option<Vec3>, GltfError> {
+    let Some(normal) = attributes
+        .normals
+        .as_ref()
+        .and_then(|normals| normals.get(index))
+    else {
+        return Ok(None);
+    };
+    let mut normal = Vec3::from(*normal);
+    for (weight, target) in attributes.morph_defaults.iter().zip(&attributes.targets) {
+        if *weight != 0.0
+            && let Some(delta) = target.normal.get(index)
+        {
+            normal = Vec3::from(*delta).mul_add(Vec3::splat(*weight), normal);
+        }
+    }
+    // Keep the unnormalized morphed direction until after inverse-transpose or skin blending.
+    normalized_normal(normal)?;
+    Ok(Some(normal))
+}
+
 /// Appends one primitive's transformed vertices, with the material colour
 /// multiplied into every baked vertex colour and the default morph weights
 /// already applied. Returns the transformed morph-target deltas in model space.
@@ -2606,6 +2705,7 @@ fn append_vertices(
     transform: &Mat4,
     color: [f32; 4],
 ) -> Result<Vec<PropMorphTarget>, GltfError> {
+    let normal_transform = primitive_normal_transform(attributes, transform)?;
     for (index, ((position, uv), vertex_color)) in attributes
         .positions
         .iter()
@@ -2626,6 +2726,14 @@ fn append_vertices(
         let [red, green, blue, alpha]: [f32; 4] = components(vertex_color)?;
         vertices.push(PropVertex {
             pos: [point.x, point.y, point.z],
+            normal: default_normal(attributes, index)?
+                .map(|normal| {
+                    normal_transform.map_or_else(
+                        || Ok(normal.to_array()),
+                        |matrix| normalized_normal(matrix.transform_vector3(normal)),
+                    )
+                })
+                .transpose()?,
             color: [
                 red * color[0],
                 green * color[1],
@@ -2635,13 +2743,18 @@ fn append_vertices(
             uv: components(uv)?,
         });
     }
-    Ok(transform_morphs_static(attributes, transform))
+    Ok(transform_morphs_static(
+        attributes,
+        transform,
+        normal_transform,
+    ))
 }
 
 /// Transforms an unskinned primitive's morph deltas into model space.
 fn transform_morphs_static(
     attributes: &PrimitiveAttributes,
     transform: &Mat4,
+    normal_transform: Option<Mat4>,
 ) -> Vec<PropMorphTarget> {
     attributes
         .targets
@@ -2659,7 +2772,9 @@ fn transform_morphs_static(
                 .normal
                 .iter()
                 .map(|delta| {
-                    let vector = transform.transform_vector3(Vec3::from(*delta));
+                    let vector = normal_transform
+                        .unwrap_or(Mat4::IDENTITY)
+                        .transform_vector3(Vec3::from(*delta));
                     [vector.x, vector.y, vector.z]
                 })
                 .collect(),
@@ -2700,6 +2815,10 @@ fn append_skinned_vertices(
             "a skinned primitive is missing its JOINTS_0/WEIGHTS_0 attributes",
         ));
     };
+    let normal_matrices = skin_matrices
+        .iter()
+        .map(|matrix| primitive_normal_transform(attributes, matrix))
+        .collect::<Result<Vec<_>, _>>()?;
     let joint_total = u16::try_from(skin_matrices.len()).unwrap_or(u16::MAX);
     let mut normalized_weights: Vec<[f32; 4]> = Vec::with_capacity(raw_weights.len());
     for (index, (((position, uv), vertex_color), (joint_slots, weight_values))) in attributes
@@ -2755,6 +2874,13 @@ fn append_skinned_vertices(
         let [red, green, blue, alpha]: [f32; 4] = components(vertex_color)?;
         vertices.push(PropVertex {
             pos: [blended.x, blended.y, blended.z],
+            normal: skinned_normal(
+                attributes,
+                index,
+                raw_joints,
+                &normalized_weights,
+                &normal_matrices,
+            )?,
             color: [
                 red * color[0],
                 green * color[1],
@@ -2771,7 +2897,15 @@ fn append_skinned_vertices(
     let transformed = attributes
         .targets
         .iter()
-        .map(|target| skin_morph_target(target, raw_joints, &normalized_weights, skin_matrices))
+        .map(|target| {
+            skin_morph_target(
+                target,
+                raw_joints,
+                &normalized_weights,
+                skin_matrices,
+                &normal_matrices,
+            )
+        })
         .collect();
     Ok(transformed)
 }
@@ -2782,6 +2916,7 @@ fn skin_morph_target(
     raw_joints: &[[u16; 4]],
     normalized_weights: &[[f32; 4]],
     skin_matrices: &[Mat4],
+    normal_matrices: &[Option<Mat4>],
 ) -> PropMorphTarget {
     let position = target
         .position
@@ -2802,12 +2937,12 @@ fn skin_morph_target(
         .iter()
         .enumerate()
         .map(|(index, delta)| {
-            skin_vector(
+            skin_normal_vector(
                 Vec3::from(*delta),
                 index,
                 raw_joints,
                 normalized_weights,
-                skin_matrices,
+                normal_matrices,
             )
         })
         .collect();
@@ -2860,6 +2995,55 @@ fn skin_vector(
         }
     }
     [blended.x, blended.y, blended.z]
+}
+
+/// Resolves one default-morphed bind-pose normal and normalizes after weighted skinning.
+fn skinned_normal(
+    attributes: &PrimitiveAttributes,
+    index: usize,
+    raw_joints: &[[u16; 4]],
+    normalized_weights: &[[f32; 4]],
+    normal_matrices: &[Option<Mat4>],
+) -> Result<Option<[f32; 3]>, GltfError> {
+    default_normal(attributes, index)?
+        .map(|normal| {
+            normalized_normal(Vec3::from(skin_normal_vector(
+                normal,
+                index,
+                raw_joints,
+                normalized_weights,
+                normal_matrices,
+            )))
+        })
+        .transpose()
+}
+
+/// Skins a normal delta through weighted inverse-transpose matrices, without normalizing a delta.
+fn skin_normal_vector(
+    delta: Vec3,
+    index: usize,
+    raw_joints: &[[u16; 4]],
+    normalized_weights: &[[f32; 4]],
+    normal_matrices: &[Option<Mat4>],
+) -> [f32; 3] {
+    let mut blended = Vec3::ZERO;
+    if let Some(normalized) = normalized_weights.get(index) {
+        for (slot, weight) in raw_joints
+            .get(index)
+            .into_iter()
+            .flat_map(|slots| slots.iter())
+            .zip(normalized.iter())
+        {
+            if *weight > 0.0
+                && let Some(Some(matrix)) = normal_matrices.get(usize::from(*slot))
+            {
+                blended = matrix
+                    .transform_vector3(delta)
+                    .mul_add(Vec3::splat(*weight), blended);
+            }
+        }
+    }
+    blended.to_array()
 }
 
 /// Appends one primitive's indices, offset by the vertices already assembled.

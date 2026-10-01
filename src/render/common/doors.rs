@@ -324,6 +324,7 @@ impl MeshBuilder {
         let uvs = [[0.0, 0.0], [u, 0.0], [u, v], [0.0, v]];
         for (corner, uv) in corners.iter().zip(uvs) {
             self.vertices.push(PropVertex {
+                normal: None,
                 pos: *corner,
                 color: [level, level, level, 1.0],
                 uv,
@@ -406,12 +407,14 @@ impl MeshBuilder {
             let cap_level =
                 face_shade(Vec3::new(0.0, 0.0, if reverse { -1.0 } else { 1.0 })) * paint.shade;
             self.vertices.push(PropVertex {
+                normal: None,
                 pos: [cx, cy, z],
                 color: [cap_level, cap_level, cap_level, 1.0],
                 uv: [0.5, 0.5],
             });
             for (x, y) in &ring {
                 self.vertices.push(PropVertex {
+                    normal: None,
                     pos: [*x, *y, z],
                     color: [cap_level, cap_level, cap_level, 1.0],
                     uv: [*x / paint.tile, *y / paint.tile],
@@ -475,12 +478,14 @@ impl MeshBuilder {
             let cap_level =
                 face_shade(Vec3::new(0.0, if reverse { -1.0 } else { 1.0 }, 0.0)) * paint.shade;
             self.vertices.push(PropVertex {
+                normal: None,
                 pos: [cx, y, cz],
                 color: [cap_level, cap_level, cap_level, 1.0],
                 uv: [0.5, 0.5],
             });
             for (x, z) in &ring {
                 self.vertices.push(PropVertex {
+                    normal: None,
                     pos: [*x, y, *z],
                     color: [cap_level, cap_level, cap_level, 1.0],
                     uv: [*x / paint.tile, *z / paint.tile],
