@@ -116,8 +116,10 @@ fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
             )
             .expect("UV samples the atlas page");
         for channel in 0..3 {
-            texel.irradiance[channel] += contribution.irradiance[channel] * weight;
-            texel.direction[channel] += contribution.direction[channel] * weight;
+            texel.irradiance[channel] =
+                contribution.irradiance[channel].mul_add(weight, texel.irradiance[channel]);
+            texel.direction[channel] =
+                contribution.direction[channel].mul_add(weight, texel.direction[channel]);
         }
     }
     let normal = vertices
@@ -136,7 +138,9 @@ fn samples(build: &crate::render::LevelBuild, suffix: &str, normal: Vec3) -> Vec
     let batch = receiver_batch(build, suffix);
     batch
         .indices
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .filter_map(|indices| {
             let vertices = indices.map_indices(&batch.vertices);
             let facing = vertices
@@ -153,13 +157,9 @@ trait TriangleIndices {
     fn map_indices(&self, vertices: &[Vertex]) -> [Vertex; 3];
 }
 
-impl TriangleIndices for [u16] {
+impl TriangleIndices for [u16; 3] {
     fn map_indices(&self, vertices: &[Vertex]) -> [Vertex; 3] {
-        [
-            vertices[usize::from(self[0])],
-            vertices[usize::from(self[1])],
-            vertices[usize::from(self[2])],
-        ]
+        self.map(|index| vertices[usize::from(index)])
     }
 }
 
@@ -283,7 +283,7 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
     let decoded_atlas = crate::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
     assert_eq!(atlas.charts, decoded_atlas.charts);
     let batch = receiver_batch(&built, "showcase_boulder.glb");
-    for indices in batch.indices.chunks_exact(3) {
+    for indices in batch.indices.as_chunks::<3>().0 {
         let triangle = indices.map_indices(&batch.vertices);
         for (before, after) in sample(atlas, triangle)
             .into_iter()
