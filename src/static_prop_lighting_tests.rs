@@ -557,6 +557,7 @@ fn valid_authored_model_normals_survive_nonuniform_node_transforms() {
 /// changes during authoring; invoke it after generators settle before rebakes.
 #[test]
 #[ignore = "explicit bundled-map atlas planning preflight; no lightmap fill"]
+#[allow(clippy::print_stderr)] // Explicit developer diagnostic, outside normal tests and runtime.
 fn bundled_static_models_fit_medium_and_full_atlas_plans() {
     let root = crate::assets::resolve_asset_root().unwrap();
     let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
@@ -571,6 +572,7 @@ fn bundled_static_models_fit_medium_and_full_atlas_plans() {
             crate::quality::LightmapQuality::Full,
         ] {
             let options = LightmapBuildOptions::for_lightmaps(quality);
+            let started = std::time::Instant::now();
             let prepared = crate::render::prepare_level_geometry_with_lightmaps(
                 &level,
                 &catalog,
@@ -578,6 +580,16 @@ fn bundled_static_models_fit_medium_and_full_atlas_plans() {
                 &materials,
                 options,
                 None,
+            );
+            let (pages, charts) = prepared
+                .fill
+                .as_ref()
+                .map_or((0, 0), |request| (request.page_count, request.charts.len()));
+            eprintln!(
+                "ATLAS_PREFLIGHT map={id} quality={} pages={pages} charts={charts} planning_seconds={:.3} failure={:?}",
+                quality.name(),
+                started.elapsed().as_secs_f64(),
+                prepared.build.lightmap_failure,
             );
             assert!(
                 prepared.build.lightmap_failure.is_none(),
@@ -598,6 +610,131 @@ fn bundled_static_models_fit_medium_and_full_atlas_plans() {
                     .any(Vertex::is_lightmapped),
                 "{id} must plan real static model receivers"
             );
+        }
+    }
+}
+
+#[test]
+fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_extra_page_budgets() {
+    use crate::lighting::lightmap::{ChartAllocator, LightmapConfig, LightmapPatch, PatchKind};
+
+    let config = LightmapConfig {
+        texels_per_metre: 8.0,
+        page_edge: 512,
+        max_pages: 8,
+        padding: 2,
+        bytes_per_texel: 16,
+    };
+    let patch = |kind, width, height| LightmapPatch {
+        origin: [0.0; 3],
+        u_axis: [width, 0.0, 0.0],
+        v_axis: [0.0, 0.0, height],
+        room: None,
+        kind,
+    };
+    let mut inputs = Vec::new();
+    for index in 0_u32..4_000 {
+        if index.is_multiple_of(113) {
+            inputs.push(patch(PatchKind::Floor, 4.0, 3.0));
+        }
+        // Varied triangle charts encounter real packing fragmentation, rather
+        // than proving only that equal rectangles tile an empty page.
+        let width = (2 + index * 7 % 11) as f32 / 8.0;
+        let height = (2 + index * 5 % 13) as f32 / 8.0;
+        inputs.push(patch(PatchKind::Prop, width, height));
+    }
+    let allocate = || {
+        let mut allocator = ChartAllocator::new(config);
+        let charts = inputs
+            .iter()
+            .map(|input| {
+                allocator
+                    .allocate(input)
+                    .expect("thousands of small model charts must fit the shared budget")
+            })
+            .collect::<Vec<_>>();
+        assert!(!allocator.failed());
+        assert!(allocator.page_count() <= config.max_pages);
+        (charts, allocator.page_count())
+    };
+    let (charts, pages) = allocate();
+    let (repeated_charts, repeated_pages) = allocate();
+    assert_eq!(
+        charts, repeated_charts,
+        "chart coordinates must be deterministic"
+    );
+    assert_eq!(
+        pages, repeated_pages,
+        "model-page assignment must be deterministic"
+    );
+    let architecture = inputs
+        .iter()
+        .zip(&charts)
+        .filter_map(|(input, chart)| (input.kind != PatchKind::Prop).then_some(chart.page))
+        .collect::<std::collections::BTreeSet<_>>();
+    let models = inputs
+        .iter()
+        .zip(&charts)
+        .filter_map(|(input, chart)| (input.kind == PatchKind::Prop).then_some(chart.page))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(!architecture.is_empty() && !models.is_empty());
+    assert!(
+        architecture.is_disjoint(&models),
+        "interleaved architecture and model allocation must use disjoint shared-budget pages"
+    );
+
+    assert_chart_gutters_disjoint(&config, pages, &charts);
+
+    // Architecture and model pools share one cap: one full-page chart from
+    // each family exhausts a two-page budget, and failure stays sticky.
+    let mut capped = ChartAllocator::new(LightmapConfig {
+        page_edge: 32,
+        max_pages: 2,
+        ..config
+    });
+    let floor = capped.allocate(&patch(PatchKind::Floor, 4.0, 4.0)).unwrap();
+    let model = capped.allocate(&patch(PatchKind::Prop, 4.0, 4.0)).unwrap();
+    assert_ne!(floor.page, model.page);
+    assert_eq!(capped.page_count(), 2);
+    assert!(capped.allocate(&patch(PatchKind::Prop, 4.0, 4.0)).is_none());
+    assert!(capped.failed());
+    assert!(
+        capped
+            .allocate(&patch(PatchKind::Floor, 0.125, 0.125))
+            .is_none()
+    );
+    assert_eq!(
+        capped.page_count(),
+        2,
+        "model pages must never bypass the shared page cap"
+    );
+}
+
+fn assert_chart_gutters_disjoint(
+    config: &crate::lighting::lightmap::LightmapConfig,
+    pages: usize,
+    charts: &[crate::lighting::lightmap::Chart],
+) {
+    let edge = usize::try_from(config.page_edge).unwrap();
+    let mut occupancy = vec![vec![false; edge * edge]; pages];
+    for chart in charts {
+        assert!(chart.x >= config.padding && chart.y >= config.padding);
+        let left = chart.x - config.padding;
+        let top = chart.y - config.padding;
+        let right = chart.x + chart.width + config.padding;
+        let bottom = chart.y + chart.height + config.padding;
+        assert!(right <= config.page_edge && bottom <= config.page_edge);
+        let page = &mut occupancy[usize::from(chart.page)];
+        for y in top..bottom {
+            for x in left..right {
+                let slot = usize::try_from(y).unwrap() * edge + usize::try_from(x).unwrap();
+                assert!(
+                    !page[slot],
+                    "chart or gutter overlap at page={}, x={x}, y={y}",
+                    chart.page
+                );
+                page[slot] = true;
+            }
         }
     }
 }
