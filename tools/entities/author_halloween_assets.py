@@ -19,14 +19,16 @@ yet carry the contracts the runtime needs:
   that makes the cloth glow eerily. Its painted face (eyes, nose and mouth,
   carried in the vertex colours) becomes a second primitive with a much dimmer
   emissive factor, so the features stay readable as darker holes instead of
-  being flooded by the glow. Geometry, UVs, vertex colours, skin, inverse bind
-  matrices and every animation channel are untouched — only the index set is
-  partitioned, so the two primitives together draw exactly the original
-  triangles.
+  being flooded by the glow. The previously recessed face positions are
+  conformed to the front cloth rim with a 6 mm offset and corrected normals.
+  Complete triangle overlaps are checked against the actual cloth (the
+  original eyes and mouth are apertures). UVs, vertex colours, skin,
+  inverse binds and clips are preserved.
 * ``sheet-ghost-cat`` is the sheet ghost's small companion. It ships a single
   material for the whole sheet, so it takes the same ``alphaMode: "BLEND"`` and
-  the same cyan emissive family directly; there is no face partition and no
-  geometry edit at all.
+  the same cyan emissive family directly. Its original facial mesh is moved
+  onto the planar cloth front with 3 mm clearance, preserving feature relief.
+  All skin weights and animation clips are preserved.
 * ``carved-pumpkin`` is already complete: its ``candle_flame`` primitive
   carries the warm emissive factor and the carved shell samples the same shared
   surface sheet. The tool only verifies that contract.
@@ -58,6 +60,7 @@ if str(REPO_ROOT / "tools" / "entities") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "tools" / "entities"))
 
 import rig  # noqa: E402  (tools/entities on sys.path)
+import ghost_surface  # noqa: E402
 
 GLB_MAGIC = 0x46546C67
 GLB_VERSION = 2
@@ -108,8 +111,8 @@ HOVERING_ASSETS = frozenset({"sheet-ghost", "sheet-ghost-cat"})
 AUTHORED_SHA256: Dict[str, str] = {
     "carved-pumpkin": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
     "pumpkin-skeleton": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
-    "sheet-ghost": "f0344ea2dc98fff90b8e4c9971ce88860eee90b3044feee9165f0b62ce7f332a",
-    "sheet-ghost-cat": "f3007576af73bd002121a4af59fd95dc4715db0bd7795ec57ccfc5fa77619a5f",
+    "sheet-ghost": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+    "sheet-ghost-cat": "9d352b7f8f516b278a747286dfd050ee8934a45b79ebf5c3a17b99ea7acbaa5c",
 }
 
 
@@ -672,6 +675,10 @@ def check_carved_pumpkin(document: dict, path: Path) -> None:
         raise AuthoringError(f"{path}: no primitive binds the candle_flame material")
 
 
+def attach_ghost_face(document: dict, binary: bytes, name: str) -> Tuple[dict, bytes]:
+    return ghost_surface.attach(document, binary, name, accessor, indices_of, vertex_colours)
+
+
 def planned_bytes(name: str, path: Path) -> bytes:
     """The exact bytes the shipped asset must have, derived from the source.
 
@@ -700,6 +707,9 @@ def planned_bytes(name: str, path: Path) -> bytes:
         document = blend_ghost_cat_material(document)
     else:
         raise AuthoringError(f"unknown asset {name}")
+    if name in HOVERING_ASSETS:
+        document, binary = attach_ghost_face(document, binary, name)
+        document, binary = normalize_model_origin(document, binary, name, ground_base=False)
     return write_glb(document, binary)
 
 
@@ -828,6 +838,11 @@ def _verify_bind_inverses(document: dict, binary: bytes, path: Path) -> None:
 def verify(name: str, path: Path, report: dict) -> List[str]:
     problems: List[str] = []
     document, binary = read_glb(path)
+    if name in HOVERING_ASSETS:
+        try:
+            ghost_surface.validate(document, binary, name, accessor, indices_of, vertex_colours)
+        except ValueError as error:
+            problems.append(f"{path}: {error}")
     try:
         _verify_bind_inverses(document, binary, path)
     except AuthoringError as error:
