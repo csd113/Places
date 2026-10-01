@@ -184,6 +184,23 @@ def attach(document, binary, name, accessor, indices_of, vertex_colours):
     return document, bytes(buffer)
 
 
+def validate_face_order(document, binary, indices_of, vertex_colours):
+    """A translucent painted face must follow every cloth triangle."""
+    saw_face = False
+    for primitive in document["meshes"][0]["primitives"]:
+        colours = vertex_colours(document, binary, primitive)
+        face = {i for i, c in enumerate(colours) if sum(c[:3]) / 3 < .35}
+        indices = indices_of(document, binary, primitive)
+        for start in range(0, len(indices), 3):
+            membership = [i in face for i in indices[start:start+3]]
+            if any(membership) and not all(membership):
+                raise ValueError("ghost cat triangle mixes cloth and facial features")
+            if all(membership):
+                saw_face = True
+            elif saw_face:
+                raise ValueError("ghost cat cloth is drawn after its facial features")
+
+
 def validate(document, binary, name, accessor, indices_of, vertex_colours):
     primitives = document["meshes"][0]["primitives"]
     attributes = primitives[0]["attributes"]
@@ -214,4 +231,6 @@ def validate(document, binary, name, accessor, indices_of, vertex_colours):
         for x, y in overlap:
             if triangle_height(a, x, y)-triangle_height(b, x, y) < clearance-1e-6:
                 raise ValueError("facial triangle intersects its sheet")
+    if name == "sheet-ghost-cat":
+        validate_face_order(document, binary, indices_of, vertex_colours)
     return len(face)

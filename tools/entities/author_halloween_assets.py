@@ -24,11 +24,11 @@ yet carry the contracts the runtime needs:
   Complete triangle overlaps are checked against the actual cloth (the
   original eyes and mouth are apertures). UVs, vertex colours, skin,
   inverse binds and clips are preserved.
-* ``sheet-ghost-cat`` is the sheet ghost's small companion. It ships a single
-  material for the whole sheet, so it takes the same ``alphaMode: "BLEND"`` and
-  the same cyan emissive family directly. Its original facial mesh is moved
-  onto the planar cloth front with 3 mm clearance, preserving feature relief.
-  All skin weights and animation clips are preserved.
+* ``sheet-ghost-cat`` is the sheet ghost's small companion. Its existing cloth
+  keeps the cyan BLEND material; its dark features use the human ghost's dim
+  face material and draw last, so tail triangles and uniform cloth emission
+  cannot erase them. Its facial mesh lies above the planar front with 3 mm
+  clearance. Skin weights, feature relief and animation clips are preserved.
 * ``carved-pumpkin`` is already complete: its ``candle_flame`` primitive
   carries the warm emissive factor and the carved shell samples the same shared
   surface sheet. The tool only verifies that contract.
@@ -112,7 +112,7 @@ AUTHORED_SHA256: Dict[str, str] = {
     "carved-pumpkin": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
     "pumpkin-skeleton": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
     "sheet-ghost": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
-    "sheet-ghost-cat": "9d352b7f8f516b278a747286dfd050ee8934a45b79ebf5c3a17b99ea7acbaa5c",
+    "sheet-ghost-cat": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef",
 }
 
 
@@ -585,7 +585,7 @@ def split_pumpkin_head(document: dict, binary: bytes) -> Tuple[dict, bytes]:
     return partition_primitive(document, binary, "pumpkin-skeleton", wanted, material)
 
 
-def split_ghost_face(document: dict, binary: bytes) -> Tuple[dict, bytes]:
+def split_ghost_face(document: dict, binary: bytes, label: str = "sheet-ghost") -> Tuple[dict, bytes]:
     """Moves the painted face features into a second, dimmer emissive primitive.
 
     The face (eyes, nose and mouth) is painted into the vertex colours, not the
@@ -594,7 +594,7 @@ def split_ghost_face(document: dict, binary: bytes) -> Tuple[dict, bytes]:
     factor: the cloth still glows while the face stays readable as darker
     holes. The two primitives together draw exactly the original triangles.
     """
-    primitive = _single_primitive(document, "sheet-ghost")
+    primitive = _single_primitive(document, label)
     colours = vertex_colours(document, binary, primitive)
 
     def wanted(triangle: Sequence[int]) -> bool:
@@ -608,7 +608,7 @@ def split_ghost_face(document: dict, binary: bytes) -> Tuple[dict, bytes]:
     material = _mirrored_material(
         document["materials"][0], GHOST_FACE_MATERIAL, GHOST_FACE_EMISSIVE, "BLEND"
     )
-    return partition_primitive(document, binary, "sheet-ghost", wanted, material)
+    return partition_primitive(document, binary, label, wanted, material)
 
 
 def blend_ghost_material(document: dict) -> dict:
@@ -627,24 +627,8 @@ def blend_ghost_material(document: dict) -> dict:
 
 
 def blend_ghost_cat_material(document: dict) -> dict:
-    """Installs the ghost cat's blended cyan material contract.
-
-    The cat ships one material for the whole sheet, so there is no face
-    partition to keep dimmer: the single material takes the same
-    ``alphaMode: "BLEND"`` and the same mild cyan emissive family as the sheet
-    ghost's cloth, which is exactly the pair the translucent, fading character
-    route expects. Geometry, UVs, vertex colours, skin, inverse bind matrices
-    and every animation channel are untouched.
-    """
-    materials = document.get("materials", [])
-    if len(materials) != 1:
-        raise AuthoringError(
-            f"sheet-ghost-cat: expected one material, found {len(materials)}"
-        )
-    material = materials[0]
-    material["alphaMode"] = "BLEND"
-    material["emissiveFactor"] = list(GHOST_EMISSIVE)
-    return document
+    """Keep the cat cloth unchanged and reuse the human's dim face contract."""
+    return blend_ghost_material(document)
 
 
 # --------------------------------------------------------------- checks
@@ -704,6 +688,8 @@ def planned_bytes(name: str, path: Path) -> bytes:
             document, binary = split_ghost_face(document, binary)
         document = blend_ghost_material(document)
     elif name == "sheet-ghost-cat":
+        if not is_partitioned(document, GHOST_FACE_MATERIAL):
+            document, binary = split_ghost_face(document, binary, name)
         document = blend_ghost_cat_material(document)
     else:
         raise AuthoringError(f"unknown asset {name}")
@@ -888,7 +874,7 @@ def verify(name: str, path: Path, report: dict) -> List[str]:
             )
         except AuthoringError as error:
             problems.append(str(error))
-    elif name == "sheet-ghost":
+    elif name in HOVERING_ASSETS:
         try:
             meshes = document.get("meshes", [])
             primitives = meshes[0].get("primitives", []) if len(meshes) == 1 else []
@@ -919,25 +905,6 @@ def verify(name: str, path: Path, report: dict) -> List[str]:
             if cloth.get("emissiveFactor") != GHOST_EMISSIVE:
                 problems.append(
                     f"{path}: cloth emissive {cloth.get('emissiveFactor')} != {GHOST_EMISSIVE}"
-                )
-        except AuthoringError as error:
-            problems.append(str(error))
-    elif name == "sheet-ghost-cat":
-        try:
-            materials = document.get("materials", [])
-            if len(materials) != 1:
-                raise AuthoringError(
-                    f"{path}: expected the single ghost-cat material, found {len(materials)}"
-                )
-            material = materials[0]
-            if material.get("alphaMode") != "BLEND":
-                problems.append(
-                    f"{path}: the ghost-cat material must keep the BLEND contract"
-                )
-            if material.get("emissiveFactor") != GHOST_EMISSIVE:
-                problems.append(
-                    f"{path}: the ghost-cat emissive {material.get('emissiveFactor')} "
-                    f"!= {GHOST_EMISSIVE}"
                 )
         except AuthoringError as error:
             problems.append(str(error))
