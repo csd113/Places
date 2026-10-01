@@ -20,6 +20,66 @@
   },
   "rooms": [
     {
+      "x": -31.5,
+      "z": 0.8,
+      "width": 9,
+      "depth": 5.4,
+      "height": 2.7337,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.8173
+      },
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01",
+      "comment": "house_0: furnished cottage 02, one sealed gable volume."
+    },
+    {
+      "x": -13.5,
+      "z": 0.8,
+      "width": 9,
+      "depth": 5.4,
+      "height": 2.7337,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.8173
+      },
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_white_01",
+      "comment": "house_1: furnished cottage 01, one sealed gable volume."
+    },
+    {
+      "x": 4.5,
+      "z": 0.8,
+      "width": 9,
+      "depth": 5.4,
+      "height": 2.7337,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.8173
+      },
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01",
+      "comment": "house_2: furnished cottage 05, one sealed gable volume."
+    },
+    {
+      "x": 22.5,
+      "z": 0.8,
+      "width": 9,
+      "depth": 5.4,
+      "height": 2.7337,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 1.8173
+      },
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_white_01",
+      "comment": "house_3: furnished cottage 03, one sealed gable volume."
+    },
+    {
       "x": -44.0,
       "z": -46.0,
       "width": 12.571428571428571,
@@ -618,66 +678,6 @@
       },
       "material": "outdoor:grass_ground_01",
       "comment": "House gap 4"
-    },
-    {
-      "x": -31.5,
-      "z": 0.8,
-      "width": 9,
-      "depth": 5.4,
-      "height": 2.7337,
-      "ceiling": {
-        "kind": "gable",
-        "ridge": "x",
-        "ridge_rise": 1.8173
-      },
-      "material": "home:hardwood_oak_01",
-      "ceiling_material": "home:ceiling_white_01",
-      "comment": "house_0: furnished cottage 02, one sealed gable volume."
-    },
-    {
-      "x": -13.5,
-      "z": 0.8,
-      "width": 9,
-      "depth": 5.4,
-      "height": 2.7337,
-      "ceiling": {
-        "kind": "gable",
-        "ridge": "x",
-        "ridge_rise": 1.8173
-      },
-      "material": "home:hardwood_walnut_02",
-      "ceiling_material": "home:ceiling_white_01",
-      "comment": "house_1: furnished cottage 01, one sealed gable volume."
-    },
-    {
-      "x": 4.5,
-      "z": 0.8,
-      "width": 9,
-      "depth": 5.4,
-      "height": 2.7337,
-      "ceiling": {
-        "kind": "gable",
-        "ridge": "x",
-        "ridge_rise": 1.8173
-      },
-      "material": "home:hardwood_oak_01",
-      "ceiling_material": "home:ceiling_white_01",
-      "comment": "house_2: furnished cottage 05, one sealed gable volume."
-    },
-    {
-      "x": 22.5,
-      "z": 0.8,
-      "width": 9,
-      "depth": 5.4,
-      "height": 2.7337,
-      "ceiling": {
-        "kind": "gable",
-        "ridge": "x",
-        "ridge_rise": 1.8173
-      },
-      "material": "home:hardwood_walnut_02",
-      "ceiling_material": "home:ceiling_white_01",
-      "comment": "house_3: furnished cottage 03, one sealed gable volume."
     }
   ],
   "walls": [
@@ -1230,3489 +1230,1641 @@
       "material": "home:tile_home_01"
     },
     {
-      "x": -37.2,
-      "z": 9.0,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -18.4,
+      "z": -35.6,
+      "width": 0.8,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 8.3545,
+      "x": -19.2,
+      "z": -34.8,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 7.7091,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -20.0,
+      "z": -34.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 7.0636,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -20.8,
+      "z": -33.2,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 6.4182,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -20.8,
+      "z": -32.4,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 5.7727,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -21.6,
+      "z": -31.6,
+      "width": 4.8,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 5.1273,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -22.4,
+      "z": -30.8,
+      "width": 5.6,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 4.4818,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -22.4,
+      "z": -30.0,
+      "width": 5.6,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 3.8364,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -23.2,
+      "z": -29.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 3.1909,
+      "x": -19.2,
+      "z": -29.2,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 2.5455,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -24.0,
+      "z": -28.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 1.9,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -19.2,
+      "z": -28.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 1.2545,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -24.0,
+      "z": -27.6,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": 0.6091,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -19.2,
+      "z": -27.6,
+      "width": 8.8,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -0.0364,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -24.8,
+      "z": -26.8,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -0.6818,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -19.2,
+      "z": -26.8,
+      "width": 13.6,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -1.3273,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -25.6,
+      "z": -26.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -1.9727,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -18.4,
+      "z": -26.0,
+      "width": 18.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -2.6182,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -26.4,
+      "z": -25.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -3.2636,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -18.4,
+      "z": -25.2,
+      "width": 5.6,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -3.9091,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -12.0,
+      "z": -25.2,
+      "width": 16.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -4.5545,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -26.4,
+      "z": -24.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -5.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -17.6,
+      "z": -24.4,
+      "width": 5.6,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -37.2,
-      "z": -5.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -6.4,
+      "z": -24.4,
+      "width": 14.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -36.6118,
-      "z": -5.4353,
+      "x": -26.4,
+      "z": -23.6,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -36.0235,
-      "z": -5.6706,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -17.6,
+      "z": -23.6,
+      "width": 6.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -35.4353,
-      "z": -5.9059,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -1.6,
+      "z": -23.6,
+      "width": 12.8,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -34.8471,
-      "z": -6.1412,
+      "x": -26.4,
+      "z": -22.8,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -34.2588,
-      "z": -6.3765,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -16.8,
+      "z": -22.8,
+      "width": 6.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -33.6706,
-      "z": -6.6118,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -33.0824,
-      "z": -6.8471,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -32.4941,
-      "z": -7.0824,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -31.9059,
-      "z": -7.3176,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -31.3176,
-      "z": -7.5529,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -30.7294,
-      "z": -7.7882,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -30.1412,
-      "z": -8.0235,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -29.5529,
-      "z": -8.2588,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -28.9647,
-      "z": -8.4941,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -28.3765,
-      "z": -8.7294,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.7882,
-      "z": -8.9647,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.2,
-      "z": -9.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.2,
-      "z": -9.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.16,
-      "z": -9.84,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.12,
-      "z": -10.48,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.08,
-      "z": -11.12,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.04,
-      "z": -11.76,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -27.0,
-      "z": -12.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.96,
-      "z": -13.04,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.92,
-      "z": -13.68,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.88,
-      "z": -14.32,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.84,
-      "z": -14.96,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.8,
-      "z": -15.6,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.76,
-      "z": -16.24,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.72,
-      "z": -16.88,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.68,
-      "z": -17.52,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.64,
-      "z": -18.16,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.6,
-      "z": -18.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.56,
-      "z": -19.44,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.52,
-      "z": -20.08,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.48,
-      "z": -20.72,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.44,
-      "z": -21.36,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 1.6,
+      "z": -22.8,
+      "width": 12.8,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": -26.4,
       "z": -22.0,
       "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.36,
-      "z": -22.64,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.32,
-      "z": -23.28,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.28,
-      "z": -23.92,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.24,
-      "z": -24.56,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.2,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -26.2,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -25.8316,
-      "z": -25.7263,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -25.4632,
-      "z": -26.2526,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -25.0947,
-      "z": -26.7789,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -24.7263,
-      "z": -27.3053,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -24.3579,
-      "z": -27.8316,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -23.9895,
-      "z": -28.3579,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -23.6211,
-      "z": -28.8842,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -23.2526,
-      "z": -29.4105,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -22.8842,
-      "z": -29.9368,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -22.5158,
-      "z": -30.4632,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -22.1474,
-      "z": -30.9895,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -21.7789,
-      "z": -31.5158,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -21.4105,
-      "z": -32.0421,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -21.0421,
-      "z": -32.5684,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -20.6737,
-      "z": -33.0947,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -20.3053,
-      "z": -33.6211,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.9368,
-      "z": -34.1474,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.5684,
-      "z": -34.6737,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -35.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 9.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 8.3667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 7.7333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 7.1,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 6.4667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 5.8333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 5.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 4.5667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 3.9333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 3.3,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 2.6667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 2.0333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 1.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 0.7667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": 0.1333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -0.5,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -1.1333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -1.7667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -2.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -3.0333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -3.6667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -4.3,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -4.9333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -5.5667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -6.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -6.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.9,
-      "z": -6.75,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.6,
-      "z": -7.3,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.3,
-      "z": -7.85,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.0,
-      "z": -8.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.7,
-      "z": -8.95,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.4,
-      "z": -9.5,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.1,
-      "z": -10.05,
-      "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": -16.8,
-      "z": -10.6,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.5,
-      "z": -11.15,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.2,
-      "z": -11.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.9,
-      "z": -12.25,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.6,
-      "z": -12.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.3,
-      "z": -13.35,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.0,
-      "z": -13.9,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.7,
-      "z": -14.45,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.4,
-      "z": -15.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.1,
-      "z": -15.55,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.8,
-      "z": -16.1,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.5,
-      "z": -16.65,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.2,
-      "z": -17.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.2,
-      "z": -17.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.5,
-      "z": -17.75,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.8,
-      "z": -18.3,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.1,
-      "z": -18.85,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.4,
-      "z": -19.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.7,
-      "z": -19.95,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.0,
-      "z": -20.5,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.3,
-      "z": -21.05,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.6,
-      "z": -21.6,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.9,
-      "z": -22.15,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.2,
-      "z": -22.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.5,
-      "z": -23.25,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.8,
-      "z": -23.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.1,
-      "z": -24.35,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.4,
-      "z": -24.9,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.7,
-      "z": -25.45,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.0,
-      "z": -26.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.3,
-      "z": -26.55,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.6,
-      "z": -27.1,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.9,
-      "z": -27.65,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.8364,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -29.4727,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.1091,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.7455,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -31.3818,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.0182,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.6545,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.2909,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.9273,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -34.5636,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -35.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 9.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 8.352,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 7.704,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 7.056,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 6.408,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 5.76,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 5.112,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 4.464,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 3.816,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 3.168,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 2.52,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 1.872,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 1.224,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": 0.576,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -0.072,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -0.72,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -1.368,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -2.016,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -2.664,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -3.312,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -3.96,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -4.608,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -5.256,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -5.904,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -6.552,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -7.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.2,
-      "z": -7.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.5333,
-      "z": -7.7417,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.8667,
-      "z": -8.2833,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.2,
-      "z": -8.825,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.5333,
-      "z": -9.3667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.8667,
-      "z": -9.9083,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -3.2,
-      "z": -10.45,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -3.5333,
-      "z": -10.9917,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -3.8667,
-      "z": -11.5333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.2,
-      "z": -12.075,
-      "width": 2.4,
-      "depth": 2.4,
+      "z": -22.0,
+      "width": 8.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -4.5333,
-      "z": -12.6167,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.8667,
-      "z": -13.1583,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -5.2,
-      "z": -13.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -5.5333,
-      "z": -14.2417,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -5.8667,
-      "z": -14.7833,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.2,
-      "z": -15.325,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.5333,
-      "z": -15.8667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.8667,
-      "z": -16.4083,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.2,
-      "z": -16.95,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.5333,
-      "z": -17.4917,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.8667,
-      "z": -18.0333,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 2.4,
+      "z": -22.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -8.2,
-      "z": -18.575,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 6.4,
+      "z": -22.0,
+      "width": 11.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -8.5333,
-      "z": -19.1167,
+      "x": -26.4,
+      "z": -21.2,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -8.8667,
-      "z": -19.6583,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -16.0,
+      "z": -21.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -9.2,
-      "z": -20.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -12.0,
+      "z": -21.2,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -9.2,
-      "z": -20.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 3.2,
+      "z": -21.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -9.7,
-      "z": -20.6,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 9.6,
+      "z": -21.2,
+      "width": 11.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -10.2,
-      "z": -21.0,
+      "x": -26.4,
+      "z": -20.4,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -10.7,
-      "z": -21.4,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -16.0,
+      "z": -20.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": -11.2,
-      "z": -21.8,
-      "width": 2.4,
-      "depth": 2.4,
+      "z": -20.4,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -11.7,
-      "z": -22.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 3.2,
+      "z": -20.4,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -12.2,
-      "z": -22.6,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 12.8,
+      "z": -20.4,
+      "width": 11.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -12.7,
-      "z": -23.0,
+      "x": -26.4,
+      "z": -19.6,
       "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.2,
-      "z": -23.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.7,
-      "z": -23.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.2,
-      "z": -24.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.7,
-      "z": -24.6,
-      "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": -15.2,
-      "z": -25.0,
-      "width": 2.4,
-      "depth": 2.4,
+      "z": -19.6,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -15.7,
-      "z": -25.4,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": -10.4,
+      "z": -19.6,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": -16.2,
-      "z": -25.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.7,
-      "z": -26.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.2,
-      "z": -26.6,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.7,
-      "z": -27.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.2,
-      "z": -27.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.7,
-      "z": -27.8,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.8364,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -29.4727,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.1091,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.7455,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -31.3818,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.0182,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.6545,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.2909,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.9273,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -34.5636,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -35.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 4.0,
+      "z": -19.6,
+      "width": 4.0,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 9.0,
+      "z": -19.6,
+      "width": 8.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -26.4,
+      "z": -18.8,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -14.4,
+      "z": -18.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -9.6,
+      "z": -18.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 4.8,
+      "z": -18.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 20.0,
+      "z": -18.8,
+      "width": 5.6,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -26.4,
+      "z": -18.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -14.4,
+      "z": -18.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -8.8,
+      "z": -18.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 5.6,
+      "z": -18.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 22.4,
+      "z": -18.0,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -26.4,
+      "z": -17.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -13.6,
+      "z": -17.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -8.0,
+      "z": -17.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 6.4,
+      "z": -17.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 23.2,
+      "z": -17.2,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -16.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -13.6,
+      "z": -16.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -8.0,
+      "z": -16.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 7.2,
+      "z": -16.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 24.0,
+      "z": -16.4,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -15.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -13.6,
+      "z": -15.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -7.2,
+      "z": -15.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 7.2,
+      "z": -15.6,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 25.6,
+      "z": -15.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -14.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -14.4,
+      "z": -14.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -6.4,
+      "z": -14.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 8.0,
+      "z": -14.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 26.4,
+      "z": -14.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -14.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -14.4,
+      "z": -14.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -6.4,
+      "z": -14.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 8.8,
+      "z": -14.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 27.2,
+      "z": -14.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -13.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -15.2,
+      "z": -13.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -5.6,
+      "z": -13.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 9.6,
+      "z": -13.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 28.0,
+      "z": -13.2,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -12.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -16.0,
+      "z": -12.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -5.6,
+      "z": -12.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 10.4,
+      "z": -12.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 28.8,
+      "z": -12.4,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -11.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -16.0,
+      "z": -11.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -4.8,
+      "z": -11.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 11.2,
+      "z": -11.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 29.6,
+      "z": -11.6,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -10.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -16.8,
+      "z": -10.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -4.0,
+      "z": -10.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 11.2,
+      "z": -10.8,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 30.4,
+      "z": -10.8,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -10.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -16.8,
+      "z": -10.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -4.0,
+      "z": -10.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 12.0,
+      "z": -10.0,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 31.2,
+      "z": -10.0,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -27.2,
+      "z": -9.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -17.6,
+      "z": -9.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -3.2,
+      "z": -9.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 12.8,
+      "z": -9.2,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 32.0,
+      "z": -9.2,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -29.6,
+      "z": -8.4,
+      "width": 4.8,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -17.6,
+      "z": -8.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -2.4,
+      "z": -8.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 13.6,
+      "z": -8.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 32.8,
+      "z": -8.4,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -31.2,
+      "z": -7.6,
+      "width": 6.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -18.4,
+      "z": -7.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -2.4,
+      "z": -7.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 14.4,
+      "z": -7.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 33.6,
+      "z": -7.6,
+      "width": 4.0,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -33.6,
+      "z": -6.8,
+      "width": 7.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -18.4,
+      "z": -6.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -6.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 15.2,
+      "z": -6.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -6.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -35.2,
+      "z": -6.0,
+      "width": 6.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.0,
+      "z": -6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -36.8,
+      "z": -5.2,
+      "width": 6.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -5.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -5.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 8.3667,
+      "z": -5.2,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -5.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -4.4,
+      "width": 4.8,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -4.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -4.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 7.7333,
+      "z": -4.4,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -4.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -3.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -3.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -3.6,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 7.1,
+      "z": -3.6,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -3.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -2.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -2.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -2.8,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 6.4667,
+      "z": -2.8,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -2.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -2.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -2.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -2.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 5.8333,
+      "z": -2.0,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -2.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -1.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": -1.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": -0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": -0.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": -0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": -0.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": -0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 0.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 0.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 0.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 1.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 1.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 1.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 2.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 2.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 2.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 2.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 2.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 2.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 2.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 2.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 2.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 2.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 3.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 3.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 3.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 3.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 3.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 4.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 4.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 4.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 16.8,
+      "z": 4.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 4.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 5.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 5.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 5.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
       "z": 5.2,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 5.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 6.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 6.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 4.5667,
+      "z": 6.0,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 6.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 6.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 6.8,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 6.8,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 3.9333,
+      "z": 6.8,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 6.8,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 7.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 7.6,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 7.6,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 3.3,
+      "z": 7.6,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 7.6,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 8.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 8.4,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 8.4,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 2.6667,
+      "z": 8.4,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 8.4,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 9.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 9.2,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 9.2,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 2.0333,
+      "z": 9.2,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 34.4,
+      "z": 9.2,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -37.6,
+      "z": 10.0,
+      "width": 3.2,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -19.2,
+      "z": 10.0,
+      "width": 2.4,
+      "depth": 0.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": -1.6,
+      "z": 10.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
       "x": 16.8,
-      "z": 1.4,
+      "z": 10.0,
       "width": 2.4,
-      "depth": 2.4,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
-      "x": 16.8,
-      "z": 0.7667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": 0.1333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -0.5,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -1.1333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -1.7667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -2.4,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -3.0333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -3.6667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -4.3,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -4.9333,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -5.5667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -6.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8,
-      "z": -6.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.3882,
-      "z": -6.6706,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 15.9765,
-      "z": -7.1412,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 15.5647,
-      "z": -7.6118,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 15.1529,
-      "z": -8.0824,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 14.7412,
-      "z": -8.5529,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 14.3294,
-      "z": -9.0235,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 13.9176,
-      "z": -9.4941,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 13.5059,
-      "z": -9.9647,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 13.0941,
-      "z": -10.4353,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 12.6824,
-      "z": -10.9059,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 12.2706,
-      "z": -11.3765,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 11.8588,
-      "z": -11.8471,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 11.4471,
-      "z": -12.3176,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 11.0353,
-      "z": -12.7882,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 10.6235,
-      "z": -13.2588,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 10.2118,
-      "z": -13.7294,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 9.8,
-      "z": -14.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 9.8,
-      "z": -14.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 9.3909,
-      "z": -14.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 8.9818,
-      "z": -15.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 8.5727,
-      "z": -15.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 8.1636,
-      "z": -16.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 7.7545,
-      "z": -16.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 7.3455,
-      "z": -17.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 6.9364,
-      "z": -17.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 6.5273,
-      "z": -18.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 6.1182,
-      "z": -18.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 5.7091,
-      "z": -19.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 5.3,
-      "z": -19.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 4.8909,
-      "z": -20.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 4.4818,
-      "z": -20.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 4.0727,
-      "z": -21.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 3.6636,
-      "z": -21.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 3.2545,
-      "z": -22.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 2.8455,
-      "z": -22.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 2.4364,
-      "z": -23.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 2.0273,
-      "z": -23.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 1.6182,
-      "z": -24.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 1.2091,
-      "z": -24.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.8,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.8,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.175,
-      "z": -25.2937,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -0.45,
-      "z": -25.3875,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.075,
-      "z": -25.4812,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.7,
-      "z": -25.575,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.325,
-      "z": -25.6687,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.95,
-      "z": -25.7625,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -3.575,
-      "z": -25.8562,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.2,
-      "z": -25.95,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.825,
-      "z": -26.0437,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -5.45,
-      "z": -26.1375,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.075,
-      "z": -26.2312,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.7,
-      "z": -26.325,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.325,
-      "z": -26.4187,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.95,
-      "z": -26.5125,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -8.575,
-      "z": -26.6062,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -9.2,
-      "z": -26.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -9.825,
-      "z": -26.7937,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -10.45,
-      "z": -26.8875,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -11.075,
-      "z": -26.9812,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -11.7,
-      "z": -27.075,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -12.325,
-      "z": -27.1687,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -12.95,
-      "z": -27.2625,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.575,
-      "z": -27.3562,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.2,
-      "z": -27.45,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.825,
-      "z": -27.5437,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.45,
-      "z": -27.6375,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.075,
-      "z": -27.7312,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.7,
-      "z": -27.825,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.325,
-      "z": -27.9187,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.95,
-      "z": -28.0125,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.575,
-      "z": -28.1062,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.8364,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -29.4727,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.1091,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.7455,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -31.3818,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.0182,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.6545,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.2909,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.9273,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -34.5636,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -35.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 9.0,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 8.363,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 7.7259,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 7.0889,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 6.4519,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 5.8148,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 5.1778,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 4.5407,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 3.9037,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 3.2667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 2.6296,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 1.9926,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 1.3556,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 0.7185,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": 0.0815,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -0.5556,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -1.1926,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -1.8296,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -2.4667,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -3.1037,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -3.7407,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -4.3778,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -5.0148,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -5.6519,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -6.2889,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -6.9259,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -7.563,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -8.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.8,
-      "z": -8.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 34.3357,
-      "z": -8.6286,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 33.8714,
-      "z": -9.0571,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 33.4071,
-      "z": -9.4857,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 32.9429,
-      "z": -9.9143,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 32.4786,
-      "z": -10.3429,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 32.0143,
-      "z": -10.7714,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 31.55,
-      "z": -11.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 31.0857,
-      "z": -11.6286,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 30.6214,
-      "z": -12.0571,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 30.1571,
-      "z": -12.4857,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 29.6929,
-      "z": -12.9143,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 29.2286,
-      "z": -13.3429,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 28.7643,
-      "z": -13.7714,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 28.3,
-      "z": -14.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 27.8357,
-      "z": -14.6286,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 27.3714,
-      "z": -15.0571,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 26.9071,
-      "z": -15.4857,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 26.4429,
-      "z": -15.9143,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 25.9786,
-      "z": -16.3429,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 25.5143,
-      "z": -16.7714,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 25.05,
-      "z": -17.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 24.5857,
-      "z": -17.6286,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 24.1214,
-      "z": -18.0571,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 23.6571,
-      "z": -18.4857,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 23.1929,
-      "z": -18.9143,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 22.7286,
-      "z": -19.3429,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 22.2643,
-      "z": -19.7714,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 21.8,
-      "z": -20.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 21.8,
-      "z": -20.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 21.1824,
-      "z": -20.3471,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 20.5647,
-      "z": -20.4941,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 19.9471,
-      "z": -20.6412,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 19.3294,
-      "z": -20.7882,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 18.7118,
-      "z": -20.9353,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 18.0941,
-      "z": -21.0824,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 17.4765,
-      "z": -21.2294,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.8588,
-      "z": -21.3765,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 16.2412,
-      "z": -21.5235,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 15.6235,
-      "z": -21.6706,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 15.0059,
-      "z": -21.8176,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 14.3882,
-      "z": -21.9647,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 13.7706,
-      "z": -22.1118,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 13.1529,
-      "z": -22.2588,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 12.5353,
-      "z": -22.4059,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 11.9176,
-      "z": -22.5529,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 11.3,
-      "z": -22.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 10.6824,
-      "z": -22.8471,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 10.0647,
-      "z": -22.9941,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 9.4471,
-      "z": -23.1412,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 8.8294,
-      "z": -23.2882,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 8.2118,
-      "z": -23.4353,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 7.5941,
-      "z": -23.5824,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 6.9765,
-      "z": -23.7294,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 6.3588,
-      "z": -23.8765,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 5.7412,
-      "z": -24.0235,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 5.1235,
-      "z": -24.1706,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 4.5059,
-      "z": -24.3176,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 3.8882,
-      "z": -24.4647,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 3.2706,
-      "z": -24.6118,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 2.6529,
-      "z": -24.7588,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 2.0353,
-      "z": -24.9059,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 1.4176,
-      "z": -25.0529,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.8,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.8,
-      "z": -25.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": 0.175,
-      "z": -25.2937,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -0.45,
-      "z": -25.3875,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.075,
-      "z": -25.4812,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -1.7,
-      "z": -25.575,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.325,
-      "z": -25.6687,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -2.95,
-      "z": -25.7625,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -3.575,
-      "z": -25.8562,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.2,
-      "z": -25.95,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -4.825,
-      "z": -26.0437,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -5.45,
-      "z": -26.1375,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.075,
-      "z": -26.2312,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -6.7,
-      "z": -26.325,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.325,
-      "z": -26.4187,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -7.95,
-      "z": -26.5125,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -8.575,
-      "z": -26.6062,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -9.2,
-      "z": -26.7,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -9.825,
-      "z": -26.7937,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -10.45,
-      "z": -26.8875,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -11.075,
-      "z": -26.9812,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -11.7,
-      "z": -27.075,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -12.325,
-      "z": -27.1687,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -12.95,
-      "z": -27.2625,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -13.575,
-      "z": -27.3562,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.2,
-      "z": -27.45,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -14.825,
-      "z": -27.5437,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -15.45,
-      "z": -27.6375,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.075,
-      "z": -27.7312,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -16.7,
-      "z": -27.825,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.325,
-      "z": -27.9187,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -17.95,
-      "z": -28.0125,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -18.575,
-      "z": -28.1062,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.2,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -28.8364,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -29.4727,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.1091,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -30.7455,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -31.3818,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.0182,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -32.6545,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.2909,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -33.9273,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -34.5636,
-      "width": 2.4,
-      "depth": 2.4,
-      "material": "outdoor:dirt_gravel_01"
-    },
-    {
-      "x": -19.2,
-      "z": -35.2,
-      "width": 2.4,
-      "depth": 2.4,
+      "x": 34.4,
+      "z": 10.0,
+      "width": 3.2,
+      "depth": 0.8,
       "material": "outdoor:dirt_gravel_01"
     },
     {
@@ -6145,14 +4297,14 @@
       "y": -0.24
     },
     {
-      "id": "house_0_roof_front_-3.4",
+      "id": "house_0_roof_front_-3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -30.4,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_0_roof_back_-3.4",
+      "id": "house_0_roof_back_-3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -30.4,
       "z": 2.05,
@@ -6160,7 +4312,7 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_0_ridge_-3.4",
+      "id": "house_0_ridge_-3_4",
       "model": "outdoor:house_02_roof_ridge",
       "x": -30.4,
       "z": 3.5,
@@ -6189,14 +4341,14 @@
       "y": 4.331
     },
     {
-      "id": "house_0_roof_front_3.4",
+      "id": "house_0_roof_front_3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -23.6,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_0_roof_back_3.4",
+      "id": "house_0_roof_back_3_4",
       "model": "outdoor:house_02_roof_slope",
       "x": -23.6,
       "z": 2.05,
@@ -6204,32 +4356,32 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_0_ridge_3.4",
+      "id": "house_0_ridge_3_4",
       "model": "outdoor:house_02_roof_ridge",
       "x": -23.6,
       "z": 3.5,
       "y": 4.331
     },
     {
-      "id": "house_0_trim_-4.5_0.8",
+      "id": "house_0_trim_-4_5_0_8",
       "model": "outdoor:house_02_corner_trim",
       "x": -31.5,
       "z": 0.8
     },
     {
-      "id": "house_0_trim_-4.5_6.2",
+      "id": "house_0_trim_-4_5_6_2",
       "model": "outdoor:house_02_corner_trim",
       "x": -31.5,
       "z": 6.2
     },
     {
-      "id": "house_0_trim_4.5_0.8",
+      "id": "house_0_trim_4_5_0_8",
       "model": "outdoor:house_02_corner_trim",
       "x": -22.5,
       "z": 0.8
     },
     {
-      "id": "house_0_trim_4.5_6.2",
+      "id": "house_0_trim_4_5_6_2",
       "model": "outdoor:house_02_corner_trim",
       "x": -22.5,
       "z": 6.2
@@ -6242,7 +4394,7 @@
       "y": -0.238
     },
     {
-      "id": "house_0_post_-1.43",
+      "id": "house_0_post_-1_43",
       "model": "outdoor:house_02_porch_post",
       "x": -28.43,
       "z": 7.64,
@@ -6255,7 +4407,7 @@
       ]
     },
     {
-      "id": "house_0_post_1.43",
+      "id": "house_0_post_1_43",
       "model": "outdoor:house_02_porch_post",
       "x": -25.57,
       "z": 7.64,
@@ -6268,7 +4420,7 @@
       ]
     },
     {
-      "id": "house_0_porch_lamp_-1.15",
+      "id": "house_0_porch_lamp_-1_15",
       "model": "outdoor:lamp_wall",
       "x": -28.15,
       "z": 6.6,
@@ -6293,7 +4445,7 @@
       ]
     },
     {
-      "id": "house_0_porch_lamp_1.15",
+      "id": "house_0_porch_lamp_1_15",
       "model": "outdoor:lamp_wall",
       "x": -25.85,
       "z": 6.6,
@@ -6356,8 +4508,8 @@
     {
       "id": "house_0_furniture_3",
       "model": "core:armchair",
-      "x": -27.5,
-      "z": 4.0,
+      "x": -27.95,
+      "z": 3.95,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -6626,14 +4778,14 @@
       "y": -0.24
     },
     {
-      "id": "house_1_roof_front_-3.4",
+      "id": "house_1_roof_front_-3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -12.4,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_1_roof_back_-3.4",
+      "id": "house_1_roof_back_-3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -12.4,
       "z": 2.05,
@@ -6641,7 +4793,7 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_1_ridge_-3.4",
+      "id": "house_1_ridge_-3_4",
       "model": "outdoor:house_01_roof_ridge",
       "x": -12.4,
       "z": 3.5,
@@ -6670,14 +4822,14 @@
       "y": 4.331
     },
     {
-      "id": "house_1_roof_front_3.4",
+      "id": "house_1_roof_front_3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -5.6,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_1_roof_back_3.4",
+      "id": "house_1_roof_back_3_4",
       "model": "outdoor:house_01_roof_slope",
       "x": -5.6,
       "z": 2.05,
@@ -6685,32 +4837,32 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_1_ridge_3.4",
+      "id": "house_1_ridge_3_4",
       "model": "outdoor:house_01_roof_ridge",
       "x": -5.6,
       "z": 3.5,
       "y": 4.331
     },
     {
-      "id": "house_1_trim_-4.5_0.8",
+      "id": "house_1_trim_-4_5_0_8",
       "model": "outdoor:house_01_corner_trim",
       "x": -13.5,
       "z": 0.8
     },
     {
-      "id": "house_1_trim_-4.5_6.2",
+      "id": "house_1_trim_-4_5_6_2",
       "model": "outdoor:house_01_corner_trim",
       "x": -13.5,
       "z": 6.2
     },
     {
-      "id": "house_1_trim_4.5_0.8",
+      "id": "house_1_trim_4_5_0_8",
       "model": "outdoor:house_01_corner_trim",
       "x": -4.5,
       "z": 0.8
     },
     {
-      "id": "house_1_trim_4.5_6.2",
+      "id": "house_1_trim_4_5_6_2",
       "model": "outdoor:house_01_corner_trim",
       "x": -4.5,
       "z": 6.2
@@ -6723,7 +4875,7 @@
       "y": -0.238
     },
     {
-      "id": "house_1_post_-1.43",
+      "id": "house_1_post_-1_43",
       "model": "outdoor:house_01_porch_post",
       "x": -10.43,
       "z": 7.64,
@@ -6736,7 +4888,7 @@
       ]
     },
     {
-      "id": "house_1_post_1.43",
+      "id": "house_1_post_1_43",
       "model": "outdoor:house_01_porch_post",
       "x": -7.57,
       "z": 7.64,
@@ -6749,7 +4901,7 @@
       ]
     },
     {
-      "id": "house_1_porch_lamp_-1.15",
+      "id": "house_1_porch_lamp_-1_15",
       "model": "outdoor:lamp_wall",
       "x": -10.15,
       "z": 6.6,
@@ -6774,7 +4926,7 @@
       ]
     },
     {
-      "id": "house_1_porch_lamp_1.15",
+      "id": "house_1_porch_lamp_1_15",
       "model": "outdoor:lamp_wall",
       "x": -7.85,
       "z": 6.6,
@@ -6837,8 +4989,8 @@
     {
       "id": "house_1_furniture_3",
       "model": "core:armchair",
-      "x": -9.5,
-      "z": 4.0,
+      "x": -9.95,
+      "z": 3.95,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -7107,14 +5259,14 @@
       "y": -0.24
     },
     {
-      "id": "house_2_roof_front_-3.4",
+      "id": "house_2_roof_front_-3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 5.6,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_2_roof_back_-3.4",
+      "id": "house_2_roof_back_-3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 5.6,
       "z": 2.05,
@@ -7122,7 +5274,7 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_2_ridge_-3.4",
+      "id": "house_2_ridge_-3_4",
       "model": "outdoor:house_05_roof_ridge",
       "x": 5.6,
       "z": 3.5,
@@ -7151,14 +5303,14 @@
       "y": 4.331
     },
     {
-      "id": "house_2_roof_front_3.4",
+      "id": "house_2_roof_front_3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 12.4,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_2_roof_back_3.4",
+      "id": "house_2_roof_back_3_4",
       "model": "outdoor:house_05_roof_slope",
       "x": 12.4,
       "z": 2.05,
@@ -7166,32 +5318,32 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_2_ridge_3.4",
+      "id": "house_2_ridge_3_4",
       "model": "outdoor:house_05_roof_ridge",
       "x": 12.4,
       "z": 3.5,
       "y": 4.331
     },
     {
-      "id": "house_2_trim_-4.5_0.8",
+      "id": "house_2_trim_-4_5_0_8",
       "model": "outdoor:house_05_corner_trim",
       "x": 4.5,
       "z": 0.8
     },
     {
-      "id": "house_2_trim_-4.5_6.2",
+      "id": "house_2_trim_-4_5_6_2",
       "model": "outdoor:house_05_corner_trim",
       "x": 4.5,
       "z": 6.2
     },
     {
-      "id": "house_2_trim_4.5_0.8",
+      "id": "house_2_trim_4_5_0_8",
       "model": "outdoor:house_05_corner_trim",
       "x": 13.5,
       "z": 0.8
     },
     {
-      "id": "house_2_trim_4.5_6.2",
+      "id": "house_2_trim_4_5_6_2",
       "model": "outdoor:house_05_corner_trim",
       "x": 13.5,
       "z": 6.2
@@ -7204,7 +5356,7 @@
       "y": -0.238
     },
     {
-      "id": "house_2_post_-1.43",
+      "id": "house_2_post_-1_43",
       "model": "outdoor:house_05_porch_post",
       "x": 7.57,
       "z": 7.64,
@@ -7217,7 +5369,7 @@
       ]
     },
     {
-      "id": "house_2_post_1.43",
+      "id": "house_2_post_1_43",
       "model": "outdoor:house_05_porch_post",
       "x": 10.43,
       "z": 7.64,
@@ -7230,7 +5382,7 @@
       ]
     },
     {
-      "id": "house_2_porch_lamp_-1.15",
+      "id": "house_2_porch_lamp_-1_15",
       "model": "outdoor:lamp_wall",
       "x": 7.85,
       "z": 6.6,
@@ -7255,7 +5407,7 @@
       ]
     },
     {
-      "id": "house_2_porch_lamp_1.15",
+      "id": "house_2_porch_lamp_1_15",
       "model": "outdoor:lamp_wall",
       "x": 10.15,
       "z": 6.6,
@@ -7318,8 +5470,8 @@
     {
       "id": "house_2_furniture_3",
       "model": "core:armchair",
-      "x": 8.5,
-      "z": 4.0,
+      "x": 8.05,
+      "z": 3.95,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -7588,14 +5740,14 @@
       "y": -0.24
     },
     {
-      "id": "house_3_roof_front_-3.4",
+      "id": "house_3_roof_front_-3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 23.6,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_3_roof_back_-3.4",
+      "id": "house_3_roof_back_-3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 23.6,
       "z": 2.05,
@@ -7603,7 +5755,7 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_3_ridge_-3.4",
+      "id": "house_3_ridge_-3_4",
       "model": "outdoor:house_03_roof_ridge",
       "x": 23.6,
       "z": 3.5,
@@ -7632,14 +5784,14 @@
       "y": 4.331
     },
     {
-      "id": "house_3_roof_front_3.4",
+      "id": "house_3_roof_front_3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 30.4,
       "z": 4.95,
       "y": 2.7
     },
     {
-      "id": "house_3_roof_back_3.4",
+      "id": "house_3_roof_back_3_4",
       "model": "outdoor:house_03_roof_slope",
       "x": 30.4,
       "z": 2.05,
@@ -7647,32 +5799,32 @@
       "rotation_degrees": 180
     },
     {
-      "id": "house_3_ridge_3.4",
+      "id": "house_3_ridge_3_4",
       "model": "outdoor:house_03_roof_ridge",
       "x": 30.4,
       "z": 3.5,
       "y": 4.331
     },
     {
-      "id": "house_3_trim_-4.5_0.8",
+      "id": "house_3_trim_-4_5_0_8",
       "model": "outdoor:house_03_corner_trim",
       "x": 22.5,
       "z": 0.8
     },
     {
-      "id": "house_3_trim_-4.5_6.2",
+      "id": "house_3_trim_-4_5_6_2",
       "model": "outdoor:house_03_corner_trim",
       "x": 22.5,
       "z": 6.2
     },
     {
-      "id": "house_3_trim_4.5_0.8",
+      "id": "house_3_trim_4_5_0_8",
       "model": "outdoor:house_03_corner_trim",
       "x": 31.5,
       "z": 0.8
     },
     {
-      "id": "house_3_trim_4.5_6.2",
+      "id": "house_3_trim_4_5_6_2",
       "model": "outdoor:house_03_corner_trim",
       "x": 31.5,
       "z": 6.2
@@ -7685,7 +5837,7 @@
       "y": -0.238
     },
     {
-      "id": "house_3_post_-1.43",
+      "id": "house_3_post_-1_43",
       "model": "outdoor:house_03_porch_post",
       "x": 25.57,
       "z": 7.64,
@@ -7698,7 +5850,7 @@
       ]
     },
     {
-      "id": "house_3_post_1.43",
+      "id": "house_3_post_1_43",
       "model": "outdoor:house_03_porch_post",
       "x": 28.43,
       "z": 7.64,
@@ -7711,7 +5863,7 @@
       ]
     },
     {
-      "id": "house_3_porch_lamp_-1.15",
+      "id": "house_3_porch_lamp_-1_15",
       "model": "outdoor:lamp_wall",
       "x": 25.85,
       "z": 6.6,
@@ -7736,7 +5888,7 @@
       ]
     },
     {
-      "id": "house_3_porch_lamp_1.15",
+      "id": "house_3_porch_lamp_1_15",
       "model": "outdoor:lamp_wall",
       "x": 28.15,
       "z": 6.6,
@@ -7799,8 +5951,8 @@
     {
       "id": "house_3_furniture_3",
       "model": "core:armchair",
-      "x": 26.5,
-      "z": 4.0,
+      "x": 26.05,
+      "z": 3.95,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -9714,7 +7866,7 @@
       "id": "boundary_rock_70",
       "model": "outdoor:showcase_rock_face",
       "x": -41.6,
-      "z": 24,
+      "z": 20,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -9727,7 +7879,7 @@
       "id": "boundary_rock_71",
       "model": "outdoor:showcase_rock_face",
       "x": 41.6,
-      "z": 24,
+      "z": 20,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
@@ -9740,7 +7892,7 @@
       "id": "boundary_rock_72",
       "model": "outdoor:showcase_rock_face",
       "x": -41.6,
-      "z": 28,
+      "z": 24,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
@@ -9751,6 +7903,32 @@
     },
     {
       "id": "boundary_rock_73",
+      "model": "outdoor:showcase_rock_face",
+      "x": 41.6,
+      "z": 24,
+      "rotation_degrees": 270,
+      "solid": true,
+      "size": [
+        4.12,
+        5,
+        2.2
+      ]
+    },
+    {
+      "id": "boundary_rock_74",
+      "model": "outdoor:showcase_rock_face",
+      "x": -41.6,
+      "z": 28,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        4.12,
+        5,
+        2.2
+      ]
+    },
+    {
+      "id": "boundary_rock_75",
       "model": "outdoor:showcase_rock_face",
       "x": 41.6,
       "z": 28,
@@ -18054,23 +16232,7 @@
       "note": "North forest tile 0:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -44.0,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -31.42857142857143,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -31.42857142857143,
       "z": -46.0,
       "width": 12.571428571428571,
@@ -18086,23 +16248,7 @@
       "note": "North forest tile 0:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -18.857142857142858,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -6.285714285714285,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -6.285714285714285,
       "z": -46.0,
       "width": 12.571428571428571,
@@ -18118,23 +16264,7 @@
       "note": "North forest tile 0:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 6.285714285714285,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 18.857142857142854,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 18.857142857142854,
       "z": -46.0,
       "width": 12.571428571428571,
@@ -18150,23 +16280,7 @@
       "note": "North forest tile 0:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 31.42857142857143,
-      "z": -46.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 0:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -44.0,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -44.0,
       "z": -38.2,
       "width": 12.571428571428571,
@@ -18182,23 +16296,7 @@
       "note": "North forest tile 1:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -31.42857142857143,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -18.857142857142858,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -18.857142857142858,
       "z": -38.2,
       "width": 12.571428571428571,
@@ -18214,23 +16312,7 @@
       "note": "North forest tile 1:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -6.285714285714285,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 6.285714285714285,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 6.285714285714285,
       "z": -38.2,
       "width": 12.571428571428571,
@@ -18246,23 +16328,7 @@
       "note": "North forest tile 1:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 18.857142857142854,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 31.42857142857143,
-      "z": -38.2,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 1:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 31.42857142857143,
       "z": -38.2,
       "width": 12.571428571428571,
@@ -18278,23 +16344,7 @@
       "note": "North forest tile 2:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -44.0,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -31.42857142857143,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -31.42857142857143,
       "z": -30.4,
       "width": 12.571428571428571,
@@ -18310,23 +16360,7 @@
       "note": "North forest tile 2:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -18.857142857142858,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -6.285714285714285,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -6.285714285714285,
       "z": -30.4,
       "width": 12.571428571428571,
@@ -18342,23 +16376,7 @@
       "note": "North forest tile 2:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 6.285714285714285,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 18.857142857142854,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 18.857142857142854,
       "z": -30.4,
       "width": 12.571428571428571,
@@ -18374,23 +16392,7 @@
       "note": "North forest tile 2:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 31.42857142857143,
-      "z": -30.4,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 2:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -44.0,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -44.0,
       "z": -22.6,
       "width": 12.571428571428571,
@@ -18406,23 +16408,7 @@
       "note": "North forest tile 3:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -31.42857142857143,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -18.857142857142858,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -18.857142857142858,
       "z": -22.6,
       "width": 12.571428571428571,
@@ -18438,23 +16424,7 @@
       "note": "North forest tile 3:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -6.285714285714285,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 6.285714285714285,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 6.285714285714285,
       "z": -22.6,
       "width": 12.571428571428571,
@@ -18470,23 +16440,7 @@
       "note": "North forest tile 3:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 18.857142857142854,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 31.42857142857143,
-      "z": -22.6,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 3:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 31.42857142857143,
       "z": -22.6,
       "width": 12.571428571428571,
@@ -18502,23 +16456,7 @@
       "note": "North forest tile 4:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -44.0,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -31.42857142857143,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -31.42857142857143,
       "z": -14.8,
       "width": 12.571428571428571,
@@ -18534,23 +16472,7 @@
       "note": "North forest tile 4:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -18.857142857142858,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -6.285714285714285,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -6.285714285714285,
       "z": -14.8,
       "width": 12.571428571428571,
@@ -18566,23 +16488,7 @@
       "note": "North forest tile 4:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 6.285714285714285,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 18.857142857142854,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 18.857142857142854,
       "z": -14.8,
       "width": 12.571428571428571,
@@ -18598,23 +16504,7 @@
       "note": "North forest tile 4:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 31.42857142857143,
-      "z": -14.8,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 4:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -44.0,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -44.0,
       "z": -7.0,
       "width": 12.571428571428571,
@@ -18630,23 +16520,7 @@
       "note": "North forest tile 5:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -31.42857142857143,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -18.857142857142858,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -18.857142857142858,
       "z": -7.0,
       "width": 12.571428571428571,
@@ -18662,23 +16536,7 @@
       "note": "North forest tile 5:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -6.285714285714285,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 6.285714285714285,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 6.285714285714285,
       "z": -7.0,
       "width": 12.571428571428571,
@@ -18694,23 +16552,7 @@
       "note": "North forest tile 5:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 18.857142857142854,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:5: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 31.42857142857143,
-      "z": -7.0,
-      "width": 12.571428571428571,
-      "depth": 7.8,
-      "note": "North forest tile 5:6: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 31.42857142857143,
       "z": -7.0,
       "width": 12.571428571428571,
@@ -18726,23 +16568,7 @@
       "note": "Road, gardens and south forest tile 0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -44.0,
-      "z": 6.2,
-      "width": 29.333333333333332,
-      "depth": 25.8,
-      "note": "Road, gardens and south forest tile 0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -14.666666666666668,
-      "z": 6.2,
-      "width": 29.333333333333332,
-      "depth": 25.8,
-      "note": "Road, gardens and south forest tile 1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -14.666666666666668,
       "z": 6.2,
       "width": 29.333333333333332,
@@ -18758,23 +16584,7 @@
       "note": "Road, gardens and south forest tile 2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": 14.666666666666664,
-      "z": 6.2,
-      "width": 29.333333333333332,
-      "depth": 25.8,
-      "note": "Road, gardens and south forest tile 2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": -44,
-      "z": 0.8,
-      "width": 12.5,
-      "depth": 5.4,
-      "note": "House gap 0: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": -44,
       "z": 0.8,
       "width": 12.5,
@@ -18790,14 +16600,6 @@
       "note": "House gap 1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -22.5,
-      "z": 0.8,
-      "width": 9.0,
-      "depth": 5.4,
-      "note": "House gap 1: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
       "x": -4.5,
       "z": 0.8,
@@ -18806,23 +16608,7 @@
       "note": "House gap 2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
     },
     {
-      "check": "room-leak",
-      "x": -4.5,
-      "z": 0.8,
-      "width": 9.0,
-      "depth": 5.4,
-      "note": "House gap 2: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
       "check": "missing-wall",
-      "x": 13.5,
-      "z": 0.8,
-      "width": 9.0,
-      "depth": 5.4,
-      "note": "House gap 3: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
-    },
-    {
-      "check": "room-leak",
       "x": 13.5,
       "z": 0.8,
       "width": 9.0,
@@ -18839,11 +16625,35 @@
     },
     {
       "check": "room-leak",
-      "x": 31.5,
-      "z": 0.8,
-      "width": 12.5,
-      "depth": 5.4,
-      "note": "House gap 4: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."
+      "x": -46.2,
+      "z": -48.2,
+      "width": 2.2,
+      "depth": 82.4,
+      "note": "West rock boundary: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."
+    },
+    {
+      "check": "room-leak",
+      "x": 44,
+      "z": -48.2,
+      "width": 2.2,
+      "depth": 82.4,
+      "note": "East rock boundary: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."
+    },
+    {
+      "check": "room-leak",
+      "x": -44,
+      "z": -48.2,
+      "width": 88,
+      "depth": 2.2,
+      "note": "North rock boundary: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."
+    },
+    {
+      "check": "room-leak",
+      "x": -44,
+      "z": 32,
+      "width": 88,
+      "depth": 2.2,
+      "note": "South rock boundary: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."
     }
   ],
   "decals": [],

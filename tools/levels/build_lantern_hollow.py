@@ -60,7 +60,7 @@ def build_level() -> dict:
         level[key] = []
 
     def prop(model, x, z, identity, *, y=0.0, yaw=0.0, scale=1.0, solid=False, size=None, **extra):
-        item = {"id": identity, "model": model, "x": round(x, 4), "z": round(z, 4)}
+        item = {"id": identity.replace(".", "_"), "model": model, "x": round(x, 4), "z": round(z, 4)}
         if y: item["y"] = round(y, 4)
         if yaw: item["rotation_degrees"] = round(yaw, 4)
         if scale != 1: item["scale"] = round(scale, 4)
@@ -86,7 +86,7 @@ def build_level() -> dict:
             "ceiling": {"kind": "open"}, "material": "outdoor:grass_ground_01", "comment": name})
         # Only these exact, deliberately open outdoor footprints waive the
         # checker perimeter heuristics. Physical boundaries are visible props.
-        for check in ("missing-wall", "room-leak"):
+        for check in ("missing-wall",):
             level["geometry_intent"].append({"check": check, "x": x, "z": z, "width": w, "depth": d,
                 "note": f"{name}: deliberate outdoor floor, contained by visible 5 m rock faces and closed road gates."})
 
@@ -104,6 +104,16 @@ def build_level() -> dict:
     gap_edges = (-44, -31.5, -22.5, -13.5, -4.5, 4.5, 13.5, 22.5, 31.5, 44)
     for i in range(0, len(gap_edges) - 1, 2):
         outdoor_room(gap_edges[i], .8, gap_edges[i + 1] - gap_edges[i], 5.4, f"House gap {i // 2}")
+
+    # The asset-less checker does not flood against GLB prop colliders.
+    # Its only unexplained void samples are outside this authored world. Keep
+    # that waiver outside the floor, so an interior leak cannot be hidden.
+    for x, z, width, depth, name in ((-46.2, -48.2, 2.2, 82.4, "West rock boundary"),
+                                    (44, -48.2, 2.2, 82.4, "East rock boundary"),
+                                    (-44, -48.2, 88, 2.2, "North rock boundary"),
+                                    (-44, 32, 88, 2.2, "South rock boundary")):
+        level["geometry_intent"].append({"check": "room-leak", "x": x, "z": z, "width": width, "depth": depth,
+            "note": f"{name}: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."})
 
     # Real raised sidewalk and porch floor owns walkability. Matching kit
     # undersides sit 1 mm below it, avoiding duplicate exposed top surfaces.
@@ -183,7 +193,7 @@ def build_level() -> dict:
         # Every central aisle is >1.1 m. Kitchen upper cabinets remain non-solid
         # so counter jumps cannot trap the player's standing body beneath them.
         items = [("core:couch", -2.5, 2.0, 0), ("core:table", -2.5, 3.65, 0),
-                 ("core:bookshelf", -.35, 1.4, 0), ("core:armchair", -.5, 4.0, 90),
+                 ("core:bookshelf", -.35, 1.4, 0), ("core:armchair", -.95, 3.95, 90),
                  ("core:bed", 3.0, 2.4, 0), ("core:cabinet", 3.0, 5.4, 180),
                  ("core:fridge", -3.8, 5.3, 90), ("core:stove", -3.8, 4.45, 90),
                  ("core:sink", -3.8, 3.6, 90), ("home:cabinet_base", -3.8, 2.75, 90)]
@@ -206,16 +216,21 @@ def build_level() -> dict:
                 prop("outdoor:porch_railing_straight", cx + sign * (1.8 + j * 1.8), 9.65,
                      f"{prefix}_garden_rail_{sign}_{j}", solid=True)
 
-    # Trails are unions of short material cells, with no coplanar decal mesh.
-    # Oversampling keeps diagonals broad enough for a first-person controller.
-    for route_id, route in enumerate(TRAILS):
-        for segment, (a, b) in enumerate(zip(route, route[1:])):
-            length = math.dist(a, b)
-            count = math.ceil(length / .65)
-            for j in range(count + 1):
-                t = j / count
-                x, z = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
-                patch(x - 1.2, z - 1.2, 2.4, 2.4, "outdoor:dirt_gravel_01")
+    # Shared coordinates keep adjacent trail cells continuous and bound each
+    # room's floor grid. Arbitrary overlapping sample rectangles would multiply
+    # both grid axes and create tens of thousands of unnecessary floor cells.
+    step = .8
+    for row in range(66):
+        z0 = -42 + row * step
+        run = None
+        for col in range(101):
+            x0 = -40 + col * step
+            on_path = col < 100 and trail_distance(x0 + step / 2, z0 + step / 2) <= 1.3
+            if on_path and run is None:
+                run = col
+            elif not on_path and run is not None:
+                patch(-40 + run * step, z0, (col - run) * step, step, "outdoor:dirt_gravel_01")
+                run = None
     for j in range(20):
         z0 = FIRE[1] - 6 + j * .6
         dz = max(abs(z0 - FIRE[1]), abs(z0 + .6 - FIRE[1]))
@@ -274,7 +289,7 @@ def build_level() -> dict:
     for x in range(-40, 41, 4):
         boundary.extend(((x, -43.7, 0), (x, 29.7, 180)))
     for z in range(-40, 29, 4):
-        if 12.6 < z < 20.6: continue
+        if 14 < z < 19: continue
         boundary.extend(((-41.6, z, 90), (41.6, z, 270)))
     for i, (x, z, yaw) in enumerate(boundary):
         prop("outdoor:showcase_rock_face", x, z, f"boundary_rock_{i}", yaw=yaw,
@@ -308,6 +323,10 @@ def build_level() -> dict:
         else: continue
         prop("outdoor:grass_patch_large" if i % 3 else "outdoor:grass_patch_small", x, z, f"grass_forest_{i}",
              yaw=rng.uniform(0, 360), scale=rng.uniform(.85, 1.15), occludes=False)
+    # At a shared footprint edge the engine's first room owns floor/ceiling
+    # lookups. Put sealed cottages before adjoining open floor tiles so a
+    # perimeter wall cannot accidentally inherit the outdoor 8 m ceiling.
+    level["rooms"].sort(key=lambda room: room["ceiling"]["kind"] != "gable")
     return level
 
 

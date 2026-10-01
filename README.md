@@ -111,6 +111,22 @@ generated from `assets/catalog.json` by
 `python3 tools/levels/build_model_zoo.py` (with `--check`, `--stats` and
 `--workers`), so adding an asset adds a display instead of going stale.
 
+`assets/levels/lantern_hollow.json` authors **Lantern Hollow**: four furnished
+cottages beside a road, branching trails through a dense nighttime forest, a
+small pond and a rocky campfire clearing with seven seated skeletons. Three
+sheet-ghost cats and a sheet ghost drift in the woods. Visible rock faces and
+closed road gates contain the playable area. Regenerate its source with
+`python3 tools/levels/build_lantern_hollow.py` and check it with `--check`.
+Compile the sibling package before choosing Lantern Hollow in Level Select:
+
+```sh
+./target/release/places-compile build assets/levels/lantern_hollow.json --asset-root assets
+PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=lantern_hollow ./target/release/places
+```
+
+The four cottage doors start open and toggle with **E**. The pond uses the
+ordinary crouch/swim controls; every trail converges on the campfire.
+
 Walk the demo from the main menu, or boot straight into either level:
 
 ```sh
