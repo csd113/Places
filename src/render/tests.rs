@@ -2476,7 +2476,10 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     // ordinary skeleton and the other existing entities stay in the generic
     // showcases).
     let halloween = fixture_level("halloween_entities");
+    let zoo = crate::level::LevelDef::from_json(include_str!("../../assets/levels/model_zoo.json"))
+        .expect("generated Zoo parses");
     let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    used.extend(zoo.props.iter().map(|prop| prop.model.as_str()));
     used.extend(level.props.iter().map(|prop| prop.model.as_str()));
     used.extend(pool_showcase.props.iter().map(|prop| prop.model.as_str()));
     used.extend(

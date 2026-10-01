@@ -2570,7 +2570,7 @@
       "size": [
         0.226,
         0.323,
-        0.576
+        0.593
       ],
       "color": "#bfe4e8",
       "category": "Decorative",
@@ -3530,6 +3530,285 @@
       "category": "Structure",
       "solid": false,
       "description": "Genuinely circular hot-tub shell: a tiled basin with a dark cap rail, an outer radius of 1.30 m (a 1.335 m base apron ring, so the bounds measure 2.67 m) and an inner wall of 1.173 m. The bottom sits on the basin floor at y = 0; the rim top is 1.56 m (a 1.50 m deck line). Author a 1.50 m floor-region recess under it and a circular water volume of radius 1.25 m with its surface 1.35 m above the basin floor."
+    },
+    {
+      "id": "outdoor:showcase_road_straight",
+      "display_name": "Showcase Road Straight",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_road_straight.glb",
+      "size": [
+        8.0,
+        0.07,
+        6.0
+      ],
+      "color": "#4a4d52",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_road_unmarked",
+      "display_name": "Showcase Road Unmarked",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_road_unmarked.glb",
+      "size": [
+        8.0,
+        0.064,
+        6.0
+      ],
+      "color": "#4a4d52",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_road_dash",
+      "display_name": "Showcase Road Dash",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_road_dash.glb",
+      "size": [
+        0.12,
+        0.006,
+        1.5
+      ],
+      "color": "#d4b976",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_sidewalk",
+      "display_name": "Showcase Sidewalk",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_sidewalk.glb",
+      "size": [
+        2.4,
+        0.14,
+        6.0
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_sidewalk_corner",
+      "display_name": "Showcase Sidewalk Corner",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_sidewalk_corner.glb",
+      "size": [
+        2.4,
+        0.14,
+        2.4
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_curb",
+      "display_name": "Showcase Curb",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_curb.glb",
+      "size": [
+        0.24,
+        0.14,
+        6.0
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_curb_ramp",
+      "display_name": "Showcase Curb Ramp",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_curb_ramp.glb",
+      "size": [
+        1.2,
+        0.14,
+        2.4
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_sidewalk_transition",
+      "display_name": "Showcase Sidewalk Transition",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_sidewalk_transition.glb",
+      "size": [
+        2.4,
+        0.14,
+        1.2
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": false,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_rock_face",
+      "display_name": "Showcase Rock Face",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_rock_face.glb",
+      "size": [
+        4.0,
+        5.0,
+        2.2
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": true,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_rock_face_variant",
+      "display_name": "Showcase Rock Face Variant",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_rock_face_variant.glb",
+      "size": [
+        3.4,
+        4.8,
+        2.6
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": true,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_boulder",
+      "display_name": "Showcase Boulder",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_boulder.glb",
+      "size": [
+        1.4,
+        0.85,
+        1.3
+      ],
+      "color": "#9d9890",
+      "category": "Structure",
+      "solid": true,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_campfire",
+      "display_name": "Showcase Campfire",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_campfire.glb",
+      "size": [
+        1.3,
+        1.25,
+        1.3
+      ],
+      "color": "#9d9890",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Five rigid animated flames, flicker clip 1.25 s. Add a real point light at [0,1.48,0]; emissive materials alone do not illuminate surroundings."
+    },
+    {
+      "id": "outdoor:showcase_road_gate",
+      "display_name": "Showcase Road Gate",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_road_gate.glb",
+      "size": [
+        8.0,
+        3.6,
+        0.24
+      ],
+      "color": "#6a5a45",
+      "category": "Structure",
+      "solid": true,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_stump_seat",
+      "display_name": "Showcase Stump Seat",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/outdoor/props/models/showcase_stump_seat.glb",
+      "size": [
+        0.7,
+        0.45,
+        0.6
+      ],
+      "color": "#6a5a45",
+      "category": "Structure",
+      "solid": true,
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+    },
+    {
+      "id": "outdoor:showcase_asphalt",
+      "display_name": "Showcase Asphalt",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "tile_metres": 2.0,
+      "color": "#35373c",
+      "shine": 0.06,
+      "description": "Dark neutral road albedo using the existing tileable concrete grain."
+    },
+    {
+      "id": "outdoor:showcase_road_marking",
+      "display_name": "Showcase Road Marking",
+      "asset_class": "environment",
+      "theme": "outdoor",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_white_01",
+      "tile_metres": 1.0,
+      "color": "#dfbc55",
+      "description": "Muted yellow road paint; normal nonemissive albedo."
     }
   ]
 }

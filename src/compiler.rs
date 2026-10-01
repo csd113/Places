@@ -769,6 +769,7 @@ fn prepare_build_for_capture(
                     &mut assets,
                     &materials,
                     &build.lighting,
+                    &mut build.batches,
                 );
                 build.lightmaps = None;
                 build.lightmap_failure = Some(failure);
@@ -1099,8 +1100,14 @@ fn build_variant(
                 // The runtime contract falls back to the vertex-lit build with
                 // the same baked lighting when an atlas cannot be produced.
                 lightmap_failure = Some(failure.name().to_string());
-                build.mesh =
-                    rebuild_vertex_lit_level(level, catalog, assets, materials, &build.lighting);
+                build.mesh = rebuild_vertex_lit_level(
+                    level,
+                    catalog,
+                    assets,
+                    materials,
+                    &build.lighting,
+                    &mut build.batches,
+                );
                 build.lightmaps = None;
                 build.lightmap_failure = Some(failure);
                 warnings.push(format!(

@@ -65,10 +65,9 @@ pub struct PropMeshBatch {
     pub submeshes: Vec<PropSubmeshBatch>,
     /// Pre-transformed vertices, referenced by `indices`.
     ///
-    /// The GLB already stores its mesh indexed, so an instance is a vertex
-    /// offset and the model's own index list; nothing is expanded. That keeps
-    /// the GPU shading ~30% fewer vertices per instance than the flat triangle
-    /// list this used to build.
+    /// The historical Low path retains source indexing. Surface-lightmapped
+    /// static models split triangle corners so each face owns its atlas UVs
+    /// and normal frame without borrowing light across hard edges.
     pub vertices: Vec<Vertex>,
     /// `GL_UNSIGNED_SHORT` indices into `vertices`, offset per instance and
     /// grouped so each submesh's range is contiguous.
@@ -133,9 +132,13 @@ impl BatchBuilder {
     }
 
     /// Whether one more instance of `model` fits this batch's 16-bit offsets.
-    const fn has_room_for(&self, model: &crate::gltf::PropModel) -> bool {
-        self.vertices.len().saturating_add(model.vertices.len())
-            <= crate::spatial::MAX_INDEX_VERTICES
+    const fn has_room_for(&self, model: &crate::gltf::PropModel, lightmapped: bool) -> bool {
+        let count = if lightmapped {
+            model.indices.len()
+        } else {
+            model.vertices.len()
+        };
+        self.vertices.len().saturating_add(count) <= crate::spatial::MAX_INDEX_VERTICES
     }
 
     /// Transforms and appends one instance. The caller must have checked
@@ -170,6 +173,62 @@ impl BatchBuilder {
                 .indices
                 .extend(range.iter().map(|index| base.saturating_add(*index)));
             self.index_count = self.index_count.saturating_add(count);
+        }
+    }
+
+    /// Static models keep their source albedo and receive the same physically
+    /// solved HDR atlas as architecture. Animated models retain the probe path.
+    fn push_lightmapped_instance(
+        &mut self,
+        transform: &glam::Mat4,
+        asset: &crate::props::LoadedPropAsset,
+        plan: &mut crate::lighting::lightmap::LightmapPlan,
+        bounds: &crate::spatial::Aabb,
+    ) {
+        let source = &asset.model;
+        let normal_matrix = transform.inverse().transpose();
+        let large = bounds
+            .max
+            .iter()
+            .zip(bounds.min)
+            .any(|(high, low)| high - low > 3.0);
+        for (slot, submesh) in source.submeshes.iter().enumerate() {
+            let Some(primitive) = self.primitives.get_mut(slot) else {
+                continue;
+            };
+            let start = usize::try_from(submesh.first_index).unwrap_or(0);
+            let count = usize::try_from(submesh.index_count).unwrap_or(0);
+            let Some(indices) = source.indices.get(start..start.saturating_add(count)) else {
+                continue;
+            };
+            let density = if large || submesh.alpha.mode == crate::materials::AlphaMode::Cutout {
+                4.0
+            } else {
+                16.0
+            };
+            for triangle in indices.as_chunks::<3>().0 {
+                let [Some(a), Some(b), Some(c)] =
+                    triangle.map(|index| source.vertices.get(usize::from(index)))
+                else {
+                    continue;
+                };
+                let Some(mut vertices) =
+                    model_triangle_vertices([a, b, c], transform, &normal_matrix)
+                else {
+                    continue;
+                };
+                if !plan.stamp_prop_triangle(&mut vertices, density) && !plan.failed() {
+                    continue;
+                }
+                let Ok(base) = u16::try_from(self.vertices.len()) else {
+                    continue;
+                };
+                self.vertices.extend(vertices);
+                primitive
+                    .indices
+                    .extend([base, base.saturating_add(1), base.saturating_add(2)]);
+                self.index_count = self.index_count.saturating_add(3);
+            }
         }
     }
 
@@ -216,6 +275,31 @@ pub fn resolve_prop_instances<'a>(
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None)
+}
+
+/// Resolves static surface receivers after architecture has reserved its atlas
+/// space. Moving/animated models continue to use their independent probe path.
+pub fn resolve_prop_instances_lightmapped<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    lighting: &LevelLighting,
+    surfaces: &LevelSurfaces<'_>,
+    plan: &mut crate::lighting::lightmap::LightmapPlan,
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, Some(plan))
+}
+
+#[allow(clippy::too_many_lines)] // one bounded deterministic model/cell batching pass
+fn resolve_prop_instances_inner<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    lighting: &LevelLighting,
+    surfaces: &LevelSurfaces<'_>,
+    mut plan: Option<&mut crate::lighting::lightmap::LightmapPlan>,
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::{HashMap, HashSet};
 
     let grid = spatial_cell_grid(level);
@@ -259,6 +343,8 @@ pub fn resolve_prop_instances<'a>(
             continue;
         }
 
+        let lightmapped = plan.is_some() && !asset.model.is_animatable();
+
         // A prop's authored `y` is an offset above the local walkable floor, so
         // a chair in an elevated room or a recessed region lands on the surface
         // it was placed against.
@@ -288,7 +374,7 @@ pub fn resolve_prop_instances<'a>(
             Some(index)
                 if builders
                     .get(index)
-                    .is_some_and(|b| b.has_room_for(&asset.model)) =>
+                    .is_some_and(|b| b.has_room_for(&asset.model, lightmapped)) =>
             {
                 index
             }
@@ -299,7 +385,7 @@ pub fn resolve_prop_instances<'a>(
                     .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
                     .clone();
                 let builder = BatchBuilder::new(&model_path, &asset.model, textures);
-                if !builder.has_room_for(&asset.model) {
+                if !builder.has_room_for(&asset.model, lightmapped) {
                     fallbacks.push(prop);
                     continue;
                 }
@@ -314,12 +400,79 @@ pub fn resolve_prop_instances<'a>(
             continue;
         };
         builder.bounds = builder.bounds.union(&instance_bounds);
-        builder.push_instance(&model, &asset, lighting);
-        busy_vertices = busy_vertices.saturating_add(asset.model.vertices.len());
+        if lightmapped && let Some(plan) = plan.as_deref_mut() {
+            builder.push_lightmapped_instance(&model, &asset, plan, &instance_bounds);
+        } else {
+            builder.push_instance(&model, &asset, lighting);
+        }
+        busy_vertices = busy_vertices.saturating_add(if lightmapped {
+            asset.model.indices.len()
+        } else {
+            asset.model.vertices.len()
+        });
     }
 
     let batches = builders.into_iter().map(BatchBuilder::finish).collect();
     (batches, fallbacks)
+}
+
+/// Derives a stable UV tangent frame for each actual triangle while retaining
+/// valid smooth normals. Lighting coordinates never replace the source UVs.
+#[allow(clippy::arithmetic_side_effects)] // bounded float frame math; degenerate triangles are rejected
+fn model_triangle_vertices(
+    source: [&crate::gltf::PropVertex; 3],
+    transform: &glam::Mat4,
+    normal_matrix: &glam::Mat4,
+) -> Option<[Vertex; 3]> {
+    let [a, b, c] =
+        source.map(|vertex| transform.transform_point3(glam::Vec3::from_array(vertex.pos)));
+    let edge_u = b - a;
+    let edge_v = c - a;
+    let face = edge_u.cross(edge_v).normalize_or_zero();
+    // Zero-area source triangles draw no pixels and cannot be receivers.
+    if face == glam::Vec3::ZERO {
+        return None;
+    }
+    let [uv_a, uv_b, uv_c] = source.map(|vertex| glam::Vec2::from_array(vertex.uv));
+    let du = uv_b - uv_a;
+    let dv = uv_c - uv_a;
+    let determinant = du.x.mul_add(dv.y, -(du.y * dv.x));
+    let (tangent, bitangent) = if determinant.abs() > 1.0e-8 {
+        (
+            (edge_u * dv.y - edge_v * du.y) / determinant,
+            (edge_v * du.x - edge_u * dv.x) / determinant,
+        )
+    } else {
+        (edge_u, edge_v)
+    };
+    Some(source.map(|vertex| {
+        let normal = vertex.normal.map_or(face, |normal| {
+            normal_matrix
+                .transform_vector3(glam::Vec3::from_array(normal))
+                .normalize_or_zero()
+        });
+        let projected = (tangent - normal * tangent.dot(normal)).normalize_or_zero();
+        let frame_u = if projected == glam::Vec3::ZERO {
+            normal.any_orthonormal_vector()
+        } else {
+            projected
+        };
+        Vertex {
+            pos: transform
+                .transform_point3(glam::Vec3::from_array(vertex.pos))
+                .to_array(),
+            color: vertex.color,
+            uv: vertex.uv,
+            normal: normal.to_array(),
+            tangent: frame_u.to_array(),
+            handedness: if normal.cross(frame_u).dot(bitangent) < 0.0 {
+                -1.0
+            } else {
+                1.0
+            },
+            ..Vertex::UNLIT
+        }
+    }))
 }
 
 /// UV seams and hard edges duplicate positions. Share only their light sample;

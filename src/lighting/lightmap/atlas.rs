@@ -154,10 +154,21 @@ impl ChartAllocator {
     /// it keeps returning `None` so the caller cannot silently continue with an
     /// incomplete atlas.
     pub fn allocate(&mut self, patch: &LightmapPatch) -> Option<Chart> {
+        self.allocate_at_density(patch, self.config.texels_per_metre)
+    }
+
+    /// Allocates a physical receiver chart at a bounded surface density.
+    /// Large model surfaces use a coarser lighting LOD without changing the
+    /// geometry, transport visibility or directional reconstruction.
+    pub fn allocate_at_density(&mut self, patch: &LightmapPatch, density: f32) -> Option<Chart> {
         if self.failed {
             return None;
         }
-        let (width, height) = self.config.chart_texels(patch);
+        let config = LightmapConfig {
+            texels_per_metre: density.min(self.config.texels_per_metre),
+            ..self.config
+        };
+        let (width, height) = config.chart_texels(patch);
         let padding = self.config.padding;
         let outer_w = width.saturating_add(padding.saturating_mul(2));
         let outer_h = height.saturating_add(padding.saturating_mul(2));

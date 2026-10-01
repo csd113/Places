@@ -38,25 +38,36 @@ python3 tools/assets/validate.py
 python3 tools/props/build.py --check
 python3 tools/entities/author_halloween_assets.py --check
 python3 tools/entities/check_clip_boundaries.py
-cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json
-cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 8
+python3 tools/levels/build_outdoor_fixture.py --check
+python3 tools/levels/build_outdoor_route.py --check
+python3 tools/levels/build_lantern_hollow.py --check
+python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow
+cargo test --lib showcase_audit
+cargo test --lib static_prop_lighting_tests
+cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
+cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json --workers 12
+cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 12
+cargo run --quiet --release --bin places-compile -- build assets/levels/lantern_hollow.json --workers 12
 cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- verify assets/levels/lantern_hollow.json --package assets/levels/lantern_hollow.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- validate assets/levels/lantern_hollow.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
+python3 -m unittest tests.test_geometry_repair
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
 
-The two `places-compile build` steps are the incremental gate: a current
+The three `places-compile build` steps are the incremental gate: a current
 package is reused (`rebuilt: false`, bytes untouched), and a source or
 fingerprint change publishes an atomically replaced package before `validate`
-checks it. Snapshot the two `.placesmap` hashes when a change could affect the
+checks it. Snapshot the three `.placesmap` hashes when a change could affect the
 compiler, so a silent rewrite is visible in the evidence. The
 `verify … --require-current` steps are the staleness gate: a package whose
 source, asset identities or variants changed after its build fails the run

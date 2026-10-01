@@ -1542,8 +1542,8 @@ fn test_the_default_level_is_the_shipped_demo() {
     bundled.sort_unstable();
     assert_eq!(
         bundled,
-        vec!["model_zoo", "places_demo"],
-        "the bundled levels are Places Demo and the Model Zoo"
+        vec!["lantern_hollow", "model_zoo", "places_demo"],
+        "the bundled levels include Lantern Hollow, Places Demo and the Model Zoo"
     );
 
     let loaded = manager.load_default().expect("the shipped demo loads");

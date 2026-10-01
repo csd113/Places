@@ -22,9 +22,9 @@ pub struct Vertex {
     pub uv: [f32; 2],
     /// Geometric normal of the surface this vertex belongs to, unit length.
     ///
-    /// Computed once per range from the emitted triangles
-    /// ([`compute_surface_frames`]), never authored: the mesh builder emits
-    /// quads and the frame falls out of their winding.
+    /// Architecture derives its frame from emitted triangle winding
+    /// ([`compute_surface_frames`]). Static models retain valid authored GLB
+    /// normals, or derive a face normal when the source omits NORMAL.
     pub normal: [f32; 3],
     /// Tangent along the surface's `u` direction, unit length and orthogonal
     /// to [`Vertex::normal`].

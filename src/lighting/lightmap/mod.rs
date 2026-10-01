@@ -276,8 +276,9 @@ const MIN_PATCH_AREA_M2: f32 = 1.0e-8;
 
 /// Which family of static surface a lightmap patch belongs to.
 ///
-/// The kind has no effect on packing or sampling: it exists for diagnostics,
-/// cache reports and tests that want to say what a chart covers.
+/// Architectural kinds retain their rectangular domain and room-fill contract.
+/// Model triangles use a mirrored triangular domain and physical transport
+/// without authored room fill. All kinds participate in the same HDR atlas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PatchKind {
@@ -285,6 +286,8 @@ pub enum PatchKind {
     Ceiling,
     Wall,
     Skirt,
+    /// A real static model triangle; receives physical transport without room fill.
+    Prop,
 }
 
 impl PatchKind {
@@ -296,6 +299,7 @@ impl PatchKind {
             Self::Ceiling => "ceiling",
             Self::Wall => "wall",
             Self::Skirt => "skirt",
+            Self::Prop => "prop",
         }
     }
 }
@@ -419,16 +423,22 @@ impl LightmapPatch {
     /// both coordinates clamped to `0..=1`.
     #[must_use]
     pub fn point_at(&self, u: f32, v: f32) -> [f32; 3] {
-        let u = if u.is_finite() {
+        let mut u = if u.is_finite() {
             u.clamp(0.0, 1.0)
         } else {
             0.0
         };
-        let v = if v.is_finite() {
+        let mut v = if v.is_finite() {
             v.clamp(0.0, 1.0)
         } else {
             0.0
         };
+        // Model charts use a triangular domain. Mirror padding across its
+        // diagonal so every solve sample belongs to actual geometry, while
+        // bilinear samples at the edge remain continuous.
+        if self.kind == PatchKind::Prop && u + v > 1.0 {
+            (u, v) = (1.0 - v, 1.0 - u);
+        }
         [
             self.u_axis[0].mul_add(u, self.v_axis[0].mul_add(v, self.origin[0])),
             self.u_axis[1].mul_add(u, self.v_axis[1].mul_add(v, self.origin[1])),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::geometry::build_level_geometry_mesh_with_lightmaps;
-use super::props::{PropMeshBatch, resolve_prop_instances};
+use super::props::{PropMeshBatch, resolve_prop_instances, resolve_prop_instances_lightmapped};
 use super::{
     LevelDef, LevelLighting, LevelMesh, LevelSurfaces, MaterialTable, PropDef,
     build_level_geometry_mesh,
@@ -651,8 +651,9 @@ pub fn prepare_level_geometry_with_lightmaps(
 
     let surfaces = LevelSurfaces::new(level);
     let started = std::time::Instant::now();
-    let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets, &lighting, &surfaces);
-    let props_millis = elapsed_millis(started);
+    let (mut batches, fallbacks) =
+        resolve_prop_instances(level, catalog, assets, &lighting, &surfaces);
+    let mut props_millis = elapsed_millis(started);
 
     let mut plan = (options.mode == LightmapMode::On).then(|| LightmapPlan::new(options.config));
     let started = std::time::Instant::now();
@@ -665,6 +666,15 @@ pub fn prepare_level_geometry_with_lightmaps(
         plan.as_mut(),
     );
     let surfaces_millis = elapsed_millis(started);
+    if let Some(plan) = plan.as_mut() {
+        let started = std::time::Instant::now();
+        let (receivers, _) =
+            resolve_prop_instances_lightmapped(level, catalog, assets, &lighting, &surfaces, plan);
+        if !plan.failed() {
+            batches = receivers;
+        }
+        props_millis += elapsed_millis(started);
+    }
 
     let mut build = LevelBuild {
         mesh,
@@ -768,6 +778,8 @@ pub fn prepare_level_geometry_with_lightmaps(
             build_level_geometry_mesh(level, catalog, &fallbacks, &build.lighting, materials);
         build.timings.surfaces_millis += elapsed_millis(started);
         build.mesh = mesh;
+        (build.batches, _) =
+            resolve_prop_instances(level, catalog, assets, &build.lighting, &surfaces);
     }
 
     PreparedLightmapBuild { build, fill }
@@ -788,9 +800,11 @@ pub fn rebuild_vertex_lit_level(
     assets: &mut crate::props::PropAssets,
     materials: &MaterialTable,
     lighting: &LevelLighting,
+    batches: &mut Vec<PropMeshBatch>,
 ) -> LevelMesh {
     let surfaces = LevelSurfaces::new(level);
-    let (_, fallbacks) = resolve_prop_instances(level, catalog, assets, lighting, &surfaces);
+    let (legacy, fallbacks) = resolve_prop_instances(level, catalog, assets, lighting, &surfaces);
+    *batches = legacy;
     build_level_geometry_mesh(level, catalog, &fallbacks, lighting, materials)
 }
 
@@ -855,7 +869,14 @@ pub fn build_level_geometry_timed_with_lightmaps(
         Err(fill_failure) => {
             build.lightmap_failure = Some(fill_failure);
             let started = std::time::Instant::now();
-            let mesh = rebuild_vertex_lit_level(level, catalog, assets, materials, &build.lighting);
+            let mesh = rebuild_vertex_lit_level(
+                level,
+                catalog,
+                assets,
+                materials,
+                &build.lighting,
+                &mut build.batches,
+            );
             build.timings.surfaces_millis += elapsed_millis(started);
             build.mesh = mesh;
         }

@@ -240,7 +240,9 @@ pub fn solver_fingerprint() -> u64 {
 ///   interpolation is visibility-tested, capped grids are centered in their
 ///   actual bounds, compiler probe placement rejects solid/non-air cells, and
 ///   prop cutout cards transmit rather than manufacturing opaque card shadows.
-pub const SOLVER_REVISION: u64 = 8;
+/// * `9` — static model triangles are real surface receivers, with neutral
+///   albedo and triangular chart padding instead of legacy position samples.
+pub const SOLVER_REVISION: u64 = 9;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1911,8 +1913,13 @@ impl TransportScene {
                 continue;
             }
             let normal = patch_normal(patch);
-            let (u_metres, v_metres) = patch.extent_m();
-            let texel_area = (u_metres * v_metres)
+            let surface_area = length(cross3(patch.u_axis, patch.v_axis))
+                * if patch.kind == PatchKind::Prop {
+                    0.5
+                } else {
+                    1.0
+                };
+            let texel_area = surface_area
                 / (f32::from(u16::try_from(width).unwrap_or(u16::MAX))
                     * f32::from(u16::try_from(height).unwrap_or(u16::MAX)));
             let area = if texel_area.is_finite() && texel_area > 0.0 {
