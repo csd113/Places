@@ -1273,18 +1273,7 @@ fn adjust_value(
             let next = settings.toggle_bloom();
             ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
         }
-        SettingsValue::LowQualityLighting => {
-            let enabled = !settings.use_low_quality_lighting;
-            settings.set_use_low_quality_lighting(enabled);
-            ui_state.set_status(
-                if enabled {
-                    "Low lighting on; textures unchanged"
-                } else {
-                    "Saved lighting preferences restored"
-                },
-                false,
-            );
-        }
+        SettingsValue::LowQualityLighting => toggle_low_lighting(ui_state, settings),
         SettingsValue::Reflections => {
             if settings.use_low_quality_lighting {
                 ui_state.set_status("Turn off Low lighting to change reflections", false);
@@ -1295,16 +1284,7 @@ fn adjust_value(
                 ui_state.set_status(format!("Reflections: {}", next.label()), false);
             }
         }
-        SettingsValue::Lightmaps => {
-            if settings.use_low_quality_lighting {
-                ui_state.set_status("Turn off Low lighting to change lightmaps", false);
-                return;
-            }
-            let next = Settings::lightmap_quality_step(settings.lightmap_quality(), direction);
-            if settings.set_lightmap_quality(next) {
-                ui_state.set_status(format!("Lightmaps: {}", next.label()), false);
-            }
-        }
+        SettingsValue::Lightmaps => adjust_lightmaps(ui_state, settings, direction),
         SettingsValue::Vsync => {
             let next = settings.toggle_vsync();
             ui_state.set_status(format!("VSync {}", on_off(next).to_lowercase()), false);
@@ -1373,6 +1353,32 @@ fn adjust_value(
             step_range(&mut settings.fov_degrees, direction, 15.0, 45.0, 90.0);
             ui_state.set_status("Field of view updated", false);
         }
+    }
+}
+
+/// Toggles the live lighting override without rewriting texture preferences.
+fn toggle_low_lighting(ui_state: &mut UiState, settings: &mut Settings) {
+    let enabled = !settings.use_low_quality_lighting;
+    settings.set_use_low_quality_lighting(enabled);
+    ui_state.set_status(
+        if enabled {
+            "Low lighting on; textures unchanged"
+        } else {
+            "Saved lighting preferences restored"
+        },
+        false,
+    );
+}
+
+/// Keeps the advanced Lightmaps selector consistent with the effective path.
+fn adjust_lightmaps(ui_state: &mut UiState, settings: &mut Settings, direction: i32) {
+    if settings.use_low_quality_lighting {
+        ui_state.set_status("Turn off Low lighting to change lightmaps", false);
+        return;
+    }
+    let next = Settings::lightmap_quality_step(settings.lightmap_quality(), direction);
+    if settings.set_lightmap_quality(next) {
+        ui_state.set_status(format!("Lightmaps: {}", next.label()), false);
     }
 }
 
