@@ -1,30 +1,25 @@
 # Lantern Hollow showcase acceptance
 
-Status: Lantern Hollow is baked, current, decoded and visually checked in the native app.
-All three bundled packages are baked, current and decoded. Full Rust, strict lint,
-release, source/package and GPU resource checks pass. Final presented-window
-acceptance and steady-state frame timing are blocked by the locked Mac desktop.
+Current acceptance, launch instructions, Rust 1.99 validation, package identities
+and final recovery location are recorded in
+[Places desktop finalization — 2026-10-02](places-finalization-2026-10-02.md).
+The sole checkout is `/Users/connordawkins/Documents/GitHub/Places` on `working`;
+the original isolated showcase checkout has been removed. The showcase itself
+was merged into `main` at `a53696eed70b45b397f83dc58265aeeb740158a5`.
+The formerly blocked 26 presentation tests now pass with zero skips, and all
+16 presented performance runs are complete. The four current packages include
+Movement Test and subsequent movement/porch repairs.
 
-## Workspace and launch
-
-Persistent isolated checkout: `/Users/connordawkins/Documents/GitHub/Places-night-showcase`,
-branch `agent/night-showcase`, based on integrated lighting commit
-`50e5f758f8843f324927010bb04ef6a646ca5a83`. The user subsequently authorized
-publishing this branch to GitHub.
-The original checkout, unrelated local edits and stash
-`fa23032a1ce9324cf4657c9a8efffa5de9ffb1bf` are preserved.
-
-Launch the current playable package:
+Launch **Lantern Hollow** from Level Select. The saved validated binary remains
+available after build cleanup:
 
 ```sh
-cd /Users/connordawkins/Documents/GitHub/Places-night-showcase
-PLACES_ASSET_ROOT="$PWD" PLACES_LEVEL=lantern_hollow ./target/release/places
+/Users/connordawkins/Documents/Codex/Recovery/Places-finalization-2026-10-02/launch-lantern-hollow.sh
 ```
 
-Use the normal Level Select menu to choose **Lantern Hollow**. WASD moves,
-mouse looks, E operates a door, Space jumps, and crouch enters the shallow pond.
-The new default-off **Use Low-quality lighting** Graphics setting retains the
-selected texture quality/filtering and restores lighting when switched off.
+The implementation and initial bake measurements below describe the original
+October 1 acceptance. Its historical fingerprints, timings, test totals and
+locked-desktop status are superseded by the October 2 report for current state.
 
 ## Authored content
 
@@ -214,38 +209,14 @@ Native capture runner: `tools/bench/capture_lantern_hollow.py`. Logs, routes,
 load traces, GPU audits, before/after images and all final screenshots are
 preserved outside `target` in the recovery directory below.
 
-## Retained build and continuation
+## Historical retained build
 
-Recovery directory:
-`/Users/connordawkins/Documents/Codex/Recovery/Places-showcase-delivery-2026-10-01`.
-Its `bin/places`, `bin/places-compile`, `qa/`, `screenshots/`, this report and
-benchmark helpers are copied with a verified SHA256 manifest. The retained executable independently
-loaded High Lantern Hollow with Full lightmaps, the override default Off and
-all twenty characters; its native 3024x1676 launch capture was inspected.
-They remain available after a later `cargo clean`; the source/assets/packages stay in the
-isolated checkout. Launch the retained binary with:
-
-```sh
-PLACES_ASSET_ROOT=/Users/connordawkins/Documents/GitHub/Places-night-showcase \
-PLACES_LEVEL=lantern_hollow \
-/Users/connordawkins/Documents/Codex/Recovery/Places-showcase-delivery-2026-10-01/bin/places
-```
-
-After unlocking the Mac, finish presentation and steady-state acceptance:
-
-```sh
-cd /Users/connordawkins/Documents/GitHub/Places-night-showcase
-python3 -m unittest tests.test_wgpu_bootstrap
-python3 /Users/connordawkins/Documents/Codex/2026-10-01/task/night_showcase_bench.py --root "$PWD"
-```
-
-Require zero presentation skips, nonzero measured draw calls and valid quality
-installs. Refresh the report and recovery evidence after those runs. The queued
-Rust 1.99/latest-stable upgrade starts only after current showcase acceptance
-finishes. The user-authorized final `cargo clean` follows the upgrade and all
-validation, with no active target users and refreshed evidence preservation.
-Neither upgrade nor cleanup has started here. GitHub branch publication was
-subsequently authorized; the validation limits above remain in effect.
+The original October 1 binaries, diagnostics and screenshots remain preserved
+at `/Users/connordawkins/Documents/Codex/Recovery/Places-showcase-delivery-2026-10-01`
+with their verified manifest. They are historical evidence, not the current
+Rust 1.99 deliverable. Current binaries and fresh evidence use the October 2
+recovery root and instructions in the finalization report. The removed isolated
+checkout paths from the original capture logs are not current launch paths.
 
 ## Scope limits
 
@@ -259,37 +230,22 @@ shadows; tree trunks retain physical collision. Furniture, cliffs, gates,
 boulders and stumps retain authored occlusion and actual cast shadows. Existing
 PS1/PS2/Source-inspired art and desktop-only target remain unchanged.
 
-## Screenshot delivery
+## Delivery and GitHub history
 
-Eight original native PNGs are staged outside `target` at
-`/Users/connordawkins/Documents/Codex/2026-10-01/task/showcase-delivery`: overview,
-street, campfire, pond, furnished interior, moving sheet cat, human sheet ghost,
-and the matching interior before image. All final screenshots are actual native
-captures at 3024x1676, not generated recreations or retouched evidence.
+The original reference Library identity is `libfile_1b892869b4788191953c42232339f73c`;
+its actual PNG was inspected locally during authoring and is not embedded in the
+repository. Original native captures and the five existing Library image
+identities are retained. Fresh October 2 images and the current Library TLS
+upload blocker are documented in the finalization report.
 
-Library delivery is currently blocked at helper discovery: the unmodified
-current helper reports `Library prepare_uploads is not available`; its
-authenticated discovery lists no Library tools, although model-side reads work.
-No upload, replacement, transfer or finalization started. The eight local files
-and ordered request retain the five existing replacement identities/version
-guards for a supported parent-assisted transfer. Existing Library pictures are
-not represented as these final images.
-
-## GitHub publication prerequisites
-
-The compiled Lantern Hollow and Places Demo packages exceed GitHub's 100 MiB
-ordinary-file limit. They are tracked through Git LFS; their complete working
-files retain the exact SHA256 values recorded during acceptance. Model Zoo
-remains an ordinary Git file. Source, asset generation and rendering are unchanged.
-
-Before building a fresh Git clone, install Git LFS and materialize the packages:
+Lantern Hollow and Places Demo exceed GitHub's ordinary-file limit and use Git
+LFS. Before building a fresh clone, materialize the packages:
 
 ```sh
 git lfs install
 git lfs pull
 ```
 
-The original pre-LFS commit `7caee8fc90ce55ca97b4fa90875acb798d11ddfd` remains
-available locally under `backup/night-showcase-before-lfs-20261001`. Only the
-unpublished showcase branch was converted; existing published main history
-was preserved. No merge or site deployment is part of this publication.
+The original showcase publication and main merge completed at
+`a53696eed70b45b397f83dc58265aeeb740158a5`. Later finalization is scoped to `working`.
+The original unrelated edits and stash were preserved during integration.

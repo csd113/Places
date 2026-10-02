@@ -29,12 +29,15 @@ No CI configuration is currently tracked; the gate is run manually.
 sh tools/verify.sh
 ```
 
-The script stops at the first failure and runs these commands in order:
+The script stops at the first failure and runs these commands in order. It builds
+the release executables before Python/native checks, so an older binary cannot
+stand in for the current source and pinned toolchain:
 
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
 cargo test --workspace --all-features
+cargo build --release
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check
 python3 tools/entities/author_halloween_assets.py --check
@@ -62,7 +65,6 @@ python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 python3 -m unittest tests.test_geometry_repair
-cargo build --release
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap

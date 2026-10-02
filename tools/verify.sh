@@ -4,6 +4,9 @@ set -eu
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
 cargo test --workspace --all-features
+# Python native/packaging checks must use this source and toolchain, even when
+# an older release binary is already present.
+cargo build --release
 python3 tools/assets/validate.py
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
@@ -41,7 +44,6 @@ python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 python3 -m unittest tests.test_geometry_repair
-cargo build --release
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
