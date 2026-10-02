@@ -1,0 +1,2263 @@
+{
+  "format_version": 3,
+  "id": "movement_test",
+  "name": "Movement Test",
+  "author": "Places",
+  "spawn": {
+    "x": 4,
+    "z": 10,
+    "yaw_degrees": 90
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "outdoor:concrete_pavement_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 1,
+    "ambient": 1.0
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 72,
+      "depth": 68,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": 72,
+      "z": 54,
+      "width": 2,
+      "depth": 2,
+      "height": 4
+    },
+    {
+      "x": 74,
+      "z": 48,
+      "width": 10,
+      "depth": 14,
+      "height": 1.85,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "z",
+        "ridge_rise": 1.0
+      }
+    },
+    {
+      "x": 0,
+      "z": 68,
+      "width": 5,
+      "depth": 20,
+      "floor_y": 0,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": 5,
+      "z": 68,
+      "width": 14,
+      "depth": 5,
+      "floor_y": 0,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": 5,
+      "z": 81,
+      "width": 14,
+      "depth": 7,
+      "floor_y": 0,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": 19,
+      "z": 68,
+      "width": 53,
+      "depth": 20,
+      "floor_y": 0,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": 5,
+      "z": 73,
+      "width": 14,
+      "depth": 8,
+      "floor_y": -2.4,
+      "height": 8,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 72.4,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": -0.2,
+      "z": 88,
+      "width": 72.4,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 88,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 72,
+      "z": 0,
+      "width": 0.2,
+      "depth": 24,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 72,
+      "z": 42,
+      "width": 0.2,
+      "depth": 12,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 72,
+      "z": 56,
+      "width": 0.2,
+      "depth": 32,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 74,
+      "z": 48,
+      "width": 10,
+      "depth": 0.2,
+      "height": 1.85,
+      "y": 0
+    },
+    {
+      "x": 74,
+      "z": 61.8,
+      "width": 10,
+      "depth": 0.2,
+      "height": 1.85,
+      "y": 0
+    },
+    {
+      "x": 83.8,
+      "z": 48.2,
+      "width": 0.2,
+      "depth": 13.6,
+      "height": 1.85,
+      "y": 0
+    },
+    {
+      "x": 74,
+      "z": 48.2,
+      "width": 0.2,
+      "depth": 13.6,
+      "height": 1.85,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 5.8,
+          "width": 2,
+          "height": 1.85
+        }
+      ]
+    },
+    {
+      "x": 72,
+      "z": 53.8,
+      "width": 2,
+      "depth": 0.2,
+      "height": 4,
+      "y": 0
+    },
+    {
+      "x": 72,
+      "z": 56,
+      "width": 2,
+      "depth": 0.2,
+      "height": 4,
+      "y": 0
+    },
+    {
+      "x": 4,
+      "z": 16,
+      "width": 22,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 28,
+      "z": 14,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 29,
+      "z": 14,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 49.7,
+      "z": 7,
+      "width": 4.3,
+      "depth": 2,
+      "height": 0.2,
+      "y": 2
+    },
+    {
+      "x": 3.7,
+      "z": 28,
+      "width": 0.2,
+      "depth": 8,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 4.9,
+      "z": 28,
+      "width": 0.2,
+      "depth": 8,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 18,
+      "z": 32,
+      "width": 1,
+      "depth": 0.2,
+      "height": 3,
+      "y": 1.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.1,
+          "width": 0.8,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 27.7,
+      "z": 28,
+      "width": 0.2,
+      "depth": 7,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 11,
+      "z": 57,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 16,
+      "z": 57,
+      "width": 5,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.8,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 30,
+      "z": 50,
+      "width": 3,
+      "depth": 2,
+      "height": 0.2,
+      "y": 1.85
+    },
+    {
+      "x": 36,
+      "z": 50,
+      "width": 3,
+      "depth": 5,
+      "height": 0.2,
+      "y": 1.05
+    },
+    {
+      "x": 35.7,
+      "z": 50,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 39.1,
+      "z": 50,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 36,
+      "z": 55,
+      "width": 2,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 40,
+      "z": 59,
+      "width": 3,
+      "depth": 3,
+      "height": 0.2,
+      "y": 2.05
+    },
+    {
+      "x": 43,
+      "z": 50,
+      "width": 0.2,
+      "depth": 3,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 44,
+      "z": 50,
+      "width": 0.2,
+      "depth": 3,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 43.2,
+      "z": 50,
+      "width": 0.8,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 51,
+      "z": 50,
+      "width": 2.7,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 0.7,
+          "height": 2.1,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 57,
+      "z": 50,
+      "width": 4,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 2,
+          "height": 2.1,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 63,
+      "z": 50,
+      "width": 3.2,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.3
+        }
+      ]
+    },
+    {
+      "x": 51,
+      "z": 58,
+      "width": 3.2,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 57,
+      "z": 58,
+      "width": 3.2,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 63,
+      "z": 58,
+      "width": 3.2,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.6
+        }
+      ]
+    },
+    {
+      "x": 8,
+      "z": 81,
+      "width": 5,
+      "depth": 0.2,
+      "height": 2,
+      "y": 0
+    },
+    {
+      "x": 14.5,
+      "z": 81,
+      "width": 4.5,
+      "depth": 0.2,
+      "height": 2,
+      "y": 0
+    },
+    {
+      "x": 52,
+      "z": 73,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 52,
+      "z": 74,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 52,
+      "z": 81,
+      "width": 1.2,
+      "depth": 0.2,
+      "height": 2.3,
+      "y": 1.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.1,
+          "width": 1,
+          "height": 2
+        }
+      ]
+    },
+    {
+      "x": 51.7,
+      "z": 78,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 53.4,
+      "z": 78,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 55.7,
+      "z": 79,
+      "width": 0.2,
+      "depth": 3,
+      "height": 3,
+      "y": 0
+    },
+    {
+      "x": 61,
+      "z": 82,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3,
+      "y": 0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 40,
+      "z": 5,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.1,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 7,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 9,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.39,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 11,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.4,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 13,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.41,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 15,
+      "width": 3,
+      "depth": 1.4,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 50,
+      "z": 7,
+      "width": 4,
+      "depth": 2,
+      "offset_y": 0.35,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 4,
+      "z": 34,
+      "width": 0.8,
+      "depth": 2,
+      "offset_y": 0.9,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 7,
+      "z": 34,
+      "width": 1.4,
+      "depth": 2,
+      "offset_y": 1.5,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 10,
+      "z": 30.4,
+      "width": 1.2,
+      "depth": 2,
+      "offset_y": 1.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 13,
+      "z": 34,
+      "width": 3,
+      "depth": 2,
+      "offset_y": 1.5,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 18,
+      "z": 32,
+      "width": 1,
+      "depth": 2,
+      "offset_y": 1.2,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 28,
+      "z": 34,
+      "width": 1.2,
+      "depth": 1,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 31,
+      "z": 34,
+      "width": 1.2,
+      "depth": 1,
+      "offset_y": 1.8,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 34,
+      "z": 31,
+      "width": 1.2,
+      "depth": 1,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 37,
+      "z": 30,
+      "width": 0.8,
+      "depth": 1,
+      "offset_y": 3.8,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 40,
+      "z": 30,
+      "width": 0.8,
+      "depth": 1,
+      "offset_y": 4,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 54,
+      "z": 28,
+      "width": 4,
+      "depth": 3,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 54,
+      "z": 33,
+      "width": 4,
+      "depth": 3,
+      "offset_y": 1.5,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 54,
+      "z": 38,
+      "width": 4,
+      "depth": 3,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 68,
+      "z": 34,
+      "width": 4,
+      "depth": 2,
+      "offset_y": 1.5,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 7,
+      "z": 51,
+      "width": 2,
+      "depth": 3,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 11,
+      "z": 51,
+      "width": 2,
+      "depth": 3,
+      "offset_y": 0.95,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 15,
+      "z": 51,
+      "width": 2,
+      "depth": 3,
+      "offset_y": 1.1,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 19,
+      "z": 51,
+      "width": 0.65,
+      "depth": 3,
+      "offset_y": 0.75,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 64,
+      "z": 49.5,
+      "width": 1.2,
+      "depth": 2,
+      "offset_y": 0.3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 64,
+      "z": 57.5,
+      "width": 1.2,
+      "depth": 2,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 64,
+      "z": 57,
+      "width": 1.2,
+      "depth": 0.5,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 5,
+      "z": 73,
+      "width": 3,
+      "depth": 8,
+      "offset_y": 2,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 19,
+      "z": 73,
+      "width": 2,
+      "depth": 8,
+      "offset_y": 0.2,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 52,
+      "z": 81,
+      "width": 1.2,
+      "depth": 2,
+      "offset_y": 1.2,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 0.5,
+      "z": 22,
+      "width": 71,
+      "depth": 1,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 0.5,
+      "z": 44,
+      "width": 71,
+      "depth": 1,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 0.5,
+      "z": 66,
+      "width": 71,
+      "depth": 1,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 24,
+      "z": 23,
+      "width": 1,
+      "depth": 64,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 48,
+      "z": 23,
+      "width": 1,
+      "depth": 64,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 4,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 5,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 6,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 7,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 8,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 9,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 10,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 11,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 12,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 13,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 14,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 15,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 16,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 17,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 18,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 19,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 20,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 21,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 22,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 23,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 24,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 25,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 26,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 27,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 28,
+      "z": 8,
+      "width": 0.05,
+      "depth": 4,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 4,
+      "z": 8,
+      "width": 24,
+      "depth": 0.04,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 4,
+      "z": 9,
+      "width": 24,
+      "depth": 0.04,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 4,
+      "z": 10,
+      "width": 24,
+      "depth": 0.04,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 4,
+      "z": 11,
+      "width": 24,
+      "depth": 0.04,
+      "material": "core:metal_brass_01"
+    },
+    {
+      "x": 4,
+      "z": 12,
+      "width": 24,
+      "depth": 0.04,
+      "material": "core:metal_brass_01"
+    }
+  ],
+  "ramps": [
+    {
+      "x": 28,
+      "z": 28,
+      "width": 1.2,
+      "depth": 6,
+      "rise": 0.6,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 31,
+      "z": 28,
+      "width": 1.2,
+      "depth": 6,
+      "rise": 1.8,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 34,
+      "z": 28,
+      "width": 1.2,
+      "depth": 3,
+      "rise": 3,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 37,
+      "z": 28,
+      "width": 0.8,
+      "depth": 2,
+      "rise": 3.8,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 40,
+      "z": 28,
+      "width": 0.8,
+      "depth": 2,
+      "rise": 4,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 28,
+      "z": 37,
+      "width": 3,
+      "depth": 1,
+      "rise": 1.2,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 31,
+      "z": 37,
+      "width": 3,
+      "depth": 1,
+      "rise": -1.2,
+      "offset_y": 1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 36,
+      "z": 37,
+      "width": 3,
+      "depth": 1,
+      "rise": -1.2,
+      "offset_y": 1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 39,
+      "z": 37,
+      "width": 3,
+      "depth": 1,
+      "rise": 1.2,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 64,
+      "z": 54,
+      "width": 1.2,
+      "depth": 3,
+      "rise": 0.6,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 56,
+      "z": 79,
+      "width": 1.2,
+      "depth": 3,
+      "rise": 1.2,
+      "offset_y": 0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "stairs": [
+    {
+      "x": 4,
+      "z": 28,
+      "width": 0.8,
+      "depth": 6,
+      "rise": 0.9,
+      "steps": 6,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 7,
+      "z": 28,
+      "width": 1.4,
+      "depth": 6,
+      "rise": 1.5,
+      "steps": 6,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 10,
+      "z": 28,
+      "width": 1.2,
+      "depth": 2.4,
+      "rise": 1.6,
+      "steps": 4,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 13,
+      "z": 28,
+      "width": 3,
+      "depth": 6,
+      "rise": 1.5,
+      "steps": 6,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 18,
+      "z": 28,
+      "width": 1,
+      "depth": 4,
+      "rise": 1.2,
+      "steps": 4,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 63,
+      "z": 34,
+      "width": 5,
+      "depth": 2,
+      "rise": 1.5,
+      "steps": 5,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 13,
+      "z": 77,
+      "width": 1.5,
+      "depth": 4,
+      "rise": 2,
+      "steps": 8,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 52,
+      "z": 78,
+      "width": 1.2,
+      "depth": 3,
+      "rise": 1.2,
+      "steps": 4,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 38,
+      "z": 81,
+      "radius": 0.6,
+      "height": 3,
+      "segments": 32,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 58.5,
+      "z": 74.9,
+      "radius": 0.5,
+      "height": 3,
+      "segments": 32
+    }
+  ],
+  "guardrails": [],
+  "props": [
+    {
+      "id": "station_01",
+      "display_name": "01 FLAT / SPEED / CORNERS",
+      "model": "core:crate",
+      "x": 2,
+      "z": 3,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "01 FLAT / SPEED / CORNERS - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_02",
+      "display_name": "02 STEPS .10 .30 .39 .40 .41 .60",
+      "model": "core:crate",
+      "x": 34,
+      "z": 3,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "02 STEPS .10 .30 .39 .40 .41 .60 - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_03",
+      "display_name": "03 STAIRS / LANDINGS / WALLS",
+      "model": "core:crate",
+      "x": 2,
+      "z": 25,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "03 STAIRS / LANDINGS / WALLS - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_04",
+      "display_name": "04 RAMPS / PEAK / VALLEY / LIMIT",
+      "model": "core:crate",
+      "x": 26,
+      "z": 25,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "04 RAMPS / PEAK / VALLEY / LIMIT - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_05",
+      "display_name": "05 LEDGES / LANDING / UNSUPPORTED EDGE",
+      "model": "core:crate",
+      "x": 50,
+      "z": 25,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "05 LEDGES / LANDING / UNSUPPORTED EDGE - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_06",
+      "display_name": "06 JUMP / DESK / TARGETS / DOOR",
+      "model": "core:crate",
+      "x": 2,
+      "z": 47,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "06 JUMP / DESK / TARGETS / DOOR - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jump_desk",
+      "model": "core:desk",
+      "x": 7,
+      "z": 59,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "station_07",
+      "display_name": "07 CROUCH / HEAD / RAPID STANCE",
+      "model": "core:crate",
+      "x": 26,
+      "z": 47,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "07 CROUCH / HEAD / RAPID STANCE - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_08",
+      "display_name": "08 DOORWAYS / THRESHOLDS / LEAVES",
+      "model": "core:crate",
+      "x": 50,
+      "z": 47,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "08 DOORWAYS / THRESHOLDS / LEAVES - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_09",
+      "display_name": "09 POOL / SHALLOW / DEEP / EXITS",
+      "model": "core:crate",
+      "x": 2,
+      "z": 69,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "09 POOL / SHALLOW / DEEP / EXITS - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "station_10",
+      "display_name": "10 PROPS / PILLAR / NARROW SOLID",
+      "model": "core:crate",
+      "x": 26,
+      "z": 69,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "10 PROPS / PILLAR / NARROW SOLID - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desk",
+      "model": "core:desk",
+      "x": 30,
+      "z": 74,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "chair",
+      "model": "core:chair",
+      "x": 34,
+      "z": 74,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "crate",
+      "model": "core:crate",
+      "x": 38,
+      "z": 74,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "narrow",
+      "model": "core:water_cooler",
+      "x": 42,
+      "z": 74,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "large",
+      "model": "core:vending_machine",
+      "x": 30,
+      "z": 81,
+      "size": [
+        1,
+        1.9,
+        0.8
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "station_11",
+      "display_name": "11 TIGHT COMBINATIONS / WEDGES",
+      "model": "core:crate",
+      "x": 50,
+      "z": 69,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "11 TIGHT COMBINATIONS / WEDGES - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "door_crate",
+      "model": "core:crate",
+      "x": 63,
+      "z": 81,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "station_12",
+      "display_name": "12 SLOPED CEILING / CLEARANCE",
+      "model": "core:crate",
+      "x": 76,
+      "z": 55,
+      "scale": 0.5,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "12 SLOPED CEILING / CLEARANCE - E: label",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "angled_panel_0",
+      "x": 5,
+      "z": 19,
+      "width": 3.9,
+      "height": 2,
+      "thickness": 0.08,
+      "rotation_degrees": 45,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "id": "angled_panel_1",
+      "x": 12,
+      "z": 19,
+      "width": 3.9,
+      "height": 2,
+      "thickness": 0.08,
+      "rotation_degrees": 135,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "id": "angled_panel_2",
+      "x": 19,
+      "z": 19,
+      "width": 4,
+      "height": 2,
+      "thickness": 0.08,
+      "rotation_degrees": 30,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "id": "closed_door",
+      "x": 52,
+      "z": 58.1,
+      "width": 1.2,
+      "height": 2.1,
+      "initial_state": "closed",
+      "swing_degrees": 88,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "closed test door"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "open_door",
+      "x": 58,
+      "z": 58.1,
+      "width": 1.2,
+      "height": 2.1,
+      "initial_state": "open",
+      "swing_degrees": 88,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "open test door"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wedge_panel_0",
+      "x": 61,
+      "z": 76,
+      "width": 4,
+      "height": 2,
+      "thickness": 0.08,
+      "rotation_degrees": 45,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "id": "wedge_panel_1",
+      "x": 67.15,
+      "z": 76,
+      "width": 4,
+      "height": 2,
+      "thickness": 0.08,
+      "rotation_degrees": 135,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "water": [
+    {
+      "x": 5.02,
+      "z": 73.02,
+      "width": 13.96,
+      "depth": 7.96,
+      "surface_y": -0.2,
+      "bottom_y": -2.4
+    }
+  ],
+  "volumes": [
+    {
+      "id": "void_recovery",
+      "x": 70,
+      "z": 24,
+      "width": 10,
+      "depth": 18,
+      "bottom_y": -20,
+      "top_y": -10,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:pool_light_round",
+      "x": 10,
+      "z": 10,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 10,
+      "z": 32,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 10,
+      "z": 54,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 10,
+      "z": 76,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 30,
+      "z": 10,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 30,
+      "z": 32,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 30,
+      "z": 54,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 30,
+      "z": 76,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 50,
+      "z": 10,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 50,
+      "z": 32,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 50,
+      "z": 54,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 50,
+      "z": 76,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 66,
+      "z": 10,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 66,
+      "z": 32,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 66,
+      "z": 54,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 66,
+      "z": 76,
+      "y": 6,
+      "brightness": 1.5,
+      "range": 14,
+      "align": "none"
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 79,
+      "z": 55,
+      "brightness": 0.5
+    }
+  ],
+  "decals": [
+    {
+      "x": 3,
+      "z": 3,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 35,
+      "z": 3,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 3,
+      "z": 25,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 27,
+      "z": 25,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 51,
+      "z": 25,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 3,
+      "z": 47,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 27,
+      "z": 47,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 51,
+      "z": 47,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 3,
+      "z": 69,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 27,
+      "z": 69,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 51,
+      "z": 69,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    },
+    {
+      "x": 77,
+      "z": 55,
+      "width": 0.8,
+      "height": 0.8,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 90
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 71.8,
+      "z": 24,
+      "width": 2.5,
+      "depth": 18,
+      "note": "Intentional unsupported ledge; fall recovery below Y=-10."
+    },
+    {
+      "check": "room-leak",
+      "x": 71.8,
+      "z": 24,
+      "width": 2.5,
+      "depth": 18,
+      "note": "Intentional unsupported ledge; fall recovery below Y=-10."
+    },
+    {
+      "check": "missing-wall",
+      "x": 0,
+      "z": 67.8,
+      "width": 72,
+      "depth": 0.4,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    },
+    {
+      "check": "missing-wall",
+      "x": 4.8,
+      "z": 68,
+      "width": 0.4,
+      "depth": 20,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    },
+    {
+      "check": "missing-wall",
+      "x": 18.8,
+      "z": 68,
+      "width": 0.4,
+      "depth": 20,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    },
+    {
+      "check": "missing-wall",
+      "x": 5,
+      "z": 72.8,
+      "width": 14,
+      "depth": 0.4,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    },
+    {
+      "check": "missing-wall",
+      "x": 5,
+      "z": 80.8,
+      "width": 14,
+      "depth": 0.4,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    },
+    {
+      "check": "missing-wall",
+      "x": 71.8,
+      "z": 53.8,
+      "width": 2.4,
+      "depth": 2.4,
+      "note": "Intentional open floor seam in the QA hall / pool or gable passage."
+    }
+  ]
+}

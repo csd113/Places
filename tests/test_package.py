@@ -157,8 +157,8 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow"},
-            "Places Demo, Model Zoo, and Lantern Hollow are the bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test"},
+            "the showcases and Movement Test are bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -186,8 +186,8 @@ class ShippedLevelTests(unittest.TestCase):
         packages = {path.stem: path for path in package_files()}
         self.assertEqual(
             set(packages),
-            {"places_demo", "model_zoo", "lantern_hollow"},
-            "the bundled compiled packages are Places Demo and the Model Zoo",
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test"},
+            "each bundled level has a compiled package",
         )
         for stem, path in packages.items():
             with zipfile.ZipFile(path) as archive:
@@ -333,6 +333,11 @@ class ShippedLevelTests(unittest.TestCase):
     def test_openings_are_wide_enough_to_walk_through(self):
         for path in level_files():
             level = load_level(path)
+            # The QA course deliberately exercises near-body clearances;
+            # the showcases retain their existing comfortable doorway margins.
+            minimum_width, minimum_height = (
+                (0.7, 1.85) if level["id"] == "movement_test" else (1.0, 1.9)
+            )
             for index, wall in enumerate(level["walls"]):
                 length = max(wall["width"], wall["depth"])
                 for opening in wall.get("openings", []):
@@ -346,10 +351,10 @@ class ShippedLevelTests(unittest.TestCase):
                     if opening.get("kind") in ("door", "passage"):
                         self.assertGreaterEqual(
                             opening["width"],
-                            1.0,
+                            minimum_width,
                             f"{path.name}: wall {index} has an unpastable opening",
                         )
-                        self.assertGreaterEqual(opening["height"], 1.9)
+                        self.assertGreaterEqual(opening["height"], minimum_height)
 
     def test_light_intensities_are_sane(self):
         for path in level_files():
@@ -722,6 +727,19 @@ class AssetCatalogTests(unittest.TestCase):
         for label, fields, needle in cases:
             errors, _ = self._validate_level_document(level_with(fields))
             self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
+
+    def test_ramp_rise_is_signed_but_stair_rise_stays_positive(self):
+        def errors_for(key, rise):
+            errors = []
+            piece = {"width": 1.0, "depth": 2.0, "rise": rise, "steps": 4}
+            validate.validate_architecture({key: [piece]}, "probe", errors)
+            return errors
+
+        for rise in (-1.0, 1.0):
+            self.assertEqual(errors_for("ramps", rise), [])
+        for rise in (0.0, -0.001, 0.001, float("nan"), float("inf"), True, "steep"):
+            self.assertTrue(errors_for("ramps", rise), f"invalid rise {rise!r}")
+        self.assertTrue(errors_for("stairs", -1.0))
 
     def test_the_validator_checks_per_surface_shine(self):
         def level_with(**fields):

@@ -574,7 +574,7 @@ enum StepOutcome {
     Accepted { floor: f32, dropped: bool },
     /// The step is refused.
     Refused,
-    /// The step is accepted with no floor under it (the historical void).
+    /// The step is accepted with no floor under it; walking loses support.
     Void,
 }
 
@@ -1649,32 +1649,36 @@ impl Game {
     /// The lowest overhead limit above `feet`: the room ceiling or a box
     /// underside (a door header, a window frame, a prop), whichever is lower.
     fn head_limit(&self, feet: f32) -> Option<f32> {
-        let ceiling = self
-            .ceiling
-            .ceiling_y_at(self.player_position.x, self.player_position.z);
+        self.head_limit_at(self.player_position.x, self.player_position.z, feet)
+    }
+
+    /// Samples overhead clearance at a candidate before committing a step.
+    fn head_limit_at(&self, x: f32, z: f32, feet: f32) -> Option<f32> {
+        let ceiling = self.ceiling.ceiling_y_at(x, z);
+        // A tangent side wall is contact, not an overhead obstruction.
         let underside = lowest_underside_indexed(
             &self.collision_index,
-            self.player_position.x,
-            self.player_position.z,
-            PLAYER_RADIUS,
+            x,
+            z,
+            PLAYER_RADIUS - CONTACT_EPS,
             feet,
             &self.walls,
         );
         let door_underside = lowest_door_underside(
             self.world.door_colliders(),
-            self.player_position.x,
-            self.player_position.z,
-            PLAYER_RADIUS,
+            x,
+            z,
+            PLAYER_RADIUS - CONTACT_EPS,
             feet,
         );
         match (ceiling, underside, door_underside) {
-            (Some(a), Some(b), Some(c)) => Some(a.min(b).min(c)),
-            (Some(a), Some(b), None) => Some(a.min(b)),
-            (Some(a), None, Some(c)) => Some(a.min(c)),
-            (None, Some(b), Some(c)) => Some(b.min(c)),
-            (Some(a), None, None) => Some(a),
-            (None, Some(b), None) => Some(b),
-            (None, None, Some(c)) => Some(c),
+            (Some(ceiling), Some(underside), Some(door)) => Some(ceiling.min(underside).min(door)),
+            (Some(ceiling), Some(underside), None) => Some(ceiling.min(underside)),
+            (Some(ceiling), None, Some(door)) => Some(ceiling.min(door)),
+            (None, Some(underside), Some(door)) => Some(underside.min(door)),
+            (Some(ceiling), None, None) => Some(ceiling),
+            (None, Some(underside), None) => Some(underside),
+            (None, None, Some(door)) => Some(door),
             (None, None, None) => None,
         }
     }
@@ -1698,9 +1702,9 @@ impl Game {
             .is_none_or(|limit| limit >= feet + height - STEP_EPS)
     }
 
-    /// The highest support at `(x, z)` within a walkable step of `max_top`:
-    /// the rendered walkable floor, a solid prop or architecture top, or the
-    /// global ground plane outside every room.
+    /// The highest support at `(x, z)` at or below `max_top`: the rendered
+    /// floor or a solid prop/architecture top. Empty-floor test worlds retain
+    /// the legacy Y=0 plane; authored worlds have no off-room support.
     ///
     /// Landing resolves against the *rendered* floor (`height_at`), not the
     /// staircase pitch line: a falling player lands on the tread underfoot.
@@ -1708,31 +1712,30 @@ impl Game {
     /// player is actually walking, so an airborne player is never pulled up
     /// onto a staircase.
     ///
-    /// The [`PLAYER_STEP_HEIGHT`] allowance is shared by the floor and the
-    /// solid tops: a descending player whose feet are within one walkable step
-    /// of a prop top lands *on* the top (a bounded step-up of at most one step,
-    /// never a teleport) instead of sinking past the side. The final landing
-    /// check still requires the feet to have actually reached the support.
-    ///
-    /// The world-floor fallback only applies at or above Y 0 and exists for
-    /// a spawn outside every room. It is never the
-    /// player's last floor: a fall under an open hole keeps falling past the
-    /// hole's rim instead of stopping on an invisible plane.
+    /// Landing never uses the walking step allowance: a top above the start
+    /// feet would pull the player up through a solid rather than catch a fall.
     fn support_at(&self, x: f32, z: f32, max_top: f32) -> Option<f32> {
         // A floor above the reference is not a support: the feet would be
-        // snapping *up* through it. A step-height allowance lets a fall land
-        // on a step edge it is already within one step of.
+        // snapping *up* through it.
         let floor = self
             .floor
             .height_at(x, z)
-            .filter(|floor| *floor <= max_top + PLAYER_STEP_HEIGHT + STEP_EPS);
-        let top = highest_support_top_indexed(&self.collision_index, x, z, max_top, &self.walls);
+            .filter(|floor| *floor <= max_top + STEP_EPS);
+        // The shared top query includes the walking allowance. Landing must
+        // only select a surface actually crossed by the descending feet.
+        let top = highest_support_top_indexed(
+            &self.collision_index,
+            x,
+            z,
+            max_top - PLAYER_STEP_HEIGHT,
+            &self.walls,
+        );
         match (floor, top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (Some(a), None) => Some(a),
             (None, Some(b)) => Some(b),
             (None, None) => {
-                if max_top >= -STEP_EPS {
+                if self.floor.is_empty() && max_top >= -STEP_EPS {
                     Some(0.0)
                 } else {
                     None
@@ -1743,14 +1746,14 @@ impl Game {
 
     /// The walking support at `(x, z)` relative to the surface currently
     /// underfoot: the rendered walkable floor or a solid prop/architecture
-    /// top, whichever is higher, under the same step rule landing uses.
+    /// top, whichever is higher, within the walking step allowance.
     ///
     /// A support above `current_surface + PLAYER_STEP_HEIGHT + STEP_EPS` is out
     /// of reach and returns `None` (the caller refuses the step: a cliff, a
     /// wall or a table side). Anything at or below is returned; one more than
-    /// a step below `current_surface` is marked `dropped`, which loses support
-    /// at the end of the sweep. Outside every room with no solid top underfoot
-    /// the query returns `None`, preserving the historical void semantics (no
+    /// a step below `current_surface` is marked `dropped`, which switches the
+    /// remaining sweep to airborne collision. Outside every room with no solid
+    /// top underfoot the query returns `None` (no
     /// invisible world floor appears under a walking player).
     ///
     /// The returned surface is the *walking* surface: on a staircase it is the
@@ -1822,18 +1825,17 @@ impl Game {
         let previous = Vec2::new(self.player_position.x, self.player_position.z);
         let mut current_pos = previous;
         let mut current_floor = self.player_floor_y;
-        let mut on_a_floor = self.floor.walk_height_at(previous.x, previous.y).is_some();
         let mut lost_support = false;
         // The airborne wall band follows the live foot height, which does not
         // change during a horizontal sweep: vertical motion runs after it.
-        let live_feet = self.feet_y;
-        let body_height = self.body_height();
+        let mut live_feet = self.feet_y;
+        let mut sweep_mode = mode;
         // The swimmer's leading edge is what touches a raised rim before the
         // body can cross it; the pressed-exit probe follows this direction.
         let step_dir = Vec2::new(step_delta.x, step_delta.z);
 
         for _ in 0..steps {
-            let foot_y = match mode {
+            let foot_y = match sweep_mode {
                 HorizontalMode::Walk => current_floor,
                 HorizontalMode::Airborne => live_feet,
                 // Real rims carry the walkable step as headroom, so raising the
@@ -1845,20 +1847,13 @@ impl Game {
                     surface_y + (WATER_EXIT_STEP_M - PLAYER_STEP_HEIGHT)
                 }
             };
-            if let HorizontalMode::Swim { surface_y } = mode {
+            if let HorizontalMode::Swim { surface_y } = sweep_mode {
                 self.note_pressed_water_exit(current_pos, step_dir, surface_y);
             }
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
-            let mut candidate = resolve_player_collision_with_doors(
-                &self.collision_index,
-                raw,
-                PLAYER_RADIUS,
-                foot_y,
-                body_height,
-                &self.walls,
-                self.world.door_colliders(),
-            );
-            if matches!(mode, HorizontalMode::Swim { .. }) {
+            let mut candidate =
+                self.resolve_horizontal_contact(current_pos, raw, foot_y, sweep_mode);
+            if matches!(sweep_mode, HorizontalMode::Swim { .. }) {
                 // The ordinary wall band lets a rim within the water-exit
                 // allowance through; the camera must still clear that rim
                 // before the body crosses it, or the climb would drag the eye
@@ -1871,20 +1866,34 @@ impl Game {
             if candidate.distance(raw) > PLAYER_RADIUS + CONTACT_EPS {
                 break;
             }
-            let outcome = match mode {
-                HorizontalMode::Walk => self.walk_step(current_floor, candidate, on_a_floor),
+            let outcome = match sweep_mode {
+                HorizontalMode::Walk => self.walk_step(current_floor, current_pos, candidate),
                 HorizontalMode::Airborne => self.airborne_step(candidate, live_feet),
                 HorizontalMode::Swim { surface_y } => self.swim_step(candidate, surface_y),
             };
             match outcome {
                 StepOutcome::Accepted { floor, dropped } => {
                     current_pos = candidate;
+                    if sweep_mode == HorizontalMode::Walk {
+                        if dropped {
+                            lost_support = true;
+                            live_feet = current_floor;
+                            sweep_mode = HorizontalMode::Airborne;
+                        } else {
+                            live_feet = floor;
+                        }
+                    }
                     current_floor = floor;
-                    on_a_floor = true;
-                    lost_support = lost_support || dropped;
                 }
                 StepOutcome::Refused => break,
-                StepOutcome::Void => current_pos = candidate,
+                StepOutcome::Void => {
+                    current_pos = candidate;
+                    if sweep_mode == HorizontalMode::Walk {
+                        lost_support = true;
+                        live_feet = current_floor;
+                        sweep_mode = HorizontalMode::Airborne;
+                    }
+                }
             }
         }
         self.player_floor_y = current_floor;
@@ -1897,6 +1906,7 @@ impl Game {
                 self.grounded = false;
                 self.vertical_velocity = 0.0;
                 self.vertical_accumulator = 0.0;
+                self.set_feet_y(live_feet);
             } else {
                 // Maintain the grounded line regardless of pitch: the feet
                 // stand on the walking surface and the eye follows.
@@ -1905,19 +1915,77 @@ impl Game {
         }
     }
 
+    /// Keeps walking rim allowances separate from physical airborne contact.
+    fn resolve_horizontal_contact(
+        &self,
+        from: Vec2,
+        to: Vec2,
+        foot_y: f32,
+        mode: HorizontalMode,
+    ) -> Vec2 {
+        if mode == HorizontalMode::Airborne {
+            crate::collision::resolve_airborne_player_collision_with_doors(
+                &self.collision_index,
+                (from, to),
+                PLAYER_RADIUS,
+                foot_y,
+                self.body_height(),
+                &self.walls,
+                self.world.door_colliders(),
+            )
+        } else {
+            resolve_player_collision_with_doors(
+                &self.collision_index,
+                to,
+                PLAYER_RADIUS,
+                foot_y,
+                self.body_height(),
+                &self.walls,
+                self.world.door_colliders(),
+            )
+        }
+    }
+
     /// Resolves one walking sub-step through [`Self::walking_support_at`]:
     /// rises stay bounded by the step rule (a floor, a prop top or a wall
     /// within one walkable step is stepped onto), a drop of any size is
-    /// accepted and reported as lost support, and the void keeps its
-    /// historical rule: crossable only when the player was not on a real
-    /// floor.
-    fn walk_step(&self, current_surface: f32, candidate: Vec2, on_a_floor: bool) -> StepOutcome {
+    /// accepted and reported as lost support. Unsupported space is crossable
+    /// and starts a fall from the last supported height.
+    fn walk_step(&self, current_surface: f32, previous: Vec2, candidate: Vec2) -> StepOutcome {
         match self.walking_support_at(candidate.x, candidate.y, current_surface) {
-            Some(support) => StepOutcome::Accepted {
-                floor: support.surface_y,
-                dropped: support.dropped,
-            },
-            None if on_a_floor => StepOutcome::Refused,
+            Some(support)
+                if !support.dropped
+                    && self
+                        .head_limit_at(candidate.x, candidate.y, support.surface_y)
+                        .is_some_and(|limit| {
+                            limit < support.surface_y + self.body_height() - CONTACT_EPS
+                        }) =>
+            {
+                StepOutcome::Refused
+            }
+            Some(support) => {
+                // A stair's pitch line can sit above its real tread. At the
+                // foot, compare the drop against that tread, otherwise a legal
+                // maximum-height riser plus one pitch sample starts a fall.
+                // Only use it when the feet follow the walking surface: a prop
+                // above the floor must still lose support at its own edge.
+                let dropped = support.dropped
+                    && !self
+                        .floor
+                        .walk_height_at(previous.x, previous.y)
+                        .filter(|height| (*height - current_surface).abs() <= STEP_EPS)
+                        .and_then(|_| self.floor.height_at(previous.x, previous.y))
+                        .is_some_and(|height| {
+                            support.surface_y >= height - PLAYER_STEP_HEIGHT - STEP_EPS
+                        });
+                StepOutcome::Accepted {
+                    floor: support.surface_y,
+                    dropped,
+                }
+            }
+            None if self.floor.height_at(candidate.x, candidate.y).is_some() => {
+                StepOutcome::Refused
+            }
             None => StepOutcome::Void,
         }
     }
@@ -2196,10 +2264,9 @@ impl Game {
         self.set_feet_y(feet);
 
         // Landing: only while descending, on the highest support under the
-        // centre that is not above the feet at the substep's start by more than
-        // the shared walkable step. Outside every room the global ground
-        // plane stands in at Y 0, so an off-room spawn never falls
-        // forever, but a hole in a real room has no invisible floor.
+        // centre that is at or below the feet at the substep's start. Only an
+        // empty-floor world has a fallback Y=0 plane; an authored room's open
+        // edge never acquires invisible support.
         if self.vertical_velocity <= 0.0
             && let Some(support) =
                 self.support_at(self.player_position.x, self.player_position.z, start_feet)

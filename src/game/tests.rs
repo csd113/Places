@@ -13,6 +13,8 @@ use crate::entities::components::StateValue;
 use crate::render::SCENE_NEAR_M;
 use crate::test_support::assert_exact;
 
+mod movement_diagnostics;
+
 /// Advances `frames` deterministic 60 Hz simulation frames with no input.
 fn advance_frames(game: &mut Game, frames: usize) {
     let settings = Settings::default();
@@ -337,7 +339,7 @@ fn test_controller_walks_off_a_deep_edge_and_falls() {
 }
 
 #[test]
-fn test_controller_cannot_walk_off_the_last_floor_into_the_void() {
+fn test_controller_walks_off_the_last_floor_and_falls_into_the_void() {
     let level = LevelDef::from_json(
         r#"{
             "format_version": 3,
@@ -351,9 +353,59 @@ fn test_controller_cannot_walk_off_the_last_floor_into_the_void() {
     let mut game = game_for(&level);
     walk_forward(&mut game, 60);
     assert!(
-        game.player_position.x <= 10.0 + 1e-3,
-        "walking out of the room is refused: {}",
+        game.player_position.x > 10.3,
+        "the unsupported edge must be crossable: {}",
         game.player_position.x
+    );
+    assert!(!game.grounded, "the void cannot support the player");
+    assert!(game.feet_y() < -1.0, "the player falls below world zero");
+}
+
+/// A walkable riser cannot raise the body into the underside of a header.
+#[test]
+fn stepping_under_a_header_requires_clearance_at_the_destination() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 3, "id": "step_header", "name": "Step Header",
+            "spawn": {"x": 1.0, "z": 4.0, "yaw_degrees": 90.0},
+            "rooms": [{"width": 10.0, "depth": 8.0, "height": 4.0}],
+            "floor_regions": [{"x": 3.0, "z": 2.0, "width": 3.0,
+                "depth": 4.0, "offset_y": 0.35}],
+            "walls": [{"x": 3.0, "y": 2.0, "z": 2.0, "width": 3.0,
+                "depth": 4.0, "height": 0.2}]
+        }"#,
+    )
+    .expect("step with a low header");
+    let mut game = game_for(&level);
+    walk_forward(&mut game, 30);
+    assert!(
+        game.player_position.x < 3.0,
+        "the body must stop before the riser"
+    );
+    assert!(
+        game.feet_y().abs() < STEP_EPS,
+        "a refused step leaves the feet on the floor"
+    );
+    force_stance(&mut game, Stance::Crouched);
+    walk_forward(&mut game, 10);
+    assert!(
+        game.player_position.x > 3.2,
+        "the crouched body can climb the riser"
+    );
+}
+
+/// The landing query must not turn a descending body inside a prop into a
+/// climb; the walking step allowance belongs only to supported locomotion.
+#[test]
+fn airborne_support_never_reaches_up_to_a_prop_top() {
+    let level = table_top_level();
+    let game = game_for(&level);
+    let support = game.support_at(6.0, 4.0, OFFICE_DESK_TOP_M - 0.3);
+    assert_eq!(support, Some(0.0), "a top above the feet is not a landing");
+    assert_eq!(
+        game.support_at(30.0, 30.0, 2.0),
+        None,
+        "no invisible world floor outside authored rooms"
     );
 }
 
@@ -447,7 +499,7 @@ fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
             "id": "max_slope",
             "name": "Max Slope",
             "spawn": { "x": 0.5, "z": 0.5 },
-            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 } ],
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 } ],
             "ramps": [
                 { "x": 5.0, "z": 4.0, "width": 1.2, "depth": 2.0, "rise": 4.0 }
             ]
@@ -469,15 +521,14 @@ fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
     let mut input = InputState::holding(&[Control::MoveForward]);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    // The ramp is exactly at the loader's limit: 4 m of rise over 2 m of run.
-    let ramp = level.ramps.first().expect("one ramp");
-    let slope = ramp.rise() / ramp.length();
-    assert!((slope - crate::level::MAX_RAMP_SLOPE).abs() < 1e-5);
     let mut highest = game.player_floor_y;
-    for _ in 0..40 {
+    for _ in 0..3 {
         game.update_player_movement(&mut input, &settings);
         highest = highest.max(game.player_floor_y);
     }
+    // Stop beyond the top, while still above the authored room floor. Continuing
+    // at 10 m/s for four seconds would leave the room and fall into the void.
+    advance_frames(&mut game, 90);
     // The climb reaches the ramp's top, and walking on past it is a real drop
     // onto the room floor: the player fell instead of stalling one sub-step
     // short of the edge.
@@ -1551,11 +1602,12 @@ fn walking_is_classified_at_every_frame_rate() {
         );
     }
 
-    // A player the room edge refuses covers no ground and stays idle: the
-    // speed threshold does not turn collision jitter into a walk. Facing
-    // north from the room's north edge, the void refuses the step.
+    // A real wall refuses movement and stays idle; an unsupported edge must
+    // instead let the player walk off and fall.
     let mut game = game_for(&level);
-    play_at(&mut game, 1.0, 0.0, 0.0, 0.0, 1.0 / 144.0);
+    game.walls.push(WallAabb::new(0.0, -0.2, 20.0, 0.2));
+    game.collision_index = CollisionIndex::build(&game.walls);
+    play_at(&mut game, 1.0, 0.0, PLAYER_RADIUS, 0.0, 1.0 / 144.0);
     let mut blocked = InputState::holding(&[Control::MoveForward]);
     for _ in 0..4 {
         game.update_player_movement(&mut blocked, &settings);
@@ -1983,16 +2035,13 @@ fn prop_tops_are_left_by_falling_and_rejoined_by_a_bounded_step() {
         game.player_floor_y
     );
 
-    // A descent whose feet are within a walkable step of the top lands on the
-    // top instead of sinking past its side.
+    // A descent from above crosses the top and lands on it. A body already
+    // below the top must never be lifted onto it by the walking allowance.
     let mut game = game_for(&level);
     play_at(&mut game, 6.0, OFFICE_DESK_TOP_M, 4.0, 0.0, 1.0 / 60.0);
     game.grounded = false;
     game.player_floor_y = 0.0;
-    set_eye_y(
-        &mut game,
-        PLAYER_STEP_HEIGHT.mul_add(-0.75, OFFICE_DESK_TOP_M + EYE_HEIGHT),
-    );
+    set_eye_y(&mut game, OFFICE_DESK_TOP_M + EYE_HEIGHT + 0.3);
     game.vertical_velocity = -1.0;
     let mut idle = InputState::default();
     let mut landed_on_top = false;

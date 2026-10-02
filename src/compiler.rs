@@ -1558,6 +1558,12 @@ pub(crate) fn lighting_fingerprint_with_revision(
         crate::level::LEVEL_FORMAT_VERSION
     );
     let _ = writeln!(canonical, "stage lighting navigations_excluded");
+    // This reusable stage also stores collision boxes, including region rims.
+    let _ = writeln!(
+        canonical,
+        "rim_backing {}",
+        crate::level::RIM_BACKING.to_bits()
+    );
     let _ = writeln!(
         canonical,
         "records mesh {} props {} collision {} lighting {} probes {} lightmaps {}",
@@ -1711,6 +1717,13 @@ pub(crate) fn fingerprint_with_revision(
         crate::level::LEVEL_FORMAT_VERSION
     );
     let _ = writeln!(canonical, "source {source_sha256}");
+    // Collision and navigation are prepared offline. A rim-width change must
+    // invalidate packages even when their authored source and mesh are unchanged.
+    let _ = writeln!(
+        canonical,
+        "rim_backing {}",
+        crate::level::RIM_BACKING.to_bits()
+    );
     let _ = writeln!(
         canonical,
         "records mesh {} props {} collision {} lighting {} probes {} navigation {}",

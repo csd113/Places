@@ -7558,8 +7558,8 @@ impl RoomFloorGrid {
     /// Each rim's blocking face sits exactly on the boundary, so a player
     /// standing on the lower side stops one player radius short of the visible
     /// transition face, exactly as they do at an authored wall. The box is
-    /// [`RIM_BACKING`] deep *under the higher floor*, which is what stops a
-    /// sub-stepped move from tunnelling through a zero-thickness wall; because
+    /// [`RIM_BACKING`] deep *under the higher floor* to give the boundary a
+    /// finite box; the controller's radius-bounded sweep prevents tunnelling. Because
     /// the box also carries [`crate::collision::PLAYER_STEP_HEIGHT`] of
     /// `step_up`, it never blocks a player whose feet are already within a
     /// walkable step of the rim's top (a ramp or staircase arriving beside the
@@ -7695,9 +7695,10 @@ fn split_rim_span(low: f32, high: f32) -> Vec<(f32, f32)> {
 /// Depth of a floor-region rim collider under the higher floor, in metres.
 ///
 /// The rim is a zero-thickness face in the mesh; the collider is a real box so
-/// the circle-vs-box test is well-conditioned and a sub-stepped move (at most
-/// `PLAYER_RADIUS * 0.5` per step) can never tunnel through it.
-pub const RIM_BACKING: f32 = 0.4;
+/// the circle-vs-box test is well-conditioned. The player's radius-bounded
+/// sweep already prevents tunnelling through a thin slab. Thick backing would
+/// incorrectly fill narrow ramps from both sides and block their low end.
+pub const RIM_BACKING: f32 = 0.01;
 
 /// The vertical geometry of a level: rooms, their ceiling profiles and their
 /// local floor regions, queried through one deterministic ownership rule.

@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -1251,18 +1251,21 @@ becomes a real fall** — ledges, pool decks and floor holes all lose support, s
 treat every rill and drop-off as one the player can fall into. Staircases are
 chains of floor regions whose consecutive offsets differ by ≤ 0.4 m (Places Demo
 stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers), and each rise is climbed instantly.
-The rim's blocking face sits on the region boundary; the collider is a thin box
-extending 0.4 m under the higher floor so a sub-stepped move cannot tunnel
-through it. The player is supported by the walkable floor, a solid prop's top
-and the historical world floor at `y = 0` outside every room — never by an
-invisible floor at their last known height.
+The rim's blocking face sits on the region boundary; its finite collider backing
+extends 0.01 m under the higher floor. The radius-bounded horizontal sweep stops
+tunnelling without filling narrow ramp lanes with hidden side boxes. The player
+is supported by the walkable floor or a solid prop's top. Outside every authored
+room there is no synthetic world floor; walking off the last surface starts a
+real fall. Only empty-floor diagnostic worlds retain the legacy Y=0 plane.
 
-A rim **only ever blocks a change the player could not otherwise take**: it carries
-the walkable step as headroom, so a player already within 0.4 m of the rim's top
+While grounded, a rim **only blocks a change the player could not otherwise take**:
+it carries the walkable step as headroom, so a player already within 0.4 m of the rim's top
 (on a ramp or a staircase arriving beside the platform) walks past it. Its height
 is sampled in short segments along the boundary, so a slope beside a rim is read at
 its real local height instead of the cell's average. A rim never walls a landing
-off.
+off. Airborne movement uses the physical body band: a jump must clear the
+rim's actual top before crossing it. A trailing disc already overlapping a
+walkable rim may move away from it during a fall without a forward push.
 
 Places Demo: the lowered pool basin (room `floor_y` is −1.5):
 
@@ -5480,7 +5483,7 @@ position. Checks include:
 | `curve-coarse` | warning | A curve's tessellation leaves a sagitta above 2 cm. |
 | `missing-wall` | warning | A room perimeter run has no wall solid and no authored opening. |
 | `room-leak` | warning | A room's walkable space reaches the *void* (outside every room). |
-| `spawn-outside-room` | warning | The spawn is outside every room (the floor falls back to y = 0). |
+| `spawn-outside-room` | warning | The spawn is outside every room (initial height uses y = 0; movement has no supporting floor). |
 | `wall-joint-step` | error | Two end-to-end wall slices of equal thickness are shifted by the same amount (rigid, > 1 mm, ≤ 0.25 m): a doorway side sliver or wall section placed half a thickness off the adjoining wall face. Auto-repairable. |
 | `wall-joint-step-review` | warning | A rigid shift above the automatic limit, an ambiguous authority, or a small coplanar gap not filled by either wall's own solid: manual review, never moved automatically. |
 | `wall-joint-thickness-step` | warning | One thickness face is aligned and the other is not: a valid thickness transition or a misplaced sliver. Manual review. |
@@ -6322,7 +6325,7 @@ authoring. They are not invitations to change the engine as part of an authoring
 9. **No duplicate-level-id detection.** Two files may both declare `"id": "my_level"`;
    both appear, and `PLACES_LEVEL` picks the first in the deterministic menu order
    (name, then id).
-10. **Spawn outside every room is accepted** and falls back to floor `0.0`. Check it.
+10. **Spawn outside every room is accepted** with an initial floor reference of `0.0`, then falls without support. Check it.
 11. **`floor_patches` are dimension-unvalidated.** They are capped at 8000 entries,
     but a malformed patch is skipped at build time rather than rejected. Keep them
     well-formed and inside a room.

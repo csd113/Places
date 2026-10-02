@@ -1042,9 +1042,16 @@ def validate_architecture(level: dict, where: str, errors: list[str]) -> None:
                 if not is_finite_number(value):
                     errors.append(f"{entry_where}: {field} must be a finite number")
                     continue
-                if float(value) <= 0.0:
+                if key == "ramps" and field == "rise":
+                    # Signed rise encodes the direction, matching the Rust
+                    # loader's nonzero-magnitude check and the authoring guide.
+                    if abs(float(value)) <= 1e-3:
+                        errors.append(f"{entry_where}: rise must have nonzero magnitude (> 0.001 m)")
+                elif float(value) <= 0.0:
                     errors.append(f"{entry_where}: {field} must be positive")
             for field in positive:
+                if key == "ramps" and field == "rise":
+                    continue
                 value = piece.get(field)
                 if value is not None and is_finite_number(value) and float(value) < 0.0:
                     errors.append(f"{entry_where}: {field} cannot be negative")

@@ -25,15 +25,18 @@ cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --igno
 cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json --workers 12
 cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 12
 cargo run --quiet --release --bin places-compile -- build assets/levels/lantern_hollow.json --workers 12
+cargo run --quiet --release --bin places-compile -- build assets/levels/movement_test.json --workers 12
 # A package must be current for its source and assets: `verify --require-current`
 # is the gate that fails when a rebuilt asset (a changed GLB or PNG) was not
 # recompiled into the shipped package.
 cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/lantern_hollow.json --package assets/levels/lantern_hollow.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- verify assets/levels/movement_test.json --package assets/levels/movement_test.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- validate assets/levels/lantern_hollow.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
+cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness

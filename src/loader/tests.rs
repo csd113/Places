@@ -1530,9 +1530,8 @@ fn compile_fixture(
 #[test]
 fn test_the_default_level_is_the_shipped_demo() {
     let manager = LevelManager::new();
-    // The Level Select menu renders exactly this list: Places Demo and the
-    // generated Model Zoo are the bundled entries; any drop-in packages are
-    // Installed.
+    // The Level Select menu renders the bundled showcases and diagnostic map;
+    // any drop-in packages are Installed.
     let mut bundled: Vec<&str> = manager
         .entries()
         .iter()
@@ -1542,8 +1541,13 @@ fn test_the_default_level_is_the_shipped_demo() {
     bundled.sort_unstable();
     assert_eq!(
         bundled,
-        vec!["lantern_hollow", "model_zoo", "places_demo"],
-        "the bundled levels include Lantern Hollow, Places Demo and the Model Zoo"
+        vec![
+            "lantern_hollow",
+            "model_zoo",
+            "movement_test",
+            "places_demo"
+        ],
+        "the bundled levels include the showcases and Movement Test"
     );
 
     let loaded = manager.load_default().expect("the shipped demo loads");

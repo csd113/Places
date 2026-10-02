@@ -19,14 +19,12 @@ pub const CROUCH_HEIGHT: f32 = PLAYER_HEIGHT * 0.5;
 /// vertical clamp and the horizontal band from fighting at the contact plane.
 pub const CONTACT_EPS: f32 = 1e-4;
 
-/// Largest vertical discontinuity the player walks up or down without
-/// stopping, in metres.
+/// Largest vertical discontinuity the player walks up, or down while retaining
+/// support, in metres.
 ///
-/// The controller has no falling physics: a rise or drop larger than this is
-/// refused (the player simply cannot walk off a cliff or through a deep
-/// recess wall), and anything smaller is stepped through instantly. Floor
-/// regions whose height differs by more than this also emit a solid rim, so
-/// the rendered transition face and collision agree.
+/// Larger drops and unsupported edges become gravity-driven
+/// falls. Larger rises are refused; floor regions also emit a solid rim so
+/// their rendered transition face and collision agree.
 pub const PLAYER_STEP_HEIGHT: f32 = 0.4;
 
 /// Vertical tolerance within which two floor heights count as the same
@@ -205,12 +203,9 @@ impl WallAabb {
 /// The highest walkable top under `(x, z)`: a box whose footprint contains the
 /// centre and whose top is not more than one walkable step above `max_top`.
 ///
-/// This is the extra support the vertical pass lands on, alongside the level's
-/// walkable floor, and is what makes a solid prop or a wall top landable. The
-/// [`PLAYER_STEP_HEIGHT`] allowance matches the floor's: a descending player
-/// whose feet are within one step of a prop top lands *on* the top (a bounded
-/// step-up of at most one step) instead of sinking past the side. The centre
-/// containment keeps a thin ledge lip from catching a falling player.
+/// Walking uses the step allowance; landing callers subtract
+/// [`PLAYER_STEP_HEIGHT`] from their reference so only crossed tops qualify.
+/// Centre containment keeps a thin ledge lip from catching a falling player.
 #[must_use]
 pub fn highest_support_top(x: f32, z: f32, max_top: f32, walls: &[WallAabb]) -> Option<f32> {
     let mut highest: Option<f32> = None;
@@ -531,11 +526,79 @@ pub fn resolve_player_collision_with_doors(
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> Vec2 {
+    resolve_collision_with_doors(
+        index,
+        pos,
+        radius,
+        (foot_y, body_height),
+        walls,
+        doors,
+        None,
+    )
+}
+
+/// Resolves airborne collision against the physical body band, without the
+/// walking allowance on floor rims. A jump must clear the real top before
+/// its leading edge crosses a raised floor. `movement` is the previous and
+/// candidate centre; existing rim overlap may be left without depenetration.
+#[must_use]
+pub(crate) fn resolve_airborne_player_collision_with_doors(
+    index: &crate::collision_index::CollisionIndex,
+    movement: (Vec2, Vec2),
+    radius: f32,
+    foot_y: f32,
+    body_height: f32,
+    walls: &[WallAabb],
+    doors: &[DoorCollider],
+) -> Vec2 {
+    let (from, pos) = movement;
+    resolve_collision_with_doors(
+        index,
+        pos,
+        radius,
+        (foot_y, body_height),
+        walls,
+        doors,
+        Some(from),
+    )
+}
+
+fn resolve_collision_with_doors(
+    index: &crate::collision_index::CollisionIndex,
+    pos: Vec2,
+    radius: f32,
+    body_band: (f32, f32),
+    walls: &[WallAabb],
+    doors: &[DoorCollider],
+    airborne_from: Option<Vec2>,
+) -> Vec2 {
+    let (foot_y, body_height) = body_band;
     let mut pos = pos;
     for _ in 0..4 {
         let mut collided = false;
         index.for_each_disc(pos.x, pos.y, radius, walls, |wall| {
-            if !wall.blocks_body(foot_y, body_height) {
+            let blocks = airborne_from.map_or_else(
+                || wall.blocks_body(foot_y, body_height),
+                |from| {
+                    // A walkable drop can leave the trailing disc overlapping
+                    // the higher rim. Let it continue outward without snapping
+                    // it ahead; entering a rim in the air needs real clearance.
+                    let distance_squared = |point: Vec2| {
+                        let closest = Vec2::new(
+                            point.x.clamp(wall.min_x, wall.max_x),
+                            point.y.clamp(wall.min_z, wall.max_z),
+                        );
+                        point.distance_squared(closest)
+                    };
+                    let departing = wall.step_up > 0.0
+                        && wall.overlaps_disc(from.x, from.y, radius)
+                        && distance_squared(pos) > distance_squared(from);
+                    !departing
+                        && wall.max_y > foot_y + STEP_EPS
+                        && wall.min_y + CONTACT_EPS < foot_y + body_height
+                },
+            );
+            if !blocks {
                 return;
             }
             let Some(next) = depenetrate(pos, radius, wall) else {
