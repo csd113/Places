@@ -964,8 +964,8 @@ mod tests {
             },
         )
         .expect("door models build");
-        assert!(!models.frame.vertices.is_empty());
-        assert!(!models.leaf.vertices.is_empty());
+        assert_ne!(models.frame.vertices, [] as [crate::gltf::PropVertex; 0]);
+        assert_ne!(models.leaf.vertices, [] as [crate::gltf::PropVertex; 0]);
         let (min, max) = door_model_bounds(&models.leaf).expect("bounds");
         assert!(min.x.abs() < 1e-3, "the leaf starts at its hinge: {min:?}");
         assert!(max.x >= 0.9 - 1e-3, "the leaf reaches its latch edge");

@@ -438,7 +438,7 @@ fn move_script_parses_ranges_and_rejects_malformed_entries() {
 #[test]
 fn move_script_holds_controls_with_one_press_edge_per_range() {
     let (script, rejected) = parse_move_script("jump@0.2-0.3,jump@1.0-1.0,forward@0.2-0.4");
-    assert!(rejected.is_empty());
+    assert_eq!(rejected, [] as [std::string::String; 0]);
     let mut state = InputState::default();
     for seconds in [0.0_f32, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0] {
         state.apply_move_script(&script, seconds);

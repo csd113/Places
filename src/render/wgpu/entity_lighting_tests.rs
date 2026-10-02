@@ -269,7 +269,10 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
     }
     let centre = (64 * 128 + 64) * 4;
     assert!(
-        (f32::from(bright.rgba[centre]) - expected * 255.0).abs() < 2.0,
+        expected
+            .mul_add(-255.0, f32::from(bright.rgba[centre]))
+            .abs()
+            < 2.0,
         "posed face normal reaches pixels"
     );
     assert!(

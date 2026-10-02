@@ -1095,7 +1095,7 @@ fn content_key_is_stable_and_changes_with_the_inputs() {
         key,
         content_key(&level, &low, crate::quality::QualityProfile::Low)
     );
-    assert!(!key.is_empty());
+    assert_ne!(key, "");
 
     // Every config field the atlas layout depends on is part of the key, so a
     // retune can never resolve to pages an older configuration produced.
@@ -1603,7 +1603,10 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
         .lightmaps
         .as_deref()
         .unwrap_or_else(|| panic!("Full must produce an atlas for the tower"));
-    assert!(!lightmaps.pages.is_empty());
+    assert_ne!(
+        lightmaps.pages,
+        [] as [crate::lighting::lightmap::atlas::LightmapPage; 0]
+    );
     assert!(
         lightmaps.pages.len() <= config.max_pages,
         "{} pages over the {}-page budget",

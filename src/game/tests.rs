@@ -472,7 +472,7 @@ fn test_controller_climbs_the_home_staircase_and_the_ramp() {
     let floor = WalkableFloor::from_level(&level);
     let mut previous = 0.0_f32;
     for z in 0..=32 {
-        let at = 0.4 + f32::from(u16::try_from(z).unwrap_or(0)) * 0.05;
+        let at = f32::mul_add(f32::from(u16::try_from(z).unwrap_or(0)), 0.05, 0.4);
         let height = floor.height_at(4.5, at).unwrap_or(f32::NAN);
         assert!(
             height >= previous - 1e-4,
@@ -887,7 +887,7 @@ fn test_controller_walks_a_staircase_smoothly_up() {
         "the walk crosses the landing: {:?}",
         game.player_position
     );
-    assert!(!on_stair.is_empty());
+    assert_ne!(on_stair, [] as [(f32, f32, f32); 0]);
     // The walking surface is always between the tread underfoot and the tread
     // ahead: never inside a step, never floating above the next one.
     for (x, floor, stepped) in on_stair {
@@ -5641,7 +5641,7 @@ fn a_switch_sets_a_switchable_fixture_light_off() {
         .dispatch_interaction(Some(switch))
         .expect("the switch fires again");
     assert_eq!(report.actions_run, 1);
-    assert!(game.take_light_toggles().is_empty());
+    assert_eq!(game.take_light_toggles(), [] as [(usize, bool); 0]);
 }
 
 /// `set_state` emits an `object_state` event, and a second binding on the same
@@ -6251,7 +6251,7 @@ fn a_spawned_entity_despawns_when_its_lifetime_elapses() {
     // Past the lifetime it despawns itself and releases its render object.
     advance_frames(&mut game, 2);
     assert!(game.entities().handle_of("spark").is_none());
-    assert!(game.entities().live_spawns().is_empty());
+    assert_eq!(game.entities().live_spawns(), []);
     let commands = game.entities_mut().take_commands();
     assert!(
         commands

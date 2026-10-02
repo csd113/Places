@@ -1250,7 +1250,10 @@ mod tests {
         // visibility fractions and their texels may agree; the key difference
         // above is the contract. Only assert the coarse fill really produced
         // addressable pages.
-        assert!(!coarse_atlas.pages.is_empty());
+        assert_ne!(
+            coarse_atlas.pages,
+            [] as [crate::lighting::lightmap::LightmapPage; 0]
+        );
     }
 
     /// The renderer's vertex-lit entry point is the historical, quality-blind

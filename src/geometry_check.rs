@@ -2111,7 +2111,7 @@ impl Checker<'_> {
             ),
         ];
         for (wall, sample, planes, allowed) in sampled {
-            for plane in [planes.0, planes.1] {
+            for plane in <[_; 2]>::from(planes) {
                 let mut missing: Option<f32> = None;
                 for fraction in [0.25_f32, 0.5, 0.75] {
                     let y = candidate
@@ -3563,7 +3563,6 @@ impl EditTarget {
                     EditField::Z => wall.z = value,
                     EditField::Length | EditField::Width | EditField::Depth => return false,
                 }
-                true
             }
             Self::Baseboard { index, field } => {
                 let Some(board) = level.baseboards.get_mut(index) else {
@@ -3575,7 +3574,6 @@ impl EditTarget {
                     EditField::Length => board.length = value,
                     EditField::Width | EditField::Depth => return false,
                 }
-                true
             }
             Self::FloorRegion { index, field } => {
                 let Some(region) = level.floor_regions.get_mut(index) else {
@@ -3588,9 +3586,9 @@ impl EditTarget {
                     EditField::Depth => region.depth = value,
                     EditField::Length => return false,
                 }
-                true
             }
         }
+        true
     }
 
     fn same(self, other: Self) -> bool {

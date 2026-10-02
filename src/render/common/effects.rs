@@ -803,10 +803,13 @@ mod tests {
         assert!(scene.is_empty());
         assert_eq!(scene.len(), 0);
         assert_eq!(scene.particle_count(), 0);
-        assert!(scene.draw_groups().is_empty());
+        assert_eq!(scene.draw_groups(), []);
         let mut vertices = Vec::new();
         assert_eq!(scene.build_billboards([0.0, 1.6, 0.0], &mut vertices), 0);
-        assert!(vertices.is_empty());
+        assert_eq!(
+            vertices,
+            [] as [crate::render::common::effects::EffectVertex; 0]
+        );
         assert_eq!(scene.update(0.0), EffectUpdate::default());
     }
 
@@ -1032,7 +1035,7 @@ mod tests {
         assert!(scene.set_enabled(0, false));
         assert_eq!(scene.particle_count(), 0);
         assert_eq!(scene.vertex_count(), 0);
-        assert!(scene.draw_groups().is_empty());
+        assert_eq!(scene.draw_groups(), []);
         for clock in [0.0, 1.0, 30.0, 1_000.0] {
             scene.update(clock);
             let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
@@ -1226,6 +1229,6 @@ mod tests {
         assert!(!scene.textures().is_empty(), "clear keeps the materials");
         scene.clear_all();
         assert!(scene.textures().is_empty());
-        assert!(scene.draw_groups().is_empty());
+        assert_eq!(scene.draw_groups(), []);
     }
 }

@@ -305,7 +305,7 @@ mod tests {
         let mut fired = Vec::new();
         assert_eq!(timers.tick(1.0, |index| fired.push(index)), 0);
         assert_eq!(timers.tick(0.5, |index| fired.push(index)), 0);
-        assert!(fired.is_empty());
+        assert_eq!(fired, [] as [usize; 0]);
         assert_eq!(timers.tick(0.5, |index| fired.push(index)), 1);
         assert_eq!(fired, vec![0]);
         let timer = timers.get("gate").expect("gate");

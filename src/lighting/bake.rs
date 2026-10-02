@@ -3609,8 +3609,8 @@ mod light_index_tests {
             .map(|index| {
                 let mut light = fixture.clone();
                 light.id = None;
-                light.x = f32::from(index % 10) * 5.0 - 25.0;
-                light.z = f32::from(index / 10) * 5.0 - 25.0;
+                light.x = f32::mul_add(f32::from(index % 10), 5.0, -25.0);
+                light.z = f32::mul_add(f32::from(index / 10), 5.0, -25.0);
                 light.y = Some(if index % 3 == 0 { 6.5 } else { 2.5 });
                 light.range = Some(1.0 + f32::from(index % 7));
                 light.rotation_degrees = if index % 2 == 0 { 90.0 } else { 0.0 };

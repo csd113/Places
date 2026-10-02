@@ -3017,14 +3017,14 @@ mod tests {
         let empty = mesh(Vec::new());
         let (packer, draws) = pack_world_ranges(&empty, &materials);
         assert!(packer.chunks.is_empty());
-        assert!(draws.is_empty());
+        assert_eq!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
 
         // A level whose static mesh holds only decal ranges produces no world
         // resources at all: clear/present stays valid.
         let only_decals = mesh(vec![range(SurfaceKind::Decal, MATERIAL_NONE)]);
         let (packer, draws) = pack_world_ranges(&only_decals, &materials);
         assert!(packer.chunks.is_empty());
-        assert!(draws.is_empty());
+        assert_eq!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
     }
 
     #[test]
@@ -3302,7 +3302,7 @@ mod tests {
             static_world,
             "every static world index must be uploaded"
         );
-        assert!(!draws.is_empty());
+        assert_ne!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
         assert!(
             draws.iter().all(|draw| matches!(
                 draw.kind,
@@ -4426,7 +4426,10 @@ mod tests {
             translucent_character_order(&tied, glam::Vec3::ZERO),
             vec![1, 2, 3]
         );
-        assert!(translucent_character_order(&[], glam::Vec3::ZERO).is_empty());
+        assert_eq!(
+            translucent_character_order(&[], glam::Vec3::ZERO),
+            [] as [usize; 0]
+        );
     }
 
     /// The group-4 write path against a real queue: the live set lands in the

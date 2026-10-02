@@ -210,7 +210,7 @@ fn static_stump_faces_receive_directional_light_and_self_occlude() {
     let lit_side = mean(&samples(&result, "showcase_stump_seat.glb", -Vec3::X));
     let away_side = mean(&samples(&result, "showcase_stump_seat.glb", Vec3::X));
     assert!(
-        lit_side > away_side * 1.5 + 0.01,
+        lit_side > away_side.mul_add(1.5, 0.01),
         "the lamp-facing bark must differ physically from the self-occluded back: {lit_side} vs {away_side}"
     );
 }
@@ -903,7 +903,7 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
     let package = root.join("levels/lantern_hollow.placesmap");
     let validated = crate::compiler::validate(&package)
         .expect("the compiler validator must accept the same bounded dense chart metadata");
-    assert!(validated.warnings.is_empty());
+    assert_eq!(validated.warnings, [] as [std::string::String; 0]);
     let opened = crate::package::world::open(&package).unwrap();
     let full = opened.manifest.variant("full").unwrap();
     assert!(full.lightmap_failure.is_none());
@@ -1373,7 +1373,7 @@ fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
     );
     drop(reader);
     let validated = crate::compiler::validate(&package).unwrap();
-    assert!(validated.warnings.is_empty());
+    assert_eq!(validated.warnings, [] as [std::string::String; 0]);
     let mut assets = crate::props::PropAssets::with_root(root);
     let loaded = crate::package::world::load_variant(
         &package,

@@ -1714,7 +1714,7 @@ fn floors_are_lit_by_the_baseline_and_the_local_fixture_pool() {
     );
     let mesh = build_level_geometry(&level);
     let floor = batch_slice(&mesh, SurfaceKind::Floor);
-    assert!(!floor.is_empty());
+    assert_ne!(floor, [] as [crate::render::common::mesh::Vertex; 0]);
 
     let bright = brightest(&floor);
     let dim = dimmest(&floor);
@@ -2338,7 +2338,10 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
         batches[0].model,
         "environment/office/props/models/chair.glb"
     );
-    assert!(!batches[0].vertices.is_empty());
+    assert_ne!(
+        batches[0].vertices,
+        [] as [crate::render::common::mesh::Vertex; 0]
+    );
     assert_eq!(batches[0].textures.len(), 1, "a single material model");
     assert_eq!(batches[0].submeshes.len(), 1);
     assert_eq!(batches[0].submeshes[0].texture, Some(0));
@@ -4247,7 +4250,7 @@ fn test_gable_ceiling_is_real_sloped_geometry() {
     .expect("gable json");
     let mesh = build_level_geometry(&level);
     let ceiling = batch_slice(&mesh, SurfaceKind::Ceiling);
-    assert!(!ceiling.is_empty());
+    assert_ne!(ceiling, [] as [crate::render::common::mesh::Vertex; 0]);
     let (min_y, max_y) = y_bounds(&ceiling);
     assert!((min_y - 3.0).abs() < 1e-4, "eaves at {min_y}");
     assert!((max_y - 5.0).abs() < 1e-4, "ridge at {max_y}");
@@ -4301,7 +4304,7 @@ fn test_gable_end_wall_follows_the_sloped_ceiling() {
     .expect("gable walls json");
     let mesh = build_level_geometry(&level);
     let walls = batch_slice(&mesh, SurfaceKind::Wall);
-    assert!(!walls.is_empty());
+    assert_ne!(walls, [] as [crate::render::common::mesh::Vertex; 0]);
     let (min_y, max_y) = y_bounds(&walls);
     // The wall running along Z climbs to the ridge; the eave wall stays at
     // the eave. Together they span eave to ridge with no flat cap.
@@ -4341,7 +4344,7 @@ fn test_gable_eave_wall_keeps_the_ceiling_strip_its_flat_top_does_not_reach() {
     .expect("gable eave wall json");
     let mesh = build_level_geometry(&level);
     let ceiling = batch_slice(&mesh, SurfaceKind::Ceiling);
-    assert!(!ceiling.is_empty());
+    assert_ne!(ceiling, [] as [crate::render::common::mesh::Vertex; 0]);
     // The wall's centre line is z = 7.85 (its flat top sits at the ceiling
     // there): the covered strip is z 7.85..8.0, and it must stay drawn.
     let strip = ceiling
@@ -4521,7 +4524,7 @@ fn test_horizontal_decals_follow_the_real_surface_height() {
     .expect("elevated decal json");
     let mesh = build_level_geometry(&level);
     let decals = batch_slice(&mesh, SurfaceKind::Decal);
-    assert!(!decals.is_empty());
+    assert_ne!(decals, [] as [crate::render::common::mesh::Vertex; 0]);
     // The floor decal sits on the elevated floor; the ceiling decal sits on
     // the real ceiling, at 5.0 m, not at the authored 0.0. Each is then lifted
     // off that real surface by the shared offset, along its own normal.
@@ -4553,7 +4556,7 @@ fn test_props_stand_on_the_local_walkable_floor() {
     .expect("elevated prop json");
     let mesh = build_level_geometry(&level);
     let props = batch_slice(&mesh, SurfaceKind::PropFallback);
-    assert!(!props.is_empty());
+    assert_ne!(props, [] as [crate::render::common::mesh::Vertex; 0]);
     // The crate on the room floor spans 2.0..3.0; the one in the recess
     // spans 1.5..2.5.
     assert_eq!(y_bounds(&props), (1.5, 3.0));
@@ -4627,7 +4630,7 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
         // a run boundary.
         for unit in &units {
             if let WallUnit::Coalesced { slices, runs, .. } = unit {
-                assert!(!runs.is_empty());
+                assert_ne!(runs.as_slice(), []);
                 for slice in slices {
                     let mut band: Vec<&WallMaterialRun> = runs
                         .iter()
@@ -4975,7 +4978,10 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
         .lightmaps
         .as_deref()
         .expect("the demo must produce an atlas");
-    assert!(!lightmaps.pages.is_empty());
+    assert_ne!(
+        lightmaps.pages,
+        [] as [crate::lighting::lightmap::LightmapPage; 0]
+    );
     assert!(lightmaps.pages.len() <= LIGHTMAP_ATLAS_MAX_PAGES);
     assert!(lightmaps.chart_count() > 0);
     for page in &lightmaps.pages {
@@ -5182,7 +5188,7 @@ fn lightmapped_vertex_colours_carry_tint_and_face_shade_only() {
     let tint = table.entry(index).expect("resolved").tint;
 
     let on_floor = on.mesh.triangles_for(SurfaceKind::Floor);
-    assert!(!on_floor.is_empty());
+    assert_ne!(on_floor, [] as [crate::render::common::mesh::Vertex; 0]);
     for vertex in &on_floor {
         assert_eq!(vertex.color[0], tint[0]);
         assert_eq!(vertex.color[1], tint[1]);
@@ -5722,7 +5728,7 @@ fn a_tall_chamber_with_lightmaps_off_is_still_lit_by_its_panel() {
         LightmapMode::Off,
     );
     let floor = off.mesh.triangles_for(SurfaceKind::Floor);
-    assert!(!floor.is_empty());
+    assert_ne!(floor, [] as [crate::render::common::mesh::Vertex; 0]);
     let planar = |v: &Vertex| (v.pos[0] - 6.0).hypot(v.pos[2] - 6.0);
     // The room grid is coarser than the fixture footprint, so compare the
     // brightest vertex within 3.5 m of the emitter with the brightest vertex
@@ -6557,7 +6563,10 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
         "the panes cover their openings exactly: {pane_area} vs {opening_area}"
     );
     let pane_vertices = mesh.triangles_for_key(panes[0].0);
-    assert!(!pane_vertices.is_empty());
+    assert_ne!(
+        pane_vertices,
+        [] as [crate::render::common::mesh::Vertex; 0]
+    );
     let lightmapped = pane_vertices
         .iter()
         .filter(|vertex| vertex.is_lightmapped())
@@ -8619,7 +8628,7 @@ fn a_floating_duck_never_becomes_a_character() {
         "the floating duck must not spawn a character"
     );
     assert!(scene.is_empty(), "no other prop can spawn one either");
-    assert!(scene.claimed_models().is_empty());
+    assert_eq!(scene.claimed_models(), [] as [String; 0]);
 }
 
 /// a scrub cue eases a clip's time toward one end and re-targets from
@@ -9160,7 +9169,10 @@ fn doorway_lintel_and_coplanar_wall_slices_keep_the_parent_room() {
         .find(|vertex| vertex.pos[1] == 4.5)
         .expect("wall top");
     let header_bottom: Vec<_> = front.iter().filter(|vertex| vertex.pos[1] == 2.1).collect();
-    assert!(!header_bottom.is_empty());
+    assert_ne!(
+        header_bottom,
+        [] as [&&crate::render::common::mesh::Vertex; 0]
+    );
     for vertex in header_bottom {
         for channel in 0..3 {
             let expected = (top.color[channel] - bottom.color[channel])
@@ -9338,7 +9350,7 @@ fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
         .flatten()
         .filter(|vertex| vertex.pos[1] > 3.0)
         .collect();
-    assert!(!front.is_empty());
+    assert_ne!(front, [] as [&crate::render::common::mesh::Vertex; 0]);
     for vertex in front {
         assert!((vertex.pos[1] - 3.2).abs() < 1e-6, "roof gap at {vertex:?}");
     }
@@ -9353,7 +9365,7 @@ fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
             .flatten()
             .filter(|vertex| vertex.pos[1] > 2.9)
             .collect();
-        assert!(!cap.is_empty());
+        assert_ne!(cap, [] as [&crate::render::common::mesh::Vertex; 0]);
         for vertex in cap {
             let expected = 0.5f32.mul_add(vertex.pos[2], 3.0);
             assert!(

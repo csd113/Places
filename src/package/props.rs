@@ -269,7 +269,6 @@ fn write_optional_slot(writer: &mut Writer, slot: Option<u32>) -> Result<(), Str
     match slot {
         None => {
             writer.u8(0);
-            Ok(())
         }
         Some(value) => {
             let value = u16::try_from(value).map_err(|_| {
@@ -277,9 +276,9 @@ fn write_optional_slot(writer: &mut Writer, slot: Option<u32>) -> Result<(), Str
             })?;
             writer.u8(1);
             writer.u16(value);
-            Ok(())
         }
     }
+    Ok(())
 }
 
 fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {

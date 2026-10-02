@@ -2483,7 +2483,10 @@ impl CharacterAnimator {
                 let walk_bob = -((TAU * 2.0 * phase).sin().abs()) * 0.01;
                 let idle_bob = (TAU * clock * BREATH_HZ).sin() * 0.0015;
                 translation += node_pose.up_in_parent
-                    * idle_bob.mul_add(weights.get(IDLE).copied().unwrap_or(0.0), walk_bob * weights.get(WALKING).copied().unwrap_or(0.0));
+                    * idle_bob.mul_add(
+                        weights.get(IDLE).copied().unwrap_or(0.0),
+                        walk_bob * weights.get(WALKING).copied().unwrap_or(0.0),
+                    );
             }
             if let Some(slot) = self.pose.get_mut(node) {
                 *slot = LocalTrs {

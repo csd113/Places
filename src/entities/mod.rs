@@ -4767,7 +4767,7 @@ mod tests {
         assert!(world.take_light_toggles().is_empty(), "drained once");
         let report = world.dispatch_actions(&[off], None);
         assert_eq!(report.lights_toggled, 0);
-        assert!(world.take_light_toggles().is_empty());
+        assert_eq!(world.take_light_toggles(), [] as [(usize, bool); 0]);
         assert_eq!(world.light_states(), vec![(0, true), (1, false)]);
     }
 
@@ -4836,7 +4836,7 @@ mod tests {
         );
         assert_eq!(report.missing_targets, 1);
         assert_eq!(report.spawned, 0);
-        assert!(world.live_spawns().is_empty());
+        assert_eq!(world.live_spawns(), []);
     }
 
     #[test]

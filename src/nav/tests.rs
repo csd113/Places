@@ -389,7 +389,7 @@ fn doors_block_unless_open_or_openable() {
         panic!("an open door must be passable");
     };
     assert!(path.complete);
-    assert!(path.door_requests.is_empty());
+    assert_eq!(path.door_requests, [] as [std::string::String; 0]);
 }
 
 #[test]

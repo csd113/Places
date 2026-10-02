@@ -196,7 +196,7 @@ fn reference_local(
     for light in lighting.lights() {
         let dx = ((x - light.x()).abs() - light.half_w()).max(0.0);
         let dz = ((z - light.z()).abs() - light.half_d()).max(0.0);
-        let horizontal_squared = dx * dx + dz * dz;
+        let horizontal_squared = dz.mul_add(dz, dx * dx);
         let horizontal = horizontal_squared.sqrt();
         let vertical = light.y() - y;
         let distance_squared = vertical.mul_add(vertical, horizontal_squared);

@@ -3013,7 +3013,10 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     assert!((zones[0].area_m2 - 100.0).abs() < 1e-3);
     assert_eq!(zones[0].fixture_count, 1);
     assert_eq!(zones[0].baseline, uniform.rooms()[0].baseline);
-    assert!(uniform.zones_in_room(7).is_empty());
+    assert_eq!(
+        uniform.zones_in_room(7),
+        [] as [crate::lighting::bake::ZoneLighting; 0]
+    );
 
     // One 10 x 10 room split by a full-height wall at x = 4.9, lit only on
     // the west side: the two areas must report their own areas, powers and

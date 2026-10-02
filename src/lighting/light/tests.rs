@@ -313,7 +313,7 @@ fn audit_model_pool(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> LightCo
         let range = light.source.range;
         let dx = ((x - light.x()).abs() - half_w).max(0.0);
         let dz = ((z - light.z()).abs() - half_d).max(0.0);
-        let horizontal = dx * dx + dz * dz;
+        let horizontal = dz.mul_add(dz, dx * dx);
         if horizontal >= range * range {
             continue;
         }
@@ -359,7 +359,7 @@ fn audit_proposed_pool(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> Ligh
         let range = light.source.range.min(AUDIT_PROPOSED_RANGE_M);
         let dx = ((x - light.x()).abs() - half_w).max(0.0);
         let dz = ((z - light.z()).abs() - half_d).max(0.0);
-        let horizontal = dx * dx + dz * dz;
+        let horizontal = dz.mul_add(dz, dx * dx);
         if horizontal >= range * range {
             continue;
         }

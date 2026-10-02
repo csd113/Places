@@ -470,8 +470,8 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
     // at ±2 km; the controller must stand, walk and collide there.
     assert!(level.props.iter().any(|prop| prop.x.abs() > 1_900.0));
     assert!(!level.water.is_empty());
-    assert!(!level.volumes.is_empty());
-    assert!(!level.routes.is_empty());
+    assert_ne!(level.volumes, [] as [crate::level::TriggerVolumeDef; 0]);
+    assert_ne!(level.routes, [] as [crate::level::EntityRouteDef; 0]);
     for room in level.room_iter() {
         let cx = room.x + room.width * 0.5;
         let cz = room.z + room.depth * 0.5;
