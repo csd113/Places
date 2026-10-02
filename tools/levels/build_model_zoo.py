@@ -438,11 +438,19 @@ HALL_HEIGHT_M = 5.0
 CEILING_CLEARANCE_M = 0.5
 
 
+def exhibit_scale(entry: Dict) -> float:
+    """Construction modules remain full size in maps; bound their Zoo exhibit."""
+    if entry["id"].startswith("outdoor:showcase_"):
+        return min(1.0, 3.2 / max(float(v) for v in entry.get("size", [1, 1, 1])))
+    return 1.0
+
+
 def footprint(entry: Dict, inspection: Dict) -> Tuple[float, float]:
     """Real transformed X/Z footprint of one placeable, in metres."""
     size = entry.get("size")
     if size:
-        return float(size[0]), float(size[2])
+        scale = exhibit_scale(entry)
+        return float(size[0]) * scale, float(size[2]) * scale
     envelope = inspection.get("envelope") or inspection.get("rest_bounds")
     if envelope:
         low, high = envelope
@@ -700,6 +708,9 @@ class Layout:
                 )
             placement["components"] = components
             placement["bindings"] = bindings
+        scale = exhibit_scale(entry)
+        if scale != 1.0:
+            placement["scale"] = scale
         placement.update(fields)
         # A solid placement collides with its standable mass, not necessarily
         # the model's full visual bounds (see SOLID_SIZE_OVERRIDES).
