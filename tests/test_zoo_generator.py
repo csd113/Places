@@ -138,6 +138,26 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             len(base_level["ceiling_lights"]),
         )
 
+    def test_tall_exhibits_clear_the_ceiling_at_native_scale(self):
+        level = self.level_for(self.catalog)
+        ceiling = level["rooms"][0]["height"]
+        for asset_id in ("outdoor:streetlight", "outdoor:tree_01",
+                         "outdoor:tree_02", "outdoor:tree_03"):
+            entry = next(e for e in self.catalog["assets"] if e["id"] == asset_id)
+            self.assertGreaterEqual(ceiling - entry["size"][1], 0.5)
+            display = next(p for p in level["props"] if p["model"] == asset_id)
+            self.assertEqual(display.get("scale", 1.0), 1.0)
+        # Suspended exhibits still attach to the newly resolved ceiling.
+        for asset_id in ("core:exit_sign", "home:ball_light"):
+            display = next(p for p in level["props"] if p["model"] == asset_id)
+            self.assertAlmostEqual(display["y"] + display["size"][1], ceiling)
+
+    def test_ceiling_clears_a_taller_animation_envelope(self):
+        inspections = inspections_for(self.catalog)
+        inspections["mannequin"]["envelope"] = [[-0.5, 0.0, -0.5], [0.5, 9.0, 0.5]]
+        level = zoo.build_level(self.catalog, inspections)
+        self.assertGreaterEqual(level["rooms"][0]["height"], 9.5)
+
     def test_removing_an_entry_removes_only_its_display(self):
         base_level = self.level_for(self.catalog)
         reduced = copy.deepcopy(self.catalog)

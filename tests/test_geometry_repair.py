@@ -46,18 +46,16 @@ SCRATCH = os.path.join(
 # pointers, values and coupling of the accepted plan. The maintained source was
 # repaired with it, so the demo test reconstructs the pre-repair state from its
 # inverse. The wall's index moved 37 -> 35 when Job 02 joined the Home's three
-# overlapping west-wall patches into one wall; the plan's values are unchanged.
+# overlapping west-wall patches into one wall. The trim quality pass joined
+# artificial 2 mm splits, so the inverse uses the current continuous runs.
 DEMO_REPAIR_EDITS = (
     ("/walls/35/z", 14.7, 14.85, "wall"),
-    ("/baseboards/3/z", 14.72, 14.87, "baseboard-end"),
-    ("/baseboards/3/length", 0.798, 0.948, "baseboard-end"),
-    ("/baseboards/10/length", 2.9713333, 3.1213, "baseboard-end"),
-    ("/baseboards/11/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/12/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/13/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/16/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/17/z", 14.7, 14.85, "baseboard-parallel"),
-    ("/baseboards/18/length", 3.7, 3.85, "baseboard-end"),
+    ("/baseboards/1/z", 14.72, 14.87, "baseboard-end"),
+    ("/baseboards/1/length", 0.798, 0.948, "baseboard-end"),
+    ("/baseboards/5/length", 8.9, 9.05, "baseboard-end"),
+    ("/baseboards/6/z", 14.7, 14.85, "baseboard-parallel"),
+    ("/baseboards/9/z", 14.7, 14.85, "baseboard-parallel"),
+    ("/baseboards/10/length", 3.7, 3.85, "baseboard-end"),
     ("/floor_regions/11/depth", 3.75, 3.9, "floor-tuck"),
 )
 
@@ -368,12 +366,12 @@ class RepairApplierTests(RepairScratch):
         with open(source, "r", encoding="utf-8") as handle:
             fixed = json.load(handle)
         self.assertEqual(fixed["walls"][35]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][3]["z"], 14.87)
-        self.assertEqual(fixed["baseboards"][3]["length"], 0.948)
-        self.assertEqual(fixed["baseboards"][10]["length"], 3.1213)
-        self.assertEqual(fixed["baseboards"][11]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][16]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][18]["length"], 3.85)
+        self.assertEqual(fixed["baseboards"][1]["z"], 14.87)
+        self.assertEqual(fixed["baseboards"][1]["length"], 0.948)
+        self.assertEqual(fixed["baseboards"][5]["length"], 9.05)
+        self.assertEqual(fixed["baseboards"][6]["z"], 14.85)
+        self.assertEqual(fixed["baseboards"][9]["z"], 14.85)
+        self.assertEqual(fixed["baseboards"][10]["length"], 3.85)
         self.assertEqual(fixed["floor_regions"][11]["depth"], 3.9)
 
         second = run(

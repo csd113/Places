@@ -18,8 +18,8 @@
       "x": 0.0,
       "z": 0.0,
       "width": 49.2,
-      "depth": 130.7,
-      "height": 5.0,
+      "depth": 118.7,
+      "height": 7.3,
       "material": "core:pool_tile_deck_01",
       "ceiling_material": "core:pool_ceiling_01"
     }
@@ -34,7 +34,7 @@
     },
     {
       "x": -0.4,
-      "z": 130.7,
+      "z": 118.7,
       "width": 50.0,
       "depth": 0.4,
       "material": "core:pool_tile_wall_01"
@@ -43,19 +43,19 @@
       "x": -0.4,
       "z": 0.0,
       "width": 0.4,
-      "depth": 130.7,
+      "depth": 118.7,
       "material": "core:pool_tile_wall_01"
     },
     {
       "x": 49.2,
       "z": 0.0,
       "width": 0.4,
-      "depth": 130.7,
+      "depth": 118.7,
       "material": "core:pool_tile_wall_01",
       "openings": [
         {
           "kind": "passage",
-          "offset": 63.349999999999994,
+          "offset": 57.35,
           "width": 4.0,
           "height": 3.0,
           "sill": 0.0
@@ -66,7 +66,7 @@
   "floor_regions": [
     {
       "x": 3.6,
-      "z": 121.1,
+      "z": 109.1,
       "width": 8.0,
       "depth": 6.0,
       "offset_y": -1.5,
@@ -77,7 +77,7 @@
   "water": [
     {
       "x": 3.6,
-      "z": 121.1,
+      "z": 109.1,
       "width": 8.0,
       "depth": 6.0,
       "surface_y": -0.2,
@@ -88,7 +88,7 @@
   "ladders": [
     {
       "x": 7.3,
-      "z": 120.8,
+      "z": 108.8,
       "width": 0.6,
       "depth": 0.6,
       "bottom_y": -1.5,
@@ -102,7 +102,7 @@
       "z": 10.1,
       "radius": 2.4,
       "thickness": 0.24,
-      "height": 5.0,
+      "height": 7.3,
       "start_degrees": 0.0,
       "sweep_degrees": 180.0,
       "segments": 24,
@@ -115,7 +115,7 @@
       "z": 10.1,
       "radius": 2.4,
       "thickness": 0.24,
-      "height": 5.0,
+      "height": 7.3,
       "start_degrees": 0.0,
       "sweep_degrees": 180.0,
       "segments": 24,
@@ -127,18 +127,18 @@
   "pillars": [
     {
       "x": 41.6,
-      "z": 116.1,
+      "z": 104.1,
       "radius": 0.3,
-      "height": 5.0,
+      "height": 7.3,
       "segments": 16,
       "material": "core:pool_tile_wall_01",
       "cap_material": "core:pool_tile_deck_01"
     },
     {
       "x": 38.6,
-      "z": 116.1,
+      "z": 104.1,
       "radius": 0.3,
-      "height": 5.0,
+      "height": 7.3,
       "segments": 16,
       "material": "core:pool_tile_deck_01",
       "cap_material": "core:pool_tile_deck_01"
@@ -151,2030 +151,1820 @@
       "id": "zoo:light:0:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:0:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 2.35,
+      "z": 3.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:1:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 6.85,
+      "z": 7.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:2:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 11.35,
+      "z": 12.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:3:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 15.85,
+      "z": 16.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:4:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 20.35,
+      "z": 21.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:5:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 24.85,
+      "z": 25.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:6:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 29.35,
+      "z": 30.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:7:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 33.85,
+      "z": 34.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:8:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 38.35,
+      "z": 39.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:9:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 42.85,
+      "z": 43.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:10:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 47.35,
+      "z": 48.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:11:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 51.85,
+      "z": 52.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:12:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 56.35,
+      "z": 57.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:13:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 60.85,
+      "z": 61.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:14:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 65.35,
+      "z": 66.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:15:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 69.85,
+      "z": 70.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:16:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 74.35,
+      "z": 75.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:17:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 78.85,
+      "z": 79.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:18:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 83.35,
+      "z": 84.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:19:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 87.85,
+      "z": 88.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:20:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 92.35,
+      "z": 93.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:21:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 96.85,
+      "z": 97.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:22:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 101.35,
+      "z": 102.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:23:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 105.85,
+      "z": 106.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:24:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 110.35,
+      "z": 111.1,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:0",
       "fixture": "core:pool_light_round",
       "x": 4.35,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:1",
       "fixture": "core:pool_light_round",
       "x": 8.85,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:2",
       "fixture": "core:pool_light_round",
       "x": 13.35,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:3",
       "fixture": "core:pool_light_round",
       "x": 17.85,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:4",
       "fixture": "core:pool_light_round",
       "x": 22.35,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:5",
       "fixture": "core:pool_light_round",
       "x": 26.85,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:6",
       "fixture": "core:pool_light_round",
       "x": 31.35,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:7",
       "fixture": "core:pool_light_round",
       "x": 35.85,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:8",
       "fixture": "core:pool_light_round",
       "x": 40.35,
-      "z": 114.85,
+      "z": 115.6,
       "brightness": 0.52
     },
     {
       "id": "zoo:light:25:9",
       "fixture": "core:pool_light_round",
       "x": 44.85,
-      "z": 114.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:0",
-      "fixture": "core:pool_light_round",
-      "x": 4.35,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:1",
-      "fixture": "core:pool_light_round",
-      "x": 8.85,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:2",
-      "fixture": "core:pool_light_round",
-      "x": 13.35,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:3",
-      "fixture": "core:pool_light_round",
-      "x": 17.85,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:4",
-      "fixture": "core:pool_light_round",
-      "x": 22.35,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:5",
-      "fixture": "core:pool_light_round",
-      "x": 26.85,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:6",
-      "fixture": "core:pool_light_round",
-      "x": 31.35,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:7",
-      "fixture": "core:pool_light_round",
-      "x": 35.85,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:8",
-      "fixture": "core:pool_light_round",
-      "x": 40.35,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:26:9",
-      "fixture": "core:pool_light_round",
-      "x": 44.85,
-      "z": 119.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:0",
-      "fixture": "core:pool_light_round",
-      "x": 4.35,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:1",
-      "fixture": "core:pool_light_round",
-      "x": 8.85,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:2",
-      "fixture": "core:pool_light_round",
-      "x": 13.35,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:3",
-      "fixture": "core:pool_light_round",
-      "x": 17.85,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:4",
-      "fixture": "core:pool_light_round",
-      "x": 22.35,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:5",
-      "fixture": "core:pool_light_round",
-      "x": 26.85,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:6",
-      "fixture": "core:pool_light_round",
-      "x": 31.35,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:7",
-      "fixture": "core:pool_light_round",
-      "x": 35.85,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:8",
-      "fixture": "core:pool_light_round",
-      "x": 40.35,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:27:9",
-      "fixture": "core:pool_light_round",
-      "x": 44.85,
-      "z": 123.85,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:0",
-      "fixture": "core:pool_light_round",
-      "x": 4.35,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:1",
-      "fixture": "core:pool_light_round",
-      "x": 8.85,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:2",
-      "fixture": "core:pool_light_round",
-      "x": 13.35,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:3",
-      "fixture": "core:pool_light_round",
-      "x": 17.85,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:4",
-      "fixture": "core:pool_light_round",
-      "x": 22.35,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:5",
-      "fixture": "core:pool_light_round",
-      "x": 26.85,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:6",
-      "fixture": "core:pool_light_round",
-      "x": 31.35,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:7",
-      "fixture": "core:pool_light_round",
-      "x": 35.85,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:8",
-      "fixture": "core:pool_light_round",
-      "x": 40.35,
-      "z": 128.35,
-      "brightness": 0.52
-    },
-    {
-      "id": "zoo:light:28:9",
-      "fixture": "core:pool_light_round",
-      "x": 44.85,
-      "z": 128.35,
+      "z": 115.6,
       "brightness": 0.52
     }
   ],
@@ -4968,424 +4758,11 @@
       ]
     },
     {
-      "id": "zoo:outdoor-showcase_boulder:floor",
-      "display_name": "Showcase Boulder",
-      "model": "outdoor:showcase_boulder",
-      "x": 42.6,
-      "z": 90.1,
-      "size": [
-        1.4,
-        0.85,
-        1.3
-      ],
-      "solid": true,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_campfire:floor",
-      "display_name": "Showcase Campfire",
-      "model": "outdoor:showcase_campfire",
-      "x": 6.6,
-      "z": 96.1,
-      "size": [
-        1.3,
-        1.25,
-        1.3
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_curb:floor",
-      "display_name": "Showcase Curb",
-      "model": "outdoor:showcase_curb",
-      "x": 12.6,
-      "z": 96.1,
-      "size": [
-        0.24,
-        0.14,
-        6.0
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.5333333333333333
-    },
-    {
-      "id": "zoo:outdoor-showcase_curb_ramp:floor",
-      "display_name": "Showcase Curb Ramp",
-      "model": "outdoor:showcase_curb_ramp",
-      "x": 18.6,
-      "z": 96.1,
-      "size": [
-        1.2,
-        0.14,
-        2.4
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_road_dash:floor",
-      "display_name": "Showcase Road Dash",
-      "model": "outdoor:showcase_road_dash",
-      "x": 24.6,
-      "z": 96.1,
-      "size": [
-        0.12,
-        0.006,
-        1.5
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_road_gate:floor",
-      "display_name": "Showcase Road Gate",
-      "model": "outdoor:showcase_road_gate",
-      "x": 30.6,
-      "z": 96.1,
-      "size": [
-        8.0,
-        3.6,
-        0.24
-      ],
-      "solid": true,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.4
-    },
-    {
-      "id": "zoo:outdoor-showcase_road_straight:floor",
-      "display_name": "Showcase Road Straight",
-      "model": "outdoor:showcase_road_straight",
-      "x": 36.6,
-      "z": 96.1,
-      "size": [
-        8.0,
-        0.07,
-        6.0
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.4
-    },
-    {
-      "id": "zoo:outdoor-showcase_road_unmarked:floor",
-      "display_name": "Showcase Road Unmarked",
-      "model": "outdoor:showcase_road_unmarked",
-      "x": 42.6,
-      "z": 96.1,
-      "size": [
-        8.0,
-        0.064,
-        6.0
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.4
-    },
-    {
-      "id": "zoo:outdoor-showcase_rock_face:floor",
-      "display_name": "Showcase Rock Face",
-      "model": "outdoor:showcase_rock_face",
-      "x": 6.6,
-      "z": 102.1,
-      "size": [
-        4.0,
-        5.0,
-        2.2
-      ],
-      "solid": true,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.64
-    },
-    {
-      "id": "zoo:outdoor-showcase_rock_face_variant:floor",
-      "display_name": "Showcase Rock Face Variant",
-      "model": "outdoor:showcase_rock_face_variant",
-      "x": 12.6,
-      "z": 102.1,
-      "size": [
-        3.4,
-        4.8,
-        2.6
-      ],
-      "solid": true,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.6666666666666667
-    },
-    {
-      "id": "zoo:outdoor-showcase_sidewalk:floor",
-      "display_name": "Showcase Sidewalk",
-      "model": "outdoor:showcase_sidewalk",
-      "x": 18.6,
-      "z": 102.1,
-      "size": [
-        2.4,
-        0.14,
-        6.0
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ],
-      "scale": 0.5333333333333333
-    },
-    {
-      "id": "zoo:outdoor-showcase_sidewalk_corner:floor",
-      "display_name": "Showcase Sidewalk Corner",
-      "model": "outdoor:showcase_sidewalk_corner",
-      "x": 24.6,
-      "z": 102.1,
-      "size": [
-        2.4,
-        0.14,
-        2.4
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_sidewalk_transition:floor",
-      "display_name": "Showcase Sidewalk Transition",
-      "model": "outdoor:showcase_sidewalk_transition",
-      "x": 30.6,
-      "z": 102.1,
-      "size": [
-        2.4,
-        0.14,
-        1.2
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zoo:outdoor-showcase_stump_seat:floor",
-      "display_name": "Showcase Stump Seat",
-      "model": "outdoor:showcase_stump_seat",
-      "x": 36.6,
-      "z": 102.1,
-      "size": [
-        0.7,
-        0.45,
-        0.6
-      ],
-      "solid": true,
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Show name"
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "toggle_label"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "zoo:outdoor-streetlight:floor",
       "display_name": "Streetlight",
       "model": "outdoor:streetlight",
       "x": 42.6,
-      "z": 102.1,
+      "z": 90.1,
       "size": [
         0.5,
         6.4,
@@ -5414,7 +4791,7 @@
       "display_name": "Leafy Tree",
       "model": "outdoor:tree_01",
       "x": 6.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         4.6,
         6.4,
@@ -5443,7 +4820,7 @@
       "display_name": "Birch Tree",
       "model": "outdoor:tree_02",
       "x": 12.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         3.6,
         6.2,
@@ -5472,7 +4849,7 @@
       "display_name": "Evergreen Tree",
       "model": "outdoor:tree_03",
       "x": 18.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         3.2,
         6.8,
@@ -5501,7 +4878,7 @@
       "display_name": "Pumpkin-Head Skeleton",
       "model": "pumpkin-skeleton",
       "x": 24.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         0.442,
         1.808,
@@ -5530,7 +4907,7 @@
       "display_name": "Sheet Ghost",
       "model": "sheet-ghost",
       "x": 30.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         0.994,
         1.619,
@@ -5559,11 +4936,11 @@
       "display_name": "Sheet Ghost Cat",
       "model": "sheet-ghost-cat",
       "x": 36.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         0.226,
         0.323,
-        0.593
+        0.576
       ],
       "solid": false,
       "components": [
@@ -5588,7 +4965,7 @@
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
       "x": 42.6,
-      "z": 108.1,
+      "z": 96.1,
       "size": [
         0.42,
         1.72,
@@ -5617,7 +4994,7 @@
       "display_name": "Skeleton",
       "model": "skeleton",
       "x": 6.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -5646,7 +5023,7 @@
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
       "x": 12.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -5686,7 +5063,7 @@
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
       "x": 18.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -5726,7 +5103,7 @@
       "display_name": "Concrete Mannequin",
       "model": "mannequin",
       "x": 24.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.42,
         1.72,
@@ -5766,7 +5143,7 @@
       "display_name": "Skeleton",
       "model": "skeleton",
       "x": 30.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -5806,7 +5183,7 @@
       "display_name": "Skeleton",
       "model": "skeleton",
       "x": 36.6,
-      "z": 114.1,
+      "z": 102.1,
       "size": [
         0.427,
         1.72,
@@ -5846,7 +5223,7 @@
       "display_name": "Skeleton",
       "model": "skeleton",
       "x": 42.6,
-      "z": 114.105,
+      "z": 102.105,
       "size": [
         0.427,
         1.72,
@@ -5887,7 +5264,7 @@
       "display_name": "Rat",
       "model": "rat",
       "x": 14.1,
-      "z": 122.1,
+      "z": 110.1,
       "size": [
         0.095,
         0.139,
@@ -5924,7 +5301,7 @@
       "display_name": "Spooner-Man",
       "model": "spooner-man",
       "x": 21.1,
-      "z": 122.1,
+      "z": 110.1,
       "size": [
         0.165,
         0.389,
@@ -5961,7 +5338,7 @@
       "display_name": "Rat",
       "model": "rat",
       "x": 28.1,
-      "z": 122.1,
+      "z": 110.1,
       "size": [
         0.095,
         0.139,
@@ -5998,7 +5375,7 @@
       "display_name": "Spooner-Man",
       "model": "spooner-man",
       "x": 35.1,
-      "z": 122.1,
+      "z": 110.1,
       "size": [
         0.165,
         0.389,
@@ -6181,7 +5558,7 @@
       "display_name": "Exit Sign",
       "model": "core:exit_sign",
       "x": 16.4,
-      "z": 125.1,
+      "z": 113.1,
       "size": [
         0.45,
         0.57,
@@ -6204,7 +5581,7 @@
           ]
         }
       ],
-      "y": 4.43,
+      "y": 6.73,
       "lights": [
         {
           "shape": "rect",
@@ -6230,7 +5607,7 @@
       "display_name": "Hanging Ball Light",
       "model": "home:ball_light",
       "x": 32.8,
-      "z": 125.1,
+      "z": 113.1,
       "size": [
         0.2,
         0.8,
@@ -6253,7 +5630,7 @@
           ]
         }
       ],
-      "y": 4.2,
+      "y": 6.5,
       "lights": [
         {
           "shape": "point",
@@ -6554,7 +5931,7 @@
       "display_name": "Rubber Duck",
       "model": "core:rubber_duck",
       "x": 7.6,
-      "z": 124.1,
+      "z": 112.1,
       "size": [
         0.1,
         0.12,
@@ -6575,7 +5952,7 @@
       "display_name": "Pool Ladder",
       "model": "core:pool_ladder",
       "x": 7.25,
-      "z": 120.55,
+      "z": 108.55,
       "size": [
         0.55,
         2.2,
@@ -6605,7 +5982,7 @@
       "display_name": "Chair",
       "model": "core:chair",
       "x": 42.6,
-      "z": 114.103,
+      "z": 102.103,
       "size": [
         0.5,
         0.9,
@@ -6634,7 +6011,7 @@
   "decals": [
     {
       "x": 6.6,
-      "z": 65.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -6643,7 +6020,7 @@
     },
     {
       "x": 12.6,
-      "z": 65.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -6652,7 +6029,7 @@
     },
     {
       "x": 18.6,
-      "z": 65.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -6661,7 +6038,7 @@
     },
     {
       "x": 24.6,
-      "z": 65.35,
+      "z": 59.35,
       "width": 0.6,
       "height": 0.6,
       "material": "core:decal_ceiling_vent_01",
@@ -6670,7 +6047,7 @@
     },
     {
       "x": 5.6,
-      "z": 125.7,
+      "z": 113.7,
       "width": 1.2,
       "height": 1.2,
       "material": "core:decal_arrow_01",
@@ -6678,7 +6055,7 @@
     },
     {
       "x": 8.6,
-      "z": 125.7,
+      "z": 113.7,
       "width": 1.2,
       "height": 1.2,
       "material": "core:decal_arrow_01",
@@ -6771,7 +6148,7 @@
         {
           "step": "move_to",
           "x": 17.3,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.1985
         },
         {
@@ -6783,7 +6160,7 @@
         {
           "step": "move_to",
           "x": 14.1,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.1985
         }
       ]
@@ -6801,7 +6178,7 @@
         {
           "step": "move_to",
           "x": 32.1,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.5731
         },
         {
@@ -6813,7 +6190,7 @@
         {
           "step": "move_to",
           "x": 28.1,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.5731
         }
       ]
@@ -6831,7 +6208,7 @@
         {
           "step": "move_to",
           "x": 23.5,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.26
         },
         {
@@ -6859,7 +6236,7 @@
         {
           "step": "move_to",
           "x": 21.1,
-          "z": 122.1,
+          "z": 110.1,
           "speed": 0.26
         }
       ]
@@ -6887,7 +6264,7 @@
         {
           "step": "move_to",
           "x": 35.1,
-          "z": 124.1,
+          "z": 112.1,
           "speed": 0.26
         },
         {
@@ -6932,7 +6309,7 @@
     {
       "check": "room-leak",
       "x": 48.2,
-      "z": 62.349999999999994,
+      "z": 56.35,
       "width": 4.0,
       "depth": 6.0,
       "note": "The showroom's exit passage opens onto the void by design."

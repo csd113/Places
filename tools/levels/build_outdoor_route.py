@@ -344,7 +344,7 @@ HOUSE_PROPS = [
         "z": -94.6,
         "rotation_degrees": 90.0,
         "solid": True,
-        "size": [1.4, 0.75, 0.8],
+        "size": [0.8, 0.75, 1.4],
     },
     {
         "id": f"{ID_PREFIX}house_plant",
@@ -543,23 +543,35 @@ HOUSE_LIGHTS = [
 
 
 def _room_floor(rooms: Sequence[dict], x: float, z: float) -> float:
-    """The walkable floor under ``(x, z)``, mirroring the engine's lookup.
+    """The room floor under ``(x, z)``, mirroring the engine's lookup.
 
     Rooms own their rectangle within the engine's 0.01 m edge tolerance and the
-    smallest containing room wins; a point outside every room falls back to the
+    first containing room wins; a point outside every room falls back to the
     global ground plane at 0.0, exactly as ``LevelSurfaces`` does.
     """
-    best: Optional[tuple] = None
     for room in rooms:
         x0 = float(room.get("x", 0.0))
         z0 = float(room.get("z", 0.0))
         x1 = x0 + float(room["width"])
         z1 = z0 + float(room["depth"])
         if x0 - 0.01 <= x <= x1 + 0.01 and z0 - 0.01 <= z <= z1 + 0.01:
-            area = float(room["width"]) * float(room["depth"])
-            if best is None or area < best[0]:
-                best = (area, float(room.get("floor_y", 0.0)))
-    return best[1] if best is not None else 0.0
+            return float(room.get("floor_y", 0.0))
+    return 0.0
+
+
+def _source_ridge_floor(level: dict, x: float, z: float) -> float:
+    """Floor at the source ridge, which lies over room/floor-region surfaces.
+
+    The east end is over the stair hall's raised floor regions. Prop y is
+    measured from that walkable surface, not from the room's lower base.
+    """
+    offset = 0.0
+    for region in reversed(level.get("floor_regions", [])):
+        if (region["x"] <= x <= region["x"] + region["width"]
+                and region["z"] <= z <= region["z"] + region["depth"]):
+            offset = float(region.get("offset_y", 0.0))
+            break
+    return _room_floor(level["rooms"], x, z) + offset
 
 
 def _prop(
@@ -945,12 +957,12 @@ def build_slice(level: dict) -> dict:
             _prop(
                 "outdoor:house_roof_slope",
                 x,
-                ROOF_EAVE_Z,
+                ROOF_EAVE_Z + ROOF_HALF_RUN * ROOF_SCALE,
                 prop_id=f"{ID_PREFIX}source_roof_{index}",
                 rotation=180.0,
                 scale=ROOF_SCALE,
                 y=ROOF_EAVE_Y,
-                comment="North slope of the source house's gable, rising away from the yard.",
+                comment="North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard.",
             )
         )
         ridge_z = ROOF_EAVE_Z + 2.6 * ROOF_SCALE
@@ -962,7 +974,7 @@ def build_slice(level: dict) -> dict:
                 ridge_z,
                 prop_id=f"{ID_PREFIX}source_ridge_{index}",
                 scale=ROOF_SCALE,
-                y=round(ridge_y - _room_floor(level["rooms"], x, ridge_z), 4),
+                y=round(ridge_y - _source_ridge_floor(level, x, ridge_z), 4),
             )
         )
 

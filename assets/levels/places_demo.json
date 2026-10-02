@@ -3079,7 +3079,7 @@
       "model": "core:armchair",
       "x": 62.7,
       "y": 0.0,
-      "z": 7.5,
+      "z": 7.3,
       "rotation_degrees": 180.0,
       "size": [
         0.9,
@@ -3957,9 +3957,9 @@
       "z": -94.6,
       "rotation_degrees": 90.0,
       "size": [
-        1.4,
+        0.8,
         0.75,
-        0.8
+        1.4
       ],
       "solid": true
     },
@@ -4099,11 +4099,11 @@
       "id": "night_source_roof_0",
       "model": "outdoor:house_roof_slope",
       "x": 1.29,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_0",
@@ -4117,11 +4117,11 @@
       "id": "night_source_roof_1",
       "model": "outdoor:house_roof_slope",
       "x": 4.35,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_1",
@@ -4135,11 +4135,11 @@
       "id": "night_source_roof_2",
       "model": "outdoor:house_roof_slope",
       "x": 7.41,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_2",
@@ -4153,11 +4153,11 @@
       "id": "night_source_roof_3",
       "model": "outdoor:house_roof_slope",
       "x": 10.47,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_3",
@@ -4171,11 +4171,11 @@
       "id": "night_source_roof_4",
       "model": "outdoor:house_roof_slope",
       "x": 13.53,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_4",
@@ -4189,11 +4189,11 @@
       "id": "night_source_roof_5",
       "model": "outdoor:house_roof_slope",
       "x": 16.59,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_5",
@@ -4207,36 +4207,36 @@
       "id": "night_source_roof_6",
       "model": "outdoor:house_roof_slope",
       "x": 19.65,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_6",
       "model": "outdoor:house_roof_ridge",
       "x": 19.65,
       "z": 2.09,
-      "y": 5.577,
+      "y": 4.377,
       "scale": 0.9
     },
     {
       "id": "night_source_roof_7",
       "model": "outdoor:house_roof_slope",
       "x": 22.71,
-      "z": -0.25,
+      "z": 0.92,
       "y": 2.7,
       "rotation_degrees": 180.0,
       "scale": 0.9,
-      "comment": "North slope of the source house's gable, rising away from the yard."
+      "comment": "North slope of the source house's gable: the model origin is half a run inboard of the eave, rising away from the yard."
     },
     {
       "id": "night_source_ridge_7",
       "model": "outdoor:house_roof_ridge",
       "x": 22.71,
       "z": 2.09,
-      "y": 5.577,
+      "y": 4.377,
       "scale": 0.9
     },
     {
@@ -32855,25 +32855,7 @@
     {
       "x": 53.3,
       "z": 12.1,
-      "length": 2.9760000000000004,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 90.0,
-      "comment": "Landing/wall skirting along the Home's west wall."
-    },
-    {
-      "x": 53.3,
-      "z": 9.122,
-      "length": 2.9740000000000006,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 90.0,
-      "comment": "Landing/wall skirting along the Home's west wall."
-    },
-    {
-      "x": 53.3,
-      "z": 6.145999999999999,
-      "length": 2.974,
+      "length": 8.95,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 90.0,
@@ -32888,17 +32870,9 @@
       "rotation_degrees": 90.0
     },
     {
-      "x": 53.28,
+      "x": 53.3,
       "z": 3.15,
-      "length": 3.51,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "comment": "North wall, west of the entrance passage."
-    },
-    {
-      "x": 56.792,
-      "z": 3.15,
-      "length": 3.508,
+      "length": 7.0,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "comment": "North wall, west of the entrance passage."
@@ -32922,49 +32896,15 @@
     {
       "x": 64.7,
       "z": 5.8,
-      "length": 2.973333333333333,
+      "length": 9.05,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 270.0
     },
     {
       "x": 64.7,
-      "z": 8.775333333333332,
-      "length": 2.9713333333333334,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 270.0
-    },
-    {
-      "x": 64.7,
-      "z": 11.748666666666665,
-      "length": 3.1213,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 270.0
-    },
-    {
-      "x": 64.68,
       "z": 14.85,
-      "length": 3.7866666666666666,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0,
-      "comment": "The Home's south wall."
-    },
-    {
-      "x": 60.89133333333334,
-      "z": 14.85,
-      "length": 3.784666666666667,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0,
-      "comment": "The Home's south wall."
-    },
-    {
-      "x": 57.104666666666674,
-      "z": 14.85,
-      "length": 3.7846666666666664,
+      "length": 11.4,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 180.0,
@@ -32987,18 +32927,9 @@
       "rotation_degrees": 270.0
     },
     {
-      "x": 64.68,
+      "x": 64.7,
       "z": 14.85,
-      "length": 3.33,
-      "material": "home:baseboard_wood_01",
-      "y": 1.2,
-      "rotation_degrees": 180.0,
-      "comment": "Walnut storey: wooden skirting along the balcony's solid walls."
-    },
-    {
-      "x": 61.348000000000006,
-      "z": 14.85,
-      "length": 3.3280000000000003,
+      "length": 6.7,
       "material": "home:baseboard_wood_01",
       "y": 1.2,
       "rotation_degrees": 180.0,
@@ -33006,88 +32937,24 @@
     },
     {
       "x": 64.7,
-      "z": 11.02,
+      "z": 11.0,
       "length": 3.85,
       "material": "home:baseboard_wood_01",
       "y": 1.2,
       "rotation_degrees": 270.0
     },
     {
-      "x": 33.05,
+      "x": 33.15,
       "z": 11.15,
-      "length": 4.0,
+      "length": 19.85,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "comment": "Hall skirting: both flanks of the approach."
     },
     {
-      "x": 37.052,
-      "z": 11.15,
-      "length": 3.998,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "comment": "Hall skirting: both flanks of the approach."
-    },
-    {
-      "x": 41.052,
-      "z": 11.15,
-      "length": 3.998,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "comment": "Hall skirting: both flanks of the approach."
-    },
-    {
-      "x": 45.052,
-      "z": 11.15,
-      "length": 3.998,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "comment": "Hall skirting: both flanks of the approach."
-    },
-    {
-      "x": 49.05199999999999,
-      "z": 11.15,
-      "length": 3.998000000000001,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "comment": "Hall skirting: both flanks of the approach."
-    },
-    {
-      "x": 53.05,
+      "x": 53.0,
       "z": 14.85,
-      "length": 3.9899999999999998,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0
-    },
-    {
-      "x": 49.058,
-      "z": 14.85,
-      "length": 3.988,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0
-    },
-    {
-      "x": 45.068,
-      "z": 14.85,
-      "length": 3.988,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0
-    },
-    {
-      "x": 41.077999999999996,
-      "z": 14.85,
-      "length": 3.988,
-      "material": "home:baseboard_white_01",
-      "y": -0.9,
-      "rotation_degrees": 180.0
-    },
-    {
-      "x": 37.087999999999994,
-      "z": 14.85,
-      "length": 3.9879999999999995,
+      "length": 19.85,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 180.0

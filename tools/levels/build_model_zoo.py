@@ -435,21 +435,14 @@ WALL_ZONE_M = 5.5
 ROUTE_ZONE_M = 10.0
 MARGIN_M = 3.6
 HALL_HEIGHT_M = 5.0
-
-
-def exhibit_scale(entry: Dict) -> float:
-    """Construction modules remain full size in maps; bound their Zoo exhibit."""
-    if entry["id"].startswith("outdoor:showcase_"):
-        return min(1.0, 3.2 / max(float(v) for v in entry.get("size", [1, 1, 1])))
-    return 1.0
+CEILING_CLEARANCE_M = 0.5
 
 
 def footprint(entry: Dict, inspection: Dict) -> Tuple[float, float]:
     """Real transformed X/Z footprint of one placeable, in metres."""
     size = entry.get("size")
     if size:
-        scale = exhibit_scale(entry)
-        return float(size[0]) * scale, float(size[2]) * scale
+        return float(size[0]), float(size[2])
     envelope = inspection.get("envelope") or inspection.get("rest_bounds")
     if envelope:
         low, high = envelope
@@ -579,10 +572,18 @@ def plan_hall(displays: Sequence[Dict], inspections: Dict[str, Dict]) -> Dict:
     ]
     widest = 0.6
     deepest = 0.6
+    height = HALL_HEIGHT_M
     for item in floor_items:
-        width, depth = footprint(item["entry"], inspections[item["entry"]["id"]])
+        entry = item["entry"]
+        inspection = inspections[entry["id"]]
+        width, depth = footprint(entry, inspection)
         widest = max(widest, width)
         deepest = max(deepest, depth)
+        # Tall outdoor exhibits must fit at their native scale. Keep the
+        # catalog height as a lower bound when inspection is unavailable.
+        _, top = height_range(entry, inspection)
+        catalog_height = float((entry.get("size") or [0.6, 0.9, 0.6])[1])
+        height = max(height, max(top, catalog_height) + CEILING_CLEARANCE_M)
     # The bay must hold the widest footprint plus the clear aisle.
     pitch = max(BAY_PITCH_M, max(widest, deepest) + CLEAR_AISLE_M)
     rows = max(1, math.ceil(len(floor_items) / COLUMNS))
@@ -599,7 +600,7 @@ def plan_hall(displays: Sequence[Dict], inspections: Dict[str, Dict]) -> Dict:
         "rows": rows,
         "width": round(width, 3),
         "depth": round(depth, 3),
-        "height": HALL_HEIGHT_M,
+        "height": round(height, 3),
     }
 
 
@@ -699,9 +700,6 @@ class Layout:
                 )
             placement["components"] = components
             placement["bindings"] = bindings
-        scale = exhibit_scale(entry)
-        if scale != 1.0:
-            placement["scale"] = scale
         placement.update(fields)
         # A solid placement collides with its standable mass, not necessarily
         # the model's full visual bounds (see SOLID_SIZE_OVERRIDES).
