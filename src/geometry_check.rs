@@ -27,8 +27,9 @@
 //! a degenerate triangle, a duplicated coplanar surface, an overlapping
 //! opening pair or an uncovered curved primitive) or a **warning** (a
 //! heuristic such as a face pair with opposing normals, a room leaking into
-//! the void, a perimeter run with no wall or opening, or a collider with no
-//! nearby mesh). Warnings
+//! the void, a perimeter run with no wall or opening, a collider with no
+//! nearby mesh, a duplicated prop placement or a large prop layer sitting a
+//! few millimetres off the walkable floor under it). Warnings
 //! can be deliberate and are then suppressed by a narrow
 //! [`crate::level::GeometryIntentDef`] annotation in `geometry_intent`; errors
 //! are never suppressed.
@@ -994,6 +995,9 @@ pub fn check_level(level: &LevelDef, source: &str, validated: bool) -> CheckRepo
     let engine_boxes = level.collision_aabbs();
     let index = SpatialHash::build(&triangles);
     checker.check_colliders(&colliders, &engine_boxes, &triangles, &index);
+    // The placeholder mesh uses the fallback catalog, but prop sizes are read
+    // from the shipped catalog so the layering heuristic sees real extents.
+    checker.check_props(&crate::loader::PropCatalog::load_default(), &surfaces);
     checker.check_openings(&surfaces);
     checker.check_curves(&surfaces);
     checker.check_rooms(&surfaces, &colliders);
@@ -2537,6 +2541,97 @@ fn aabb_face_centre(aabb: &WallAabb, axis: usize, sign: f32) -> [f32; 3] {
         *slot = value;
     }
     centre
+}
+
+// ---------------------------------------------------------------------------
+// Prop placements
+// ---------------------------------------------------------------------------
+
+/// Props are not part of the emitted architecture mesh, so coincident
+/// placements and large dressing layers stacked a few millimetres off a
+/// walkable surface are invisible to the mesh checks. These heuristics cover
+/// the two recurring classes: an exact duplicate placement, and a slab whose
+/// visible top lands within 2 cm of the walkable floor at its own footprint.
+impl Checker<'_> {
+    fn check_props(&mut self, catalog: &crate::loader::PropCatalog, surfaces: &LevelSurfaces<'_>) {
+        let props = &self.level.props;
+        let mut by_model: HashMap<&str, Vec<usize>> = HashMap::new();
+        for (index, prop) in props.iter().enumerate() {
+            by_model.entry(prop.model.as_str()).or_default().push(index);
+        }
+        for indices in by_model.values() {
+            for (slot, first) in indices.iter().enumerate() {
+                let Some(a) = props.get(*first) else {
+                    continue;
+                };
+                for second in indices.iter().skip(slot.saturating_add(1)) {
+                    let Some(b) = props.get(*second) else {
+                        continue;
+                    };
+                    // The tolerances are the identity test itself.
+                    #[allow(clippy::arithmetic_side_effects)]
+                    let same = (a.x - b.x).abs() <= 1.0e-3
+                        && (a.z - b.z).abs() <= 1.0e-3
+                        && (a.y - b.y).abs() <= 1.0e-3
+                        && (a.rotation_degrees - b.rotation_degrees).abs() <= 0.5
+                        && (a.scale - b.scale).abs() <= 1.0e-3;
+                    if same {
+                        let a_name = a.id.as_deref().unwrap_or(&a.model);
+                        let b_name = b.id.as_deref().unwrap_or(&b.model);
+                        self.push(
+                            "prop-duplicate",
+                            Severity::Warning,
+                            a_name,
+                            format!(
+                                "'{b_name}' repeats '{a_name}' ({}) at the same transform; \
+                                 the duplicate is redundant and z-fights",
+                                a.model
+                            ),
+                            [a.x, a.y, a.z],
+                        );
+                    }
+                }
+            }
+        }
+        for prop in props {
+            let entry = catalog.get(&prop.model);
+            if entry.model.is_none() {
+                continue;
+            }
+            let Some(floor) = surfaces.floor_y_at(prop.x, prop.z) else {
+                continue;
+            };
+            // An authored collision size is the author's declared extent; with
+            // none, the catalog's own model size stands in.
+            let [width, height, depth] = prop.size.unwrap_or(entry.size);
+            let scale = prop.scale;
+            let base = floor + prop.y;
+            let top = height.mul_add(scale, base);
+            // Only visible dressing slabs matter: a tiny fixture laid on the
+            // floor cannot hide a floor's worth of flicker.
+            if width * scale * depth * scale < 0.25 {
+                continue;
+            }
+            #[allow(clippy::arithmetic_side_effects)]
+            let layered = (top - floor).abs() < 0.02 && (base - floor).abs() > 0.02;
+            if layered {
+                self.push(
+                    "prop-layer-coplanar",
+                    Severity::Warning,
+                    prop.id.as_deref().unwrap_or(&prop.model),
+                    format!(
+                        "'{}' top sits {:.1} mm from the walkable floor at ({:.1}, {:.1}); \
+                         a dressing layer this close z-fights with the real surface",
+                        prop.model,
+                        (top - floor).abs() * 1000.0,
+                        prop.x,
+                        prop.z
+                    ),
+                    [prop.x, top, prop.z],
+                );
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -4737,6 +4832,43 @@ mod tests {
         assert!((decals[1].x - 3.25).abs() < 1.0e-3, "{:?}", decals[1]);
         assert!((decals[1].z - 3.75).abs() < 1.0e-3, "{:?}", decals[1]);
         assert!((level.ceiling_decal_rotation(&decals[1]) - 90.0).abs() < 1.0e-3);
+    }
+
+    #[test]
+    fn duplicate_placements_and_dressing_layers_are_reported() {
+        let text = r#"{
+          "format_version": 3,
+          "id": "prop_layers",
+          "name": "Prop Layers",
+          "author": "Places",
+          "spawn": { "x": 0.0, "z": 2.0, "yaw_degrees": 0.0 },
+          "defaults": { "wall": "outdoor:house_siding_01", "floor": "outdoor:grass_ground_01",
+                        "ceiling": "home:ceiling_white_01" },
+          "sky": { "texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.2 },
+          "rooms": [ { "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 6.0,
+                       "ceiling": { "kind": "open" }, "material": "outdoor:grass_ground_01" } ],
+          "floor_regions": [ { "x": -2.0, "z": -2.0, "width": 4.0, "depth": 4.0, "offset_y": 0.14,
+                               "material": "outdoor:concrete_pavement_01",
+                               "edge_material": "outdoor:concrete_pavement_01" } ],
+          "props": [
+            { "id": "kit_buried", "model": "outdoor:showcase_sidewalk", "x": 0.0, "z": 0.0,
+              "y": -0.141, "rotation_degrees": 90.0 },
+            { "id": "crate_a", "model": "core:crate", "x": 3.0, "z": 3.0 },
+            { "id": "crate_b", "model": "core:crate", "x": 3.0, "z": 3.0 }
+          ]
+        }"#;
+        let (_, report) = fixture(text, "prop_layers");
+        assert!(report.validated);
+        assert!(
+            has(&report, "prop-layer-coplanar", Severity::Warning),
+            "a kit layer one millimetre under a raised floor must warn: {:?}",
+            counts(&report)
+        );
+        assert!(
+            has(&report, "prop-duplicate", Severity::Warning),
+            "two identical transforms must warn: {:?}",
+            counts(&report)
+        );
     }
 
     #[test]

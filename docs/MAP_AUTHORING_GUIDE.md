@@ -1043,8 +1043,16 @@ licence to duplicate:
   with the same `glass` opening each draw their own pane. Author each physical wall
   once.
 * The surface audit (`cargo test surface_audit`) checks Places Demo and fixed cases.
-  There is no general z-fighting detector for your level; inspect junctions manually
-  and keep one physical wall per surface.
+  The geometry checker's `duplicate-surface`, `coplanar-sliver` and
+  `prop-layer-coplanar` checks cover emitted architecture and prop dressing;
+  still inspect junctions manually and keep one physical wall per surface.
+* Decorative kit layers (sidewalk kits, curbs, porch decks) must not rely on a
+  millimetre offset under a raised floor region: a buried layer that close can
+  z-fight or darken the floor above it, and a top a millimetre proud can cut a
+  visible stripe across the floor. Either keep the region as the only surface
+  and bury the kit a full layer below the surrounding ground plane, or raise
+  the kit clear of the region and split the floor regions to match its real
+  profile (the Lantern Hollow porch uses two regions, platform and tread).
 
 ---
 
@@ -5462,6 +5470,8 @@ position. Checks include:
 | `collision-duplicate` | error | Two authored solids share an identical collision box. |
 | `collision-mismatch` | error | An authored solid is missing from the engine's collision set. |
 | `ghost-collider` | warning | A surface-tight rectangular collider (a wall slice, half wall, column or archway) with no mesh surface on any face. Guardrails (their barrier box deliberately reaches below the rails) and curved primitives (whose row AABBs over-cover by construction) are exempt. |
+| `prop-duplicate` | warning | Two placements of one model share the same transform (position, yaw and scale within tolerance); the copy is redundant and z-fights. |
+| `prop-layer-coplanar` | warning | A prop's visible top sits within 2 cm of the walkable floor at its own footprint while its base does not (a large dressing slab stacked almost on the real surface, e.g. a kit underlay or porch deck left at the floor plane). Props under 0.25 m² of footprint are exempt: a tiny fixture cannot hide a floor's worth of flicker. |
 | `opening-overlap` | error | Two openings in one wall overlap; they resolve as one merged hole. |
 | `opening-unused` | warning | An opening does not intersect the wall solid; it cuts nothing. |
 | `curved-invalid` | error | A degenerate arc wall/pillar (radius, thickness, sweep, segments). |

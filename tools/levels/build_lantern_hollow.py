@@ -121,22 +121,25 @@ def build_level() -> dict:
         level["geometry_intent"].append({"check": "room-leak", "x": x, "z": z, "width": width, "depth": depth,
             "note": f"{name}: outside all authored floors and behind visible collidable rock faces; fixed-step controller audits verify containment."})
 
-    # Real raised sidewalk and porch floor owns walkability. Matching kit
-    # undersides sit 1 mm below it, avoiding duplicate exposed top surfaces.
+    # The raised sidewalk floor region owns walkability and the visible
+    # surface. Its dressing kit is a whole layer lower: every kit top ends
+    # below the surrounding ground plane, so no buried face is coplanar with
+    # the real skirt and no sub-centimetre surface can flicker or darken the
+    # floor above it. The streetlights stand on the sidewalk itself.
     region(-40, 10.2, 80, 2.4, .14, "outdoor:concrete_pavement_01")
     region(-40, 20.6, 80, 2.4, .14, "outdoor:concrete_pavement_01")
     patch(-40, 12.6, 80, 8, "outdoor:showcase_asphalt", "Road asphalt is dressed by the modular road geometry below the floor.")
     for i in range(10):
-        prop("outdoor:showcase_road_unmarked", -36 + i * 8, 16.6, f"road_{i}", y=-.071)
+        prop("outdoor:showcase_road_unmarked", -36 + i * 8, 16.6, f"road_{i}", y=-.42)
     for side, z in enumerate((11.4, 21.8)):
         for i in range(14):
-            prop("outdoor:showcase_sidewalk", -39 + i * 6, z, f"sidewalk_{side}_{i}", y=-.141, yaw=90)
+            prop("outdoor:showcase_sidewalk", -39 + i * 6, z, f"sidewalk_{side}_{i}", y=-.42, yaw=90)
             prop("outdoor:showcase_curb", -39 + i * 6, 12.48 if side == 0 else 20.72,
-                 f"curb_{side}_{i}", y=-.141, yaw=90)
+                 f"curb_{side}_{i}", y=-.44, yaw=90)
     for i in range(20):
         patch(-38 + i * 4, 16.53, 1.5, .14, "outdoor:showcase_road_marking")
     for i, x in enumerate((-35, -19, -1, 17, 35)):
-        prop("outdoor:streetlight", x, 11.05, f"streetlight_{i}", y=-.14, solid=True,
+        prop("outdoor:streetlight", x, 11.05, f"streetlight_{i}", solid=True,
              size=[.16, 6.4, .16], lights=[light(6.05, 1.5, 14, z=.43)])
 
     # Reuse the five-family facade convention and the domestic/Home palette.
@@ -179,7 +182,10 @@ def build_level() -> dict:
              "material": "home:wallpaper_pattern_01", "openings": [{"kind": "passage", "offset": 2.38, "width": 1.1, "height": 2.15}]},
         ])
         for dx, kind in ((0, "doorway"),):
-            prop(f"{kit}_wall_{kind}", cx + dx, 6.4 if kind == "doorway" else 6.32,
+            # The doorway surround protrudes 0.25 m from the wall face, so a
+            # player pressed against the wall beside it stays outside the
+            # cladding instead of pushing the camera into it.
+            prop(f"{kit}_wall_{kind}", cx + dx, 6.25 if kind == "doorway" else 6.32,
                  f"{prefix}_front_{kind}_{dx}", y=-.24 if dx == 0 else 0)
         # Deep soffits end 1 cm behind the interior wall faces. Keep the
         # measured vertical placement and the overlapping ridge cap intact.
@@ -196,8 +202,14 @@ def build_level() -> dict:
         for dx in (-4.5, 4.5):
             for z in (.8, 6.2):
                 prop(f"{kit}_corner_trim", cx + dx, z, f"{prefix}_trim_{dx}_{z}")
-        region(cx - 1.5, 6.21, 3, 1.5, .24, "outdoor:concrete_pavement_01")
-        prop(f"{kit}_porch_deck", cx, 6.96, f"{prefix}_porch", y=-.238)
+        # The porch is two real concrete levels matching the kit's raised
+        # platform and its lower front tread, so the walked surface and the
+        # visible step line up. The deck kit is dressing buried a full layer
+        # below the ground plane (top 0.36 m under the platform), so none of
+        # its faces can clash with the walkable slabs or their skirts.
+        region(cx - 1.5, 6.21, 3, 1.10, .2304, "outdoor:concrete_pavement_01")
+        region(cx - 1.5, 7.31, 3, .40, .1152, "outdoor:concrete_pavement_01")
+        prop(f"{kit}_porch_deck", cx, 6.96, f"{prefix}_porch", y=-.60)
         # This is an uncovered stoop: omit freestanding tall porch posts
         # until an actual supported awning exists in the asset kit.
         patch(cx - .85, 7.71, 1.7, 2.49, "outdoor:concrete_pavement_01")
@@ -229,7 +241,7 @@ def build_level() -> dict:
         prop("home:plant_table", cx + 3.2, 5.45, f"{prefix}_plant", y=.85)
         patch(cx - 4.15, 1.25, .95, 4.35, "home:tile_home_01")
         for j, dx in enumerate((-2.1, 2.1)):
-            prop("carved-pumpkin", cx + dx, 7.5, f"{prefix}_pumpkin_{j}", scale=.8,
+            prop("carved-pumpkin", cx + dx, 7.5, f"{prefix}_pumpkin_{j}", scale=.8, solid=True,
                  components=[{"component": "animation", "clip": "laugh", "looped": True, "playing": True}],
                  lights=[light(.25, .18, 2.8)])
         # Fenced front gardens leave the path and both side passages open.
@@ -276,7 +288,8 @@ def build_level() -> dict:
         a = 2 * math.pi * i / 18
         prop("outdoor:showcase_boulder", POND[0] + 4.6 * math.cos(a), POND[1] + 4.6 * math.sin(a),
              f"pond_rock_{i}", yaw=i * 37, scale=.7 + (i % 3) * .12, solid=True, size=[1.4, .65, 1.3])
-    prop("outdoor:showcase_campfire", *FIRE, "campfire", lights=[light(1.48, 2.6, 9, (1, .56, .2))],
+    prop("outdoor:showcase_campfire", *FIRE, "campfire", solid=True,
+         lights=[light(1.48, 2.6, 9, (1, .56, .2))],
          components=[{"component": "animation", "clip": "flicker", "looped": True, "playing": True}])
     for i in range(7):
         a = 2 * math.pi * i / 7 + .15
@@ -292,11 +305,14 @@ def build_level() -> dict:
         if i in (2, 3): continue
         prop("outdoor:showcase_boulder", FIRE[0] + 6.3 * math.cos(a), FIRE[1] + 6.3 * math.sin(a),
              f"clearing_rock_{i}", yaw=i * 29, scale=1.1 + (i % 3) * .15, solid=True, size=[1.4, .65, 1.3])
-    for i, (x, z, yaw) in enumerate(((-34, -5, 90), (-19.6, -13, 270), (-10, -23, 90), (1.8, -8, 270),
-                                   (18.6, -4, 270), (30, -15, 90), (-20, -28, 90))):
-        prop("outdoor:lamp_stand", x, z, f"trail_lamp_{i}", lights=[light(.86, .7, 7)], occludes=True)
-    for i, (x, z, yaw) in enumerate(((-29, -10, 180), (13, -13, 270), (-25, -23, 90))):
-        prop("outdoor:lamp_stand", x, z, f"cool_clearing_lamp_{i}", yaw=yaw,
+    # The lamp posts are solid: each stands at least 0.8 m clear of every
+    # authored trail centreline so the walkable route stays open around them.
+    for i, (x, z, yaw) in enumerate(((-33.2, -6.0, 90), (-19.6, -13, 270), (-10, -23, 90), (1.8, -8, 270),
+                                   (19.4, -4.4, 270), (30, -15, 90), (-20, -28, 90))):
+        prop("outdoor:lamp_stand", x, z, f"trail_lamp_{i}", solid=True,
+             lights=[light(.86, .7, 7)], occludes=True)
+    for i, (x, z, yaw) in enumerate(((-29, -10, 180), (13, -13, 270), (-25.9, -23.4, 90))):
+        prop("outdoor:lamp_stand", x, z, f"cool_clearing_lamp_{i}", yaw=yaw, solid=True,
              lights=[light(.86, .8, 8, (.65, .78, 1))])
     for i, (model, x, z, scale) in enumerate((("sheet-ghost", 6, -23, 1), ("sheet-ghost-cat", -27, -8, 2),
                                           ("sheet-ghost-cat", 11, -13, 2), ("sheet-ghost-cat", -23, -23, 2))):

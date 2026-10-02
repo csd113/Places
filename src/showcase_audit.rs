@@ -64,6 +64,83 @@ fn walk_to(game: &mut Game, x: f32, z: f32) {
 }
 
 #[test]
+fn showcase_each_porch_walks_its_real_two_level_stoop() {
+    let level = level();
+    for cx in [-27.0_f32, -9.0, 9.0, 27.0] {
+        // Onto the raised platform, down the lower front tread, onto the path.
+        let mut game = at(&level, cx, 12.0);
+        walk_to(&mut game, cx, 9.0);
+        walk_to(&mut game, cx, 7.0);
+        assert!(
+            (game.feet_y - 0.2304).abs() < 1e-3,
+            "platform top at {cx}: {}",
+            game.feet_y
+        );
+        walk_to(&mut game, cx + 0.9, 7.5);
+        assert!(
+            (game.feet_y - 0.1152).abs() < 1e-3,
+            "front tread top at {cx}: {}",
+            game.feet_y
+        );
+        walk_to(&mut game, cx + 0.9, 8.1);
+        assert!(
+            game.feet_y.abs() < 1e-3,
+            "porch meets the ground path at {cx}: {}",
+            game.feet_y
+        );
+    }
+}
+
+#[test]
+fn showcase_facades_keep_the_camera_out_of_their_cladding() {
+    let level = level();
+    for cx in [-27.0_f32, -9.0, 9.0, 27.0] {
+        // Beside the door, press into the wall for five seconds. The doorway
+        // surround protrudes to z = 6.45; the camera must stay outside it.
+        let mut game = at(&level, cx + 1.0, 8.5);
+        game.player_yaw = 0.0;
+        advance(&mut game, &[Control::MoveForward], 300);
+        assert!(
+            game.player_position.z > 6.46,
+            "camera entered the doorway surround at {cx}: {}",
+            game.player_position.z
+        );
+    }
+}
+
+#[test]
+fn showcase_large_decorative_props_block_the_player() {
+    let level = level();
+    // The campfire is solid: the player stops at its collider edge.
+    let mut fire = at(&level, -18.0, -30.5);
+    fire.player_yaw = 0.0;
+    advance(&mut fire, &[Control::MoveForward], 300);
+    assert!(
+        fire.player_position.z > -33.1,
+        "player entered the campfire: {:?}",
+        fire.player_position
+    );
+    // A trail lamp post is solid: the player stops at its base.
+    let mut lamp = at(&level, 17.4, -4.4);
+    lamp.player_yaw = 90.0_f32.to_radians();
+    advance(&mut lamp, &[Control::MoveForward], 300);
+    assert!(
+        lamp.player_position.x < 18.95,
+        "player passed through a solid trail lamp: {:?}",
+        lamp.player_position
+    );
+    // A garden railing blocks a walk through it towards the house.
+    let mut rail = at(&level, -30.6, 11.0);
+    rail.player_yaw = 0.0;
+    advance(&mut rail, &[Control::MoveForward], 300);
+    assert!(
+        rail.player_position.z > 9.9,
+        "player passed through a garden railing: {:?}",
+        rail.player_position
+    );
+}
+
+#[test]
 fn showcase_all_four_cottages_allow_road_entry_bedroom_and_return() {
     let level = level();
     for cx in [-27.0, -9.0, 9.0, 27.0] {
@@ -126,21 +203,21 @@ fn showcase_all_five_forest_trails_reach_the_seated_skeleton_clearing() {
             (-36.0, -4.0),
             (-26.0, -8.0),
             (-25.0, -24.0),
-            (-18.0, -34.0),
+            (-17.85, -31.65),
         ],
         &[
             (-18.0, 10.2),
             (-18.0, -5.0),
             (-12.0, -16.0),
             (-18.0, -27.0),
-            (-18.0, -34.0),
+            (-17.85, -31.65),
         ],
         &[
             (0.0, 10.2),
             (0.0, -6.0),
             (-8.0, -19.0),
             (-18.0, -27.0),
-            (-18.0, -34.0),
+            (-17.85, -31.65),
         ],
         &[
             (18.0, 10.2),
@@ -148,7 +225,7 @@ fn showcase_all_five_forest_trails_reach_the_seated_skeleton_clearing() {
             (11.0, -13.0),
             (2.0, -24.0),
             (-18.0, -27.0),
-            (-18.0, -34.0),
+            (-17.85, -31.65),
         ],
         &[
             (36.0, 10.2),
@@ -156,7 +233,7 @@ fn showcase_all_five_forest_trails_reach_the_seated_skeleton_clearing() {
             (23.0, -19.0),
             (2.0, -24.0),
             (-18.0, -27.0),
-            (-18.0, -34.0),
+            (-17.85, -31.65),
         ],
     ];
     for route in routes {

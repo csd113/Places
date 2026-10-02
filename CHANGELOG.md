@@ -1,3 +1,34 @@
+## Unreleased — Lantern Hollow geometry and collision pass
+
+### Fixed
+
+- **The sidewalk, curb, road and porch dressing sat 1–2 mm off the raised
+  floor regions.** The kits could z-fight with the real floor and skirt planes
+  and shed a baked contact shadow onto the surface above; the porch deck's
+  nosing cut a visible trim stripe across the porch. Every kit now sits a full
+  layer below the surrounding ground plane, the streetlights stand on the
+  sidewalk itself instead of buried in it, and the porch is two real concrete
+  regions (0.2304 m platform, 0.1152 m front tread) matching the kit's own
+  step profile, so the walked surface and the visible step line up.
+- **The doorway surrounds protruded 0.40 m from the wall face**, so a player
+  pressed against the wall beside a door pushed the camera 0.10 m inside the
+  cladding. They now protrude 0.25 m, outside the player capsule.
+- **The trail and clearing lamp posts, the campfire and the carved pumpkins
+  were not solid**, so the player could walk through a metre-tall post, the
+  fire and the pumpkins. All ten lamp posts, the campfire and all eight
+  pumpkins are now solid; the lamps that stood on a trail centreline or the
+  clearing waypoint moved just clear of it, keeping every authored trail
+  walkable.
+
+### Added
+
+- **Two prop-level geometry checks** the emitted-mesh checks cannot see:
+  `prop-duplicate` (one model placed twice at the same transform) and
+  `prop-layer-coplanar` (a large prop whose visible top sits within 2 cm of
+  the walkable floor at its own footprint). The Lantern Hollow controller
+  audit gains a two-level porch walk, a facade-cladding camera bound, and
+  solid campfire/lamp blocking checks.
+
 ## Unreleased — door polish and full-batch acceptance
 
 ### Added
