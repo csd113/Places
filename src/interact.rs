@@ -687,7 +687,7 @@ fn project_to_reference(
     let pixel_x = ndc_x.mul_add(0.5, 0.5) * pixel_f32(drawable.width);
     // NDC +y is up; the reference space has a top-left origin, so the pixel row
     // is measured from the top before the viewport offset is removed.
-    let pixel_from_top = (0.5 - ndc_y * 0.5) * pixel_f32(drawable.height);
+    let pixel_from_top = ndc_y.mul_add(-0.5, 0.5) * pixel_f32(drawable.height);
     let x = (pixel_x - pixel_f32(u32::try_from(viewport.x).unwrap_or(0))) / viewport_width
         * pixel_f32(UI_REFERENCE_WIDTH);
     let y = (pixel_from_top - pixel_f32(u32::try_from(viewport.y).unwrap_or(0))) / viewport_height

@@ -661,7 +661,7 @@ pub fn page_png_bytes(page: &LightmapPage) -> Result<Vec<u8>, String> {
 }
 
 /// Encodes one display-space channel as a byte, rounding to nearest.
-fn encode_display(value: f32) -> u8 {
+const fn encode_display(value: f32) -> u8 {
     if value.is_nan() {
         return 0;
     }

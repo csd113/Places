@@ -784,7 +784,7 @@ struct StairFrame {
 
 impl StairFrame {
     /// World Y of tread `step`'s top surface.
-    fn tread_y(&self, step: u32) -> f32 {
+    const fn tread_y(&self, step: u32) -> f32 {
         self.riser
             .mul_add(u32_to_f32(step.saturating_add(1)), self.base_y)
     }
@@ -2306,7 +2306,7 @@ impl RunFrame {
 
     /// World point at run distance `along`, across offset `across` and height
     /// `y`.
-    fn point(&self, along: f32, across: f32, y: f32) -> [f32; 3] {
+    const fn point(&self, along: f32, across: f32, y: f32) -> [f32; 3] {
         [
             self.along
                 .0

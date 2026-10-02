@@ -256,7 +256,7 @@ impl DoorRuntime {
         }
         let remaining = target - self.angle;
         let direction = if remaining >= 0.0 { 1.0 } else { -1.0 };
-        let candidate = self.angle + direction * sprint.min(remaining.abs());
+        let candidate = f32::mul_add(direction, sprint.min(remaining.abs()), self.angle);
         if blocked(&self.collider_at(candidate)) {
             self.obstructed = true;
             step.obstructed = true;

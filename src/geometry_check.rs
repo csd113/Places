@@ -3773,7 +3773,7 @@ fn footprint_segment(
 }
 
 /// The end point of a run from `start` along `direction` for `length`.
-fn segment_end(start: (f32, f32), direction: (f32, f32), length: f32) -> (f32, f32) {
+const fn segment_end(start: (f32, f32), direction: (f32, f32), length: f32) -> (f32, f32) {
     (
         direction.0.mul_add(length, start.0),
         direction.1.mul_add(length, start.1),

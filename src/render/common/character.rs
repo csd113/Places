@@ -1921,7 +1921,7 @@ impl CharacterAnimator {
                 }
             }
             LocomotionState::Swimming | LocomotionState::SurfaceSwimming => {
-                self.phase = (self.phase + step * SWIM_HZ).rem_euclid(1.0);
+                self.phase = f32::mul_add(step, SWIM_HZ, self.phase).rem_euclid(1.0);
             }
             LocomotionState::Idle | LocomotionState::Airborne => {}
         }
@@ -2228,7 +2228,7 @@ impl CharacterAnimator {
                 state.finished = false;
             }
         } else if !state.paused && step > 0.0 {
-            state.time += step * rate;
+            state.time = f32::mul_add(step, rate, state.time);
             if state.once && state.time >= duration {
                 state.time = duration;
                 if !state.finished {
@@ -2483,8 +2483,7 @@ impl CharacterAnimator {
                 let walk_bob = -((TAU * 2.0 * phase).sin().abs()) * 0.01;
                 let idle_bob = (TAU * clock * BREATH_HZ).sin() * 0.0015;
                 translation += node_pose.up_in_parent
-                    * (walk_bob * weights.get(WALKING).copied().unwrap_or(0.0)
-                        + idle_bob * weights.get(IDLE).copied().unwrap_or(0.0));
+                    * idle_bob.mul_add(weights.get(IDLE).copied().unwrap_or(0.0), walk_bob * weights.get(WALKING).copied().unwrap_or(0.0));
             }
             if let Some(slot) = self.pose.get_mut(node) {
                 *slot = LocalTrs {
@@ -2694,7 +2693,7 @@ fn swim_angles(pose: &NodePose, phase: f32, scale: f32) -> (f32, f32) {
         JointKind::Tail => {
             let index = f32::from(pose.index);
             (
-                (10.0 + swing * 3.0) * scale,
+                swing.mul_add(3.0, 10.0) * scale,
                 (TAU * index.mul_add(0.1, phase)).sin() * 8.0 * scale,
             )
         }

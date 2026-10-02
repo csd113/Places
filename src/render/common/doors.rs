@@ -803,7 +803,7 @@ fn push_sauna_leaf(
             Paint::new(slot, glass_tile, 1.0),
         );
     }
-    let knob_x = def.width - stile * 0.5;
+    let knob_x = stile.mul_add(-0.5, def.width);
     let knob_y = def.height * 0.5;
     for side in [1.0_f32, -1.0] {
         push_knob(

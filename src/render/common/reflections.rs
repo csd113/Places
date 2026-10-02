@@ -52,7 +52,7 @@ pub struct ReflectionPlane {
 impl ReflectionPlane {
     /// Signed distance from the plane to `point`.
     #[must_use]
-    pub fn distance(&self, point: [f32; 3]) -> f32 {
+    pub const fn distance(&self, point: [f32; 3]) -> f32 {
         self.normal[0].mul_add(
             point[0],
             self.normal[1].mul_add(point[1], self.normal[2].mul_add(point[2], self.offset)),

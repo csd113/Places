@@ -216,8 +216,9 @@ configuration but are not executed by the project's verification host. The
 current verification status, the per-row platform matrix and the procedure used
 to fill it in are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-Rust 1.91 or newer is required (the project is verified on 1.98.x; edition
-2024).
+Rust 1.99.0 is the pinned and verified development toolchain (edition 2024).
+Cargo requires Rust 1.99 or newer; `rust-toolchain.toml` selects 1.99.0 with
+Clippy and rustfmt without changing your machine-wide default.
 
 ### Desktop prerequisites
 

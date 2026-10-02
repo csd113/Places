@@ -132,7 +132,7 @@ impl Vertex {
 /// The wgpu world vertex declares `Unorm8x4`, so a surface sees exactly
 /// `byte / 255`.
 #[must_use]
-pub fn quantize_unit(value: f32) -> u8 {
+pub const fn quantize_unit(value: f32) -> u8 {
     if value.is_nan() {
         // An undefined shade must not become a bright one.
         return 0;

@@ -157,7 +157,7 @@ fn level_roughness(level: u32, levels: u32) -> f32 {
 
 /// Deterministic tap count for a roughness: 8 at a mirror, 64 at full
 /// roughness, growing linearly between.
-fn tap_count(roughness: f32) -> u32 {
+const fn tap_count(roughness: f32) -> u32 {
     let scaled = roughness.mul_add(56.0, 8.0).round().clamp(8.0, 64.0);
     // `scaled` is finite and clamped to [8, 64] before the cast.
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -190,7 +190,7 @@ fn cone_average(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, roughness: f3
         // rest spiral out area-uniformly towards the cap edge.
         let u = tap_f / count_f;
         let cos_theta = (-u).mul_add(1.0 - cap_cos, 1.0);
-        let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
+        let sin_theta = cos_theta.mul_add(-cos_theta, 1.0).max(0.0).sqrt();
         let phi = GOLDEN_ANGLE * tap_f;
         #[allow(clippy::arithmetic_side_effects)]
         // glam vector products are per-element f32 arithmetic with no overflow or panic path
@@ -383,7 +383,7 @@ const fn texel_index(value: f32) -> u32 {
 }
 
 /// Rounds one accumulated `[0, 1]` channel to `u8`, guarding non-finite input.
-fn to_u8(value: f32) -> u8 {
+const fn to_u8(value: f32) -> u8 {
     if !value.is_finite() {
         return 0;
     }

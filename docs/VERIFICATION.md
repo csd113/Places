@@ -7,7 +7,8 @@ recorded in the matrix in §7.
 
 ## 1. Prerequisites
 
-- Rust 1.91 or newer (the project is verified on 1.98.x).
+- Rust 1.99.0, selected by `rust-toolchain.toml` with Clippy and rustfmt.
+  Cargo's minimum compiler version is 1.99; no machine-wide default is changed.
 - SDL3 3.2 or newer and `pkg-config`.
 - Python 3 (standard library only; no `pip install`).
 - A working native GPU driver for the platform's backend.

@@ -2,7 +2,7 @@
 name = "places"
 version = "0.7.0"
 edition = "2024"
-rust-version = "1.91"
+rust-version = "1.99"
 description = "Places: a slow first-person exploration experience"
 license = "MIT"
 repository = "https://github.com/csd113/Places"
