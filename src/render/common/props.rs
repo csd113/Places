@@ -201,11 +201,10 @@ impl BatchBuilder {
             let Some(indices) = source.indices.get(start..start.saturating_add(count)) else {
                 continue;
             };
-            let density = if large || submesh.alpha.mode == crate::materials::AlphaMode::Cutout {
-                1.0
-            } else {
-                8.0
-            };
+            let density = plan.prop_texels_per_metre(
+                large,
+                submesh.alpha.mode == crate::materials::AlphaMode::Cutout,
+            );
             for triangle in indices.as_chunks::<3>().0 {
                 let [Some(a), Some(b), Some(c)] =
                     triangle.map(|index| source.vertices.get(usize::from(index)))
@@ -502,6 +501,7 @@ fn append_instance_vertices(
 ) {
     samples.clear();
     batch.reserve(source.len());
+    let normal_matrix = model.inverse().transpose();
     for (index, vertex) in source.iter().enumerate() {
         let position =
             model.transform_point3(glam::Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
@@ -511,6 +511,13 @@ fn append_instance_vertices(
             .copied()
             .unwrap_or_else(|| lighting.sample(position.x, position.y, position.z));
         samples.push(light);
+        let normal = normal_matrix
+            .transform_vector3(glam::Vec3::from_array(
+                vertex.normal.unwrap_or([0.0, 1.0, 0.0]),
+            ))
+            .normalize_or_zero();
+        let light =
+            light.plus(lighting.global_surface_light(position.to_array(), normal.to_array()));
         batch.push(Vertex {
             pos: [position.x, position.y, position.z],
             color: [

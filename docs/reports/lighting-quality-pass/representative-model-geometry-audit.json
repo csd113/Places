@@ -1,0 +1,97 @@
+[
+  {
+    "id": "core:fridge",
+    "triangles": 108,
+    "authored_normal_vertices": 0,
+    "duplicate_faces": 0,
+    "zero_uv_area_faces": 0,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 9,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 108
+    },
+    "errors": [],
+    "review": []
+  },
+  {
+    "id": "core:water_cooler",
+    "triangles": 206,
+    "authored_normal_vertices": 0,
+    "duplicate_faces": 0,
+    "zero_uv_area_faces": 0,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 206
+    },
+    "errors": [],
+    "review": []
+  },
+  {
+    "id": "outdoor:showcase_boulder",
+    "triangles": 72,
+    "authored_normal_vertices": 0,
+    "duplicate_faces": 0,
+    "zero_uv_area_faces": 0,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 72
+    },
+    "errors": [],
+    "review": []
+  },
+  {
+    "id": "outdoor:showcase_stump_seat",
+    "triangles": 96,
+    "authored_normal_vertices": 0,
+    "duplicate_faces": 0,
+    "zero_uv_area_faces": 0,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 96
+    },
+    "errors": [],
+    "review": []
+  },
+  {
+    "id": "core:rubber_duck",
+    "triangles": 560,
+    "authored_normal_vertices": 0,
+    "duplicate_faces": 0,
+    "zero_uv_area_faces": 0,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 560
+    },
+    "errors": [],
+    "review": []
+  }
+]

@@ -2915,10 +2915,10 @@ geometry.
 
 ## 18. Lighting
 
-Places has **no dynamic lights and no realtime shadow maps**. Lighting is baked once
-per level load into a per-texel lightmap atlas (with the historical baked-vertex
-path as the exact fallback). Authors control it with fixture placement, fixture
-type, colour and brightness — there is no level- or room-wide lighting override.
+Places has **no dynamic lights and no realtime shadow maps**. The compiler prepares
+per-texel lightmap atlases and the baked-vertex fallback. Authors control lighting
+with fixtures, prop lights and global directional illuminators; material emission
+does not create illumination.
 Surface response, emission, reflections and post-processing are added on top of
 that bake; none of them is a light source (see section 11).
 
@@ -2974,10 +2974,11 @@ Two prepared-path rules keep a solved map readable, and both are automatic:
 * **Diffuse energy is integrated before encoding.** Each receiver sums
   `weight * max(dot(direction, normal), 0)` before compressing directions.
   The stored directional response is calibrated to that exact integral at
-  the geometric normal. Compression alone is not an irradiance integral:
+  the receiving normal (geometric for architecture, imported/interpolated for
+  models). Visibility origins stay on the geometric side. Compression alone is not an irradiance integral:
   opposing grazing sources must not manufacture illumination. Each bounce
   transports only the previous order; two bounces mean `D + KD + K²D`.
-  Solver revision 8 invalidates earlier atlas and package fingerprints; sky is
+  Solver revision 11 invalidates earlier atlas and package fingerprints; sky is
   injected only into the first diffuse order. Cache interpolation also tests
   visibility so one floor triangle spanning a divider cannot transfer light
   through that divider.
@@ -3000,9 +3001,104 @@ artistic pass/fail threshold; fixture emission is a separate surface term.
 captures room grids, tall ceilings, raised floors and water regions with pinned
 quality presets, package hashes, logs and loading traces.
 
+### Global directional illuminators
+
+Source format 3 accepts a bounded `global_illuminators` list (maximum eight):
+
+```json
+"global_illuminators": [{
+  "id": "moon",
+  "kind": "directional",
+  "direction": [-0.36, -0.8, -0.48],
+  "color": [0.85, 0.9, 1.0],
+  "intensity": 0.12,
+  "enabled": true,
+  "cast_shadows": true,
+  "bake": true,
+  "angular_size_degrees": 0.5
+}]
+```
+
+`direction` describes light travelling from the source into the world; negative
+Y places the source overhead. It must be finite and nonzero, and is normalized
+once. IDs must be valid and unique within this list. `color` is linear RGB in
+`0..1`; intensity is `0..8`. The full angular diameter is `0..10` degrees (zero
+is a hard source). Defaults are directional, white, intensity 1, enabled, shadow
+casting, participating in the bake, and diameter 0.5 degrees. An inactive or
+unbaked entry contributes no light; there is no realtime directional-light path.
+
+Directional sources have no radius or distance attenuation. Their visibility
+rays travel toward infinity against the same two-sided opaque geometry used by
+local lights. Water extinction and transparent-pane/cutout transmission retain
+their existing contracts. Medium/High store the direct source and its diffuse
+bounces in the base atlas and moving-object probes; Low stores the occluded
+cosine response in static vertex lighting. There is no added per-frame shadow
+pass or global-light shader loop. Keep `sky.ambient` separate: it is the existing
+diffuse dome contribution on escaping gather rays, not a directional source.
+Lantern Hollow's generator authors the example moon above without increasing
+its sky ambient; its star sheet contains no visible moon.
+
+### Sampling quality and diagnostics
+
+Gameplay Low uses vertex lighting. Medium uses nominal 12 texels/m for
+architecture, two emitter taps per axis, one diffuse order and 32 gather
+directions; High uses 16 texels/m, three emitter taps, two orders and 64 gather
+directions. Small opaque model charts use half the architecture density and
+large opaque models use one eighth; cutout charts retain 1 texel/m. Actual
+endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
+Medium integrates 2×2 receiver-footprint samples at visibility edges; High uses
+4×4. Smooth direct fields keep their centre sample. Coplanar chart joins compare
+supported neighbours in world space. Only diffuse gather energy is denoised;
+its filter crosses a chart join only with matching normals/material and an
+unoccluded connection. Atlas endpoints address texel centres, and the existing
+one/two-texel gutters cover the single-mip bilinear runtime footprint.
+
+`PLACES_LIGHTING_DUMP_DIR=<directory>` writes stage atlas PNGs, linear
+`*.rgb-f32le` buffers and chart metadata during an explicit compiler `--force`
+build. Use one directory per source and variant. Stages include direct, total
+bounced, indirect, filtered, filled, global direct, geometric and shading normals.
+`PLACES_LIGHTING_LOCAL=<emitter index>` adds one local emitter's isolated direct
+field. `emitters.json` lists emitter indices and positions.
+`PLACES_LIGHTING_RAYS=<JSON file>` accepts up to 4096 finite rays:
+`[{"origin":[0,1,0],"direction":[0,1,0],"max_distance":10}]` (distance optional).
+The report names each first opaque blocking triangle, its architecture/model
+range, corners, normal and distance. Ray inputs are validated before output.
+These exports do not alter the physical solve. There is no separate AO or
+runtime shadow-map stage to isolate.
+
+`python3 tools/levels/build_lighting_quality.py --check` verifies the deterministic
+fixture/camera source. `tools/bench/capture_lighting_quality.py` captures those
+controls and fixed production views, or benchmarks the same cameras with
+`--frames`. A preserved binary/package directory can be selected for A/B runs.
+The capture guard rejects a failed requested level even when the player falls
+back to the demo. `tools/bench/inspect_lighting_dump.py` projects a selected
+room/surface stage into world coordinates; `--stage chart-ids` and
+`--stage density` visualize chart ownership and actual endpoint density.
+It uses optional NumPy/Pillow analysis tools, outside the game's dependencies.
+`--audit --out <audit.json>` validates finite nondegenerate chart geometry,
+unit geometric normals and disjoint padded atlas reservations. It also reports
+one-sample axes and extreme world-axis ratios so small/elongated charts can be
+investigated without silently treating deliberate low-density cards as errors.
+Omit `--room` to inspect models; `--normal`, `--plane` and `--bounds` isolate
+a particular oriented face. Triangle and trapezoid projections follow the
+mesh's piecewise affine UVs. `--stage indirect` subtracts direct from bounced
+energy, and `--legacy-uv` reconstructs the previous runtime sample positions
+for an unchanged baseline export.
+
+For native device timing, attach Apple's Metal System Trace after the requested
+map has loaded. Export the `metal-gpu-intervals` and
+`metal-current-allocated-size` tables using `xctrace export`, then pass their XML
+files to `tools/bench/inspect_metal_trace.py --gpu <gpu.xml> --memory <memory.xml>
+--out <summary.json>`. Its stable window defaults to trace seconds 1 through 7.
+It reports the union of active Places GPU intervals per scene encoder, avoiding
+double counting simultaneous vertex/fragment work, and the measured Metal
+allocation. This is device occupancy per rendered frame; CPU `render_ms` only
+measures submission. Profile idle fixed-camera runs separately from compiler
+jobs and diagnostic capture/export work.
+
 ### The implemented vertex-lit lighting model
 
-Every light is a generic engine-level source: a **shape** (point, rectangle, line), a
+Each local light is a generic engine-level source: a **shape** (point, rectangle, line), a
 world position, an RGB colour, an intensity, a **range**, a **falloff** curve and an
 `enabled` flag. Visible fixtures and placed props are ordinary objects that *own* zero
 or more of these sources. Adding a new glowing object never means adding a new light

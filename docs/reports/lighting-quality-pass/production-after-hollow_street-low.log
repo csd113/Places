@@ -1,0 +1,29 @@
+[package] /Users/connordawkins/Documents/GitHub/Places (assets: /Users/connordawkins/Documents/GitHub/Places/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/assets
+[settings] quality low (saved low) [startup override] | lighting low | bloom on | reflections off [startup override] | lightmaps off | vsync off | filtering low | window Windowed 1920 x 1080
+[display] requested windowed 1920 x 1080 does not fit the display work area (1512 x 870); opening 1512 x 850 instead
+[assets] 134 placeable asset(s) of 247 catalog entries; themes: office, pool, home, outdoor
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 3024x1676
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] texture filtering: low active (trilinear + 4x anisotropy requested)
+[wgpu] present mode Immediate (immediate)
+[window] logical 1512x838 | drawable 3024x1676 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 480x266, bloom 120x66, presented 3024x1676
+[loading] package identity level=lantern_hollow variant=off sha256=10f2615cd1d2b47758c0e0e4f7669e30f2e6ad071f04880e3ce8df61b75308ca source=/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap
+[loading] compiled-cache miss level=lantern_hollow variant=off
+[wgpu] world upload: 21752 vertices, 79308 indices, 183 draws in 1 chunk(s) (neutral mesh: 21752 vertices, 79308 indices, 183 ranges)
+[wgpu] textures: 14 unique, 13 uploaded, 162 cache hits, 4 fallbacks, 0 missing of 183 draws (9087640 bytes resident, max edge 1024px, low filtering)
+[wgpu] materials: 18 resolved (0 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 176 opaque / 0 cutout / 7 translucent of 183 draws (disabled response, low level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] sky `outdoor:tex_sky_stars_01`: 512x256 uploaded
+[wgpu] characters: 20 character(s), 5 mesh(es), 39 draw(s), 72188 vertices
+[loading] committed lantern_hollow
+[props] 60 models cached (0 failed), 17077 triangles, 10608 KiB of textures, 641 draw call(s)
+[level] 21752 static vertices, 471690 prop vertices, 641 prop draw call(s), built in 0.1 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 183 static batch(es) (floor 128 / ceiling 6 / wall 41 / light 8 / prop box 0 / decal 0), 641 prop batch(es)
+[lighting] baked 54 room(s) / 54 baseline area(s) from 40 fixture(s): 74 wall + 14155 slab + 4096 prop blocker(s), baselines 0.10..0.43 (avg 0.18)
+[lightmaps] 0 page(s), 0 chart(s), 0 chart texels, 0 page texels (0 KiB), filled in 0.0 ms
+[dynamic] 8 object(s): 12 draw call(s), 4480 vertices (the demonstration path; never part of the static bake); doors: 4/4
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/hollow-after-final/hollow_street-low.png
+BENCH_SUMMARY {"level":"lantern_hollow","frames":1,"swap_interval":0,"update_mean_ms":60.367,"render_mean_ms":1.561,"swap_mean_ms":35.493,"frame_mean_ms":97.420,"loop_mean_ms":97.420,"frame_median_ms":97.420,"loop_median_ms":97.420,"frame_p95_ms":97.420,"frame_p99_ms":97.420,"loop_p95_ms":97.420,"loop_p99_ms":97.420,"frame_min_ms":97.420,"frame_max_ms":97.420,"loop_min_ms":97.420,"loop_max_ms":97.420,"fps_median":10.26,"fps_p95":10.26,"fps_p99":10.26,"fps_1pct_low":10.26,"fps_mean":10.26,"measured_fps_mean":10.26,"worst_fps":10.26,"total_vertices":497922,"visible_vertices":1282664,"culled_vertices":0,"total_batches":836,"visible_batches":782,"draw_calls":782,"vbo_bytes":31867008,"index_bytes":1541856,"texture_binds":394,"material_changes":422,"reflection_passes":0}

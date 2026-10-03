@@ -1,0 +1,513 @@
+[
+  {
+    "package": "assets/levels/lantern_hollow.placesmap",
+    "before": {
+      "bytes": 115529161,
+      "sha256": "cf94109ce18d84bb4bf2227dfdf29ff8bcc27ed26494f5931a769c242e9e2683",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 6,
+          "edge": 1024,
+          "receiver_texels": 2266333,
+          "charts": 230117,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 100663296
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 7,
+          "edge": 1024,
+          "receiver_texels": 3186452,
+          "charts": 230117,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 117440512
+        }
+      ],
+      "fingerprint": "d3222b8799048be6072cc7ec29df1260ae551baa6af1556115975aa8e4562769"
+    },
+    "after": {
+      "bytes": 113608215,
+      "sha256": "e5080258825ecf820801f8f996cfad777ea33dca79dbcbfb97d8d5d0884029e3",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 6,
+          "edge": 1024,
+          "receiver_texels": 2197340,
+          "charts": 230117,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 100663296
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 8,
+          "edge": 1024,
+          "receiver_texels": 3605717,
+          "charts": 230117,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 134217728
+        }
+      ],
+      "fingerprint": "d1ee2deabebd8abf5c3b769b42b37de8845a385c8f3bd04a9781c1ab3129dfce"
+    }
+  },
+  {
+    "package": "assets/levels/model_zoo.placesmap",
+    "before": {
+      "bytes": 82369985,
+      "sha256": "3c3eeee51ff56ff69dbbb9ffb2d50b9b3f42c8eca1458b242f71f062e3eb7085",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 6,
+          "edge": 1024,
+          "receiver_texels": 3253837,
+          "charts": 24321,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 100663296
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 7,
+          "edge": 1024,
+          "receiver_texels": 5320352,
+          "charts": 24321,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 117440512
+        }
+      ],
+      "fingerprint": "8081efbb7a3b2e6513bb6f3e413080763574a2a967c5f14791c3c21c92814c05"
+    },
+    "after": {
+      "bytes": 76001925,
+      "sha256": "be14b3e1f81922167f8e2a33e8fb5c5d18efe47e663cf4fce0aa79836aa3b7a7",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 6,
+          "edge": 1024,
+          "receiver_texels": 3027718,
+          "charts": 24321,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 100663296
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 8,
+          "edge": 1024,
+          "receiver_texels": 5334957,
+          "charts": 24321,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 134217728
+        }
+      ],
+      "fingerprint": "e498fcf7a950bcae81a91402019ba20537aa258523dda2755b227396b045add0"
+    }
+  },
+  {
+    "package": "assets/levels/movement_test.placesmap",
+    "before": {
+      "bytes": 43641558,
+      "sha256": "9f43945c0fa2e87eecff130e087bcb0b0710830f59ee6b64389e8383be0fabb5",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 3,
+          "edge": 1024,
+          "receiver_texels": 1550436,
+          "charts": 3755,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 50331648
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 5,
+          "edge": 1024,
+          "receiver_texels": 2732333,
+          "charts": 3755,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 83886080
+        }
+      ],
+      "fingerprint": "66286ff92f44d45c44871cf8ff8f7f346af7487a8bbd1c5f37f3226405dfc14d"
+    },
+    "after": {
+      "bytes": 42241756,
+      "sha256": "7df4fa7f118d1351f189ea1f3c55fa00eb6fe268cfecffe1d8d0ddffd3840777",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 3,
+          "edge": 1024,
+          "receiver_texels": 1543610,
+          "charts": 3755,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 50331648
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 5,
+          "edge": 1024,
+          "receiver_texels": 2732333,
+          "charts": 3755,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 83886080
+        }
+      ],
+      "fingerprint": "224fd24897e353c8708e19276b57221c76508db2b8f522ad28bc8f2e3f2cfb38"
+    }
+  },
+  {
+    "package": "assets/levels/places_demo.placesmap",
+    "before": {
+      "bytes": 113530470,
+      "sha256": "7f8af1750c36670d66807d9bc8fb382f84c7973269d21ba177e321330fe0ee02",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 7,
+          "edge": 1024,
+          "receiver_texels": 2577129,
+          "charts": 153410,
+          "switchable_layers": 1,
+          "resident_atlas_bytes": 234881024
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 8,
+          "edge": 1024,
+          "receiver_texels": 3657561,
+          "charts": 153410,
+          "switchable_layers": 1,
+          "resident_atlas_bytes": 268435456
+        }
+      ],
+      "fingerprint": "da0c922e88b203ce00b43e000eeb1c61dfc8c881e66793e62e8049f58937efc9"
+    },
+    "after": {
+      "bytes": 96163199,
+      "sha256": "d8a3dbcbe8d4d4b98cfec1333d797dafc10626c97e118f429a9a8133831188db",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 6,
+          "edge": 1024,
+          "receiver_texels": 2412603,
+          "charts": 153410,
+          "switchable_layers": 1,
+          "resident_atlas_bytes": 201326592
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 8,
+          "edge": 1024,
+          "receiver_texels": 3711575,
+          "charts": 153410,
+          "switchable_layers": 1,
+          "resident_atlas_bytes": 268435456
+        }
+      ],
+      "fingerprint": "352fefc53e195f544afd5f8b61ce0e141ad7fb5b085787d4313737df456494c4"
+    }
+  },
+  {
+    "package": "levels/geometry_intentional.placesmap",
+    "before": {
+      "bytes": 4080489,
+      "sha256": "2bfea4f43010cf1906545cacf7c9dd64b8b4e1f506714c9bc46b2cba2463ad0e",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 127403,
+          "charts": 277,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 224285,
+          "charts": 277,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        }
+      ],
+      "fingerprint": "4f4abce0f08a3427c8e5ee782a6b55abbfcb5b192c107c45efcd5d849f0193b7"
+    },
+    "after": {
+      "bytes": 3908449,
+      "sha256": "1b7fc8fb1e67ccdb4da6329e5ad544873d8c0cd6c1c0c592766d678839e02453",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 127403,
+          "charts": 277,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 224349,
+          "charts": 277,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        }
+      ],
+      "fingerprint": "ba565b7be3dde2fa75924f9f0589dcd6c0ae3fe46c7bc6f50a441010b6f36cef"
+    }
+  },
+  {
+    "package": "levels/home_showcase.placesmap",
+    "before": {
+      "bytes": 2232878,
+      "sha256": "708a9f5a19a539b64edee935254b0e674788b582df126db083cf8e97b8480742",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 65757,
+          "charts": 182,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 1,
+          "edge": 1024,
+          "receiver_texels": 115463,
+          "charts": 182,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 16777216
+        }
+      ],
+      "fingerprint": "022d9a43dea86f344c7611e7db84d527603b87f488e999d1010b979f34099495"
+    },
+    "after": {
+      "bytes": 3683197,
+      "sha256": "34371d27eb869253f51f5f4786b0218e743b504eceb768ce04cfe2e576cf798c",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 2,
+          "edge": 1024,
+          "receiver_texels": 107019,
+          "charts": 5437,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 33554432
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 2,
+          "edge": 1024,
+          "receiver_texels": 182930,
+          "charts": 5437,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 33554432
+        }
+      ],
+      "fingerprint": "9308cf361a6e34ac229f91f417be678577fe4224eb9ed61eb0518d0b6b5a5985"
+    }
+  },
+  {
+    "package": "levels/level0_pit.placesmap",
+    "before": {
+      "bytes": 51520560,
+      "sha256": "7acfac19ba521673caf3b5d354c5c95ecfe829a595ce0449a87d26c686632270",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 3,
+          "edge": 1024,
+          "receiver_texels": 1789683,
+          "charts": 1222,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 50331648
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 4,
+          "edge": 1024,
+          "receiver_texels": 3164268,
+          "charts": 1222,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 67108864
+        }
+      ],
+      "fingerprint": "f94c78b207b570f9258db35a2a3d8c200317fdaf39bb7b85e014e181e18e7e32"
+    },
+    "after": {
+      "bytes": 50850474,
+      "sha256": "8650e6f9f4f73c4123335cd17b0365ba5b588f33e99c28433a6e4e8ef66d92ea",
+      "variants": [
+        {
+          "quality": "off",
+          "failure": null,
+          "pages": 0,
+          "receiver_texels": 0,
+          "charts": 0,
+          "resident_atlas_bytes": 0
+        },
+        {
+          "quality": "medium",
+          "failure": null,
+          "pages": 4,
+          "edge": 1024,
+          "receiver_texels": 1982955,
+          "charts": 13708,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 67108864
+        },
+        {
+          "quality": "full",
+          "failure": null,
+          "pages": 5,
+          "edge": 1024,
+          "receiver_texels": 3481772,
+          "charts": 13708,
+          "switchable_layers": 0,
+          "resident_atlas_bytes": 83886080
+        }
+      ],
+      "fingerprint": "8585672b4be40e384550c72ccdf5003623f1b283089a867d1ea3caf982e75b8f"
+    }
+  }
+]

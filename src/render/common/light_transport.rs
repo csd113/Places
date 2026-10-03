@@ -67,6 +67,7 @@ pub fn build_transport_scene(
 ) -> Option<(TransportScene, TransportSceneStats)> {
     let mut stats = TransportSceneStats::default();
     let mut triangles: Vec<TransportTriangle> = Vec::new();
+    let mut owners = Vec::new();
     // Water bodies transmit and attenuate; the drawn surface triangles are
     // matched against the same resolved volumes the player swims in. A dry
     // level must not pay for the floor resolution the water emitter also skips.
@@ -75,8 +76,15 @@ pub fn build_transport_scene(
     } else {
         WaterVolumes::from_level(level)
     };
-    append_architecture_triangles(mesh, materials, &water, &mut triangles, &mut stats);
-    append_prop_triangles(batches, &mut triangles, &mut stats);
+    append_architecture_triangles(
+        mesh,
+        materials,
+        &water,
+        &mut triangles,
+        &mut stats,
+        &mut owners,
+    );
+    append_prop_triangles(batches, &mut triangles, &mut stats, &mut owners);
 
     let mut emitters: Vec<TransportEmitter> = Vec::new();
     let switchable = switchable_lights(level, lighting);
@@ -109,6 +117,16 @@ pub fn build_transport_scene(
         .with_receiver_target(receiver_targets(lighting, charts))
         .with_probe_target(probe_targets(lighting, charts))
         .with_sky(sky_radiance(level));
+    let scene = scene.with_global_lights(
+        level
+            .global_illuminators
+            .iter()
+            .filter_map(crate::lighting::directional::DirectionalLight::from_definition)
+            .collect(),
+    );
+    if let Err(error) = crate::lighting::transport::diagnostics::dump_scene(&scene, &owners) {
+        crate::logging::warn(format_args!("[lighting-diagnostics] {error}"));
+    }
     Some((scene, stats))
 }
 
@@ -226,6 +244,7 @@ fn append_architecture_triangles(
     water: &WaterVolumes,
     triangles: &mut Vec<TransportTriangle>,
     stats: &mut TransportSceneStats,
+    owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
     for range in &mesh.ranges {
         // Decals are a visual overlay, and fixture geometry is the analytic
@@ -236,6 +255,7 @@ fn append_architecture_triangles(
         if matches!(range.key.kind, SurfaceKind::Decal | SurfaceKind::Light) {
             continue;
         }
+        let first = triangles.len();
         let material = material_albedo(materials, range.key.material);
         let material_id = material_id(materials, range.key.material);
         // Architecture panes the renderer draws as blend/cutout (glass,
@@ -266,6 +286,17 @@ fn append_architecture_triangles(
                 None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
             }
         }
+        if crate::lighting::transport::diagnostics::enabled() {
+            owners.push(crate::lighting::transport::diagnostics::CasterRange {
+                first,
+                end: triangles.len(),
+                owner: format!(
+                    "architecture:{:?}:{}",
+                    range.key.kind,
+                    material_id.unwrap_or("untextured")
+                ),
+            });
+        }
     }
 }
 
@@ -276,8 +307,10 @@ fn append_prop_triangles(
     batches: &[PropMeshBatch],
     triangles: &mut Vec<TransportTriangle>,
     stats: &mut TransportSceneStats,
+    owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
     for batch in batches {
+        let first = triangles.len();
         for submesh in &batch.submeshes {
             // Static batches support MASK; BLEND is an opaque fallback on
             // this draw route, so it must retain its existing solid behavior.
@@ -308,10 +341,21 @@ fn append_prop_triangles(
                 };
                 let albedo = triangle_albedo([1.0; 3], va, vb, vc, image);
                 match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
-                    Some(triangle) => triangles.push(triangle.with_transmissive(transmissive)),
+                    Some(triangle) => triangles.push(
+                        triangle
+                            .with_shading_normals([va.normal, vb.normal, vc.normal])
+                            .with_transmissive(transmissive),
+                    ),
                     None => stats.skipped_triangles = stats.skipped_triangles.saturating_add(1),
                 }
             }
+        }
+        if crate::lighting::transport::diagnostics::enabled() {
+            owners.push(crate::lighting::transport::diagnostics::CasterRange {
+                first,
+                end: triangles.len(),
+                owner: format!("model:{}", batch.model),
+            });
         }
     }
 }
@@ -571,6 +615,7 @@ mod tests {
                 &[batch],
                 &mut triangles,
                 &mut TransportSceneStats::default(),
+                &mut Vec::new(),
             );
             assert_eq!(triangles.len(), 2);
             let scene = TransportScene::new(triangles, Vec::new()).expect("scene");

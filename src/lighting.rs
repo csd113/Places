@@ -134,6 +134,7 @@
 
 mod bake;
 mod color;
+pub mod directional;
 mod light;
 pub mod lightmap;
 pub mod probes;

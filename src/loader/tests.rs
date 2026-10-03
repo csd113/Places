@@ -26,6 +26,7 @@ use crate::test_support::{assert_exact, assert_exact_array};
 fn test_validate_level_success() {
     let level = LevelDef {
         sky: None,
+        global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -102,6 +103,7 @@ fn test_validate_level_success() {
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
         sky: None,
+        global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -208,6 +210,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
         sky: None,
+        global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -341,6 +344,7 @@ fn test_parse_materials_json() {
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
         sky: None,
+        global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),
@@ -4714,8 +4718,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 2,
-        "the current geometry revision is documented as 2"
+        revision, 3,
+        "the current geometry revision is documented as 3"
     );
 }
 

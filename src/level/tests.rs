@@ -180,6 +180,7 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
     // Direct construction with absurd dimensions must not overflow or panic.
     let level = LevelDef {
         sky: None,
+        global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
         routes: Vec::new(),

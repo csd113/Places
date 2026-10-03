@@ -311,6 +311,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_element_limits(level)?;
     validate_materials(level)?;
     validate_sky(level)?;
+    validate_global_illuminators(level)?;
     validate_rooms(level)?;
     validate_surface_shine(level)?;
     validate_floor_regions(level)?;
@@ -494,12 +495,26 @@ fn validate_void_walls(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// The optional sky: a well-formed texture id, a bounded brightness and a
-/// bounded ambient radiance.
-///
-/// The id is checked for shape only; whether the catalog actually declares it
-/// is a load-time resolution decision (an unknown id warns and draws no sky,
-/// like every other unresolved reference).
+/// Validate the bounded global-light list and its independent ID namespace.
+fn validate_global_illuminators(level: &LevelDef) -> Result<(), String> {
+    if level.global_illuminators.len() > crate::level::MAX_GLOBAL_ILLUMINATORS {
+        return Err(format!(
+            "level may declare at most {} global illuminators",
+            crate::level::MAX_GLOBAL_ILLUMINATORS
+        ));
+    }
+    let mut ids = std::collections::HashSet::new();
+    for light in &level.global_illuminators {
+        light.validate()?;
+        if !ids.insert(&light.id) {
+            return Err(format!("duplicate global illuminator id `{}`", light.id));
+        }
+    }
+    Ok(())
+}
+
+/// The optional sky: a well-formed texture id and bounded brightness/radiance.
+/// Catalog resolution is a load-time decision, like other texture references.
 fn validate_sky(level: &LevelDef) -> Result<(), String> {
     let Some(sky) = &level.sky else {
         return Ok(());

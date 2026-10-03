@@ -1072,7 +1072,7 @@ impl<'a> Doc<'a> {
             None => self.default_material_index,
         };
         let resolved = self.resolve_material(material)?;
-        let local_indices = primitive_indices(self.json, self.binary, primitive, vertex_count)?;
+        let mut local_indices = primitive_indices(self.json, self.binary, primitive, vertex_count)?;
         if local_indices.is_empty() {
             return Ok(target_count);
         }
@@ -1080,6 +1080,14 @@ impl<'a> Doc<'a> {
             return Err(GltfError::new(
                 "index count is not a multiple of three; props must be triangle lists",
             ));
+        }
+        // A reflected static node reverses the triangle cross product while
+        // inverse-transpose normals retain the outward side. Keep winding,
+        // culling and the visibility origin on that same outward side.
+        if request.node_skin.is_none() && request.transform.determinant() < 0.0 {
+            for triangle in local_indices.as_chunks_mut::<3>().0 {
+                triangle.swap(1, 2);
+            }
         }
         let index_count = u32::try_from(local_indices.len())
             .map_err(|_| GltfError::new("primitive index count does not fit in 32 bits"))?;

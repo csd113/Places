@@ -1,0 +1,267 @@
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Rgba8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[lightmaps] 'lighting_quality' left 1 sub-texel sliver quad(s) vertex-lit
+[lightmaps] transport scene triangles=4011 (0 skipped) emitters=17 (0 switchable)
+[compile-timing] quality=full legacy_lighting_ms=3.902 prop_geometry_and_charts_ms=8.205 architecture_and_charts_ms=3.130
+[lightmaps] transport workers=12 charts=3683 bounces=2 taps=3
+[transport-audit] stage=direct room=None kind=Prop mean=0.010261 peak=0.293655 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=None kind=Wall mean=0.000003 peak=0.000123 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Floor mean=0.130725 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(0) kind=Wall mean=0.043092 peak=0.184686 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Floor mean=0.130725 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(1) kind=Wall mean=0.043192 peak=0.184689 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(10) kind=Ceiling mean=0.001099 peak=0.093798 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(10) kind=Floor mean=0.114376 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(10) kind=Wall mean=0.039403 peak=0.245849 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(11) kind=Ceiling mean=0.001207 peak=0.112262 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(11) kind=Floor mean=0.132196 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(11) kind=Wall mean=0.038281 peak=0.245850 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(12) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(12) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(12) kind=Wall mean=0.000197 peak=0.003411 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(13) kind=Ceiling mean=0.001208 peak=0.112285 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(13) kind=Floor mean=0.132196 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(13) kind=Wall mean=0.041131 peak=0.245850 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(14) kind=Floor mean=0.100108 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(15) kind=Floor mean=0.108364 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(15) kind=Wall mean=0.033821 peak=0.284010 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(16) kind=Floor mean=0.127036 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(16) kind=Wall mean=0.040930 peak=0.184687 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(17) kind=Floor mean=0.123699 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(18) kind=Floor mean=0.130101 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(19) kind=Floor mean=0.000569 peak=0.017178 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Floor mean=0.130725 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(2) kind=Wall mean=0.039257 peak=0.184687 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(20) kind=Floor mean=0.088573 peak=0.311959 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(20) kind=Skirt mean=0.000819 peak=0.007636 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(3) kind=Floor mean=0.130161 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(3) kind=Wall mean=0.043061 peak=0.184678 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(4) kind=Floor mean=0.130673 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(4) kind=Wall mean=0.042065 peak=0.184684 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(5) kind=Floor mean=0.130672 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(5) kind=Wall mean=0.042065 peak=0.184684 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(6) kind=Floor mean=0.125529 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(6) kind=Wall mean=0.044232 peak=0.218334 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(7) kind=Floor mean=0.114771 peak=0.311938 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(7) kind=Wall mean=0.049665 peak=0.255396 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(8) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(8) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(8) kind=Wall mean=0.000050 peak=0.001340 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(9) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(9) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=direct room=Some(9) kind=Wall mean=0.001826 peak=0.015888 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=None kind=Prop mean=0.021531 peak=0.321320 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=None kind=Wall mean=0.008245 peak=0.129925 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Floor mean=0.149909 peak=0.334510 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(0) kind=Wall mean=0.073810 peak=0.267838 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Floor mean=0.150615 peak=0.335671 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(1) kind=Wall mean=0.074804 peak=0.269177 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(10) kind=Ceiling mean=0.146786 peak=0.375921 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(10) kind=Floor mean=0.225547 peak=0.518016 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(10) kind=Wall mean=0.118347 peak=0.501841 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(11) kind=Ceiling mean=0.179058 peak=0.374237 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(11) kind=Floor mean=0.267228 peak=0.499096 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(11) kind=Wall mean=0.116837 peak=0.457036 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(12) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(12) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(12) kind=Wall mean=0.006442 peak=0.051128 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(13) kind=Ceiling mean=0.179058 peak=0.374260 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(13) kind=Floor mean=0.267274 peak=0.499096 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(13) kind=Wall mean=0.119793 peak=0.457036 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(14) kind=Floor mean=0.103603 peak=0.319722 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(15) kind=Floor mean=0.115660 peak=0.376238 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(15) kind=Wall mean=0.076032 peak=0.284449 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(16) kind=Floor mean=0.141135 peak=0.332513 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(16) kind=Wall mean=0.065309 peak=0.265971 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(17) kind=Floor mean=0.125629 peak=0.316424 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(18) kind=Floor mean=0.131558 peak=0.312530 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(19) kind=Floor mean=0.001530 peak=0.018428 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Floor mean=0.150666 peak=0.335947 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(2) kind=Wall mean=0.068084 peak=0.269742 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(20) kind=Floor mean=0.089490 peak=0.312775 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(20) kind=Skirt mean=0.027788 peak=0.196277 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(3) kind=Floor mean=0.148944 peak=0.334857 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(3) kind=Wall mean=0.072970 peak=0.273149 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(4) kind=Floor mean=0.147973 peak=0.330275 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(4) kind=Wall mean=0.081754 peak=0.266907 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(5) kind=Floor mean=0.149763 peak=0.332195 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(5) kind=Wall mean=0.085041 peak=0.270069 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(6) kind=Floor mean=0.146009 peak=0.345833 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(6) kind=Wall mean=0.089731 peak=0.298537 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(7) kind=Floor mean=0.139059 peak=0.362811 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(7) kind=Wall mean=0.104184 peak=0.347385 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(8) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(8) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(8) kind=Wall mean=0.004212 peak=0.040506 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(9) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(9) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=bounced room=Some(9) kind=Wall mean=0.010370 peak=0.071643 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Prop mean=0.011269 peak=0.274391 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=None kind=Wall mean=0.008242 peak=0.129925 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Floor mean=0.019184 peak=0.107827 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(0) kind=Wall mean=0.030718 peak=0.125164 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Floor mean=0.019890 peak=0.108129 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(1) kind=Wall mean=0.031612 peak=0.125781 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(10) kind=Ceiling mean=0.145687 peak=0.311804 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(10) kind=Floor mean=0.111171 peak=0.253368 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(10) kind=Wall mean=0.078944 peak=0.299720 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(11) kind=Ceiling mean=0.177850 peak=0.289379 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(11) kind=Floor mean=0.135032 peak=0.232335 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(11) kind=Wall mean=0.078558 peak=0.259737 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(12) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(12) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(12) kind=Wall mean=0.006245 peak=0.049903 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(13) kind=Ceiling mean=0.177850 peak=0.289379 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(13) kind=Floor mean=0.135078 peak=0.232335 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(13) kind=Wall mean=0.078662 peak=0.259738 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(14) kind=Floor mean=0.003495 peak=0.019471 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(15) kind=Floor mean=0.007296 peak=0.085013 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(15) kind=Wall mean=0.042211 peak=0.193982 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(16) kind=Floor mean=0.014099 peak=0.106915 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(16) kind=Wall mean=0.024380 peak=0.121599 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(17) kind=Floor mean=0.001930 peak=0.026795 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(18) kind=Floor mean=0.001458 peak=0.108948 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(19) kind=Floor mean=0.000961 peak=0.002211 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Floor mean=0.019941 peak=0.109423 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(2) kind=Wall mean=0.028826 peak=0.125643 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(20) kind=Floor mean=0.000917 peak=0.002465 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(20) kind=Skirt mean=0.026969 peak=0.188669 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(3) kind=Floor mean=0.018783 peak=0.107822 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(3) kind=Wall mean=0.029908 peak=0.124668 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(4) kind=Floor mean=0.017299 peak=0.107836 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(4) kind=Wall mean=0.039689 peak=0.123956 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(5) kind=Floor mean=0.019090 peak=0.109102 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(5) kind=Wall mean=0.042976 peak=0.126675 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(6) kind=Floor mean=0.020479 peak=0.124942 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(6) kind=Wall mean=0.045499 peak=0.153048 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(7) kind=Floor mean=0.024288 peak=0.141248 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(7) kind=Wall mean=0.054520 peak=0.208317 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(8) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(8) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(8) kind=Wall mean=0.004162 peak=0.040506 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(9) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(9) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=indirect room=Some(9) kind=Wall mean=0.008544 peak=0.055756 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Prop mean=0.021525 peak=0.321320 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=None kind=Wall mean=0.008247 peak=0.122293 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Floor mean=0.149905 peak=0.333618 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(0) kind=Wall mean=0.073811 peak=0.267217 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Floor mean=0.150611 peak=0.334775 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(1) kind=Wall mean=0.074806 peak=0.268888 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(10) kind=Ceiling mean=0.146788 peak=0.376160 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(10) kind=Floor mean=0.225552 peak=0.516916 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(10) kind=Wall mean=0.118350 peak=0.499958 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(11) kind=Ceiling mean=0.179060 peak=0.374321 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(11) kind=Floor mean=0.267229 peak=0.498242 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(11) kind=Wall mean=0.116840 peak=0.456696 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(12) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(12) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(12) kind=Wall mean=0.006442 peak=0.051011 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(13) kind=Ceiling mean=0.179060 peak=0.374343 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(13) kind=Floor mean=0.267275 peak=0.498242 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(13) kind=Wall mean=0.119795 peak=0.456696 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(14) kind=Floor mean=0.103602 peak=0.319407 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(15) kind=Floor mean=0.115655 peak=0.374766 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(15) kind=Wall mean=0.076030 peak=0.284448 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(16) kind=Floor mean=0.141132 peak=0.331695 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(16) kind=Wall mean=0.065307 peak=0.265628 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(17) kind=Floor mean=0.125628 peak=0.315300 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(18) kind=Floor mean=0.131556 peak=0.312485 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(19) kind=Floor mean=0.001530 peak=0.018429 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Floor mean=0.150663 peak=0.335007 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(2) kind=Wall mean=0.068085 peak=0.268695 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(20) kind=Floor mean=0.089490 peak=0.312765 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(20) kind=Skirt mean=0.027786 peak=0.196118 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(3) kind=Floor mean=0.148941 peak=0.333940 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(3) kind=Wall mean=0.072970 peak=0.272754 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(4) kind=Floor mean=0.147970 peak=0.329105 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(4) kind=Wall mean=0.081755 peak=0.266167 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(5) kind=Floor mean=0.149759 peak=0.331131 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(5) kind=Wall mean=0.085042 peak=0.269218 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(6) kind=Floor mean=0.146006 peak=0.344757 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(6) kind=Wall mean=0.089733 peak=0.297302 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(7) kind=Floor mean=0.139055 peak=0.361255 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(7) kind=Wall mean=0.104188 peak=0.346953 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(8) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(8) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(8) kind=Wall mean=0.004213 peak=0.039542 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(9) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(9) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filtered room=Some(9) kind=Wall mean=0.010370 peak=0.071100 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Prop mean=0.021525 peak=0.321320 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=None kind=Wall mean=0.008446 peak=0.210284 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Floor mean=0.227411 peak=0.464624 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(0) kind=Wall mean=0.092890 peak=0.322890 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Floor mean=0.227858 peak=0.465380 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(1) kind=Wall mean=0.093714 peak=0.324072 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(10) kind=Ceiling mean=0.209879 peak=0.520944 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(10) kind=Floor mean=0.265278 peak=0.617123 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(10) kind=Wall mean=0.131329 peak=0.552736 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(11) kind=Ceiling mean=0.251038 peak=0.492308 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(11) kind=Floor mean=0.310514 peak=0.579033 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(11) kind=Wall mean=0.125697 peak=0.502841 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(12) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(12) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(12) kind=Wall mean=0.006442 peak=0.051011 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(13) kind=Ceiling mean=0.251053 peak=0.492323 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(13) kind=Floor mean=0.310536 peak=0.579033 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(13) kind=Wall mean=0.129595 peak=0.502841 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(14) kind=Floor mean=0.167440 peak=0.456133 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(15) kind=Floor mean=0.183782 peak=0.491309 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(15) kind=Wall mean=0.118112 peak=0.432719 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(16) kind=Floor mean=0.217245 peak=0.463369 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(16) kind=Wall mean=0.084261 peak=0.321769 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(17) kind=Floor mean=0.205180 peak=0.453476 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(18) kind=Floor mean=0.215849 peak=0.451663 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(19) kind=Floor mean=0.001530 peak=0.018429 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Floor mean=0.227888 peak=0.465532 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(2) kind=Wall mean=0.087974 peak=0.323936 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(20) kind=Floor mean=0.146680 peak=0.451843 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(20) kind=Skirt mean=0.049384 peak=0.376551 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(3) kind=Floor mean=0.226191 peak=0.464835 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(3) kind=Wall mean=0.092179 peak=0.326816 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(4) kind=Floor mean=0.226158 peak=0.462361 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(4) kind=Wall mean=0.101649 peak=0.322149 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(5) kind=Floor mean=0.227287 peak=0.463735 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(5) kind=Wall mean=0.104545 peak=0.324306 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(6) kind=Floor mean=0.219169 peak=0.472573 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(6) kind=Wall mean=0.113195 peak=0.368686 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(7) kind=Floor mean=0.201997 peak=0.482070 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(7) kind=Wall mean=0.135619 peak=0.429726 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(8) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(8) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(8) kind=Wall mean=0.004213 peak=0.039542 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(9) kind=Ceiling mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(9) kind=Floor mean=0.000000 peak=0.000000 shoulder_fraction=0.000000
+[transport-audit] stage=filled room=Some(9) kind=Wall mean=0.010370 peak=0.071100 shoulder_fraction=0.000000
+[transport-timing] base=true taps=3 bounces=2 receivers_ms=154.359 direct_visibility_ms=375.557 indirect_ms=10659.776 probes_ms=36.900 filter_ms=586.387 fill_ms=139.836
+[lightmap-timing] atlas_assembly_ms=8.911
+[lightmaps] irradiance field probes=4060 valid=848
+{
+  "source": "/Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/sources/lighting_quality_local.json",
+  "out": "/Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/performance-final/bake-after-full-2.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "full"
+  ],
+  "bytes": 7181491,
+  "millis": 12461.956167,
+  "warnings": [],
+  "fingerprint": "98ba792ca9769c6e5fc4d8b4afea57aada9574899c6bdcbdc5adc6eda0e618ad",
+  "variant_stats": [
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 61,
+      "mesh_vertices": 2881,
+      "prop_batches": 11,
+      "lightmap_pages": 2,
+      "lightmap_charts": 3683,
+      "irradiance_probes": 4060,
+      "probe_points": 0,
+      "wall_boxes": 438,
+      "navigation_cells": 21911,
+      "navigation_regions": 20
+    }
+  ]
+}

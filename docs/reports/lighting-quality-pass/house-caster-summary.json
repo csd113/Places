@@ -1,0 +1,40 @@
+{
+  "rays": 1482,
+  "valid_floor_rays": 1452,
+  "houses": {
+    "0": 363,
+    "1": 363,
+    "2": 363,
+    "3": 363
+  },
+  "floor_blockers": {
+    "architecture:Ceiling:home:ceiling_white_01": 476,
+    "None": 500,
+    "architecture:Wall:home:wallpaper_pattern_01": 268,
+    "model:core/props/models/couch.glb": 24,
+    "model:environment/home/props/models/cabinet_wall.glb": 8,
+    "model:environment/home/props/models/cabinet_base.glb": 8,
+    "model:core/props/models/sink.glb": 20,
+    "model:core/props/models/fridge.glb": 8,
+    "model:core/props/models/table.glb": 48,
+    "model:core/props/models/bookshelf.glb": 24,
+    "model:core/props/models/armchair.glb": 16,
+    "model:core/props/models/bed.glb": 32,
+    "model:environment/office/props/models/cabinet.glb": 20
+  },
+  "roof_hits": 0,
+  "flagged_fridge_rays": 30,
+  "fridge_triangles": {
+    "12667": 8,
+    "12630": 2,
+    "12651": 1,
+    "12650": 1,
+    "12678": 8,
+    "12635": 4,
+    "12634": 2,
+    "12643": 2,
+    "12666": 2
+  },
+  "fridge_distance_min": 0.007723994,
+  "fridge_distance_max": 0.040448226
+}

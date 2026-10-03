@@ -1,0 +1,30 @@
+[package] /Users/connordawkins/Documents/GitHub/Places (assets: /Users/connordawkins/Documents/GitHub/Places/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/assets
+[settings] quality medium (saved medium) [startup override] | lighting medium | bloom on | reflections off [startup override] | lightmaps medium | vsync off | filtering medium | window Windowed 1920 x 1080
+[display] requested windowed 1920 x 1080 does not fit the display work area (1512 x 870); opening 1512 x 850 instead
+[assets] 134 placeable asset(s) of 247 catalog entries; themes: office, pool, home, outdoor
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 3024x1676
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] texture filtering: medium active (trilinear + 8x anisotropy requested)
+[wgpu] present mode Immediate (immediate)
+[window] logical 1512x838 | drawable 3024x1676 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 1512x838, bloom 378x209, presented 3024x1676
+[loading] package identity level=lantern_hollow variant=medium sha256=10f2615cd1d2b47758c0e0e4f7669e30f2e6ad071f04880e3ce8df61b75308ca source=/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.placesmap
+[loading] compiled-cache miss level=lantern_hollow variant=medium
+[lightmaps] atlas array: 6 page(s) in 12 layer(s), 1024-texel edge, 100663296 bytes resident
+[wgpu] world upload: 9869 vertices, 15102 indices, 158 draws in 1 chunk(s) (neutral mesh: 9869 vertices, 15102 indices, 158 ranges)
+[wgpu] textures: 14 unique, 13 uploaded, 137 cache hits, 4 fallbacks, 0 missing of 158 draws (23767704 bytes resident, max edge 1024px, medium filtering)
+[wgpu] materials: 18 resolved (6 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 151 opaque / 0 cutout / 7 translucent of 158 draws (enabled response, medium level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] sky `outdoor:tex_sky_stars_01`: 1024x512 uploaded
+[wgpu] characters: 20 character(s), 5 mesh(es), 39 draw(s), 72188 vertices
+[loading] committed lantern_hollow
+[props] 60 models cached (0 failed), 17077 triangles, 10608 KiB of textures, 641 draw call(s)
+[level] 9869 static vertices, 683616 prop vertices, 641 prop draw call(s), built in 0.2 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 158 static batch(es) (floor 103 / ceiling 6 / wall 41 / light 8 / prop box 0 / decal 0), 641 prop batch(es)
+[lighting] baked 54 room(s) / 54 baseline area(s) from 40 fixture(s): 74 wall + 14155 slab + 4096 prop blocker(s), baselines 0.10..0.43 (avg 0.18)
+[lightmaps] 6 page(s), 230117 chart(s), 2197340 chart texels, 6291456 page texels (98304 KiB), filled in 0.0 ms
+[dynamic] 8 object(s): 12 draw call(s), 4480 vertices (the demonstration path; never part of the static bake); doors: 4/4
+BENCH_SUMMARY {"level":"lantern_hollow","frames":1200,"swap_interval":0,"update_mean_ms":1.472,"render_mean_ms":0.669,"swap_mean_ms":0.000,"frame_mean_ms":2.142,"loop_mean_ms":2.238,"frame_median_ms":2.140,"loop_median_ms":2.236,"frame_p95_ms":2.203,"frame_p99_ms":2.320,"loop_p95_ms":2.302,"loop_p99_ms":2.411,"frame_min_ms":1.964,"frame_max_ms":2.969,"loop_min_ms":2.058,"loop_max_ms":3.080,"fps_median":447.21,"fps_p95":434.42,"fps_p99":414.79,"fps_1pct_low":414.79,"fps_mean":446.75,"measured_fps_mean":466.92,"worst_fps":324.66,"total_vertices":697965,"visible_vertices":1781607,"culled_vertices":0,"total_batches":811,"visible_batches":761,"draw_calls":761,"vbo_bytes":44669760,"index_bytes":1412988,"texture_binds":394,"material_changes":422,"reflection_passes":0}
+BENCH_SUMMARY {"level":"lantern_hollow","frames":1200,"swap_interval":0,"update_mean_ms":1.472,"render_mean_ms":0.669,"swap_mean_ms":0.000,"frame_mean_ms":2.142,"loop_mean_ms":2.238,"frame_median_ms":2.140,"loop_median_ms":2.236,"frame_p95_ms":2.203,"frame_p99_ms":2.320,"loop_p95_ms":2.302,"loop_p99_ms":2.411,"frame_min_ms":1.964,"frame_max_ms":2.969,"loop_min_ms":2.058,"loop_max_ms":3.080,"fps_median":447.21,"fps_p95":434.42,"fps_p99":414.79,"fps_1pct_low":414.79,"fps_mean":446.75,"measured_fps_mean":466.92,"worst_fps":324.66,"total_vertices":697965,"visible_vertices":1781607,"culled_vertices":0,"total_batches":811,"visible_batches":761,"draw_calls":761,"vbo_bytes":44669760,"index_bytes":1412988,"texture_binds":394,"material_changes":422,"reflection_passes":0}

@@ -568,6 +568,7 @@ fn bake_request_with_workers(
         request.probe_bake,
     )?;
     let solution = solve.solution;
+    let atlas_started = std::time::Instant::now();
     let base: Vec<Vec<LightmapTexel>> = solution
         .charts
         .iter()
@@ -591,6 +592,10 @@ fn bake_request_with_workers(
             pages,
         });
     }
+    crate::logging::info(format_args!(
+        "[lightmap-timing] atlas_assembly_ms={:.3}",
+        elapsed_millis(atlas_started)
+    ));
     let mut texels = 0usize;
     for (_, chart) in &request.charts {
         let width = usize::try_from(chart.width).unwrap_or(0);

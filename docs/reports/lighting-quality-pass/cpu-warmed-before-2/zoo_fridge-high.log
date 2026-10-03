@@ -1,0 +1,28 @@
+[package] /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/performance-final/cpu-before-0/package-root (assets: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/performance-final/cpu-before-0/package-root/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/performance-final/cpu-before-0/package-root/assets
+[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections off [startup override] | lightmaps full | vsync off | filtering high | window Windowed 1920 x 1080
+[display] requested windowed 1920 x 1080 does not fit the display work area (1512 x 870); opening 1512 x 850 instead
+[assets] 134 placeable asset(s) of 247 catalog entries; themes: office, pool, home, outdoor
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 3024x1676
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] present mode Immediate (immediate)
+[window] logical 1512x838 | drawable 3024x1676 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 3024x1676, bloom 756x419, presented 3024x1676
+[loading] package identity level=model_zoo variant=full sha256=8668c2bb3b9f40c978db0af963c9f6fdd95d207f0bc216d2e10b6e440b771690 source=/Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/performance-final/cpu-before-0/package-root/assets/levels/model_zoo.placesmap
+[loading] compiled-cache miss level=model_zoo variant=full
+[lightmaps] atlas array: 7 page(s) in 14 layer(s), 1024-texel edge, 117440512 bytes resident
+[wgpu] world upload: 24186 vertices, 53244 indices, 98 draws in 1 chunk(s) (neutral mesh: 24210 vertices, 53280 indices, 102 ranges)
+[wgpu] textures: 6 unique, 5 uploaded, 29 cache hits, 32 fallbacks, 0 missing of 98 draws (37748728 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 8 resolved (5 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 97 opaque / 0 cutout / 1 translucent of 98 draws (enabled response, high level)
+[wgpu] decals: 4 draw(s), 1 chunk(s), 3 sheet(s) (2 external, 0 diagnostic)
+[wgpu] characters: 19 character(s), 10 mesh(es), 36 draw(s), 54040 vertices
+[loading] committed model_zoo
+[props] 134 models cached (0 failed), 35481 triangles, 24484 KiB of textures, 148 draw call(s)
+[level] 24210 static vertices, 72444 prop vertices, 148 prop draw call(s), built in 0.1 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 98 static batch(es) (floor 7 / ceiling 3 / wall 24 / light 64 / prop box 0 / decal 0), 148 prop batch(es)
+[lighting] baked 1 room(s) / 1 baseline area(s) from 292 fixture(s): 710 wall + 197 slab + 1338 prop blocker(s), baselines 0.39..0.39 (avg 0.39)
+[lightmaps] 7 page(s), 24321 chart(s), 5320352 chart texels, 7340032 page texels (114688 KiB), filled in 0.0 ms
+[dynamic] 1 object(s): 1 draw call(s), 1248 vertices (the demonstration path; never part of the static bake); doors: 0/0
+BENCH_SUMMARY {"level":"model_zoo","frames":1200,"swap_interval":0,"update_mean_ms":1.141,"render_mean_ms":0.263,"swap_mean_ms":0.000,"frame_mean_ms":1.404,"loop_mean_ms":1.517,"frame_median_ms":1.361,"loop_median_ms":1.474,"frame_p95_ms":1.854,"frame_p99_ms":1.982,"loop_p95_ms":1.968,"loop_p99_ms":2.093,"frame_min_ms":1.165,"frame_max_ms":2.083,"loop_min_ms":1.265,"loop_max_ms":2.188,"fps_median":678.46,"fps_p95":508.17,"fps_p99":477.77,"fps_1pct_low":477.77,"fps_mean":659.41,"measured_fps_mean":712.17,"worst_fps":457.12,"total_vertices":97878,"visible_vertices":9602,"culled_vertices":88276,"total_batches":247,"visible_batches":25,"draw_calls":25,"vbo_bytes":6264192,"index_bytes":254736,"texture_binds":17,"material_changes":17,"reflection_passes":0}
+BENCH_SUMMARY {"level":"model_zoo","frames":1200,"swap_interval":0,"update_mean_ms":1.141,"render_mean_ms":0.263,"swap_mean_ms":0.000,"frame_mean_ms":1.404,"loop_mean_ms":1.517,"frame_median_ms":1.361,"loop_median_ms":1.474,"frame_p95_ms":1.854,"frame_p99_ms":1.982,"loop_p95_ms":1.968,"loop_p99_ms":2.093,"frame_min_ms":1.165,"frame_max_ms":2.083,"loop_min_ms":1.265,"loop_max_ms":2.188,"fps_median":678.46,"fps_p95":508.17,"fps_p99":477.77,"fps_1pct_low":477.77,"fps_mean":659.41,"measured_fps_mean":712.17,"worst_fps":457.12,"total_vertices":97878,"visible_vertices":9602,"culled_vertices":88276,"total_batches":247,"visible_batches":25,"draw_calls":25,"vbo_bytes":6264192,"index_bytes":254736,"texture_binds":17,"material_changes":17,"reflection_passes":0}

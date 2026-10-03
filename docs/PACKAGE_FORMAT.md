@@ -227,6 +227,13 @@ The complete `LevelLighting` bake: rooms, baselines, powered zones, resolved
 lights, opening blends, room-to-light candidate lists, fixture-to-light
 mapping, the sampling-tap count and the built static visibility set (wall,
 ceiling/floor and prop occluders plus each query site's reachable-solid pool).
+The compiled lighting record is version 2. Immediately after the local-light
+list it stores a `u8` global count (maximum eight), then each active/baked
+directional source: normalized incoming XYZ and RGB (`f32` triples), intensity
+(`f32`), shadow flag (`bool8`), and angular radius in radians (`f32`). The reader
+validates finite unit directions and bounded energy/angle. Atlas layout version
+13 and transport revision 11 invalidate earlier prepared lighting identities;
+the source map remains format 3.
 The player keeps this record resident because three legitimate runtime
 behaviours read it:
 

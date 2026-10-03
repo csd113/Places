@@ -103,6 +103,31 @@ use crate::package::binary::{Reader, Writer, finite3, finite4};
 /// the wall-boundary leak the nudge's documentation warns about cannot return.
 const SEGMENT_CLIP_EPS: f32 = 1.0e-5;
 
+fn directional_box_hit(
+    origin: [f32; 3],
+    direction: [f32; 3],
+    min: [f32; 3],
+    max: [f32; 3],
+) -> bool {
+    let mut enter = 0.0_f64;
+    let mut exit = f64::INFINITY;
+    for (((p, d), min), max) in origin.into_iter().zip(direction).zip(min).zip(max) {
+        let p = f64::from(p);
+        let d = f64::from(d);
+        if d == 0.0 {
+            if p < f64::from(min) || p > f64::from(max) {
+                return false;
+            }
+        } else {
+            let a = (f64::from(min) - p) / d;
+            let b = (f64::from(max) - p) / d;
+            enter = enter.max(a.min(b));
+            exit = exit.min(a.max(b));
+        }
+    }
+    enter < exit && exit > 0.0
+}
+
 /// How far a segment's start point is pushed along its own direction before the
 /// slab clip runs, in metres.
 ///
@@ -1634,6 +1659,9 @@ fn append_ceiling_bodies(
     surfaces: &LevelSurfaces<'_>,
     room: &RoomDef,
 ) {
+    if room.ceiling.is_open() {
+        return;
+    }
     let (xs, zs) = surfaces.ceiling_grid(room);
     if room.ceiling.is_flat() {
         let (x0, x1, z0, z1) = room.bounds();
@@ -2258,6 +2286,49 @@ impl Visibility {
     #[must_use]
     pub fn occludes_anywhere(&self, from: [f32; 3], to: [f32; 3]) -> bool {
         self.occluders.blocks(from, to)
+    }
+
+    /// Infinite directional visibility for the vertex bake. Unlike a segment,
+    /// its precision tolerance cannot grow with an artificial source distance.
+    #[must_use]
+    pub fn occludes_direction(&self, origin: [f32; 3], direction: [f32; 3]) -> bool {
+        if !origin.iter().chain(&direction).all(|v| v.is_finite()) {
+            return true;
+        }
+        let ray_box = |min, max| directional_box_hit(origin, direction, min, max);
+        if self
+            .occluders
+            .walls
+            .iter()
+            .any(|box_| ray_box(box_.min, box_.max))
+        {
+            return true;
+        }
+        if self.occluders.horizontals.iter().any(|solid| match solid {
+            Horizontal::Slab(box_) => ray_box(box_.min, box_.max),
+            Horizontal::Floor(plane) => {
+                if direction[1] == 0.0 {
+                    return false;
+                }
+                let t = (f64::from(plane.y) - f64::from(origin[1])) / f64::from(direction[1]);
+                let x = f64::from(direction[0]).mul_add(t, f64::from(origin[0]));
+                let z = f64::from(direction[2]).mul_add(t, f64::from(origin[2]));
+                t > 0.0
+                    && (f64::from(plane.x0)..=f64::from(plane.x1)).contains(&x)
+                    && (f64::from(plane.z0)..=f64::from(plane.z1)).contains(&z)
+            }
+        }) {
+            return true;
+        }
+        self.occluders.props.iter().any(|box_| {
+            let origin = box_.local_point(origin);
+            let direction = [
+                box_.cos.mul_add(direction[0], -box_.sin * direction[2]),
+                direction[1],
+                box_.sin.mul_add(direction[0], box_.cos * direction[2]),
+            ];
+            directional_box_hit(origin, direction, box_.half.map(|v| -v), box_.half)
+        })
     }
 
     /// Encodes the built visibility set for the compiled map package.

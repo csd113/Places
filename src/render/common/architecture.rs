@@ -521,6 +521,7 @@ fn emit_ramp_surface(
         y_at,
         Some(context.materials.tint(key)),
         context.vertex_colors_are_material_only(),
+        false,
     );
     scratch.clear();
     emit_lit_surface_grid(

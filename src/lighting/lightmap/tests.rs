@@ -160,6 +160,31 @@ fn chart_uvs_stay_inside_the_chart() {
 }
 
 #[test]
+fn chart_endpoints_and_bake_samples_map_to_texel_centres() {
+    for (width, height) in [(1, 1), (100, 50), (17, 33)] {
+        let chart = Chart {
+            page: 0,
+            x: 10,
+            y: 20,
+            width,
+            height,
+        };
+        for (u, v) in [(0.0_f32, 0.0_f32), (0.5, 0.5), (1.0, 1.0)] {
+            let uv = chart.uv_at(1024, u, v);
+            let actual = uv.map(|value| f32::from(value) * 1024.0 / 65_535.0);
+            let expected = [
+                (width.saturating_sub(1) as f32).mul_add(u, 10.5),
+                (height.saturating_sub(1) as f32).mul_add(v, 20.5),
+            ];
+            for axis in 0..2 {
+                // Packed normalized u16 UVs round by at most half an atlas texel / 64.
+                assert!((actual[axis] - expected[axis]).abs() < 0.008);
+            }
+        }
+    }
+}
+
+#[test]
 fn packing_is_deterministic_and_disjoint() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let patches: Vec<LightmapPatch> = (0..40)
@@ -1331,7 +1356,7 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
 }
 
 /// The format version is bumped whenever the atlas layout, texel encoding or key
-/// inputs change; version 12 is the offline HDR transport solve (an irradiance
+/// inputs change; version 13 maps chart endpoints to texel centres in the HDR transport solve (an irradiance
 /// term plus a directional moment per texel, and prepared switchable layer
 /// groups). Pinned so a future layout change has to bump it deliberately, and
 /// part of every key so a pre-12 atlas can never be reused.
@@ -1339,7 +1364,7 @@ fn switchable_groups_follow_the_base_layers_in_a_dense_pair_layout() {
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 12);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 13);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 3,

@@ -18,6 +18,27 @@
     "brightness": 1.0,
     "ambient": 0.22
   },
+  "global_illuminators": [
+    {
+      "id": "lantern_hollow_moon",
+      "kind": "directional",
+      "direction": [
+        -0.36,
+        -0.8,
+        -0.48
+      ],
+      "color": [
+        0.85,
+        0.9,
+        1.0
+      ],
+      "intensity": 0.12,
+      "enabled": true,
+      "cast_shadows": true,
+      "bake": true,
+      "angular_size_degrees": 0.5
+    }
+  ],
   "rooms": [
     {
       "x": -31.5,

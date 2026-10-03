@@ -265,7 +265,29 @@ const fn count_to_f32(value: usize) -> f32 {
 
 /// Baked brightness sampled at each of four quad corners.
 fn lit_corners(base: [f32; 3], points: [[f32; 3]; 4], lighting: &LevelLighting) -> [[f32; 3]; 4] {
-    points.map(|point| shade(base, lighting.sample(point[0], point[1], point[2])))
+    let normal = quad_normal(points);
+    points.map(|point| {
+        shade(
+            base,
+            lighting
+                .sample(point[0], point[1], point[2])
+                .plus(lighting.global_surface_light(point, normal)),
+        )
+    })
+}
+
+fn quad_normal(points: [[f32; 3]; 4]) -> [f32; 3] {
+    let [origin, next, diagonal, _] = points;
+    let edge = std::array::from_fn(|axis| {
+        next.get(axis).copied().unwrap_or(0.0) - origin.get(axis).copied().unwrap_or(0.0)
+    });
+    let other = std::array::from_fn(|axis| {
+        diagonal.get(axis).copied().unwrap_or(0.0) - origin.get(axis).copied().unwrap_or(0.0)
+    });
+    glam::Vec3::from_array(edge)
+        .cross(glam::Vec3::from_array(other))
+        .normalize_or_zero()
+        .to_array()
 }
 
 /// A plan shared with the emitters through the emit context.
@@ -435,7 +457,14 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
         shade(
             base,
             self.lighting
-                .sample_face(face_room, probe[0], probe[1], probe[2]),
+                .sample_face(face_room, probe[0], probe[1], probe[2])
+                .plus(self.lighting.global_surface_light(
+                    probe,
+                    match self.axis {
+                        WallAxis::X => [0.0, 0.0, self.normal],
+                        WallAxis::Z => [self.normal, 0.0, 0.0],
+                    },
+                )),
         )
     }
 
@@ -674,8 +703,8 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// It is folded into both compiler fingerprints so a stale mesh and the
 /// lightmaps baked against it are rebuilt instead of reused. 1 =
 /// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
-/// wall.
-pub const GEOMETRY_REVISION: u32 = 2;
+/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding.
+pub const GEOMETRY_REVISION: u32 = 3;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1738,8 +1767,10 @@ fn add_prop_box(
         let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
         [world_x, sy.mul_add(half_h, center_y), world_z]
     };
-    let shaded = |mult: f32, point: [f32; 3]| -> [f32; 3] {
-        let light = lighting.sample(point[0], point[1], point[2]);
+    let shaded = |mult: f32, point: [f32; 3], normal: [f32; 3]| -> [f32; 3] {
+        let light = lighting
+            .sample(point[0], point[1], point[2])
+            .plus(lighting.global_surface_light(point, normal));
         [
             (color[0] * mult * light.r).min(1.0),
             (color[1] * mult * light.g).min(1.0),
@@ -1795,7 +1826,8 @@ fn add_prop_box(
             corner(face[2].0, face[2].1, face[2].2),
             corner(face[3].0, face[3].1, face[3].2),
         ];
-        let colors = points.map(|point| shaded(shade_mult, point));
+        let normal = quad_normal(points);
+        let colors = points.map(|point| shaded(shade_mult, point, normal));
         add_quad(
             vertices, points[0], colors[0], uvs[0], points[1], colors[1], uvs[1], points[2],
             colors[2], uvs[2], points[3], colors[3], uvs[3],
@@ -2005,7 +2037,12 @@ fn add_decal_quad(
     let tint = decal_surface_tint(decal.surface);
     let colors = points.map(|point| {
         let sample = glam::Vec3::from(point) + normal * probe;
-        shade(tint, lighting.sample(sample.x, sample.y, sample.z))
+        shade(
+            tint,
+            lighting
+                .sample(sample.x, sample.y, sample.z)
+                .plus(lighting.global_surface_light(sample.to_array(), normal.to_array())),
+        )
     });
     add_quad(
         vertices, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
@@ -2437,6 +2474,7 @@ fn emit_grid_quad(
 /// colour is the material tint alone (white when there is none), so the
 /// fragment stage's `texture x vertex colour x lightmap` still multiplies the
 /// surface by exactly the tint and the light it always did.
+#[allow(clippy::too_many_arguments)] // shared floor/ramp/ceiling grid, including its orientation
 fn lit_surface_grid(
     lighting: &LevelLighting,
     room_index: usize,
@@ -2445,6 +2483,7 @@ fn lit_surface_grid(
     y_at: impl Fn(f32, f32) -> f32,
     tint: Option<[f32; 3]>,
     lightmapped: bool,
+    ceiling: bool,
 ) -> Vec<[f32; 3]> {
     let mut colors = Vec::with_capacity(xs.len().saturating_mul(zs.len()));
     if lightmapped {
@@ -2453,7 +2492,17 @@ fn lit_surface_grid(
     }
     for z in zs {
         for x in xs {
-            let light = lighting.sample_in_room(room_index, *x, y_at(*x, *z), *z);
+            let y = y_at(*x, *z);
+            let sign = if ceiling { -1.0 } else { 1.0 };
+            let normal = glam::Vec3::new(
+                sign * (y_at(*x - 0.01, *z) - y_at(*x + 0.01, *z)) / 0.02,
+                sign,
+                sign * (y_at(*x, *z - 0.01) - y_at(*x, *z + 0.01)) / 0.02,
+            )
+            .normalize_or_zero();
+            let light = lighting
+                .sample_in_room(room_index, *x, y, *z)
+                .plus(lighting.global_surface_light([*x, y, *z], normal.to_array()));
             colors.push(tint.map_or([light.r, light.g, light.b], |tint| {
                 [tint[0] * light.r, tint[1] * light.g, tint[2] * light.b]
             }));
@@ -2602,11 +2651,17 @@ fn skirt_corner_colors(
     points: [[f32; 3]; 4],
     lighting: &LevelLighting,
 ) -> [[f32; 3]; 4] {
+    let normal = quad_normal(points);
     std::array::from_fn(|index| {
         // `index` is always < 4: both arrays have exactly four corners.
         let base = base.get(index).copied().unwrap_or_default();
         let point = points.get(index).copied().unwrap_or_default();
-        shade(base, lighting.sample(point[0], point[1], point[2]))
+        shade(
+            base,
+            lighting
+                .sample(point[0], point[1], point[2])
+                .plus(lighting.global_surface_light(point, normal)),
+        )
     })
 }
 

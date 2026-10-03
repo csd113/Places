@@ -1,0 +1,1122 @@
+{
+  "format_version": 3,
+  "id": "lighting_quality",
+  "name": "Lighting Quality Controls",
+  "author": "Places",
+  "spawn": {
+    "x": 4,
+    "z": 4,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:ceiling_white_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "global_illuminators": [
+    {
+      "id": "control_moon",
+      "kind": "directional",
+      "direction": [
+        -0.36,
+        -0.8,
+        -0.48
+      ],
+      "color": [
+        0.85,
+        0.9,
+        1.0
+      ],
+      "intensity": 0.12,
+      "enabled": true,
+      "cast_shadows": true,
+      "bake": true,
+      "angular_size_degrees": 0.5
+    }
+  ],
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "continuous_wall"
+    },
+    {
+      "x": 11.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "vertical_strips"
+    },
+    {
+      "x": 22.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "horizontal_strips"
+    },
+    {
+      "x": 33.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "adjacent_coplanar"
+    },
+    {
+      "x": 0.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "window_topology"
+    },
+    {
+      "x": 11.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "window_separate_pieces"
+    },
+    {
+      "x": 22.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "doorway_inset"
+    },
+    {
+      "x": 33.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "concave_convex_corners"
+    },
+    {
+      "x": 0.0,
+      "z": 18.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "flat"
+      },
+      "comment": "thin_closed_corners"
+    },
+    {
+      "x": 11.0,
+      "z": 18.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "flat"
+      },
+      "comment": "thick_closed_corners"
+    },
+    {
+      "x": 22.0,
+      "z": 18.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "flat"
+      },
+      "comment": "connected_rooms"
+    },
+    {
+      "x": 33.0,
+      "z": 18.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "flat"
+      },
+      "comment": "stacked_rooms"
+    },
+    {
+      "x": 33.0,
+      "z": 18.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "floor_y": 3.2,
+      "ceiling": {
+        "kind": "flat"
+      }
+    },
+    {
+      "x": 0.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "flat"
+      },
+      "comment": "ceiling_pitched_roof"
+    },
+    {
+      "x": 11.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "rotated_cubes"
+    },
+    {
+      "x": 22.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "curved_cylindrical"
+    },
+    {
+      "x": 33.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "scaled_proximity"
+    },
+    {
+      "x": 0.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "production_models"
+    },
+    {
+      "x": 11.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "isolated_curved_model"
+    },
+    {
+      "x": 22.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "diagonal_thin_caster"
+    },
+    {
+      "x": 33.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "height": 3,
+      "ceiling": {
+        "kind": "open"
+      },
+      "comment": "grazing_slight_normal_difference"
+    }
+  ],
+  "walls": [
+    {
+      "x": 0.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 11.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 13.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 15.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 17.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 22.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 1
+    },
+    {
+      "x": 22.0,
+      "y": 1,
+      "z": 0.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 1
+    },
+    {
+      "x": 22.0,
+      "y": 2,
+      "z": 0.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 1
+    },
+    {
+      "x": 33.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 4,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 37.0,
+      "y": 0,
+      "z": 0.0,
+      "width": 4,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 0.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "window",
+          "offset": 3,
+          "width": 2,
+          "height": 1.2,
+          "sill": 0.9
+        }
+      ]
+    },
+    {
+      "x": 11.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 16.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 14.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 0.9
+    },
+    {
+      "x": 14.0,
+      "y": 2.1,
+      "z": 9.0,
+      "width": 2,
+      "depth": 0.15,
+      "height": 0.9
+    },
+    {
+      "x": 22.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 0.6,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.4,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 33.0,
+      "y": 0,
+      "z": 9.0,
+      "width": 4,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 36.85,
+      "y": 0,
+      "z": 9.0,
+      "width": 0.15,
+      "depth": 3,
+      "height": 3
+    },
+    {
+      "x": 36.85,
+      "y": 0,
+      "z": 11.85,
+      "width": 3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": -0.01,
+      "y": 0,
+      "z": 17.99,
+      "width": 8.02,
+      "depth": 0.01,
+      "height": 3
+    },
+    {
+      "x": -0.01,
+      "y": 0,
+      "z": 24.0,
+      "width": 8.02,
+      "depth": 0.01,
+      "height": 3,
+      "openings": []
+    },
+    {
+      "x": -0.01,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.01,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 8.0,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.01,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 10.4,
+      "y": 0,
+      "z": 17.4,
+      "width": 9.2,
+      "depth": 0.6,
+      "height": 3
+    },
+    {
+      "x": 10.4,
+      "y": 0,
+      "z": 24.0,
+      "width": 9.2,
+      "depth": 0.6,
+      "height": 3,
+      "openings": []
+    },
+    {
+      "x": 10.4,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.6,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 19.0,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.6,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 21.85,
+      "y": 0,
+      "z": 17.85,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 21.85,
+      "y": 0,
+      "z": 24.0,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.65,
+          "width": 1,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 21.85,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 30.0,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 26.0,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 32.85,
+      "y": 0,
+      "z": 17.85,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 32.85,
+      "y": 0,
+      "z": 24.0,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3,
+      "openings": []
+    },
+    {
+      "x": 32.85,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 41.0,
+      "y": 0,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 33.0,
+      "y": 3.2,
+      "z": 18.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 33.0,
+      "y": 3.2,
+      "z": 24.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": 33.0,
+      "y": 3.2,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 41.0,
+      "y": 3.2,
+      "z": 18.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": -0.15,
+      "y": 0,
+      "z": 26.85,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3
+    },
+    {
+      "x": -0.15,
+      "y": 0,
+      "z": 33.0,
+      "width": 8.3,
+      "depth": 0.15,
+      "height": 3,
+      "openings": []
+    },
+    {
+      "x": -0.15,
+      "y": 0,
+      "z": 27.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 8.0,
+      "y": 0,
+      "z": 27.0,
+      "width": 0.15,
+      "depth": 6,
+      "height": 3
+    },
+    {
+      "x": 33.0,
+      "y": 0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 0.15,
+      "height": 3
+    }
+  ],
+  "props": [
+    {
+      "id": "roof_front_1_7",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 1.7,
+      "z": 28.5,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "y": 3.3
+    },
+    {
+      "id": "roof_back_1_7",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 1.7,
+      "z": 31.5,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "y": 3.3
+    },
+    {
+      "id": "roof_front_5_1",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 5.1,
+      "z": 28.5,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "y": 3.3
+    },
+    {
+      "id": "roof_back_5_1",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 5.1,
+      "z": 31.5,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "y": 3.3
+    },
+    {
+      "id": "cube_15",
+      "model": "core:crate",
+      "x": 12.0,
+      "z": 29.0,
+      "rotation_degrees": 15,
+      "scale": 1.8,
+      "y": 0
+    },
+    {
+      "id": "cube_30",
+      "model": "core:crate",
+      "x": 14.0,
+      "z": 29.0,
+      "rotation_degrees": 30,
+      "scale": 1.8,
+      "y": 0
+    },
+    {
+      "id": "cube_45",
+      "model": "core:crate",
+      "x": 16.0,
+      "z": 29.0,
+      "rotation_degrees": 45,
+      "scale": 1.8,
+      "y": 0
+    },
+    {
+      "id": "cube_60",
+      "model": "core:crate",
+      "x": 18.0,
+      "z": 29.0,
+      "rotation_degrees": 60,
+      "scale": 1.8,
+      "y": 0
+    },
+    {
+      "id": "sphere",
+      "model": "home:ball_light",
+      "x": 26.0,
+      "z": 29.0,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "scale_0",
+      "model": "core:crate",
+      "x": 34.0,
+      "z": 27.181,
+      "rotation_degrees": 0,
+      "scale": 0.1,
+      "y": 0.001
+    },
+    {
+      "id": "scale_1",
+      "model": "core:crate",
+      "x": 35.8,
+      "z": 27.301,
+      "rotation_degrees": 0,
+      "scale": 0.5,
+      "y": 0.001
+    },
+    {
+      "id": "scale_2",
+      "model": "core:crate",
+      "x": 37.6,
+      "z": 27.451,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "y": 0.001
+    },
+    {
+      "id": "scale_3",
+      "model": "core:crate",
+      "x": 39.4,
+      "z": 28.051,
+      "rotation_degrees": 0,
+      "scale": 3,
+      "y": 0.001
+    },
+    {
+      "id": "production_0",
+      "model": "core:chair",
+      "x": 1.0,
+      "z": 38.0,
+      "rotation_degrees": 30,
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "production_1",
+      "model": "core:water_cooler",
+      "x": 2.8,
+      "z": 38.0,
+      "rotation_degrees": 30,
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "production_2",
+      "model": "core:armchair",
+      "x": 4.6,
+      "z": 38.0,
+      "rotation_degrees": 30,
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "production_3",
+      "model": "outdoor:showcase_stump_seat",
+      "x": 6.4,
+      "z": 38.0,
+      "rotation_degrees": 30,
+      "scale": 1,
+      "y": 0
+    },
+    {
+      "id": "isolated_duck",
+      "model": "core:rubber_duck",
+      "x": 15.0,
+      "z": 38.5,
+      "rotation_degrees": 0,
+      "scale": 6,
+      "y": 0
+    },
+    {
+      "id": "diagonal_sheet",
+      "model": "outdoor:house_02_roof_slope",
+      "x": 26.0,
+      "z": 38.5,
+      "rotation_degrees": 45,
+      "scale": 1,
+      "y": 0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:pool_light_round",
+      "x": 2.0,
+      "z": 3.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 13.0,
+      "z": 3.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 24.0,
+      "z": 3.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 35.0,
+      "z": 3.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 2.0,
+      "z": 12.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 13.0,
+      "z": 12.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 24.0,
+      "z": 12.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 35.0,
+      "z": 12.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 24.0,
+      "z": 21.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 35.0,
+      "z": 21.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 2.0,
+      "z": 30.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 13.0,
+      "z": 30.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 24.0,
+      "z": 30.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 35.0,
+      "z": 30.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 2.0,
+      "z": 39.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 13.0,
+      "z": 39.0,
+      "brightness": 0.5,
+      "align": "none"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 35.0,
+      "z": 39.0,
+      "brightness": 0.5,
+      "align": "none"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 24.0,
+      "z": 29.0,
+      "radius": 0.55,
+      "height": 2,
+      "segments": 48
+    }
+  ],
+  "arc_walls": [
+    {
+      "x": 27.3,
+      "z": 29.5,
+      "radius": 1.2,
+      "thickness": 0.15,
+      "height": 2,
+      "start_degrees": 0,
+      "sweep_degrees": 120,
+      "segments": 24
+    }
+  ],
+  "ramps": [
+    {
+      "x": 33.0,
+      "z": 36.0,
+      "width": 4,
+      "depth": 3,
+      "rise": 0.002
+    },
+    {
+      "x": 37.0,
+      "z": 36.0,
+      "width": 4,
+      "depth": 3,
+      "rise": 0.01
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 0.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "note": "continuous_wall: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "note": "vertical_strips: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 22.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "note": "horizontal_strips: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 33.0,
+      "z": 0.0,
+      "width": 8,
+      "depth": 6,
+      "note": "adjacent_coplanar: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 0.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "note": "window_topology: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "note": "window_separate_pieces: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 22.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "note": "doorway_inset: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 33.0,
+      "z": 9.0,
+      "width": 8,
+      "depth": 6,
+      "note": "concave_convex_corners: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "note": "rotated_cubes: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 22.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "note": "curved_cylindrical: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 33.0,
+      "z": 27.0,
+      "width": 8,
+      "depth": 6,
+      "note": "scaled_proximity: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 0.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "note": "production_models: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "note": "isolated_curved_model: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 22.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "note": "diagonal_thin_caster: intentionally open diagnostic bay."
+    },
+    {
+      "check": "missing-wall",
+      "x": 33.0,
+      "z": 36.0,
+      "width": 8,
+      "depth": 6,
+      "note": "grazing_slight_normal_difference: intentionally open diagnostic bay."
+    }
+  ]
+}

@@ -245,7 +245,12 @@ pub fn solver_fingerprint() -> u64 {
 /// * `10` — architectural trapezoids follow the native mesh's piecewise affine
 ///   UV interpolation; all folded triangles reflect onto real geometry and
 ///   chart density/receiver area retain both native triangle extents.
-pub const SOLVER_REVISION: u64 = 10;
+/// * `11` — atlas endpoints match bake texel centres; static models integrate
+///   imported shading normals with geometric visibility origins; coplanar
+///   faces share visibility-guarded cache/filter samples; direct shadow edges
+///   use adaptive footprint coverage; global directional light joins transport;
+///   gather rays respect geometric horizons and opaque front-face radiance.
+pub const SOLVER_REVISION: u64 = 11;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -261,6 +266,9 @@ pub struct TransportTriangle {
     pub p2: [f32; 3],
     /// Geometric normal, normalized and pointing away from the solid.
     pub normal: [f32; 3],
+    /// Transformed vertex normals used by the material shader. Geometry and
+    /// ray separation retain `normal`; diffuse integration interpolates these.
+    pub shading_normals: [[f32; 3]; 3],
     /// Diffuse albedo in `0..=1`, already multiplied by the texture's average
     /// colour.
     pub albedo: [f32; 3],
@@ -307,6 +315,7 @@ impl TransportTriangle {
             p1,
             p2,
             normal,
+            shading_normals: [normal; 3],
             albedo,
             transmissive: false,
         })
@@ -319,6 +328,52 @@ impl TransportTriangle {
     pub const fn with_transmissive(mut self, transmissive: bool) -> Self {
         self.transmissive = transmissive;
         self
+    }
+
+    /// Retains valid transformed shading normals, falling back geometrically
+    /// for a missing/degenerate import. Shadow geometry stays unchanged.
+    #[must_use]
+    pub fn with_shading_normals(mut self, normals: [[f32; 3]; 3]) -> Self {
+        self.shading_normals = normals.map(|normal| normalize_or(normal, self.normal));
+        self
+    }
+
+    /// Normalized barycentric interpolation, matching the runtime fragment
+    /// shader. Double precision keeps thin model triangles well conditioned.
+    #[must_use]
+    pub fn shading_normal_at(&self, point: [f32; 3]) -> [f32; 3] {
+        let origin = self.p0.map(f64::from);
+        let edge_u = std::array::from_fn::<_, 3, _>(|axis| f64::from(self.p1[axis]) - origin[axis]);
+        let edge_v = std::array::from_fn::<_, 3, _>(|axis| f64::from(self.p2[axis]) - origin[axis]);
+        let delta = std::array::from_fn::<_, 3, _>(|axis| f64::from(point[axis]) - origin[axis]);
+        let product = |left: [f64; 3], right: [f64; 3]| {
+            left.iter().zip(right).map(|(a, b)| a * b).sum::<f64>()
+        };
+        let uu = product(edge_u, edge_u);
+        let uv = product(edge_u, edge_v);
+        let vv = product(edge_v, edge_v);
+        let determinant = uu.mul_add(vv, -(uv * uv));
+        if !determinant.is_finite() || determinant <= 0.0 {
+            return self.normal;
+        }
+        let pu = product(delta, edge_u);
+        let pv = product(delta, edge_v);
+        let weight_u = (pu.mul_add(vv, -(pv * uv)) / determinant).clamp(0.0, 1.0) as f32;
+        let weight_v = (pv.mul_add(uu, -(pu * uv)) / determinant).clamp(0.0, 1.0) as f32;
+        let sum = (weight_u + weight_v).max(1.0);
+        let barycentric = [
+            1.0 - (weight_u + weight_v) / sum,
+            weight_u / sum,
+            weight_v / sum,
+        ];
+        let interpolated = std::array::from_fn(|axis| {
+            self.shading_normals
+                .iter()
+                .zip(barycentric)
+                .map(|(normal, weight)| normal[axis] * weight)
+                .sum()
+        });
+        normalize_or(interpolated, self.normal)
     }
 
     /// Two-sided area, in square metres.
@@ -610,7 +665,6 @@ impl TransportEmitter {
         (visible_fraction, normalize_or(direction, centre_direction))
     }
 
-    /// Evaluate at the shared shading point while tracing from its safe origin.
     fn direct_from(
         &self,
         scene: &TransportScene,
@@ -618,15 +672,27 @@ impl TransportEmitter {
         ray_origin: [f32; 3],
         taps: u8,
     ) -> ([f32; 3], [f32; 3]) {
+        let (weight, direction, _) = self.direct_with_visibility(scene, point, ray_origin, taps);
+        (weight, direction)
+    }
+
+    /// Evaluate at the shared shading point while tracing from its safe origin.
+    fn direct_with_visibility(
+        &self,
+        scene: &TransportScene,
+        point: [f32; 3],
+        ray_origin: [f32; 3],
+        taps: u8,
+    ) -> ([f32; 3], [f32; 3], f32) {
         if !self.intensity.is_finite() || self.intensity <= 0.0 {
-            return ([0.0; 3], [0.0; 3]);
+            return ([0.0; 3], [0.0; 3], 0.0);
         }
         if !self.reaches(point) {
-            return ([0.0; 3], [0.0; 3]);
+            return ([0.0; 3], [0.0; 3], 0.0);
         }
         let (visible_fraction, average) = self.visibility(scene, point, ray_origin, taps);
         if visible_fraction <= 0.0 {
-            return ([0.0; 3], [0.0; 3]);
+            return ([0.0; 3], [0.0; 3], 0.0);
         }
         // The shape term uses the emitter's own reach convention on the
         // authored falloff curve; the visible tap fraction is the soft shadow.
@@ -637,7 +703,7 @@ impl TransportEmitter {
         };
         let shape = self.falloff.factor(falloff_distance / self.range);
         if !shape.is_finite() || shape <= 0.0 {
-            return ([0.0; 3], [0.0; 3]);
+            return ([0.0; 3], [0.0; 3], 0.0);
         }
         let strength = crate::lighting::LOCAL_LIGHT_STRENGTH
             * self.intensity
@@ -647,17 +713,17 @@ impl TransportEmitter {
         if !strength.is_finite() {
             // Propagate overflow to the solve's numeric validator instead of
             // silently removing an invalid emitter from the lighting field.
-            return ([f32::NAN; 3], [0.0; 3]);
+            return ([f32::NAN; 3], [0.0; 3], visible_fraction);
         }
         if strength <= 0.0 {
-            return ([0.0; 3], [0.0; 3]);
+            return ([0.0; 3], [0.0; 3], 0.0);
         }
         let weight = [
             self.color[0] * strength,
             self.color[1] * strength,
             self.color[2] * strength,
         ];
-        (weight, average)
+        (weight, average, visible_fraction)
     }
 }
 
@@ -767,7 +833,7 @@ pub struct TransportSolution {
     pub switchable: Vec<(usize, Vec<SolvedChart>)>,
     /// Direct rays cast.
     pub direct_rays: usize,
-    /// Bounce rays cast.
+    /// Gather directions evaluated, including geometric-horizon rejections.
     pub bounce_rays: usize,
     /// Occupied cells in the last bounce pass's cache.
     pub cache_cells: usize,
@@ -817,6 +883,7 @@ pub struct TransportScene {
     order: Vec<u32>,
     nodes: Vec<BvhNode>,
     emitters: Vec<TransportEmitter>,
+    global_lights: Vec<crate::lighting::directional::DirectionalLight>,
     /// Resolved water bodies the solve transmits through and attenuates in.
     water: Vec<TransportWaterBody>,
     /// Per-texel authored baseline target in receiver order (see
@@ -836,6 +903,7 @@ impl std::fmt::Debug for TransportScene {
             .field("triangles", &self.triangles.len())
             .field("nodes", &self.nodes.len())
             .field("emitters", &self.emitters.len())
+            .field("global_lights", &self.global_lights.len())
             .field("water", &self.water.len())
             .field("receiver_target", &self.receiver_target.len())
             .field("probe_target", &self.probe_target.len())
@@ -1147,6 +1215,10 @@ impl TransportScene {
                     .is_none()
                     || !triangle.normal.iter().all(|value| value.is_finite())
                     || (length(triangle.normal) - 1.0).abs() > 1.0e-4
+                    || triangle.shading_normals.iter().any(|normal| {
+                        !normal.iter().all(|value| value.is_finite())
+                            || (length(*normal) - 1.0).abs() > 1.0e-4
+                    })
                     || triangle
                         .albedo
                         .iter()
@@ -1173,6 +1245,7 @@ impl TransportScene {
             order,
             nodes,
             emitters,
+            global_lights: Vec::new(),
             water: Vec::new(),
             receiver_target: Vec::new(),
             probe_target: Vec::new(),
@@ -1186,6 +1259,59 @@ impl TransportScene {
     pub fn with_water(mut self, water: Vec<TransportWaterBody>) -> Self {
         self.water = water;
         self
+    }
+
+    /// Map-wide directional sources, evaluated with infinite visibility rays.
+    #[must_use]
+    pub fn with_global_lights(
+        mut self,
+        lights: Vec<crate::lighting::directional::DirectionalLight>,
+    ) -> Self {
+        self.global_lights = lights;
+        self
+    }
+
+    fn accumulate_global(
+        &self,
+        accumulator: &mut Accumulator,
+        origin: [f32; 3],
+        normal: Option<[f32; 3]>,
+        attenuation: [f32; 3],
+        taps: u8,
+    ) -> (u64, usize) {
+        let mut signature = 0_u64;
+        let mut rays = 0_usize;
+        for (index, light) in self.global_lights.iter().enumerate() {
+            let count = if light.angular_radius > 0.0 {
+                u16::from(taps.clamp(1, 3)).pow(2)
+            } else {
+                1
+            };
+            let weight = attenuate(
+                light
+                    .color
+                    .map(|value| value * light.intensity / f32::from(count)),
+                attenuation,
+            );
+            let mut visible = 0_u16;
+            for sample in 0..count {
+                let direction = light.sample_direction(sample, count);
+                if light.cast_shadows {
+                    rays = rays.saturating_add(1);
+                }
+                if light.cast_shadows && self.intersect(origin, direction).is_some() {
+                    continue;
+                }
+                visible = visible.saturating_add(1);
+                if let Some(normal) = normal {
+                    accumulate_surface_lobe(accumulator, weight, direction, normal);
+                } else {
+                    accumulate_lobe(accumulator, weight, direction);
+                }
+            }
+            signature = coverage::visibility_key(signature, index, u32::from(visible));
+        }
+        (signature, rays)
     }
 
     /// Attaches the per-texel authored baseline targets in receiver order.
@@ -1518,7 +1644,7 @@ impl TransportScene {
     /// scan.
     #[must_use]
     pub fn surface_sample(&self, point: [f32; 3], radius: f32) -> Option<([f32; 3], usize)> {
-        self.near_surface(point, radius, false)
+        self.near_surface(point, radius, false, None)
     }
 
     fn near_surface(
@@ -1526,6 +1652,7 @@ impl TransportScene {
         point: [f32; 3],
         radius: f32,
         solid_only: bool,
+        normal: Option<[f32; 3]>,
     ) -> Option<([f32; 3], usize)> {
         if self.nodes.is_empty() || !point.iter().all(|value| value.is_finite()) {
             return None;
@@ -1562,6 +1689,11 @@ impl TransportScene {
                             continue;
                         };
                         if solid_only && triangle.transmissive {
+                            continue;
+                        }
+                        // At a shared hard edge several faces are equally close.
+                        // Receiver identity must follow its own geometric face.
+                        if normal.is_some_and(|normal| dot(normal, triangle.normal) < 0.9999) {
                             continue;
                         }
                         let triangle_index = usize::try_from(*index).unwrap_or(usize::MAX);
@@ -1605,7 +1737,7 @@ impl TransportScene {
     pub fn probe_is_clear(&self, position: [f32; 3]) -> bool {
         if !position.iter().all(|value| value.is_finite())
             || self
-                .near_surface(position, PROBE_CLEARANCE_M, true)
+                .near_surface(position, PROBE_CLEARANCE_M, true, None)
                 .is_some()
         {
             return false;
@@ -1643,6 +1775,11 @@ impl TransportScene {
                 .all(|value| value.is_finite() && *value >= 0.0)
         };
         nonnegative(&self.sky_radiance)
+            && self.global_lights.len() <= crate::level::MAX_GLOBAL_ILLUMINATORS
+            && self
+                .global_lights
+                .iter()
+                .all(crate::lighting::directional::DirectionalLight::is_valid)
             && self
                 .receiver_target
                 .iter()
@@ -1797,81 +1934,54 @@ impl TransportScene {
         cache_cells: &mut usize,
         probes: Option<&mut Option<ProbeField>>,
     ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        let started = std::time::Instant::now();
         let receivers = self.receivers(charts)?;
+        let audit = StageAudit {
+            charts,
+            receivers: &receivers,
+            dump: apply_fill,
+        };
+        let receiver_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let direct_started = std::time::Instant::now();
         let count = receivers.len();
         if !self.receiver_target.is_empty() && self.receiver_target.len() != count {
             return Err(LightmapFailure::FillSize);
         }
-        let mut accumulators = self.direct_pass(&receivers, emitters, taps, workers, cancel)?;
+        let (direct, traced_rays) = coverage::direct_pass(
+            self, charts, &receivers, emitters, apply_fill, taps, workers, cancel,
+        )?;
+        let direct_ms = direct_started.elapsed().as_secs_f64() * 1000.0;
+        let bounce_started = std::time::Instant::now();
+        let mut accumulators = direct.clone();
         if accumulators.iter().any(|value| !value.is_finite()) {
             return Err(LightmapFailure::FillNonFinite);
         }
-        *direct_rays = direct_rays.saturating_add(
-            count
-                .saturating_mul(emitters.len())
-                .saturating_mul(usize::from(taps.max(1))),
-        );
-        audit_stage(
-            "direct",
-            charts,
-            &receivers,
-            accumulators
-                .iter()
-                .zip(&receivers)
-                .map(|(value, receiver)| compress_surface(value, receiver.normal)),
-        );
+        *direct_rays = direct_rays.saturating_add(traced_rays);
+        audit.accumulators("direct", &accumulators);
         if bounces > 0
-            && (!emitters.is_empty() || self.sky_radiance.iter().any(|channel| *channel > 0.0))
+            && (!emitters.is_empty()
+                || (apply_fill && !self.global_lights.is_empty())
+                || self.sky_radiance.iter().any(|channel| *channel > 0.0))
         {
-            let mut bounce_count = 0usize;
-            // The cache is derived from the receiver positions alone, which do
-            // not move between passes; only the solved values it is read
-            // against change. Build it once for every bounce pass.
-            let cache = RadianceCache::build(&receivers);
-            *cache_cells = cache.occupied_cells();
-            let mut previous_order = accumulators.clone();
-            for pass_index in 0..bounces {
-                // Each pass traces uniform-hemisphere rays against the previous
-                // pass's solved light, so one pass is one diffuse bounce and
-                // two passes are two. The estimator is unbiased: a cosine
-                // response is not baked into the ray density, so summing every
-                // traced sample with its own solid-angle weight cannot lose the
-                // energy a truncated point-light list lost.
-                let gained = self.bounce_pass(
-                    &receivers,
-                    &previous_order,
-                    &cache,
-                    bounce_samples,
-                    pass_index,
-                    apply_fill,
-                    workers,
-                    cancel,
-                )?;
-                bounce_count = bounce_count
-                    .saturating_add(count.saturating_mul(bounce_samples.clamp(1, MAX_BOUNCE_RAYS)));
-                for (slot, value) in accumulators.iter_mut().zip(&gained) {
-                    add_scaled(slot, value, 1.0);
-                }
-                if accumulators
-                    .iter()
-                    .chain(&gained)
-                    .any(|value| !value.is_finite())
-                {
-                    return Err(LightmapFailure::FillNonFinite);
-                }
-                previous_order = gained;
-            }
-            audit_stage(
-                "bounced",
-                charts,
+            let (combined, rays, cells) = self.bounce_orders(
                 &receivers,
-                accumulators
-                    .iter()
-                    .zip(&receivers)
-                    .map(|(value, receiver)| compress_surface(value, receiver.normal)),
-            );
-            *bounce_rays = bounce_rays.saturating_add(bounce_count);
+                accumulators,
+                SolveOptions {
+                    taps_per_axis: taps,
+                    bounces,
+                    gather_samples: bounce_samples,
+                    workers,
+                },
+                apply_fill,
+                cancel,
+            )?;
+            accumulators = combined;
+            *cache_cells = cells;
+            audit.accumulators("bounced", &accumulators);
+            *bounce_rays = bounce_rays.saturating_add(rays);
         }
+        let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1000.0;
+        let probe_started = std::time::Instant::now();
         if let Some(probes) = probes {
             *probes = Some(bake_probe_field(
                 self,
@@ -1883,11 +1993,23 @@ impl TransportScene {
                 cancel,
             )?);
         }
-        // Controlled filtering: a chart-space luma-guided 3x3 pass on the
-        // accumulated values removes the per-texel gather noise a point VPL
-        // set leaves without blurring across a change in received light.
-        let mut filtered = filter_accumulators(self, charts, &receivers, &accumulators)?;
-        audit_stage("filtered", charts, &receivers, filtered.iter().copied());
+        let probe_ms = probe_started.elapsed().as_secs_f64() * 1000.0;
+        let filter_started = std::time::Instant::now();
+        // Direct visibility is deterministic and has no gather noise. Filtering
+        // it chart-locally moves shadow edges and changes gradients at seams.
+        // Denoise only the diffuse gather, then encode the complete integral.
+        let mut indirect = accumulators;
+        for (value, direct) in indirect.iter_mut().zip(&direct) {
+            add_scaled(value, direct, -1.0);
+        }
+        if apply_fill {
+            self.audit_indirect(charts, &receivers, &indirect, taps);
+        }
+        let mut filtered =
+            filter::filter_accumulators(self, charts, &receivers, &indirect, &direct)?;
+        audit.texels("filtered", filtered.iter().copied());
+        let filter_ms = filter_started.elapsed().as_secs_f64() * 1000.0;
+        let fill_started = std::time::Instant::now();
         if apply_fill {
             filtered = self.apply_chart_fill(charts, &receivers, filtered, workers, cancel)?;
         }
@@ -1897,8 +2019,86 @@ impl TransportScene {
         {
             return Err(LightmapFailure::FillNonFinite);
         }
-        audit_stage("filled", charts, &receivers, filtered.iter().copied());
+        audit.texels("filled", filtered.iter().copied());
+        crate::logging::info(format_args!(
+            "[transport-timing] base={apply_fill} taps={taps} bounces={bounces} receivers_ms={receiver_ms:.3} direct_visibility_ms={direct_ms:.3} indirect_ms={bounce_ms:.3} probes_ms={probe_ms:.3} filter_ms={filter_ms:.3} fill_ms={:.3}",
+            fill_started.elapsed().as_secs_f64() * 1000.0
+        ));
         assemble_solved_charts(charts, &receivers, &filtered)
+    }
+
+    fn audit_indirect(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        receivers: &[TransportReceiver],
+        indirect: &[Accumulator],
+        taps: u8,
+    ) {
+        audit_stage(
+            "indirect",
+            true,
+            charts,
+            receivers,
+            indirect
+                .iter()
+                .zip(receivers)
+                .map(|(value, receiver)| compress_surface(value, receiver.normal)),
+        );
+        if let Err(error) = diagnostics::dump_components(self, charts, receivers, taps) {
+            crate::logging::warn(format_args!("[lighting-diagnostics] {error}"));
+        }
+    }
+
+    fn bounce_orders(
+        &self,
+        receivers: &[TransportReceiver],
+        mut accumulators: Vec<Accumulator>,
+        options: SolveOptions,
+        apply_fill: bool,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<(Vec<Accumulator>, usize, usize), LightmapFailure> {
+        let mut bounce_count = 0usize;
+        // The cache is derived from the receiver positions alone, which do
+        // not move between passes; only the solved values it is read
+        // against change. Build it once for every bounce pass.
+        let cache = RadianceCache::build(receivers);
+        let cache_cells = cache.occupied_cells();
+        let mut previous_order = accumulators.clone();
+        for pass_index in 0..options.bounces {
+            // Each pass traces uniform-hemisphere rays against the previous
+            // pass's solved light, so one pass is one diffuse bounce and
+            // two passes are two. The estimator is unbiased: a cosine
+            // response is not baked into the ray density, so summing every
+            // traced sample with its own solid-angle weight cannot lose the
+            // energy a truncated point-light list lost.
+            let gained = self.bounce_pass(
+                receivers,
+                &previous_order,
+                &cache,
+                options.gather_samples,
+                pass_index,
+                apply_fill,
+                options.workers,
+                cancel,
+            )?;
+            bounce_count = bounce_count.saturating_add(
+                receivers
+                    .len()
+                    .saturating_mul(options.gather_samples.clamp(1, MAX_BOUNCE_RAYS)),
+            );
+            for (slot, value) in accumulators.iter_mut().zip(&gained) {
+                add_scaled(slot, value, 1.0);
+            }
+            if accumulators
+                .iter()
+                .chain(&gained)
+                .any(|value| !value.is_finite())
+            {
+                return Err(LightmapFailure::FillNonFinite);
+            }
+            previous_order = gained;
+        }
+        Ok((accumulators, bounce_count, cache_cells))
     }
 
     /// The receiver list for every chart texel, with albedo resolved from the
@@ -1930,7 +2130,14 @@ impl TransportScene {
                 let point = patch.point_at(u, v);
                 let position = receiver_position(point, normal);
                 let ray_origin = receiver_ray_origin(patch, u, v, normal);
-                let sampled = self.surface_sample(ray_origin, 0.2);
+                let sampled = self.near_surface(point, 0.2, false, Some(normal));
+                let shading_normal = if patch.kind == PatchKind::Prop {
+                    sampled
+                        .and_then(|(_, index)| self.triangles.get(index))
+                        .map_or(normal, |triangle| triangle.shading_normal_at(point))
+                } else {
+                    normal
+                };
                 let albedo = sampled.map_or([0.55, 0.55, 0.55], |(albedo, _)| albedo);
                 let surface = sampled.map_or(u32::MAX, |(_, index)| {
                     u32::try_from(index).unwrap_or(u32::MAX)
@@ -1938,7 +2145,7 @@ impl TransportScene {
                 out.push(TransportReceiver {
                     position,
                     ray_origin,
-                    normal,
+                    normal: shading_normal,
                     albedo,
                     area,
                     surface,
@@ -1959,41 +2166,6 @@ impl TransportScene {
             return Err(LightmapFailure::FillNonFinite);
         }
         Ok(out)
-    }
-
-    /// Direct illumination for every receiver.
-    ///
-    /// Every sampled weight passes through the receiver's own water
-    /// attenuation exactly once ([`TransportReceiver::attenuation`]), so a
-    /// submerged texel gathers a tinted, dimmed direct term.
-    fn direct_pass(
-        &self,
-        receivers: &[TransportReceiver],
-        emitters: &[usize],
-        taps: u8,
-        workers: usize,
-        cancel: Option<&AtomicBool>,
-    ) -> Result<Vec<Accumulator>, LightmapFailure> {
-        parallel_map(receivers.len(), workers, cancel, |index| {
-            let Some(receiver) = receivers.get(index) else {
-                return Accumulator::default();
-            };
-            let mut accumulator = Accumulator::default();
-            for emitter_index in emitters {
-                let Some(emitter) = self.emitters.get(*emitter_index) else {
-                    continue;
-                };
-                let (weight, direction) =
-                    emitter.direct_from(self, receiver.position, receiver.ray_origin, taps);
-                accumulate_surface_lobe(
-                    &mut accumulator,
-                    attenuate(weight, receiver.attenuation),
-                    direction,
-                    receiver.normal,
-                );
-            }
-            accumulator
-        })
     }
 
     /// Continuous support of the authored emitter ranges, independent of
@@ -2122,6 +2294,10 @@ impl TransportScene {
             let Some(receiver) = receivers.get(index) else {
                 return Accumulator::default();
             };
+            let geometric_normal = self
+                .triangles
+                .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
+                .map_or(receiver.normal, |triangle| triangle.normal);
             let mut accumulator = Accumulator::default();
             // A shared sequence makes the estimator depend on geometry, not
             // chart ordering or how many texels another chart happened to add.
@@ -2129,6 +2305,12 @@ impl TransportScene {
             for _ in 0..count {
                 let (u1, u2) = next_pair(&mut state);
                 let direction = hemisphere_sample(receiver.normal, u1, u2);
+                // Smooth shading normals can tilt below the actual face. Such
+                // directions have no visible geometric hemisphere and must not
+                // hit this face's back and recycle its own illumination.
+                if dot(direction, geometric_normal) <= 0.0 {
+                    continue;
+                }
                 let origin = receiver.ray_origin;
                 let Some((distance, triangle_index)) = self.intersect(origin, direction) else {
                     // An escaping ray sees the level's sky radiance, which is
@@ -2158,6 +2340,11 @@ impl TransportScene {
                 let Some(triangle) = self.triangles.get(triangle_index) else {
                     continue;
                 };
+                // Opaque triangles occlude from both sides, but their prepared
+                // front irradiance is not emitted through their back faces.
+                if dot(direction, triangle.normal) >= 0.0 {
+                    continue;
+                }
                 // The lookup is keyed by the hit triangle and checks cache
                 // visibility, including dividers within that triangle.
                 let cached = cache.sample_surface(self, hit, triangle_index, receivers, current);
@@ -2221,9 +2408,51 @@ impl TransportScene {
     }
 }
 
+struct StageAudit<'a> {
+    charts: &'a [(LightmapPatch, Chart)],
+    receivers: &'a [TransportReceiver],
+    dump: bool,
+}
+
+impl StageAudit<'_> {
+    fn accumulators(&self, stage: &str, values: &[Accumulator]) {
+        self.texels(
+            stage,
+            values
+                .iter()
+                .zip(self.receivers)
+                .map(|(value, receiver)| compress_surface(value, receiver.normal)),
+        );
+    }
+
+    fn texels(&self, stage: &str, values: impl Iterator<Item = LightmapTexel>) {
+        audit_stage(stage, self.dump, self.charts, self.receivers, values);
+    }
+}
+
+fn audit_stage(
+    stage: &str,
+    dump: bool,
+    charts: &[(LightmapPatch, Chart)],
+    receivers: &[TransportReceiver],
+    values: impl Iterator<Item = LightmapTexel>,
+) {
+    if dump && diagnostics::enabled() {
+        let values = values.collect::<Vec<_>>();
+        if let Err(error) =
+            diagnostics::dump_stage(stage, charts, receivers, values.iter().copied())
+        {
+            crate::logging::warn(format_args!("[lighting-diagnostics] {error}"));
+        }
+        audit_stage_metrics(stage, charts, receivers, values.into_iter());
+    } else {
+        audit_stage_metrics(stage, charts, receivers, values);
+    }
+}
+
 /// Opt-in stage measurements before display compression, grouped by room and
 /// architectural family. Area weighting prevents tiny charts dominating a report.
-fn audit_stage(
+fn audit_stage_metrics(
     stage: &str,
     charts: &[(LightmapPatch, Chart)],
     receivers: &[TransportReceiver],
@@ -2532,6 +2761,19 @@ fn bake_probe_field(
     Ok(field)
 }
 
+fn probe_front_face(
+    triangle: &TransportTriangle,
+    direction: [f32; 3],
+    diagnostic: &mut Option<probe_audit::ProbeAudit>,
+) -> bool {
+    let front = dot(direction, triangle.normal) < 0.0;
+    if !front && let Some(diagnostic) = diagnostic {
+        diagnostic.surface_hits += 1;
+        diagnostic.zero_radiance_hits += 1;
+    }
+    front
+}
+
 fn bake_probe(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -2566,6 +2808,7 @@ fn bake_probe(
     }
     let mut accumulator = Accumulator::default();
     let mut visible_emitters = Vec::new();
+    scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
     for (emitter_index, emitter) in scene.emitters.iter().enumerate() {
         if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
             continue;
@@ -2576,16 +2819,8 @@ fn bake_probe(
             visible_emitters.push(emitter_index);
         }
     }
-    let mut diagnostic = audit.then(|| {
-        probe_audit::ProbeAudit::new(
-            position,
-            scene
-                .probe_target
-                .get(index)
-                .map_or(-1, |target| target.room),
-            &accumulator,
-        )
-    });
+    let mut diagnostic =
+        audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(diagnostic) = &mut diagnostic {
         diagnostic.visible_emitters = visible_emitters;
     }
@@ -2609,6 +2844,9 @@ fn bake_probe(
             continue;
         };
         let hit = add(position, scale(direction, distance));
+        if !probe_front_face(triangle, direction, &mut diagnostic) {
+            continue;
+        }
         let cached = cache.sample_surface(scene, hit, triangle_index, receivers, values);
         let radiance = cached.surface_light;
         if let Some(diagnostic) = &mut diagnostic {
@@ -2675,105 +2913,6 @@ fn lattice_from_index(index: usize, dims: [usize; 3]) -> (usize, usize, usize) {
     let y = (index / dims[0].max(1)) % dims[1].max(1);
     let z = index / dims[0].max(1) / dims[1].max(1);
     (x, y, z)
-}
-
-/// A chart-space luma-guided filter over the accumulated values.
-///
-/// Every chart is planar, so the filter only has to guard against a
-/// discontinuity in the solved values themselves, which is what a doorway into
-/// a dark room or a hard shadow boundary looks like. A texel only mixes with a
-/// neighbour whose irradiance luminance is close to its own, so the filter
-/// removes gather noise without crossing a real lighting edge.
-///
-/// The similarity metric compares the neighbour's *irradiance* luminance, not
-/// a reconstruction of its directional light. The stored values are linear in
-/// the accumulator, so the irradiance is a smooth, edge-preserving signal; the
-/// old metric compared a nonlinear reconstruction at each texel's own normal,
-/// which let direction noise veto legitimate smoothing and lock the noise in.
-fn filter_accumulators(
-    scene: &TransportScene,
-    charts: &[(LightmapPatch, Chart)],
-    receivers: &[TransportReceiver],
-    values: &[Accumulator],
-) -> Result<Vec<LightmapTexel>, LightmapFailure> {
-    let count = values.len();
-    let mut out: Vec<LightmapTexel> = vec![LightmapTexel::ZERO; count];
-    let mut offset = 0usize;
-    for (patch, chart) in charts {
-        let width = usize::try_from(chart.width).unwrap_or(0);
-        let height = usize::try_from(chart.height).unwrap_or(0);
-        let texels = width.saturating_mul(height);
-        if width == 0 || height == 0 {
-            continue;
-        }
-        for j in 0..height {
-            for i in 0..width {
-                let index = offset
-                    .saturating_add(j.saturating_mul(width))
-                    .saturating_add(i);
-                let Some(center) = values.get(index) else {
-                    continue;
-                };
-                let center_luma = channel_luminance(center.irradiance);
-                let mut total_weight = 1.0_f32;
-                let mut total = *center;
-                for (di, dj) in [(-1_i32, 0_i32), (1, 0), (0, -1), (0, 1)] {
-                    let Some(ni) = i.checked_add_signed(di as isize) else {
-                        continue;
-                    };
-                    let Some(nj) = j.checked_add_signed(dj as isize) else {
-                        continue;
-                    };
-                    if ni >= width || nj >= height {
-                        continue;
-                    }
-                    let neighbour = offset
-                        .saturating_add(nj.saturating_mul(width))
-                        .saturating_add(ni);
-                    let Some(source) = values.get(neighbour) else {
-                        continue;
-                    };
-                    if neighbour != index {
-                        let (Some(center_receiver), Some(source_receiver)) =
-                            (receivers.get(index), receivers.get(neighbour))
-                        else {
-                            return Err(LightmapFailure::FillSize);
-                        };
-                        // Charts can span a solid divider just as triangles can.
-                        // A denoiser must not migrate light across that boundary.
-                        if scene.occluded(center_receiver.ray_origin, source_receiver.ray_origin) {
-                            continue;
-                        }
-                    }
-                    let diff = (channel_luminance(source.irradiance) - center_luma).abs();
-                    let weight = 1.0 / (1.0 + 8.0 * diff);
-                    if weight <= 1.0e-4 {
-                        continue;
-                    }
-                    total_weight += weight;
-                    add_scaled(&mut total, source, weight);
-                }
-                let mut averaged = Accumulator::default();
-                add_scaled(&mut averaged, &total, 1.0 / total_weight);
-                let exact = averaged.surface_light;
-                if let Some(slot) = out.get_mut(index) {
-                    *slot = compress_surface(&averaged, patch_normal(patch));
-                    if !surface_energy_matches(*slot, patch_normal(patch), exact) {
-                        crate::logging::warn(format_args!(
-                            "[transport] energy mismatch at room={:?} kind={:?} origin={:?} texel=({i},{j}): integrated={exact:?} encoded={:?}; inspect transport compression before shipping this package",
-                            patch.room,
-                            patch.kind,
-                            patch.origin,
-                            slot.light_at(patch_normal(patch))
-                        ));
-                        return Err(LightmapFailure::TransportEnergy);
-                    }
-                }
-            }
-        }
-        offset = offset.saturating_add(texels);
-    }
-    Ok(out)
 }
 
 /// The previous pass's solved light on a coarse 3D grid.
@@ -2866,7 +3005,16 @@ impl RadianceCache {
                         sub(candidate.position, centre),
                     )
                 });
-                if distance < old_distance {
+                if receivers.get(*previous).is_some_and(|candidate| {
+                    cache_sample_order(
+                        distance,
+                        receiver.position,
+                        old_distance,
+                        candidate.position,
+                        cell,
+                    )
+                    .is_lt()
+                }) {
                     *previous = index;
                 }
             } else {
@@ -2886,23 +3034,63 @@ impl RadianceCache {
         self.cells.iter().filter(|cell| !cell.is_empty()).count()
     }
 
-    /// Select the hit triangle's representative without borrowing another face's
-    /// light, including the opposite face of a thin wall in the same cell.
+    /// Select a visible coplanar representative without borrowing another
+    /// plane's light, including the opposite face of a thin wall in the cell.
     fn representative(
         &self,
+        scene: &TransportScene,
         cell: usize,
         surface: usize,
+        point: [f32; 3],
         receivers: &[TransportReceiver],
     ) -> Option<usize> {
-        self.cells.get(cell)?.iter().copied().find(|index| {
-            receivers.get(*index).is_some_and(|receiver| {
-                usize::try_from(receiver.surface).unwrap_or(usize::MAX) == surface
+        let hit = scene.triangles.get(surface)?;
+        // A reconstructed ray hit can round just behind its own plane. Trace
+        // cache connectivity between air-side origins at both ends, rather
+        // than allowing that endpoint error to reject the receiving surface.
+        let on_plane = sub(
+            point,
+            scale(hit.normal, dot(sub(point, hit.p0), hit.normal)),
+        );
+        let target = receiver_position(on_plane, hit.normal);
+        let centre = cell_centre(cell, self.min, self.cell, self.dims);
+        let candidates = self.cells.get(cell)?.iter().copied().filter_map(|index| {
+            let receiver = receivers.get(index)?;
+            let candidate = scene
+                .triangles
+                .get(usize::try_from(receiver.surface).ok()?)?;
+            if !same_lighting_plane(hit, candidate) {
+                return None;
+            }
+            let delta = sub(receiver.position, centre);
+            Some((dot(delta, delta), index))
+        });
+        // Usually the nearest compatible sample is visible. Test it once;
+        // only search the remaining candidates when a real divider blocks it.
+        let compare = |(left, li): &(f32, usize), (right, ri): &(f32, usize)| {
+            let lp = receivers.get(*li).map_or([0.0; 3], |r| r.position);
+            let rp = receivers.get(*ri).map_or([0.0; 3], |r| r.position);
+            cache_sample_order(*left, lp, *right, rp, self.cell)
+        };
+        let (_, closest) = candidates.clone().min_by(compare)?;
+        if let Some(receiver) = receivers.get(closest)
+            && !scene.occluded(receiver.ray_origin, target)
+        {
+            return Some(closest);
+        }
+        candidates
+            .filter(|(_, index)| {
+                *index != closest
+                    && receivers
+                        .get(*index)
+                        .is_some_and(|receiver| !scene.occluded(receiver.ray_origin, target))
             })
-        })
+            .min_by(compare)
+            .map(|(_, index)| index)
     }
 
-    /// Interpolated cached light at `point`, restricted to representatives on
-    /// `normal`'s side of the surface.
+    /// Interpolated cached light at `point`, restricted to visible samples on
+    /// the hit triangle's oriented plane.
     fn sample_surface(
         &self,
         scene: &TransportScene,
@@ -2944,25 +3132,16 @@ impl RadianceCache {
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let Some(receiver) = self.representative(index, surface, receivers) else {
-                        continue;
-                    };
-                    let (Some(receiver), Some(value)) =
-                        (receivers.get(receiver), values.get(receiver))
+                    let Some(receiver) =
+                        self.representative(scene, index, surface, point, receivers)
                     else {
                         continue;
                     };
-                    // The hit surface's own receivers only: a co-planar surface
-                    // across a wall is a different triangle and must never
-                    // contribute, however close its cell is.
-                    if usize::try_from(receiver.surface).unwrap_or(usize::MAX) != surface {
+                    let Some(value) = values.get(receiver) else {
                         continue;
-                    }
+                    };
                     // A single architectural triangle can straddle a divider.
                     // Surface identity alone cannot isolate its two sides.
-                    if scene.occluded(receiver.ray_origin, point) {
-                        continue;
-                    }
                     weight_sum += weight;
                     add_scaled(&mut total, value, weight);
                 }
@@ -3011,29 +3190,19 @@ impl RadianceCache {
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let Some(receiver) = self.representative(index, surface, receivers) else {
-                        continue;
-                    };
-                    let (Some(receiver), Some(value)) =
-                        (receivers.get(receiver), values.get(receiver))
+                    let Some(receiver) =
+                        self.representative(scene, index, surface, point, receivers)
                     else {
                         continue;
                     };
-                    // The bounded fallback only reads the hit surface's own
-                    // receivers: a nearby face of a different surface is
-                    // exactly the co-planar-across-a-wall case the cache
-                    // must never migrate light through.
-                    if usize::try_from(receiver.surface).unwrap_or(usize::MAX) != surface {
+                    let Some(value) = values.get(receiver) else {
                         continue;
-                    }
+                    };
                     let distance = dx.abs() + dy.abs() + dz.abs();
                     let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
-                    // Keep the original nearest/tie ordering, but do not trace
-                    // a candidate that cannot replace an already visible one.
+                    // Keep the nearest/tie ordering: a farther representative
+                    // cannot replace an already visible one.
                     if best.is_some_and(|(current, _)| distance >= current) {
-                        continue;
-                    }
-                    if scene.occluded(receiver.ray_origin, point) {
                         continue;
                     }
                     best = Some((distance, *value));
@@ -3042,6 +3211,49 @@ impl RadianceCache {
         }
         best.map_or_else(Accumulator::default, |(_, value)| value)
     }
+}
+
+/// Grid-equivalent samples can differ by a few rounding steps when authored
+/// through differently sized charts. Resolve distance ties spatially, so a
+/// triangle or chart iteration order cannot select another cache sample.
+fn cache_sample_order(
+    left: f32,
+    lp: [f32; 3],
+    right: f32,
+    rp: [f32; 3],
+    cell: f32,
+) -> std::cmp::Ordering {
+    let distance_error = 32.0 * f32::EPSILON * cell.powi(2).max(left).max(right);
+    if (left - right).abs() > distance_error {
+        return left.total_cmp(&right);
+    }
+    for (a, b) in lp.iter().zip(rp) {
+        let error = 8.0 * f32::EPSILON * a.abs().max(b.abs()).max(1.0);
+        if (*a - b).abs() > error {
+            return a.total_cmp(&b);
+        }
+    }
+    std::cmp::Ordering::Equal
+}
+
+/// Irradiance may interpolate across a coplanar triangulation edge. The hit
+/// triangle still supplies its own albedo; charts, materials and geometry are
+/// never merged. Visibility checks keep disconnected pieces isolated.
+fn same_lighting_plane(left: &TransportTriangle, right: &TransportTriangle) -> bool {
+    if left
+        .normal
+        .iter()
+        .zip(right.normal)
+        .any(|(a, b)| (*a - b).abs() > 8.0 * f32::EPSILON)
+    {
+        return false;
+    }
+    let magnitude = left
+        .p0
+        .iter()
+        .chain(&right.p0)
+        .fold(1.0_f32, |scale, v| scale.max(v.abs()));
+    dot(left.normal, sub(right.p0, left.p0)).abs() <= 2.0 * SURFACE_OFFSET_M * magnitude
 }
 
 /// Adds one accumulator scaled by `weight` into `total`.
@@ -3641,6 +3853,10 @@ fn safe_inverse(value: f32) -> f32 {
         1.0 / value
     }
 }
+
+mod coverage;
+pub mod diagnostics;
+mod filter;
 
 #[cfg(test)]
 mod tests;

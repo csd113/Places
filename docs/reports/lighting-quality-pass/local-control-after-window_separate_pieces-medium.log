@@ -1,0 +1,28 @@
+[package] /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-local-after-medium-captures/package-root (assets: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-local-after-medium-captures/package-root/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-local-after-medium-captures/package-root/assets
+[settings] quality medium (saved medium) [startup override] | lighting medium | bloom on | reflections off [startup override] | lightmaps medium | vsync off | filtering medium | window Windowed 1920 x 1080
+[display] requested windowed 1920 x 1080 does not fit the display work area (1512 x 870); opening 1512 x 850 instead
+[assets] 134 placeable asset(s) of 247 catalog entries; themes: office, pool, home, outdoor
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 3024x1676
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] texture filtering: medium active (trilinear + 8x anisotropy requested)
+[wgpu] present mode Immediate (immediate)
+[window] logical 1512x838 | drawable 3024x1676 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 1512x838, bloom 378x209, presented 3024x1676
+[loading] package identity level=lighting_quality variant=medium sha256=b27bc57e8e1e422fb5c8f9426846fab4701ac22fa89ec86c1271413df64ec287 source=/Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-local-after-medium-captures/package-root/assets/levels/lighting_quality.placesmap
+[loading] compiled-cache miss level=lighting_quality variant=medium
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 2881 vertices, 5184 indices, 61 draws in 1 chunk(s) (neutral mesh: 2881 vertices, 5184 indices, 61 ranges)
+[wgpu] textures: 3 unique, 2 uploaded, 35 cache hits, 12 fallbacks, 0 missing of 61 draws (8388604 bytes resident, max edge 1024px, medium filtering)
+[wgpu] materials: 5 resolved (1 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 61 opaque / 0 cutout / 0 translucent of 61 draws (enabled response, medium level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[loading] committed lighting_quality
+[props] 8 models cached (0 failed), 2456 triangles, 1664 KiB of textures, 12 draw call(s)
+[level] 2881 static vertices, 9909 prop vertices, 12 prop draw call(s), built in 3.1 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 61 static batch(es) (floor 16 / ceiling 5 / wall 16 / light 24 / prop box 0 / decal 0), 12 prop batch(es)
+[lighting] baked 21 room(s) / 22 baseline area(s) from 17 fixture(s): 438 wall + 258 slab + 71 prop blocker(s), baselines 0.10..0.37 (avg 0.32)
+[lightmaps] 2 page(s), 3683 chart(s), 442432 chart texels, 2097152 page texels (32768 KiB), filled in 0.0 ms
+[dynamic] 0 object(s): 0 draw call(s), 0 vertices (the demonstration path; never part of the static bake); doors: 0/0
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-local-after-medium-captures/window_separate_pieces-medium.png
+BENCH_SUMMARY {"level":"lighting_quality","frames":1,"swap_interval":0,"update_mean_ms":49.500,"render_mean_ms":0.925,"swap_mean_ms":122.931,"frame_mean_ms":173.356,"loop_mean_ms":173.356,"frame_median_ms":173.356,"loop_median_ms":173.356,"frame_p95_ms":173.356,"frame_p99_ms":173.356,"loop_p95_ms":173.356,"loop_p99_ms":173.356,"frame_min_ms":173.356,"frame_max_ms":173.356,"loop_min_ms":173.356,"loop_max_ms":173.356,"fps_median":5.77,"fps_p95":5.77,"fps_p99":5.77,"fps_1pct_low":5.77,"fps_mean":5.77,"measured_fps_mean":5.77,"worst_fps":5.77,"total_vertices":12790,"visible_vertices":699,"culled_vertices":12091,"total_batches":73,"visible_batches":11,"draw_calls":11,"vbo_bytes":818560,"index_bytes":30186,"texture_binds":4,"material_changes":4,"reflection_passes":0}

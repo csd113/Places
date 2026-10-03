@@ -1,0 +1,58 @@
+[
+  {
+    "source": "levels/geometry_intentional.json",
+    "package": "levels/geometry_intentional.placesmap",
+    "package_fingerprint": "ba565b7be3dde2fa75924f9f0589dcd6c0ae3fe46c7bc6f50a441010b6f36cef",
+    "current_fingerprint": "ba565b7be3dde2fa75924f9f0589dcd6c0ae3fe46c7bc6f50a441010b6f36cef",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "levels/home_showcase.json",
+    "package": "levels/home_showcase.placesmap",
+    "package_fingerprint": "9308cf361a6e34ac229f91f417be678577fe4224eb9ed61eb0518d0b6b5a5985",
+    "current_fingerprint": "9308cf361a6e34ac229f91f417be678577fe4224eb9ed61eb0518d0b6b5a5985",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "assets/levels/lantern_hollow.json",
+    "package": "assets/levels/lantern_hollow.placesmap",
+    "package_fingerprint": "d1ee2deabebd8abf5c3b769b42b37de8845a385c8f3bd04a9781c1ab3129dfce",
+    "current_fingerprint": "d1ee2deabebd8abf5c3b769b42b37de8845a385c8f3bd04a9781c1ab3129dfce",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "levels/level0_pit.json",
+    "package": "levels/level0_pit.placesmap",
+    "package_fingerprint": "8585672b4be40e384550c72ccdf5003623f1b283089a867d1ea3caf982e75b8f",
+    "current_fingerprint": "8585672b4be40e384550c72ccdf5003623f1b283089a867d1ea3caf982e75b8f",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "assets/levels/model_zoo.json",
+    "package": "assets/levels/model_zoo.placesmap",
+    "package_fingerprint": "e498fcf7a950bcae81a91402019ba20537aa258523dda2755b227396b045add0",
+    "current_fingerprint": "e498fcf7a950bcae81a91402019ba20537aa258523dda2755b227396b045add0",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "assets/levels/movement_test.json",
+    "package": "assets/levels/movement_test.placesmap",
+    "package_fingerprint": "224fd24897e353c8708e19276b57221c76508db2b8f522ad28bc8f2e3f2cfb38",
+    "current_fingerprint": "224fd24897e353c8708e19276b57221c76508db2b8f522ad28bc8f2e3f2cfb38",
+    "current": true,
+    "differences": []
+  },
+  {
+    "source": "assets/levels/places_demo.json",
+    "package": "assets/levels/places_demo.placesmap",
+    "package_fingerprint": "352fefc53e195f544afd5f8b61ce0e141ad7fb5b085787d4313737df456494c4",
+    "current_fingerprint": "352fefc53e195f544afd5f8b61ce0e141ad7fb5b085787d4313737df456494c4",
+    "current": true,
+    "differences": []
+  }
+]

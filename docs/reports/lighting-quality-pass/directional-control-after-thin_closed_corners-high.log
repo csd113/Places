@@ -1,0 +1,27 @@
+[package] /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-after-final/package-root (assets: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-after-final/package-root/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-after-final/package-root/assets
+[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections off [startup override] | lightmaps full | vsync off | filtering high | window Windowed 1920 x 1080
+[display] requested windowed 1920 x 1080 does not fit the display work area (1512 x 870); opening 1512 x 850 instead
+[assets] 134 placeable asset(s) of 247 catalog entries; themes: office, pool, home, outdoor
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 3024x1676
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[wgpu] present mode Immediate (immediate)
+[window] logical 1512x838 | drawable 3024x1676 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 3024x1676, bloom 756x419, presented 3024x1676
+[loading] package identity level=lighting_quality variant=full sha256=47c6e8ea50e1aa5d7b8f895271a7dc674431d8d4e590304a5dac8269d5ea0106 source=/Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-after-final/package-root/assets/levels/lighting_quality.placesmap
+[loading] compiled-cache miss level=lighting_quality variant=full
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 2881 vertices, 5184 indices, 61 draws in 1 chunk(s) (neutral mesh: 2881 vertices, 5184 indices, 61 ranges)
+[wgpu] textures: 3 unique, 2 uploaded, 35 cache hits, 12 fallbacks, 0 missing of 61 draws (20971516 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 5 resolved (1 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 61 opaque / 0 cutout / 0 translucent of 61 draws (enabled response, high level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[loading] committed lighting_quality
+[props] 8 models cached (0 failed), 2456 triangles, 1664 KiB of textures, 12 draw call(s)
+[level] 2881 static vertices, 9909 prop vertices, 12 prop draw call(s), built in 0.1 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 61 static batch(es) (floor 16 / ceiling 5 / wall 16 / light 24 / prop box 0 / decal 0), 12 prop batch(es)
+[lighting] baked 21 room(s) / 22 baseline area(s) from 17 fixture(s): 438 wall + 258 slab + 92 prop blocker(s), baselines 0.10..0.37 (avg 0.32)
+[lightmaps] 2 page(s), 3683 chart(s), 781686 chart texels, 2097152 page texels (32768 KiB), filled in 0.0 ms
+[dynamic] 0 object(s): 0 draw call(s), 0 vertices (the demonstration path; never part of the static bake); doors: 0/0
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/target/lighting-quality-pass/diagnostic-after-final/thin_closed_corners-high.png
+BENCH_SUMMARY {"level":"lighting_quality","frames":1,"swap_interval":0,"update_mean_ms":7.590,"render_mean_ms":0.681,"swap_mean_ms":22.357,"frame_mean_ms":30.629,"loop_mean_ms":30.629,"frame_median_ms":30.629,"loop_median_ms":30.629,"frame_p95_ms":30.629,"frame_p99_ms":30.629,"loop_p95_ms":30.629,"loop_p99_ms":30.629,"frame_min_ms":30.629,"frame_max_ms":30.629,"loop_min_ms":30.629,"loop_max_ms":30.629,"fps_median":32.65,"fps_p95":32.65,"fps_p99":32.65,"fps_1pct_low":32.65,"fps_mean":32.65,"measured_fps_mean":32.65,"worst_fps":32.65,"total_vertices":12790,"visible_vertices":1020,"culled_vertices":11770,"total_batches":73,"visible_batches":21,"draw_calls":21,"vbo_bytes":818560,"index_bytes":30186,"texture_binds":4,"material_changes":5,"reflection_passes":0}

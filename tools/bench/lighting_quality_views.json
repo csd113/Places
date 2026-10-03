@@ -1,0 +1,283 @@
+[
+  {
+    "name": "continuous_wall",
+    "level": "lighting_quality",
+    "spawn": [
+      4.0,
+      4.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "vertical_strips",
+    "level": "lighting_quality",
+    "spawn": [
+      15.0,
+      4.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "horizontal_strips",
+    "level": "lighting_quality",
+    "spawn": [
+      26.0,
+      4.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "adjacent_coplanar",
+    "level": "lighting_quality",
+    "spawn": [
+      37.0,
+      4.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "window_topology",
+    "level": "lighting_quality",
+    "spawn": [
+      4.0,
+      13.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "window_separate_pieces",
+    "level": "lighting_quality",
+    "spawn": [
+      15.0,
+      13.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "doorway_inset",
+    "level": "lighting_quality",
+    "spawn": [
+      26.0,
+      13.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "concave_convex_corners",
+    "level": "lighting_quality",
+    "spawn": [
+      37.0,
+      13.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "thin_closed_corners",
+    "level": "lighting_quality",
+    "spawn": [
+      4.0,
+      22.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "thick_closed_corners",
+    "level": "lighting_quality",
+    "spawn": [
+      15.0,
+      22.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "connected_rooms",
+    "level": "lighting_quality",
+    "spawn": [
+      26.0,
+      22.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "stacked_rooms",
+    "level": "lighting_quality",
+    "spawn": [
+      37.0,
+      22.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "ceiling_pitched_roof",
+    "level": "lighting_quality",
+    "spawn": [
+      4.0,
+      31.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "rotated_cubes",
+    "level": "lighting_quality",
+    "spawn": [
+      15.0,
+      31.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "curved_cylindrical",
+    "level": "lighting_quality",
+    "spawn": [
+      26.0,
+      31.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "scaled_proximity",
+    "level": "lighting_quality",
+    "spawn": [
+      37.0,
+      31.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "production_models",
+    "level": "lighting_quality",
+    "spawn": [
+      4.0,
+      40.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "isolated_curved_model",
+    "level": "lighting_quality",
+    "spawn": [
+      15.0,
+      40.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "diagonal_thin_caster",
+    "level": "lighting_quality",
+    "spawn": [
+      29.0,
+      6,
+      41.3,
+      -45
+    ],
+    "camera": [
+      -45,
+      -60
+    ],
+    "capture_time": 0
+  },
+  {
+    "name": "grazing_slight_normal_difference",
+    "level": "lighting_quality",
+    "spawn": [
+      37.0,
+      40.8,
+      0
+    ],
+    "camera": [
+      0,
+      -3
+    ],
+    "capture_time": 0
+  }
+]

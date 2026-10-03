@@ -602,17 +602,16 @@ impl Chart {
     /// Atlas UV of local `(u, v)` in `0..=1`, quantised for
     /// [`crate::render::Vertex::lightmap`].
     ///
-    /// The mapping is the frozen contract: local `u` spans the chart's data
-    /// rectangle, `[0, 1] -> [x, x + width]`, and the shader divides by
-    /// `page_edge` again. Coordinates are clamped, so a caller can never ask for
-    /// a sample outside the chart's own gutter.
+    /// The baker samples both patch endpoints. Map those endpoints to the
+    /// first and last texel centres, so bilinear reconstruction evaluates the
+    /// same world positions. A one-texel axis maps to its sole centre.
     #[must_use]
     pub fn uv_at(&self, page_edge: u32, u: f32, v: f32) -> [u16; 2] {
         let edge = f32::from(u16::try_from(page_edge).unwrap_or(u16::MAX)).max(1.0);
         let x = f32::from(u16::try_from(self.x.min(page_edge)).unwrap_or(u16::MAX));
         let y = f32::from(u16::try_from(self.y.min(page_edge)).unwrap_or(u16::MAX));
-        let width = f32::from(u16::try_from(self.width).unwrap_or(u16::MAX));
-        let height = f32::from(u16::try_from(self.height).unwrap_or(u16::MAX));
+        let width = f32::from(u16::try_from(self.width.saturating_sub(1)).unwrap_or(u16::MAX));
+        let height = f32::from(u16::try_from(self.height.saturating_sub(1)).unwrap_or(u16::MAX));
         let u = if u.is_finite() {
             u.clamp(0.0, 1.0)
         } else {
@@ -624,8 +623,8 @@ impl Chart {
             0.0
         };
         [
-            quantize_uv(width.mul_add(u, x) / edge),
-            quantize_uv(height.mul_add(v, y) / edge),
+            quantize_uv(width.mul_add(u, x + 0.5) / edge),
+            quantize_uv(height.mul_add(v, y + 0.5) / edge),
         ]
     }
 }

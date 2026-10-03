@@ -225,6 +225,7 @@ fn emit_floors(
                 |_, _| y,
                 Some(tint),
                 context.vertex_colors_are_material_only(),
+                false,
             );
             let tile = context.materials.tile_metres(surface.key);
             scratch.clear();
@@ -471,6 +472,7 @@ fn emit_ceilings(
             ceiling_at,
             Some(context.materials.tint(ceiling_key)),
             context.vertex_colors_are_material_only(),
+            true,
         );
         let tile = context.materials.tile_metres(ceiling_key);
         emit_lit_surface_grid(
@@ -1333,8 +1335,16 @@ fn sample_cross_edge(
     let room = cross_edge_room(context, state, inboard, side, side_normal);
     let probe = side_normal.mul_add(LIGHT_FACE_PROBE_M, side);
     match state.axis {
-        WallAxis::X => context.lighting.sample_face(room, inboard, y, probe),
-        WallAxis::Z => context.lighting.sample_face(room, probe, y, inboard),
+        WallAxis::X => context.lighting.sample_face(room, inboard, y, probe).plus(
+            context
+                .lighting
+                .global_surface_light([inboard, y, probe], [0.0, 0.0, side_normal]),
+        ),
+        WallAxis::Z => context.lighting.sample_face(room, probe, y, inboard).plus(
+            context
+                .lighting
+                .global_surface_light([probe, y, inboard], [side_normal, 0.0, 0.0]),
+        ),
     }
 }
 

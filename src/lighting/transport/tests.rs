@@ -566,8 +566,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 10,
-        "native quad and folded-triangle receiver mapping is solver revision 10"
+        SOLVER_REVISION, 11,
+        "chart-consistent reconstruction and directional sources are solver revision 11"
     );
     let first = solver_fingerprint();
     assert_eq!(
@@ -1589,7 +1589,11 @@ fn corner_ray_origin_stays_on_the_charts_owning_side_and_surface() {
 
 #[test]
 fn subdivided_coplanar_surfaces_keep_their_bounce_cache_light() {
-    let scene = TransportScene::new(Vec::new(), Vec::new()).expect("scene");
+    let face =
+        TransportTriangle::new([0.0; 3], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.5; 3]).expect("face");
+    let mut triangles = vec![face; 4];
+    triangles.push(TransportTriangle::new(face.p0, face.p2, face.p1, face.albedo).expect("back"));
+    let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
     let receiver = |x, surface, normal| TransportReceiver {
         position: [x, 0.0, 0.1],
         ray_origin: [x, 0.00001, 0.1],
@@ -1654,3 +1658,4 @@ fn reordering_charts_does_not_change_the_indirect_field() {
 }
 
 mod probes;
+mod quality;

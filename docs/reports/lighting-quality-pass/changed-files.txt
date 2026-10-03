@@ -1,0 +1,277 @@
+ M assets/levels/lantern_hollow.json
+ M assets/levels/lantern_hollow.placesmap
+ M assets/levels/model_zoo.placesmap
+ M assets/levels/movement_test.placesmap
+ M assets/levels/places_demo.placesmap
+ M docs/MAP_AUTHORING_GUIDE.md
+ M docs/PACKAGE_FORMAT.md
+ M docs/VERIFICATION.md
+ M src/compiler.rs
+ M src/gltf.rs
+ M src/gltf/tests.rs
+ M src/level.rs
+ M src/level/tests.rs
+ M src/lighting.rs
+ M src/lighting/bake.rs
+ M src/lighting/lightmap/cache.rs
+ M src/lighting/lightmap/mod.rs
+ M src/lighting/lightmap/plan.rs
+ M src/lighting/lightmap/tests.rs
+ M src/lighting/transport.rs
+ M src/lighting/transport/tests.rs
+ M src/lighting/visibility.rs
+ M src/lighting_audit_cases.rs
+ M src/loader.rs
+ M src/loader/tests.rs
+ M src/render/common/api.rs
+ M src/render/common/architecture.rs
+ M src/render/common/geometry.rs
+ M src/render/common/light_transport.rs
+ M src/render/common/mod.rs
+ M src/render/common/props.rs
+ M src/static_prop_lighting_tests.rs
+ M tools/levels/build_lantern_hollow.py
+ M tools/verify.sh
+?? docs/reports/lighting-quality-pass.md
+?? docs/reports/lighting-quality-pass/asset-inventory.json
+?? docs/reports/lighting-quality-pass/bake-after-full-0.log
+?? docs/reports/lighting-quality-pass/bake-after-full-1.log
+?? docs/reports/lighting-quality-pass/bake-after-full-2.log
+?? docs/reports/lighting-quality-pass/bake-after-medium-0.log
+?? docs/reports/lighting-quality-pass/bake-after-medium-1.log
+?? docs/reports/lighting-quality-pass/bake-after-medium-2.log
+?? docs/reports/lighting-quality-pass/bake-before-full-0.log
+?? docs/reports/lighting-quality-pass/bake-before-full-1.log
+?? docs/reports/lighting-quality-pass/bake-before-full-2.log
+?? docs/reports/lighting-quality-pass/bake-before-medium-0.log
+?? docs/reports/lighting-quality-pass/bake-before-medium-1.log
+?? docs/reports/lighting-quality-pass/bake-before-medium-2.log
+?? docs/reports/lighting-quality-pass/capture-index.json
+?? docs/reports/lighting-quality-pass/changed-files.txt
+?? docs/reports/lighting-quality-pass/chart-audit-malformed-control.json
+?? docs/reports/lighting-quality-pass/check-final-complete.log
+?? docs/reports/lighting-quality-pass/cpu-samples.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-0/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-1/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-after-2/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-0/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-1/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/hollow_street-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/hollow_street-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/hollow_street-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/manifest.json
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/pool_window-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/pool_window-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/pool_window-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/pool_window-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/zoo_fridge-high-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/cpu-warmed-before-2/zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/cpu-warmed-samples.json
+?? docs/reports/lighting-quality-pass/directional-control-after-diagonal_thin_caster-high.log
+?? docs/reports/lighting-quality-pass/directional-control-after-diagonal_thin_caster-high.png
+?? docs/reports/lighting-quality-pass/directional-control-after-diagonal_thin_caster-medium.log
+?? docs/reports/lighting-quality-pass/directional-control-after-diagonal_thin_caster-medium.png
+?? docs/reports/lighting-quality-pass/directional-control-after-thin_closed_corners-high.log
+?? docs/reports/lighting-quality-pass/directional-control-after-thin_closed_corners-high.png
+?? docs/reports/lighting-quality-pass/evidence-verification.json
+?? docs/reports/lighting-quality-pass/fridge-final-diagonal-comparison.json
+?? docs/reports/lighting-quality-pass/gpu-after-high-export-gpu.log
+?? docs/reports/lighting-quality-pass/gpu-after-high-export-memory.log
+?? docs/reports/lighting-quality-pass/gpu-after-high-native.log
+?? docs/reports/lighting-quality-pass/gpu-after-high-summary.log
+?? docs/reports/lighting-quality-pass/gpu-after-high-trace.log
+?? docs/reports/lighting-quality-pass/gpu-after-high.json
+?? docs/reports/lighting-quality-pass/gpu-after-medium-export-gpu.log
+?? docs/reports/lighting-quality-pass/gpu-after-medium-export-memory.log
+?? docs/reports/lighting-quality-pass/gpu-after-medium-native.log
+?? docs/reports/lighting-quality-pass/gpu-after-medium-summary.log
+?? docs/reports/lighting-quality-pass/gpu-after-medium-trace.log
+?? docs/reports/lighting-quality-pass/gpu-after-medium.json
+?? docs/reports/lighting-quality-pass/gpu-before-high-export-gpu.log
+?? docs/reports/lighting-quality-pass/gpu-before-high-export-memory.log
+?? docs/reports/lighting-quality-pass/gpu-before-high-native.log
+?? docs/reports/lighting-quality-pass/gpu-before-high-summary.log
+?? docs/reports/lighting-quality-pass/gpu-before-high-trace.log
+?? docs/reports/lighting-quality-pass/gpu-before-high.json
+?? docs/reports/lighting-quality-pass/gpu-before-medium-export-gpu.log
+?? docs/reports/lighting-quality-pass/gpu-before-medium-export-memory.log
+?? docs/reports/lighting-quality-pass/gpu-before-medium-native.log
+?? docs/reports/lighting-quality-pass/gpu-before-medium-summary.log
+?? docs/reports/lighting-quality-pass/gpu-before-medium-trace.log
+?? docs/reports/lighting-quality-pass/gpu-before-medium.json
+?? docs/reports/lighting-quality-pass/gpu-samples.json
+?? docs/reports/lighting-quality-pass/hollow-bake-after-full.log
+?? docs/reports/lighting-quality-pass/hollow-bake-before-full.log
+?? docs/reports/lighting-quality-pass/hollow-chart-audit-before.json
+?? docs/reports/lighting-quality-pass/hollow-chart-audit-final.json
+?? docs/reports/lighting-quality-pass/house-caster-rays.json
+?? docs/reports/lighting-quality-pass/house-caster-summary.json
+?? docs/reports/lighting-quality-pass/house-selected-caster-evidence.json
+?? docs/reports/lighting-quality-pass/initial-120-warmup-cpu-after-0-zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/initial-120-warmup-cpu-after-0-zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/initial-120-warmup-cpu-before-0-zoo_fridge-medium-frames.csv
+?? docs/reports/lighting-quality-pass/initial-120-warmup-cpu-before-0-zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/local-control-after-ceiling_pitched_roof-high.log
+?? docs/reports/lighting-quality-pass/local-control-after-ceiling_pitched_roof-high.png
+?? docs/reports/lighting-quality-pass/local-control-after-vertical_strips-high.log
+?? docs/reports/lighting-quality-pass/local-control-after-vertical_strips-high.png
+?? docs/reports/lighting-quality-pass/local-control-after-vertical_strips-medium.log
+?? docs/reports/lighting-quality-pass/local-control-after-vertical_strips-medium.png
+?? docs/reports/lighting-quality-pass/local-control-after-window_separate_pieces-high.log
+?? docs/reports/lighting-quality-pass/local-control-after-window_separate_pieces-high.png
+?? docs/reports/lighting-quality-pass/local-control-after-window_separate_pieces-medium.log
+?? docs/reports/lighting-quality-pass/local-control-after-window_separate_pieces-medium.png
+?? docs/reports/lighting-quality-pass/local-control-before-ceiling_pitched_roof-high.log
+?? docs/reports/lighting-quality-pass/local-control-before-ceiling_pitched_roof-high.png
+?? docs/reports/lighting-quality-pass/local-control-before-vertical_strips-high.log
+?? docs/reports/lighting-quality-pass/local-control-before-vertical_strips-high.png
+?? docs/reports/lighting-quality-pass/local-control-before-vertical_strips-medium.log
+?? docs/reports/lighting-quality-pass/local-control-before-vertical_strips-medium.png
+?? docs/reports/lighting-quality-pass/local-control-before-window_separate_pieces-high.log
+?? docs/reports/lighting-quality-pass/local-control-before-window_separate_pieces-high.png
+?? docs/reports/lighting-quality-pass/local-control-before-window_separate_pieces-medium.log
+?? docs/reports/lighting-quality-pass/local-control-before-window_separate_pieces-medium.png
+?? docs/reports/lighting-quality-pass/local-package-validation.json
+?? docs/reports/lighting-quality-pass/offline-samples.json
+?? docs/reports/lighting-quality-pass/package-currency.json
+?? docs/reports/lighting-quality-pass/package-resource-comparison.json
+?? docs/reports/lighting-quality-pass/performance-final-run.log
+?? docs/reports/lighting-quality-pass/performance-input-hashes.json
+?? docs/reports/lighting-quality-pass/performance-summary.json
+?? docs/reports/lighting-quality-pass/performance-warmed-run.log
+?? docs/reports/lighting-quality-pass/production-after-corridor-high.log
+?? docs/reports/lighting-quality-pass/production-after-corridor-high.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_floor-high.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_floor-high.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_gable-high.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_gable-high.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_gable-medium.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_house0_gable-medium.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_pond-high.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_pond-high.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-high.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-high.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-low.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-low.png
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/production-after-hollow_street-medium.png
+?? docs/reports/lighting-quality-pass/production-after-pool_window-high.log
+?? docs/reports/lighting-quality-pass/production-after-pool_window-high.png
+?? docs/reports/lighting-quality-pass/production-after-pool_window-medium.log
+?? docs/reports/lighting-quality-pass/production-after-pool_window-medium.png
+?? docs/reports/lighting-quality-pass/production-after-zoo_curved-high.log
+?? docs/reports/lighting-quality-pass/production-after-zoo_curved-high.png
+?? docs/reports/lighting-quality-pass/production-after-zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/production-after-zoo_fridge-high.png
+?? docs/reports/lighting-quality-pass/production-after-zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/production-after-zoo_fridge-medium.png
+?? docs/reports/lighting-quality-pass/production-before-corridor-high.log
+?? docs/reports/lighting-quality-pass/production-before-corridor-high.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_floor-high.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_floor-high.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_gable-high.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_gable-high.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_gable-medium.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_house0_gable-medium.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_pond-high.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_pond-high.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-high.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-high.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-low.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-low.png
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-medium.log
+?? docs/reports/lighting-quality-pass/production-before-hollow_street-medium.png
+?? docs/reports/lighting-quality-pass/production-before-pool_window-high.log
+?? docs/reports/lighting-quality-pass/production-before-pool_window-high.png
+?? docs/reports/lighting-quality-pass/production-before-pool_window-medium.log
+?? docs/reports/lighting-quality-pass/production-before-pool_window-medium.png
+?? docs/reports/lighting-quality-pass/production-before-zoo_curved-high.log
+?? docs/reports/lighting-quality-pass/production-before-zoo_curved-high.png
+?? docs/reports/lighting-quality-pass/production-before-zoo_fridge-high.log
+?? docs/reports/lighting-quality-pass/production-before-zoo_fridge-high.png
+?? docs/reports/lighting-quality-pass/production-before-zoo_fridge-medium.log
+?? docs/reports/lighting-quality-pass/production-before-zoo_fridge-medium.png
+?? docs/reports/lighting-quality-pass/quality-measured-final.log
+?? docs/reports/lighting-quality-pass/rebuild-reports.json
+?? docs/reports/lighting-quality-pass/representative-model-geometry-audit.json
+?? docs/reports/lighting-quality-pass/selected-house-rays-labels.json
+?? docs/reports/lighting-quality-pass/texel-density-measurements.json
+?? docs/reports/lighting-quality-pass/transport-final.log
+?? docs/reports/lighting-quality-pass/validation-summary.json
+?? docs/reports/lighting-quality-pass/verify-final-result.json
+?? docs/reports/lighting-quality-pass/verify-final.log
+?? src/lighting/directional.rs
+?? src/lighting/directional/tests.rs
+?? src/lighting/transport/coverage.rs
+?? src/lighting/transport/diagnostics.rs
+?? src/lighting/transport/filter.rs
+?? src/lighting/transport/tests/quality.rs
+?? tests/fixtures/levels/lighting_quality.json
+?? tools/bench/capture_lighting_quality.py
+?? tools/bench/inspect_lighting_dump.py
+?? tools/bench/inspect_metal_trace.py
+?? tools/bench/lighting_quality_views.json
+?? tools/levels/build_lighting_quality.py

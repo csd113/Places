@@ -54,11 +54,16 @@ def build_level() -> dict:
              "spawn": {"x": 18.0, "z": 21.6, "yaw_degrees": -35.0},
              "defaults": {"wall": "home:wall_paint_offwhite_01", "floor": "outdoor:grass_ground_01",
                           "ceiling": "home:ceiling_white_01"},
-             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.22}}
+             "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.22},
+             "global_illuminators": [{"id": "lantern_hollow_moon", "kind": "directional",
+                 "direction": [-0.36, -0.8, -0.48], "color": [0.85, 0.9, 1.0],
+                 "intensity": 0.12, "enabled": True, "cast_shadows": True,
+                 "bake": True, "angular_size_degrees": 0.5}]}
     for key in ("rooms", "walls", "floor_patches", "floor_regions", "props", "ceiling_lights", "doors",
                 "routes", "water", "geometry_intent", "decals", "fog_regions", "void_walls"):
         level[key] = []
-    # Supported cool sky radiance and authored fog keep the forest readable at night.
+    # Sky is diffuse fill; the moon supplies separately occluded directional
+    # illumination. The star sheet has no visible moon whose location can drift.
     level["fog_regions"].append({
         "id": "lantern_hollow_night_fog", "min": [-50.0, -3.0, -52.0],
         "max": [50.0, 12.0, 38.0], "density": 0.001,

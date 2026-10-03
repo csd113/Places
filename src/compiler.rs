@@ -744,6 +744,7 @@ fn prepare_build_for_capture(
         Some(&mut cache),
     );
     let mut build = prepared.build;
+    report_preparation(quality, &build);
     if let Some(fill) = prepared.fill {
         match fill_lightmaps_cancellable(&fill, &cancelled) {
             crate::render::LightmapFillOutcome::Filled(product) => {
@@ -1016,6 +1017,7 @@ fn build_variant(
         Some(cache),
     );
     let mut build = prepared.build;
+    report_preparation(quality, &build);
     let mut lightmap_failure = build
         .lightmap_failure
         .map(|failure| failure.name().to_string());
@@ -1226,6 +1228,16 @@ fn build_variant(
         },
     };
     Ok((variant, stats))
+}
+
+fn report_preparation(quality: LightmapQuality, build: &crate::render::LevelBuild) {
+    crate::logging::info(format_args!(
+        "[compile-timing] quality={} legacy_lighting_ms={:.3} prop_geometry_and_charts_ms={:.3} architecture_and_charts_ms={:.3}",
+        quality.name(),
+        build.timings.lighting_millis,
+        build.timings.props_millis,
+        build.timings.surfaces_millis
+    ));
 }
 
 fn insert_blob(

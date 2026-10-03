@@ -5796,6 +5796,79 @@ pub const MAX_SKY_BRIGHTNESS: f32 = 4.0;
 /// Largest accepted sky ambient radiance.
 pub const MAX_SKY_AMBIENT: f32 = 1.0;
 
+/// Bounded authoring budget for map-wide directional sources.
+pub const MAX_GLOBAL_ILLUMINATORS: usize = 8;
+
+/// A static source at infinity. Direction is the direction light travels,
+/// so a moon above the map has a negative Y component. It is independent of
+/// the sky artwork and diffuse environment fill.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalIlluminatorDef {
+    pub id: String,
+    #[serde(default)]
+    pub kind: GlobalIlluminatorKind,
+    pub direction: [f32; 3],
+    #[serde(default = "default_global_color")]
+    pub color: [f32; 3],
+    #[serde(default = "default_sky_brightness")]
+    pub intensity: f32,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub cast_shadows: bool,
+    #[serde(default = "default_true")]
+    pub bake: bool,
+    /// Full angular diameter of the source, degrees (0 = hard shadow).
+    #[serde(default = "default_global_angular_size")]
+    pub angular_size_degrees: f32,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GlobalIlluminatorKind {
+    #[default]
+    Directional,
+}
+
+const fn default_global_color() -> [f32; 3] {
+    [1.0; 3]
+}
+const fn default_global_angular_size() -> f32 {
+    0.5
+}
+
+impl GlobalIlluminatorDef {
+    /// Validate untrusted authoring data before normalization or baking.
+    /// # Errors
+    /// Returns a named error for malformed ids, vectors, colour or energy.
+    pub fn validate(&self) -> Result<(), String> {
+        let valid_direction = self.direction.iter().all(|v| v.is_finite())
+            && self
+                .direction
+                .iter()
+                .map(|v| f64::from(*v).powi(2))
+                .sum::<f64>()
+                > 1.0e-20;
+        if !crate::assets::is_valid_asset_id(&self.id)
+            || !valid_direction
+            || self
+                .color
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+            || !self.intensity.is_finite()
+            || !(0.0..=8.0).contains(&self.intensity)
+            || !self.angular_size_degrees.is_finite()
+            || !(0.0..=10.0).contains(&self.angular_size_degrees)
+        {
+            return Err(format!(
+                "global illuminator `{}` needs a valid id, nonzero finite direction, colour in 0..=1, intensity in 0..=8 and angular size in 0..=10 degrees",
+                self.id
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// A level's optional night-sky background.
 ///
 /// `texture` names a catalog `texture` asset whose PNG is an equirectangular
@@ -6107,6 +6180,8 @@ pub struct LevelDef {
     /// light, and it is a separate, explicit authoring choice.
     #[serde(default)]
     pub sky: Option<SkyDef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub global_illuminators: Vec<GlobalIlluminatorDef>,
     /// Optional regional fog volumes, in authoring order.
     ///
     /// Each region thickens the air inside its own world-space box. Empty on

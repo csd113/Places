@@ -36,7 +36,9 @@ use super::{LevelLightmaps, LightmapConfig};
 ///   irradiance term and a directional moment per texel, real visible-emitter
 ///   shadowing and diffuse bounces, and prepared switchable-light layer groups.
 ///   No value from a version-11 or older atlas is valid.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 12;
+/// * `13` — mesh endpoints address the first/last data texel centres; prop
+///   chart density follows the selected architecture profile and size class.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 13;
 
 /// Process-level memory cache of prepared atlases.
 ///

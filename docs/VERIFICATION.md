@@ -46,6 +46,7 @@ python3 tools/entities/check_clip_boundaries.py
 python3 tools/levels/build_outdoor_fixture.py --check
 python3 tools/levels/build_outdoor_route.py --check
 python3 tools/levels/build_lantern_hollow.py --check
+python3 tools/levels/build_lighting_quality.py --check
 python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow
 cargo test --lib showcase_audit
 cargo test --lib static_prop_lighting_tests

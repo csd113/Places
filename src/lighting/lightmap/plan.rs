@@ -303,6 +303,18 @@ impl LightmapPlan {
         true
     }
 
+    /// Static model density follows the architectural quality policy. Large
+    /// opaque pieces retain one eighth of its density, rather than the former
+    /// fixed one-texel-per-metre allocation. Cutout cards stay inexpensive.
+    #[must_use]
+    pub fn prop_texels_per_metre(&self, large: bool, cutout: bool) -> f32 {
+        if cutout {
+            1.0
+        } else {
+            self.config.texels_per_metre * if large { 0.125 } else { 0.5 }
+        }
+    }
+
     /// Records the first build failure, with the capacity numbers, so a level
     /// that loses its atlas is never silent.
     ///

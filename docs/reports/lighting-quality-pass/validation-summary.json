@@ -1,0 +1,24 @@
+{
+  "full_verify_exit_code": 0,
+  "rust_library_passed": 1931,
+  "rust_library_ignored": 21,
+  "rust_integration_passed": 3,
+  "python_passed": 182,
+  "ignored_atlas_preflight_passed": 1,
+  "ignored_native_gpu_passed": 2,
+  "supplemental_showcase_passed": 9,
+  "supplemental_static_prop_passed": 19,
+  "check_exit_code": 0,
+  "strict_clippy_categories": [
+    "all",
+    "pedantic",
+    "nursery",
+    "cargo"
+  ],
+  "all_seven_packages_current": true,
+  "all_seven_packages_decoded": true,
+  "initial_aborted_runs": "Not counted as passes; geometry revision and Hollow page-count assertions updated to new contracts",
+  "final_fmt_exit_code": 0,
+  "final_diff_check_exit_code": 0,
+  "new_python_tools_compile_exit_code": 0
+}

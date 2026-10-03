@@ -1,0 +1,27 @@
+{
+  "charts": 5,
+  "pages": 1,
+  "receiver_texels": 128,
+  "one_sample_axes": 0,
+  "world_axis_ratio_over_100": 0,
+  "error_count": 4,
+  "errors": [
+    {
+      "chart": 1,
+      "reason": "Overlapping padded atlas reservations"
+    },
+    {
+      "chart": 2,
+      "reason": "Degenerate chart or nonunit geometric normal"
+    },
+    {
+      "chart": 3,
+      "reason": "Degenerate chart or nonunit geometric normal"
+    },
+    {
+      "chart": 4,
+      "reason": "Invalid padded atlas bounds"
+    }
+  ],
+  "interpretation": "One-sample axes and elongated charts are budget/pathology diagnostics, not automatic errors"
+}

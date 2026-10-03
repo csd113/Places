@@ -639,6 +639,7 @@ pub struct LevelLighting {
     rooms: Vec<RoomLighting>,
     room_index: RoomIndex,
     lights: Vec<BakedLight>,
+    global_lights: Vec<super::directional::DirectionalLight>,
     light_index: LightIndex,
     /// Per room, the opening links that blend neighbouring light into it.
     blends: Vec<Vec<OpeningBlend>>,
@@ -1638,6 +1639,7 @@ impl LevelLighting {
         let flat = [
             allocation_bytes(&self.rooms),
             allocation_bytes(&self.lights),
+            allocation_bytes(&self.global_lights),
             allocation_bytes(&self.blends),
             allocation_bytes(&self.room_zones),
             allocation_bytes(&self.room_lights),
@@ -1781,6 +1783,11 @@ impl LevelLighting {
             rooms,
             light_index: LightIndex::new(&lights),
             lights,
+            global_lights: level
+                .global_illuminators
+                .iter()
+                .filter_map(super::directional::DirectionalLight::from_definition)
+                .collect(),
             blends,
             room_zones,
             visibility,
@@ -1802,6 +1809,34 @@ impl LevelLighting {
     #[must_use]
     pub fn lights(&self) -> &[BakedLight] {
         &self.lights
+    }
+
+    /// Directional direct light at a surface on the vertex-lit path. Origins
+    /// use geometric separation, and infinite rays have no range falloff.
+    #[must_use]
+    pub fn global_surface_light(&self, position: [f32; 3], normal: [f32; 3]) -> LightColor {
+        let origin = super::transport::receiver_position(position, normal);
+        let mut color = LightColor::BLACK;
+        for light in &self.global_lights {
+            let cosine = normal
+                .iter()
+                .zip(light.incoming)
+                .map(|(a, b)| a * b)
+                .sum::<f32>()
+                .max(0.0);
+            if cosine <= 0.0
+                || (light.cast_shadows
+                    && self.visibility.occludes_direction(origin, light.incoming))
+            {
+                continue;
+            }
+            color = color.plus(LightColor::rgb(
+                light.color[0] * light.intensity * cosine,
+                light.color[1] * light.intensity * cosine,
+                light.color[2] * light.intensity * cosine,
+            ));
+        }
+        color
     }
 
     /// The light index one ceiling fixture baked into, if it casts light.
@@ -2880,6 +2915,11 @@ impl LevelLighting {
         writer.u16(COMPILED_VERSION);
         write_rooms(writer, &self.rooms)?;
         write_lights(writer, &self.lights)?;
+        writer.u8(u8::try_from(self.global_lights.len())
+            .map_err(|_| "too many directional illuminators".to_string())?);
+        for light in &self.global_lights {
+            light.write_compiled(writer);
+        }
         write_blends(writer, &self.blends)?;
         write_room_zones(writer, &self.room_zones)?;
         self.visibility.write_compiled(writer)?;
@@ -2904,6 +2944,13 @@ impl LevelLighting {
         }
         let rooms = read_rooms(reader)?;
         let lights = read_lights(reader, rooms.len())?;
+        let count = usize::from(reader.u8()?);
+        if count > crate::level::MAX_GLOBAL_ILLUMINATORS {
+            return Err("too many compiled directional illuminators".to_string());
+        }
+        let global_lights = (0..count)
+            .map(|_| super::directional::DirectionalLight::read_compiled(reader))
+            .collect::<Result<Vec<_>, _>>()?;
         let blends = read_blends(reader, Some(&rooms), None)?;
         let room_zones = read_room_zones(reader, &rooms)?;
         let visibility = Visibility::read_compiled(reader)?;
@@ -2924,6 +2971,7 @@ impl LevelLighting {
             rooms,
             room_index,
             lights,
+            global_lights,
             light_index,
             blends,
             room_zones,
@@ -2941,7 +2989,7 @@ impl LevelLighting {
 const COMPILED_MAGIC: [u8; 4] = *b"PLLT";
 
 /// Version of the compiled lighting record layout.
-pub(super) const COMPILED_VERSION: u16 = 1;
+pub(super) const COMPILED_VERSION: u16 = 2;
 
 /// Largest room count a compiled record may declare.
 const MAX_COMPILED_ROOMS: u64 = 100_000;

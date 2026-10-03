@@ -2156,6 +2156,29 @@ fn surface_normals_use_inverse_transpose_under_nonuniform_node_scale_and_yaw() {
 }
 
 #[test]
+fn reflected_static_node_keeps_geometric_and_imported_normals_on_the_same_side() {
+    let glb = normal_triangle_document(
+        &[[0.0, 0.0, 1.0]; 3],
+        &serde_json::json!({"mesh":0, "scale":[-2.0,1.0,0.5]}),
+        None,
+    );
+    let model = parse_glb(&glb).expect("reflected node");
+    for triangle in model.indices.as_chunks::<3>().0 {
+        let points = triangle.map(|index| Vec3::from(model.vertices[usize::from(index)].pos));
+        let geometric = (points[1] - points[0])
+            .cross(points[2] - points[0])
+            .normalize();
+        for index in triangle {
+            let shading = Vec3::from(model.vertices[usize::from(*index)].normal.expect("normal"));
+            assert!(
+                geometric.dot(shading) > 0.9999,
+                "winding disagrees with transformed normal"
+            );
+        }
+    }
+}
+
+#[test]
 fn surface_normals_apply_default_morph_before_node_transform() {
     let glb = normal_triangle_document(
         &[[0.0, 1.0, 0.0]; 3],

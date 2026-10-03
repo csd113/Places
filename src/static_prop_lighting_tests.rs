@@ -943,7 +943,8 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
         atlas.charts.len() >= 230_000,
         "this must exercise the real 230k-chart bake, never padded synthetic JSON"
     );
-    assert_eq!(atlas.pages.len(), 7);
+    // High's increased large-model density uses the full eight-page budget.
+    assert_eq!(atlas.pages.len(), 8);
     assert!(
         loaded
             .props
@@ -1276,11 +1277,11 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
                     }
                     let edge = fill.config.page_edge as f32;
                     let u = (f32::from(vertex.lightmap[0]) / 65_535.0)
-                        .mul_add(edge, -(chart.x as f32))
-                        / chart.width as f32;
+                        .mul_add(edge, -(chart.x as f32) - 0.5)
+                        / chart.width.saturating_sub(1).max(1) as f32;
                     let v = (f32::from(vertex.lightmap[1]) / 65_535.0)
-                        .mul_add(edge, -(chart.y as f32))
-                        / chart.height as f32;
+                        .mul_add(edge, -(chart.y as f32) - 0.5)
+                        / chart.height.saturating_sub(1).max(1) as f32;
                     if (-0.002..=1.002).contains(&u) && (-0.002..=1.002).contains(&v) {
                         Some((patch, u, v))
                     } else {

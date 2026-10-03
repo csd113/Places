@@ -1,0 +1,320 @@
+[
+  {
+    "view": {
+      "name": "pool_window",
+      "level": "places_demo",
+      "spawn": [
+        5.8,
+        10.2,
+        0
+      ],
+      "camera": [
+        -25,
+        9
+      ],
+      "capture_time": 0
+    },
+    "quality": "medium",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "medium",
+      "texture_filtering": "medium",
+      "lightmaps": "medium",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 5.791225041000871,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "7f8af1750c36670d66807d9bc8fb382f84c7973269d21ba177e321330fe0ee02",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  },
+  {
+    "view": {
+      "name": "zoo_fridge",
+      "level": "model_zoo",
+      "spawn": [
+        30.6,
+        20.8,
+        0
+      ],
+      "camera": [
+        0,
+        -6
+      ],
+      "capture_time": 0
+    },
+    "quality": "medium",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "medium",
+      "texture_filtering": "medium",
+      "lightmaps": "medium",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 5.253473290998954,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "3c3eeee51ff56ff69dbbb9ffb2d50b9b3f42c8eca1458b242f71f062e3eb7085",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  },
+  {
+    "view": {
+      "name": "hollow_street",
+      "level": "lantern_hollow",
+      "spawn": [
+        34,
+        21.8,
+        -58
+      ],
+      "camera": [
+        -58,
+        -3
+      ],
+      "capture_time": 0
+    },
+    "quality": "medium",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "medium",
+      "texture_filtering": "medium",
+      "lightmaps": "medium",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 6.538536208012374,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "cf94109ce18d84bb4bf2227dfdf29ff8bcc27ed26494f5931a769c242e9e2683",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  },
+  {
+    "view": {
+      "name": "pool_window",
+      "level": "places_demo",
+      "spawn": [
+        5.8,
+        10.2,
+        0
+      ],
+      "camera": [
+        -25,
+        9
+      ],
+      "capture_time": 0
+    },
+    "quality": "high",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 7.705048417003127,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "7f8af1750c36670d66807d9bc8fb382f84c7973269d21ba177e321330fe0ee02",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  },
+  {
+    "view": {
+      "name": "zoo_fridge",
+      "level": "model_zoo",
+      "spawn": [
+        30.6,
+        20.8,
+        0
+      ],
+      "camera": [
+        0,
+        -6
+      ],
+      "capture_time": 0
+    },
+    "quality": "high",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 5.52756629200303,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "3c3eeee51ff56ff69dbbb9ffb2d50b9b3f42c8eca1458b242f71f062e3eb7085",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  },
+  {
+    "view": {
+      "name": "hollow_street",
+      "level": "lantern_hollow",
+      "spawn": [
+        34,
+        21.8,
+        -58
+      ],
+      "camera": [
+        -58,
+        -3
+      ],
+      "capture_time": 0
+    },
+    "quality": "high",
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90.0,
+      "look_speed_v": 60.0,
+      "walk_speed": 3.0,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "off",
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "window_mode": "windowed",
+      "window_width": 1920,
+      "window_height": 1080,
+      "fov_degrees": 60.0
+    },
+    "elapsed_seconds": 6.654800791991875,
+    "exit_code": 0,
+    "binary_sha256": "9f7b23cfc66fa7673ccc6b796f494afe552b2e423e15ee6e30d202b89ca2e942",
+    "package_sha256": "cf94109ce18d84bb4bf2227dfdf29ff8bcc27ed26494f5931a769c242e9e2683",
+    "warmup_frames": 600,
+    "recorded_frames": 1200
+  }
+]
