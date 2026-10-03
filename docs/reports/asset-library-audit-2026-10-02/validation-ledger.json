@@ -1,0 +1,184 @@
+{
+  "canonical_gate": {
+    "command": "sh tools/verify.sh",
+    "exit": 0,
+    "steps": [
+      {
+        "command": "cargo fmt --all --check",
+        "exit": 0
+      },
+      {
+        "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo",
+        "exit": 0
+      },
+      {
+        "command": "cargo test --workspace --all-features",
+        "exit": 0
+      },
+      {
+        "command": "cargo build --release",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/assets/validate.py",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/props/build.py --check",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inventory.json",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/entities/author_halloween_assets.py --check",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/entities/check_clip_boundaries.py",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/levels/build_outdoor_fixture.py --check",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/levels/build_outdoor_route.py --check",
+        "exit": 0
+      },
+      {
+        "command": "python3 tools/levels/build_lantern_hollow.py --check",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow",
+        "exit": 0
+      },
+      {
+        "command": "cargo test --lib showcase_audit",
+        "exit": 0
+      },
+      {
+        "command": "cargo test --lib static_prop_lighting_tests",
+        "exit": 0
+      },
+      {
+        "command": "cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- build assets/levels/places_demo.json --workers 12",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 12",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- build assets/levels/lantern_hollow.json --workers 12",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- build assets/levels/movement_test.json --workers 12",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- verify assets/levels/lantern_hollow.json --package assets/levels/lantern_hollow.placesmap --require-current",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- verify assets/levels/movement_test.json --package assets/levels/movement_test.placesmap --require-current",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- validate assets/levels/lantern_hollow.placesmap",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap",
+        "exit": 0
+      },
+      {
+        "command": "cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_package",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_packaging tests.test_glb_accessors tests.test_asset_audit",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_geometry_repair",
+        "exit": 0
+      },
+      {
+        "command": "cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_compiled_build",
+        "exit": 0
+      },
+      {
+        "command": "python3 -m unittest tests.test_wgpu_bootstrap",
+        "exit": 0
+      },
+      {
+        "command": "git diff --check",
+        "exit": 0
+      }
+    ]
+  },
+  "rust_workspace_result": {
+    "library_passed": 1912,
+    "library_failed": 0,
+    "library_default_ignored": 21,
+    "integration_passed": 3
+  },
+  "explicit_ignored_checks": {
+    "atlas_budget_passed": 1,
+    "native_gpu_passed": 2
+  },
+  "python_suites_passed": [
+    20,
+    48,
+    23,
+    41,
+    14,
+    10,
+    26
+  ],
+  "additional_asset_regressions": {
+    "asset_and_accessor_tests": 18,
+    "geometry_tests": 4
+  },
+  "all_shipped_map_variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "additional_required_check": {
+    "command": "cargo check --workspace --all-targets --all-features",
+    "exit": 0
+  }
+}

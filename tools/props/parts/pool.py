@@ -218,16 +218,6 @@ def _paint_resin(tex, region: str, base, seed: int, wear: float = 0.5) -> None:
     tex.border(region, palette.shade(base, 0.88), width=1, alpha=40)
 
 
-def _paint_tray(tex, region: str, base, seed: int) -> None:
-    """The table's tray floor: flat, with a soft shadow where it meets the rim."""
-    tex.fill(region, base, jitter=3, seed=seed)
-    tex.noise(region, amount=2, freq=6, seed=seed + 1)
-    for width, alpha in ((1, 96), (2, 48), (3, 24)):
-        tex.border(region, palette.shade(base, 0.90), width=width, alpha=alpha)
-    tex.border(region, palette.shade(base, 1.04), width=1, alpha=36)
-    tex.spots(region, palette.hex_to_rgb(palette.GRIME), count=1, seed=seed + 2, radius=2, alpha=12)
-
-
 def _paint_tube(tex, region: str, base, seed: int, warm: bool = False) -> None:
     """Round metal stock: a lengthwise gradient and a soft specular line.
 
@@ -254,13 +244,8 @@ def build_pool_table(p: PropBuilder) -> None:
     """White resin patio table: a lipped tray top on a moulded skirt, four
     tapered legs and a low perimeter stretcher.  Clean and new."""
     size = p.size  # [0.8, 0.74, 0.8]
-    tex = p.set_texture(128, seed=211)
-    tex.auto("tray", "trim", "leg", "brace")
-
-    _paint_tray(tex, "tray", RESIN, 301)
-    _paint_resin(tex, "trim", palette.shade(RESIN, 0.98), 307, wear=0.4)
-    _paint_resin(tex, "leg", palette.shade(RESIN, 0.95), 311, wear=0.8)
-    _paint_resin(tex, "brace", palette.shade(RESIN, 0.92), 317, wear=0.9)
+    source = Path(__file__).resolve().parents[3] / "assets/environment/pool/props/models/pool_table.png"
+    tex = load_atlas_from(p, source, ("tray", "trim", "leg", "brace"))
 
     tray_uv = tex.uv("tray")
     trim_uv = tex.uv("trim")
@@ -556,18 +541,6 @@ def _flip(p: PropBuilder, start: int) -> None:
         )
 
 
-def _paint_tub_tile(tex, region: str, base, seed: int) -> None:
-    """Small square pool tile: a pale grout grid with gentle wear."""
-    tex.fill(region, base, jitter=5, seed=seed)
-    tex.noise(region, amount=3, freq=6, seed=seed + 1)
-    cols = 8
-    for index in range(cols + 1):
-        tex.bar(region, palette.shade(base, 0.80), (index / cols, 0.0, index / cols + 0.012, 1.0), alpha=150)
-        tex.bar(region, palette.shade(base, 0.80), (0.0, index / cols, 1.0, index / cols + 0.012), alpha=150)
-    tex.grain(region, palette.shade(base, 0.90), seed=seed + 2, density=0.18, alpha=22)
-    tex.spots(region, palette.hex_to_rgb(palette.GRIME), count=3, seed=seed + 3, radius=2, alpha=18)
-
-
 def build_hot_tub(p: PropBuilder) -> None:
     """Circular hot tub: a joined tiled basin shell with a dark cap rail.
 
@@ -578,10 +551,8 @@ def build_hot_tub(p: PropBuilder) -> None:
     the rim stands 6 cm proud of the deck.
     """
     assert hot_tub_recess_min_radius() > HOT_TUB_WALL_R, "the shell wall must sit inside the recess polygon"
-    tex = p.set_texture(128, seed=317)
-    tex.auto("tile", "cap")
-    _paint_tub_tile(tex, "tile", HOT_TUB_TILE, 401)
-    _paint_resin(tex, "cap", HOT_TUB_CAP, 409, wear=0.8)
+    source = Path(__file__).resolve().parents[3] / "assets/environment/pool/props/models/hot_tub.png"
+    tex = load_atlas_from(p, source, ("tile", "cap"))
 
     tile_uv = tex.uv("tile", inset=1)
     cap_uv = tex.uv("cap", inset=1)
@@ -600,12 +571,23 @@ def build_hot_tub(p: PropBuilder) -> None:
         p.mesh.lathe((0.0, y0, 0.0), [(0.0, radius), (y1 - y0, radius)],
                      segments=HOT_TUB_SEGMENTS, axis="y", uv=uv, color=color,
                      cap_start=False, cap_end=False)
+        # Four fitted atlas spans around the wall, with seven tile rows up it,
+        # keep the painted tiles close to square (23–26 cm by 22 cm). Each
+        # quad owns its UV seam; a wrap never interpolates backwards across it.
+        u0, _, u1, v1 = uv
+        span = HOT_TUB_SEGMENTS // 4
+        for offset in range(start, len(p.mesh.indices), 6):
+            segment = (offset - start) // 6
+            for vertex in set(p.mesh.indices[offset:offset + 6]):
+                u, v = p.mesh.uvs[vertex]
+                endpoint = (u - u0) / (u1 - u0) * HOT_TUB_SEGMENTS - segment
+                p.mesh.uvs[vertex] = (u0 + (u1-u0) * ((segment % span + endpoint) / span),
+                                      v1 + (v-v1) * 7 / 8)
         if flip:
             _flip(p, start)
 
     p.begin_material(tile_slot)
-    # Inner wall from the basin floor to the rim; the renderer draws both
-    # windings, so either flip looks the same from inside and outside.
+    # The cavity faces into the basin; the outer drum faces away from it.
     wall(0.0, HOT_TUB_RIM_TOP, HOT_TUB_WALL_R, tile_uv, palette.shade(HOT_TUB_TILE, 0.96), flip=False)
     p.begin_material(cap_slot)
     # Flat rim cap: hides the recess polygon steps out to the outer edge.
@@ -614,7 +596,7 @@ def build_hot_tub(p: PropBuilder) -> None:
     # Outer drum from the basin floor to the rim: it encloses the annular void
     # between the wall and the outer radius, so the recess polygon's stepped
     # cut edge is hidden from inside, outside and above.
-    wall(0.0, HOT_TUB_RIM_TOP, HOT_TUB_OUTER_R, tile_uv, palette.shade(HOT_TUB_TILE, 0.86), flip=False)
+    wall(0.0, HOT_TUB_RIM_TOP, HOT_TUB_OUTER_R, tile_uv, palette.shade(HOT_TUB_TILE, 0.86), flip=True)
     # A thin base apron 2 mm proud of the deck hides the recess polygon's
     # tessellation fringe at the cut edge and reads as the tub's mounting rim.
     ring(HOT_TUB_DECK + 0.002, HOT_TUB_WATER_R - 0.01, HOT_TUB_OUTER_R + 0.035,

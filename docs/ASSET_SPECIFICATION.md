@@ -59,10 +59,10 @@ introducing it.
 1. **Production visual assets are real files in the repository.** Every
    texture, decal, fixture face, normal map and material image is a committed
    PNG under `assets/`, referenced through `assets/catalog.json` by logical id.
-   The one deliberate
-   exception is a prop or entity texture: it is a PNG byte stream embedded in
-   the model's `.glb` container (see §8). It is still committed artwork, but it
-   is not a standalone `.png` file.
+   Prop and entity models also embed their runtime PNGs for self-contained
+   loading (see §8). Every embedded image has an equivalent standalone PNG
+   under `assets/`; the audit checks decoded pixels and dimensions, allowing
+   lossless differences in PNG compression or metadata.
 
 2. **No production texture imagery is generated from source code at runtime.**
    Do not paint textures in Rust, in shaders, in embedded pixel arrays or in
@@ -188,8 +188,11 @@ Rules:
   for theme art, `assets/core/decals/` for shared markings. They are catalog
   `decal` entries; the PNG is the `model`.
 * **Prop and entity textures are embedded in the GLB** under
-  `props/models/` (props) or `entities/<id>/model/` (entities). There is no
-  `props/textures/` directory.
+  `props/models/` (props) or `entities/<id>/model/` (entities). Standalone
+  native source PNGs live beside prop GLBs or in the entity's `textures/`
+  directory. Family members may share a source. The five house families keep
+  both `house_0N_native_128.png` and `house_0N_native_256.png` alongside their
+  larger `house_0N_materials.png` masters. There is no `props/textures/` directory.
 * **Normal maps live in a texture directory like any other sheet**
   (`assets/core/textures/normals/`), and are named by a material's
   `normal_texture` field.
@@ -616,12 +619,15 @@ respect. They are not tiles: they are fitted to a model's own UV map.
 * **Textures are embedded PNG bufferViews inside the GLB.** External images
   and `data:` URIs are rejected with the message "external or data-URI images
   are not supported; embed the PNG in the GLB". A `.png` file next to a model
-  is not used.
+  is not used at runtime, but remains the editable source/record of its artwork.
+  `tools/assets/audit.py` requires an equivalent standalone PNG for each
+  embedded image; a shared family source is sufficient.
 * The texture must be a PNG, and the parser rejects any embedded image above
   1024 px on either edge. A model with an invalid or oversized texture does
   not load partially: it falls back to its catalogue placeholder box.
-* Shipped props carry one embedded sheet each. The runtime accepts up to 16
-  images, 16 materials and 32 primitives per model, one material per primitive.
+* Most shipped models carry one embedded sheet; Spooner-Man carries three.
+  The runtime accepts up to 16 images, 16 materials and 32 primitives per
+  model, one material per primitive.
 
 ### 8.2 UV contract
 
@@ -670,11 +676,11 @@ normal runtime texture         256x256 native
 |---|---|
 | Aspect ratio | model-defined; shipped models use square sheets, but the loader accepts any shape up to 1024² |
 | Native size | **256×256** is the normal shipped prop texture size (`PROP_TEXTURE_NATIVE_SIZE`); 32/64/128 remain legal for lighter props |
-| Shipped sizes | 64×64 (8 models), 128×128 (16), 256×256 (9, including the refreshed domestic props and Spooner-Man) |
+| Shipped sizes | 136 embedded sheets across 134 models: 32×32 (1), 64×64 (6), 128×128 (45), 256×256 (84); see `tools/assets/audit.py` for the current inventory |
 | Higher resolutions | The engine accepts embedded prop images up to 1024 px per edge (`MAX_PROP_TEXTURE_SIZE`) and downscales them to the active level's budget; no shipped atlas uses more than the native 256 because High never samples a prop sheet above it |
 | Hard maximum | 1024 px per edge (parser rejects the model above it) |
 | Runtime budget | High and Medium upload prop sheets at ≤256 unchanged; Low at ≤128 (`TextureClass::Prop`); downscaling preserves aspect via one integer factor |
-| Pack budget | 64 MiB decoded RGBA8 for the whole shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current 33-prop pack is under 4 MiB |
+| Pack budget | 64 MiB decoded RGBA8 for the whole shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the audited 134-model library decodes to approximately 24 MiB before runtime sharing/downsampling |
 | Decoded memory | `width × height × 4` bytes per image (RGBA8), summed over a model for `texture_bytes`; the surface class additionally caps one sheet at `MAX_SURFACE_TEXTURE_BYTES` (4 MiB) |
 | Practical guidance | 256×256 is ordinary content, not a special high-quality variant; authoring above 256 only spends GLB bytes that no quality level displays |
 
@@ -1444,11 +1450,11 @@ without checking the implementation.
    172–255) and requires the native 256×256 sheet; the other refreshed builders
    accept any legal 32/64/128/256 atlas. Resizing the rug atlas requires
    updating those regions, or the fitted UVs move.
-10. **Prop textures and the repository texture policy.** The repository rule
-    says textures live as real PNG files under `assets/`; prop textures are
-    committed as PNG byte streams inside their GLB instead. The asset
-    documentation treats this as a deliberate exception (§8.1). A strict
-    reading of the policy is not satisfied, but the design is intentional.
+10. **Prop textures and the repository texture policy.** Models embed PNGs
+    for runtime loading and retain equivalent standalone PNGs under `assets/`.
+    The audit checks source coverage independently of PNG compression. Larger
+    masters are retained alongside native derivatives; editing a source alone
+    does not update a GLB, which must be exported intentionally (§8.6).
 11. **No minimum sizes and no per-class maximum below the global 1024, and the
     pack budget is aggregate.** A 16×16 surface sheet passes the dimension
     tests; the prop toolkit refuses to ship an embedded atlas above the native
@@ -1486,6 +1492,7 @@ Asset tooling (Python 3, standard library only):
 python3 tools/assets/validate.py                  # catalog + levels; exit 1 on error
 python3 tools/textures/build.py --check           # PNG existence/dimensions; warnings don't fail
 python3 tools/props/build.py --check              # prop GLBs exist and parse
+python3 tools/assets/audit.py --workers 12        # full inventory + integrity/source checks
 python3 tools/textures/seam_repair.py --check <png> [<png> ...]
 python3 -m unittest tests.test_package            # full asset/environment/level gate
 ```

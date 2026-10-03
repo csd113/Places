@@ -568,8 +568,9 @@ class ReadMesh:
 
     Every scene node's meshes are merged at their rest transforms, so a model
     that hangs its rocker off a child node reads back as the flat rest pose the
-    preview and the budget checks are about. The first texture is kept for the
-    preview; names stay available for diagnostics and tests.
+    preview and the budget checks are about. All texture slots and triangle
+    material assignments are retained for inspection; the legacy first-texture
+    field stays available to existing budget readers.
     """
 
     def __init__(self) -> None:
@@ -578,6 +579,8 @@ class ReadMesh:
         self.colors: List[tuple] = []
         self.indices: List[int] = []
         self.texture_png: bytes = b""
+        self.texture_pngs: List[bytes] = []
+        self.triangle_materials: List[Optional[int]] = []
         self.texture_name: str = ""
         self.material_count: int = 0
         self.material_names: List[str] = []
@@ -916,6 +919,7 @@ def read_glb(data: bytes) -> ReadMesh:
                     mesh.uvs.append(uvs[index])
                     mesh.colors.append(colors[index])
                 mesh.indices.append(base + slot)
+            mesh.triangle_materials.extend([primitive.get("material")] * (len(indices) // 3))
 
     materials = gltf.get("materials", [])
     mesh.material_count = len(materials)
@@ -923,19 +927,22 @@ def read_glb(data: bytes) -> ReadMesh:
 
     textures = gltf.get("textures", [])
     images = gltf.get("images", [])
-    if textures:
-        source = textures[0].get("source")
+    for texture in textures:
+        source = texture.get("source")
         if source is None:
             raise GltfError("texture has no image source")
         image = images[source]
         if "uri" in image:
             uri = image["uri"]
             if uri.startswith("data:"):
-                mesh.texture_png = base64.b64decode(uri.split(",", 1)[1])
+                payload = base64.b64decode(uri.split(",", 1)[1])
             else:
                 raise GltfError("external image files are not allowed; props must embed their PNG")
         else:
             view = gltf["bufferViews"][image["bufferView"]]
             start = view.get("byteOffset", 0)
-            mesh.texture_png = blob[start : start + view["byteLength"]]
+            payload = blob[start : start + view["byteLength"]]
+        mesh.texture_pngs.append(payload)
+    if mesh.texture_pngs:
+        mesh.texture_png = mesh.texture_pngs[0]
     return mesh

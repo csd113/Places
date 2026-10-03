@@ -73,6 +73,10 @@ def should_close(name, points):
     lo = [min(p[a] for p in points) for a in range(3)]
     hi = [max(p[a] for p in points) for a in range(3)]
     flat = lambda axis, value: abs(lo[axis]-value)<1e-5 and abs(hi[axis]-value)<1e-5
+    if name == 'pool_table' and flat(1, .728):
+        # This is the tray's independent top sheet, not a missing box bottom.
+        # Capping its boundary creates an opposite face on the same plane.
+        return False
     if name in CLOSE_ALL:
         return True
     if name == 'washer_drum':
@@ -88,6 +92,29 @@ def should_close(name, points):
     if name == 'washing_machine':
         return True
     return False
+
+
+def remove_pool_table_cap(positions, indices):
+    """Remove only the reviewed zero-thickness closure over the tray surface."""
+    top = []
+    bottom = []
+    for offset in range(0, len(indices), 3):
+        points = [positions[i] for i in indices[offset:offset+3]]
+        if not all(abs(p[1]-.728)<1e-5 and abs(p[0])<.396 and abs(p[2])<.396 for p in points):
+            continue
+        normal = _cross(_sub(points[1], points[0]), _sub(points[2], points[0]))
+        if abs(normal[1]) > .6:
+            (top if normal[1] > 0 else bottom).append(offset)
+    if not bottom:
+        return 0
+    keys = lambda offsets: {tuple(round(v, 6) for v in positions[i])
+                            for offset in offsets for i in indices[offset:offset+3]}
+    if len(top) != 2 or len(bottom) != 2 or keys(top) != keys(bottom):
+        raise ValueError('pool_table: tray closure differs from the reviewed quad')
+    removed = set(bottom)
+    indices[:] = [i for offset in range(0, len(indices), 3) if offset not in removed
+                  for i in indices[offset:offset+3]]
+    return len(bottom)
 
 
 def cap_loop(positions, uvs, colors, indices, loop, neighbors):
@@ -232,6 +259,9 @@ def process(path, apply, *, proposed=False):
         raise ValueError(f'{path}: unsupported vertex attributes')
     mesh=glb.read_glb(raw); positions=list(mesh.positions); uvs=list(mesh.uvs); colors=list(mesh.colors);indices=list(mesh.indices)
     before=inspect(positions,indices); name=path.stem; changes=[]
+    if name=='pool_table':
+        removed=remove_pool_table_cap(positions,indices)
+        if removed:changes.append(f'removed {removed} coplanar tray closure triangles')
     if name=='tv':
         count=0
         for i,(x,y,z) in enumerate(positions):
@@ -265,7 +295,15 @@ def process(path, apply, *, proposed=False):
     if oriented['flipped_triangles']:changes.append(f"corrected winding on {oriented['flipped_triangles']} triangles")
     if changes:
         old_count=len(positions)
-        positions,uvs,colors,indices=compact(positions,uvs,colors,indices)
+        if name=='pool_table':
+            # Preserve every surviving record/order; only drop vertices that
+            # belonged exclusively to the removed coplanar closure.
+            used=sorted(set(indices)); remap={old:new for new,old in enumerate(used)}
+            positions=[positions[i] for i in used]
+            uvs=[uvs[i] for i in used]; colors=[colors[i] for i in used]
+            indices=[remap[i] for i in indices]
+        else:
+            positions,uvs,colors,indices=compact(positions,uvs,colors,indices)
         changes.append(f'removed {old_count-len(positions)} redundant full-attribute vertex records')
         output=encode(document,blob,positions,uvs,colors,indices)
         checked=glb.read_glb(output)

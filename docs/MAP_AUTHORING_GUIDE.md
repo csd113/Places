@@ -2782,7 +2782,7 @@ an unknown id) and the level keeps working.
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
 | Prop texture | **256×256 native** (the normal shipped size; 32/64/128 legal for lighter props); engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
-| Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current pack is under 4 MiB |
+| Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the audited 134-model library is approximately 24 MiB before runtime sharing/downsampling; `tools/assets/audit.py` reports the current inventory |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
 | Summed baked prop vertices per level | 24 000 000 (`MAX_LEVEL_PROP_VERTICES`; fallback boxes beyond it) |
@@ -4160,6 +4160,7 @@ none of them is optional for a change that ships content.
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
+| `python3 tools/assets/audit.py --workers 12` | Every GLB and standalone PNG, finite geometry/UVs/skin data/clip channels, fitted UV range, zero-area faces, native image budget and equivalent PNG source coverage; records topology, materials, bounds, clips, duplicates and map uses in JSON. Topology review candidates require visual interpretation | Yes when assets changed |
 | `./target/release/places-compile build <source>.json` | Compiles the edited source into its `.placesmap` (prepares geometry, lighting, atlas, collision and probe captures) | **Yes, after every map edit** |
 | `./target/release/places-compile validate <package>.placesmap` | Decodes every prepared record and re-hashes every entry and dependency | **Yes, before shipping** |
 | `PLACES_LEVEL=<id> cargo run` | Boots straight into the compiled level and prints validation errors verbatim | **Yes, once per map** |

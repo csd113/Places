@@ -1,0 +1,30 @@
+{
+  "file": "assets/environment/pool/props/models/pool_table.glb",
+  "changed": true,
+  "changes": [
+    "removed 2 coplanar tray closure triangles",
+    "removed 4 redundant full-attribute vertex records"
+  ],
+  "before": {
+    "triangles": 360,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 8,
+    "contradictory_components": 0
+  },
+  "after": {
+    "triangles": 358,
+    "degenerate": 0,
+    "boundary_edges": 4,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 8,
+    "contradictory_components": 0
+  },
+  "embedded_png_sha256": "6fd4b9aeeaa242ba15f64d1d5c459660207721d44a1dd4ef4ce25ab40de643e5",
+  "sha256": "60953b0516713d212528cefee739c109c27468558e1054ff72b054c4fc493a01"
+}

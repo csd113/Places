@@ -65,6 +65,9 @@ class Model:
         self.colors: List[tuple] = []
         self.indices: List[int] = []
         self.texture: tuple[int, int, bytes] = (1, 1, bytes((255, 255, 255, 255)))
+        self.textures = []
+        self.materials = []
+        self.triangle_materials = []
 
     def bounds(self):
         xs = [p[0] for p in self.positions]
@@ -82,7 +85,11 @@ def load_model(path: str) -> Model:
     model.uvs = [tuple(uv) for uv in read.uvs]
     model.colors = [tuple(color) for color in read.colors]
     model.indices = list(read.indices)
-    model.texture = decode_png(read.texture_png)
+    if read.texture_png:
+        model.texture = decode_png(read.texture_png)
+    model.textures = [decode_png(png) for png in read.texture_pngs]
+    model.materials = read.json.get("materials", [])
+    model.triangle_materials = read.triangle_materials
     return model
 
 
@@ -137,7 +144,8 @@ def make_camera(low, high, width: int, height: int, direction=(0.85, 0.62, 1.0),
     }
 
 
-def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), ground: bool = True) -> bytes:
+def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), ground: bool = True,
+           cull_backfaces: bool = False) -> bytes:
     """Renders one model and returns RGBA bytes."""
     low, high = model.bounds()
     camera = make_camera(low, high, width, height, direction=direction)
@@ -154,15 +162,15 @@ def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), g
             pixels[index + 3] = 255
 
     depth = [1e9] * (width * height)
-    texture_width, texture_height, texture_pixels = model.texture
-
-    def sample(u: float, v: float):
+    def sample(u: float, v: float, texture):
+        texture_width, texture_height, texture_pixels = texture
         x = min(texture_width - 1, max(0, int(u * texture_width)))
         y = min(texture_height - 1, max(0, int(v * texture_height)))
         index = (y * texture_width + x) * 4
-        return texture_pixels[index], texture_pixels[index + 1], texture_pixels[index + 2]
+        return texture_pixels[index:index + 4]
 
-    def draw_triangle(a, b, c, color_a, color_b, color_c, uvs, tint=1.0, flat=None):
+    def draw_triangle(a, b, c, color_a, color_b, color_c, uvs, tint=1.0, flat=None,
+                      texture=None, alpha_mode="OPAQUE", cutoff=0.5):
         sa = project(a, camera)
         sb = project(b, camera)
         sc = project(c, camera)
@@ -170,6 +178,8 @@ def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), g
             return
         area = (sb[0] - sa[0]) * (sc[1] - sa[1]) - (sc[0] - sa[0]) * (sb[1] - sa[1])
         if abs(area) < 1e-9:
+            return
+        if cull_backfaces and flat is None and area >= 0:
             return
         min_x = max(0, int(math.floor(min(sa[0], sb[0], sc[0]))))
         max_x = min(width - 1, int(math.ceil(max(sa[0], sb[0], sc[0]))))
@@ -192,17 +202,25 @@ def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), g
                 index = y * width + x
                 if z >= depth[index]:
                     continue
-                depth[index] = z
                 u = (wa * uvs[0][0] / sa[2] + wb * uvs[1][0] / sb[2] + wc * uvs[2][0] / sc[2]) / denominator
                 v = (wa * uvs[0][1] / sa[2] + wb * uvs[1][1] / sb[2] + wc * uvs[2][1] / sc[2]) / denominator
                 tr = (wa * color_a[0] / sa[2] + wb * color_b[0] / sb[2] + wc * color_c[0] / sc[2]) / denominator
                 tg = (wa * color_a[1] / sa[2] + wb * color_b[1] / sb[2] + wc * color_c[1] / sc[2]) / denominator
                 tb = (wa * color_a[2] / sa[2] + wb * color_b[2] / sb[2] + wc * color_c[2] / sc[2]) / denominator
-                texel = sample(max(0.0, min(1.0, u)), max(0.0, min(1.0, v))) if flat is None else flat
+                texel = sample(max(0.0, min(1.0, u)), max(0.0, min(1.0, v)), texture or model.texture) if flat is None else (*flat, 255)
+                alpha = texel[3] / 255.0
+                if alpha_mode != "OPAQUE":
+                    alphas = [color[3] if len(color) > 3 else 1.0 for color in (color_a, color_b, color_c)]
+                    alpha *= (wa * alphas[0] / sa[2] + wb * alphas[1] / sb[2] + wc * alphas[2] / sc[2]) / denominator
+                    if (alpha_mode == "MASK" and alpha < cutoff) or alpha <= 0.0:
+                        continue
+                if alpha_mode != "BLEND":
+                    depth[index] = z
+                    alpha = 1.0
                 pixel = index * 4
-                pixels[pixel] = min(255, int(texel[0] * tr * tint))
-                pixels[pixel + 1] = min(255, int(texel[1] * tg * tint))
-                pixels[pixel + 2] = min(255, int(texel[2] * tb * tint))
+                for channel, shade in enumerate((tr, tg, tb)):
+                    source = min(255, texel[channel] * shade * tint)
+                    pixels[pixel + channel] = int(source * alpha + pixels[pixel + channel] * (1.0-alpha))
                 pixels[pixel + 3] = 255
 
     if ground:
@@ -225,23 +243,43 @@ def render(model: Model, width: int, height: int, direction=(0.85, 0.62, 1.0), g
         draw_triangle(corners[0], corners[2], corners[3], white_px, white_px, white_px,
                       (uvs[0], uvs[2], uvs[3]), flat=ground_color)
 
+    def material_for(index):
+        slot = model.triangle_materials[index // 3] if model.triangle_materials else None
+        return model.materials[slot] if slot is not None else {}
+
+    opaque = []
+    blended = []
     for index in range(0, len(model.indices), 3):
+        (blended if material_for(index).get("alphaMode") == "BLEND" else opaque).append(index)
+    # Transparent surfaces test opaque depth but don't write it. Sort them in
+    # camera space; this is an inspection preview, not the game's blend sorter.
+    blended.sort(key=lambda i: sum(project(model.positions[v], camera)[2]
+                                  for v in model.indices[i:i+3]), reverse=True)
+    for index in opaque + blended:
         i0, i1, i2 = model.indices[index], model.indices[index + 1], model.indices[index + 2]
+        material = material_for(index)
+        pbr = material.get("pbrMetallicRoughness", {})
+        factor = pbr.get("baseColorFactor", [1, 1, 1, 1])
+        reference = pbr.get("baseColorTexture")
+        texture = model.textures[reference["index"]] if reference is not None else (1, 1, bytes((255, 255, 255, 255)))
+        colors = [tuple((model.colors[v][c] if c < len(model.colors[v]) else 1.0) * factor[c]
+                        for c in range(4)) for v in (i0, i1, i2)]
         draw_triangle(
             model.positions[i0],
             model.positions[i1],
             model.positions[i2],
-            model.colors[i0],
-            model.colors[i1],
-            model.colors[i2],
+            *colors,
             (model.uvs[i0], model.uvs[i1], model.uvs[i2]),
+            texture=texture if model.materials else model.texture,
+            alpha_mode=material.get("alphaMode", "OPAQUE"), cutoff=material.get("alphaCutoff", 0.5),
         )
     return bytes(pixels)
 
 
-def render_prop_file(path: str, width: int, height: int, direction=(0.85, 0.62, 1.0), ground: bool = True) -> bytes:
+def render_prop_file(path: str, width: int, height: int, direction=(0.85, 0.62, 1.0), ground: bool = True,
+                     cull_backfaces: bool = False) -> bytes:
     model = load_model(path)
-    return render(model, width, height, direction=direction, ground=ground)
+    return render(model, width, height, direction=direction, ground=ground, cull_backfaces=cull_backfaces)
 
 
 def compose_sheet(cells: Sequence[tuple[int, int, bytes]], columns: int, gap: int = 4) -> tuple[int, int, bytes]:
@@ -295,6 +333,8 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--width", type=int, default=240)
     parser.add_argument("--height", type=int, default=180)
     parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
+    parser.add_argument("--rear", action="store_true", help="inspect rear and underside surfaces")
+    parser.add_argument("--cull", action="store_true", help="hide backfaces to reveal winding defects")
     args = parser.parse_args(argv)
     try:
         worker_count(args.workers)
@@ -328,7 +368,9 @@ def main(argv: List[str] | None = None) -> int:
             continue
         available.append(prop_id)
     rendered = ordered_map(_render_job,
-                           [(models[key], args.width, args.height) for key in available],
+                           [(models[key], args.width, args.height,
+                             (-0.85, -0.4, -1.0) if args.rear else (0.85, 0.62, 1.0),
+                             not args.rear, args.cull) for key in available],
                            args.workers, progress="preview")
     cells: List[tuple[int, int, bytes]] = []
     for prop_id, pixels in zip(available, rendered):

@@ -10,6 +10,7 @@ cargo build --release
 python3 tools/assets/validate.py
 # The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
+python3 tools/assets/audit.py --workers 12 --out target/verification/asset-inventory.json
 # The Halloween entity material contracts and exported clip seams are
 # maintained assets; --check fails on a stale GLB.
 python3 tools/entities/author_halloween_assets.py --check
@@ -41,7 +42,7 @@ cargo run --quiet --release --bin places-compile -- validate assets/levels/place
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap
 python3 -m unittest tests.test_package
-python3 -m unittest tests.test_packaging tests.test_glb_accessors
+python3 -m unittest tests.test_packaging tests.test_glb_accessors tests.test_asset_audit
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 python3 -m unittest tests.test_geometry_repair
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1

@@ -1,0 +1,661 @@
+{
+  "problems": [],
+  "report": {
+    "assets": [
+      {
+        "bytes": 708624,
+        "clips": [
+          {
+            "duration": 4.0,
+            "kind": "idle",
+            "loop": true,
+            "name": "idle",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.6000000238418579,
+            "kind": "walk",
+            "loop": true,
+            "name": "walk",
+            "reference_speed_mps": 0.2
+          },
+          {
+            "duration": 0.46000000834465027,
+            "kind": "run",
+            "loop": true,
+            "name": "run",
+            "reference_speed_mps": 0.6
+          },
+          {
+            "duration": 1.7999999523162842,
+            "kind": "sit_down",
+            "loop": false,
+            "name": "sit_down",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 5.0,
+            "kind": "sit_idle",
+            "loop": true,
+            "name": "sit_idle",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 1.5,
+            "kind": "stand_up",
+            "loop": false,
+            "name": "stand_up",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 1.399999976158142,
+            "kind": "pounce",
+            "loop": false,
+            "name": "pounce",
+            "reference_speed_mps": null
+          }
+        ],
+        "joints": 26,
+        "path": "assets/entities/spooner-man/model/spooner-man.glb",
+        "triangles": 1374,
+        "vertices": 3029,
+        "weight_problems": []
+      },
+      {
+        "bytes": 295368,
+        "clips": [
+          {
+            "duration": 2.4000000953674316,
+            "kind": "idle",
+            "loop": true,
+            "name": "idle",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.4000000059604645,
+            "kind": "walk",
+            "loop": true,
+            "name": "walk",
+            "reference_speed_mps": 0.1987831015556329
+          },
+          {
+            "duration": 0.23999999463558197,
+            "kind": "run",
+            "loop": true,
+            "name": "run",
+            "reference_speed_mps": 0.5730992565575108
+          },
+          {
+            "duration": 1.2000000476837158,
+            "kind": "dead",
+            "loop": false,
+            "name": "dead",
+            "reference_speed_mps": null
+          }
+        ],
+        "joints": 25,
+        "path": "assets/entities/rat/model/rat.glb",
+        "triangles": 1428,
+        "vertices": 1846,
+        "weight_problems": []
+      },
+      {
+        "bytes": 356024,
+        "clips": [
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_stand",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_arms_up",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_arms_forward",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 1.100000023841858,
+            "kind": "walk",
+            "loop": true,
+            "name": "walk",
+            "reference_speed_mps": 1.0
+          },
+          {
+            "duration": 0.6800000071525574,
+            "kind": "run",
+            "loop": true,
+            "name": "run",
+            "reference_speed_mps": 2.244582043343653
+          }
+        ],
+        "joints": 23,
+        "path": "assets/entities/mannequin/model/mannequin.glb",
+        "triangles": 1376,
+        "vertices": 2969,
+        "weight_problems": []
+      },
+      {
+        "bytes": 244196,
+        "clips": [
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_stand",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_sit_floor",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 0.0,
+            "kind": "pose",
+            "loop": true,
+            "name": "pose_sit_chair",
+            "reference_speed_mps": null
+          }
+        ],
+        "joints": 24,
+        "path": "assets/entities/skeleton/model/skeleton.glb",
+        "triangles": 1492,
+        "vertices": 3214,
+        "weight_problems": []
+      },
+      {
+        "bytes": 304480,
+        "clips": [
+          {
+            "duration": 4.0,
+            "kind": "float",
+            "loop": true,
+            "name": "float_forward",
+            "reference_speed_mps": 0.3
+          },
+          {
+            "duration": 4.800000190734863,
+            "kind": "idle",
+            "loop": true,
+            "name": "idle",
+            "reference_speed_mps": null
+          }
+        ],
+        "joints": 3,
+        "path": "assets/entities/sheet-ghost/model/sheet-ghost.glb",
+        "triangles": 1270,
+        "vertices": 7620,
+        "weight_problems": []
+      },
+      {
+        "bytes": 243116,
+        "clips": [
+          {
+            "duration": 3.5999999046325684,
+            "kind": "idle",
+            "loop": true,
+            "name": "idle",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 3.0,
+            "kind": "float",
+            "loop": true,
+            "name": "float_forward",
+            "reference_speed_mps": 0.2
+          }
+        ],
+        "joints": 5,
+        "path": "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "triangles": 902,
+        "vertices": 5412,
+        "weight_problems": []
+      },
+      {
+        "bytes": 340140,
+        "clips": [
+          {
+            "duration": 2.4000000953674316,
+            "kind": "idle",
+            "loop": true,
+            "name": "laugh",
+            "reference_speed_mps": null
+          },
+          {
+            "duration": 1.2000000476837158,
+            "kind": "walk",
+            "loop": true,
+            "name": "hop_forward",
+            "reference_speed_mps": 0.5
+          }
+        ],
+        "joints": 4,
+        "path": "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "triangles": 1498,
+        "vertices": 8988,
+        "weight_problems": []
+      },
+      {
+        "bytes": 568928,
+        "clips": [
+          {
+            "duration": 1.399999976158142,
+            "kind": "walk",
+            "loop": true,
+            "name": "walk",
+            "reference_speed_mps": 0.5714285714285715
+          },
+          {
+            "duration": 12.0,
+            "kind": "gesture",
+            "loop": false,
+            "name": "collapse_reassemble",
+            "reference_speed_mps": null
+          }
+        ],
+        "joints": 94,
+        "path": "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "triangles": 2278,
+        "vertices": 11396,
+        "weight_problems": []
+      }
+    ],
+    "clips": [
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 241,
+        "duration": 4.0,
+        "frames": 241,
+        "kind": "idle",
+        "loop": true,
+        "max_displacement_m": 0.03026696611456021,
+        "max_edge_stretch": 1.0993915413554234,
+        "max_y_m": 0.3966304058250884,
+        "min_y_m": -1.2626534937338684e-07,
+        "name": "idle",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 38,
+        "duration": 0.6000000238418579,
+        "frames": 38,
+        "kind": "walk",
+        "loop": true,
+        "max_displacement_m": 0.04675801556086834,
+        "max_edge_stretch": 1.6676237372978555,
+        "max_y_m": 0.3759120097265623,
+        "min_y_m": -3.1772361725989114e-05,
+        "name": "walk",
+        "reference_speed_mps": 0.2
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 29,
+        "duration": 0.46000000834465027,
+        "frames": 29,
+        "kind": "run",
+        "loop": true,
+        "max_displacement_m": 0.11664914221799605,
+        "max_edge_stretch": 1.8846719891983068,
+        "max_y_m": 0.381625213196655,
+        "min_y_m": -0.0001449725529942134,
+        "name": "run",
+        "reference_speed_mps": 0.6
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 109,
+        "duration": 1.7999999523162842,
+        "frames": 109,
+        "kind": "sit_down",
+        "loop": false,
+        "max_displacement_m": 0.2489520873460464,
+        "max_edge_stretch": 1.7988430333689704,
+        "max_y_m": 0.38891200582452196,
+        "min_y_m": -9.623606934720188e-05,
+        "name": "sit_down",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 301,
+        "duration": 5.0,
+        "frames": 301,
+        "kind": "sit_idle",
+        "loop": true,
+        "max_displacement_m": 0.2503215488268587,
+        "max_edge_stretch": 1.8162307168994232,
+        "max_y_m": 0.3393638044652605,
+        "min_y_m": 1.4903826069828522e-08,
+        "name": "sit_idle",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 91,
+        "duration": 1.5,
+        "frames": 91,
+        "kind": "stand_up",
+        "loop": false,
+        "max_displacement_m": 0.2489520873460464,
+        "max_edge_stretch": 1.7988430333689704,
+        "max_y_m": 0.38891200582452196,
+        "min_y_m": -9.623606934720188e-05,
+        "name": "stand_up",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/spooner-man/model/spooner-man.glb",
+        "contact_frames": 54,
+        "duration": 1.399999976158142,
+        "frames": 85,
+        "kind": "pounce",
+        "loop": false,
+        "max_displacement_m": 0.2403692330090231,
+        "max_edge_stretch": 1.8237502038226259,
+        "max_y_m": 0.5428419662003788,
+        "min_y_m": -0.00017914807663116155,
+        "name": "pounce",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/rat/model/rat.glb",
+        "contact_frames": 146,
+        "duration": 2.4000000953674316,
+        "frames": 146,
+        "kind": "idle",
+        "loop": true,
+        "max_displacement_m": 0.0288715806436706,
+        "max_edge_stretch": 1.0510097589050698,
+        "max_y_m": 0.13220991737663262,
+        "min_y_m": -8.955985342681524e-07,
+        "name": "idle",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/rat/model/rat.glb",
+        "contact_frames": 26,
+        "duration": 0.4000000059604645,
+        "frames": 26,
+        "kind": "walk",
+        "loop": true,
+        "max_displacement_m": 0.04000716846533054,
+        "max_edge_stretch": 1.4730079539398573,
+        "max_y_m": 0.1306170715598001,
+        "min_y_m": -1.1130207291028028e-05,
+        "name": "walk",
+        "reference_speed_mps": 0.1987831015556329
+      },
+      {
+        "asset": "assets/entities/rat/model/rat.glb",
+        "contact_frames": 16,
+        "duration": 0.23999999463558197,
+        "frames": 16,
+        "kind": "run",
+        "loop": true,
+        "max_displacement_m": 0.08018053329688986,
+        "max_edge_stretch": 1.7538155130063182,
+        "max_y_m": 0.13563696079572676,
+        "min_y_m": -7.302051091567952e-05,
+        "name": "run",
+        "reference_speed_mps": 0.5730992565575108
+      },
+      {
+        "asset": "assets/entities/rat/model/rat.glb",
+        "contact_frames": 74,
+        "duration": 1.2000000476837158,
+        "frames": 74,
+        "kind": "dead",
+        "loop": false,
+        "max_displacement_m": 0.1947960133704285,
+        "max_edge_stretch": 1.3219157450756265,
+        "max_y_m": 0.15339993206568894,
+        "min_y_m": -7.030473899215933e-05,
+        "name": "dead",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/mannequin/model/mannequin.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 0.0,
+        "max_edge_stretch": 1.0,
+        "max_y_m": 1.7200000286102297,
+        "min_y_m": -8.940696516468449e-10,
+        "name": "pose_stand",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/mannequin/model/mannequin.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 1.4605168701579272,
+        "max_edge_stretch": 1.0924811815479987,
+        "max_y_m": 2.104790596828358,
+        "min_y_m": -8.940696516468449e-10,
+        "name": "pose_arms_up",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/mannequin/model/mannequin.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 1.0739983581179897,
+        "max_edge_stretch": 1.0505016313137043,
+        "max_y_m": 1.7200000286102297,
+        "min_y_m": -8.940696516468449e-10,
+        "name": "pose_arms_forward",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/mannequin/model/mannequin.glb",
+        "contact_frames": 68,
+        "duration": 1.100000023841858,
+        "frames": 68,
+        "kind": "walk",
+        "loop": true,
+        "max_displacement_m": 0.3897737921599672,
+        "max_edge_stretch": 1.302445932898331,
+        "max_y_m": 1.699962311778988,
+        "min_y_m": 0.0014323913251259278,
+        "name": "walk",
+        "reference_speed_mps": 1.0
+      },
+      {
+        "asset": "assets/entities/mannequin/model/mannequin.glb",
+        "contact_frames": 41,
+        "duration": 0.6800000071525574,
+        "frames": 42,
+        "kind": "run",
+        "loop": true,
+        "max_displacement_m": 0.7470587616643876,
+        "max_edge_stretch": 1.341128389948011,
+        "max_y_m": 1.6601250020215599,
+        "min_y_m": 0.0012786222253664409,
+        "name": "run",
+        "reference_speed_mps": 2.244582043343653
+      },
+      {
+        "asset": "assets/entities/skeleton/model/skeleton.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 0.0,
+        "max_edge_stretch": 1.0,
+        "max_y_m": 1.72,
+        "min_y_m": -2.980232227667301e-09,
+        "name": "pose_stand",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/skeleton/model/skeleton.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 0.8997843332506772,
+        "max_edge_stretch": 1.1894538483187038,
+        "max_y_m": 0.8599999856948852,
+        "min_y_m": 4.633358382651946e-08,
+        "name": "pose_sit_floor",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/skeleton/model/skeleton.glb",
+        "contact_frames": 1,
+        "duration": 0.0,
+        "frames": 1,
+        "kind": "pose",
+        "loop": true,
+        "max_displacement_m": 0.5231011959620786,
+        "max_edge_stretch": 1.2017942698689,
+        "max_y_m": 1.2500000011920929,
+        "min_y_m": -2.7669334462521178e-09,
+        "name": "pose_sit_chair",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/sheet-ghost/model/sheet-ghost.glb",
+        "contact_frames": 0,
+        "duration": 4.0,
+        "frames": 241,
+        "kind": "float",
+        "loop": true,
+        "max_displacement_m": 0.17680716203065464,
+        "max_edge_stretch": 1.0416388672664667,
+        "max_y_m": 1.8253318109077747,
+        "min_y_m": 0.10451246126962277,
+        "name": "float_forward",
+        "reference_speed_mps": 0.3
+      },
+      {
+        "asset": "assets/entities/sheet-ghost/model/sheet-ghost.glb",
+        "contact_frames": 0,
+        "duration": 4.800000190734863,
+        "frames": 290,
+        "kind": "idle",
+        "loop": true,
+        "max_displacement_m": 0.08161364006071972,
+        "max_edge_stretch": 1.0203303872078526,
+        "max_y_m": 1.8459769835496307,
+        "min_y_m": 0.164882734324907,
+        "name": "idle",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "contact_frames": 0,
+        "duration": 3.5999999046325684,
+        "frames": 217,
+        "kind": "idle",
+        "loop": true,
+        "max_displacement_m": 0.01695569760791306,
+        "max_edge_stretch": 1.064740975855783,
+        "max_y_m": 0.37533056600907455,
+        "min_y_m": 0.033156822689625165,
+        "name": "idle",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+        "contact_frames": 15,
+        "duration": 3.0,
+        "frames": 181,
+        "kind": "float",
+        "loop": true,
+        "max_displacement_m": 0.039275752461483966,
+        "max_edge_stretch": 1.1107448308978396,
+        "max_y_m": 0.3792503600371383,
+        "min_y_m": 0.02972074167645375,
+        "name": "float_forward",
+        "reference_speed_mps": 0.2
+      },
+      {
+        "asset": "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "contact_frames": 146,
+        "duration": 2.4000000953674316,
+        "frames": 146,
+        "kind": "idle",
+        "loop": true,
+        "max_displacement_m": 0.16221541401124737,
+        "max_edge_stretch": 1.0000000000014087,
+        "max_y_m": 0.6770903870822932,
+        "min_y_m": 1.862645149230957e-09,
+        "name": "laugh",
+        "reference_speed_mps": null
+      },
+      {
+        "asset": "assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
+        "contact_frames": 34,
+        "duration": 1.2000000476837158,
+        "frames": 74,
+        "kind": "walk",
+        "loop": true,
+        "max_displacement_m": 0.2687579220969322,
+        "max_edge_stretch": 1.0000000000000029,
+        "max_y_m": 0.8941225833689719,
+        "min_y_m": 1.862645149230957e-09,
+        "name": "hop_forward",
+        "reference_speed_mps": 0.5
+      },
+      {
+        "asset": "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "contact_frames": 85,
+        "duration": 1.399999976158142,
+        "frames": 85,
+        "kind": "walk",
+        "loop": true,
+        "max_displacement_m": 0.27269119533028097,
+        "max_edge_stretch": 1.1565755302628775,
+        "max_y_m": 1.7711490029917871,
+        "min_y_m": -0.00013015068500743244,
+        "name": "walk",
+        "reference_speed_mps": 0.5714285714285715
+      },
+      {
+        "asset": "assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+        "contact_frames": 721,
+        "duration": 12.0,
+        "frames": 721,
+        "kind": "gesture",
+        "loop": false,
+        "max_displacement_m": 1.6580477911893707,
+        "max_edge_stretch": 1.2459045471440504,
+        "max_y_m": 2.087467335164547,
+        "min_y_m": -3.725290298461914e-09,
+        "name": "collapse_reassemble",
+        "reference_speed_mps": null
+      }
+    ],
+    "effective_workers": 11,
+    "elapsed_s": 3.9294780409982195,
+    "requested_workers": 12,
+    "tasks": 219,
+    "workers_note": "requested; reduced to 11 (work cap 219, memory cap 11, ~5668992 B per worker)"
+  }
+}

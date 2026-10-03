@@ -422,7 +422,7 @@ catalog follows.
 | budget     | value                                                      |
 | ---------- | ---------------------------------------------------------- |
 | triangles  | 50–500 preferred, ≤800 acceptable, **1500 shipped art budget** (`tools/props` refuses to build above it); the engine loads up to 6000 with an art-budget warning, and a model above 6000 falls back to a placeholder box |
-| prop texture | **256×256 native** (the normal shipped size; 32/64/128 remain legal for lighter props); the engine accepts up to 1024×1024 and downscales to the runtime quality budget (High/Medium 256, Low 128) at upload. The whole shipped pack decodes to under 4 MiB against a 64 MiB desktop pack budget |
+| prop texture | **256×256 native** (the normal shipped size; 32/64/128 remain legal for lighter props); the engine accepts up to 1024×1024 and downscales to the runtime quality budget (High/Medium 256, Low 128) at upload. The audited 134-model library decodes to approximately 24 MiB before runtime sharing/downsampling, against a 64 MiB desktop pack budget; `tools/assets/audit.py` reports the current inventory |
 | surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft tooling preference, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. High uploads them unchanged; Medium and Low downscale to 512 and 256 |
 | materials  | one material per primitive; a multi-material model costs one draw range per material per batch |
 | primitives / materials / images per model | 32 / 16 / 16 |
@@ -433,7 +433,10 @@ Baked vertex colours carry the per-face shading and contact darkening (the share
 `texture × vertex colour` plus the material's emissive term; emission is added
 on top of the baked light and never multiplied by it, so an emissive surface
 stays bright in a dark room. Prop models keep the simple material model: no
-normal maps, no alpha, no morph targets. A model may carry one skin and
+normal maps or morph targets. MASK materials support foliage cutouts; BLEND
+materials need the character/dynamic translucent routes described in
+[`ASSET_SPECIFICATION.md §8.5`](../docs/ASSET_SPECIFICATION.md#85-materials-alpha-and-emissive-maps).
+A model may carry one skin and
 LINEAR/STEP animation clips; the static prop batch draws the bind pose, and a
 placed skinned model is posed by the character path (see
 [`entities/README.md`](entities/README.md)).
