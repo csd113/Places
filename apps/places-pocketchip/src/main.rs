@@ -274,10 +274,10 @@ fn package_root() -> PathBuf {
 
 /// Points every relative asset path at the running installation.
 ///
-/// The level loader, the prop catalogue, imported level packs and the settings
-/// file are all resolved relative to the working directory, so an installed
-/// package has to run from its own root. A development build already does this
-/// and is left alone.
+/// The level loader, prop catalogue and imported level packs resolve relative
+/// to the working directory, so an installed package has to run from its own
+/// root. Settings and cache use their separately resolved persistent state root.
+/// A development build already uses its package root and is left alone.
 // Startup CLI output that has no logger to route through.
 #[allow(clippy::print_stderr)]
 fn use_package_assets() -> PathBuf {
@@ -291,7 +291,7 @@ fn use_package_assets() -> PathBuf {
             package.display()
         );
         eprintln!(
-            "relative assets, levels and settings will resolve against {} instead",
+            "relative assets and levels will resolve against {} instead",
             current
                 .as_deref()
                 .map_or_else(|| "<unknown>".to_string(), |dir| dir.display().to_string())
