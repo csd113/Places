@@ -1,0 +1,18 @@
+[
+  {
+    "path": "bin/places",
+    "original_sha256": "02b8e159ac1b35c17114bdf8f3a252c061a5689113bdb8e5b5a08884afc301a0",
+    "preserved_sha256": "802e808c506c44a148d01c343088c78c76fb5c93144ad995fe5c71a03042cd00",
+    "note": "Game code unchanged; local SDL load path and ad hoc signature updated."
+  },
+  {
+    "path": "bin/places-before",
+    "original_sha256": "0b3687e277f6c1b999112a7e50b89a15a6761a6356da50d33142fbdb2a85042c",
+    "preserved_sha256": "91a3f746a71dd094ea3215016058b17a8e38dd8f6ff6b3c327b1c31e085a8225",
+    "note": "Game code unchanged; local SDL load path and ad hoc signature updated."
+  },
+  {
+    "path": "bin/lib/libSDL3.0.dylib",
+    "sha256": "ae2bdbdc49aa00c2027858eb331b3eb34542c9382c0c2dd4bdaa9e4988eb0bbc"
+  }
+]

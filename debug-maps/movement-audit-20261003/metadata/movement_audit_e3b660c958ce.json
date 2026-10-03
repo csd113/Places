@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    2.5999183654785156,
+    0.0
+  ],
+  "id": "movement_audit_e3b660c958ce",
+  "test": "game::tests::movement_regression::ceiling_impact_is_found_when_the_jump_apex_is_between_clear_endpoints",
+  "yaw_degrees": 0.0
+}

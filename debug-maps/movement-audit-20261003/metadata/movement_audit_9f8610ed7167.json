@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.15000000596046448,
+    2.8000001907348633,
+    0.5
+  ],
+  "id": "movement_audit_9f8610ed7167",
+  "test": "game::tests::movement_regression::falling_body_edge_cannot_enter_a_prop_when_center_misses_top",
+  "yaw_degrees": 0.0
+}

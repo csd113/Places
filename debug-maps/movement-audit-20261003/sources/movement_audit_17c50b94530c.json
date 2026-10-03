@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_17c50b94530c",
+  "name": "stacked_storey_ceiling_below_feet_cannot_teleport_a_jump",
+  "rooms": [
+    {
+      "depth": 10,
+      "floor_y": 0,
+      "height": 2.4,
+      "width": 10,
+      "x": -5,
+      "z": -5
+    },
+    {
+      "depth": 10,
+      "floor_y": 2.6,
+      "height": 3,
+      "width": 10,
+      "x": -5,
+      "z": -5
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": []
+}

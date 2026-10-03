@@ -924,7 +924,7 @@ player:
 Overlapping rooms are legal and sometimes intentional (they are how stacked storeys
 and vertical features are built). Two different ownership rules apply:
 
-* **Geometry, collision and the walkable floor** use the **first room in resolution
+* **Geometry and the point-based authoring height queries** use the **first room in resolution
   order** (`rooms` order) whose footprint contains the
   point (0.01 m tolerance). If several rooms overlap, the earlier one wins.
 * **Baked lighting** uses the **smallest-area** room at that point when no height hint
@@ -934,6 +934,12 @@ and vertical features are built). Two different ownership rules apply:
 
 Both floors/ceilings of an intentional overlap are emitted. This mismatch is a known
 design property, not a bug; keep overlapping footprints deliberate and minimal.
+
+The player controller considers all emitted floors and ceilings in the live
+body's height band. Support selects the highest reachable surface beneath the
+feet; a lower storey's ceiling cannot become an overhead limit for a player
+above it. These contact queries do not change rendering ownership or fixture
+placement.
 
 ### Rooms and lighting
 

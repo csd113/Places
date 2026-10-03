@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_5933da10473f",
+  "name": "ledge_departure_and_fall_distance_are_equivalent_across_frame_rates",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 20,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": []
+}

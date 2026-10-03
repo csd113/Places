@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_d13514f38a15",
+  "name": "ledge_departure_and_fall_distance_are_equivalent_across_frame_rates",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": -0.6000000238418579,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": [
+    {
+      "depth": 4.0,
+      "height": 1.5,
+      "width": 2.0,
+      "x": -2.0,
+      "y": 0.0,
+      "z": -2.0
+    }
+  ]
+}

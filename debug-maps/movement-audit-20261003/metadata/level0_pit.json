@@ -1,0 +1,10 @@
+{
+  "id": "level0_pit",
+  "test": "Preserved level0_pit reference map",
+  "eye_spawn": [
+    50.2,
+    1.6,
+    -29.2
+  ],
+  "yaw_degrees": 180
+}

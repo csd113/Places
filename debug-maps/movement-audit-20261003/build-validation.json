@@ -1,0 +1,1586 @@
+[
+  {
+    "id": "level0_pit",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/level0_pit.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/level0_pit.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/level0_pit.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/level0_pit.placesmap (763616 bytes, 60 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/level0_pit.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/level0_pit.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/level0_pit.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/level0_pit.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid level0_pit (Level 0: The Pit), variants: off, 11 entries, 17 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_17c50b94530c",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_17c50b94530c.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_17c50b94530c.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_17c50b94530c.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_17c50b94530c.placesmap (3795 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_17c50b94530c.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_17c50b94530c.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_17c50b94530c.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_17c50b94530c.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_17c50b94530c (stacked_storey_ceiling_below_feet_cannot_teleport_a_jump), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_1bf2c6791b49",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_1bf2c6791b49.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_1bf2c6791b49.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_1bf2c6791b49.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_1bf2c6791b49.placesmap (5881 bytes, 18 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_1bf2c6791b49.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_1bf2c6791b49.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_1bf2c6791b49.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_1bf2c6791b49.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_1bf2c6791b49 (steps_require_ground_and_full_head_clearance), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_258e7ddd25a2",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_258e7ddd25a2.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_258e7ddd25a2.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_258e7ddd25a2.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_258e7ddd25a2.placesmap (3565 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_258e7ddd25a2.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_258e7ddd25a2.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_258e7ddd25a2.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_258e7ddd25a2.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_258e7ddd25a2 (a_room_ceiling_is_support_from_above_and_never_a_downward_clamp), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_2f1424a900dc",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_2f1424a900dc.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_2f1424a900dc.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_2f1424a900dc.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_2f1424a900dc.placesmap (4395 bytes, 18 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_2f1424a900dc.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_2f1424a900dc.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_2f1424a900dc.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_2f1424a900dc.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_2f1424a900dc (ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_3abd34b6f63e",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_3abd34b6f63e.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_3abd34b6f63e.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_3abd34b6f63e.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_3abd34b6f63e.placesmap (3565 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_3abd34b6f63e.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_3abd34b6f63e.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_3abd34b6f63e.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_3abd34b6f63e.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_3abd34b6f63e (landing_on_a_room_roof_edge_uses_the_whole_body_disc), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_420608eb6e55",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_420608eb6e55.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_420608eb6e55.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "built /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_420608eb6e55.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_420608eb6e55.placesmap (3966 bytes, 105 ms)\n  off: 3 range(s), 12 vertices, 0 prop batch(es), 0 lightmap page(s)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_420608eb6e55.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_420608eb6e55.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_420608eb6e55.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_420608eb6e55.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_420608eb6e55 (spawn_across_a_gabled_roof_uses_separate_bounded_recovery), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_49489c743dfc",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_49489c743dfc.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_49489c743dfc.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_49489c743dfc.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_49489c743dfc.placesmap (4519 bytes, 20 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_49489c743dfc.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_49489c743dfc.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_49489c743dfc.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_49489c743dfc.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_49489c743dfc (thin_floor_and_overhead_slab_cannot_be_tunnelled_through), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_5488abc5b606",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5488abc5b606.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5488abc5b606.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5488abc5b606.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5488abc5b606.placesmap (4405 bytes, 20 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5488abc5b606.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5488abc5b606.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5488abc5b606.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5488abc5b606.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_5488abc5b606 (ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_5933da10473f",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5933da10473f.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5933da10473f.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5933da10473f.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5933da10473f.placesmap (4363 bytes, 23 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5933da10473f.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5933da10473f.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5933da10473f.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5933da10473f.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_5933da10473f (ledge_departure_and_fall_distance_are_equivalent_across_frame_rates), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_5e49ec819009",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5e49ec819009.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5e49ec819009.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5e49ec819009.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5e49ec819009.placesmap (4109 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_5e49ec819009.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5e49ec819009.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5e49ec819009.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_5e49ec819009.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_5e49ec819009 (grounded_floor_region_steps_never_embed_the_body_in_their_rims), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_66326a50cde0",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_66326a50cde0.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_66326a50cde0.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_66326a50cde0.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_66326a50cde0.placesmap (5441 bytes, 18 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_66326a50cde0.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_66326a50cde0.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_66326a50cde0.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_66326a50cde0.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_66326a50cde0 (real_solid_step_at_maximum_height_is_traversable), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_6f20140b35d2",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_6f20140b35d2.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_6f20140b35d2.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_6f20140b35d2.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_6f20140b35d2.placesmap (3687 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_6f20140b35d2.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_6f20140b35d2.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_6f20140b35d2.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_6f20140b35d2.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_6f20140b35d2 (a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_7685e3f65809",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_7685e3f65809.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_7685e3f65809.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_7685e3f65809.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_7685e3f65809.placesmap (6268 bytes, 29 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_7685e3f65809.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_7685e3f65809.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_7685e3f65809.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_7685e3f65809.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_7685e3f65809 (floor_two_walls_and_ceiling_corner_remain_nonpenetrating), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_80d3a944bbaf",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_80d3a944bbaf.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_80d3a944bbaf.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_80d3a944bbaf.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_80d3a944bbaf.placesmap (15047 bytes, 25 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_80d3a944bbaf.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_80d3a944bbaf.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_80d3a944bbaf.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_80d3a944bbaf.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_80d3a944bbaf (measure_controller_hot_path), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_845dfea385f9",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_845dfea385f9.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_845dfea385f9.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_845dfea385f9.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_845dfea385f9.placesmap (5506 bytes, 18 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_845dfea385f9.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_845dfea385f9.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_845dfea385f9.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_845dfea385f9.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_845dfea385f9 (airborne_side_contact_never_steps_or_becomes_ground_and_slides), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_8b0ee9957100",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_8b0ee9957100.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_8b0ee9957100.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_8b0ee9957100.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_8b0ee9957100.placesmap (5876 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_8b0ee9957100.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_8b0ee9957100.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_8b0ee9957100.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_8b0ee9957100.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_8b0ee9957100 (steps_require_ground_and_full_head_clearance), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_9f8610ed7167",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_9f8610ed7167.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_9f8610ed7167.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_9f8610ed7167.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_9f8610ed7167.placesmap (5430 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_9f8610ed7167.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_9f8610ed7167.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_9f8610ed7167.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_9f8610ed7167.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_9f8610ed7167 (falling_body_edge_cannot_enter_a_prop_when_center_misses_top), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_a0a48bfabc94",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a0a48bfabc94.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a0a48bfabc94.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a0a48bfabc94.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a0a48bfabc94.placesmap (5391 bytes, 17 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a0a48bfabc94.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a0a48bfabc94.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a0a48bfabc94.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a0a48bfabc94.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_a0a48bfabc94 (spawn_overlap_recovery_is_clear_bounded_and_deterministic), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_a5d6e03e7ba5",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a5d6e03e7ba5.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a5d6e03e7ba5.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a5d6e03e7ba5.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a5d6e03e7ba5.placesmap (4340 bytes, 36 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a5d6e03e7ba5.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a5d6e03e7ba5.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a5d6e03e7ba5.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a5d6e03e7ba5.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_a5d6e03e7ba5 (air_spawn_requires_actual_support_instead_of_an_xz_floor), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_a731e3c57d74",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a731e3c57d74.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a731e3c57d74.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a731e3c57d74.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a731e3c57d74.placesmap (5887 bytes, 25 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_a731e3c57d74.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a731e3c57d74.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a731e3c57d74.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_a731e3c57d74.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_a731e3c57d74 (steps_require_ground_and_full_head_clearance), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_aa5c8e0f5f3f",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_aa5c8e0f5f3f.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_aa5c8e0f5f3f.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_aa5c8e0f5f3f.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_aa5c8e0f5f3f.placesmap (3540 bytes, 29 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_aa5c8e0f5f3f.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_aa5c8e0f5f3f.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_aa5c8e0f5f3f.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_aa5c8e0f5f3f.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_aa5c8e0f5f3f (low_ceiling_covers_the_body_disc_at_its_edge), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_b0f5ad049c0d",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b0f5ad049c0d.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b0f5ad049c0d.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b0f5ad049c0d.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b0f5ad049c0d.placesmap (4406 bytes, 31 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b0f5ad049c0d.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b0f5ad049c0d.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b0f5ad049c0d.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b0f5ad049c0d.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_b0f5ad049c0d (ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_b4d7f82904ca",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b4d7f82904ca.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b4d7f82904ca.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b4d7f82904ca.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b4d7f82904ca.placesmap (3675 bytes, 23 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_b4d7f82904ca.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b4d7f82904ca.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b4d7f82904ca.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_b4d7f82904ca.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_b4d7f82904ca (side_entry_into_a_low_room_ceiling_is_blocked_without_a_vertical_teleport), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_ba5f0e0ddf5c",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_ba5f0e0ddf5c.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_ba5f0e0ddf5c.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_ba5f0e0ddf5c.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_ba5f0e0ddf5c.placesmap (1628533 bytes, 259 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_ba5f0e0ddf5c.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_ba5f0e0ddf5c.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_ba5f0e0ddf5c.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_ba5f0e0ddf5c.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_ba5f0e0ddf5c (measure_controller_hot_path), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_c021e6f5ced9",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c021e6f5ced9.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c021e6f5ced9.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c021e6f5ced9.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c021e6f5ced9.placesmap (4518 bytes, 42 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c021e6f5ced9.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c021e6f5ced9.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c021e6f5ced9.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c021e6f5ced9.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_c021e6f5ced9 (thin_floor_and_overhead_slab_cannot_be_tunnelled_through), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_c53f8cd3e4ca",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c53f8cd3e4ca.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c53f8cd3e4ca.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c53f8cd3e4ca.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c53f8cd3e4ca.placesmap (4354 bytes, 35 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c53f8cd3e4ca.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c53f8cd3e4ca.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c53f8cd3e4ca.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c53f8cd3e4ca.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_c53f8cd3e4ca (repeated_jump_cycles_preserve_apex_and_land_at_every_frame_pattern), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_c6eed58f83a3",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c6eed58f83a3.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c6eed58f83a3.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c6eed58f83a3.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c6eed58f83a3.placesmap (5871 bytes, 34 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_c6eed58f83a3.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c6eed58f83a3.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c6eed58f83a3.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_c6eed58f83a3.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_c6eed58f83a3 (steps_require_ground_and_full_head_clearance), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_corner",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_corner.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_corner.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_corner.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_corner.placesmap (5165 bytes, 25 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_corner.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_corner.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_corner.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_corner.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_corner (Independent 90 degree contact planes), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_d13514f38a15",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_d13514f38a15.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_d13514f38a15.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_d13514f38a15.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_d13514f38a15.placesmap (5409 bytes, 23 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_d13514f38a15.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_d13514f38a15.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_d13514f38a15.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_d13514f38a15.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_d13514f38a15 (ledge_departure_and_fall_distance_are_equivalent_across_frame_rates), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_e3b660c958ce",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_e3b660c958ce.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_e3b660c958ce.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_e3b660c958ce.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_e3b660c958ce.placesmap (4552 bytes, 25 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_e3b660c958ce.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_e3b660c958ce.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_e3b660c958ce.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_e3b660c958ce.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_e3b660c958ce (ceiling_impact_is_found_when_the_jump_apex_is_between_clear_endpoints), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_f0498cfb8d5d",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_f0498cfb8d5d.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_f0498cfb8d5d.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_f0498cfb8d5d.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_f0498cfb8d5d.placesmap (6397 bytes, 19 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_f0498cfb8d5d.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_f0498cfb8d5d.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_f0498cfb8d5d.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_f0498cfb8d5d.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_f0498cfb8d5d (narrow_passage_crouch_and_stand_clearance_remain_physical), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_fffd85d16796",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_fffd85d16796.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_fffd85d16796.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_fffd85d16796.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_fffd85d16796.placesmap (3676 bytes, 19 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_fffd85d16796.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_fffd85d16796.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_fffd85d16796.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_fffd85d16796.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_fffd85d16796 (a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_qa_reference",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_qa_reference.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_qa_reference.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_qa_reference.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_qa_reference.placesmap (502372 bytes, 69 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_qa_reference.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_qa_reference.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_qa_reference.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_qa_reference.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_qa_reference (Movement Audit: QA Stations), variants: off, 7 entries, 19 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_rotated_door",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_rotated_door.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_rotated_door.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_rotated_door.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_rotated_door.placesmap (4024 bytes, 19 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_rotated_door.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_rotated_door.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_rotated_door.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_rotated_door.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_rotated_door (45 degree / 1 mm door leaf), variants: off, 7 entries, 6 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  },
+  {
+    "id": "movement_audit_thin_wall",
+    "results": [
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "build",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_thin_wall.json",
+          "--out",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_thin_wall.placesmap",
+          "--variants",
+          "off",
+          "--workers",
+          "12"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_thin_wall.json -> /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_thin_wall.placesmap (29553 bytes, 29 ms)\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "verify",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/sources/movement_audit_thin_wall.json",
+          "--package",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_thin_wall.placesmap",
+          "--require-current"
+        ],
+        "exit_code": 0,
+        "stdout": "current /Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_thin_wall.placesmap\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+          "validate",
+          "/Users/connordawkins/Documents/GitHub/Places/debug-maps/movement-audit-20261003/packages/movement_audit_thin_wall.placesmap"
+        ],
+        "exit_code": 0,
+        "stdout": "valid movement_audit_thin_wall (50 m sweep / 0.1 mm wall), variants: off, 7 entries, 3 dependencies\n",
+        "stderr": ""
+      }
+    ]
+  }
+]

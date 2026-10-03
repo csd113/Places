@@ -1,0 +1,50 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_7685e3f65809",
+  "name": "floor_two_walls_and_ceiling_corner_remain_nonpenetrating",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": -0.6000000238418579,
+    "yaw_degrees": 0.0,
+    "z": -0.6000000238418579
+  },
+  "walls": [
+    {
+      "depth": 4.010000228881836,
+      "height": 5.0,
+      "width": 0.009999999776482582,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -4.0
+    },
+    {
+      "depth": 0.009999999776482582,
+      "height": 5.0,
+      "width": 4.010000228881836,
+      "x": -4.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 4.0,
+      "height": 0.005000114440917969,
+      "width": 4.0,
+      "x": -4.0,
+      "y": 2.049999952316284,
+      "z": -4.0
+    }
+  ]
+}

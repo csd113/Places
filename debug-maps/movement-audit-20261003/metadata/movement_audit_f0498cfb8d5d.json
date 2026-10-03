@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -1.0,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_f0498cfb8d5d",
+  "test": "game::tests::movement_regression::narrow_passage_crouch_and_stand_clearance_remain_physical",
+  "yaw_degrees": 0.0
+}

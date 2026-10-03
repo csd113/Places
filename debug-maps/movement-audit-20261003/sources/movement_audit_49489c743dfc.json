@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_49489c743dfc",
+  "name": "thin_floor_and_overhead_slab_cannot_be_tunnelled_through",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": [
+    {
+      "depth": 4.0,
+      "height": 0.0004999637603759766,
+      "width": 4.0,
+      "x": -2.0,
+      "y": 2.0,
+      "z": -2.0
+    }
+  ]
+}

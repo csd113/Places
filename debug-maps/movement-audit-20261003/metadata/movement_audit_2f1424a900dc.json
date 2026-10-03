@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_2f1424a900dc",
+  "test": "game::tests::movement_regression::ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate",
+  "yaw_degrees": 0.0
+}

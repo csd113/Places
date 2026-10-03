@@ -4,8 +4,8 @@ use glam::{Vec2, Vec3};
 
 use crate::collision::{
     CONTACT_EPS, CROUCH_HEIGHT, DoorCollider, PLAYER_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT,
-    STEP_EPS, WallAabb, highest_support_top_indexed, lowest_door_underside,
-    lowest_underside_indexed, resolve_player_collision_with_doors,
+    STEP_EPS, WallAabb, body_support_top, lowest_door_underside, lowest_underside_indexed,
+    resolve_player_collision_with_doors,
 };
 use crate::collision_index::CollisionIndex;
 use crate::entities::{EntityWorld, WorldContext, WorldTick};
@@ -74,10 +74,10 @@ pub const JUMP_APEX_M: f32 = KITCHEN_COUNTER_TOP_M + JUMP_CLEARANCE_M;
 /// `const` initializer). A test re-derives it from the formula.
 pub const JUMP_VELOCITY: f32 = 4.427_189;
 
-/// Fixed vertical integration step, in seconds.
+/// Maximum land simulation interval and fixed water step, in seconds.
 ///
-/// Vertical motion runs in this fixed substep regardless of the frame rate, so
-/// a jump's apex is frame-rate independent; at most twelve of them fit in
+/// Land intervals are at most this long, with an exact ballistic update even
+/// for fractional 144 Hz intervals. At most twelve of them fit in
 /// [`MAX_SIM_DELTA`].
 pub const VERTICAL_SUBSTEP: f32 = 1.0 / 120.0;
 
@@ -533,6 +533,11 @@ pub struct Game {
     /// Vertical simulation time not yet consumed by a fixed
     /// [`VERTICAL_SUBSTEP`].
     vertical_accumulator: f32,
+    /// A real upward impact during the latest rendered movement frame.
+    /// Falling may already have resumed by the frame's final substep.
+    ceiling_contact_this_frame: bool,
+    /// Explicit opt-in frame/contact diagnostics, silent during normal play.
+    movement_debug: bool,
     /// Phase of the idle bob at the water's float line, in radians.
     bob_phase: f32,
     /// Counters of the most recent entity-world tick.
@@ -614,10 +619,7 @@ struct WalkSupport {
 impl Game {
     #[must_use]
     pub fn new(spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) -> Self {
-        let grounded = world
-            .floor
-            .walk_height_at(spawn_pos.x, spawn_pos.z)
-            .is_some();
+        let grounded = false;
         let mut game = Self {
             running: true,
             app_state: AppState::MainMenu,
@@ -656,11 +658,18 @@ impl Game {
             spawn_yaw: spawn_yaw.rem_euclid(TWO_PI),
             reset_count: 0,
             vertical_accumulator: 0.0,
+            ceiling_contact_this_frame: false,
+            movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
             bob_phase: 0.0,
             last_tick: WorldTick::default(),
         };
-        game.world
-            .seed_volumes(Vec3::new(spawn_pos.x, game.feet_y(), spawn_pos.z));
+        game.recover_spawn_overlap();
+        game.refresh_ground_support();
+        game.world.seed_volumes(Vec3::new(
+            game.player_position.x,
+            game.feet_y(),
+            game.player_position.z,
+        ));
         let routes = RouteWorld {
             walls: &game.walls,
             floor: &game.floor,
@@ -766,9 +775,9 @@ impl Game {
         self.clear_run_state(self.spawn_position, self.spawn_yaw, true);
         self.world.reset_runtime();
         self.world.seed_volumes(Vec3::new(
-            self.spawn_position.x,
+            self.player_position.x,
             self.feet_y(),
-            self.spawn_position.z,
+            self.player_position.z,
         ));
         self.reset_count = self.reset_count.saturating_add(1);
     }
@@ -801,15 +810,14 @@ impl Game {
         self.player_pitch = 0.0;
         self.vertical_velocity = 0.0;
         self.vertical_accumulator = 0.0;
-        self.grounded = self
-            .floor
-            .walk_height_at(spawn_pos.x, spawn_pos.z)
-            .is_some();
+        self.grounded = false;
         self.swimming = false;
         self.water_exit = None;
         self.float_hold = false;
         self.bob_phase = 0.0;
         self.stance = Stance::Standing;
+        self.recover_spawn_overlap();
+        self.refresh_ground_support();
         self.climbing = None;
         self.jump_latched = suppress_held;
         self.crouch_latched = suppress_held;
@@ -1084,6 +1092,7 @@ impl Game {
     /// of them and owns the frame while attached. Area triggers run last, on
     /// the swept segment from the frame's start feet to the resolved feet.
     pub fn update_player_movement(&mut self, input: &mut InputState, settings: &Settings) {
+        self.ceiling_contact_this_frame = false;
         // A press is consumed exactly once and never survives a non-Playing
         // frame: the interaction latch is re-derived below, and the frame loop
         // owns dispatch through [`Game::take_interact_press`].
@@ -1094,6 +1103,17 @@ impl Game {
         let motion = input.take_mouse_motion();
         let frame_input = *input;
         input.clear_presses();
+        if self.movement_debug {
+            crate::logging::warn(format_args!(
+                "[movement] frame_start feet={:?} body_height={} radius={} input={frame_input:?} velocity_y={} grounded={} delta={}",
+                Vec3::new(self.player_position.x, self.feet_y, self.player_position.z),
+                self.body_height(),
+                PLAYER_RADIUS,
+                self.vertical_velocity,
+                self.grounded,
+                self.sim_delta_seconds
+            ));
+        }
 
         // While paused or in menus, do not update player movement or looking
         if self.app_state != AppState::Playing {
@@ -1102,6 +1122,15 @@ impl Game {
 
         let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
         self.update_world(trigger_origin);
+        if self.movement_debug {
+            crate::logging::warn(format_args!(
+                "[movement] frame_end feet={:?} velocity_y={} grounded={} ceiling_contact={}",
+                Vec3::new(self.player_position.x, self.feet_y, self.player_position.z),
+                self.vertical_velocity,
+                self.grounded,
+                self.ceiling_contact_this_frame
+            ));
+        }
     }
 
     /// One Playing frame: look, stance, interact latch, movement,
@@ -1132,12 +1161,52 @@ impl Game {
         // Doors advance before the player moves, so this frame's movement reads
         // the leaf colliders at this frame's angles (the slab the player sees).
         self.update_doors(delta);
+        if self.grounded && !self.swimming {
+            let from = Vec2::new(self.player_position.x, self.player_position.z);
+            let recovered =
+                self.resolve_horizontal_contact(from, from, self.feet_y, HorizontalMode::Walk);
+            self.player_position.x = recovered.x;
+            self.player_position.z = recovered.y;
+            // An externally placed body can intersect a wall beside a ramp.
+            // The bounded spawn correction must finish on that ramp's actual
+            // support rather than placing its feet beneath the surface.
+            if recovered.distance_squared(from) > 1e-10
+                && let Some(support) =
+                    self.walking_support_at(recovered.x, recovered.y, self.feet_y)
+                && !support.dropped
+                && self.head_clear_for(support.surface_y, self.body_height())
+            {
+                self.player_floor_y = support.surface_y;
+                self.set_feet_y(support.surface_y);
+            }
+        }
         let trigger_origin = Vec3::new(
             self.player_position.x,
             self.feet_y(),
             self.player_position.z,
         );
 
+        // Collision and gravity share a bounded time subdivision. Horizontal
+        // movement for a long render frame must not finish before the entire
+        // vertical path is considered (especially at ledges and ceilings).
+        let step_count = (delta / VERTICAL_SUBSTEP).ceil().clamp(1.0, 12.0);
+        // The clamp is finite and bounded by the twelve simulation substeps.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = step_count as usize;
+        let step_delta = delta / step_count;
+        let mut substep_input = *input;
+        self.sim_delta_seconds = step_delta;
+        for _ in 0..steps {
+            self.update_locomotion_step(&substep_input, settings, step_delta);
+            substep_input.clear_presses();
+        }
+        self.sim_delta_seconds = delta;
+        trigger_origin
+    }
+
+    /// One short locomotion interval, with current contacts and velocity.
+    /// Input edges, stance, looking and doors remain frame-owned.
+    fn update_locomotion_step(&mut self, input: &InputState, settings: &Settings, delta: f32) {
         // The pressed-exit probe is per frame: the swimming horizontal step
         // records a raised rim the body is pushing into, and releasing the key
         // (no movement this frame) must leave it unrecorded so the pull-up is
@@ -1177,7 +1246,7 @@ impl Game {
         // it resolves climb motion and the top landing itself.
         if self.update_ladder(move_dir, jump_pressed, delta, settings) {
             self.refresh_locomotion(0.0, delta);
-            return trigger_origin;
+            return;
         }
 
         // The water state (swimming, or a bounded climb out of it) decides this
@@ -1188,6 +1257,17 @@ impl Game {
             .water
             .sample(self.player_position.x, self.player_position.z, feet);
         let in_water = self.swimming || self.water_exit.is_some();
+
+        if !in_water {
+            if self.grounded {
+                self.refresh_ground_support();
+            }
+            if jump_pressed && self.grounded && !self.entering_water(before_sample) {
+                self.vertical_velocity = JUMP_VELOCITY;
+                self.grounded = false;
+                self.vertical_accumulator = 0.0;
+            }
+        }
 
         let previous = Vec2::new(self.player_position.x, self.player_position.z);
         if move_dir.length_squared() > 0.0 {
@@ -1255,7 +1335,6 @@ impl Game {
         }
 
         self.refresh_locomotion(horizontal_distance, delta);
-        trigger_origin
     }
 
     /// The locomotion pose and horizontal speed the last Playing update
@@ -1654,7 +1733,9 @@ impl Game {
 
     /// Samples overhead clearance at a candidate before committing a step.
     fn head_limit_at(&self, x: f32, z: f32, feet: f32) -> Option<f32> {
-        let ceiling = self.ceiling.ceiling_y_at(x, z);
+        let ceiling = self
+            .ceiling
+            .ceiling_above_disc(x, z, PLAYER_RADIUS - CONTACT_EPS, feet);
         // A tangent side wall is contact, not an overhead obstruction.
         let underside = lowest_underside_indexed(
             &self.collision_index,
@@ -1671,16 +1752,22 @@ impl Game {
             PLAYER_RADIUS - CONTACT_EPS,
             feet,
         );
-        match (ceiling, underside, door_underside) {
-            (Some(ceiling), Some(underside), Some(door)) => Some(ceiling.min(underside).min(door)),
-            (Some(ceiling), Some(underside), None) => Some(ceiling.min(underside)),
-            (Some(ceiling), None, Some(door)) => Some(ceiling.min(door)),
-            (None, Some(underside), Some(door)) => Some(underside.min(door)),
-            (Some(ceiling), None, None) => Some(ceiling),
-            (None, Some(underside), None) => Some(underside),
-            (None, None, Some(door)) => Some(door),
-            (None, None, None) => None,
-        }
+        // Swim/ladder poses anchor the eye and can place virtual feet below
+        // the basin. Its occupied floor is support, not an overhead platform.
+        let floor_reference = if self.swimming || self.climbing.is_some() {
+            feet.max(self.player_position.y)
+        } else {
+            feet
+        };
+        let floor_underside = self.floor.lowest_room_underside(
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            floor_reference,
+        );
+        [ceiling, underside, door_underside, floor_underside]
+            .into_iter()
+            .flatten()
+            .min_by(f32::total_cmp)
     }
 
     /// The deepest water the current stance can stand up in, in metres.
@@ -1699,7 +1786,7 @@ impl Game {
     /// local ceiling and overhead boxes.
     fn head_clear_for(&self, feet: f32, height: f32) -> bool {
         self.head_limit(feet)
-            .is_none_or(|limit| limit >= feet + height - STEP_EPS)
+            .is_none_or(|limit| limit >= feet + height - CONTACT_EPS)
     }
 
     /// The highest support at `(x, z)` at or below `max_top`: the rendered
@@ -1717,19 +1804,38 @@ impl Game {
     fn support_at(&self, x: f32, z: f32, max_top: f32) -> Option<f32> {
         // A floor above the reference is not a support: the feet would be
         // snapping *up* through it.
-        let floor = self
-            .floor
-            .height_at(x, z)
-            .filter(|floor| *floor <= max_top + STEP_EPS);
+        let floor = self.floor.height_below_disc(
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            max_top + CONTACT_EPS,
+        );
+        let ceiling_top = self.ceiling.surface_below_disc(
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            max_top + CONTACT_EPS,
+        );
+        let floor = match (floor, ceiling_top) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
         // The shared top query includes the walking allowance. Landing must
         // only select a surface actually crossed by the descending feet.
-        let top = highest_support_top_indexed(
+        let mut top = body_support_top(
             &self.collision_index,
-            x,
-            z,
-            max_top - PLAYER_STEP_HEIGHT,
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            max_top + CONTACT_EPS,
+            max_top + CONTACT_EPS,
             &self.walls,
         );
+        for door in self.world.door_colliders() {
+            let height = door.hinge_y + door.height;
+            if height <= max_top + CONTACT_EPS
+                && door.overlaps_disc(x, z, PLAYER_RADIUS - CONTACT_EPS)
+            {
+                top = Some(top.map_or(height, |current| current.max(height)));
+            }
+        }
         match (floor, top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (Some(a), None) => Some(a),
@@ -1762,15 +1868,35 @@ impl Game {
     /// on the table, never on the room floor beneath it.
     fn walking_support_at(&self, x: f32, z: f32, current_surface: f32) -> Option<WalkSupport> {
         let floor_ceiling = current_surface + PLAYER_STEP_HEIGHT + STEP_EPS;
-        let floor = self
-            .floor
-            .height_at(x, z)
-            .filter(|floor| *floor <= floor_ceiling);
-        let top =
-            highest_support_top_indexed(&self.collision_index, x, z, current_surface, &self.walls);
+        let floor = self.floor.height_below_disc(
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            floor_ceiling,
+        );
+        let ceiling_top = self.ceiling.surface_below_disc(
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            floor_ceiling,
+        );
+        let floor = match (floor, ceiling_top) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
+        let top = body_support_top(
+            &self.collision_index,
+            Vec2::new(x, z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            floor_ceiling,
+            current_surface + CONTACT_EPS,
+            &self.walls,
+        );
         let surface_y = match (floor, top) {
             (Some(floor), Some(top)) if top > floor => top,
-            (Some(floor), _) => self.floor.walk_height_at(x, z).unwrap_or(floor),
+            (Some(floor), _) => self
+                .floor
+                .walk_height_below(x, z, floor_ceiling)
+                .unwrap_or(floor)
+                .max(floor),
             (None, Some(top)) => top,
             (None, None) => return None,
         };
@@ -1809,6 +1935,12 @@ impl Game {
                 .map(|component| component * speed * delta),
         );
         let total_dist = total_delta.length();
+        if self.movement_debug {
+            crate::logging::warn(format_args!(
+                "[movement] requested displacement={total_delta:?} mode={mode:?} feet={} velocity_y={}",
+                self.feet_y, self.vertical_velocity
+            ));
+        }
         let max_step = PLAYER_RADIUS * 0.5;
         // Clamped up to at least one sub-step (as the historical `max(1)` did)
         // and down to a million: the ceiling is far above anything
@@ -1853,6 +1985,14 @@ impl Game {
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
             let mut candidate =
                 self.resolve_horizontal_contact(current_pos, raw, foot_y, sweep_mode);
+            if sweep_mode == HorizontalMode::Walk
+                && candidate.distance_squared(raw) > 1e-10
+                && let Some(step_y) = self.solid_step_height(current_pos, raw, foot_y)
+            {
+                candidate = raw;
+                current_floor = step_y;
+                live_feet = step_y;
+            }
             if matches!(sweep_mode, HorizontalMode::Swim { .. }) {
                 // The ordinary wall band lets a rim within the water-exit
                 // allowance through; the camera must still clear that rim
@@ -1915,7 +2055,7 @@ impl Game {
         }
     }
 
-    /// Keeps walking rim allowances separate from physical airborne contact.
+    /// Land uses physical sweeps; swimming retains its established waterline band.
     fn resolve_horizontal_contact(
         &self,
         from: Vec2,
@@ -1923,17 +2063,7 @@ impl Game {
         foot_y: f32,
         mode: HorizontalMode,
     ) -> Vec2 {
-        if mode == HorizontalMode::Airborne {
-            crate::collision::resolve_airborne_player_collision_with_doors(
-                &self.collision_index,
-                (from, to),
-                PLAYER_RADIUS,
-                foot_y,
-                self.body_height(),
-                &self.walls,
-                self.world.door_colliders(),
-            )
-        } else {
+        if matches!(mode, HorizontalMode::Swim { .. }) {
             resolve_player_collision_with_doors(
                 &self.collision_index,
                 to,
@@ -1943,7 +2073,224 @@ impl Game {
                 &self.walls,
                 self.world.door_colliders(),
             )
+        } else {
+            crate::collision::sweep_horizontal(
+                &self.horizontal_world(),
+                (from, to),
+                (foot_y, self.body_height(), PLAYER_RADIUS),
+                mode == HorizontalMode::Walk,
+            )
         }
+    }
+
+    fn horizontal_world(&self) -> crate::collision::HorizontalWorld<'_> {
+        crate::collision::HorizontalWorld {
+            index: &self.collision_index,
+            walls: &self.walls,
+            doors: self.world.door_colliders(),
+            ceiling: &self.ceiling,
+            floor: &self.floor,
+            debug: self.movement_debug,
+        }
+    }
+
+    /// Separate placement recovery, used only at spawn/reset. Ordinary
+    /// movement never searches for a distant escape position. Candidates are
+    /// actual solid faces and the closest fully clear one wins deterministically.
+    /// Recovery is capped at two standing heights (3.6 m), even for corrupt
+    /// placements; a deeply enclosed spawn cannot become an unbounded teleport.
+    fn recover_spawn_overlap(&mut self) {
+        let origin = Vec3::new(self.player_position.x, self.feet_y, self.player_position.z);
+        if self.body_fits_at(origin) {
+            return;
+        }
+        let mut candidates = Vec::new();
+        let horizontal = crate::collision::resolve_airborne_player_collision_with_doors(
+            &self.collision_index,
+            (Vec2::new(origin.x, origin.z), Vec2::new(origin.x, origin.z)),
+            PLAYER_RADIUS,
+            origin.y,
+            self.body_height(),
+            &self.walls,
+            self.world.door_colliders(),
+        );
+        candidates.push(Vec3::new(horizontal.x, origin.y, horizontal.y));
+        for door in self.world.door_colliders() {
+            if door.overlaps_body_y(origin.y, self.body_height())
+                && let Some((x, z)) =
+                    door.depenetrate(origin.x, origin.z, PLAYER_RADIUS + CONTACT_EPS)
+            {
+                candidates.push(Vec3::new(x, origin.y, z));
+            }
+        }
+        for wall in &self.walls {
+            if wall.max_y <= origin.y + CONTACT_EPS
+                || wall.min_y >= origin.y + self.body_height() - CONTACT_EPS
+                || !wall.overlaps_disc(origin.x, origin.z, PLAYER_RADIUS - CONTACT_EPS)
+            {
+                continue;
+            }
+            for x in [
+                wall.min_x - PLAYER_RADIUS - CONTACT_EPS,
+                wall.max_x + PLAYER_RADIUS + CONTACT_EPS,
+            ] {
+                candidates.push(Vec3::new(x, origin.y, origin.z));
+            }
+            for z in [
+                wall.min_z - PLAYER_RADIUS - CONTACT_EPS,
+                wall.max_z + PLAYER_RADIUS + CONTACT_EPS,
+            ] {
+                candidates.push(Vec3::new(origin.x, origin.y, z));
+            }
+            candidates.push(Vec3::new(origin.x, wall.max_y + CONTACT_EPS, origin.z));
+            candidates.push(Vec3::new(
+                origin.x,
+                wall.min_y - self.body_height() - CONTACT_EPS,
+                origin.z,
+            ));
+        }
+        self.spawn_surface_candidates(origin, &mut candidates);
+        let limit = PLAYER_HEIGHT * 2.0;
+        let recovered = candidates
+            .into_iter()
+            .filter(|candidate| {
+                candidate.distance_squared(origin) <= limit * limit && self.body_fits_at(*candidate)
+            })
+            .min_by(|a, b| {
+                a.distance_squared(origin)
+                    .total_cmp(&b.distance_squared(origin))
+            });
+        if let Some(position) = recovered {
+            if self.movement_debug {
+                crate::logging::warn(format_args!(
+                    "[movement] spawn_recovery initial={origin:?} final={position:?} maximum={limit}"
+                ));
+            }
+            self.player_position.x = position.x;
+            self.player_position.z = position.z;
+            self.set_feet_y(position.y);
+        } else {
+            crate::logging::warn_once(
+                "movement_invalid_spawn",
+                "[movement] no clear spawn recovery within 3.6 m; correct the level spawn",
+            );
+        }
+    }
+
+    /// Vertical escape candidates belong only to explicit spawn recovery.
+    fn spawn_surface_candidates(&self, origin: Vec3, candidates: &mut Vec<Vec3>) {
+        if let Some(floor) =
+            self.floor
+                .height_below(origin.x, origin.z, origin.y + self.body_height())
+        {
+            candidates.push(Vec3::new(origin.x, floor, origin.z));
+        }
+        if let Some(ceiling) = self.head_limit(origin.y) {
+            candidates.push(Vec3::new(
+                origin.x,
+                ceiling - self.body_height() - CONTACT_EPS,
+                origin.z,
+            ));
+        }
+        self.ceiling.for_each_body_contact(
+            Vec2::new(origin.x, origin.z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            origin.y,
+            self.body_height(),
+            |[low, high]| {
+                candidates.push(Vec3::new(origin.x, high + CONTACT_EPS, origin.z));
+                candidates.push(Vec3::new(
+                    origin.x,
+                    low - self.body_height() - CONTACT_EPS,
+                    origin.z,
+                ));
+            },
+        );
+    }
+
+    fn body_fits_at(&self, feet: Vec3) -> bool {
+        let mut clear = true;
+        self.ceiling.for_each_body_contact(
+            Vec2::new(feet.x, feet.z),
+            PLAYER_RADIUS - CONTACT_EPS,
+            feet.y,
+            self.body_height(),
+            |_| clear = false,
+        );
+        self.collision_index.for_each_disc(
+            feet.x,
+            feet.z,
+            PLAYER_RADIUS - CONTACT_EPS,
+            &self.walls,
+            |wall| {
+                if wall.max_y > feet.y + CONTACT_EPS
+                    && wall.min_y < feet.y + self.body_height() - CONTACT_EPS
+                    && wall.overlaps_disc(feet.x, feet.z, PLAYER_RADIUS - CONTACT_EPS)
+                {
+                    clear = false;
+                }
+            },
+        );
+        clear
+            && !self.world.door_colliders().iter().any(|door| {
+                door.overlaps_body_y(feet.y, self.body_height())
+                    && door.overlaps_disc(feet.x, feet.z, PLAYER_RADIUS - CONTACT_EPS)
+            })
+            && self
+                .head_limit_at(feet.x, feet.z, feet.y)
+                .is_none_or(|ceiling| ceiling >= feet.y + self.body_height() - CONTACT_EPS)
+            && self
+                .floor
+                .height_below(feet.x, feet.z, feet.y + self.body_height() - CONTACT_EPS)
+                .is_none_or(|floor| floor <= feet.y + CONTACT_EPS)
+    }
+
+    /// A grounded step is an up/forward clearance test, never airborne
+    /// depenetration. The upward path and destination must both fit, and all
+    /// intersected solids must remain within the documented maximum height.
+    fn solid_step_height(&self, from: Vec2, to: Vec2, feet: f32) -> Option<f32> {
+        let mut top: Option<f32> = None;
+        let mut too_tall = false;
+        self.collision_index
+            .for_each_disc(to.x, to.y, PLAYER_RADIUS, &self.walls, |wall| {
+                if !wall.overlaps_disc(to.x, to.y, PLAYER_RADIUS)
+                    || wall.max_y <= feet + CONTACT_EPS
+                    || wall.min_y >= feet + self.body_height() - CONTACT_EPS
+                {
+                    return;
+                }
+                too_tall |= wall.max_y > feet + PLAYER_STEP_HEIGHT + STEP_EPS;
+                top = Some(top.map_or(wall.max_y, |height| height.max(wall.max_y)));
+            });
+        let top = top.filter(|_| !too_tall);
+        if self.movement_debug {
+            crate::logging::warn(format_args!(
+                "[movement] step_attempt from={from:?} to={to:?} feet={feet} maximum={PLAYER_STEP_HEIGHT} top={top:?} rejected_tall={too_tall}"
+            ));
+        }
+        let top = top?;
+        if [from, to].into_iter().any(|point| {
+            self.head_limit_at(point.x, point.y, feet)
+                .is_some_and(|limit| limit < top + self.body_height() - CONTACT_EPS)
+        }) {
+            if self.movement_debug {
+                crate::logging::warn("[movement] step_rejected reason=head_clearance");
+            }
+            return None;
+        }
+        let resolved = crate::collision::sweep_horizontal(
+            &self.horizontal_world(),
+            (from, to),
+            (top, self.body_height(), PLAYER_RADIUS),
+            false,
+        );
+        let accepted = resolved.distance_squared(to) <= 1e-10;
+        if self.movement_debug {
+            crate::logging::warn(format_args!(
+                "[movement] step_result accepted={accepted} top={top} resolved={resolved:?}"
+            ));
+        }
+        accepted.then_some(top)
     }
 
     /// Resolves one walking sub-step through [`Self::walking_support_at`]:
@@ -1993,11 +2340,14 @@ impl Game {
     /// Resolves one airborne sub-step: a floor above the live feet refuses the
     /// step, the void and any lower floor are crossed.
     fn airborne_step(&self, candidate: Vec2, live_feet: f32) -> StepOutcome {
-        match self.floor.height_at(candidate.x, candidate.y) {
+        match self
+            .floor
+            .height_below(candidate.x, candidate.y, live_feet + CONTACT_EPS)
+        {
             Some(y) if y <= live_feet + STEP_EPS => StepOutcome::Accepted {
                 floor: self
                     .floor
-                    .walk_height_at(candidate.x, candidate.y)
+                    .walk_height_below(candidate.x, candidate.y, live_feet + CONTACT_EPS)
                     .unwrap_or(y),
                 dropped: false,
             },
@@ -2185,9 +2535,12 @@ impl Game {
     }
 
     /// Vertical step for a grounded or airborne player: the grounded snap, a
-    /// launch on a fresh Jump press, and fixed-substep gravity integration
+    /// launch on a fresh Jump press, and bounded-interval gravity integration
     /// while airborne.
     fn land_vertical(&mut self, jump_pressed: bool) {
+        if self.grounded {
+            self.refresh_ground_support();
+        }
         if self.grounded {
             self.set_feet_y(self.player_floor_y);
             self.vertical_velocity = 0.0;
@@ -2199,30 +2552,11 @@ impl Game {
             self.grounded = false;
         }
 
-        // Accumulate this frame's time and consume it at most
-        // `MAX_VERTICAL_SUBSTEPS` times: at most twelve substeps fit in
-        // `MAX_SIM_DELTA`, so a normal frame consumes all available time and
-        // the leftover is always below one substep.
-        self.vertical_accumulator =
-            (self.vertical_accumulator + self.sim_delta_seconds).min(MAX_SIM_DELTA);
-        let mut steps = 0_usize;
-        while self.vertical_accumulator >= VERTICAL_SUBSTEP && steps < MAX_VERTICAL_SUBSTEPS {
-            self.vertical_accumulator -= VERTICAL_SUBSTEP;
-            steps = steps.saturating_add(1);
-            match self.integrate_vertical_substep() {
-                VerticalStep::Airborne => {}
-                VerticalStep::Landed => {
-                    // Landed: the rest of the accumulated time is spent on the
-                    // floor.
-                    self.vertical_accumulator = 0.0;
-                    break;
-                }
-                VerticalStep::Bumped => break,
-            }
-        }
+        self.vertical_accumulator = 0.0;
+        self.integrate_vertical_substep(self.sim_delta_seconds);
     }
 
-    /// Advances the airborne player by exactly one fixed vertical substep.
+    /// Advances the airborne player through one bounded simulation interval.
     ///
     /// The feet are the integrated coordinate; the rendered eye is always
     /// `feet + eye_offset_current`. The position uses the average of the
@@ -2231,18 +2565,24 @@ impl Game {
     /// apex is therefore frame-rate independent rather than depending on where
     /// a frame boundary lands.
     ///
-    /// The head is clamped by the room ceiling and by every overhead box
-    /// (headers, frames, prop undersides) above the feet, consuming the upward
-    /// velocity. Landing is checked while descending against the highest
-    /// support under the centre: the walkable floor or a solid prop top.
+    /// Ceiling impact time is solved against room planes and overhead solids,
+    /// consuming the incoming upward velocity and applying gravity for the
+    /// remaining interval. Landing checks the highest support beneath the
+    /// body footprint, including a prop edge touched by the disc.
     ///
     /// Returns what the substep resolved to: still airborne, landed, or a
     /// ceiling bump.
-    fn integrate_vertical_substep(&mut self) -> VerticalStep {
+    fn integrate_vertical_substep(&mut self, delta: f32) -> VerticalStep {
         let height = self.body_height();
         let start_feet = self.feet_y;
-        let next_velocity = GRAVITY.mul_add(-VERTICAL_SUBSTEP, self.vertical_velocity);
-        let rise = f32::midpoint(self.vertical_velocity, next_velocity) * VERTICAL_SUBSTEP;
+        let initial_velocity = self.vertical_velocity;
+        let next_velocity = GRAVITY.mul_add(-delta, initial_velocity);
+        let rise = f32::midpoint(initial_velocity, next_velocity) * delta;
+        let peak_rise = if initial_velocity > 0.0 && next_velocity < 0.0 {
+            initial_velocity * initial_velocity / (2.0 * GRAVITY)
+        } else {
+            rise.max(0.0)
+        };
         self.vertical_velocity = next_velocity;
         let mut feet = self.feet_y + rise;
         let mut bumped = false;
@@ -2252,36 +2592,87 @@ impl Game {
         // of being applied again. Clamping a hair under the limit keeps the
         // horizontal pass from re-reading the same box as a wall at the
         // contact plane.
-        if let Some(limit) = self.head_limit(start_feet)
-            && feet + height > limit - CONTACT_EPS
+        if initial_velocity > 0.0
+            && let Some(limit) = self.head_limit(start_feet)
+            && start_feet + height <= limit + CONTACT_EPS
+            && start_feet + peak_rise + height > limit - CONTACT_EPS
         {
-            feet = limit - height - CONTACT_EPS;
-            if self.vertical_velocity > 0.0 {
-                self.vertical_velocity = 0.0;
-                bumped = true;
+            let contact_feet = limit - height - CONTACT_EPS;
+            let clearance = (contact_feet - start_feet).max(0.0);
+            let impact_velocity = (initial_velocity
+                .mul_add(initial_velocity, -2.0 * GRAVITY * clearance))
+            .max(0.0)
+            .sqrt();
+            let impact_time =
+                (2.0 * clearance / (initial_velocity + impact_velocity)).clamp(0.0, delta);
+            let remaining = delta - impact_time;
+            self.vertical_velocity = -GRAVITY * remaining;
+            feet = (-0.5 * GRAVITY * remaining).mul_add(remaining, contact_feet);
+            bumped = true;
+            self.ceiling_contact_this_frame = true;
+            if self.movement_debug {
+                crate::logging::warn(format_args!(
+                    "[movement] ceiling_hit limit={limit} initial_feet={start_feet} impact_time={impact_time} final_feet={feet} normal=(0,-1,0) velocity_y={}",
+                    self.vertical_velocity
+                ));
             }
         }
         self.set_feet_y(feet);
 
         // Landing: only while descending, on the highest support under the
-        // centre that is at or below the feet at the substep's start. Only an
+        // body that is at or below the feet at the substep's start. Only an
         // empty-floor world has a fallback Y=0 plane; an authored room's open
         // edge never acquires invisible support.
         if self.vertical_velocity <= 0.0
             && let Some(support) =
                 self.support_at(self.player_position.x, self.player_position.z, start_feet)
-            && feet <= support + STEP_EPS
+            && feet <= support + CONTACT_EPS
         {
             self.set_feet_y(support);
             self.player_floor_y = support;
             self.vertical_velocity = 0.0;
             self.grounded = true;
+            if self.movement_debug {
+                crate::logging::warn(format_args!(
+                    "[movement] support_hit height={support} initial_feet={start_feet} final_feet={feet} normal=(0,1,0) classification=floor"
+                ));
+            }
             return VerticalStep::Landed;
         }
         if bumped {
             VerticalStep::Bumped
         } else {
             VerticalStep::Airborne
+        }
+    }
+
+    /// Ground is a current supporting surface, never a cached collision flag.
+    /// Only numerical contact tolerance may be corrected here; steps and spawn
+    /// recovery have separate, explicitly bounded paths.
+    fn refresh_ground_support(&mut self) {
+        let was_grounded = self.grounded;
+        let x = self.player_position.x;
+        let z = self.player_position.z;
+        let support = self
+            .walking_support_at(x, z, self.feet_y)
+            .map(|support| support.surface_y)
+            .filter(|height| (height - self.feet_y).abs() <= CONTACT_EPS)
+            .or_else(|| self.support_at(x, z, self.feet_y));
+        self.grounded = self.vertical_velocity <= 0.0
+            && support.is_some_and(|height| (height - self.feet_y).abs() <= CONTACT_EPS)
+            && self.head_clear_for(self.feet_y, self.body_height());
+        if self.movement_debug && was_grounded != self.grounded {
+            crate::logging::warn(format_args!(
+                "[movement] grounded_transition {was_grounded}->{} support={support:?} feet={} velocity_y={}",
+                self.grounded, self.feet_y, self.vertical_velocity
+            ));
+        }
+        if self.grounded {
+            if let Some(height) = support {
+                self.player_floor_y = height;
+                self.set_feet_y(height);
+            }
+            self.vertical_velocity = 0.0;
         }
     }
 

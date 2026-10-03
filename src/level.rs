@@ -8349,53 +8349,168 @@ impl WalkableFloor {
         self.resolve_height_at(x, z, StairSampling::PitchLine)
     }
 
+    /// Highest rendered floor no higher than `max_y`, across all storeys.
+    ///
+    /// Rendering retains authored room ownership. Physical contacts must also
+    /// consider the other emitted floors in a stacked footprint: an unrelated
+    /// upper floor must not hide a lower landing surface.
+    #[must_use]
+    pub fn height_below(&self, x: f32, z: f32, max_y: f32) -> Option<f32> {
+        self.resolve_height_below(x, z, max_y, StairSampling::Stepped)
+    }
+
+    /// Room-edge support includes the part of the feet disc beyond its centre.
+    /// Interior ramps and stair pitch lines retain their authored heightfield
+    /// convention; this query prevents falling through a platform's outer edge.
+    #[must_use]
+    pub fn height_below_disc(&self, point: glam::Vec2, radius: f32, max_y: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| {
+                let x = point.x.clamp(room.x0, room.x1);
+                let z = point.y.clamp(room.z0, room.z1);
+                if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
+                    return None;
+                }
+                Self::room_height_at(room, x, z, StairSampling::Stepped)
+                    .filter(|height| *height <= max_y)
+            })
+            .max_by(f32::total_cmp)
+    }
+
+    /// A raised room's floor also blocks a head approaching from underneath.
+    /// Regions in the player's own room are solid step volumes, handled by
+    /// their rims; they are not an underside to clamp the player downward.
+    #[must_use]
+    pub fn lowest_room_underside(&self, point: glam::Vec2, radius: f32, feet: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter(|room| room.floor_y > feet + crate::collision::CONTACT_EPS)
+            .filter_map(|room| {
+                let x = point.x.clamp(room.x0, room.x1);
+                let z = point.y.clamp(room.z0, room.z1);
+                if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
+                    return None;
+                }
+                Self::room_height_at(room, x, z, StairSampling::Stepped)
+                    .filter(|height| *height > feet + crate::collision::CONTACT_EPS)
+            })
+            .min_by(f32::total_cmp)
+    }
+
+    /// Outer floor boundaries with a sample of the real surface at contact.
+    /// Local regions, ramps and stairs determine the edge height, so a room's
+    /// base floor cannot fabricate a slab through a recessed region.
+    pub(crate) fn for_each_boundary(
+        &self,
+        mut visit: impl FnMut(&WallAabb, &dyn Fn(f32, f32) -> f32),
+    ) {
+        for room in &self.rooms {
+            let bounds = WallAabb::with_y(
+                room.x0,
+                room.floor_y,
+                room.z0,
+                room.x1 - room.x0,
+                0.0,
+                room.z1 - room.z0,
+            );
+            let surface = |x: f32, z: f32| {
+                Self::room_height_at(room, x, z, StairSampling::Stepped).unwrap_or(room.floor_y)
+            };
+            visit(&bounds, &surface);
+        }
+    }
+
+    /// Highest walking surface within the supplied vertical reach.
+    #[must_use]
+    pub fn walk_height_below(&self, x: f32, z: f32, max_y: f32) -> Option<f32> {
+        // Reach is measured against the real tread, not the smoothing pitch
+        // line. A legal first riser must remain climbable when that line has
+        // already advanced partway toward the next nosing.
+        self.rooms
+            .iter()
+            .filter_map(|room| {
+                let tread = Self::room_height_at(room, x, z, StairSampling::Stepped)?;
+                (tread <= max_y).then(|| {
+                    (
+                        tread,
+                        Self::room_height_at(room, x, z, StairSampling::PitchLine),
+                    )
+                })
+            })
+            .max_by(|a, b| a.0.total_cmp(&b.0))
+            .and_then(|(_, pitch)| pitch)
+    }
+
+    fn resolve_height_below(
+        &self,
+        x: f32,
+        z: f32,
+        max_y: f32,
+        sampling: StairSampling,
+    ) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| Self::room_height_at(room, x, z, sampling))
+            .filter(|height| *height <= max_y)
+            .max_by(f32::total_cmp)
+    }
+
     /// The height resolution shared by [`Self::height_at`] and
     /// [`Self::walk_height_at`]; `stair_sampling` selects the staircase's
     /// surface, everything else resolves identically.
     fn resolve_height_at(&self, x: f32, z: f32, stair_sampling: StairSampling) -> Option<f32> {
+        self.rooms
+            .iter()
+            .find_map(|room| Self::room_height_at(room, x, z, stair_sampling))
+    }
+
+    fn room_height_at(
+        room: &WalkableRoom,
+        x: f32,
+        z: f32,
+        stair_sampling: StairSampling,
+    ) -> Option<f32> {
         if !x.is_finite() || !z.is_finite() {
             return None;
         }
-        for room in &self.rooms {
-            if x < room.x0 - ROOM_EDGE_EPS_M
-                || x > room.x1 + ROOM_EDGE_EPS_M
-                || z < room.z0 - ROOM_EDGE_EPS_M
-                || z > room.z1 + ROOM_EDGE_EPS_M
-            {
-                continue;
-            }
-            // Edge tolerance belongs to room selection. Clamp surface samples to
-            // that room so a region ending at the shared edge cannot disappear
-            // in the epsilon strip and briefly expose the lower base floor.
-            let x = x.clamp(room.x0, room.x1);
-            let z = z.clamp(room.z0, room.z1);
-            if let Some(ramp) = room
-                .ramps
-                .iter()
-                .rev()
-                .find(|ramp| ramp.surface.contains(x, z))
-            {
-                return Some(ramp.height_at(x, z));
-            }
-            if let Some(stair) = room
-                .stairs
-                .iter()
-                .rev()
-                .find(|stair| stair.surface.contains(x, z))
-            {
-                return Some(match stair_sampling {
-                    StairSampling::Stepped => stair.height_at(x, z),
-                    StairSampling::PitchLine => stair.pitch_height_at(x, z),
-                });
-            }
-            for region in room.regions.iter().rev() {
-                if x >= region.x0 && x <= region.x1 && z >= region.z0 && z <= region.z1 {
-                    return Some(region.y);
-                }
-            }
-            return Some(room.floor_y);
+        if x < room.x0 - ROOM_EDGE_EPS_M
+            || x > room.x1 + ROOM_EDGE_EPS_M
+            || z < room.z0 - ROOM_EDGE_EPS_M
+            || z > room.z1 + ROOM_EDGE_EPS_M
+        {
+            return None;
         }
-        None
+        // Edge tolerance belongs to room selection. Clamp surface samples to
+        // that room so a region ending at the shared edge cannot disappear
+        // in the epsilon strip and briefly expose the lower base floor.
+        let x = x.clamp(room.x0, room.x1);
+        let z = z.clamp(room.z0, room.z1);
+        if let Some(ramp) = room
+            .ramps
+            .iter()
+            .rev()
+            .find(|ramp| ramp.surface.contains(x, z))
+        {
+            return Some(ramp.height_at(x, z));
+        }
+        if let Some(stair) = room
+            .stairs
+            .iter()
+            .rev()
+            .find(|stair| stair.surface.contains(x, z))
+        {
+            return Some(match stair_sampling {
+                StairSampling::Stepped => stair.height_at(x, z),
+                StairSampling::PitchLine => stair.pitch_height_at(x, z),
+            });
+        }
+        for region in room.regions.iter().rev() {
+            if x >= region.x0 && x <= region.x1 && z >= region.z0 && z <= region.z1 {
+                return Some(region.y);
+            }
+        }
+        Some(room.floor_y)
     }
 
     /// Encodes this floor model into a compiled collision record: the room
@@ -8676,6 +8791,45 @@ impl WalkableCeilingRoom {
     fn ceiling_y_at(&self, x: f32, z: f32) -> f32 {
         ceiling_y_for_volume(self.bounds, self.floor_y, self.height, self.profile, x, z)
     }
+
+    /// Exact height extrema where a disc meets this flat or gabled patch.
+    fn disc_height_range(&self, point: glam::Vec2, radius: f32) -> Option<[f32; 2]> {
+        let (x0, x1, z0, z1) = self.bounds;
+        let x = point.x.clamp(x0, x1);
+        let z = point.y.clamp(z0, z1);
+        let dx = point.x - x;
+        let dz = point.y - z;
+        if dx.mul_add(dx, dz * dz) >= radius * radius {
+            return None;
+        }
+        if self.profile == CeilingProfileDef::Flat {
+            let height = self.floor_y + self.height;
+            return Some([height, height]);
+        }
+        let reach_x = (radius.mul_add(radius, -(dz * dz))).max(0.0).sqrt();
+        let reach_z = (radius.mul_add(radius, -(dx * dx))).max(0.0).sqrt();
+        let lo_x = (point.x - reach_x).clamp(x0, x1);
+        let hi_x = (point.x + reach_x).clamp(x0, x1);
+        let lo_z = (point.y - reach_z).clamp(z0, z1);
+        let hi_z = (point.y + reach_z).clamp(z0, z1);
+        // A gable is constant along its ridge. The perpendicular endpoints
+        // give its minimum; the ridge, when touched, gives its maximum.
+        let heights = [
+            self.ceiling_y_at(lo_x, z),
+            self.ceiling_y_at(hi_x, z),
+            self.ceiling_y_at(x, lo_z),
+            self.ceiling_y_at(x, hi_z),
+            self.ceiling_y_at(f32::midpoint(x0, x1).clamp(lo_x, hi_x), z),
+            self.ceiling_y_at(x, f32::midpoint(z0, z1).clamp(lo_z, hi_z)),
+        ];
+        Some(
+            heights
+                .into_iter()
+                .fold([f32::INFINITY, f32::NEG_INFINITY], |[low, high], value| {
+                    [low.min(value), high.max(value)]
+                }),
+        )
+    }
 }
 
 /// Owned, allocation-light ceiling model a controller samples while jumping.
@@ -8729,6 +8883,109 @@ impl WalkableCeiling {
             .iter()
             .find(|room| room.contains(x, z))
             .map(|room| room.ceiling_y_at(x, z))
+    }
+
+    /// Lowest ceiling touched by the body disc and above its feet.
+    ///
+    /// The vertical reference prevents a lower storey's ceiling from pulling
+    /// an airborne player down. Sampling the whole disc prevents head clipping
+    /// at room edges and on pitched ceilings. Surfaces below the feet can
+    /// instead receive a descending player through [`Self::surface_below_disc`].
+    #[must_use]
+    pub fn ceiling_above_disc(&self, x: f32, z: f32, radius: f32, feet: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| {
+                let [height, _] = room.disc_height_range(glam::Vec2::new(x, z), radius)?;
+                (height > feet + crate::collision::CONTACT_EPS).then_some(height)
+            })
+            .min_by(f32::total_cmp)
+    }
+
+    /// Highest emitted ceiling plane beneath a descending player's disc.
+    ///
+    /// A ceiling is also a solid platform from above; selecting it as an
+    /// underside while already above it was the stacked-balcony teleport.
+    #[must_use]
+    pub fn surface_below_disc(&self, point: glam::Vec2, radius: f32, max_y: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| room.disc_height_range(point, radius).map(|[_, high]| high))
+            .filter(|height| *height <= max_y)
+            .max_by(f32::total_cmp)
+    }
+
+    /// Ceiling patches crossing a body, including a pitched plane crossing its feet.
+    pub(crate) fn for_each_body_contact(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        feet: f32,
+        height: f32,
+        mut visit: impl FnMut([f32; 2]),
+    ) {
+        for room in &self.rooms {
+            if let Some([low, high]) = room.disc_height_range(point, radius)
+                && low < feet + height - crate::collision::CONTACT_EPS
+                && high > feet + crate::collision::CONTACT_EPS
+            {
+                visit([low, high]);
+            }
+        }
+    }
+
+    /// Horizontal footprints of ceiling patches crossing the live body band.
+    /// A jump beside a low room must hit the edge of its ceiling as a solid;
+    /// a later downward clamp cannot repair that lateral penetration.
+    pub(crate) fn for_each_body_barrier(
+        &self,
+        feet: f32,
+        height: f32,
+        mut visit: impl FnMut(&WallAabb),
+    ) {
+        let low = feet + crate::collision::CONTACT_EPS;
+        let high = feet + height - crate::collision::CONTACT_EPS;
+        for room in &self.rooms {
+            let (x0, x1, z0, z1) = room.bounds;
+            let eave = room.floor_y + room.height;
+            match room.profile {
+                CeilingProfileDef::Gable { ridge, ridge_rise } if ridge_rise > 0.0 => {
+                    if high <= eave || low >= eave + ridge_rise {
+                        continue;
+                    }
+                    let inner = 1.0 - ((high - eave) / ridge_rise).clamp(0.0, 1.0);
+                    let outer = 1.0 - ((low - eave) / ridge_rise).clamp(0.0, 1.0);
+                    let (a, b) = match ridge {
+                        WallAxis::X => (z0, z1),
+                        WallAxis::Z => (x0, x1),
+                    };
+                    let centre = f32::midpoint(a, b);
+                    let half = (b - a) * 0.5;
+                    for (start, end) in [
+                        (half.mul_add(-outer, centre), half.mul_add(-inner, centre)),
+                        (half.mul_add(inner, centre), half.mul_add(outer, centre)),
+                    ] {
+                        let wall = match ridge {
+                            WallAxis::X => {
+                                WallAabb::with_y(x0, low, start, x1 - x0, height, end - start)
+                            }
+                            WallAxis::Z => {
+                                WallAabb::with_y(start, low, z0, end - start, height, z1 - z0)
+                            }
+                        };
+                        visit(&wall);
+                    }
+                }
+                CeilingProfileDef::Flat | CeilingProfileDef::Gable { .. }
+                    if eave > low && eave < high =>
+                {
+                    visit(&WallAabb::with_y(x0, eave, z0, x1 - x0, 0.0, z1 - z0));
+                }
+                CeilingProfileDef::Flat
+                | CeilingProfileDef::Gable { .. }
+                | CeilingProfileDef::Open => {}
+            }
+        }
     }
 
     /// Encodes this ceiling model into a compiled collision record: the room

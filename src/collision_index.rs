@@ -248,6 +248,33 @@ impl CollisionIndex {
         );
     }
 
+    /// Conservative candidate query for the entire sweep of a horizontal disc.
+    /// No samples are skipped, including thin boxes and long displacements.
+    pub fn for_each_swept_disc(
+        &self,
+        from: glam::Vec2,
+        to: glam::Vec2,
+        radius: f32,
+        boxes: &[WallAabb],
+        mut visit: impl FnMut(&WallAabb),
+    ) {
+        if self.is_empty() || !from.is_finite() || !to.is_finite() || !radius.is_finite() {
+            self.visit_all(boxes, &mut visit);
+            return;
+        }
+        let radius = radius.max(0.0);
+        self.visit_cells(
+            self.grid().range(
+                from.x.min(to.x) - radius,
+                from.x.max(to.x) + radius,
+                from.y.min(to.y) - radius,
+                from.y.max(to.y) + radius,
+            ),
+            boxes,
+            &mut visit,
+        );
+    }
+
     /// Visits every box whose footprint contains `(x, z)`.
     pub fn for_each_point(
         &self,

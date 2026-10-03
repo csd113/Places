@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.4000000059604645,
+    2.0999999046325684,
+    0.0
+  ],
+  "id": "movement_audit_6f20140b35d2",
+  "test": "game::tests::movement_regression::a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry",
+  "yaw_degrees": 0.0
+}

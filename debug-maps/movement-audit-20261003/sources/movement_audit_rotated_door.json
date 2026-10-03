@@ -1,0 +1,36 @@
+{
+  "format_version": 3,
+  "id": "movement_audit_rotated_door",
+  "name": "45 degree / 1 mm door leaf",
+  "spawn": {
+    "x": -0.7071,
+    "z": 2.1213
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -5,
+      "z": -5,
+      "width": 10,
+      "depth": 10,
+      "height": 5
+    }
+  ],
+  "walls": [],
+  "doors": [
+    {
+      "id": "thin_rotated_leaf",
+      "x": 0,
+      "z": 0,
+      "width": 2,
+      "height": 4,
+      "thickness": 0.001,
+      "rotation_degrees": -45,
+      "locked": true
+    }
+  ]
+}

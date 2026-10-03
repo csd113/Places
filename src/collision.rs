@@ -2,6 +2,9 @@ use glam::{Vec2, Vec3};
 
 use crate::package::binary::{Reader, Writer};
 
+mod movement;
+pub(crate) use movement::{HorizontalWorld, body_support_top, sweep_horizontal};
+
 pub const PLAYER_RADIUS: f32 = 0.30;
 pub const PLAYER_HEIGHT: f32 = 1.8;
 
@@ -347,7 +350,7 @@ impl DoorCollider {
     /// True when the leaf's vertical span overlaps a body band.
     #[must_use]
     pub fn overlaps_body_y(&self, foot_y: f32, body_height: f32) -> bool {
-        self.hinge_y + self.height > foot_y + STEP_EPS
+        self.hinge_y + self.height > foot_y + CONTACT_EPS
             && self.hinge_y + CONTACT_EPS < foot_y + body_height
     }
 
@@ -594,7 +597,7 @@ fn resolve_collision_with_doors(
                         && wall.overlaps_disc(from.x, from.y, radius)
                         && distance_squared(pos) > distance_squared(from);
                     !departing
-                        && wall.max_y > foot_y + STEP_EPS
+                        && wall.max_y > foot_y + CONTACT_EPS
                         && wall.min_y + CONTACT_EPS < foot_y + body_height
                 },
             );

@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.15000000596046448,
+    4.599999904632568,
+    0.0
+  ],
+  "id": "movement_audit_3abd34b6f63e",
+  "test": "game::tests::movement_regression::landing_on_a_room_roof_edge_uses_the_whole_body_disc",
+  "yaw_degrees": 0.0
+}

@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -1.0,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_5e49ec819009",
+  "test": "game::tests::movement_regression::grounded_floor_region_steps_never_embed_the_body_in_their_rims",
+  "yaw_degrees": 0.0
+}

@@ -1,0 +1,1552 @@
+[
+  {
+    "path": "asset-root/assets/README.md",
+    "bytes": 37507,
+    "sha256": "272504a3401379a041bea6f9bd67f401ff1639b899fb85b523283dc784c1f177"
+  },
+  {
+    "path": "asset-root/assets/catalog.json",
+    "bytes": 126329,
+    "sha256": "e06f1c8a8753668a3180f12d4e8ca3a819796c97e3408606320fe62200df9435"
+  },
+  {
+    "path": "asset-root/assets/core/README.md",
+    "bytes": 790,
+    "sha256": "8b85156c21ddd40d47eff35cf58dc786b638a366088de92351c24336031030d8"
+  },
+  {
+    "path": "asset-root/assets/core/decals/arrow_01.png",
+    "bytes": 320,
+    "sha256": "d4b1ae6dc91a74df69656f6ef59fe380ee2f96125a3d88d021f26465799eb4d3"
+  },
+  {
+    "path": "asset-root/assets/core/decals/ceiling_vent_01.png",
+    "bytes": 11025,
+    "sha256": "5596db369f7163881f9b437f26ccade3667dea330ab2d4123e0a0db6702538f7"
+  },
+  {
+    "path": "asset-root/assets/core/decals/stripes_01.png",
+    "bytes": 473,
+    "sha256": "b54b6b71950f038fcb00a1ea64272959d7af9fe6de3b78514081149c6bef1601"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/armchair.glb",
+    "bytes": 185468,
+    "sha256": "349d5f31ff1e6b79684ef9bb2517e2d26259eee7d5230f5709a9e15df31a623d"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/armchair.png",
+    "bytes": 158974,
+    "sha256": "01ad0cc3f44dfb4a33fa35c4446b8cf4c3959141676d20b7489075aaaa172eeb"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/bed.glb",
+    "bytes": 128448,
+    "sha256": "216c96a022437fa9803ba6ac75692efd86aac846837d7ef8e231718c1e36dbbe"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/bed.png",
+    "bytes": 92530,
+    "sha256": "9a4b57a4eea1ddf6492c740be44abd9a05a1ea8193afdeb0ffc7ab902402f5ec"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/bookshelf.glb",
+    "bytes": 119020,
+    "sha256": "aed1eef856d16655c52c61881c0046f714a1802a702fd71cb1072a80d4e6cc50"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/bookshelf.png",
+    "bytes": 97165,
+    "sha256": "3430fa93e3d26a8815dfd7483a38d0f71a8e7103a5c0ded2e213766298f85fd9"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/cardboard_box.glb",
+    "bytes": 118964,
+    "sha256": "aaa4d59106ac3b0df681b172caf033d8d5e74cc5e08578a81bcbb639bcaba642"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/cardboard_box.png",
+    "bytes": 111684,
+    "sha256": "53e1fa345c17bb7140ddce4f43a0bb55602e3621f321db62a5d36e200ee98d6b"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/couch.glb",
+    "bytes": 182284,
+    "sha256": "9ee5073c0b064129bd6460e524456ca03d64e4504cef38bc6b061e1448125c35"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/couch.png",
+    "bytes": 151826,
+    "sha256": "74b0165a3c969f5fd02aa3d64903d248f49b4ea52761bc971d038d85be70abab"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/crate.glb",
+    "bytes": 99204,
+    "sha256": "595a6577151a118f91095fdfd091213a03de54e40b7e0043fa3ac25adc0941d6"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/crate.png",
+    "bytes": 95088,
+    "sha256": "ecbd034be97507259e44f71798751752886e2997de65dd0036573522202442ba"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/exit_sign.glb",
+    "bytes": 67904,
+    "sha256": "96b1939c78d9504d78a0d2a4bf5a2882f1c8491337bf88eb9e612010488c4ab0"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/exit_sign.png",
+    "bytes": 57262,
+    "sha256": "c9661321c8aeb13103a544200440a2a5ff2f156914898ddf59288e545f03b8d3"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/fridge.glb",
+    "bytes": 155544,
+    "sha256": "a24e261f9f454a7c5312a93bee77723785d6b4028daf6ae1896a0c34bf80bc43"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/fridge.png",
+    "bytes": 68863,
+    "sha256": "ec11b149f6573abae253b96cfeba2f16befa21dbba14cc6471ba4070dc10ce96"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/lamp.glb",
+    "bytes": 278436,
+    "sha256": "95e0a2d8218b480e3782724ba4fafd73d45e8b52e182732c061b4e9d556dad0b"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/lamp.png",
+    "bytes": 124619,
+    "sha256": "21257ed7cbe02d3fe8bab6d864e3328b5d9c23d4671ef444dabcc44fef5908a2"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/plant.glb",
+    "bytes": 178432,
+    "sha256": "0c32f16166d890eb433d008abc139a22651b1eb977abfbfd9233b3888d6167e8"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/plant.png",
+    "bytes": 145864,
+    "sha256": "4d2f0e20baf33fe5c26a56c62167b1b1ba44754d3766775abeccd0e8a6639c35"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/rug.glb",
+    "bytes": 266280,
+    "sha256": "4c4e9f1fcc5e2845700583222c6f1bcb799647b6c6cdf72441ff8245cad6b144"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/rug.png",
+    "bytes": 124562,
+    "sha256": "4ca865758d7eee0e0ff7a230f1fd00cd7742c12f3c016b6245d903c96e0f929b"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/sink.glb",
+    "bytes": 82168,
+    "sha256": "cbe93259d4b8d870b2319496a1c04258383756f3680b3d7fbd93a7ea60d17bd8"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/sink.png",
+    "bytes": 68535,
+    "sha256": "1d9783825147485ee5b8f796a4a104b91cd26f82dbc75dd324076c2f99668e11"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/stop_sign.glb",
+    "bytes": 55476,
+    "sha256": "4754e06af747d6deb7f3d77381c8e116543409b7ef96e37eb134c8069a91b146"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/stop_sign.png",
+    "bytes": 60249,
+    "sha256": "ce80c1501cd332c9dbc3ebbce644ce99a75160e1b97750d9c4b0fe86fb8ffb08"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/stove.glb",
+    "bytes": 101268,
+    "sha256": "9741e4e14a1966029e5d4b4055f15b4f0cf9cf94c8eef74ac54893fd92973b5f"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/stove.png",
+    "bytes": 92092,
+    "sha256": "82f466a6fcb0a535668f4f5d0cc88fb1257780613827759e5af10c90ce06a229"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/table.glb",
+    "bytes": 123816,
+    "sha256": "574b1a1d8900d4f2c86c3e0e2469dc4f17c79a3538285d6ab42260df4f64dd8b"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/table.png",
+    "bytes": 108639,
+    "sha256": "c0db48c631d14d9beb930634ff5aacbe92a94fcb122332469ecc19add7cd925d"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/tv.glb",
+    "bytes": 80256,
+    "sha256": "0b16995aff39545f986235fd755ce49a56b37f9caea44f31093f0f14a146fe86"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/tv.png",
+    "bytes": 74294,
+    "sha256": "93af3e7c4cfaa74bd20b4759672d5666e2cb15994d6b2a46b8320b43bae16433"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/washer_drum.glb",
+    "bytes": 105568,
+    "sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/washer_drum.png",
+    "bytes": 96214,
+    "sha256": "d0b93920f55a0e2cff614c258906dab5fd90b44615b08bbade73a1ca05c7d837"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/washing_machine.glb",
+    "bytes": 58000,
+    "sha256": "8a8bd2113efa8e5a0a6fbc13de480ec5a4840a793ca07df7065ceb4f79911a0e"
+  },
+  {
+    "path": "asset-root/assets/core/props/models/washing_machine.png",
+    "bytes": 48449,
+    "sha256": "303570383d163595e36b8b50788953c4742b48458c787a8906fa8a573a6d53ef"
+  },
+  {
+    "path": "asset-root/assets/core/textures/effects/steam_01.png",
+    "bytes": 129303,
+    "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086"
+  },
+  {
+    "path": "asset-root/assets/core/textures/floors/linoleum_01.png",
+    "bytes": 2111981,
+    "sha256": "beccae9271208401f1d50770d512d3c93bd1561ef9fe54eb1d59d6b42e40bf16"
+  },
+  {
+    "path": "asset-root/assets/core/textures/glass/glass_clear_01.png",
+    "bytes": 765441,
+    "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70"
+  },
+  {
+    "path": "asset-root/assets/core/textures/glass/glass_dirty_01.png",
+    "bytes": 2444851,
+    "sha256": "81a61cda8b9e0cb0d2532808b2e6e78d420310915132e29f5188ad4e770eba5e"
+  },
+  {
+    "path": "asset-root/assets/core/textures/glass/glass_tinted_01.png",
+    "bytes": 1151815,
+    "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d"
+  },
+  {
+    "path": "asset-root/assets/core/textures/metal/brass_01.png",
+    "bytes": 13583,
+    "sha256": "c3b3ee65a0dad58e4fbc498fb39a1aa7c6688054c65c7ea995bf8d849e76b4c8"
+  },
+  {
+    "path": "asset-root/assets/core/textures/normals/normal_brushed_01.png",
+    "bytes": 1512724,
+    "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a"
+  },
+  {
+    "path": "asset-root/assets/core/textures/normals/normal_panel_01.png",
+    "bytes": 898836,
+    "sha256": "d26e318babc7aa46b28c5b1893986dc0edbfa0ba00a0088fb5cc5f94a9bb5a86"
+  },
+  {
+    "path": "asset-root/assets/core/textures/walls/grille_01.png",
+    "bytes": 1494293,
+    "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23"
+  },
+  {
+    "path": "asset-root/assets/core/textures/walls/metal_panel_01.png",
+    "bytes": 1319516,
+    "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34"
+  },
+  {
+    "path": "asset-root/assets/core/textures/walls/plastic_panel_01.png",
+    "bytes": 1830911,
+    "sha256": "994b0579e467d6927cf0899095add34714c59f0f7b0a49c426bc246024030e57"
+  },
+  {
+    "path": "asset-root/assets/core/textures/white_01.png",
+    "bytes": 506558,
+    "sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/README.md",
+    "bytes": 2768,
+    "sha256": "905c1f4068a9ba346f32b1f3417797d13892678b0ce5a821e3d1ac49aa7fff65"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/textures/diagnostic_alpha_01.png",
+    "bytes": 716,
+    "sha256": "764b6da6f7a8a603baa56c50def921cd58a2ccf08009ca2360c45543de0dbadf"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/textures/diagnostic_alt_01.png",
+    "bytes": 482,
+    "sha256": "9310d6f2ce744c49552d9ff9f39be541c7b74150ac585f9cb14470a5ea6d661e"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/textures/diagnostic_ceiling_01.png",
+    "bytes": 452,
+    "sha256": "e30c355cfb1022e625a1c8dd0c31ffe102427706f86b6709fa2927c96a27dcaa"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/textures/diagnostic_floor_01.png",
+    "bytes": 680,
+    "sha256": "55ac48420ad2bb3c92d1aaec387fdcb29517005aaf5323070bbb7da5b0a4a988"
+  },
+  {
+    "path": "asset-root/assets/diagnostic/textures/diagnostic_wall_01.png",
+    "bytes": 1030,
+    "sha256": "c349433c39cd14c00619e2503ea3fa8885870b07287e36e55e12e31dd7fb1b62"
+  },
+  {
+    "path": "asset-root/assets/entities/README.md",
+    "bytes": 5644,
+    "sha256": "bb70b9f225a1c018234bab4561495850fe57f0122c5ee6363abcff97d1a59715"
+  },
+  {
+    "path": "asset-root/assets/entities/carved-pumpkin/README.md",
+    "bytes": 2251,
+    "sha256": "d4dfe8dec0f4c4052570d04c99e6f9e39b810af320f7c7c34590833a9113c38b"
+  },
+  {
+    "path": "asset-root/assets/entities/carved-pumpkin/model/carved-pumpkin.glb",
+    "bytes": 340140,
+    "sha256": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285"
+  },
+  {
+    "path": "asset-root/assets/entities/carved-pumpkin/textures/surface_01.png",
+    "bytes": 67095,
+    "sha256": "db1ddd6f4f872c99e5d560abf5217ace63bd6eaf9bab5fe666b2e884c28acedd"
+  },
+  {
+    "path": "asset-root/assets/entities/mannequin/README.md",
+    "bytes": 3794,
+    "sha256": "215b6f00bbbd88311c986667341bde07efd9128bf694805cb048322fbb48442c"
+  },
+  {
+    "path": "asset-root/assets/entities/mannequin/model/mannequin.glb",
+    "bytes": 356024,
+    "sha256": "1bb1ffd861247f9d8c59bfdee78e910d5ea348dcf0f0287362badbcc22bdbb96"
+  },
+  {
+    "path": "asset-root/assets/entities/mannequin/textures/concrete_grey_01.png",
+    "bytes": 78255,
+    "sha256": "9e51721d07074062c1a5081cd909dbfec7a7bb2a764f42bd95aab0d272ce6319"
+  },
+  {
+    "path": "asset-root/assets/entities/pumpkin-skeleton/README.md",
+    "bytes": 2791,
+    "sha256": "b9e999f4b1da049183464f1596402cf45c7bacd11d7dfa80b63e923bd745ef9a"
+  },
+  {
+    "path": "asset-root/assets/entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+    "bytes": 568928,
+    "sha256": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953"
+  },
+  {
+    "path": "asset-root/assets/entities/pumpkin-skeleton/textures/surface_01.png",
+    "bytes": 67095,
+    "sha256": "db1ddd6f4f872c99e5d560abf5217ace63bd6eaf9bab5fe666b2e884c28acedd"
+  },
+  {
+    "path": "asset-root/assets/entities/rat/README.md",
+    "bytes": 4751,
+    "sha256": "1fc0140ba66cbae0960a07699ae5d439b1cc54828a99cb9c37676eda4c9f776c"
+  },
+  {
+    "path": "asset-root/assets/entities/rat/model/rat.glb",
+    "bytes": 295368,
+    "sha256": "bfa093773b9ab3d40513071428b9903210afbf045ca582ccbb9212c0df44a2b8"
+  },
+  {
+    "path": "asset-root/assets/entities/rat/textures/rat_fur_01.png",
+    "bytes": 63004,
+    "sha256": "52d8d7e0a67926ef11cb5461d3d7caf4daf221f176e4ff10dc62d69413482708"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost/README.md",
+    "bytes": 2950,
+    "sha256": "d526b7e711e4aa5eb0d72713ccf558d54d91f6b48e53384c32ea4f3505bcdd32"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost/model/sheet-ghost.glb",
+    "bytes": 304480,
+    "sha256": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost/textures/surface_01.png",
+    "bytes": 67095,
+    "sha256": "db1ddd6f4f872c99e5d560abf5217ace63bd6eaf9bab5fe666b2e884c28acedd"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost-cat/README.md",
+    "bytes": 2548,
+    "sha256": "59d41f08ecf4971164f30960d679960c3047ebca1a2a392a00a6a0992adeb25a"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+    "bytes": 243116,
+    "sha256": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef"
+  },
+  {
+    "path": "asset-root/assets/entities/sheet-ghost-cat/textures/surface_01.png",
+    "bytes": 67095,
+    "sha256": "db1ddd6f4f872c99e5d560abf5217ace63bd6eaf9bab5fe666b2e884c28acedd"
+  },
+  {
+    "path": "asset-root/assets/entities/skeleton/README.md",
+    "bytes": 4912,
+    "sha256": "d6a6d411e34027ab9296807c533deec8d2ed83e6d53647de057eb112a0f43311"
+  },
+  {
+    "path": "asset-root/assets/entities/skeleton/model/skeleton.glb",
+    "bytes": 244196,
+    "sha256": "27968e9479f6d23d308d4d55f5173ebbdb9a3a3d294724fbfcf634f86a9633f6"
+  },
+  {
+    "path": "asset-root/assets/entities/skeleton/textures/bone_01.png",
+    "bytes": 67095,
+    "sha256": "db1ddd6f4f872c99e5d560abf5217ace63bd6eaf9bab5fe666b2e884c28acedd"
+  },
+  {
+    "path": "asset-root/assets/entities/spooner-man/README.md",
+    "bytes": 4204,
+    "sha256": "01754a40b39428f6ff11428b3022b53cc966ea9fa619378a5316bf3ad10c8cf9"
+  },
+  {
+    "path": "asset-root/assets/entities/spooner-man/model/spooner-man.glb",
+    "bytes": 708624,
+    "sha256": "3ac24ca7efea8a04ce70e285d0219e372826bdd36503d2541237213cb1084981"
+  },
+  {
+    "path": "asset-root/assets/entities/spooner-man/textures/spooner_man_00.png",
+    "bytes": 96514,
+    "sha256": "43078d9e5617a0a3b57a32e9c0c2ae1ee26d29b0363f82160bae75a970030d0e"
+  },
+  {
+    "path": "asset-root/assets/entities/spooner-man/textures/spooner_man_01.png",
+    "bytes": 90002,
+    "sha256": "956c87cc4044e24fdc346ada19faf7de0b0a8ac5fde42ee9067528a22000418b"
+  },
+  {
+    "path": "asset-root/assets/entities/spooner-man/textures/spooner_man_02.png",
+    "bytes": 96438,
+    "sha256": "1ce7314a218a69ec95ee789cbc5bb6e35d35abbfa7261c66aebdbb5b0ba877f0"
+  },
+  {
+    "path": "asset-root/assets/environment/README.md",
+    "bytes": 1516,
+    "sha256": "9f26e71ea3a9c48a36ba2ed3fcb94ff5e0679fac59507653e0cbd142103c1a00"
+  },
+  {
+    "path": "asset-root/assets/environment/home/README.md",
+    "bytes": 3488,
+    "sha256": "67f97d0c8f0f086f42fe5eae75c14d65214b2d358ae34496ca4c9a41632b9820"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/ball_light.glb",
+    "bytes": 29204,
+    "sha256": "58b2f86619b6474ccaba7be30d3034ab81db5b1ce38c15cc2acb8c59643b3f80"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/ball_light.png",
+    "bytes": 10929,
+    "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/bowl.glb",
+    "bytes": 31540,
+    "sha256": "61306b9374ea482bf1eb6ad97c772a9bc7d04b8bd5ca47af691e1fa928525c44"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/bowl.png",
+    "bytes": 3270,
+    "sha256": "fff19d1382b9fad14dd52ee8e2afa7c23de3067c41da8f5248efcdcc6c624820"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/cabinet_base.glb",
+    "bytes": 97224,
+    "sha256": "1504b859de8f01de51eae231f088234c6bd2fdb70628cb82da8d9bd4d6269b7a"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/cabinet_base.png",
+    "bytes": 89936,
+    "sha256": "d51c8547602d8a0bc71e70d1e9182327c91baf3115a57a12964da1d745861f28"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/cabinet_wall.glb",
+    "bytes": 48484,
+    "sha256": "18f073cd2d161c519fda157f844b4cc2bdee46126bb72224f36648171c088ed8"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/cabinet_wall.png",
+    "bytes": 43518,
+    "sha256": "884e00b979a2a83b191c8198e5e8bb629b6219f53d0c7f403dd7abb26d18d6fa"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/crt_tv.glb",
+    "bytes": 46804,
+    "sha256": "b78c21f4a8abc392c5e7753e2052a948ea94c12e17762e42e01e91165b04e3ad"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/crt_tv.png",
+    "bytes": 13077,
+    "sha256": "2bdc3d4858015cf9a16383e39916fa06bd6db57ac8ea960ecfb224eee0c9eabf"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/fork.glb",
+    "bytes": 25684,
+    "sha256": "d31997ec8f9818db4405511cfa502fbc0f9a12b6de114688e5843c87671f724b"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/fork.png",
+    "bytes": 4715,
+    "sha256": "593f80fd839672c68e518cd1d44f7e29606857a844eee1a7a10e59db93185dca"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/knife.glb",
+    "bytes": 17148,
+    "sha256": "5746ff970cd85e3619bfe0fb5acad940de0ee94701396991cbd0542b264320f8"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/knife.png",
+    "bytes": 4647,
+    "sha256": "67e8a6c2c22eeb2a14b8525072c547766ca7481f7bbccbc769f23f2ebb1057e1"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/plant_table.glb",
+    "bytes": 27804,
+    "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/plant_table.png",
+    "bytes": 5459,
+    "sha256": "d6e6365f327465e047de7caa7e79a7b30eed28993d6ff5d147990d93b7da5ecc"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/plate.glb",
+    "bytes": 27140,
+    "sha256": "477e1957512cf801f522dd5cfc70844e5eeeae65176b3bad637e3f8f008264a8"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/plate.png",
+    "bytes": 3190,
+    "sha256": "b4265f296172f54f3ef0a3c7044b6c6c03a6ffabb6ed831bac853827112cd512"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/spoon.glb",
+    "bytes": 25764,
+    "sha256": "2166f1d8c09e8a26c43ccd6f4060b87fb1ddd14b9455d0d70bfd26630b5cfa02"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/spoon.png",
+    "bytes": 4624,
+    "sha256": "4039dd5400c04d8f103cc3f33e913b52f908f443050ce49dc31a06f3f6747c13"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/wall_switch.glb",
+    "bytes": 27088,
+    "sha256": "3537a94bbeab4049cb95321cecfd96d1d6ecdd330f0cf6dd417bb3d29ad85d73"
+  },
+  {
+    "path": "asset-root/assets/environment/home/props/models/wall_switch.png",
+    "bytes": 10407,
+    "sha256": "7c44fb30ad63e116ca98d6640e8b2658e02af2faeb5108614248fc9df40572c6"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/ceilings/ceiling_plaster_01.png",
+    "bytes": 1916762,
+    "sha256": "2281fe50643d6ec0d3471cdaba24a5b094e109e60114f98587d30f291890cdbc"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/ceilings/ceiling_white_01.png",
+    "bytes": 1809764,
+    "sha256": "69e3183327b5592e030f5d6bb421b4f24ca51cac4aef6020a587e7ca3c24dadb"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/doors/door_white_01.png",
+    "bytes": 251992,
+    "sha256": "7ecb91db71dac2afa8682499420a6ed9b1eab35f95c90d6306d2bcfb5351ab6d"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/doors/sauna_wood_01.png",
+    "bytes": 669306,
+    "sha256": "b3668ca802e8a8b3830696cb69412e9d3af4545e0598d33946ae0ba017e83c90"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/floors/carpet_cream_01.png",
+    "bytes": 1158448,
+    "sha256": "2cc40de73df693cd90220693f2a8399ac98faac66c98649712b823daa4623fda"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/floors/hardwood_oak_01.png",
+    "bytes": 789782,
+    "sha256": "ec7196525a7c2d3b15b949401067d972d2afac42844e4cb0210c8bbeccb70dde"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/floors/hardwood_walnut_02.png",
+    "bytes": 607193,
+    "sha256": "ba7c9ac5010108b1b593bdd01de5f30c1031df90420b487578d5c3981a52e9c1"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/floors/threshold_wood_01.png",
+    "bytes": 1121306,
+    "sha256": "aaa0e5e96e3a6121a620d5cf6e1970e25f1709b023b35e9a0249822cf9e55cd3"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/floors/tile_home_01.png",
+    "bytes": 457649,
+    "sha256": "8ee68cf4abd09e0cd361bb62df62691b062c5da1355cbbcfd8e1537912121fb9"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/lights/ceiling_light_round_01.png",
+    "bytes": 831543,
+    "sha256": "1906b81f845cdf7ee1471b0052239f5a6b03cf58205eae7e4ed7682cdbe5ccfe"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/baseboard_white_01.png",
+    "bytes": 269156,
+    "sha256": "55bac184ea7520f9b281a6ada4c364108dd80f13b7bb01f46e2c217faaa851ec"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/baseboard_wood_01.png",
+    "bytes": 916244,
+    "sha256": "5bf09de702583d850e06a75a30c1a5466d375ae51e44b21b43423637d929c843"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/handrail_wood_01.png",
+    "bytes": 1031319,
+    "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/wall_paint_offwhite_01.png",
+    "bytes": 1240158,
+    "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/wallpaper_offwhite_01.png",
+    "bytes": 1011895,
+    "sha256": "f10a7d66d006757f42e39d4ba28b9539e5ce12f7c6960e3b2f6b10c78019fc91"
+  },
+  {
+    "path": "asset-root/assets/environment/home/textures/walls/wallpaper_pattern_01.png",
+    "bytes": 990188,
+    "sha256": "6eeb86adfbc6950c9c1f8467727b3b5aea0c8cc2c7291ff70f807693b50a5a92"
+  },
+  {
+    "path": "asset-root/assets/environment/office/README.md",
+    "bytes": 5294,
+    "sha256": "bcdfe43e381a0c28c8227ef9139e265411ec8dff3dff47a4b27a97d43582cc07"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/cabinet.glb",
+    "bytes": 97468,
+    "sha256": "e1f1feb2455688689ca5d084c85ea980bb3272a053f4716e5747ba6186752e5a"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/cabinet.png",
+    "bytes": 80358,
+    "sha256": "d69b0cfb15d03f2392d942665f278e61ccd875700525c2a416715542007e7407"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/chair.glb",
+    "bytes": 94192,
+    "sha256": "ffc74abbfcfd2ffb206dc077125dba071dfacbd52ae3732e9544679b3090dc35"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/chair.png",
+    "bytes": 59794,
+    "sha256": "134e4bbf6a8f4c4ebc005d794eb131c0d75cd4f8de29f4ac1375e8d42203d951"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/desk.glb",
+    "bytes": 50492,
+    "sha256": "2d22460755f4afd311687baf5cc4eb972393f6f35c5735b64773082f73b6cb6f"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/desk.png",
+    "bytes": 43022,
+    "sha256": "eba14e1134d812c756dfcd290a572e26cd3ff1e5f4d1fd6ff06ada9b2d617eda"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/vending_machine.glb",
+    "bytes": 80004,
+    "sha256": "d57d24d8749cda79dbd03184c536e4292c71f331d8d324e5f5a053a822626827"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/vending_machine.png",
+    "bytes": 71869,
+    "sha256": "75b612933753da17042b4485c809bfb2a36bcf1470eef860e388210d91e5af88"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/water_cooler.glb",
+    "bytes": 51408,
+    "sha256": "138964ab227376334d09ce4401a127027a204512f8f359654deff5285c3fbbb6"
+  },
+  {
+    "path": "asset-root/assets/environment/office/props/models/water_cooler.png",
+    "bytes": 40973,
+    "sha256": "57267f824a68033025209ee6466d3671a76a39a5477b09b21eac00cda8e8828c"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/ceilings/ceiling_panel_01.png",
+    "bytes": 1676140,
+    "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/ceilings/ceiling_stained_01.png",
+    "bytes": 1783387,
+    "sha256": "c1daec15ce10a7f46f1fe0ca4b8a8865487aa86b7241e82ca98724af08f653b7"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/floors/carpet_beige_01.png",
+    "bytes": 2198560,
+    "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/floors/carpet_damp_01.png",
+    "bytes": 2163133,
+    "sha256": "6c60253410b3dc646b0a718d2ad03521d14e914c4aa6ae06d9f90cdc0f2e2295"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/lights/fluorescent_panel_01.png",
+    "bytes": 709174,
+    "sha256": "c91031e84ad3c394f92317682f15acd91057efd8046f6dcd5e61fdfc78cd5962"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/walls/wallpaper_stained_01.png",
+    "bytes": 1262322,
+    "sha256": "266411650bf690600bb2d2b5b90b90249a30a538af1c80536f9c5bb1f9e43684"
+  },
+  {
+    "path": "asset-root/assets/environment/office/textures/walls/wallpaper_yellow_01.png",
+    "bytes": 1284533,
+    "sha256": "deff175e385ced86b66c931a31643575f766b1246ad2674b97a16da18de8f62a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/collision_peg.glb",
+    "bytes": 2928,
+    "sha256": "19a546d0c550ec9d055414d1d8b3bbcfa31e77f7fe5db63b134839a894dadc92"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/collision_peg.png",
+    "bytes": 834,
+    "sha256": "690b5a65998eb1e21a2aef53fd617463b589cb04655e8f17f9b7ef6900f79e44"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/concrete_step.glb",
+    "bytes": 30492,
+    "sha256": "0c383f896568ab166c7e847e27b26f397e748600a5fb7ab563093504bb0a7c6c"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/concrete_step.png",
+    "bytes": 30144,
+    "sha256": "b82e12e636902f66399b1422b14df9732587ca5309b1d507fb04dcb07c240d8f"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/fence_post.glb",
+    "bytes": 27776,
+    "sha256": "357617b8b218178c921e2190bde005d22099501ef3ef56f487253536c80d5a44"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/fence_post.png",
+    "bytes": 22063,
+    "sha256": "27b53d80c95c17b09034b5796070ab160951d06fdba9bcee818bf39496da4132"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/grass_blades_source.png",
+    "bytes": 770637,
+    "sha256": "2370e5e0b0cff304b68cbf224e03a6b1992be8d6164007aa0ced7461feff597e"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/grass_patch_large.glb",
+    "bytes": 76832,
+    "sha256": "f42b3c78aa8ffbd4e95fa7ff170b91df21b0d821e2e9c52b588832ecea4c559a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/grass_patch_large.png",
+    "bytes": 63592,
+    "sha256": "1ce7da0fec105f74fd8298d2093eb39ef324a43f785f50a6a0b312ce6eabcdb8"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/grass_patch_small.glb",
+    "bytes": 75424,
+    "sha256": "66b64d9856023596e8ad1b12cc483fa2baf59320e8f6278489e0a28705656b9e"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/grass_patch_small.png",
+    "bytes": 63592,
+    "sha256": "1ce7da0fec105f74fd8298d2093eb39ef324a43f785f50a6a0b312ce6eabcdb8"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_corner_trim.glb",
+    "bytes": 14988,
+    "sha256": "92bda4eaa4537403b18f2ae3649c472dc92193be81c39092d97530cf0affaa8b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_gable.glb",
+    "bytes": 51156,
+    "sha256": "46d0d51d7ece53834e61c256ca537c88736252fb266219192e863450b4c7a132"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_materials.png",
+    "bytes": 602625,
+    "sha256": "fcbaaf494827695f77cf5fb91a7dea65611178097b5bb7fccecb40ae09ae3ed6"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_native_128.png",
+    "bytes": 11348,
+    "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_native_256.png",
+    "bytes": 46810,
+    "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_porch_deck.glb",
+    "bytes": 55772,
+    "sha256": "b5a358f0a599ad00c9c1e5aa0fc1e4ef7c93281dc775995700618fe58743b8c2"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_porch_post.glb",
+    "bytes": 15584,
+    "sha256": "0f352fcd7c71ec81f02711f6afe69bcf8a19e1e6695d11c9af908dd77e0adb6a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_roof_ridge.glb",
+    "bytes": 13856,
+    "sha256": "3f4632cb71fdfe4d20e6f43f0cc276d62c47b5559b1a4d8084ff9b47410302c7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_roof_slope.glb",
+    "bytes": 51372,
+    "sha256": "46627e5d44f3d1bb324ebbfbe243549e66157c6122e5dbcb4c4cf869176fa37f"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_wall_doorway.glb",
+    "bytes": 59408,
+    "sha256": "f2ce7480152438bb7ad9e122f05581f0fdcd7f20c54a01c860c420ac292174a7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_wall_solid.glb",
+    "bytes": 52304,
+    "sha256": "907863a25bf0237d4a077ce029c21d891754fdc214a5bfe6e036721db0503519"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_01_wall_window.glb",
+    "bytes": 62616,
+    "sha256": "faa6a1eaa5fe56daa77c76043932da0c0eae6c9b6fb44b7050fe29df73a6662c"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_corner_trim.glb",
+    "bytes": 15536,
+    "sha256": "26e3e83591b76c299cefd14af10281142218d9cf44b492f857c8b9197ee4aad7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_gable.glb",
+    "bytes": 51344,
+    "sha256": "3d0929b30a527ebfe40b1e523e0fc107f7d2819cf4a72763e214a7d7c224519a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_materials.png",
+    "bytes": 586999,
+    "sha256": "ac793ac1f3919207a8450908c3e19984a927b0543da6046a72c58d69774f0762"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_native_128.png",
+    "bytes": 10958,
+    "sha256": "238acc466a54b79b67cfce2a25bfff4a7e21fe0badb721fb549902db34e22903"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_native_256.png",
+    "bytes": 45118,
+    "sha256": "39407e51ecb7d5bb6c18e76317d963d3b2bc1afd967b2c3ee09d11b5d0aaf58a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_porch_deck.glb",
+    "bytes": 57200,
+    "sha256": "cf24ed5b8cee1e4528b3af91c7309ce1e9e25a4933571f9638a46483b5719f50"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_porch_post.glb",
+    "bytes": 16136,
+    "sha256": "bb44ba1a68dd6c348d1993968c90df97b02c5ef0c559a074dd05969c43fb39a6"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_roof_ridge.glb",
+    "bytes": 14360,
+    "sha256": "d9fce8175a14e82d55070830d9411d482c8d66ec541689e6974067eac8acad9e"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_roof_slope.glb",
+    "bytes": 52496,
+    "sha256": "ba5f0834f743235411c79935c48823bd627a7745e543aff5121eec3945a70c03"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_wall_doorway.glb",
+    "bytes": 58652,
+    "sha256": "b90d13d4b8271eeedb85c4f9ccef83b8bdc8a4342e5af7ad89bac0f967638f42"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_wall_solid.glb",
+    "bytes": 50612,
+    "sha256": "27aff4ff48baa441d7fba4c0a24033b11c08959a1bcbe35c2ddff0470a161049"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_02_wall_window.glb",
+    "bytes": 62796,
+    "sha256": "4d21543bf5e2dd8b8af86adc11cf05898c41df24fac3623c6b2bf314585cf184"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_corner_trim.glb",
+    "bytes": 15428,
+    "sha256": "e055d6c6bd914da467f63301eab3234b70ec85285b3228f8ad50d8a6b4b3b8ea"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_gable.glb",
+    "bytes": 54724,
+    "sha256": "9f3f64f9391a11830a69e0e9c31ea24f9cc0c67b3bc265c186ea54ea990a6665"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_materials.png",
+    "bytes": 599383,
+    "sha256": "fac229b437d5b070b0a55648d2be242b36594ac47d57d2114ded351160ae3934"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_native_128.png",
+    "bytes": 11787,
+    "sha256": "d8dd91454a830b4878b651db1a3609d5fc24ec4f5a3da62a25f5ba2ef9988621"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_native_256.png",
+    "bytes": 48497,
+    "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_porch_deck.glb",
+    "bytes": 60580,
+    "sha256": "4424da329205e3c36ce59a3078342f0451db505b97d6069c310ee25b776683a8"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_porch_post.glb",
+    "bytes": 17568,
+    "sha256": "6ffbc9d11be2751121d113b69f396e922815744145aa170f78a7f3f478f105b4"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_roof_ridge.glb",
+    "bytes": 14296,
+    "sha256": "01a773a2ef93460c48cea4b25f7c3b0c809cff3dd59a43257fd5532d4645f179"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_roof_slope.glb",
+    "bytes": 53060,
+    "sha256": "f9a64971b42da6731f0466e00006a21a9d2d464f341ae14d7d740845813c20ac"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_wall_doorway.glb",
+    "bytes": 61096,
+    "sha256": "ba701dd1496bb3d00fde5aa85b0e45bff55a4fd1237b77ac0686f4b489a1edc4"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_wall_solid.glb",
+    "bytes": 53992,
+    "sha256": "c0027988636bb2ff2ab344ed52f500b8b9fca5acc65bd0c2711fb714cecbb4c6"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_03_wall_window.glb",
+    "bytes": 65240,
+    "sha256": "da160bf97dd80a5429bdaa6ba9ecd2c3a01018b03dd262e59830c1ede493541e"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_corner_trim.glb",
+    "bytes": 18504,
+    "sha256": "b66aeca95611874e432dc70f973cb4106d39b4128bf5de86d043ba5606934507"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_gable.glb",
+    "bytes": 61680,
+    "sha256": "56d9694b01407a3dd75dc7ed0949bcbe21ce2068f3b0324de4dbaca8924bfbcc"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_materials.png",
+    "bytes": 783812,
+    "sha256": "468e9187eb8d7cc576eacf3ee4efe29ce84aedf569ca0e3751a70a06546b3775"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_native_128.png",
+    "bytes": 13925,
+    "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_native_256.png",
+    "bytes": 56438,
+    "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_porch_deck.glb",
+    "bytes": 65400,
+    "sha256": "56cee07b1b2c1fd8b72c928d559d8f67fe918b11bd48b7998bddb07d208f2df9"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_porch_post.glb",
+    "bytes": 20616,
+    "sha256": "ec211cff758549a17a61e8cb8b808f37afbd02a5f91dd4ec5d6b386ae4c90603"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_roof_ridge.glb",
+    "bytes": 16436,
+    "sha256": "4efc49dafcb9dbf7fdd157d857665a4b39aafc9930b28d5f70bfb8e535aa7c54"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_roof_slope.glb",
+    "bytes": 63816,
+    "sha256": "cca80829c29481a84d675aee0a728a688ddef22c8f31807ffb97a906e92ad38a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_wall_doorway.glb",
+    "bytes": 69036,
+    "sha256": "83772a889fade3326a29816a335d119581669bf1bae14ebf1a549348c4cc3250"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_wall_solid.glb",
+    "bytes": 61932,
+    "sha256": "1119f043a49603ac64faa88543c8b9e9ab39bb6b28cf62d8f7e4f6a778746783"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_04_wall_window.glb",
+    "bytes": 73180,
+    "sha256": "3c285161ae6057be61da65369da1bbb879c727c41979509079b5fb1623d5b7a8"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_corner_trim.glb",
+    "bytes": 17740,
+    "sha256": "04f6845f79d2df06a6fe03df8103cf8687bc4406e2f6f70f25d50c9385e8a013"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_gable.glb",
+    "bytes": 59768,
+    "sha256": "d2a75fa427497c658f789488e37bcb7e2e5bee03512184cfdbb0d1eb516c4b32"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_materials.png",
+    "bytes": 700835,
+    "sha256": "6bccc75d2daf2326da2025918c0d39a002804cb72c2b79c962164687af9ded6e"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_native_128.png",
+    "bytes": 13162,
+    "sha256": "975803bcb08fd3d40f3d2f3a111548a06971a45e6438c022f0b7a5bc3678109d"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_native_256.png",
+    "bytes": 54528,
+    "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_porch_deck.glb",
+    "bytes": 67232,
+    "sha256": "afe029f6c23e3d9e2d118dc72b18cb1d9b63d718cca6419af908d3c32945788d"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_porch_post.glb",
+    "bytes": 19276,
+    "sha256": "215173ee39d222657b25e990e0e35ac076f10ae5f2151124ad0ac03179126386"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_roof_ridge.glb",
+    "bytes": 16564,
+    "sha256": "23e150625fcd0dee26767d82209b8783d5ff2ae5456ecc9a5aac1406432adb4a"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_roof_slope.glb",
+    "bytes": 62840,
+    "sha256": "85e05c52e46a4e07de0e9df3f712e74866b40670a2d2c76284e4c5fc1b386d48"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_wall_doorway.glb",
+    "bytes": 68996,
+    "sha256": "3bcc6c9a2ca543b230b6085a1da9d70f9118adc2d4a8058c33ce982aad6f33c1"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_wall_solid.glb",
+    "bytes": 60020,
+    "sha256": "d0cb1e0a67a19c738d1362f5d88af73629a880e5584beb1ea228317663d9a4cd"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_05_wall_window.glb",
+    "bytes": 82504,
+    "sha256": "84e5014119c6c38441a7e992ea3cdbe3b70265b2b138de2ba709690c246f5897"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_corner_trim.glb",
+    "bytes": 18600,
+    "sha256": "319f790219701ec584fd338ace110a2e0fce5430bf86c586b4d9195ff68631f5"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_corner_trim.png",
+    "bytes": 17611,
+    "sha256": "608a6f98c3d7c6cae7e27c41137a5f19a4038be64d62ab5f7961e9b0832fd77d"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_roof_ridge.glb",
+    "bytes": 28696,
+    "sha256": "5b3fd4da15c6b0a2272268ce8be956e78455ec5c50e69c5cc85d4c70c9e65842"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_roof_ridge.png",
+    "bytes": 23699,
+    "sha256": "342cb2df5a019a785fb3e741760a458fabf87ab4d5bd2c898e0d11f3c47aca9b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_roof_slope.glb",
+    "bytes": 122956,
+    "sha256": "1c8ee6574a514002b33122b4100764496e0277827512c08677f6ff78279fe76b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_roof_slope.png",
+    "bytes": 97309,
+    "sha256": "4b9e919e4e84542d8671f346e473517fc1fa83306431b7f9d4da90e9492088ca"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_doorway.glb",
+    "bytes": 115552,
+    "sha256": "e8514a94c7ef066adb52addd4519ebe58587f1966a3a2b22eea72fd6084821a5"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_doorway.png",
+    "bytes": 89394,
+    "sha256": "5bd6722c84d648572fba4977c0a2c68243ae4efe43be733e60c72e4d60541cbd"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_solid.glb",
+    "bytes": 112732,
+    "sha256": "c1243706ea4ebc487f9a5236655113f42c77d3003bd9b26ae9f61c2fda2e9e18"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_solid.png",
+    "bytes": 89394,
+    "sha256": "5bd6722c84d648572fba4977c0a2c68243ae4efe43be733e60c72e4d60541cbd"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_window.glb",
+    "bytes": 122104,
+    "sha256": "0965b557acc2102aa83a85d9dde4c3b568d7508a11e058535ca2413ea0b8042f"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/house_wall_window.png",
+    "bytes": 89394,
+    "sha256": "5bd6722c84d648572fba4977c0a2c68243ae4efe43be733e60c72e4d60541cbd"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_fence.glb",
+    "bytes": 47792,
+    "sha256": "ab871670104ccfa34f711060e066b156b1c0b4038f289dc1b763fb20504c348b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_fence.png",
+    "bytes": 21852,
+    "sha256": "370d093a5bd2e9b92465d05e1ee8db3a30f9cd802836022a5ddfb707b890cb28"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_stand.glb",
+    "bytes": 49928,
+    "sha256": "68baeb3415839944e4000faa969bd999efe3fc631f7c970f5b8556c3437f48c5"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_stand.png",
+    "bytes": 21852,
+    "sha256": "370d093a5bd2e9b92465d05e1ee8db3a30f9cd802836022a5ddfb707b890cb28"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_wall.glb",
+    "bytes": 52572,
+    "sha256": "30eb5bb1adb5ea65fe69b6e45082c2963539f284fa417f75ce67bea8f47088e7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/lamp_wall.png",
+    "bytes": 21852,
+    "sha256": "370d093a5bd2e9b92465d05e1ee8db3a30f9cd802836022a5ddfb707b890cb28"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/outdoor_materials_source.png",
+    "bytes": 1746478,
+    "sha256": "d1cc21e08a8c5c1fd9cd3949f30168b5f60f69ecd7b6911cbb4c53b953de5297"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_post.glb",
+    "bytes": 26616,
+    "sha256": "491d6e53c951100d192d7cc1b2fea0c966d151e325d3cfeb772092991fa76b09"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_post.png",
+    "bytes": 20010,
+    "sha256": "75b28c6d14ca67f729428cb605282dab5743f8833b1db4086e1ccdcc73711465"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_corner.glb",
+    "bytes": 32628,
+    "sha256": "020b600f3514e71e211d855b4c7c6a2fe7a81ce8cf85d5a1743f539d220774b2"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_corner.png",
+    "bytes": 19649,
+    "sha256": "1349689bed439ded2ac2b8a6b29247c4e655385c8a7d09433ed8bf3ef92888fb"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_end.glb",
+    "bytes": 45556,
+    "sha256": "4d97c9950665576750a8fd2fb9616065c066c888a1ce51b27a1c1f4593bef66b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_end.png",
+    "bytes": 19649,
+    "sha256": "1349689bed439ded2ac2b8a6b29247c4e655385c8a7d09433ed8bf3ef92888fb"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_straight.glb",
+    "bytes": 40108,
+    "sha256": "61797305298248c61232b68be89d64ffe6aecaa0d596c5923b0bd3a68afebe24"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/porch_railing_straight.png",
+    "bytes": 19649,
+    "sha256": "1349689bed439ded2ac2b8a6b29247c4e655385c8a7d09433ed8bf3ef92888fb"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_boulder.glb",
+    "bytes": 33184,
+    "sha256": "8993cf9c8a54c9474b45d52973a06bd56114596bdf6d3d674222047d005dbd92"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_campfire.glb",
+    "bytes": 85052,
+    "sha256": "d437a983f17a89b16e6f6c6bd56fe659e30d43ca484ae876a20f42226aa17390"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_curb.glb",
+    "bytes": 30184,
+    "sha256": "eb5d8309e691df84db368db0b4f7dbec172918f4680b600edc9b7a55abf518f9"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_curb_ramp.glb",
+    "bytes": 29772,
+    "sha256": "0aa050eee8f4f704219ad8421456bc46d4df056a18593fdfbe3d2d178b07d1d2"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_road_dash.glb",
+    "bytes": 29368,
+    "sha256": "9b2e4c6ca5e796b6690aa1a44dceec8d8ffc23cc271790e91451b9d9c3b4c22d"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_road_gate.glb",
+    "bytes": 57520,
+    "sha256": "f745cfdc81e05098403a53ba832e65349f4f0c2c5c9b6cf56d19d7576be58638"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_road_straight.glb",
+    "bytes": 31528,
+    "sha256": "fb258508329662c5073d505fa4f772fa9fbfe31bf824a86ae193d62ce120f801"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_road_unmarked.glb",
+    "bytes": 30228,
+    "sha256": "57ba2ec1e3e793525a38317d7061b7a2541de9661956ccc5bef03855f0ca7bd5"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_rock_face.glb",
+    "bytes": 31700,
+    "sha256": "dca0d7b59eb7c03ff2cde358214dcdf71f270fa5897580a5df0501ddabde01a8"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_rock_face_variant.glb",
+    "bytes": 31740,
+    "sha256": "55f3404cba6118993c52b0e5cba144d5c065045c2480ec75a67f9d06e8e3ec6b"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_sidewalk.glb",
+    "bytes": 30204,
+    "sha256": "635936e15ca3a42d5b5a77772c0635356e9b815f243af7a9ef8cbe356d71e7b9"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_sidewalk_corner.glb",
+    "bytes": 30236,
+    "sha256": "450e65be84f617ae2d89fab389b9b469aec00e2ba7f56667387b6d3fcf62456c"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_sidewalk_transition.glb",
+    "bytes": 30256,
+    "sha256": "c12e06c929a0b7e44cee30311354614deea4d64e8fa242bde14dc2d50d5f04b7"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_stump_seat.glb",
+    "bytes": 30872,
+    "sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_surface.png",
+    "bytes": 30144,
+    "sha256": "b82e12e636902f66399b1422b14df9732587ca5309b1d507fb04dcb07c240d8f"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/showcase_wood.png",
+    "bytes": 22063,
+    "sha256": "27b53d80c95c17b09034b5796070ab160951d06fdba9bcee818bf39496da4132"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/streetlight.glb",
+    "bytes": 66224,
+    "sha256": "f2ad24043f65b2bf240e925c0c78173d960283db5143f7b9ceb08eefb4d07077"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/streetlight.png",
+    "bytes": 21981,
+    "sha256": "2e18370c3313576b39d25d64ed944cd60d408576fb66bdf053ec9cd9627ddbce"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_01.glb",
+    "bytes": 125208,
+    "sha256": "7b14106d288a7162bfe649d12f31dd9aa2379fce816de9bf61e42bded9b52597"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_01.png",
+    "bytes": 59018,
+    "sha256": "26f0178f43f8b0725523b069ad4bcaff437773223348bf3b0ba1ff19540b62d9"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_02.glb",
+    "bytes": 124324,
+    "sha256": "32641a8a64b22f01cc937c4e4ebfae1bcdb6615b538520746d8eca0661287ee9"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_02.png",
+    "bytes": 71224,
+    "sha256": "9cb40e116c7b65ccb47e683f66e6a55cbcad1d986160838941ee7b84f9fa1b00"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_02_art_source.png",
+    "bytes": 1411934,
+    "sha256": "72c65a2b4d81a27e002b61d5556dd642f7618426a34fc4e8e06da8f367ba5148"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_03.glb",
+    "bytes": 192596,
+    "sha256": "8f980027c6b6b8aa625ff4594079967faaad1b8c750dab80755ceaf2efd5aa22"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_03.png",
+    "bytes": 115252,
+    "sha256": "52225278ab033c9287c6fd2885dd1b13d0695f6228d1f482bb3e1a6ae26311ca"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_03_art_source.png",
+    "bytes": 1554803,
+    "sha256": "f1826a02910467a482051e5dfcd915413833a35c234577cf11bcdf2aa00f9299"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/props/models/tree_foliage_source.png",
+    "bytes": 1005425,
+    "sha256": "8db4506f7e186aa8eee98b4bf913bd3dd973c2dac80dfe4dfae51883a23bfa83"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/decals/path_corner_01.png",
+    "bytes": 31572,
+    "sha256": "fd9a88a48ff1475a6f3714fae6d2399c46ec80ff2676e6ae12a092ae3eab89ec"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/decals/path_edge_01.png",
+    "bytes": 65910,
+    "sha256": "6ce9bde913d0d83b6187b1aba28d621d4f501572f61d73381613d243cb51ca5d"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/decals/path_end_01.png",
+    "bytes": 35374,
+    "sha256": "09892dab925891e3684034356576feb5c76684fcfa453cdcb3bf1a7850f516ac"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/ground/concrete_pavement_01.png",
+    "bytes": 397050,
+    "sha256": "274046e28013543fb5376fd1541979d6cbfc43be418fb1a3221e7540ebb7e2c4"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/ground/dirt_gravel_01.png",
+    "bytes": 510324,
+    "sha256": "c8e905614900fabad69477c6f4801b0fa23ecb2225486598493453a61aeb76ce"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/ground/grass_ground_01.png",
+    "bytes": 528508,
+    "sha256": "4fa1be06b4def1f730ecf34d898714b60dbd18eaea0db8ad8998ed7d36aebbdb"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/house/roof_shingle_01.png",
+    "bytes": 369740,
+    "sha256": "9206a838eae43f3a3109ba8d6f5d3bd453955f2303423e9f583c6c66da89b6ce"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/house/siding_01.png",
+    "bytes": 209692,
+    "sha256": "cea853ccd313be74a35a9a10e3905de1aec8c44306dce9179723ff7fedc2a331"
+  },
+  {
+    "path": "asset-root/assets/environment/outdoor/textures/sky/sky_stars_01.png",
+    "bytes": 3540,
+    "sha256": "eb7e03e373a9bd15ee505750281e699d3c204f35193bfc051100395e501d9075"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/README.md",
+    "bytes": 7359,
+    "sha256": "796d61b00f784bcd8b6a5dfdefaeded9293ffcd9d45d0abb549c9698eb1b8b5a"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/decals/no_diving_01.png",
+    "bytes": 891368,
+    "sha256": "d4fa9b984de1303cd159851fceb26247da14f184cd5f193f8cb7d5bc8eed4e42"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/hot_tub.glb",
+    "bytes": 37192,
+    "sha256": "adfcc41cb47055022674ab34bb115b774c40005133a0b119a3489ecfbc854919"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/hot_tub.png",
+    "bytes": 13540,
+    "sha256": "e50be5b11f0738a8bc5ef1ff43565efc562e0516ea5618f00f72bc8cddda896b"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_chair.glb",
+    "bytes": 91872,
+    "sha256": "1cab7d8f8bfedcbad194c9d66ff657f3a63018b652c547dcf90fb7a20ba0c61d"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_chair.png",
+    "bytes": 78097,
+    "sha256": "95d5e4b16c89bb9caf8cbd7944579afc8d8c36b909032ac85c309746e4f8c768"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_corner.glb",
+    "bytes": 97200,
+    "sha256": "d5592f4bcabfa068c67a8c89a51388de82e08fd3c635373a2e4a288f87be6580"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_corner.png",
+    "bytes": 57721,
+    "sha256": "5c6b4d17d18b4accab1fdd2adf65373c868820ce21bdf97b782734fc4d57a601"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_end.glb",
+    "bytes": 78924,
+    "sha256": "cc9a9d7bb26257fae2ca4737976b5132f769f8161951fa056b86b704fcc36483"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_end.png",
+    "bytes": 52257,
+    "sha256": "fdcb14b185c50c47ad90350b1817ff0c143bffea72db65c5a65519177e2db461"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_straight.glb",
+    "bytes": 123260,
+    "sha256": "0fa37d11149b5386ece44bdb4db7eb9a407c80a7aabdb49b8b3e6ee046935fad"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_curtain_straight.png",
+    "bytes": 80416,
+    "sha256": "b53538d1561f0784b572d0f3f0472962ab4c8ac6c8f855793b656283cba36be1"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_corner.glb",
+    "bytes": 68364,
+    "sha256": "3c5aa68f605c7bc5cb12deadfbd2f9c305106b669ff405d3d5fcc926aa213ea0"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_corner.png",
+    "bytes": 44126,
+    "sha256": "1278ca92bbdaa754e27ac383b1db411d1b8ebe3ca75b7d013cd217ffe196852e"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_end.glb",
+    "bytes": 65196,
+    "sha256": "40e3d21eac13cbd2599bb842e52aa6c26253d3d44196bfe02547d5ce4a41f4d8"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_end.png",
+    "bytes": 43683,
+    "sha256": "9c1e8450a5f9c2cb0427de76e39d02ea8adc036af1ae69b6699a37ecf27448ad"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_straight.glb",
+    "bytes": 69184,
+    "sha256": "b2a47ac21e1eb7b31df7efbd5b3ddb809833d7d9ac055143b4f0d9a5c3dc09d6"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_guardrail_straight.png",
+    "bytes": 44971,
+    "sha256": "f87407af687f430adfac8fba7e80cd4e16ac54fbf958fcf9870a2a7c1ccf3e24"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_ladder.glb",
+    "bytes": 82984,
+    "sha256": "26331190c5757ed7503d5fb52cf4f3dc872066bc80496b721033b7a80744199d"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_ladder.png",
+    "bytes": 62438,
+    "sha256": "73134f82307faf80b1014975335a8065537dcb352b5bc023bdc7b49cae5e0456"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_table.glb",
+    "bytes": 98384,
+    "sha256": "60953b0516713d212528cefee739c109c27468558e1054ff72b054c4fc493a01"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/pool_table.png",
+    "bytes": 82154,
+    "sha256": "6fd4b9aeeaa242ba15f64d1d5c459660207721d44a1dd4ef4ce25ab40de643e5"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/rubber_duck.glb",
+    "bytes": 75028,
+    "sha256": "164f15f0931772b515cf55b2446b1cb43598445d5245071fe0d02e3a751ffae6"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/props/models/rubber_duck.png",
+    "bytes": 52745,
+    "sha256": "5b4ffbe0210646bc668b9b716a2e9ad76f864b72795e08836df2971dc566d7af"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/ceilings/pool_ceiling_01.png",
+    "bytes": 1388279,
+    "sha256": "3773a0731587f75cdec930bdf175a1dd721a3161e4fe8a95b81754f2357e6bef"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/floors/pool_tile_basin_01.png",
+    "bytes": 1451558,
+    "sha256": "fbfc63a2ed34cce4ef58968db154d19fd19ada6e6d83b08c1fc612b435bdf809"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/floors/pool_tile_deck_01.png",
+    "bytes": 1902854,
+    "sha256": "921619ee6d6e47b847cf0c8b7a63d007ef3e2ec9974507f6def8c41e570beeb6"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/lights/pool_light_round_01.png",
+    "bytes": 1003622,
+    "sha256": "30c7888e21dd6ba96364a42c9dfd8935a010b58664cfc1d31e033bbcfa4fd996"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/lights/pool_light_wall_01.png",
+    "bytes": 413715,
+    "sha256": "b24ea6843bc1d8564dc4ce32dc303841907b5d052c101236a8224a4f7d162b45"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/walls/pool_tile_wall_01.png",
+    "bytes": 1390031,
+    "sha256": "bd9d4017bfc0784e3fe2e1a54bdaebed14234e62189c2b29c4f41f43d16bfcc4"
+  },
+  {
+    "path": "asset-root/assets/environment/pool/textures/water/pool_water_01.png",
+    "bytes": 852371,
+    "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a"
+  }
+]

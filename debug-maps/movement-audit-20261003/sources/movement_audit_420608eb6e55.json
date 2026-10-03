@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_420608eb6e55",
+  "name": "spawn_across_a_gabled_roof_uses_separate_bounded_recovery",
+  "rooms": [
+    {
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 2.0
+      },
+      "depth": 10,
+      "height": 2.4,
+      "width": 10,
+      "x": -5,
+      "z": -5
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 3.5
+  },
+  "walls": []
+}

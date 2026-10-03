@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_a0a48bfabc94",
+  "test": "game::tests::movement_regression::spawn_overlap_recovery_is_clear_bounded_and_deterministic",
+  "yaw_degrees": 0.0
+}

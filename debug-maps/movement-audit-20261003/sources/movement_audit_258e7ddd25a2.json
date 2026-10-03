@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_258e7ddd25a2",
+  "name": "a_room_ceiling_is_support_from_above_and_never_a_downward_clamp",
+  "rooms": [
+    {
+      "depth": 8,
+      "height": 2.4,
+      "width": 8,
+      "x": -4,
+      "z": -4
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": []
+}

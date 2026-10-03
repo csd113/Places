@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    4.0,
+    0.0
+  ],
+  "id": "movement_audit_258e7ddd25a2",
+  "test": "game::tests::movement_regression::a_room_ceiling_is_support_from_above_and_never_a_downward_clamp",
+  "yaw_degrees": 0.0
+}

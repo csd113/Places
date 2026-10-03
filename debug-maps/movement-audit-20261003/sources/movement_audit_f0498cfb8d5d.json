@@ -1,0 +1,50 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_f0498cfb8d5d",
+  "name": "narrow_passage_crouch_and_stand_clearance_remain_physical",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": -1.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": [
+    {
+      "depth": 1.0,
+      "height": 0.04999995231628418,
+      "width": 2.0,
+      "x": 0.0,
+      "y": 1.100000023841858,
+      "z": -0.5
+    },
+    {
+      "depth": 0.050000011920928955,
+      "height": 3.0,
+      "width": 6.0,
+      "x": -2.0,
+      "y": 0.0,
+      "z": -0.4000000059604645
+    },
+    {
+      "depth": 0.050000011920928955,
+      "height": 3.0,
+      "width": 6.0,
+      "x": -2.0,
+      "y": 0.0,
+      "z": 0.3499999940395355
+    }
+  ]
+}

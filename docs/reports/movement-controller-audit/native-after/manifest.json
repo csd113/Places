@@ -1,0 +1,1397 @@
+[
+  {
+    "name": "flat_forward",
+    "station": 1,
+    "spawn": "15,10,90",
+    "script": "forward@0-1",
+    "seconds": 1,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "185",
+      "17.9599",
+      "1.6000",
+      "10.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "flat_backward",
+    "station": 1,
+    "spawn": "15,10,90",
+    "script": "backward@0-1",
+    "seconds": 1,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "170",
+      "12.0501",
+      "1.6000",
+      "10.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "flat_strafe",
+    "station": 1,
+    "spawn": "15,10,90",
+    "script": "strafe_right@0-1",
+    "seconds": 1,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "165",
+      "15.0000",
+      "1.6000",
+      "12.9974",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "flat_diagonal",
+    "station": 1,
+    "spawn": "15,10,90",
+    "script": "forward@0-1,strafe_right@0-1",
+    "seconds": 1,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "155",
+      "17.0640",
+      "1.6000",
+      "12.0640",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "wall_slide",
+    "station": 1,
+    "spawn": "10,14,90",
+    "script": "forward@0-2,strafe_right@0-2",
+    "seconds": 2,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "360",
+      "14.1858",
+      "1.6000",
+      "15.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "narrow_lane",
+    "station": 1,
+    "spawn": "28.6,13,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "355",
+      "28.6000",
+      "1.6000",
+      "18.9771",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "oblique_corner",
+    "station": 1,
+    "spawn": "6.4,21,0",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_01",
+    "exit_code": 0,
+    "final_state": [
+      "340",
+      "7.8843",
+      "1.6000",
+      "16.5716",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.10",
+    "station": 2,
+    "spawn": "38,5.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "41.5842",
+      "1.7000",
+      "5.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.30",
+    "station": 2,
+    "spawn": "38,7.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "225",
+      "41.5964",
+      "1.9000",
+      "7.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.39",
+    "station": 2,
+    "spawn": "38,9.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "260",
+      "41.5787",
+      "1.9900",
+      "9.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.40",
+    "station": 2,
+    "spawn": "38,11.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "225",
+      "41.5928",
+      "2.0000",
+      "11.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.41",
+    "station": 2,
+    "spawn": "38,13.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "215",
+      "39.7000",
+      "1.6000",
+      "13.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "step_0.60",
+    "station": 2,
+    "spawn": "38,15.7,90",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "200",
+      "39.7000",
+      "1.6000",
+      "15.7000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "header_standing",
+    "station": 2,
+    "spawn": "48,8,90",
+    "script": "forward@0-1",
+    "seconds": 1,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "210",
+      "49.9997",
+      "1.6000",
+      "8.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "header_crouch",
+    "station": 2,
+    "spawn": "48,8,90",
+    "script": "crouch@0-0.05,forward@0.1-1.2",
+    "seconds": 1.2,
+    "interact": "station_02",
+    "exit_code": 0,
+    "final_state": [
+      "175",
+      "51.2989",
+      "1.1500",
+      "8.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_narrow_up",
+    "station": 3,
+    "spawn": "4.4,27.5,180",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "370",
+      "4.4000",
+      "2.5000",
+      "34.9879",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_narrow_down",
+    "station": 3,
+    "spawn": "4.4,35,0",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "330",
+      "4.4000",
+      "1.6000",
+      "27.5288",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_normal_up",
+    "station": 3,
+    "spawn": "7.7,27.5,180",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "315",
+      "7.7000",
+      "3.1000",
+      "34.9629",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_normal_down",
+    "station": 3,
+    "spawn": "7.7,35,0",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "320",
+      "7.7000",
+      "1.6000",
+      "27.5387",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_steep_up",
+    "station": 3,
+    "spawn": "10.6,27.5,180",
+    "script": "forward@0-1.3333333333333333",
+    "seconds": 1.3333333333333333,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "175",
+      "10.6000",
+      "3.2000",
+      "31.4490",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_steep_down",
+    "station": 3,
+    "spawn": "10.6,31.5,0",
+    "script": "forward@0-1.3333333333333333",
+    "seconds": 1.3333333333333333,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "175",
+      "10.6000",
+      "1.6000",
+      "27.5237",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_wide_up",
+    "station": 3,
+    "spawn": "14.5,27.5,180",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "320",
+      "14.5000",
+      "3.1000",
+      "34.9579",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_wide_down",
+    "station": 3,
+    "spawn": "14.5,35,0",
+    "script": "forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "315",
+      "14.5000",
+      "1.6000",
+      "27.5080",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_door_up",
+    "station": 3,
+    "spawn": "18.5,27.5,180",
+    "script": "forward@0-1.8333333333333333",
+    "seconds": 1.8333333333333333,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "235",
+      "18.5000",
+      "2.8000",
+      "32.9214",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stairs_door_down",
+    "station": 3,
+    "spawn": "18.5,33,0",
+    "script": "forward@0-1.8333333333333333",
+    "seconds": 1.8333333333333333,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "235",
+      "18.5000",
+      "1.6000",
+      "27.5544",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_gentle",
+    "station": 4,
+    "spawn": "28.6,27.5,180",
+    "script": "forward@0-2.3333333333333335",
+    "seconds": 2.3333333333333335,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "290",
+      "28.6000",
+      "2.2000",
+      "34.2685",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_moderate",
+    "station": 4,
+    "spawn": "31.6,27.5,180",
+    "script": "forward@0-2.3333333333333335",
+    "seconds": 2.3333333333333335,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "295",
+      "31.6000",
+      "3.4000",
+      "34.4031",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_steep",
+    "station": 4,
+    "spawn": "34.6,27.5,180",
+    "script": "forward@0-1.3333333333333333",
+    "seconds": 1.3333333333333333,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "150",
+      "34.6000",
+      "4.6000",
+      "31.2731",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_near_limit",
+    "station": 4,
+    "spawn": "37.4,27.5,180",
+    "script": "forward@0-1.0",
+    "seconds": 1.0,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "120",
+      "37.4000",
+      "5.4000",
+      "30.4966",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_limit_narrow",
+    "station": 4,
+    "spawn": "40.4,27.5,180",
+    "script": "forward@0-1.0",
+    "seconds": 1.0,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "90",
+      "40.4000",
+      "5.6000",
+      "30.4458",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_peak",
+    "station": 4,
+    "spawn": "27.5,37.5,90",
+    "script": "forward@0-2.4",
+    "seconds": 2.4,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "195",
+      "34.6839",
+      "1.6000",
+      "37.5000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_valley",
+    "station": 4,
+    "spawn": "36.2,37.5,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_04",
+    "exit_code": 0,
+    "final_state": [
+      "225",
+      "42.1973",
+      "2.7960",
+      "37.5000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ledge_0.6",
+    "station": 5,
+    "spawn": "56,29,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_05",
+    "exit_code": 0,
+    "final_state": [
+      "255",
+      "61.9739",
+      "1.6000",
+      "29.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ledge_1.5",
+    "station": 5,
+    "spawn": "56,34,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_05",
+    "exit_code": 0,
+    "final_state": [
+      "255",
+      "61.9921",
+      "1.6000",
+      "34.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ledge_3",
+    "station": 5,
+    "spawn": "56,39,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_05",
+    "exit_code": 0,
+    "final_state": [
+      "250",
+      "61.9064",
+      "1.6000",
+      "39.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "unsupported_edge",
+    "station": 5,
+    "spawn": "70,35,90",
+    "script": "forward@0-1.6",
+    "seconds": 1.6,
+    "interact": "station_05",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "74.7665",
+      "-0.2357",
+      "35.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "unsupported_recovery",
+    "station": 5,
+    "spawn": "70,35,90",
+    "script": "forward@0-3",
+    "seconds": 3,
+    "interact": "station_05",
+    "exit_code": 0,
+    "final_state": [
+      "375",
+      "72.0752",
+      "3.1000",
+      "35.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_low",
+    "station": 6,
+    "spawn": "8,49.5,180",
+    "script": "jump@0-0.06,forward@0-0.7",
+    "seconds": 1.6,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "210",
+      "8.0000",
+      "2.2000",
+      "51.5950",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_borderline",
+    "station": 6,
+    "spawn": "12,49.5,180",
+    "script": "jump@0-0.06,forward@0-0.7",
+    "seconds": 1.6,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "12.0000",
+      "2.5500",
+      "51.5892",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_too_high",
+    "station": 6,
+    "spawn": "16,49.5,180",
+    "script": "jump@0-0.06,forward@0-0.7",
+    "seconds": 1.6,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "16.0000",
+      "1.6000",
+      "50.7000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_narrow",
+    "station": 6,
+    "spawn": "19.3,49.5,180",
+    "script": "jump@0-0.06,forward@0-0.7",
+    "seconds": 1.6,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "19.3000",
+      "2.3500",
+      "51.5903",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_desk_apex",
+    "station": 6,
+    "spawn": "7,57.5,180",
+    "script": "jump@0-0.06,forward@0-0.55",
+    "seconds": 0.4,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "65",
+      "7.0000",
+      "2.5902",
+      "58.7208",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_desk_land",
+    "station": 6,
+    "spawn": "7,57.5,180",
+    "script": "jump@0-0.06,forward@0-0.55",
+    "seconds": 1.6,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "205",
+      "7.0000",
+      "2.3500",
+      "59.1431",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_backward",
+    "station": 6,
+    "spawn": "4,55,0",
+    "script": "jump@0-0.06,backward@0-0.6",
+    "seconds": 1.3,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "165",
+      "4.0000",
+      "1.6000",
+      "56.7799",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_strafe_left",
+    "station": 6,
+    "spawn": "4,55,0",
+    "script": "jump@0-0.06,strafe_left@0-0.6",
+    "seconds": 1.3,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "170",
+      "2.2064",
+      "1.6000",
+      "55.0000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_strafe_right",
+    "station": 6,
+    "spawn": "4,55,0",
+    "script": "jump@0-0.06,strafe_right@0-0.6",
+    "seconds": 1.3,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "170",
+      "5.7936",
+      "1.6000",
+      "55.0000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_stair_transition",
+    "station": 3,
+    "spawn": "7.7,27.5,180",
+    "script": "forward@0-1.3,jump@0.25-0.31",
+    "seconds": 1.3,
+    "interact": "station_03",
+    "exit_code": 0,
+    "final_state": [
+      "170",
+      "7.7000",
+      "2.6916",
+      "31.3663",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "jump_wall",
+    "station": 6,
+    "spawn": "10.6,59,90",
+    "script": "jump@0-0.06,forward@0-1",
+    "seconds": 1,
+    "interact": "station_06",
+    "exit_code": 0,
+    "final_state": [
+      "135",
+      "10.7000",
+      "1.6000",
+      "59.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "crouch_passage",
+    "station": 7,
+    "spawn": "37.5,48,180",
+    "script": "crouch@0-0.05,forward@0.1-1.5",
+    "seconds": 1.5,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "195",
+      "37.5000",
+      "0.8000",
+      "52.1994",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "crouch_forced",
+    "station": 7,
+    "spawn": "37.5,48,180",
+    "script": "crouch@0-0.05,forward@0.1-1,crouch@1.1-1.15",
+    "seconds": 1.5,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "195",
+      "37.5000",
+      "0.8000",
+      "50.7010",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "crouch_reopen",
+    "station": 7,
+    "spawn": "37.5,48,180",
+    "script": "crouch@0-0.05,forward@0.1-1,backward@1.1-2.1,crouch@2.2-2.25",
+    "seconds": 2.8,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "355",
+      "37.5000",
+      "1.6000",
+      "47.6990",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "rapid_stance",
+    "station": 7,
+    "spawn": "32,48,0",
+    "script": "crouch@0-0.05,crouch@0.1-0.15,crouch@0.2-0.25,crouch@0.3-0.35",
+    "seconds": 0.8,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "110",
+      "32.0000",
+      "1.6000",
+      "48.0000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "tight_shaft",
+    "station": 7,
+    "spawn": "43.6,51,0",
+    "script": "jump@0-0.06,forward@0-0.5",
+    "seconds": 1.3,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "190",
+      "43.6000",
+      "1.6000",
+      "50.5000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "head_jump",
+    "station": 7,
+    "spawn": "41,60,0",
+    "script": "jump@0-0.06",
+    "seconds": 0.2,
+    "interact": "station_07",
+    "exit_code": 0,
+    "final_state": [
+      "40",
+      "41.0000",
+      "1.7601",
+      "60.0000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_jump",
+    "station": 8,
+    "spawn": "58.9,48,180",
+    "script": "jump@0-0.06,forward@0-2.5",
+    "seconds": 2.5,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "315",
+      "58.9000",
+      "1.6000",
+      "54.6614",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_narrow",
+    "station": 8,
+    "spawn": "52.35,48,180",
+    "script": "forward@0-1.5",
+    "seconds": 1.5,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "190",
+      "52.3500",
+      "1.6000",
+      "52.4225",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_threshold",
+    "station": 8,
+    "spawn": "64.6,48,180",
+    "script": "forward@0-1.2",
+    "seconds": 1.2,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "155",
+      "64.6000",
+      "1.6000",
+      "51.5114",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_closed",
+    "station": 8,
+    "spawn": "52.6,56.5,180",
+    "script": "forward@0-1",
+    "seconds": 1,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "135",
+      "52.6000",
+      "1.6000",
+      "57.7775",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_interactive_open",
+    "station": 8,
+    "spawn": "52.6,55,180",
+    "script": "forward@1-2.5",
+    "seconds": 2.5,
+    "interact": "station_08,closed_door",
+    "exit_code": 0,
+    "final_state": [
+      "310",
+      "52.6000",
+      "1.6000",
+      "59.4252",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_open_leaf",
+    "station": 8,
+    "spawn": "58.6,56,180",
+    "script": "forward@0-1.5",
+    "seconds": 1.5,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "190",
+      "58.6000",
+      "1.6000",
+      "60.4164",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "door_ramp",
+    "station": 8,
+    "spawn": "64.6,53.5,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_08",
+    "exit_code": 0,
+    "final_state": [
+      "255",
+      "64.6000",
+      "2.2000",
+      "59.4876",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_entry",
+    "station": 9,
+    "spawn": "10,71,180",
+    "script": "forward@0-2.2",
+    "seconds": 2.2,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "280",
+      "10.0000",
+      "-0.2966",
+      "76.1923",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_surface",
+    "station": 9,
+    "spawn": "10,75,0",
+    "script": "jump@0-4",
+    "seconds": 4,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "495",
+      "10.0000",
+      "-0.0506",
+      "75.0000",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_flat_exit",
+    "station": 9,
+    "spawn": "10,74,0",
+    "script": "jump@0-6,forward@4-6",
+    "seconds": 6,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "735",
+      "10.0000",
+      "1.6000",
+      "69.7347",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_raised_exit",
+    "station": 9,
+    "spawn": "17,75,90",
+    "script": "jump@0-6,forward@4-6",
+    "seconds": 6,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "735",
+      "20.4522",
+      "1.8000",
+      "75.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_wall_refused",
+    "station": 9,
+    "spawn": "16,79,180",
+    "script": "jump@0-7,forward@4-7",
+    "seconds": 7,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "1355",
+      "16.0000",
+      "-0.0579",
+      "80.7000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_stairs_exit",
+    "station": 9,
+    "spawn": "13.75,76.5,180",
+    "script": "jump@0-8,forward@4-8",
+    "seconds": 8,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "1735",
+      "13.7500",
+      "1.6000",
+      "86.6108",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pool_shallow_entry",
+    "station": 9,
+    "spawn": "3.5,75,90",
+    "script": "forward@0-1",
+    "seconds": 1,
+    "interact": "station_09",
+    "exit_code": 0,
+    "final_state": [
+      "195",
+      "6.4364",
+      "1.2000",
+      "75.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_desk",
+    "station": 10,
+    "spawn": "30,72,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "430",
+      "30.0000",
+      "1.6000",
+      "73.3500",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_chair",
+    "station": 10,
+    "spawn": "34,72,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "420",
+      "34.0000",
+      "1.6000",
+      "73.4500",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_crate",
+    "station": 10,
+    "spawn": "38,72,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "395",
+      "38.0000",
+      "1.6000",
+      "73.4000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_narrow",
+    "station": 10,
+    "spawn": "42,72,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "430",
+      "42.0000",
+      "1.6000",
+      "73.5250",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_large",
+    "station": 10,
+    "spawn": "30,79,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "405",
+      "30.0000",
+      "1.6000",
+      "80.3000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_round",
+    "station": 10,
+    "spawn": "36,81,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_10",
+    "exit_code": 0,
+    "final_state": [
+      "425",
+      "37.1000",
+      "1.6000",
+      "81.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "opposing_walls",
+    "station": 11,
+    "spawn": "55,73.6,90",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "445",
+      "60.9969",
+      "1.6000",
+      "73.6000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pillar_wall",
+    "station": 11,
+    "spawn": "58.5,72,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "420",
+      "58.5000",
+      "1.6000",
+      "74.1000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "wedge",
+    "station": 11,
+    "spawn": "64.5,77,0",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "385",
+      "64.0750",
+      "1.6000",
+      "73.4057",
+      "0.0000",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "stair_head_door",
+    "station": 11,
+    "spawn": "52.6,77.5,180",
+    "script": "forward@0-2",
+    "seconds": 2,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "430",
+      "52.6000",
+      "2.7829",
+      "83.4595",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "ramp_wall",
+    "station": 11,
+    "spawn": "56.6,78.5,180",
+    "script": "forward@0-1.3",
+    "seconds": 1.3,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "280",
+      "56.6000",
+      "2.7135",
+      "82.3826",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "prop_door",
+    "station": 11,
+    "spawn": "63,79.5,180",
+    "script": "forward@0-2,jump@0.2-0.26",
+    "seconds": 2,
+    "interact": "station_11",
+    "exit_code": 0,
+    "final_state": [
+      "435",
+      "63.0000",
+      "1.6000",
+      "81.7000",
+      "3.1416",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "sloped_head",
+    "station": 12,
+    "spawn": "75,55,90",
+    "script": "jump@0-0.06,forward@0-2",
+    "seconds": 2,
+    "interact": "station_12",
+    "exit_code": 0,
+    "final_state": [
+      "400",
+      "80.9813",
+      "1.6000",
+      "55.0000",
+      "1.5708",
+      "0.0000"
+    ]
+  },
+  {
+    "name": "pit_stacked_balcony",
+    "station": 0,
+    "spawn": "50.2,1.6,-29.2,180",
+    "script": "jump@0-0.06,forward@0-0.58",
+    "seconds": 1.5,
+    "interact": "",
+    "level": "level0_pit",
+    "exit_code": 0,
+    "final_state": [
+      "290",
+      "50.2000",
+      "1.4000",
+      "-27.4681",
+      "3.1416",
+      "0.0000"
+    ]
+  }
+]

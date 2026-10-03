@@ -1,0 +1,10 @@
+{
+  "id": "movement_audit_rotated_door",
+  "test": "45 degree / 1 mm door leaf",
+  "eye_spawn": [
+    -0.7071,
+    1.6,
+    2.1213
+  ],
+  "yaw_degrees": 90
+}

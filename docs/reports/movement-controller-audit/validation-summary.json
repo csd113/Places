@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-03",
+  "native_routes": {
+    "passed": 82,
+    "failed": 0
+  },
+  "saved_native_maps": {
+    "passed": 36,
+    "failed": 0
+  },
+  "library": {
+    "passed": 1956,
+    "failed": 0,
+    "ignored": 22
+  },
+  "integration": {
+    "passed": 3,
+    "failed": 0
+  },
+  "controller_focused": {
+    "passed": 188,
+    "failed": 0,
+    "ignored": 3
+  },
+  "pit_native_sample_stats": [
+    {
+      "build": "before",
+      "samples": 18,
+      "max_five_frame_eye_drop_m": 0.4993000000000003,
+      "final_eye": [
+        50.2,
+        2.05,
+        -27.9768
+      ]
+    },
+    {
+      "build": "after",
+      "samples": 54,
+      "max_five_frame_eye_drop_m": 0.16780000000000017,
+      "final_eye": [
+        50.2,
+        1.4,
+        -27.4681
+      ]
+    }
+  ],
+  "manual_ui_retry": "Transport closed; Mac remained online. Scripted held-input SDL/Metal validation passed.",
+  "lighting_preservation": {
+    "files": 277,
+    "identical_except_controller_queries_and_doc": 275,
+    "publication_log_whitespace_normalized": 2,
+    "original_logs_preserved_byte_exact": true
+  }
+}

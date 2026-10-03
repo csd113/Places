@@ -1,0 +1,36 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_6f20140b35d2",
+  "name": "a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry",
+  "rooms": [
+    {
+      "depth": 8,
+      "height": 8,
+      "width": 8,
+      "x": -4,
+      "z": -4
+    },
+    {
+      "ceiling": {
+        "kind": "open"
+      },
+      "depth": 4,
+      "floor_y": 1.95,
+      "height": 4,
+      "width": 2,
+      "x": 0,
+      "z": -2
+    }
+  ],
+  "spawn": {
+    "x": -0.4000000059604645,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": []
+}

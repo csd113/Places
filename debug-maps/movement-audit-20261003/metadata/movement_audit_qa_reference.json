@@ -1,0 +1,10 @@
+{
+  "id": "movement_audit_qa_reference",
+  "test": "Preserved movement_test reference map",
+  "eye_spawn": [
+    15,
+    1.6,
+    10
+  ],
+  "yaw_degrees": 90
+}

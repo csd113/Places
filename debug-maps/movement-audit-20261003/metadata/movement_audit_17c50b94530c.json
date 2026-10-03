@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    4.199999809265137,
+    0.0
+  ],
+  "id": "movement_audit_17c50b94530c",
+  "test": "game::tests::movement_regression::stacked_storey_ceiling_below_feet_cannot_teleport_a_jump",
+  "yaw_degrees": 0.0
+}

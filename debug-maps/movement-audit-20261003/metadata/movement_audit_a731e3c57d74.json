@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.6000000238418579,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_a731e3c57d74",
+  "test": "game::tests::movement_regression::steps_require_ground_and_full_head_clearance",
+  "yaw_degrees": 0.0
+}

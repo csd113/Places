@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.15000000596046448,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_aa5c8e0f5f3f",
+  "test": "game::tests::movement_regression::low_ceiling_covers_the_body_disc_at_its_edge",
+  "yaw_degrees": 0.0
+}

@@ -1,0 +1,42 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_8b0ee9957100",
+  "name": "steps_require_ground_and_full_head_clearance",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": -0.6000000238418579,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": [
+    {
+      "depth": 4.0,
+      "height": 0.4099999964237213,
+      "width": 2.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -2.0
+    },
+    {
+      "depth": 4.0,
+      "height": 0.009999990463256836,
+      "width": 4.0,
+      "x": -2.0,
+      "y": 2.0,
+      "z": -2.0
+    }
+  ]
+}

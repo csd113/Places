@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.5,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_845dfea385f9",
+  "test": "game::tests::movement_regression::airborne_side_contact_never_steps_or_becomes_ground_and_slides",
+  "yaw_degrees": 0.0
+}

@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    4.599999904632568,
+    3.5
+  ],
+  "id": "movement_audit_420608eb6e55",
+  "test": "game::tests::movement_regression::spawn_across_a_gabled_roof_uses_separate_bounded_recovery",
+  "yaw_degrees": 0.0
+}

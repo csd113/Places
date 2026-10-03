@@ -1,0 +1,10 @@
+{
+  "id": "movement_audit_corner",
+  "test": "Independent 90 degree contact planes",
+  "eye_spawn": [
+    -1,
+    1.6,
+    -1
+  ],
+  "yaw_degrees": 90
+}

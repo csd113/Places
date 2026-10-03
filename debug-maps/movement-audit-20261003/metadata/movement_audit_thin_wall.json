@@ -1,0 +1,10 @@
+{
+  "id": "movement_audit_thin_wall",
+  "test": "50 m sweep / 0.1 mm wall",
+  "eye_spawn": [
+    -25,
+    1.6,
+    -2
+  ],
+  "yaw_degrees": 90
+}

@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.6000000238418579,
+    1.600000023841858,
+    -0.6000000238418579
+  ],
+  "id": "movement_audit_7685e3f65809",
+  "test": "game::tests::movement_regression::floor_two_walls_and_ceiling_corner_remain_nonpenetrating",
+  "yaw_degrees": 0.0
+}

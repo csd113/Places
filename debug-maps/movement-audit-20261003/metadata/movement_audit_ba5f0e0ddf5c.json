@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    1.600000023841858,
+    0.0
+  ],
+  "id": "movement_audit_ba5f0e0ddf5c",
+  "test": "game::tests::movement_performance::measure_controller_hot_path",
+  "yaw_degrees": 0.0
+}

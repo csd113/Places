@@ -14,6 +14,8 @@ use crate::render::SCENE_NEAR_M;
 use crate::test_support::assert_exact;
 
 mod movement_diagnostics;
+mod movement_performance;
+mod movement_regression;
 
 /// Advances `frames` deterministic 60 Hz simulation frames with no input.
 fn advance_frames(game: &mut Game, frames: usize) {
@@ -458,8 +460,12 @@ fn test_controller_climbs_the_home_staircase_and_the_ramp() {
 
     // Up the ramp: the same 0.75 m, this time continuously.
     let mut game = game_for(&level);
-    set_eye_position(&mut game, Vec3::new(4.5, EYE_HEIGHT, 0.5));
-    game.player_floor_y = 0.0;
+    let ramp_floor = game
+        .floor
+        .walk_height_at(4.5, 0.5)
+        .expect("ramp spawn surface");
+    set_eye_position(&mut game, Vec3::new(4.5, ramp_floor + EYE_HEIGHT, 0.5));
+    game.player_floor_y = ramp_floor;
     game.player_yaw = 180.0_f32.to_radians();
     walk_forward(&mut game, 60);
     assert!(
@@ -568,7 +574,7 @@ fn test_controller_climbs_an_exact_limit_riser_at_an_elevated_floor() {
         let riser = level.stairs.first().expect("one staircase").riser_height();
         assert!((riser - PLAYER_STEP_HEIGHT).abs() < 1e-6, "{riser}");
         let mut game = game_for(&level);
-        set_eye_position(&mut game, Vec3::new(4.5, EYE_HEIGHT, 1.9));
+        set_eye_position(&mut game, Vec3::new(4.5, floor_y + EYE_HEIGHT, 1.9));
         game.player_floor_y = floor_y;
         game.player_yaw = 180.0_f32.to_radians(); // south, up the flight
         // Ten 0.1 s frames at 3 m/s cover the 3 m tread run and stop on the
@@ -1338,14 +1344,19 @@ fn ceiling_bump_clamps_the_head_and_zeroes_upward_velocity() {
             "the head stays under the ceiling: {}",
             game.player_position.y
         );
-        if game.player_position.y >= max_eye - 1e-4 {
+        if game.ceiling_contact_this_frame {
             bumped = true;
-            assert_exact(game.vertical_velocity, 0.0);
+            assert!(
+                game.vertical_velocity <= 0.0,
+                "upward impact velocity is consumed"
+            );
         }
     }
     assert!(bumped, "the jump reaches the ceiling: {highest}");
     assert!(
-        (highest - max_eye).abs() <= CONTACT_EPS + 1e-4,
+        (highest - max_eye).abs()
+            <= (0.5 * GRAVITY * game.sim_delta_seconds)
+                .mul_add(game.sim_delta_seconds, CONTACT_EPS),
         "the head is clamped to the ceiling: {highest} vs {max_eye}"
     );
     // With the upward velocity consumed by the bump, the player falls back and
@@ -2164,8 +2175,12 @@ fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
     for _ in 0..120 {
         game.update_player_movement(&mut jump, &settings);
         highest = highest.max(game.player_position.y);
-        if !game.grounded && game.vertical_velocity == 0.0 {
+        if game.ceiling_contact_this_frame {
             bumped = true;
+            assert!(
+                game.vertical_velocity <= 0.0,
+                "ceiling removed upward velocity"
+            );
         }
     }
     let max_eye = 1.0 - (CROUCH_HEIGHT - CROUCH_EYE_HEIGHT) - CONTACT_EPS + 1e-3;
@@ -2383,8 +2398,12 @@ fn jumping_through_the_demo_doorway_never_teleports_or_clips() {
                 game.player_position.y
             );
         }
-        if !game.grounded && game.vertical_velocity == 0.0 {
+        if game.ceiling_contact_this_frame {
             bumped = true;
+            assert!(
+                game.vertical_velocity <= 0.0,
+                "ceiling removed upward velocity"
+            );
         }
     }
     assert!(bumped, "the jump under the header bumps the head");
@@ -7682,7 +7701,9 @@ fn demo_sauna_landing_steps_from_three_sides_and_diagonal() {
     let riser = 0.3_f32;
     let max_step = riser + 1e-3;
     let approaches: [(f32, f32, f32, &str); 4] = [
-        (24.6, 10.3, 180.0, "north"),
+        // x24.6 is already inside the raised shower-passage region. Approach
+        // from the deck beside it so the initial feet are on the stated floor.
+        (23.7, 10.3, 180.0, "north"),
         (21.7, 13.6, 90.0, "west"),
         (24.6, 16.9, 0.0, "south"),
         (21.8, 17.0, 45.0, "diagonal"),
@@ -7865,7 +7886,9 @@ fn demo_home_staircase_audit_up_down_diagonal_and_stops() {
     );
 
     // The balcony landing is one flat plane at 1.2 north of the armchair.
-    let mut game = demo_game_at(58.3, 1.2, 13.1, 90.0, 1.0 / 60.0);
+    // The guardrail ends at (58.035, 13.0). Keep the radius clear of its
+    // rounded corner; x58.3 initially intersects it by about 17 mm.
+    let mut game = demo_game_at(58.35, 1.2, 13.1, 90.0, 1.0 / 60.0);
     let landing = audited_walk(&mut game, 140, 1e-3, None, |game| {
         game.player_position.x > 60.4
     });

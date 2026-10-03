@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    -0.6000000238418579,
+    3.0999999046325684,
+    0.0
+  ],
+  "id": "movement_audit_d13514f38a15",
+  "test": "game::tests::movement_regression::ledge_departure_and_fall_distance_are_equivalent_across_frame_rates",
+  "yaw_degrees": 0.0
+}

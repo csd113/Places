@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    7.599999904632568,
+    0.0
+  ],
+  "id": "movement_audit_49489c743dfc",
+  "test": "game::tests::movement_regression::thin_floor_and_overhead_slab_cannot_be_tunnelled_through",
+  "yaw_degrees": 0.0
+}

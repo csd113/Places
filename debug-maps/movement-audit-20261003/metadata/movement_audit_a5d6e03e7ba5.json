@@ -1,0 +1,10 @@
+{
+  "eye_spawn": [
+    0.0,
+    4.599999904632568,
+    0.0
+  ],
+  "id": "movement_audit_a5d6e03e7ba5",
+  "test": "game::tests::movement_regression::air_spawn_requires_actual_support_instead_of_an_xz_floor",
+  "yaw_degrees": 0.0
+}

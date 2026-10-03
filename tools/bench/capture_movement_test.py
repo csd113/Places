@@ -8,6 +8,7 @@ import argparse
 import csv
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 
@@ -88,6 +89,9 @@ def cases():
     add("ramp_wall", 11, "56.6,78.5,180", "forward@0-1.3", 1.3)
     add("prop_door", 11, "63,79.5,180", "forward@0-2,jump@0.2-0.26", 2)
     add("sloped_head", 12, "75,55,90", "jump@0-0.06,forward@0-2", 2)
+    result.append(dict(name="pit_stacked_balcony", station=0,
+        spawn="50.2,1.6,-29.2,180", script="jump@0-0.06,forward@0-0.58",
+        seconds=1.5, interact="", level="level0_pit"))
     return result
 
 
@@ -97,6 +101,8 @@ def main():
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--quality", choices=["low", "high"], default="high")
     parser.add_argument("--case", default="", help="only case names containing this text")
+    parser.add_argument("--pit-package", type=Path, default=ROOT / "levels/level0_pit.placesmap",
+                        help="compiled Pit package for the balcony regression")
     args = parser.parse_args()
     out = args.out.resolve() / args.quality
     out.mkdir(parents=True, exist_ok=True)
@@ -108,8 +114,15 @@ def main():
         quality=args.quality, texture_filtering=args.quality, reflections="off",
         lightmaps="off" if args.quality == "low" else "full", bloom=False,
         window_width=640, window_height=360, window_mode="windowed")))
+    selected = [case for case in cases() if args.case in case["name"]]
+    if any(case.get("level") == "level0_pit" for case in selected):
+        if not args.pit_package.is_file():
+            parser.error("compile tests/fixtures/levels/level0_pit.json and supply --pit-package")
+        installed = state / "levels"
+        installed.mkdir(exist_ok=True)
+        shutil.copy2(args.pit_package, installed / "level0_pit.placesmap")
     records = []
-    for case in cases():
+    for case in selected:
         if args.case not in case["name"]:
             continue
         name = case["name"]
@@ -117,8 +130,8 @@ def main():
         png_path = out / f"{name}.png"
         csv_path.unlink(missing_ok=True)
         png_path.unlink(missing_ok=True)
-        env = dict(os.environ, PLACES_STATE_ROOT=str(state), PLACES_ASSET_ROOT=str(ROOT / "assets"),
-            PLACES_LEVEL="movement_test", PLACES_QUALITY=args.quality, PLACES_BENCH="1",
+        env = dict(os.environ, PLACES_STATE_ROOT=str(state), PLACES_ASSET_ROOT=str(ROOT),
+            PLACES_LEVEL=case.get("level", "movement_test"), PLACES_QUALITY=args.quality, PLACES_BENCH="1",
             PLACES_SPAWN=case["spawn"], PLACES_CAMERA=case["spawn"].split(",")[-1] + ",-20",
             PLACES_MOVE_SCRIPT=case["script"], PLACES_INTERACT=case["interact"],
             PLACES_CAPTURE_TIME=str(case["seconds"]), PLACES_CAPTURE=str(png_path),

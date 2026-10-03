@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "movement_audit_9f8610ed7167",
+  "name": "falling_body_edge_cannot_enter_a_prop_when_center_misses_top",
+  "rooms": [
+    {
+      "depth": 20,
+      "height": 8,
+      "width": 20,
+      "x": -10,
+      "z": -10
+    }
+  ],
+  "spawn": {
+    "x": -0.15000000596046448,
+    "yaw_degrees": 0.0,
+    "z": 0.5
+  },
+  "walls": [
+    {
+      "depth": 1.0,
+      "height": 0.8999999761581421,
+      "width": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    }
+  ]
+}

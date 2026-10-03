@@ -1,0 +1,20 @@
+[
+  {
+    "name": "pit_stacked_balcony",
+    "station": 0,
+    "spawn": "50.2,1.6,-29.2,180",
+    "script": "jump@0-0.06,forward@0-0.58",
+    "seconds": 1.5,
+    "interact": "",
+    "level": "level0_pit",
+    "exit_code": 0,
+    "final_state": [
+      "100",
+      "50.2000",
+      "2.0500",
+      "-27.9768",
+      "3.1416",
+      "0.0000"
+    ]
+  }
+]

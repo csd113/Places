@@ -1,0 +1,615 @@
+[
+  {
+    "id": "level0_pit",
+    "test": "Preserved level0_pit reference map",
+    "eye_spawn": [
+      50.2,
+      1.6,
+      -29.2
+    ],
+    "yaw_degrees": 180,
+    "source": "sources/level0_pit.json",
+    "package": "packages/level0_pit.placesmap",
+    "wall_count": 43,
+    "room_heights": [
+      2.7,
+      2.7,
+      3.2,
+      2.7,
+      6.0,
+      6.0,
+      6.0,
+      6.0,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      2.2,
+      17.0,
+      17.0,
+      17.0,
+      17.0,
+      17.0
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      4.199999809265137,
+      0.0
+    ],
+    "id": "movement_audit_17c50b94530c",
+    "test": "game::tests::movement_regression::stacked_storey_ceiling_below_feet_cannot_teleport_a_jump",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_17c50b94530c.json",
+    "package": "packages/movement_audit_17c50b94530c.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.4,
+      3
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_1bf2c6791b49",
+    "test": "game::tests::movement_regression::steps_require_ground_and_full_head_clearance",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_1bf2c6791b49.json",
+    "package": "packages/movement_audit_1bf2c6791b49.placesmap",
+    "wall_count": 2,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      4.0,
+      0.0
+    ],
+    "id": "movement_audit_258e7ddd25a2",
+    "test": "game::tests::movement_regression::a_room_ceiling_is_support_from_above_and_never_a_downward_clamp",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_258e7ddd25a2.json",
+    "package": "packages/movement_audit_258e7ddd25a2.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.4
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_2f1424a900dc",
+    "test": "game::tests::movement_regression::ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_2f1424a900dc.json",
+    "package": "packages/movement_audit_2f1424a900dc.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.05
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.15000000596046448,
+      4.599999904632568,
+      0.0
+    ],
+    "id": "movement_audit_3abd34b6f63e",
+    "test": "game::tests::movement_regression::landing_on_a_room_roof_edge_uses_the_whole_body_disc",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_3abd34b6f63e.json",
+    "package": "packages/movement_audit_3abd34b6f63e.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.4,
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      4.599999904632568,
+      3.5
+    ],
+    "id": "movement_audit_420608eb6e55",
+    "test": "game::tests::movement_regression::spawn_across_a_gabled_roof_uses_separate_bounded_recovery",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_420608eb6e55.json",
+    "package": "packages/movement_audit_420608eb6e55.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.4
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      7.599999904632568,
+      0.0
+    ],
+    "id": "movement_audit_49489c743dfc",
+    "test": "game::tests::movement_regression::thin_floor_and_overhead_slab_cannot_be_tunnelled_through",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_49489c743dfc.json",
+    "package": "packages/movement_audit_49489c743dfc.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_5488abc5b606",
+    "test": "game::tests::movement_regression::ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_5488abc5b606.json",
+    "package": "packages/movement_audit_5488abc5b606.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      1.8004999
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      9.600000381469727,
+      0.0
+    ],
+    "id": "movement_audit_5933da10473f",
+    "test": "game::tests::movement_regression::ledge_departure_and_fall_distance_are_equivalent_across_frame_rates",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_5933da10473f.json",
+    "package": "packages/movement_audit_5933da10473f.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      20
+    ]
+  },
+  {
+    "eye_spawn": [
+      -1.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_5e49ec819009",
+    "test": "game::tests::movement_regression::grounded_floor_region_steps_never_embed_the_body_in_their_rims",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_5e49ec819009.json",
+    "package": "packages/movement_audit_5e49ec819009.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      4.0
+    ]
+  },
+  {
+    "eye_spawn": [
+      -1.0,
+      1.600000023841858,
+      0.5
+    ],
+    "id": "movement_audit_66326a50cde0",
+    "test": "game::tests::movement_regression::real_solid_step_at_maximum_height_is_traversable",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_66326a50cde0.json",
+    "package": "packages/movement_audit_66326a50cde0.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.4000000059604645,
+      2.0999999046325684,
+      0.0
+    ],
+    "id": "movement_audit_6f20140b35d2",
+    "test": "game::tests::movement_regression::a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_6f20140b35d2.json",
+    "package": "packages/movement_audit_6f20140b35d2.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      8,
+      4
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      1.600000023841858,
+      -0.6000000238418579
+    ],
+    "id": "movement_audit_7685e3f65809",
+    "test": "game::tests::movement_regression::floor_two_walls_and_ceiling_corner_remain_nonpenetrating",
+    "yaw_degrees": 135,
+    "source": "sources/movement_audit_7685e3f65809.json",
+    "package": "packages/movement_audit_7685e3f65809.placesmap",
+    "wall_count": 3,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_80d3a944bbaf",
+    "test": "game::tests::movement_performance::measure_controller_hot_path",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_80d3a944bbaf.json",
+    "package": "packages/movement_audit_80d3a944bbaf.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      4.0
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.5,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_845dfea385f9",
+    "test": "game::tests::movement_regression::airborne_side_contact_never_steps_or_becomes_ground_and_slides",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_845dfea385f9.json",
+    "package": "packages/movement_audit_845dfea385f9.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_8b0ee9957100",
+    "test": "game::tests::movement_regression::steps_require_ground_and_full_head_clearance",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_8b0ee9957100.json",
+    "package": "packages/movement_audit_8b0ee9957100.placesmap",
+    "wall_count": 2,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.15000000596046448,
+      2.8000001907348633,
+      0.5
+    ],
+    "id": "movement_audit_9f8610ed7167",
+    "test": "game::tests::movement_regression::falling_body_edge_cannot_enter_a_prop_when_center_misses_top",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_9f8610ed7167.json",
+    "package": "packages/movement_audit_9f8610ed7167.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_a0a48bfabc94",
+    "test": "game::tests::movement_regression::spawn_overlap_recovery_is_clear_bounded_and_deterministic",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_a0a48bfabc94.json",
+    "package": "packages/movement_audit_a0a48bfabc94.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      4.599999904632568,
+      0.0
+    ],
+    "id": "movement_audit_a5d6e03e7ba5",
+    "test": "game::tests::movement_regression::air_spawn_requires_actual_support_instead_of_an_xz_floor",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_a5d6e03e7ba5.json",
+    "package": "packages/movement_audit_a5d6e03e7ba5.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_a731e3c57d74",
+    "test": "game::tests::movement_regression::steps_require_ground_and_full_head_clearance",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_a731e3c57d74.json",
+    "package": "packages/movement_audit_a731e3c57d74.placesmap",
+    "wall_count": 2,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.15000000596046448,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_aa5c8e0f5f3f",
+    "test": "game::tests::movement_regression::low_ceiling_covers_the_body_disc_at_its_edge",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_aa5c8e0f5f3f.json",
+    "package": "packages/movement_audit_aa5c8e0f5f3f.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.05,
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_b0f5ad049c0d",
+    "test": "game::tests::movement_regression::ceilings_stop_upward_velocity_preserve_lateral_motion_and_then_fall_at_every_rate",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_b0f5ad049c0d.json",
+    "package": "packages/movement_audit_b0f5ad049c0d.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.78
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.4000000059604645,
+      2.0999999046325684,
+      0.0
+    ],
+    "id": "movement_audit_b4d7f82904ca",
+    "test": "game::tests::movement_regression::side_entry_into_a_low_room_ceiling_is_blocked_without_a_vertical_teleport",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_b4d7f82904ca.json",
+    "package": "packages/movement_audit_b4d7f82904ca.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      2.05,
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_ba5f0e0ddf5c",
+    "test": "game::tests::movement_performance::measure_controller_hot_path",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_ba5f0e0ddf5c.json",
+    "package": "packages/movement_audit_ba5f0e0ddf5c.placesmap",
+    "wall_count": 4001,
+    "room_heights": [
+      4.0
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_c021e6f5ced9",
+    "test": "game::tests::movement_regression::thin_floor_and_overhead_slab_cannot_be_tunnelled_through",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_c021e6f5ced9.json",
+    "package": "packages/movement_audit_c021e6f5ced9.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_c53f8cd3e4ca",
+    "test": "game::tests::movement_regression::repeated_jump_cycles_preserve_apex_and_land_at_every_frame_pattern",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_c53f8cd3e4ca.json",
+    "package": "packages/movement_audit_c53f8cd3e4ca.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_c6eed58f83a3",
+    "test": "game::tests::movement_regression::steps_require_ground_and_full_head_clearance",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_c6eed58f83a3.json",
+    "package": "packages/movement_audit_c6eed58f83a3.placesmap",
+    "wall_count": 2,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "id": "movement_audit_corner",
+    "test": "Independent 90 degree contact planes",
+    "eye_spawn": [
+      -1,
+      1.6,
+      -1
+    ],
+    "yaw_degrees": 135,
+    "source": "sources/movement_audit_corner.json",
+    "package": "packages/movement_audit_corner.placesmap",
+    "wall_count": 2,
+    "room_heights": [
+      5
+    ]
+  },
+  {
+    "eye_spawn": [
+      -0.6000000238418579,
+      3.0999999046325684,
+      0.0
+    ],
+    "id": "movement_audit_d13514f38a15",
+    "test": "game::tests::movement_regression::ledge_departure_and_fall_distance_are_equivalent_across_frame_rates",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_d13514f38a15.json",
+    "package": "packages/movement_audit_d13514f38a15.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      0.0,
+      2.5999183654785156,
+      0.0
+    ],
+    "id": "movement_audit_e3b660c958ce",
+    "test": "game::tests::movement_regression::ceiling_impact_is_found_when_the_jump_apex_is_between_clear_endpoints",
+    "yaw_degrees": 0.0,
+    "source": "sources/movement_audit_e3b660c958ce.json",
+    "package": "packages/movement_audit_e3b660c958ce.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      -1.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_f0498cfb8d5d",
+    "test": "game::tests::movement_regression::narrow_passage_crouch_and_stand_clearance_remain_physical",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_f0498cfb8d5d.json",
+    "package": "packages/movement_audit_f0498cfb8d5d.placesmap",
+    "wall_count": 3,
+    "room_heights": [
+      8
+    ]
+  },
+  {
+    "eye_spawn": [
+      1.0,
+      1.600000023841858,
+      0.0
+    ],
+    "id": "movement_audit_fffd85d16796",
+    "test": "game::tests::movement_regression::a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry",
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_fffd85d16796.json",
+    "package": "packages/movement_audit_fffd85d16796.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      8,
+      4
+    ]
+  },
+  {
+    "id": "movement_audit_qa_reference",
+    "test": "Preserved movement_test reference map",
+    "eye_spawn": [
+      15,
+      1.6,
+      10
+    ],
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_qa_reference.json",
+    "package": "packages/movement_audit_qa_reference.placesmap",
+    "wall_count": 46,
+    "room_heights": [
+      8,
+      4,
+      1.85,
+      8,
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "id": "movement_audit_rotated_door",
+    "test": "45 degree / 1 mm door leaf",
+    "eye_spawn": [
+      -0.7071,
+      1.6,
+      2.1213
+    ],
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_rotated_door.json",
+    "package": "packages/movement_audit_rotated_door.placesmap",
+    "wall_count": 0,
+    "room_heights": [
+      5
+    ]
+  },
+  {
+    "id": "movement_audit_thin_wall",
+    "test": "50 m sweep / 0.1 mm wall",
+    "eye_spawn": [
+      -25,
+      1.6,
+      -2
+    ],
+    "yaw_degrees": 90,
+    "source": "sources/movement_audit_thin_wall.json",
+    "package": "packages/movement_audit_thin_wall.placesmap",
+    "wall_count": 1,
+    "room_heights": [
+      5
+    ]
+  }
+]

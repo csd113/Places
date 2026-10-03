@@ -1,0 +1,36 @@
+{
+  "format_version": 3,
+  "id": "movement_audit_thin_wall",
+  "name": "50 m sweep / 0.1 mm wall",
+  "spawn": {
+    "x": -25,
+    "z": -2
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -30,
+      "z": -105,
+      "width": 60,
+      "depth": 210,
+      "height": 5,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "walls": [
+    {
+      "x": 0,
+      "y": 0,
+      "z": -100,
+      "width": 0.0001,
+      "height": 4,
+      "depth": 200
+    }
+  ]
+}

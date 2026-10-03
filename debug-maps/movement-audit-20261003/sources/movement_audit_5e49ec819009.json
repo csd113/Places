@@ -1,0 +1,70 @@
+{
+  "animated_emissions": [],
+  "archways": [],
+  "author": "",
+  "baseboards": [],
+  "ceiling_lights": [],
+  "columns": [],
+  "decals": [],
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "floor_patches": [],
+  "floor_regions": [
+    {
+      "depth": 4.0,
+      "edge_material": null,
+      "edge_shine": null,
+      "material": null,
+      "offset_y": 0.4,
+      "shine": null,
+      "width": 2.0,
+      "x": 0.0,
+      "z": -2.0
+    }
+  ],
+  "format_version": 3,
+  "guardrails": [],
+  "half_walls": [],
+  "id": "movement_audit_5e49ec819009",
+  "ladders": [],
+  "name": "grounded_floor_region_steps_never_embed_the_body_in_their_rims",
+  "props": [],
+  "ramps": [],
+  "rooms": [
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": null,
+      "ceiling_shine": null,
+      "depth": 8.0,
+      "floor_y": 0.0,
+      "height": 4.0,
+      "material": null,
+      "shine": null,
+      "width": 8.0,
+      "x": -4.0,
+      "z": -4.0
+    }
+  ],
+  "routes": [],
+  "sequences": [],
+  "sky": null,
+  "spawn": {
+    "x": -1.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "spawn_groups": [],
+  "spawn_points": [],
+  "spawn_templates": [],
+  "stairs": [],
+  "thresholds": [],
+  "timers": [],
+  "volumes": [],
+  "walls": [],
+  "water": []
+}
