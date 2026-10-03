@@ -514,6 +514,6 @@ mod tests {
             width: 0,
             height: 0,
         };
-        assert!(fill_chart(&lighting, &patch, &chart).is_empty());
+        assert_eq!(fill_chart(&lighting, &patch, &chart).len(), 0);
     }
 }

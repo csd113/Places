@@ -573,7 +573,7 @@ respect. They are not tiles: they are fitted to a model's own UV map.
   skins (`JOINTS_0`/`WEIGHTS_0`, one skin per model) and optional LINEAR/STEP
   animation clips, no morph targets. A skinned model's static prop batch draws
   its bind pose; a placed skinned model is re-posed every frame by the
-  character path (see [MAP_AUTHORING_GUIDE.md §16](../MAP_AUTHORING_GUIDE.md#16-props-and-models)).
+  character path (see [MAP_AUTHORING_GUIDE.md §16](MAP_AUTHORING_GUIDE.md#16-props-and-models)).
 * **Textures are embedded PNG bufferViews inside the GLB.** External images
   and `data:` URIs are rejected with the message "external or data-URI images
   are not supported; embed the PNG in the GLB". A `.png` file next to a model

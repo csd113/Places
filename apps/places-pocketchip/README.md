@@ -1,6 +1,6 @@
 # Places for PocketCHIP
 
-**0.11.1** · `io.vitrallis.liminalrust` · native Rust · PocketCHIP ARMv7.
+**0.11.2** · `io.vitrallis.liminalrust` · native Rust · PocketCHIP ARMv7.
 [Release notes](CHANGELOG.md).
 
 Explore an office, empty pool and unfinished interior in a first-person walking
@@ -32,16 +32,24 @@ The ARMv7 EABI5 hard-float executable requires the device's SDL2, X11/EGL/GLES2,
 GNU libc and Mali/Lima graphics stack. It is built for the Cortex-A8 and targets
 the PocketCHIP's 480 × 272 display. It does not install system libraries at
 launch. The game uses an OpenGL ES backbuffer and presents completed frames
-through SDL's swap interval when supported; the device profile and measurements
-are documented in the [source tree](../../source/places-pocketchip/docs/POCKETCHIP.md).
+through SDL's swap interval when supported. Device measurements and visual
+acceptance must be recorded against the specific build being released.
 
 The package contains `assets/catalog.json`, the Places Demo level, textures,
 models and the ARMv7 executable. Asset textures are scaled to a 384-pixel
 maximum dimension for the App Manager package size limit; the source artwork
-remains in the [development tree](../../source/places-pocketchip/). Settings,
-custom levels, imports and the lightmap cache are writable state outside the
-published file inventory. Storage permission is required for that state.
+remains in the [project artwork](../../assets/). Settings,
+custom levels, imports and the lightmap cache use `VITRALLIS_APP_DATA_DIR`,
+defaulting to `~/Documents/Vitrallis/AppData/io.vitrallis.liminalrust`.
+Updates and normal uninstall preserve this directory. Storage must be absolute,
+private (0700), and outside the package, without traversal or symlink components.
+`LIMINAL_STATE_ROOT` selects an explicit standalone benchmark directory when the
+Vitrallis runtime variable is absent. Storage permission is required for that state.
 
 This release has been validated as a catalog package and cross-compiled against
 the PocketCHIP SDL2 sysroot. Device installation, update and visual checks must
 be recorded separately before enabling a new installable release.
+
+Project code and artwork use [MIT](LICENSE). Keep the
+[dependency notices](THIRD_PARTY_NOTICES.md) and collected upstream texts with
+the package.

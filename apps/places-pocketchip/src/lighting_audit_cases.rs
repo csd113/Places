@@ -1323,7 +1323,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     ));
     let mesh = build_checked(&level);
     let wall = mesh.triangles_for(SurfaceKind::Wall);
-    assert!(!wall.is_empty());
+    assert_ne!(wall.len(), 0);
 
     // Two wall vertices with different base tints at the same world position
     // differ by the same ratio as their base colours (north face is lighter
@@ -1627,8 +1627,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Completely empty.
     let empty = empty_level();
     let lighting = bake(&empty);
-    assert!(lighting.rooms().is_empty());
-    assert!(lighting.lights().is_empty());
+    assert_eq!(lighting.rooms().len(), 0);
+    assert_eq!(lighting.lights().len(), 0);
     assert_eq!(lighting.sample(0.0, 0.0, 0.0), ambient_color());
     assert_eq!(lighting.summary().rooms, 0);
     assert_exact(
@@ -1790,7 +1790,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         emission: None,
     });
     let lighting = bake(&broken);
-    assert!(lighting.lights().is_empty());
+    assert_eq!(lighting.lights().len(), 0);
     assert!(lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
     assert_eq!(
         lighting.sample(f32::NAN, f32::INFINITY, f32::NEG_INFINITY),

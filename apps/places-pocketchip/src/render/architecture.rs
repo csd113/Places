@@ -1081,8 +1081,8 @@ fn emit_box(
     keys: BoxKeys,
 ) {
     let (min, max) = bounds;
-    let (x0, y0, z0) = (min[0], min[1], min[2]);
-    let (x1, y1, z1) = (max[0], max[1], max[2]);
+    let [x0, y0, z0] = min;
+    let [x1, y1, z1] = max;
     if !(x1 > x0 && y1 > y0 && z1 > z0) {
         return;
     }

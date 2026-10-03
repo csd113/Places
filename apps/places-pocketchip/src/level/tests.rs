@@ -363,14 +363,14 @@ fn test_wall_solid_slices_ignores_out_of_range_openings() {
     empty.openings.clear();
     empty.width = 0.0;
     empty.depth = 0.0;
-    assert!(wall_solid_slices(&empty, 3.5).is_empty());
+    assert_eq!(wall_solid_slices(&empty, 3.5).len(), 0);
 }
 
 #[test]
 fn test_wall_solid_slices_clamps_oversized_opening() {
     // An opening larger than the wall removes it entirely from collision.
     let wall = wall_with_openings(r#"[{ "offset": -1.0, "width": 10.0, "height": 10.0 }]"#);
-    assert!(wall_solid_slices(&wall, 3.5).is_empty());
+    assert_eq!(wall_solid_slices(&wall, 3.5).len(), 0);
 }
 
 #[test]

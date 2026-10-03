@@ -165,7 +165,7 @@ pub fn ceiling_y_for_volume(
         return eave;
     }
     let tent = (1.0 - (across - centre).abs() / half_extent).clamp(0.0, 1.0);
-    eave + rise * tent
+    f32::mul_add(rise, tent, eave)
 }
 
 /// Rectangular room section defining floor and ceiling boundaries.
@@ -1869,7 +1869,7 @@ impl ArchwayDef {
         // A circular segment through the two springing points and the crown:
         // solving for the circle's rise above the chord gives the curve.
         let x = (along - f32::midpoint(start, end)).clamp(-half, half) / half;
-        let shape = (1.0 - x * x).max(0.0).sqrt();
+        let shape = x.mul_add(-x, 1.0).max(0.0).sqrt();
         rise.mul_add(shape, self.spring_height())
     }
 

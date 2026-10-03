@@ -526,7 +526,7 @@ fn content_key_is_stable_and_changes_with_the_inputs() {
         key,
         content_key(&level, &low, crate::quality::QualityProfile::Low)
     );
-    assert!(!key.is_empty());
+    assert_ne!(key.len(), 0);
 }
 
 use super::{LevelLightmaps, LightmapCache, LightmapPage, LightmapStats};

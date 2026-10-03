@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.2 — 2026-10-02
+
+- Keep settings, saves and generated lighting state in private Shell-provided AppData instead of the replaceable package.
+- Reject unsafe storage paths before startup writes.
+- Save settings atomically, preserve previous bytes on storage failure, and bound settings/cache reads.
+- Include the matching lighting parity fixture and validate the shipped PocketCHIP artwork dimensions.
+- Rebuild the ARMv7 payload with Rust 1.99 and matching package version.
+- Record the locked ARMv7 dependency inventory and include its missing upstream license texts.
+
 ## 0.11.1 — 2026-09-26
 
 - Keep fitted decal and fixture artwork at power-of-two dimensions in the

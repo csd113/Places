@@ -465,7 +465,7 @@ fn a_primitive_without_a_material_uses_the_default_slot() {
         "the implicit glTF default material uses the synthetic slot after the declared list"
     );
     assert_eq!(model.submeshes[0].texture, None);
-    assert!(model.textures.is_empty());
+    assert_eq!(model.textures.len(), 0);
     assert!((model.vertices[0].color[0] - 1.0).abs() < 1e-6);
 }
 

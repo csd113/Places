@@ -714,7 +714,7 @@ impl DynamicScene {
             }
             let yaw = prop.rotation_degrees.to_radians();
             let (sin, cos) = yaw.sin_cos();
-            let reach = machine_depth * 0.5 + drum_radius + gap;
+            let reach = machine_depth.mul_add(0.5, drum_radius) + gap;
             // A prop at rotation 0 faces +Z, so forward is (sin, 0, cos).
             let x = sin.mul_add(reach, prop.x);
             let z = cos.mul_add(reach, prop.z);
@@ -1052,7 +1052,7 @@ mod tests {
         let fresh = scene.spawn(&asset, [0.0, 0.0, 0.0], 0.0, 1.0, 0.0).unwrap();
         assert!(!ids.contains(&fresh));
         scene.clear();
-        assert!(scene.is_empty());
+        assert_eq!(scene.len(), 0);
         assert!(scene.get(fresh).is_none());
         assert!(scene.revision() > 0);
     }
@@ -1074,7 +1074,7 @@ mod tests {
         }
         assert_eq!(scene.mesh_count(), MAX_DYNAMIC_MESHES);
         scene.clear();
-        assert!(scene.is_empty());
+        assert_eq!(scene.len(), 0);
         assert_eq!(scene.mesh_count(), MAX_DYNAMIC_MESHES);
         scene.clear_all();
         assert_eq!(scene.mesh_count(), 0);
@@ -1099,7 +1099,7 @@ mod tests {
                 .spawn(&asset, [0.0, 0.0, 0.0], 0.0, 1.0, 0.0)
                 .is_none()
         );
-        assert!(scene.is_empty());
+        assert_eq!(scene.len(), 0);
         assert_eq!(scene.mesh_count(), 0);
     }
 
@@ -1209,7 +1209,7 @@ mod tests {
             scene.spawn_washer_drum_demo(&level, &catalog, &mut assets),
             0
         );
-        assert!(scene.is_empty());
+        assert_eq!(scene.len(), 0);
     }
 
     #[test]

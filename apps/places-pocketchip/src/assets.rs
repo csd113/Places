@@ -53,54 +53,94 @@ pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"]
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
 
-/// Environment variable that overrides where writable runtime state lives.
-///
-/// The state root is the directory that owns `settings.json`, the drop-in
-/// `levels/` and `import/` directories and the level cache. A relative value is
-/// resolved against the working directory at read time, like
-/// [`ASSET_ROOT_ENV`].
+/// Explicit state directory for standalone benchmark and development runs.
+/// Vitrallis launches use `VITRALLIS_APP_DATA_DIR` first. Both must be absolute.
 pub const STATE_ROOT_ENV: &str = "LIMINAL_STATE_ROOT";
 
-/// The directory that owns every writable runtime file.
+/// Persistent state is separate from the replaceable package payload.
 ///
-/// Precedence is deliberate and deterministic:
-///
-/// 1. the [`STATE_ROOT_ENV`] override — tests and benchmark runs pin their own
-///    scratch state;
-/// 2. the package root, i.e. the parent of the resolved asset root — a portable
-///    install keeps settings, drop-in levels and its cache next to its payload,
-///    no matter what the working directory is;
-/// 3. the working directory, for the degenerate case where no asset root was
-///    found at all.
-///
-/// Nothing here creates the directory: callers create the subdirectories they
-/// need, so a read-only installation still fails only where it must.
+/// The launcher-provided app data directory takes precedence, followed by an
+/// explicit development override and the standalone Documents location.
 #[must_use]
 pub fn state_root() -> PathBuf {
     static RESOLVED: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
     RESOLVED
         .get_or_init(|| {
-            if let Ok(raw) = std::env::var(STATE_ROOT_ENV) {
-                let trimmed = raw.trim();
-                if !trimmed.is_empty() {
-                    let path = PathBuf::from(trimmed);
-                    return if path.is_absolute() {
-                        path
-                    } else {
-                        std::env::current_dir()
-                            .map(|cwd| cwd.join(&path))
-                            .unwrap_or(path)
-                    };
-                }
-            }
-            if let Some(assets) = resolve_asset_root()
-                && let Some(root) = assets.parent()
-            {
-                return root.to_path_buf();
-            }
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+            std::env::var_os("VITRALLIS_APP_DATA_DIR")
+                .or_else(|| std::env::var_os(STATE_ROOT_ENV))
+                .map_or_else(
+                    || {
+                        std::env::var_os("HOME").map_or_else(PathBuf::new, |home| {
+                            PathBuf::from(home)
+                                .join("Documents/Vitrallis/AppData/io.vitrallis.liminalrust")
+                        })
+                    },
+                    PathBuf::from,
+                )
         })
         .clone()
+}
+
+/// Validate storage and create private state before any settings/cache writes.
+/// # Errors
+/// Rejects relative paths, traversal, control characters, links, package-local
+/// state and directories writable by other users. Reports filesystem failures.
+pub fn initialize_state_root() -> std::io::Result<()> {
+    let root = state_root();
+    validate_state_root(&root)?;
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(&root)?;
+    validate_state_root(&root)
+}
+
+fn validate_state_root(root: &Path) -> std::io::Result<()> {
+    use std::io::Error;
+    if !root.is_absolute()
+        || root
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+        || root
+            .as_os_str()
+            .as_encoded_bytes()
+            .iter()
+            .any(|byte| *byte < 32 || *byte == 127)
+    {
+        return Err(Error::other("Invalid app data directory"));
+    }
+    if let Some(assets) = resolve_asset_root()
+        && let Some(package) = assets.parent()
+        && root.starts_with(package)
+    {
+        return Err(Error::other("App data must be outside its package"));
+    }
+    for parent in root.ancestors() {
+        match fs::symlink_metadata(parent) {
+            Ok(info) => {
+                if !info.is_dir() || info.file_type().is_symlink() {
+                    return Err(Error::other("Unsafe app data directory"));
+                }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+                    if info.mode() & 0o022 != 0 && info.mode() & 0o1000 == 0 {
+                        return Err(Error::other("App data ancestor is writable by other users"));
+                    }
+                    if parent == root && info.mode() & 0o077 != 0 {
+                        return Err(Error::other("App data must have private permissions"));
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
 }
 
 /// A runtime path below the [`state_root`].

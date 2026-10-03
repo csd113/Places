@@ -174,7 +174,7 @@ fn pool_without_occlusion(
         }
         let dx = ((x - light.x()).abs() - half_w).max(0.0);
         let dz = ((z - light.z()).abs() - half_d).max(0.0);
-        let horizontal_squared = dx * dx + dz * dz;
+        let horizontal_squared = dz.mul_add(dz, dx * dx);
         if !horizontal_squared.is_finite() || horizontal_squared >= radius_squared {
             continue;
         }

@@ -467,8 +467,8 @@ impl PerfOverlay {
 
         let x0 = 4.0;
         let y0 = 4.0;
-        let x1 = x0 + text_w + pad_x * 2.0;
-        let y1 = y0 + text_h + pad_y * 2.0;
+        let x1 = f32::mul_add(pad_x, 2.0, x0 + text_w);
+        let y1 = f32::mul_add(pad_y, 2.0, y0 + text_h);
 
         // Dark background box to ensure readability over any 3D scene surface
         add_rect(

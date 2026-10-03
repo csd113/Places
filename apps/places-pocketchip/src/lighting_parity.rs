@@ -267,7 +267,10 @@ fn build_vectors_document() -> serde_json::Value {
 #[ignore = "writes the checked-in parity vector file"]
 fn generate_lighting_parity_vectors() {
     let document = build_vectors_document();
-    let path = "level-editor/tests/support/lighting_vectors.json";
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/lighting_vectors.json"
+    );
     let pretty = serde_json::to_string_pretty(&document).expect("serialize vectors");
     std::fs::write(path, format!("{pretty}\n")).unwrap_or_else(|error| {
         panic!("cannot write {path}: {error}; run from the app directory");
@@ -291,7 +294,10 @@ fn read_color(value: &serde_json::Value, context: &str) -> [f32; 3] {
 /// The checked-in vectors must match the current Rust implementation.
 #[test]
 fn lighting_parity_vectors_match_rust() {
-    let path = "level-editor/tests/support/lighting_vectors.json";
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/lighting_vectors.json"
+    );
     let text = std::fs::read_to_string(path).unwrap_or_else(|error| {
         panic!("{path} must be checked in and readable: {error}");
     });

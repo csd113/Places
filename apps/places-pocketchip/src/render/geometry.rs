@@ -1010,7 +1010,7 @@ fn emit_wall_cross_quad(
     };
     let right_covers = covers(boundary.right);
     let inward = if right_covers { 1.0 } else { -1.0 };
-    let inboard = at + inward * LIGHT_FACE_PROBE_M;
+    let inboard = f32::mul_add(inward, LIGHT_FACE_PROBE_M, at);
     let key = state
         .unit
         .run_at(boundary.position, f32::midpoint(bottom, top))

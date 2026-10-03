@@ -1,0 +1,6 @@
+# SDL2 0.38 requires bitflags 1; PNG 0.18 requires bitflags 2. Their public
+# types prevent unification without changing upstream dependencies. PNG also
+# requires miniz_oxide 0.8 directly, while flate2 (via PNG/ZIP) requires 0.9.
+# Keep the duplicate-crate lint enabled for every other crate; remove each
+# exception when those dependencies converge.
+allowed-duplicate-crates = ["bitflags", "miniz_oxide"]

@@ -27,7 +27,6 @@
 //! overwrites the saved file.
 
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::quality::QualityProfile;
@@ -736,12 +735,7 @@ impl Settings {
     pub fn save_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-        if let Some(parent) = path.as_ref().parent()
-            && !parent.as_os_str().is_empty()
-        {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(path, json)
+        crate::persistence::write(path.as_ref(), json.as_bytes())
     }
 
     /// Loads settings from a JSON file, falling back safely to defaults on missing/corrupt data.
@@ -756,18 +750,25 @@ impl Settings {
             return Self::default();
         }
 
-        fs::read_to_string(path).map_or_else(
-            |_| Self::default(),
-            |content| {
-                serde_json::from_str::<Self>(&content).map_or_else(
-                    |_| Self::default(),
-                    |mut settings| {
-                        settings.sanitize();
-                        settings
-                    },
+        crate::persistence::read(path, 1024 * 1024)
+            .and_then(|bytes| {
+                String::from_utf8(
+                    bytes.ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?,
                 )
-            },
-        )
+                .map_err(std::io::Error::other)
+            })
+            .map_or_else(
+                |_| Self::default(),
+                |content| {
+                    serde_json::from_str::<Self>(&content).map_or_else(
+                        |_| Self::default(),
+                        |mut settings| {
+                            settings.sanitize();
+                            settings
+                        },
+                    )
+                },
+            )
     }
 
     /// The path of the persistent settings file inside the runtime state root.
@@ -795,7 +796,12 @@ impl Settings {
         if !path.exists() {
             return Self::default();
         }
-        let content = match fs::read_to_string(path) {
+        let content = match crate::persistence::read(path, 1024 * 1024).and_then(|bytes| {
+            String::from_utf8(
+                bytes.ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?,
+            )
+            .map_err(std::io::Error::other)
+        }) {
             Ok(content) => content,
             Err(error) => {
                 crate::logging::warn_once(
@@ -814,18 +820,15 @@ impl Settings {
                 settings
             }
             Err(error) => {
-                let backup = path.with_extension("json.invalid");
-                let preserved = fs::rename(path, &backup).is_ok();
+                let preserved = crate::persistence::preserve_invalid(path).ok();
                 crate::logging::warn_once(
                     format!("settings-invalid:{}", path.display()),
                     format!(
                         "[settings] {} is not a valid settings file ({error}); using defaults{}",
                         path.display(),
-                        if preserved {
+                        preserved.map_or_else(String::new, |backup| {
                             format!(" and keeping the old file as {}", backup.display())
-                        } else {
-                            String::new()
-                        }
+                        })
                     ),
                 );
                 Self::default()

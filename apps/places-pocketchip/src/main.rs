@@ -28,6 +28,7 @@ pub mod loader;
 pub mod logging;
 pub mod materials;
 pub mod perf;
+mod persistence;
 pub mod props;
 pub mod quality;
 pub mod render;
@@ -1474,6 +1475,8 @@ const fn on_off(value: bool) -> &'static str {
 fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
+    assets::initialize_state_root()
+        .map_err(|error| format!("Application storage unavailable: {error}"))?;
     // X11 process identity, required for the App Center launcher and window
     // managers to associate the window with this app. Kept as the historical
     // `io.vitrallis.liminalrust` package id on purpose: it is a launcher/session

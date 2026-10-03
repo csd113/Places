@@ -955,3 +955,42 @@ fn catalog_rejects_an_emissive_mask_without_a_png_file() {
     let error = check_emissive_mask(material, &catalog).expect_err("mask without a file");
     assert!(error.contains("no PNG file"), "error: {error}");
 }
+
+#[test]
+fn persistent_state_validation_rejects_paths_before_creation() -> std::io::Result<()> {
+    for path in ["relative", "/home/chip/../outside", "/home/bad\nname"] {
+        assert!(validate_state_root(Path::new(path)).is_err());
+    }
+    let temporary = std::env::temp_dir()
+        .canonicalize()?
+        .join(format!("places-state-paths-{}", std::process::id()));
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(&temporary)?;
+    let result = (|| {
+        let safe = temporary.join("not-created");
+        validate_state_root(&safe)?;
+        assert!(!safe.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let link = temporary.join("linked");
+            std::os::unix::fs::symlink(&temporary, &link)?;
+            assert!(validate_state_root(&link.join("outside")).is_err());
+            assert!(!temporary.join("outside").exists());
+            let public = temporary.join("public");
+            fs::create_dir(&public)?;
+            fs::set_permissions(&public, fs::Permissions::from_mode(0o755))?;
+            assert!(validate_state_root(&public).is_err());
+            fs::set_permissions(&public, fs::Permissions::from_mode(0o700))?;
+            validate_state_root(&public)?;
+        }
+        Ok(())
+    })();
+    fs::remove_dir_all(&temporary)?;
+    result
+}

@@ -173,7 +173,7 @@ fn reference_pool(
     for light in lighting.lights() {
         let dx = ((x - light.x()).abs() - light.half_w()).max(0.0);
         let dz = ((z - light.z()).abs() - light.half_d()).max(0.0);
-        let horizontal_squared = dx * dx + dz * dz;
+        let horizontal_squared = dz.mul_add(dz, dx * dx);
         let vertical = y - light.y();
         let distance_squared = vertical.mul_add(vertical, horizontal_squared);
         let radius_squared = 6.0 * 6.0;
@@ -212,9 +212,9 @@ fn reference_pool(
         }
         let falloff = smooth_falloff(distance_squared.sqrt() / 6.0);
         let strength = 0.42 * light.intensity() * light.height_factor * falloff;
-        sum[0] += strength * light.color().r;
-        sum[1] += strength * light.color().g;
-        sum[2] += strength * light.color().b;
+        sum[0] = strength.mul_add(light.color().r, sum[0]);
+        sum[1] = strength.mul_add(light.color().g, sum[1]);
+        sum[2] = strength.mul_add(light.color().b, sum[2]);
     }
     [
         sum[0].clamp(0.0, 0.45),

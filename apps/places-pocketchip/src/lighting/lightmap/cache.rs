@@ -243,14 +243,20 @@ pub(super) fn disk_load(root: &Path, key: &str) -> Option<LevelLightmaps> {
         return None;
     }
     let dir = root.join(key);
-    let meta: DiskMeta =
-        serde_json::from_slice(&std::fs::read(dir.join("meta.json")).ok()?).ok()?;
-    if meta.version != LIGHTMAP_FORMAT_VERSION || meta.edge == 0 {
+    let meta: DiskMeta = serde_json::from_slice(
+        &crate::persistence::read(&dir.join("meta.json"), 4 * 1024 * 1024).ok()??,
+    )
+    .ok()?;
+    if meta.version != LIGHTMAP_FORMAT_VERSION || meta.edge == 0 || meta.edge > 1024 {
         return None;
     }
     let edge = usize::try_from(meta.edge).ok()?;
     let page_bytes = edge.checked_mul(edge)?.checked_mul(3)?;
-    let raw = std::fs::read(dir.join("pages.bin")).ok()?;
+    let raw = crate::persistence::read(
+        &dir.join("pages.bin"),
+        page_bytes.checked_mul(LIGHTMAP_ATLAS_MAX_PAGES)?,
+    )
+    .ok()??;
     if page_bytes == 0 || !raw.len().is_multiple_of(page_bytes) {
         return None;
     }
@@ -313,17 +319,14 @@ pub(super) fn disk_store(root: &Path, key: &str, lightmaps: &LevelLightmaps) {
         return;
     };
     let dir = root.join(key);
-    if std::fs::create_dir_all(&dir).is_err() {
-        return;
-    }
     let mut pages: Vec<u8> = Vec::new();
     for page in &lightmaps.pages {
         pages.extend_from_slice(&page.rgb);
     }
-    if std::fs::write(dir.join("meta.json"), meta_bytes).is_err() {
+    if crate::persistence::write(&dir.join("meta.json"), &meta_bytes).is_err() {
         return;
     }
-    let _ = std::fs::write(dir.join("pages.bin"), pages);
+    let _ = crate::persistence::write(&dir.join("pages.bin"), &pages);
 }
 
 /// True when one chart's data rectangle lies inside a square page.

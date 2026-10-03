@@ -1676,7 +1676,7 @@ mod tests {
             [[-0.5, 0.0, 0.0], [0.5, 1.0, 0.0], [0.5, 0.0, 0.0]],
             [[-0.5, 0.0, 0.0], [-0.5, 1.0, 0.0], [0.5, 1.0, 0.0]],
         ]);
-        assert!(!default_boxes(&front).is_empty());
+        assert_ne!(default_boxes(&front).len(), 0);
         assert_eq!(
             default_boxes(&front),
             default_boxes(&back),
@@ -1694,8 +1694,8 @@ mod tests {
             triangles: 0,
             materials: 0,
         };
-        assert!(default_boxes(&empty).is_empty());
-        assert!(default_boxes(&model(&[])).is_empty());
+        assert_eq!(default_boxes(&empty).len(), 0);
+        assert_eq!(default_boxes(&model(&[])).len(), 0);
     }
 
     #[test]
@@ -1724,8 +1724,8 @@ mod tests {
                 max: [0.3, 0.9, 0.3],
             }]
         );
-        assert!(placeholder_boxes([0.0, 1.0, 1.0]).is_empty());
-        assert!(placeholder_boxes([f32::NAN, 1.0, 1.0]).is_empty());
+        assert_eq!(placeholder_boxes([0.0, 1.0, 1.0]).len(), 0);
+        assert_eq!(placeholder_boxes([f32::NAN, 1.0, 1.0]).len(), 0);
     }
 
     #[test]
@@ -1836,6 +1836,6 @@ mod tests {
         )
         .expect("test level parses");
         let surfaces = crate::level::LevelSurfaces::new(&level);
-        assert!(level_occluders(&level, &surfaces).is_empty());
+        assert_eq!(level_occluders(&level, &surfaces).len(), 0);
     }
 }

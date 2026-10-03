@@ -1878,7 +1878,9 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
         }
     }
 
-    // The shipped sheets keep the aspect each face is mapped with, so nothing
+    // The PocketCHIP package scales the panel to 256x128; this checks its shipped
+    // dimensions rather than the 1024x512 development master. All sheets keep
+    // the aspect each face is mapped with, so nothing
     // is stretched: the panel and the wall lens are 2:1, the round sheet 1:1.
     let dimensions = |kind| {
         let sheet = sheet_for(kind);
@@ -1886,7 +1888,7 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     };
     assert_eq!(
         dimensions(crate::lighting::FixtureKind::FluorescentPanel),
-        (1024, 512)
+        (256, 128)
     );
     assert_eq!(
         dimensions(crate::lighting::FixtureKind::RoundRecessed),

@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::test_support::{assert_exact, assert_exact_named};
+use std::fs;
 
 #[test]
 fn test_default_wasd_and_arrow_bindings() {
@@ -166,7 +167,9 @@ fn test_quality_profile_defaults_validates_and_round_trips() {
 
 #[test]
 fn test_settings_persistence() {
-    let temp_dir = std::env::temp_dir();
+    let temp_dir = std::env::temp_dir()
+        .canonicalize()
+        .expect("canonical temporary directory");
     let test_path = temp_dir.join("test_liminal_settings.json");
 
     let settings = Settings {
@@ -189,7 +192,9 @@ fn test_settings_persistence() {
 
 #[test]
 fn test_missing_or_invalid_preferences_fallback() {
-    let temp_dir = std::env::temp_dir();
+    let temp_dir = std::env::temp_dir()
+        .canonicalize()
+        .expect("canonical temporary directory");
     let missing_path = temp_dir.join("nonexistent_settings.json");
     let default_settings = Settings::default();
 
