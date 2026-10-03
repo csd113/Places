@@ -113,11 +113,15 @@ fn validate_state_root(root: &Path) -> std::io::Result<()> {
     {
         return Err(Error::other("Invalid app data directory"));
     }
-    if let Some(assets) = resolve_asset_root()
-        && let Some(package) = assets.parent()
-        && root.starts_with(package)
-    {
-        return Err(Error::other("App data must be outside its package"));
+    if let Some(assets) = resolve_asset_root() {
+        // Development asset searches can return "assets" or "../assets".
+        // Resolve the package boundary before comparing absolute state paths.
+        let assets = assets.canonicalize()?;
+        if let Some(package) = assets.parent()
+            && root.starts_with(package)
+        {
+            return Err(Error::other("App data must be outside its package"));
+        }
     }
     for parent in root.ancestors() {
         match fs::symlink_metadata(parent) {

@@ -961,6 +961,16 @@ fn persistent_state_validation_rejects_paths_before_creation() -> std::io::Resul
     for path in ["relative", "/home/chip/../outside", "/home/bad\nname"] {
         assert!(validate_state_root(Path::new(path)).is_err());
     }
+    if let Some(assets) = resolve_asset_root() {
+        let assets = assets.canonicalize()?;
+        let package = assets
+            .parent()
+            .ok_or_else(|| std::io::Error::other("Missing test package boundary"))?;
+        let local = package.join(format!("never-created-appdata-{}", std::process::id()));
+        assert!(!local.exists());
+        assert!(validate_state_root(&local).is_err());
+        assert!(!local.exists());
+    }
     let temporary = std::env::temp_dir()
         .canonicalize()?
         .join(format!("places-state-paths-{}", std::process::id()));

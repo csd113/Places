@@ -4,6 +4,7 @@
 
 - Keep settings, saves and generated lighting state in private Shell-provided AppData instead of the replaceable package.
 - Reject unsafe storage paths before startup writes.
+- Resolve relative asset roots before checking that AppData is outside the package.
 - Save settings atomically, preserve previous bytes on storage failure, and bound settings/cache reads.
 - Include the matching lighting parity fixture and validate the shipped PocketCHIP artwork dimensions.
 - Rebuild the ARMv7 payload with Rust 1.99 and matching package version.
