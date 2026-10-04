@@ -5447,3 +5447,68 @@ fn test_validate_rejects_too_many_distinct_materials_by_name() {
         "{error}"
     );
 }
+
+/// Display edits reuse expensive static records; every physical input remains
+/// in the versioned stage identity. This is an input-dependency oracle.
+#[test]
+fn display_metadata_reuse_keeps_every_physical_dependency_in_the_stage_key() {
+    let level = LevelDef::from_json(include_str!("../../tests/fixtures/levels/test_room.json"))
+        .expect("checked-in room");
+    let variants = crate::quality::LightmapQuality::ALL;
+    let dependencies = vec![crate::package::manifest::PackageDependency {
+        kind: crate::package::manifest::DependencyKind::Model,
+        path: "models/example.glb".into(),
+        sha256: "ab".repeat(32),
+        bytes: 123,
+    }];
+    let revision = crate::render::GEOMETRY_REVISION;
+    let key = |level: &LevelDef, dependencies: &[crate::package::manifest::PackageDependency]| {
+        crate::compiler::lighting_fingerprint_with_revision(
+            level,
+            &variants,
+            dependencies,
+            revision,
+        )
+        .expect("stage identity")
+    };
+    let original = key(&level, &dependencies);
+    let mut display_edit = level.clone();
+    display_edit.name = "Edited display title".into();
+    display_edit.author = "Edited attribution".into();
+    assert_eq!(key(&display_edit, &dependencies), original);
+    let mut geometry_edit = level.clone();
+    geometry_edit.rooms[0].width += 0.01;
+    assert_ne!(key(&geometry_edit, &dependencies), original);
+    let mut light_edit = level.clone();
+    light_edit.ceiling_lights[0].x += 0.01;
+    assert_ne!(key(&light_edit, &dependencies), original);
+    let mut material_edit = level.clone();
+    material_edit.defaults.floor = "core:carpet_grey_01".into();
+    assert_ne!(key(&material_edit, &dependencies), original);
+    let mut model_edit = dependencies.clone();
+    model_edit[0].sha256 = "cd".repeat(32);
+    assert_ne!(key(&level, &model_edit), original);
+    let mut dependency_path_edit = dependencies.clone();
+    dependency_path_edit[0].path = "models/other.glb".into();
+    assert_ne!(key(&level, &dependency_path_edit), original);
+    assert_ne!(
+        crate::compiler::lighting_fingerprint_with_revision(
+            &level,
+            &[crate::quality::LightmapQuality::Off],
+            &dependencies,
+            revision
+        )
+        .expect("quality key"),
+        original
+    );
+    assert_ne!(
+        crate::compiler::lighting_fingerprint_with_revision(
+            &level,
+            &variants,
+            &dependencies,
+            revision + 1
+        )
+        .expect("algorithm version key"),
+        original
+    );
+}

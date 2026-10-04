@@ -1,15 +1,21 @@
 # Benchmark and capture suite
 
-Everything here drives the release binary on this development machine (no
-device, no SSH) and writes its artifacts below `target/agent-work/`. Those
-artifacts are generated locally and **never committed**: `target/` and the
-result directories are ignored, so re-running a suite is the way to reproduce
-a number, not a file in the repository.
+These tools drive release binaries on this development machine. Most suites
+default to `target/agent-work/`; the compiler harnesses require an explicit
+output directory. Local measurements belong in ignored `tools/bench/results/`.
+Preserve custom map sources, packages, assets and runnable builds in a durable
+debug collection outside `target` before cleaning build artifacts. Engineering
+reports should record the commands, binary hashes and measurement conditions.
 
 The current workflow uses the following tools:
 
 | tool | what it does |
 | --- | --- |
+| `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
+| `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
+| `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
+| `compare_packages.py` | compares every compiled record byte, including all HDR lightmaps and probe mips |
+| `capture_compiler.py` | compares baseline and optimized packages through identical native renderer settings and authored animation frame |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
 | `loading.py` | measures isolated cold/warm startup and loading with the `PLACES_LOAD_TRACE` trace; reports separately named startup, package-loading, first-usable-scene and settings-transition metrics |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
@@ -26,6 +32,61 @@ The current workflow uses the following tools:
 | `visual_check.py` | decodes two capture sets and reports per-shot pixel differences |
 | `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
 | `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
+
+## Offline map compiler
+
+Use optimized release binaries from the baseline and candidate revisions. Run
+these sequentially on the same Mac with no concurrent builds, profiling or
+gameplay. Every sample is a fresh process; `--force` prevents package reuse for
+clean-build measurements without reducing any quality settings. Sampling is a
+separate diagnostic run and must not be included in performance medians.
+
+```sh
+python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
+    --optimized target/release/places-compile --out tools/bench/results/compiler-paired \
+    --repeat 3 --label "documented desktop background load; own jobs sequential"
+python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
+    --out tools/bench/results/compiler-clean --repeat 3 \
+    --maps tests/fixtures/levels/test_room.json assets/levels/places_demo.json \
+           assets/levels/lantern_hollow.json
+python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
+    --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
+    --maps tests/fixtures/levels/test_room.json
+python3 tools/bench/compiler_incremental.py --binary target/release/places-compile \
+    --out debug-maps/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
+python3 tools/bench/compare_packages.py baseline.placesmap candidate.placesmap
+python3 -m unittest discover -s tests -p test_compiler_bench.py
+```
+
+`report.json` retains all runs, UTC intervals, source/binary/package hashes,
+requested workers, wall time, own-process CPU time, effective busy cores,
+Darwin peak resident bytes, context switches, host load snapshots, nested phase
+timings and useful workload counts. Summary medians include every successful
+sample; report cold/diagnostic/interfered samples separately rather than keeping
+only the fastest run. Compare the same variants and source bytes. Nested phase
+timings are inclusive: do not add parent preparation times to their child
+transport times.
+
+Incremental samples preserve distinct before/after sources and packages for
+unchanged input, display metadata, light movement, prop movement and material
+edits. Each result must equal an independent forced clean archive byte for
+byte. Only display metadata can reuse the lighting stage; physical changes
+invalidate the complete lighting result. Navigation-only reuse is additionally
+protected by compiler integration tests.
+
+When repeated edits produce precisely the same source bytes, `--reference-once`
+keeps every timed incremental sample and compares each against one independent
+clean reference per distinct input. With `--seed-package`, an unchanged-input
+case uses that verified recorded clean package. Reference paths and hashes are
+retained; no equality check is removed. This avoids repeatedly baking identical
+large references while still measuring fresh incremental trials.
+
+The package comparator checks all decoded records, including HDR lightmaps,
+directional coefficients, switchable layers and every reflection mip. Explicit
+`--allow-stage-key` permits only a lighting-stage fingerprint change;
+`--allow-input-keys assets` also permits revised input fingerprints and added
+texture dependencies only after independently verifying their file hashes and
+sizes. Neither option permits lighting, geometry or other metadata differences.
 
 ## Local benchmark
 
@@ -340,3 +401,24 @@ renderer submissions.
 
 Worker controls, baseline comparisons, and the complete first-party inventory are
 documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).
+# Compiler native output comparison
+
+`compiler_bench.py --baseline <baseline-directory>` checks every newly measured
+package against its baseline after the timed child exits. Physical record bytes
+must match exactly. Only revised compiler input keys and independently verified
+new texture dependencies are accepted; an unexplained difference stops the run
+and leaves the comparison evidence. Comparing packages is excluded from timings.
+
+`capture_compiler.py` compares baseline and optimized packages through the same
+native game build at authored frame 1. It uses isolated payloads linked to a
+preserved asset collection, verifies the exact package SHA and selected lighting
+variant in native logs, and compares decoded PNG pixels. Choose a new evidence
+directory on each invocation so earlier captures remain intact:
+
+```sh
+python3 tools/bench/capture_compiler.py --binary target/release/places \
+  --collection debug-maps/compiler-audit-20261003 \
+  --before tools/bench/results/compiler-audit-20261003/baseline-native \
+  --after tools/bench/results/compiler-audit-20261003/optimized-final-native \
+  --out debug-maps/compiler-audit-20261003/captures/native-comparison
+```

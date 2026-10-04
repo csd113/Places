@@ -85,6 +85,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+mod bvh;
 pub(crate) mod probe_audit;
 
 use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
@@ -881,6 +882,12 @@ impl Default for SolveOptions {
 pub struct TransportScene {
     triangles: Vec<TransportTriangle>,
     order: Vec<u32>,
+    /// Ray kernels need corners and identity, rather than shading/material data.
+    /// Packed leaf data avoids chasing the larger shading/material records.
+    ray_triangles: Vec<RayTriangle>,
+    ray_nodes: Vec<BvhNode>,
+    /// Original traversal resolves equal-distance surfaces deterministically.
+    legacy_ray_triangles: Vec<RayTriangle>,
     nodes: Vec<BvhNode>,
     emitters: Vec<TransportEmitter>,
     global_lights: Vec<crate::lighting::directional::DirectionalLight>,
@@ -908,6 +915,33 @@ impl std::fmt::Debug for TransportScene {
             .field("receiver_target", &self.receiver_target.len())
             .field("probe_target", &self.probe_target.len())
             .finish()
+    }
+}
+
+/// Compact, contiguous BVH-leaf input: 48 bytes in each packed order.
+/// Full triangles remain authoritative for surfaces/materials and probes.
+struct RayTriangle {
+    corners: [[f32; 3]; 3],
+    surface: u32,
+    /// Preserve the original box eligibility independently of the ray layout.
+    canonical_leaf: u32,
+    transmissive: bool,
+}
+
+impl RayTriangle {
+    fn canonical_entry(
+        &self,
+        nodes: &[BvhNode],
+        origin: [f32; 3],
+        inverse: [f32; 3],
+        check: bool,
+    ) -> Option<f32> {
+        if !check {
+            return Some(0.0);
+        }
+        nodes
+            .get(usize::try_from(self.canonical_leaf).ok()?)
+            .and_then(|leaf| slab_entry(leaf, origin, inverse, f32::INFINITY))
     }
 }
 
@@ -1240,9 +1274,38 @@ impl TransportScene {
         if count > 0 {
             build_node(&triangles, &centroids, &mut order, &mut nodes, 0, count, 0);
         }
+        let mut canonical_leaves = vec![0_u32; count];
+        for (index, node) in nodes.iter().enumerate().filter(|(_, node)| node.count > 0) {
+            let first = usize::try_from(node.first).ok()?;
+            let end = first.checked_add(usize::try_from(node.count).ok()?)?;
+            for surface in order.get(first..end)? {
+                *canonical_leaves.get_mut(usize::try_from(*surface).ok()?)? =
+                    u32::try_from(index).ok()?;
+            }
+        }
+        let pack = |indices: &[u32]| {
+            indices
+                .iter()
+                .map(|index| {
+                    let triangle = &triangles[usize::try_from(*index).ok()?];
+                    Some(RayTriangle {
+                        corners: [triangle.p0, triangle.p1, triangle.p2],
+                        surface: *index,
+                        canonical_leaf: canonical_leaves[usize::try_from(*index).ok()?],
+                        transmissive: triangle.transmissive,
+                    })
+                })
+                .collect::<Option<Vec<_>>>()
+        };
+        let legacy_ray_triangles = pack(&order)?;
+        let (ray_nodes, ray_order) = bvh::build(&triangles, &centroids);
+        let ray_triangles = pack(&ray_order)?;
         Some(Self {
             triangles,
             order,
+            ray_triangles,
+            ray_nodes,
+            legacy_ray_triangles,
             nodes,
             emitters,
             global_lights: Vec::new(),
@@ -1433,9 +1496,12 @@ impl TransportScene {
     /// Any triangle hit along `origin + t * direction` for `t` in
     /// `(RAY_EPS_M, max_t)`.
     fn any_hit(&self, origin: [f32; 3], direction: [f32; 3], max_t: f32) -> bool {
-        if self.nodes.is_empty() {
+        if self.ray_nodes.is_empty() {
             return false;
         }
+        let Some(ray) = PreparedRay::new(origin, direction) else {
+            return false;
+        };
         let inv = [
             safe_inverse(direction[0]),
             safe_inverse(direction[1]),
@@ -1443,16 +1509,16 @@ impl TransportScene {
         ];
         let mut stack: [u32; 64] = [0; 64];
         let mut depth = 0_usize;
-        let Some(first) = self.nodes.first() else {
+        let Some(first) = self.ray_nodes.first() else {
             return false;
         };
-        if !slab_hit(first, origin, inv, max_t) {
+        if ray_slab_entry(first, origin, inv, max_t, ray.parallel).is_none() {
             return false;
         }
         let mut node_index = 0_u32;
         loop {
             let Some(node) = self
-                .nodes
+                .ray_nodes
                 .get(usize::try_from(node_index).unwrap_or(usize::MAX))
             else {
                 break;
@@ -1460,22 +1526,17 @@ impl TransportScene {
             if node.count > 0 {
                 let start = usize::try_from(node.first).unwrap_or(usize::MAX);
                 let end = start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
-                for entry in start..end {
-                    let Some(index) = self.order.get(entry) else {
-                        continue;
-                    };
-                    let Some(triangle) = self
-                        .triangles
-                        .get(usize::try_from(*index).unwrap_or(usize::MAX))
-                    else {
-                        continue;
-                    };
+                for triangle in self.ray_triangles.get(start..end).unwrap_or_default() {
                     if triangle.transmissive {
                         continue;
                     }
-                    if let Some(t) = ray_triangle(origin, direction, triangle)
+                    if let Some(t) = ray.corners(triangle.corners)
                         && t > RAY_EPS_M
                         && t < max_t
+                        && self
+                            .nodes
+                            .get(usize::try_from(triangle.canonical_leaf).unwrap_or(usize::MAX))
+                            .is_some_and(|leaf| slab_entry(leaf, origin, inv, max_t).is_some())
                     {
                         return true;
                     }
@@ -1483,15 +1544,20 @@ impl TransportScene {
             } else {
                 let left = node.first;
                 let right = node.right;
-                let left_hit = self
-                    .nodes
+                let left_entry = self
+                    .ray_nodes
                     .get(usize::try_from(left).unwrap_or(usize::MAX))
-                    .is_some_and(|child| slab_hit(child, origin, inv, max_t));
-                let right_hit = self
-                    .nodes
+                    .and_then(|child| ray_slab_entry(child, origin, inv, max_t, ray.parallel));
+                let right_entry = self
+                    .ray_nodes
                     .get(usize::try_from(right).unwrap_or(usize::MAX))
-                    .is_some_and(|child| slab_hit(child, origin, inv, max_t));
-                if left_hit && right_hit {
+                    .and_then(|child| ray_slab_entry(child, origin, inv, max_t, ray.parallel));
+                if let (Some(left_t), Some(right_t)) = (left_entry, right_entry) {
+                    let (near, far) = if left_t <= right_t {
+                        (left, right)
+                    } else {
+                        (right, left)
+                    };
                     if depth >= stack.len() {
                         // The stack is sized for the depth cap; falling back to
                         // a full scan keeps a deepest-level miss correct rather
@@ -1499,17 +1565,17 @@ impl TransportScene {
                         return self.linear_any_hit(origin, direction, max_t);
                     }
                     if let Some(slot) = stack.get_mut(depth) {
-                        *slot = right;
+                        *slot = far;
                     }
                     depth = depth.saturating_add(1);
+                    node_index = near;
+                    continue;
+                }
+                if left_entry.is_some() {
                     node_index = left;
                     continue;
                 }
-                if left_hit {
-                    node_index = left;
-                    continue;
-                }
-                if right_hit {
+                if right_entry.is_some() {
                     node_index = right;
                     continue;
                 }
@@ -1531,86 +1597,133 @@ impl TransportScene {
     /// child first and prunes a node whose entry is already past the best hit.
     #[must_use]
     pub fn intersect(&self, origin: [f32; 3], direction: [f32; 3]) -> Option<(f32, usize)> {
-        if self.nodes.is_empty() {
-            return None;
-        }
+        let ray = PreparedRay::new(origin, direction)?;
         let inv = [
             safe_inverse(direction[0]),
             safe_inverse(direction[1]),
             safe_inverse(direction[2]),
         ];
+        let (best, tied) = Self::intersect_tree::<true>(
+            &self.ray_nodes,
+            &self.ray_triangles,
+            &self.nodes,
+            &ray,
+            origin,
+            inv,
+        );
+        if tied {
+            // Equal-distance faces and a leaf entry rounded past its own hit
+            // need historical traversal to preserve the chosen surface exactly.
+            Self::intersect_tree::<false>(
+                &self.nodes,
+                &self.legacy_ray_triangles,
+                &self.nodes,
+                &ray,
+                origin,
+                inv,
+            )
+            .0
+        } else {
+            best
+        }
+    }
+
+    fn intersect_tree<const FIND_TIES: bool>(
+        nodes: &[BvhNode],
+        triangles: &[RayTriangle],
+        canonical_nodes: &[BvhNode],
+        ray: &PreparedRay,
+        origin: [f32; 3],
+        inv: [f32; 3],
+    ) -> (Option<(f32, usize)>, bool) {
         let mut best: Option<(f32, usize)> = None;
-        let mut stack: [u32; 64] = [0; 64];
+        let mut tied = false;
+        let mut stack: [(u32, f32); 64] = [(0, 0.0); 64];
         let mut depth = 0_usize;
         let mut node_index = 0_u32;
+        let Some(mut entry_t) = nodes
+            .first()
+            .and_then(|root| ray.node_entry::<FIND_TIES>(root, origin, inv, f32::INFINITY))
+        else {
+            return (None, false);
+        };
         loop {
-            let Some(node) = self
-                .nodes
-                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
-            else {
+            let Some(node) = nodes.get(usize::try_from(node_index).unwrap_or(usize::MAX)) else {
                 break;
             };
-            let limit = best.map_or(f32::INFINITY, |(distance, _)| distance);
-            if !slab_hit(node, origin, inv, limit) {
+            let limit = best.map_or(f32::INFINITY, |(distance, _)| {
+                if FIND_TIES {
+                    // Slabs round subtraction/reciprocal/multiplication in f32;
+                    // triangles round only after evaluating the distance in f64.
+                    // Expand traversal to discover ties, never accepted geometry.
+                    (0..8).fold(distance, |value, _| value.next_up())
+                } else {
+                    distance
+                }
+            });
+            if entry_t > limit {
                 // fall through to the pop below
             } else if node.count > 0 {
                 let start = usize::try_from(node.first).unwrap_or(usize::MAX);
                 let end = start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
-                for entry in start..end {
-                    let Some(index) = self.order.get(entry) else {
-                        continue;
-                    };
-                    let Some(triangle) = self
-                        .triangles
-                        .get(usize::try_from(*index).unwrap_or(usize::MAX))
-                    else {
-                        continue;
-                    };
+                for triangle in triangles.get(start..end).unwrap_or_default() {
                     if triangle.transmissive {
                         continue;
                     }
-                    if let Some(t) = ray_triangle(origin, direction, triangle)
+                    if let Some(t) = ray.corners(triangle.corners)
                         && t > RAY_EPS_M
-                        && best.is_none_or(|(distance, _)| t < distance)
                     {
-                        best = Some((t, usize::try_from(*index).unwrap_or(usize::MAX)));
+                        let Some(canonical_entry) =
+                            triangle.canonical_entry(canonical_nodes, origin, inv, FIND_TIES)
+                        else {
+                            continue;
+                        };
+                        let surface = usize::try_from(triangle.surface).unwrap_or(usize::MAX);
+                        if best.is_none_or(|(distance, _)| t < distance) {
+                            best = Some((t, surface));
+                            tied = canonical_entry > t;
+                        } else if best.is_some_and(|(distance, index)| {
+                            t.to_bits() == distance.to_bits() && index != surface
+                        }) {
+                            tied = true;
+                        }
                     }
                 }
             } else {
                 // Visit the nearer child first so the best hit prunes sooner.
                 let left = node.first;
                 let right = node.right;
-                let left_entry = self
-                    .nodes
+                let left_entry = nodes
                     .get(usize::try_from(left).unwrap_or(usize::MAX))
-                    .and_then(|child| slab_entry(child, origin, inv, limit));
-                let right_entry = self
-                    .nodes
+                    .and_then(|child| ray.node_entry::<FIND_TIES>(child, origin, inv, limit));
+                let right_entry = nodes
                     .get(usize::try_from(right).unwrap_or(usize::MAX))
-                    .and_then(|child| slab_entry(child, origin, inv, limit));
+                    .and_then(|child| ray.node_entry::<FIND_TIES>(child, origin, inv, limit));
                 match (left_entry, right_entry) {
                     (Some(left_t), Some(right_t)) => {
-                        let (near, far, far_t) = if left_t <= right_t {
-                            (left, right, right_t)
+                        let (near, near_t, far, far_t) = if left_t <= right_t {
+                            (left, left_t, right, right_t)
                         } else {
-                            (right, left, left_t)
+                            (right, right_t, left, left_t)
                         };
                         if depth >= stack.len() {
                             break;
                         }
                         if let Some(slot) = stack.get_mut(depth) {
-                            *slot = far;
+                            *slot = (far, far_t);
                         }
                         depth = depth.saturating_add(1);
-                        let _ = far_t;
+                        entry_t = near_t;
                         node_index = near;
                         continue;
                     }
-                    (Some(_), None) => {
+                    (Some(left_t), None) => {
+                        entry_t = left_t;
                         node_index = left;
                         continue;
                     }
-                    (None, Some(_)) => {
+                    (None, Some(right_t)) => {
+                        entry_t = right_t;
                         node_index = right;
                         continue;
                     }
@@ -1621,16 +1734,20 @@ impl TransportScene {
                 break;
             }
             depth = depth.saturating_sub(1);
-            node_index = stack.get(depth).copied().unwrap_or(0);
+            (node_index, entry_t) = stack.get(depth).copied().unwrap_or((0, 0.0));
         }
-        best
+        (best, tied)
     }
 
     /// Fallback full scan used only when the traversal stack saturates.
     fn linear_any_hit(&self, origin: [f32; 3], direction: [f32; 3], max_t: f32) -> bool {
+        let Some(ray) = PreparedRay::new(origin, direction) else {
+            return false;
+        };
         self.triangles.iter().any(|triangle| {
             !triangle.transmissive
-                && ray_triangle(origin, direction, triangle)
+                && ray
+                    .triangle(triangle)
                     .is_some_and(|t| t > RAY_EPS_M && t < max_t)
         })
     }
@@ -1865,6 +1982,22 @@ impl TransportScene {
             .enumerate()
             .filter_map(|(index, emitter)| emitter.switchable.map(|light| (light, index)))
             .collect();
+        if let [(light_index, emitter)] = switchable_emitters.as_slice() {
+            return self.solve_pair(
+                charts,
+                &base_emitters,
+                *light_index,
+                *emitter,
+                SolveOptions {
+                    taps_per_axis: taps,
+                    bounces,
+                    gather_samples: bounce_samples,
+                    workers,
+                },
+                cancel,
+                bake_probes,
+            );
+        }
         let mut direct_rays = 0usize;
         let mut bounce_rays = 0usize;
         let mut cache_cells = 0usize;
@@ -1981,11 +2114,53 @@ impl TransportScene {
             *bounce_rays = bounce_rays.saturating_add(rays);
         }
         let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1000.0;
+        self.finish_pass(
+            charts,
+            &receivers,
+            &direct,
+            accumulators,
+            apply_fill,
+            SolveOptions {
+                taps_per_axis: taps,
+                bounces,
+                gather_samples: bounce_samples,
+                workers,
+            },
+            cancel,
+            probes,
+            [receiver_ms, direct_ms, bounce_ms],
+        )
+    }
+
+    fn finish_pass(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        receivers: &[TransportReceiver],
+        direct: &[Accumulator],
+        accumulators: Vec<Accumulator>,
+        apply_fill: bool,
+        options: SolveOptions,
+        cancel: Option<&AtomicBool>,
+        probes: Option<&mut Option<ProbeField>>,
+        timings: [f64; 3],
+    ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        let SolveOptions {
+            taps_per_axis: taps,
+            bounces,
+            workers,
+            ..
+        } = options;
+        let [receiver_ms, direct_ms, bounce_ms] = timings;
+        let audit = StageAudit {
+            charts,
+            receivers,
+            dump: apply_fill,
+        };
         let probe_started = std::time::Instant::now();
         if let Some(probes) = probes {
             *probes = Some(bake_probe_field(
                 self,
-                &receivers,
+                receivers,
                 &accumulators,
                 taps,
                 bounces,
@@ -1999,19 +2174,18 @@ impl TransportScene {
         // it chart-locally moves shadow edges and changes gradients at seams.
         // Denoise only the diffuse gather, then encode the complete integral.
         let mut indirect = accumulators;
-        for (value, direct) in indirect.iter_mut().zip(&direct) {
+        for (value, direct) in indirect.iter_mut().zip(direct) {
             add_scaled(value, direct, -1.0);
         }
         if apply_fill {
-            self.audit_indirect(charts, &receivers, &indirect, taps);
+            self.audit_indirect(charts, receivers, &indirect, taps);
         }
-        let mut filtered =
-            filter::filter_accumulators(self, charts, &receivers, &indirect, &direct)?;
+        let mut filtered = filter::filter_accumulators(self, charts, receivers, &indirect, direct)?;
         audit.texels("filtered", filtered.iter().copied());
         let filter_ms = filter_started.elapsed().as_secs_f64() * 1000.0;
         let fill_started = std::time::Instant::now();
         if apply_fill {
-            filtered = self.apply_chart_fill(charts, &receivers, filtered, workers, cancel)?;
+            filtered = self.apply_chart_fill(charts, receivers, filtered, workers, cancel)?;
         }
         if filtered
             .iter()
@@ -2024,7 +2198,7 @@ impl TransportScene {
             "[transport-timing] base={apply_fill} taps={taps} bounces={bounces} receivers_ms={receiver_ms:.3} direct_visibility_ms={direct_ms:.3} indirect_ms={bounce_ms:.3} probes_ms={probe_ms:.3} filter_ms={filter_ms:.3} fill_ms={:.3}",
             fill_started.elapsed().as_secs_f64() * 1000.0
         ));
-        assemble_solved_charts(charts, &receivers, &filtered)
+        assemble_solved_charts(charts, receivers, &filtered)
     }
 
     fn audit_indirect(
@@ -2065,6 +2239,14 @@ impl TransportScene {
         let cache_cells = cache.occupied_cells();
         let mut previous_order = accumulators.clone();
         for pass_index in 0..options.bounces {
+            crate::logging::info(format_args!(
+                "[transport-progress] diffuse_order={}/{} receivers={} samples={} workers={}",
+                pass_index.saturating_add(1),
+                options.bounces,
+                receivers.len(),
+                options.gather_samples,
+                options.workers
+            ));
             // Each pass traces uniform-hemisphere rays against the previous
             // pass's solved light, so one pass is one diffuse bounce and
             // two passes are two. The estimator is unbiased: a cosine
@@ -2347,8 +2529,9 @@ impl TransportScene {
                 }
                 // The lookup is keyed by the hit triangle and checks cache
                 // visibility, including dividers within that triangle.
-                let cached = cache.sample_surface(self, hit, triangle_index, receivers, current);
-                let radiance = cached.surface_light;
+                let radiance = cache
+                    .sample_surface(self, hit, triangle_index, receivers, current)
+                    .surface_light;
                 // The sampled incoming radiance, scaled by the sample's solid
                 // angle (uniform hemisphere sampling covers 2*pi over `count`
                 // samples) and multiplied by the hit surface's albedo. The
@@ -2930,7 +3113,35 @@ struct RadianceCache {
     cell: f32,
     dims: [usize; 3],
     /// One receiver per (cell, triangle), chosen nearest the cell centre.
-    cells: Vec<Vec<usize>>,
+    cells: Vec<Vec<CacheRepresentative>>,
+}
+
+#[derive(Clone, Copy)]
+struct CacheRepresentative {
+    receiver: usize,
+    distance: f32,
+}
+
+/// The hit plane and air-side endpoint are invariant throughout a cache lookup.
+#[derive(Clone, Copy)]
+struct SurfaceCacheTarget<'a> {
+    triangle: &'a TransportTriangle,
+    ray_origin: [f32; 3],
+}
+
+impl<'a> SurfaceCacheTarget<'a> {
+    fn new(scene: &'a TransportScene, surface: usize, point: [f32; 3]) -> Option<Self> {
+        let hit = scene.triangles.get(surface)?;
+        // Keep the existing projection and coordinate-scaled offset exactly.
+        let on_plane = sub(
+            point,
+            scale(hit.normal, dot(sub(point, hit.p0), hit.normal)),
+        );
+        Some(Self {
+            triangle: hit,
+            ray_origin: receiver_position(on_plane, hit.normal),
+        })
+    }
 }
 
 impl RadianceCache {
@@ -3021,6 +3232,7 @@ impl RadianceCache {
                 entries.push(index);
             }
         }
+        let cells = cache_representatives(cells, receivers, min, cell, dims);
         Self {
             min,
             cell,
@@ -3036,25 +3248,16 @@ impl RadianceCache {
 
     /// Select a visible coplanar representative without borrowing another
     /// plane's light, including the opposite face of a thin wall in the cell.
-    fn representative(
+    fn representative_at(
         &self,
         scene: &TransportScene,
         cell: usize,
-        surface: usize,
-        point: [f32; 3],
+        target: SurfaceCacheTarget<'_>,
         receivers: &[TransportReceiver],
     ) -> Option<usize> {
-        let hit = scene.triangles.get(surface)?;
-        // A reconstructed ray hit can round just behind its own plane. Trace
-        // cache connectivity between air-side origins at both ends, rather
-        // than allowing that endpoint error to reject the receiving surface.
-        let on_plane = sub(
-            point,
-            scale(hit.normal, dot(sub(point, hit.p0), hit.normal)),
-        );
-        let target = receiver_position(on_plane, hit.normal);
-        let centre = cell_centre(cell, self.min, self.cell, self.dims);
-        let candidates = self.cells.get(cell)?.iter().copied().filter_map(|index| {
+        let hit = target.triangle;
+        let candidates = self.cells.get(cell)?.iter().filter_map(|entry| {
+            let index = entry.receiver;
             let receiver = receivers.get(index)?;
             let candidate = scene
                 .triangles
@@ -3062,8 +3265,7 @@ impl RadianceCache {
             if !same_lighting_plane(hit, candidate) {
                 return None;
             }
-            let delta = sub(receiver.position, centre);
-            Some((dot(delta, delta), index))
+            Some((entry.distance, index))
         });
         // Usually the nearest compatible sample is visible. Test it once;
         // only search the remaining candidates when a real divider blocks it.
@@ -3074,16 +3276,16 @@ impl RadianceCache {
         };
         let (_, closest) = candidates.clone().min_by(compare)?;
         if let Some(receiver) = receivers.get(closest)
-            && !scene.occluded(receiver.ray_origin, target)
+            && !scene.occluded(receiver.ray_origin, target.ray_origin)
         {
             return Some(closest);
         }
         candidates
             .filter(|(_, index)| {
                 *index != closest
-                    && receivers
-                        .get(*index)
-                        .is_some_and(|receiver| !scene.occluded(receiver.ray_origin, target))
+                    && receivers.get(*index).is_some_and(|receiver| {
+                        !scene.occluded(receiver.ray_origin, target.ray_origin)
+                    })
             })
             .min_by(compare)
             .map(|(_, index)| index)
@@ -3102,6 +3304,9 @@ impl RadianceCache {
         if self.cells.is_empty() || !point.iter().all(|value| value.is_finite()) {
             return Accumulator::default();
         }
+        let Some(target) = SurfaceCacheTarget::new(scene, surface, point) else {
+            return Accumulator::default();
+        };
         let coords = [
             (point[0] - self.min[0]) / self.cell - 0.5,
             (point[1] - self.min[1]) / self.cell - 0.5,
@@ -3132,8 +3337,7 @@ impl RadianceCache {
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let Some(receiver) =
-                        self.representative(scene, index, surface, point, receivers)
+                    let Some(receiver) = self.representative_at(scene, index, target, receivers)
                     else {
                         continue;
                     };
@@ -3178,6 +3382,9 @@ impl RadianceCache {
         // No interpolatable representative: fall back to the nearest
         // representative on the correct side within a bounded
         // neighbourhood, then to zero.
+        let Some(target) = SurfaceCacheTarget::new(scene, surface, point) else {
+            return Accumulator::default();
+        };
         let mut best: Option<(f32, Accumulator)> = None;
         for dz in -2_isize..=2 {
             for dy in -2_isize..=2 {
@@ -3190,27 +3397,54 @@ impl RadianceCache {
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let Some(receiver) =
-                        self.representative(scene, index, surface, point, receivers)
+                    let distance = dx.abs() + dy.abs() + dz.abs();
+                    let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
+                    // Test distance before visibility: this candidate cannot
+                    // replace the best, even if its connectivity ray succeeds.
+                    if best.is_some_and(|(current, _)| distance >= current) {
+                        continue;
+                    }
+                    let Some(receiver) = self.representative_at(scene, index, target, receivers)
                     else {
                         continue;
                     };
                     let Some(value) = values.get(receiver) else {
                         continue;
                     };
-                    let distance = dx.abs() + dy.abs() + dz.abs();
-                    let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
-                    // Keep the nearest/tie ordering: a farther representative
-                    // cannot replace an already visible one.
-                    if best.is_some_and(|(current, _)| distance >= current) {
-                        continue;
-                    }
                     best = Some((distance, *value));
                 }
             }
         }
         best.map_or_else(Accumulator::default, |(_, value)| value)
     }
+}
+
+/// The reference cache comparison uses an immutable centre and dot product.
+/// Retain its representative order and ties; do not sort approximate planes.
+fn cache_representatives(
+    cells: Vec<Vec<usize>>,
+    receivers: &[TransportReceiver],
+    min: [f32; 3],
+    cell: f32,
+    dims: [usize; 3],
+) -> Vec<Vec<CacheRepresentative>> {
+    cells
+        .into_iter()
+        .enumerate()
+        .map(|(index, entries)| {
+            let centre = cell_centre(index, min, cell, dims);
+            entries
+                .into_iter()
+                .map(|index| {
+                    let delta = sub(receivers[index].position, centre);
+                    CacheRepresentative {
+                        receiver: index,
+                        distance: dot(delta, delta),
+                    }
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// Grid-equivalent samples can differ by a few rounding steps when authored
@@ -3494,6 +3728,7 @@ fn build_node(
 }
 
 /// True when the ray can reach the node's box within `max_t`.
+#[cfg(test)]
 fn slab_hit(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> bool {
     slab_entry(node, origin, inverse, max_t).is_some()
 }
@@ -3501,8 +3736,38 @@ fn slab_hit(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> 
 /// The entry distance of the ray into the node's box, when it hits within
 /// `max_t`.
 fn slab_entry(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -> Option<f32> {
+    slab_entry_rounded(node, origin, inverse, max_t, false, [false; 3])
+}
+
+/// Tight SAH bounds must round traversal intervals outward: subtraction,
+/// reciprocal and multiplication each round in f32. Four machine epsilons
+/// cover both endpoint errors and padding rounding. Exactly parallel axes
+/// constrain only origin containment, never the distance interval. Triangle
+/// acceptance and world geometry are unchanged.
+fn ray_slab_entry(
+    node: &BvhNode,
+    origin: [f32; 3],
+    inverse: [f32; 3],
+    max_t: f32,
+    parallel: [bool; 3],
+) -> Option<f32> {
+    slab_entry_rounded(node, origin, inverse, max_t, true, parallel)
+}
+
+fn slab_entry_rounded(
+    node: &BvhNode,
+    origin: [f32; 3],
+    inverse: [f32; 3],
+    max_t: f32,
+    outward: bool,
+    parallel: [bool; 3],
+) -> Option<f32> {
     let mut t_min = 0.0_f32;
-    let mut t_max = max_t;
+    let mut t_max = if outward && max_t.is_finite() {
+        max_t + max_t.abs() * (4.0 * f32::EPSILON)
+    } else {
+        max_t
+    };
     for axis in 0..3 {
         let Some(o) = origin.get(axis) else {
             return None;
@@ -3516,10 +3781,19 @@ fn slab_entry(node: &BvhNode, origin: [f32; 3], inverse: [f32; 3], max_t: f32) -
         let Some(max) = node.max.get(axis) else {
             return None;
         };
+        if parallel[axis] {
+            if o < min || o > max {
+                return None;
+            }
+            continue;
+        }
         let mut near = (min - o) * inv;
         let mut far = (max - o) * inv;
         if near > far {
             std::mem::swap(&mut near, &mut far);
+        }
+        if outward && far.is_finite() {
+            far += far.abs() * (4.0 * f32::EPSILON);
         }
         t_min = t_min.max(near);
         t_max = t_max.min(far);
@@ -3557,70 +3831,120 @@ fn point_box_distance_squared(point: [f32; 3], min: [f32; 3], max: [f32; 3]) -> 
 /// f64. Shared edges use the same products in reverse order in either triangle,
 /// avoiding cracks and f32 cancellation on long, oblique rays. No barycentric
 /// epsilon expands geometry and no fixed distance discards nearby blockers.
+/// Projection state shared by all triangle tests along one ray.
+struct PreparedRay {
+    origin: [f64; 3],
+    parallel: [bool; 3],
+    dominant: usize,
+    horizontal: usize,
+    vertical: usize,
+    depth: f64,
+    shear_x: f64,
+    shear_y: f64,
+}
+
+impl PreparedRay {
+    #[inline]
+    fn node_entry<const CONSERVATIVE: bool>(
+        &self,
+        node: &BvhNode,
+        origin: [f32; 3],
+        inverse: [f32; 3],
+        limit: f32,
+    ) -> Option<f32> {
+        if CONSERVATIVE {
+            ray_slab_entry(node, origin, inverse, limit, self.parallel)
+        } else {
+            slab_entry(node, origin, inverse, limit)
+        }
+    }
+
+    fn new(origin: [f32; 3], direction: [f32; 3]) -> Option<Self> {
+        let dominant = if direction[0].abs() > direction[1].abs() {
+            if direction[0].abs() > direction[2].abs() {
+                0
+            } else {
+                2
+            }
+        } else if direction[1].abs() > direction[2].abs() {
+            1
+        } else {
+            2
+        };
+        let depth = f64::from(direction[dominant]);
+        if depth.abs() <= f64::MIN_POSITIVE || !depth.is_finite() {
+            return None;
+        }
+        let horizontal = (dominant + 1) % 3;
+        let vertical = (horizontal + 1) % 3;
+        Some(Self {
+            origin: origin.map(f64::from),
+            parallel: direction.map(|component| component == 0.0),
+            dominant,
+            horizontal,
+            vertical,
+            depth,
+            shear_x: f64::from(direction[horizontal]) / depth,
+            shear_y: f64::from(direction[vertical]) / depth,
+        })
+    }
+
+    fn triangle(&self, triangle: &TransportTriangle) -> Option<f32> {
+        self.corners([triangle.p0, triangle.p1, triangle.p2])
+    }
+
+    fn corners(&self, corners: [[f32; 3]; 3]) -> Option<f32> {
+        let project = |point: [f32; 3]| {
+            let translated = [
+                f64::from(point[0]) - self.origin[0],
+                f64::from(point[1]) - self.origin[1],
+                f64::from(point[2]) - self.origin[2],
+            ];
+            [
+                translated[self.horizontal] - self.shear_x * translated[self.dominant],
+                translated[self.vertical] - self.shear_y * translated[self.dominant],
+                translated[self.dominant],
+            ]
+        };
+        let a = project(corners[0]);
+        let b = project(corners[1]);
+        let c = project(corners[2]);
+        let edge_a = c[0] * b[1] - c[1] * b[0];
+        let edge_b = a[0] * c[1] - a[1] * c[0];
+        let edge_c = b[0] * a[1] - b[1] * a[0];
+        if (edge_a < 0.0 || edge_b < 0.0 || edge_c < 0.0)
+            && (edge_a > 0.0 || edge_b > 0.0 || edge_c > 0.0)
+        {
+            return None;
+        }
+        let determinant = edge_a + edge_b + edge_c;
+        if determinant.abs() <= f64::MIN_POSITIVE {
+            return None;
+        }
+        // Preserve the baseline's f64 divisions and accumulation order. Depth
+        // divisions are unnecessary for triangles rejected by the edge test.
+        let distance = ((edge_a * (a[2] / self.depth)
+            + edge_b * (b[2] / self.depth)
+            + edge_c * (c[2] / self.depth))
+            / determinant) as f32;
+        if !distance.is_finite() {
+            return None;
+        }
+        if distance.abs() < f32::MIN_POSITIVE && determinant * self.depth > 0.0 {
+            Some(f32::MIN_POSITIVE)
+        } else {
+            Some(distance)
+        }
+    }
+}
+
+#[cfg(test)]
 fn ray_triangle(
     origin: [f32; 3],
     direction: [f32; 3],
     triangle: &TransportTriangle,
 ) -> Option<f32> {
-    let dominant = if direction[0].abs() > direction[1].abs() {
-        if direction[0].abs() > direction[2].abs() {
-            0
-        } else {
-            2
-        }
-    } else if direction[1].abs() > direction[2].abs() {
-        1
-    } else {
-        2
-    };
-    let depth = f64::from(direction[dominant]);
-    if depth.abs() <= f64::MIN_POSITIVE || !depth.is_finite() {
-        return None;
-    }
-    let horizontal = (dominant + 1) % 3;
-    let vertical = (horizontal + 1) % 3;
-    let shear_x = f64::from(direction[horizontal]) / depth;
-    let shear_y = f64::from(direction[vertical]) / depth;
-    let project = |point: [f32; 3]| {
-        let translated = [
-            f64::from(point[0]) - f64::from(origin[0]),
-            f64::from(point[1]) - f64::from(origin[1]),
-            f64::from(point[2]) - f64::from(origin[2]),
-        ];
-        [
-            translated[horizontal] - shear_x * translated[dominant],
-            translated[vertical] - shear_y * translated[dominant],
-            translated[dominant] / depth,
-        ]
-    };
-    let a = project(triangle.p0);
-    let b = project(triangle.p1);
-    let c = project(triangle.p2);
-    let edge_a = c[0] * b[1] - c[1] * b[0];
-    let edge_b = a[0] * c[1] - a[1] * c[0];
-    let edge_c = b[0] * a[1] - b[1] * a[0];
-    if (edge_a < 0.0 || edge_b < 0.0 || edge_c < 0.0)
-        && (edge_a > 0.0 || edge_b > 0.0 || edge_c > 0.0)
-    {
-        return None;
-    }
-    let determinant = edge_a + edge_b + edge_c;
-    if determinant.abs() <= f64::MIN_POSITIVE {
-        return None;
-    }
-    let distance = ((edge_a * a[2] + edge_b * b[2] + edge_c * c[2]) / determinant) as f32;
-    if !distance.is_finite() {
-        return None;
-    }
-    // At a shared corner the normal offset can leave the origin exactly on
-    // the adjoining face. Its winding resolves the boundary: entering solid
-    // blocks immediately, leaving the face is a harmless zero-distance hit.
-    // With this projection determinant * depth is -dot(ray, geometric normal).
-    if distance.abs() < f32::MIN_POSITIVE && determinant * depth > 0.0 {
-        Some(f32::MIN_POSITIVE)
-    } else {
-        Some(distance)
-    }
+    PreparedRay::new(origin, direction)?.triangle(triangle)
 }
 
 /// Squared distance from a point to a triangle (Ericson, Real-Time Collision
@@ -3740,67 +4064,82 @@ fn parallel_map<T: Send>(
         return Ok(out);
     }
     let workers = workers.min(MAX_TRANSPORT_WORKERS).min(count);
-    let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
-    let mut cancelled = false;
+    // Large, contiguous jobs balance heterogeneous scenes without scattering
+    // every worker's reads across the receiver array. Keep optional slots per
+    // batch, rather than per texel: millions of large accumulator copies and
+    // Option tags were otherwise retained during result assembly.
+    let batch = count.div_ceil(workers.saturating_mul(8)).clamp(32, 2048);
+    let jobs = count.div_ceil(batch);
+    let workers = workers.min(jobs);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut slots: Vec<Option<Vec<T>>> = (0..jobs).map(|_| None).collect();
+    let mut failed = false;
     std::thread::scope(|scope| {
         let mut handles = Vec::new();
-        // Interleave spatially ordered receivers so one dense region cannot
-        // leave a single worker processing the expensive tail of a bake.
         for worker in 0..workers {
             let task = &task;
             let cancel = cancel;
+            let next = &next;
             let handle = std::thread::Builder::new()
                 .name(format!("transport-solve-{worker}"))
                 .spawn_scoped(scope, move || {
-                    let mut values = Vec::with_capacity((count - worker).div_ceil(workers));
-                    for index in (worker..count).step_by(workers) {
-                        if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                    let mut completed = Vec::new();
+                    loop {
+                        let job = next.fetch_add(1, Ordering::Relaxed);
+                        if job >= jobs || cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                             break;
                         }
-                        values.push(task(index));
+                        let start = job.saturating_mul(batch);
+                        let end = start.saturating_add(batch).min(count);
+                        let mut values = Vec::with_capacity(end.saturating_sub(start));
+                        for index in start..end {
+                            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                                break;
+                            }
+                            values.push(task(index));
+                        }
+                        completed.push((job, values));
                     }
-                    values
+                    completed
                 });
             match handle {
-                Ok(handle) => handles.push((worker, handle)),
+                Ok(handle) => handles.push(handle),
                 Err(_) => {
-                    cancelled = true;
+                    failed = true;
                     break;
                 }
             }
         }
-        for (worker, handle) in handles {
-            if let Ok(values) = handle.join() {
-                for (offset, value) in values.into_iter().enumerate() {
-                    let index = worker + offset * workers;
-                    slots[index] = Some(value);
+        for handle in handles {
+            match handle.join() {
+                Ok(completed) => {
+                    for (job, values) in completed {
+                        slots[job] = Some(values);
+                    }
+                }
+                Err(_) => {
+                    failed = true;
                 }
             }
         }
     });
-    if cancelled {
-        // Spawning failed after some threads ran; the serial path is the
-        // documented fallback and can never leave holes.
-        let mut out = Vec::with_capacity(count);
-        for index in 0..count {
-            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
-                return Err(LightmapFailure::FillSize);
-            }
-            out.push(task(index));
-        }
-        return Ok(out);
+    if failed {
+        return Err(LightmapFailure::Worker);
+    }
+    if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+        return Err(LightmapFailure::FillSize);
     }
     let mut out = Vec::with_capacity(count);
-    for slot in slots {
-        match slot {
-            Some(value) => out.push(value),
-            None => {
-                if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
-                    return Err(LightmapFailure::FillSize);
-                }
-                return Err(LightmapFailure::FillSize);
-            }
+    for (job, slot) in slots.into_iter().enumerate() {
+        let Some(mut values) = slot else {
+            return Err(LightmapFailure::Worker);
+        };
+        let start = job.saturating_mul(batch);
+        let expected = start.saturating_add(batch).min(count).saturating_sub(start);
+        if values.len() != expected {
+            return Err(LightmapFailure::Worker);
         }
+        out.append(&mut values);
     }
     Ok(out)
 }
@@ -3854,6 +4193,7 @@ fn safe_inverse(value: f32) -> f32 {
     }
 }
 
+mod batch;
 mod coverage;
 pub mod diagnostics;
 mod filter;

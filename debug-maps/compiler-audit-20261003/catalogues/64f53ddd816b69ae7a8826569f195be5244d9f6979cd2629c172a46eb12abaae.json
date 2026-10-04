@@ -1,0 +1,3814 @@
+{
+  "assets": [
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#6b5f4a",
+      "display_name": "Couch",
+      "id": "core:couch",
+      "model": "core/props/models/couch.glb",
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#7a6a55",
+      "display_name": "Armchair",
+      "id": "core:armchair",
+      "model": "core/props/models/armchair.glb",
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#6d6a63",
+      "display_name": "Chair",
+      "id": "core:chair",
+      "model": "environment/office/props/models/chair.glb",
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#6f5a41",
+      "display_name": "Table",
+      "id": "core:table",
+      "model": "core/props/models/table.glb",
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#3a3d42",
+      "display_name": "Desk",
+      "id": "core:desk",
+      "model": "environment/office/props/models/desk.glb",
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#57452f",
+      "display_name": "Bookshelf",
+      "id": "core:bookshelf",
+      "model": "core/props/models/bookshelf.glb",
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#6a5c4a",
+      "display_name": "Cabinet",
+      "id": "core:cabinet",
+      "model": "environment/office/props/models/cabinet.glb",
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#7d7568",
+      "display_name": "Bed",
+      "id": "core:bed",
+      "model": "core/props/models/bed.glb",
+      "size": [
+        1.4,
+        0.55,
+        2.0
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#8f8a80",
+      "display_name": "Stove",
+      "id": "core:stove",
+      "model": "core/props/models/stove.glb",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#9aa0a0",
+      "display_name": "Sink",
+      "id": "core:sink",
+      "model": "core/props/models/sink.glb",
+      "size": [
+        0.6,
+        1.1,
+        0.55
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#b8bcc0",
+      "display_name": "Fridge",
+      "id": "core:fridge",
+      "model": "core/props/models/fridge.glb",
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#a2a6aa",
+      "display_name": "Washing Machine",
+      "id": "core:washing_machine",
+      "model": "core/props/models/washing_machine.glb",
+      "size": [
+        0.6,
+        0.85,
+        0.6
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#b4b8ba",
+      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned inside a placed washing machine's cavity, behind the porthole.",
+      "display_name": "Washer Drum",
+      "id": "core:washer_drum",
+      "model": "core/props/models/washer_drum.glb",
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#4f5a63",
+      "display_name": "Vending Machine",
+      "id": "core:vending_machine",
+      "model": "environment/office/props/models/vending_machine.glb",
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Appliances",
+      "color": "#8fa4ae",
+      "display_name": "Water Cooler",
+      "id": "core:water_cooler",
+      "model": "environment/office/props/models/water_cooler.glb",
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#e8e6e0",
+      "description": "White resin patio table for the pool deck.",
+      "display_name": "Pool Patio Table",
+      "id": "core:pool_table",
+      "model": "environment/pool/props/models/pool_table.glb",
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#e8e6e0",
+      "description": "White resin patio chair matching the pool table.",
+      "display_name": "Pool Patio Chair",
+      "id": "core:pool_chair",
+      "model": "environment/pool/props/models/pool_chair.glb",
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#b9bec2",
+      "description": "Chrome pool ladder: two handrails standing on the basin floor, curving out over the deck edge, with four non-skid treads.",
+      "display_name": "Pool Ladder",
+      "id": "core:pool_ladder",
+      "model": "environment/pool/props/models/pool_ladder.glb",
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#dfe4e2",
+      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered pleated cloth panel.",
+      "display_name": "Pool Curtain, Straight",
+      "id": "core:pool_curtain_straight",
+      "model": "environment/pool/props/models/pool_curtain_straight.glb",
+      "size": [
+        1.2,
+        2.6,
+        0.22
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#dfe4e2",
+      "description": "Half-width end module that closes a curtain run.",
+      "display_name": "Pool Curtain, End",
+      "id": "core:pool_curtain_end",
+      "model": "environment/pool/props/models/pool_curtain_end.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.22
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#dfe4e2",
+      "description": "L-shaped curtain module that turns a run through 90 degrees.",
+      "display_name": "Pool Curtain, Corner",
+      "id": "core:pool_curtain_corner",
+      "model": "environment/pool/props/models/pool_curtain_corner.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#b9bec2",
+      "description": "Two metre waist-high guardrail section: silver top and middle rails on three flanged posts.",
+      "display_name": "Pool Guardrail, Straight",
+      "id": "core:pool_guardrail_straight",
+      "model": "environment/pool/props/models/pool_guardrail_straight.glb",
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#b9bec2",
+      "description": "Short two-rail guardrail return that terminates a run.",
+      "display_name": "Pool Guardrail, End",
+      "id": "core:pool_guardrail_end",
+      "model": "environment/pool/props/models/pool_guardrail_end.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#b9bec2",
+      "description": "L-shaped two-rail guardrail module that turns a run through 90 degrees.",
+      "display_name": "Pool Guardrail, Corner",
+      "id": "core:pool_guardrail_corner",
+      "model": "environment/pool/props/models/pool_guardrail_corner.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#7a6244",
+      "display_name": "Crate",
+      "id": "core:crate",
+      "model": "core/props/models/crate.glb",
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Other",
+      "color": "#a8895f",
+      "display_name": "Cardboard Box",
+      "id": "core:cardboard_box",
+      "model": "core/props/models/cardboard_box.glb",
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#4f6b43",
+      "display_name": "Plant",
+      "id": "core:plant",
+      "model": "core/props/models/plant.glb",
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#6d5a52",
+      "display_name": "Rug",
+      "id": "core:rug",
+      "model": "core/props/models/rug.glb",
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#8a8272",
+      "display_name": "Floor Lamp",
+      "id": "core:lamp",
+      "model": "core/props/models/lamp.glb",
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#33363a",
+      "display_name": "Television",
+      "id": "core:tv",
+      "model": "core/props/models/tv.glb",
+      "size": [
+        1.1,
+        0.7,
+        0.1
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "baseboard": "core:baseboard_office_01",
+      "description": "Maintained liminal office wallpaper.",
+      "display_name": "Yellow Wallpaper",
+      "id": "core:wallpaper_yellow_01",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "theme": "office",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.8,
+        0.42
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Maintained liminal office carpet.",
+      "display_name": "Beige Carpet",
+      "id": "core:carpet_beige_01",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_carpet_beige_01",
+      "theme": "office",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Maintained suspended office ceiling.",
+      "display_name": "Panel Ceiling",
+      "grid_metres": 1.0,
+      "id": "core:ceiling_panel_01",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_ceiling_panel_01",
+      "theme": "office",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.7
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "baseboard": "core:baseboard_office_01",
+      "description": "Water-damaged office wallpaper.",
+      "display_name": "Stained Wallpaper",
+      "id": "core:wallpaper_stained_01",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_stained_01",
+      "theme": "office",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.8,
+        0.42
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Office skirting trim: the maintained yellow wallpaper, darkened into a trim tint and given a modest satin sheen. Drawn by the automatic baseboard runs office wall materials receive.",
+      "display_name": "Office Baseboard",
+      "id": "core:baseboard_office_01",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.18,
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "theme": "office",
+      "tile_metres": 2.0,
+      "tint": [
+        0.58,
+        0.55,
+        0.28
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Water-damaged office carpet.",
+      "display_name": "Damp Carpet",
+      "id": "core:carpet_damp_01",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_carpet_damp_01",
+      "theme": "office",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Water-damaged office ceiling.",
+      "display_name": "Stained Ceiling",
+      "grid_metres": 1.0,
+      "id": "core:ceiling_stained_01",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_ceiling_stained_01",
+      "theme": "office",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.7
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Pale commercial tile for the pool deck: glazed, so a restrained visible sheen, never a mirror.",
+      "display_name": "Pool Deck Tile",
+      "id": "core:pool_tile_deck_01",
+      "shine": 0.4,
+      "source": "definition",
+      "specular": 0.3,
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "theme": "pool",
+      "tile_metres": 1.5
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a restrained visible sheen.",
+      "display_name": "Pool Basin Tile",
+      "id": "core:pool_tile_basin_01",
+      "shine": 0.4,
+      "source": "definition",
+      "specular": 0.3,
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_basin_01",
+      "theme": "pool",
+      "tile_metres": 1.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Commercial wall tile for the pool room and basin walls: a restrained glazed sheen, not a glossy panel.",
+      "display_name": "Pool Wall Tile",
+      "id": "core:pool_tile_wall_01",
+      "shine": 0.4,
+      "source": "definition",
+      "specular": 0.3,
+      "surface": "wall",
+      "texture": "core:tex_pool_tile_wall_01",
+      "theme": "pool",
+      "tile_metres": 1.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Sterile painted ceiling panel for the pool room.",
+      "display_name": "Pool Ceiling",
+      "id": "core:pool_ceiling_01",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_pool_ceiling_01",
+      "theme": "pool",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "description": "Orientation-revealing wall used by the rendering diagnostic.",
+      "display_name": "Diagnostic Wall Material",
+      "id": "core:diagnostic_wall_01",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_wall_01",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "description": "Orientation-revealing floor used by the rendering diagnostic.",
+      "display_name": "Diagnostic Floor Material",
+      "id": "core:diagnostic_floor_01",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_floor_01",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "description": "Orientation-revealing ceiling used by the rendering diagnostic.",
+      "display_name": "Diagnostic Ceiling Material",
+      "id": "core:diagnostic_ceiling_01",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_diagnostic_ceiling_01",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "description": "Non-power-of-two orange/cyan surface used to prove arbitrary dimensions.",
+      "display_name": "Diagnostic Alternate Material",
+      "id": "core:diagnostic_alt_01",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_alt_01",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "description": "Partly transparent surface used to prove alpha decoding.",
+      "display_name": "Diagnostic Alpha Material",
+      "id": "core:diagnostic_alpha_01",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_alpha_01",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: maintained office carpet.",
+      "display_name": "Beige Carpet Texture",
+      "id": "core:tex_carpet_beige_01",
+      "model": "environment/office/textures/floors/carpet_beige_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: water-damaged office carpet.",
+      "display_name": "Damp Carpet Texture",
+      "id": "core:tex_carpet_damp_01",
+      "model": "environment/office/textures/floors/carpet_damp_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: maintained suspended office ceiling.",
+      "display_name": "Panel Ceiling Texture",
+      "id": "core:tex_ceiling_panel_01",
+      "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: water-damaged office ceiling.",
+      "display_name": "Stained Ceiling Texture",
+      "id": "core:tex_ceiling_stained_01",
+      "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "office"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "description": "RGBA diagnostic sheet with a transparent margin and a translucent ring.",
+      "display_name": "Diagnostic Alpha",
+      "id": "core:tex_diagnostic_alpha_01",
+      "model": "diagnostic/textures/diagnostic_alpha_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "description": "Deliberately non-power-of-two, non-square diagnostic sheet (96x64).",
+      "display_name": "Diagnostic Alternate",
+      "id": "core:tex_diagnostic_alt_01",
+      "model": "diagnostic/textures/diagnostic_alt_01.png",
+      "source": "file",
+      "surface": "floor"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "description": "Concentric-ring diagnostic sheet for ceiling orientation.",
+      "display_name": "Diagnostic Ceiling",
+      "id": "core:tex_diagnostic_ceiling_01",
+      "model": "diagnostic/textures/diagnostic_ceiling_01.png",
+      "source": "file",
+      "surface": "ceiling"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "description": "Checker-and-arrow diagnostic sheet for floor orientation.",
+      "display_name": "Diagnostic Floor",
+      "id": "core:tex_diagnostic_floor_01",
+      "model": "diagnostic/textures/diagnostic_floor_01.png",
+      "source": "file",
+      "surface": "floor"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "description": "Stripe-and-arrow diagnostic sheet for wall orientation.",
+      "display_name": "Diagnostic Wall",
+      "id": "core:tex_diagnostic_wall_01",
+      "model": "diagnostic/textures/diagnostic_wall_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: water-damaged office wallpaper.",
+      "display_name": "Stained Wallpaper Texture",
+      "id": "core:tex_wallpaper_stained_01",
+      "model": "environment/office/textures/walls/wallpaper_stained_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Final artwork: maintained liminal office wallpaper.",
+      "display_name": "Yellow Wallpaper Texture",
+      "id": "core:tex_wallpaper_yellow_01",
+      "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Commercial 15 cm deck tile at a 1.5 m repeat.",
+      "display_name": "Pool Deck Tile Texture",
+      "id": "core:tex_pool_tile_deck_01",
+      "model": "environment/pool/textures/floors/pool_tile_deck_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Small-format 10 cm basin tile at a 1 m repeat.",
+      "display_name": "Pool Basin Tile Texture",
+      "id": "core:tex_pool_tile_basin_01",
+      "model": "environment/pool/textures/floors/pool_tile_basin_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Commercial 10 cm wall tile at a 1 m repeat.",
+      "display_name": "Pool Wall Tile Texture",
+      "id": "core:tex_pool_tile_wall_01",
+      "model": "environment/pool/textures/walls/pool_tile_wall_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Sterile painted ceiling panel at a 2 m repeat.",
+      "display_name": "Pool Ceiling Texture",
+      "id": "core:tex_pool_ceiling_01",
+      "model": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "light",
+      "description": "Recessed twin-tube ceiling fixture used throughout the office interiors. The named PNG is the fixture's visible diffuser face, drawn once across the panel; the geometry stays generated.",
+      "display_name": "Fluorescent Panel",
+      "id": "core:fluorescent_panel_01",
+      "model": "environment/office/textures/lights/fluorescent_panel_01.png",
+      "source": "file",
+      "theme": "office"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "light",
+      "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture. The named PNG is the diffuser face seen from below.",
+      "display_name": "Pool Round Light",
+      "id": "core:pool_light_round",
+      "model": "environment/pool/textures/lights/pool_light_round_01.png",
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "light",
+      "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture. The named PNG is the luminaire's lens face.",
+      "display_name": "Pool Wall Light",
+      "id": "core:pool_light_wall",
+      "model": "environment/pool/textures/lights/pool_light_wall_01.png",
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Floor-direction wayfinding arrow, an external PNG cut-out that can be replaced without a Rust change.",
+      "display_name": "Floor Arrow",
+      "id": "core:decal_arrow_01",
+      "model": "core/decals/arrow_01.png",
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Diagonal hazard striping, an external PNG cut-out that can be replaced without a Rust change.",
+      "display_name": "Hazard Stripes",
+      "id": "core:decal_stripes_01",
+      "model": "core/decals/stripes_01.png",
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Low-poly ceiling supply grille, an external PNG cut-out sized to sit centred on one 0.6 m ceiling tile.",
+      "display_name": "Ceiling Vent",
+      "id": "core:decal_ceiling_vent_01",
+      "model": "core/decals/ceiling_vent_01.png",
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Final pool safety sign sheet: the authoritative PNG lives under assets/ and can be replaced without a Rust change.",
+      "display_name": "No Diving Sign",
+      "id": "core:decal_no_diving_01",
+      "model": "environment/pool/decals/no_diving_01.png",
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "diagnostic",
+      "asset_type": "decal",
+      "description": "Internal validation marking used by the rendering diagnostic.",
+      "display_name": "Validation Marking",
+      "id": "core:decal_test_01",
+      "source": "generated"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#33343a",
+      "description": "Low-poly tuxedo cat placed through the ordinary prop placement system.",
+      "display_name": "Spooner-Man",
+      "entity_type": "character",
+      "id": "spooner-man",
+      "model": "entities/spooner-man/model/spooner-man.glb",
+      "size": [
+        0.165,
+        0.389,
+        0.626
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Nearly transparent glass sheet: a faint green-grey tint and a barely-there alpha.",
+      "display_name": "Clear Glass Texture",
+      "id": "core:tex_glass_clear_01",
+      "model": "core/textures/glass/glass_clear_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Unwashed glass sheet: blotchy alpha, a dried-film tint and a few drip trails.",
+      "display_name": "Dirty Glass Texture",
+      "id": "core:tex_glass_dirty_01",
+      "model": "core/textures/glass/glass_dirty_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Uniformly tinted teal glass sheet at roughly half opacity.",
+      "display_name": "Tinted Glass Texture",
+      "id": "core:tex_glass_tinted_01",
+      "model": "core/textures/glass/glass_tinted_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Polished linoleum sheet: pale speckled field with faint sheet seams.",
+      "display_name": "Polished Linoleum Texture",
+      "id": "core:tex_linoleum_01",
+      "model": "core/textures/floors/linoleum_01.png",
+      "source": "file",
+      "surface": "floor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Brushed metal sheet with a panel seam and two rivet rows.",
+      "display_name": "Brushed Metal Panel Texture",
+      "id": "core:tex_metal_panel_01",
+      "model": "core/textures/walls/metal_panel_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Warm brass with a fine circular polish; the material carries the highlight.",
+      "display_name": "Brass Texture",
+      "id": "core:tex_metal_brass_01",
+      "model": "core/textures/metal/brass_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Moulded plastic sheet: pale, near-neutral, softly periodic.",
+      "display_name": "Plastic Panel Texture",
+      "id": "core:tex_plastic_panel_01",
+      "model": "core/textures/walls/plastic_panel_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Tangent-space normal sheet with soft moulded dimples; generic detail, not aligned to any albedo.",
+      "display_name": "Panel Normal Map",
+      "id": "core:tex_normal_panel_01",
+      "model": "core/textures/normals/normal_panel_01.png",
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Tangent-space normal sheet with fine horizontal brushing; generic detail, not aligned to any albedo.",
+      "display_name": "Brushed Normal Map",
+      "id": "core:tex_normal_brushed_01",
+      "model": "core/textures/normals/normal_brushed_01.png",
+      "source": "file"
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Clear glazing for a window opening: almost no tint, a smooth glass sheen, and a transparent sheet. Author it on an opening with `glass`.",
+      "display_name": "Clear Window Glass",
+      "id": "core:glass_window_clear_01",
+      "shine": 0.85,
+      "source": "definition",
+      "specular": 0.5,
+      "surface": "wall",
+      "texture": "core:tex_glass_clear_01",
+      "tile_metres": 2.0
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Unwashed window glazing: grimy alpha and a duller sheen than clean glass.",
+      "display_name": "Dirty Window Glass",
+      "id": "core:glass_window_dirty_01",
+      "shine": 0.6,
+      "source": "definition",
+      "specular": 0.4,
+      "surface": "wall",
+      "texture": "core:tex_glass_dirty_01",
+      "tile_metres": 2.0
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Tinted glazing at roughly half opacity, for observation windows between rooms.",
+      "display_name": "Tinted Glass",
+      "id": "core:glass_tinted_01",
+      "shine": 0.8,
+      "source": "definition",
+      "specular": 0.45,
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 2.0
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Translucent backlit sign panel: a tinted sheet that emits on its own, which is what a transparent emissive material looks like.",
+      "display_name": "Lit Sign Glass",
+      "emissive": [
+        0.86,
+        0.93,
+        1.0
+      ],
+      "emissive_intensity": 1.35,
+      "id": "core:glass_sign_lit_01",
+      "opacity": 0.88,
+      "shine": 0.6,
+      "source": "definition",
+      "specular": 0.35,
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "A backlit sign panel on a failing ballast: the same translucent sheet as `core:glass_sign_lit_01`, driven by a level's `animated_emissions` flicker so it stutters instead of holding steady.",
+      "display_name": "Failing Lit Sign Glass",
+      "emissive": [
+        0.95,
+        0.97,
+        1.0
+      ],
+      "emissive_intensity": 1.15,
+      "id": "core:glass_sign_flicker_01",
+      "opacity": 0.88,
+      "shine": 0.6,
+      "source": "definition",
+      "specular": 0.35,
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Deliberately waxed linoleum: a buffed sheen with a faint probe reflection, the polished end of the family. Ordinary institutional floors should author `shine` 0.0-0.1 on the surface instead of using this default.",
+      "display_name": "Polished Linoleum",
+      "id": "core:linoleum_polished_01",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.25,
+      "shine": 0.55,
+      "source": "definition",
+      "specular": 0.45,
+      "surface": "floor",
+      "texture": "core:tex_linoleum_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.84,
+        0.8,
+        0.7
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Aged brushed metal: a cool tinted sheen, broad highlights and a faint environmental reflection plus a fine directional normal map, so it reads as metal rather than as grey paint without becoming chrome. Raise `shine` on a deliberately polished fixture.",
+      "display_name": "Brushed Metal Panel",
+      "id": "core:metal_brushed_01",
+      "normal_strength": 0.35,
+      "normal_texture": "core:tex_normal_brushed_01",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.25,
+      "shine": 0.35,
+      "source": "definition",
+      "specular": 0.6,
+      "specular_color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "surface": "wall",
+      "texture": "core:tex_metal_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.9,
+        0.91,
+        0.93
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Polished brass for door furniture; high shine without a planar mirror.",
+      "display_name": "Brass",
+      "id": "core:metal_brass_01",
+      "shine": 0.85,
+      "source": "definition",
+      "specular": 0.8,
+      "surface": "wall",
+      "texture": "core:tex_metal_brass_01",
+      "tile_metres": 0.25
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Moulded plastic: a broad white sheen and soft dimples, the deliberate counterpart of the brushed metal panel. Satin plastic, not a lacquered wall.",
+      "display_name": "Moulded Plastic Panel",
+      "id": "core:plastic_panel_01",
+      "normal_strength": 0.4,
+      "normal_texture": "core:tex_normal_panel_01",
+      "shine": 0.4,
+      "source": "definition",
+      "specular": 0.3,
+      "surface": "wall",
+      "texture": "core:tex_plastic_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.94,
+        0.95,
+        0.96
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Wet deck tile: the shipped deck artwork with a wet sheen and a planar reflection, so a patch of floor reads as standing water without behaving like a mirror.",
+      "display_name": "Wet Pool Deck",
+      "id": "core:pool_deck_wet_01",
+      "reflection_mode": "planar",
+      "reflection_strength": 0.4,
+      "shine": 0.78,
+      "source": "definition",
+      "specular": 0.7,
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "theme": "pool",
+      "tile_metres": 1.5,
+      "tint": [
+        0.45,
+        0.5,
+        0.56
+      ]
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Translucent pool water for authored water volumes: the volume's own opacity rides in the surface's vertex alpha, so the material stays fully opaque (opacity 1.0) and one material serves every pool. Modest sheen only; water never reflects as a mirror.",
+      "display_name": "Pool Water",
+      "id": "core:water_pool_01",
+      "opacity": 1.0,
+      "shine": 0.7,
+      "source": "definition",
+      "specular": 0.45,
+      "surface": "floor",
+      "texture": "core:tex_pool_water_01",
+      "theme": "pool",
+      "tile_metres": 2.0,
+      "tint": [
+        0.84,
+        0.93,
+        1.0
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Tileable pale pool water at a 2 m repeat: soft multi-scale caustics over a faint diagonal ripple. Drawn only by the water surface.",
+      "display_name": "Pool Water Texture",
+      "id": "core:tex_pool_water_01",
+      "model": "environment/pool/textures/water/pool_water_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Flat painted wall: no sheen at all, the default for materials that author no surface-response fields. Kept explicit as the dull end of the comparison.",
+      "display_name": "Dull Painted Wall",
+      "id": "core:painting_dull_01",
+      "shine": 0.0,
+      "source": "definition",
+      "specular": 0.0,
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.8,
+        0.84,
+        0.78
+      ]
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Alpha cut-out grille sheet: slats are solid, the openings between them are transparent.",
+      "display_name": "Transfer Grille Texture",
+      "id": "core:tex_grille_01",
+      "model": "core/textures/walls/grille_01.png",
+      "source": "file",
+      "surface": "wall"
+    },
+    {
+      "alpha_cutoff": 0.5,
+      "alpha_mode": "cutout",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane.",
+      "display_name": "Transfer Grille",
+      "id": "core:grille_vent_01",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.25,
+      "surface": "wall",
+      "texture": "core:tex_grille_01",
+      "tile_metres": 1.0,
+      "tint": [
+        0.84,
+        0.86,
+        0.9
+      ]
+    },
+    {
+      "asset_class": "core",
+      "asset_type": "texture",
+      "description": "Soft white-grey wispy puff with an alpha falloff to every edge; sampled by steam effect billboards at the effect material's `tile_metres`.",
+      "display_name": "Steam Puff Texture",
+      "id": "core:tex_steam_01",
+      "model": "core/textures/effects/steam_01.png",
+      "source": "file"
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "core",
+      "asset_type": "material",
+      "description": "Ambient steam: a soft white-grey puff at low opacity, no tint, no emission and no reflection. The default material for `effects[]` steam plumes.",
+      "display_name": "Steam",
+      "id": "core:steam_01",
+      "opacity": 0.4,
+      "source": "definition",
+      "texture": "core:tex_steam_01",
+      "tile_metres": 0.5
+    },
+    {
+      "asset_class": "core",
+      "asset_type": "texture",
+      "description": "The shared untextured sheet: a flat opaque white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup as a single un-mipped level.",
+      "display_name": "Untextured White Sheet",
+      "id": "core:tex_white_01",
+      "model": "core/textures/white_01.png",
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Clean off-white residential wallpaper: a fine paper weave with no pattern.",
+      "display_name": "Home Off-White Wallpaper Texture",
+      "id": "home:tex_wallpaper_offwhite_01",
+      "model": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Off-white wallpaper with one very subtle repeating motif on a 25 cm cell.",
+      "display_name": "Home Patterned Wallpaper Texture",
+      "id": "home:tex_wallpaper_pattern_01",
+      "model": "environment/home/textures/walls/wallpaper_pattern_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Plain painted off-white wall: a roller-stipple micro-texture, no pattern.",
+      "display_name": "Home Painted Wall Texture",
+      "id": "home:tex_wall_paint_offwhite_01",
+      "model": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Residential wood skirting: horizontal grain, restrained, no damage.",
+      "display_name": "Home Wood Baseboard Texture",
+      "id": "home:tex_baseboard_wood_01",
+      "model": "environment/home/textures/walls/baseboard_wood_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Painted white skirting: smooth finish with a fine brush grain.",
+      "display_name": "Home White Baseboard Texture",
+      "id": "home:tex_baseboard_white_01",
+      "model": "environment/home/textures/walls/baseboard_white_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Varnished handrail wood: warm, fine straight grain.",
+      "display_name": "Home Handrail Wood Texture",
+      "id": "home:tex_handrail_wood_01",
+      "model": "environment/home/textures/walls/handrail_wood_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Transition-strip hardwood: a warm oak tone with fine grain.",
+      "display_name": "Home Threshold Strip Texture",
+      "id": "home:tex_threshold_wood_01",
+      "model": "environment/home/textures/floors/threshold_wood_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Finished oak floorboards, 20 cm planks, warm and clean.",
+      "display_name": "Home Oak Floorboard Texture",
+      "id": "home:tex_hardwood_oak_01",
+      "model": "environment/home/textures/floors/hardwood_oak_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Finished walnut floorboards, 15 cm planks, darker and cooler than the oak.",
+      "display_name": "Home Walnut Floorboard Texture",
+      "id": "home:tex_hardwood_walnut_02",
+      "model": "environment/home/textures/floors/hardwood_walnut_02.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Clean cream short-pile carpet, no stains and no metre checker.",
+      "display_name": "Home Cream Carpet Texture",
+      "id": "home:tex_carpet_cream_01",
+      "model": "environment/home/textures/floors/carpet_cream_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Simple 15 cm off-white floor tile with a fine grout line.",
+      "display_name": "Home Kitchen Tile Texture",
+      "id": "home:tex_tile_home_01",
+      "model": "environment/home/textures/floors/tile_home_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Flat white painted ceiling, near-flat with a faint roller variation.",
+      "display_name": "Home White Ceiling Texture",
+      "id": "home:tex_ceiling_white_01",
+      "model": "environment/home/textures/ceilings/ceiling_white_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture.",
+      "display_name": "Home Plaster Ceiling Texture",
+      "id": "home:tex_ceiling_plaster_01",
+      "model": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Light cedar sauna boards: narrow vertical staves with soft even grain.",
+      "display_name": "Home Sauna Wood Texture",
+      "id": "home:tex_sauna_wood_01",
+      "model": "environment/home/textures/doors/sauna_wood_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "White painted door stock: a smooth finish with a faint vertical brush.",
+      "display_name": "Home White Door Texture",
+      "id": "home:tex_door_white_01",
+      "model": "environment/home/textures/doors/door_white_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Clean canonical residential wallpaper; matte, no damage.",
+      "display_name": "Off-White Residential Wallpaper",
+      "id": "home:wallpaper_offwhite_01",
+      "shine": 0.12,
+      "source": "definition",
+      "specular": 0.0,
+      "surface": "wall",
+      "texture": "home:tex_wallpaper_offwhite_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "The same paper in a very subtle repeating motif; still matte.",
+      "display_name": "Patterned Off-White Wallpaper",
+      "id": "home:wallpaper_pattern_01",
+      "shine": 0.12,
+      "source": "definition",
+      "specular": 0.0,
+      "surface": "wall",
+      "texture": "home:tex_wallpaper_pattern_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Plain painted wall: distinct from wallpaper, a low satin response.",
+      "display_name": "Off-White Painted Wall",
+      "id": "home:wall_paint_offwhite_01",
+      "shine": 0.22,
+      "source": "definition",
+      "specular": 0.1,
+      "surface": "wall",
+      "texture": "home:tex_wall_paint_offwhite_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Wood skirting; used on baseboard and railing trim faces.",
+      "display_name": "Wood Baseboard",
+      "id": "home:baseboard_wood_01",
+      "shine": 0.28,
+      "source": "definition",
+      "specular": 0.18,
+      "surface": "wall",
+      "texture": "home:tex_baseboard_wood_01",
+      "theme": "home",
+      "tile_metres": 0.5
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Painted white skirting for walls the wood board would not suit.",
+      "display_name": "White Baseboard",
+      "id": "home:baseboard_white_01",
+      "shine": 0.22,
+      "source": "definition",
+      "specular": 0.14,
+      "surface": "wall",
+      "texture": "home:tex_baseboard_white_01",
+      "theme": "home",
+      "tile_metres": 0.5
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Varnished handrail and guardrail wood; a restrained satin sheen.",
+      "display_name": "Handrail Wood",
+      "id": "home:handrail_wood_01",
+      "shine": 0.35,
+      "source": "definition",
+      "specular": 0.25,
+      "surface": "wall",
+      "texture": "home:tex_handrail_wood_01",
+      "theme": "home",
+      "tile_metres": 0.4
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Floor transition strip; independent of the floors it joins.",
+      "display_name": "Wood Threshold Strip",
+      "id": "home:threshold_wood_01",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.22,
+      "surface": "floor",
+      "texture": "home:tex_threshold_wood_01",
+      "theme": "home",
+      "tile_metres": 0.5
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Primary residential hardwood: a finished warm oak floor.",
+      "display_name": "Oak Hardwood Floor",
+      "id": "home:hardwood_oak_01",
+      "shine": 0.32,
+      "source": "definition",
+      "specular": 0.22,
+      "surface": "floor",
+      "texture": "home:tex_hardwood_oak_01",
+      "theme": "home",
+      "tile_metres": 1.6
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Secondary hardwood: darker walnut, a genuinely different floor.",
+      "display_name": "Walnut Hardwood Floor",
+      "id": "home:hardwood_walnut_02",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.2,
+      "surface": "floor",
+      "texture": "home:tex_hardwood_walnut_02",
+      "theme": "home",
+      "tile_metres": 1.2
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Clean beige/cream residential carpet; matte and undamaged.",
+      "display_name": "Cream Carpet",
+      "id": "home:carpet_cream_01",
+      "shine": 0.06,
+      "source": "definition",
+      "specular": 0.0,
+      "surface": "floor",
+      "texture": "home:tex_carpet_cream_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Simple kitchen/bathroom tile; a restrained glazed response.",
+      "display_name": "Residential Floor Tile",
+      "id": "home:tile_home_01",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.24,
+      "surface": "floor",
+      "texture": "home:tex_tile_home_01",
+      "theme": "home",
+      "tile_metres": 1.2
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Flat white residential ceiling.",
+      "display_name": "Flat White Ceiling",
+      "id": "home:ceiling_white_01",
+      "shine": 0.1,
+      "source": "definition",
+      "specular": 0.0,
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_white_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Lightly textured plaster ceiling; subtle, not popcorn.",
+      "display_name": "Plaster Ceiling",
+      "id": "home:ceiling_plaster_01",
+      "shine": 0.14,
+      "source": "definition",
+      "specular": 0.05,
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_plaster_01",
+      "theme": "home",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Light cedar for sauna doors and benches; a restrained satin sheen.",
+      "display_name": "Sauna Cedar",
+      "id": "home:sauna_wood_01",
+      "shine": 0.3,
+      "source": "definition",
+      "specular": 0.2,
+      "surface": "wall",
+      "texture": "home:tex_sauna_wood_01",
+      "theme": "home",
+      "tile_metres": 0.6
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Satin white door paint; the default interior door leaf and frame finish.",
+      "display_name": "White Painted Door",
+      "id": "home:door_white_01",
+      "shine": 0.35,
+      "source": "definition",
+      "specular": 0.25,
+      "surface": "wall",
+      "texture": "home:tex_door_white_01",
+      "theme": "home",
+      "tile_metres": 0.5
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "light",
+      "description": "Ordinary circular residential flush-mount ceiling lamp: a white diffuser disc in a shallow drum body, warm white light.",
+      "display_name": "Round Flush-Mount Ceiling Light",
+      "id": "home:ceiling_light_round",
+      "model": "environment/home/textures/lights/ceiling_light_round_01.png",
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#d8d3c8",
+      "description": "Off-white shaker base cabinet with a laminate countertop; 0.6 m wide so a run tiles cleanly.",
+      "display_name": "Base Kitchen Cabinet",
+      "id": "home:cabinet_base",
+      "model": "environment/home/props/models/cabinet_base.glb",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Furniture",
+      "color": "#ddd8ce",
+      "description": "Off-white wall cabinet with two doors and a slim carcass; mounts above the base cabinet.",
+      "display_name": "Wall Kitchen Cabinet",
+      "id": "home:cabinet_wall",
+      "model": "environment/home/props/models/cabinet_wall.glb",
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#a8a7a1",
+      "description": "Grey concrete artist's lay figure with three selectable poses on one rig (pose_stand, pose_arms_up, pose_arms_forward).",
+      "display_name": "Concrete Mannequin",
+      "entity_type": "character",
+      "id": "mannequin",
+      "model": "entities/mannequin/model/mannequin.glb",
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#6b5a4a",
+      "description": "Low-poly rat with articulated legs, paws and a five-segment tail; looping idle/walk/run clips with measured reference speeds (0.199 m/s walk, 0.573 m/s run).",
+      "display_name": "Rat",
+      "entity_type": "character",
+      "id": "rat",
+      "model": "entities/rat/model/rat.glb",
+      "size": [
+        0.095,
+        0.139,
+        0.613
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#d8d2b8",
+      "description": "Low-poly articulated skeleton prop with a real animation rig and three held poses (pose_stand, pose_sit_floor, pose_sit_chair); the chair pose fits the 0.45 m seat of core:chair.",
+      "display_name": "Skeleton",
+      "entity_type": "character",
+      "id": "skeleton",
+      "model": "entities/skeleton/model/skeleton.glb",
+      "size": [
+        0.4266,
+        1.72,
+        0.315
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#c9761f",
+      "description": "Carved pumpkin with a candle and an emissive flame primitive on the animated flame node; hopping loop hop_forward (authored for 0.5 m/s) and the laughing loop laugh (2.4 s). Attach a glow component with socket flame for the candle light.",
+      "display_name": "Carved Candle Pumpkin",
+      "entity_type": "character",
+      "id": "carved-pumpkin",
+      "model": "entities/carved-pumpkin/model/carved-pumpkin.glb",
+      "size": [
+        0.701,
+        0.654,
+        0.635
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#bfe4e8",
+      "description": "Painted sheet ghost with a readable face on a three-joint rig; floating loop float_forward (authored for 0.3 m/s) and idle sway, plus blended materials with a mild cyan cloth glow and a dimmer face-feature primitive. Use fade and glow components for its cycle.",
+      "display_name": "Sheet Ghost",
+      "entity_type": "character",
+      "id": "sheet-ghost",
+      "model": "entities/sheet-ghost/model/sheet-ghost.glb",
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#c9b48a",
+      "description": "Walking skeleton whose skull is replaced by an emissive pumpkin head on the piece_pumpkin_head joint; in-place walk loop (authored for 0.571 m/s) and the collapse_reassemble gesture. Attach a glow component with socket piece_pumpkin_head for the head light.",
+      "display_name": "Pumpkin-Head Skeleton",
+      "entity_type": "character",
+      "id": "pumpkin-skeleton",
+      "model": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb",
+      "size": [
+        0.442,
+        1.808,
+        0.403
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#a8453a",
+      "display_name": "Stop Sign",
+      "id": "core:stop_sign",
+      "model": "core/props/models/stop_sign.glb",
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#2f7a3f",
+      "display_name": "Exit Sign",
+      "id": "core:exit_sign",
+      "model": "core/props/models/exit_sign.glb",
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#e6e2d8",
+      "display_name": "Hanging Ball Light",
+      "id": "home:ball_light",
+      "model": "environment/home/props/models/ball_light.glb",
+      "size": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Utility",
+      "color": "#ddd8ce",
+      "display_name": "Wall Light Switch",
+      "id": "home:wall_switch",
+      "model": "environment/home/props/models/wall_switch.glb",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#6b6558",
+      "display_name": "CRT Television",
+      "id": "home:crt_tv",
+      "model": "environment/home/props/models/crt_tv.glb",
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#c9c9c6",
+      "description": "Table knife with a tapered steel blade and a dark riveted handle; the blade end faces +Z in a place setting.",
+      "display_name": "Table Knife",
+      "id": "home:knife",
+      "model": "environment/home/props/models/knife.glb",
+      "size": [
+        0.022,
+        0.016,
+        0.215
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#c9c9c6",
+      "description": "Four-tine table fork with a steel head and a dark riveted handle; the tines face +Z in a place setting.",
+      "display_name": "Table Fork",
+      "id": "home:fork",
+      "model": "environment/home/props/models/fork.glb",
+      "size": [
+        0.026,
+        0.012,
+        0.196
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#c9c9c6",
+      "description": "Table spoon with a shallow eight-sided steel bowl and a dark riveted handle; the bowl faces +Z in a place setting.",
+      "display_name": "Table Spoon",
+      "id": "home:spoon",
+      "model": "environment/home/props/models/spoon.glb",
+      "size": [
+        0.036,
+        0.02,
+        0.185
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#e8e6df",
+      "description": "Porcelain dinner plate; floats on the tabletop at any placement.",
+      "display_name": "Dinner Plate",
+      "id": "home:plate",
+      "model": "environment/home/props/models/plate.glb",
+      "size": [
+        0.22,
+        0.022,
+        0.22
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#e8e6df",
+      "description": "Porcelain cereal bowl with a rolled rim; sized for the home tabletop.",
+      "display_name": "Cereal Bowl",
+      "id": "home:bowl",
+      "model": "environment/home/props/models/bowl.glb",
+      "size": [
+        0.15,
+        0.065,
+        0.15
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#5a7a4a",
+      "description": "Small potted table plant: a glazed ten-sided pot, soil and seven folded leaves on a short stem; roughly half the height of the floor plant.",
+      "display_name": "Small Potted Plant",
+      "id": "home:plant_table",
+      "model": "environment/home/props/models/plant_table.glb",
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "home"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Decorative",
+      "color": "#f2c422",
+      "description": "Yellow rubber duck with an orange beak and painted eyes; the beak end faces +Z and a `float` block lets it ride the pool surface.",
+      "display_name": "Rubber Duck",
+      "id": "core:rubber_duck",
+      "model": "environment/pool/props/models/rubber_duck.glb",
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Tileable night lawn: short mottled blades in muted greens, no bright or dark edge band, readable under a small pool of warm lamplight.",
+      "display_name": "Grass Ground Texture",
+      "id": "outdoor:tex_grass_ground_01",
+      "model": "environment/outdoor/textures/ground/grass_ground_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Stylized packed dirt with scattered pale gravel; tileable in both axes and deliberately low-contrast so a feathered edge blends into grass.",
+      "display_name": "Dirt and Gravel Path Texture",
+      "id": "outdoor:tex_dirt_gravel_01",
+      "model": "environment/outdoor/textures/ground/dirt_gravel_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Restrained poured-concrete walkway: pale grey with subtle panel grain and a few darker pores, tileable in both axes.",
+      "display_name": "Concrete Pavement Texture",
+      "id": "outdoor:tex_concrete_pavement_01",
+      "model": "environment/outdoor/textures/ground/concrete_pavement_01.png",
+      "source": "file",
+      "surface": "floor",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Horizontal painted clapboard siding in a muted dark green-grey, tileable in both axes.",
+      "display_name": "House Siding Texture",
+      "id": "outdoor:tex_house_siding_01",
+      "model": "environment/outdoor/textures/house/siding_01.png",
+      "source": "file",
+      "surface": "wall",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Dark asphalt roof shingles in overlapping rows, tileable in both axes.",
+      "display_name": "Roof Shingle Texture",
+      "id": "outdoor:tex_house_roof_shingle_01",
+      "model": "environment/outdoor/textures/house/roof_shingle_01.png",
+      "source": "file",
+      "surface": "ceiling",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "description": "Equirectangular 2:1 night sky: near-black with a small number of faint stars in the upper hemisphere and no moon, Milky Way, glow or daylight horizon.",
+      "display_name": "Night Sky, Faint Stars",
+      "id": "outdoor:tex_sky_stars_01",
+      "model": "environment/outdoor/textures/sky/sky_stars_01.png",
+      "source": "file",
+      "surface": "sky",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Night lawn surface: low sheen so a small warm lamp pool reads without a wet sheen.",
+      "display_name": "Grass Ground",
+      "id": "outdoor:grass_ground_01",
+      "shine": 0.03,
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_grass_ground_01",
+      "theme": "outdoor",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Walked dirt path surface.",
+      "display_name": "Dirt and Gravel",
+      "id": "outdoor:dirt_gravel_01",
+      "shine": 0.05,
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_dirt_gravel_01",
+      "theme": "outdoor",
+      "tile_metres": 1.6
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Cast concrete walkway surface.",
+      "display_name": "Concrete Pavement",
+      "id": "outdoor:concrete_pavement_01",
+      "shine": 0.08,
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "theme": "outdoor",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Painted exterior wall cladding.",
+      "display_name": "House Siding",
+      "id": "outdoor:house_siding_01",
+      "shine": 0.12,
+      "source": "definition",
+      "surface": "wall",
+      "texture": "outdoor:tex_house_siding_01",
+      "theme": "outdoor",
+      "tile_metres": 1.2
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "description": "Exterior roof surface.",
+      "display_name": "Roof Shingles",
+      "id": "outdoor:house_roof_shingle_01",
+      "shine": 0.06,
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "outdoor:tex_house_roof_shingle_01",
+      "theme": "outdoor",
+      "tile_metres": 1.0
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Straight path-edge feather strip: the dirt/gravel grain fades out across the strip width so a dirt patch meets grass without a hard rectangular seam. Place with width across the seam and height along the edge; rotate to face either side or a diagonal run.",
+      "display_name": "Path Edge Feather",
+      "id": "outdoor:decal_path_edge_01",
+      "model": "environment/outdoor/textures/decals/path_edge_01.png",
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Rounded path-end feather: grain fades radially so a path can stop, fork or flare into gravel without a cut edge.",
+      "display_name": "Path End Feather",
+      "id": "outdoor:decal_path_end_01",
+      "model": "environment/outdoor/textures/decals/path_end_01.png",
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "alpha_mode": "blend",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "description": "Corner feather piece for a path bend or junction: two soft fades meeting at a rounded inner corner.",
+      "display_name": "Path Corner Feather",
+      "id": "outdoor:decal_path_corner_01",
+      "model": "environment/outdoor/textures/decals/path_corner_01.png",
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Vegetation",
+      "color": "#4c6b3c",
+      "description": "Standing tuft of alpha-cutout grass cards for LOW-density scatter; non-solid, does not occlude the light bake.",
+      "display_name": "Small Grass Tuft",
+      "id": "outdoor:grass_patch_small",
+      "model": "environment/outdoor/props/models/grass_patch_small.glb",
+      "size": [
+        0.55,
+        0.3,
+        0.55
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Vegetation",
+      "color": "#4f6f3e",
+      "description": "Taller standing grass cluster for MEDIUM and DENSE scatter; non-solid, does not occlude the light bake.",
+      "display_name": "Large Grass Tuft",
+      "id": "outdoor:grass_patch_large",
+      "model": "environment/outdoor/props/models/grass_patch_large.glb",
+      "size": [
+        0.95,
+        0.62,
+        0.95
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Vegetation",
+      "color": "#5a6b45",
+      "description": "Large stylized tree: tapered trunk, four branches and an alpha-cutout leaf canopy. Place it solid with a level size of roughly [0.8, 6.4, 0.8] so only the trunk blocks the player.",
+      "display_name": "Leafy Tree",
+      "id": "outdoor:tree_01",
+      "model": "environment/outdoor/props/models/tree_01.glb",
+      "size": [
+        4.6,
+        6.4,
+        4.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Lighting",
+      "color": "#3b3a36",
+      "description": "Ground-standing garden lamp on a short post: a dark housing with a warm emissive pane. Author its point light at offset [0, 0.86, 0] (the documented mounting origin).",
+      "display_name": "Standing Exterior Lamp",
+      "id": "outdoor:lamp_stand",
+      "model": "environment/outdoor/props/models/lamp_stand.glb",
+      "size": [
+        0.34,
+        1.05,
+        0.34
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Lighting",
+      "color": "#3b3a36",
+      "description": "Small cap lamp for a fence post: the bracket seats on a 0.12 m post and the warm emissive pane faces +Z. Author its point light at offset [0, 0.30, 0.05].",
+      "display_name": "Fence-Post Lamp",
+      "id": "outdoor:lamp_fence",
+      "model": "environment/outdoor/props/models/lamp_fence.glb",
+      "size": [
+        0.32,
+        0.42,
+        0.36
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Lighting",
+      "color": "#3b3a36",
+      "description": "Building/eave-hanging lantern: an arched bracket meets the wall at y = 0.52 and the lamp hangs below it. Author its point light at offset [0, 0.18, 0.12].",
+      "display_name": "Hanging Eave Lamp",
+      "id": "outdoor:lamp_wall",
+      "model": "environment/outdoor/props/models/lamp_wall.glb",
+      "size": [
+        0.3,
+        0.52,
+        0.34
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6a5a45",
+      "description": "Simple capped fence post; supports outdoor:lamp_fence and gives a run of posts a repeated silhouette.",
+      "display_name": "Wooden Fence Post",
+      "id": "outdoor:fence_post",
+      "model": "environment/outdoor/props/models/fence_post.glb",
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#5c6b58",
+      "description": "Modular exterior wall panel: siding on both faces with a painted base band and corner boards. Use level size [3.0, 2.7, 0.24] and solid true, or butt it against real level walls.",
+      "display_name": "House Wall Panel",
+      "id": "outdoor:house_wall_solid",
+      "model": "environment/outdoor/props/models/house_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#5c6b58",
+      "description": "Exterior wall panel with a centered framed window, sill and dark glazing; the window is decorative and the panel stays solid.",
+      "display_name": "House Wall Panel, Window",
+      "id": "outdoor:house_wall_window",
+      "model": "environment/outdoor/props/models/house_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#5c6b58",
+      "description": "Exterior wall panel with a centered 1.1 x 2.15 m doorway: real jamb depth through the panel, a lintel and a threshold board. Non-solid; the level authors a real wall with a door opening behind it. Eave lamp mounts are documented at [+/-1.15, 2.55, 0.20] local.",
+      "display_name": "House Wall Panel, Doorway",
+      "id": "outdoor:house_wall_doorway",
+      "model": "environment/outdoor/props/models/house_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#4a4640",
+      "description": "Pitched roof slope with a visible eave: shingle field on top, fascia and soffit board at the low edge, origin at the eave's underside centre so a slope can be butted against a gable.",
+      "display_name": "House Roof Slope",
+      "id": "outdoor:house_roof_slope",
+      "model": "environment/outdoor/props/models/house_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3f3b36",
+      "description": "Ridge cap that covers the joint where two roof slopes meet.",
+      "display_name": "House Roof Ridge Cap",
+      "id": "outdoor:house_roof_ridge",
+      "model": "environment/outdoor/props/models/house_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6a5a45",
+      "description": "Vertical corner board that covers panel junctions at a house corner.",
+      "display_name": "House Corner Board",
+      "id": "outdoor:house_corner_trim",
+      "model": "environment/outdoor/props/models/house_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#8a8781",
+      "description": "Low cast step joining a concrete walkway or dirt path to a doorway threshold without a large step; set the level size with solid true when the player should stand on it.",
+      "display_name": "Concrete Step",
+      "id": "outdoor:concrete_step",
+      "model": "environment/outdoor/props/models/concrete_step.glb",
+      "size": [
+        1.4,
+        0.18,
+        0.7
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3d3e42",
+      "description": "Deliberately tiny 6 cm grey cube that carries an authored invisible containment collider, not scenery: place it solid: true with the collider's real size (e.g. [0.3, 3.0, 3.0]), set occludes: false and author a y that buries the cube below the local floor, so the drawn geometry is never visible and the bake never sees it.",
+      "display_name": "Containment Collider Peg",
+      "id": "outdoor:collision_peg",
+      "model": "environment/outdoor/props/models/collision_peg.glb",
+      "size": [
+        0.06,
+        0.06,
+        0.06
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "category": "Decorative",
+      "color": "#bfe4e8",
+      "description": "Small painted sheet ghost cat on a five-joint rig; floating loop float_forward (authored for 0.2 m/s) and an idle sway, sharing the sheet ghost's blended cyan cloth contract. Use fade and glow components for its cycle.",
+      "display_name": "Sheet Ghost Cat",
+      "entity_type": "character",
+      "id": "sheet-ghost-cat",
+      "model": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb",
+      "size": [
+        0.226,
+        0.323,
+        0.593
+      ],
+      "solid": false,
+      "source": "file"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Vegetation",
+      "color": "#b9b39a",
+      "description": "Slender birch: pale bark with dark flecks, thin branches and an airy alpha-cutout leaf canopy. Place it solid with a level size of roughly [0.6, 6.2, 0.6] so only the trunk blocks the player.",
+      "display_name": "Birch Tree",
+      "id": "outdoor:tree_02",
+      "model": "environment/outdoor/props/models/tree_02.glb",
+      "size": [
+        3.6,
+        6.2,
+        3.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Vegetation",
+      "color": "#3f543f",
+      "description": "Conifer: a tapered trunk under five to six stacked ragged evergreen tiers. Place it solid with a level size of roughly [0.6, 6.8, 0.6] so only the trunk blocks the player.",
+      "display_name": "Evergreen Tree",
+      "id": "outdoor:tree_03",
+      "model": "environment/outdoor/props/models/tree_03.glb",
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Lighting",
+      "color": "#3f3c36",
+      "description": "Tall streetlight on a 6 m post with a top arm and a downward-facing warm lantern head. Author its point light at offset [0, 6.05, 0.43] under the pane (the hood shadows upward, so the pool stays on the ground); the catalogued 1.2 m depth includes the arm and the head's hood, and the emitter anchor is inside that box.",
+      "display_name": "Streetlight",
+      "id": "outdoor:streetlight",
+      "model": "environment/outdoor/props/models/streetlight.glb",
+      "size": [
+        0.5,
+        6.4,
+        1.2
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#8d8577",
+      "description": "Straight 1.8 m porch railing module: top and bottom rails with balusters, origin at the floor, centred on the run. Non-solid dressing over a prop or wall collider.",
+      "display_name": "Porch Railing Straight",
+      "id": "outdoor:porch_railing_straight",
+      "model": "environment/outdoor/props/models/porch_railing_straight.glb",
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#8d8577",
+      "description": "Right-angle porch railing corner joining two straight modules around a 0.12 m post; the two rail ends meet at the module grid so a run has no gap.",
+      "display_name": "Porch Railing Corner",
+      "id": "outdoor:porch_railing_corner",
+      "model": "environment/outdoor/props/models/porch_railing_corner.glb",
+      "size": [
+        0.3,
+        1.05,
+        0.3
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#8d8577",
+      "description": "Porch railing terminal: a short rail end and a newel cap closing a run without a gap.",
+      "display_name": "Porch Railing End",
+      "id": "outdoor:porch_railing_end",
+      "model": "environment/outdoor/props/models/porch_railing_end.glb",
+      "size": [
+        0.3,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#8d8577",
+      "description": "Square porch support post with a flat cap seat at y = 1.05; the railing support piece and the seat for a porch roof.",
+      "display_name": "Porch Post",
+      "id": "outdoor:porch_post",
+      "model": "environment/outdoor/props/models/porch_post.glb",
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#cfc6ab",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "display_name": "House 1 Cream Clapboard Wall Solid",
+      "id": "outdoor:house_01_wall_solid",
+      "model": "environment/outdoor/props/models/house_01_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#cfc6ab",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's framed window and dark glazing.",
+      "display_name": "House 1 Cream Clapboard Wall Window",
+      "id": "outdoor:house_01_wall_window",
+      "model": "environment/outdoor/props/models/house_01_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#cfc6ab",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "display_name": "House 1 Cream Clapboard Wall Doorway",
+      "id": "outdoor:house_01_wall_doorway",
+      "model": "environment/outdoor/props/models/house_01_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3f4a3a",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "display_name": "House 1 Cream Clapboard Gable Panel",
+      "id": "outdoor:house_01_gable",
+      "model": "environment/outdoor/props/models/house_01_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#5b564c",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "display_name": "House 1 Cream Clapboard Roof Slope",
+      "id": "outdoor:house_01_roof_slope",
+      "model": "environment/outdoor/props/models/house_01_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#5b564c",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "display_name": "House 1 Cream Clapboard Roof Ridge",
+      "id": "outdoor:house_01_roof_ridge",
+      "model": "environment/outdoor/props/models/house_01_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3f4a3a",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Vertical corner board covering a panel junction.",
+      "display_name": "House 1 Cream Clapboard Corner Trim",
+      "id": "outdoor:house_01_corner_trim",
+      "model": "environment/outdoor/props/models/house_01_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3f4a3a",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "display_name": "House 1 Cream Clapboard Porch Deck",
+      "id": "outdoor:house_01_porch_deck",
+      "model": "environment/outdoor/props/models/house_01_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3f4a3a",
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "display_name": "House 1 Cream Clapboard Porch Post",
+      "id": "outdoor:house_01_porch_post",
+      "model": "environment/outdoor/props/models/house_01_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#93a3ac",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "display_name": "House 2 Blue Clapboard Wall Solid",
+      "id": "outdoor:house_02_wall_solid",
+      "model": "environment/outdoor/props/models/house_02_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#93a3ac",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's framed window and dark glazing.",
+      "display_name": "House 2 Blue Clapboard Wall Window",
+      "id": "outdoor:house_02_wall_window",
+      "model": "environment/outdoor/props/models/house_02_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#93a3ac",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "display_name": "House 2 Blue Clapboard Wall Doorway",
+      "id": "outdoor:house_02_wall_doorway",
+      "model": "environment/outdoor/props/models/house_02_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d2f2a",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "display_name": "House 2 Blue Clapboard Gable Panel",
+      "id": "outdoor:house_02_gable",
+      "model": "environment/outdoor/props/models/house_02_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d5947",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "display_name": "House 2 Blue Clapboard Roof Slope",
+      "id": "outdoor:house_02_roof_slope",
+      "model": "environment/outdoor/props/models/house_02_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d5947",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "display_name": "House 2 Blue Clapboard Roof Ridge",
+      "id": "outdoor:house_02_roof_ridge",
+      "model": "environment/outdoor/props/models/house_02_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d2f2a",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Vertical corner board covering a panel junction.",
+      "display_name": "House 2 Blue Clapboard Corner Trim",
+      "id": "outdoor:house_02_corner_trim",
+      "model": "environment/outdoor/props/models/house_02_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d2f2a",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "display_name": "House 2 Blue Clapboard Porch Deck",
+      "id": "outdoor:house_02_porch_deck",
+      "model": "environment/outdoor/props/models/house_02_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6d2f2a",
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "display_name": "House 2 Blue Clapboard Porch Post",
+      "id": "outdoor:house_02_porch_post",
+      "model": "environment/outdoor/props/models/house_02_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#c8a05a",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "display_name": "House 3 Ochre Clapboard Wall Solid",
+      "id": "outdoor:house_03_wall_solid",
+      "model": "environment/outdoor/props/models/house_03_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#c8a05a",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's framed window and dark glazing.",
+      "display_name": "House 3 Ochre Clapboard Wall Window",
+      "id": "outdoor:house_03_wall_window",
+      "model": "environment/outdoor/props/models/house_03_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#c8a05a",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "display_name": "House 3 Ochre Clapboard Wall Doorway",
+      "id": "outdoor:house_03_wall_doorway",
+      "model": "environment/outdoor/props/models/house_03_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#e6e0d2",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "display_name": "House 3 Ochre Clapboard Gable Panel",
+      "id": "outdoor:house_03_gable",
+      "model": "environment/outdoor/props/models/house_03_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3d4249",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "display_name": "House 3 Ochre Clapboard Roof Slope",
+      "id": "outdoor:house_03_roof_slope",
+      "model": "environment/outdoor/props/models/house_03_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#3d4249",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "display_name": "House 3 Ochre Clapboard Roof Ridge",
+      "id": "outdoor:house_03_roof_ridge",
+      "model": "environment/outdoor/props/models/house_03_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#e6e0d2",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Vertical corner board covering a panel junction.",
+      "display_name": "House 3 Ochre Clapboard Corner Trim",
+      "id": "outdoor:house_03_corner_trim",
+      "model": "environment/outdoor/props/models/house_03_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#e6e0d2",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "display_name": "House 3 Ochre Clapboard Porch Deck",
+      "id": "outdoor:house_03_porch_deck",
+      "model": "environment/outdoor/props/models/house_03_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#e6e0d2",
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "display_name": "House 3 Ochre Clapboard Porch Post",
+      "id": "outdoor:house_03_porch_post",
+      "model": "environment/outdoor/props/models/house_03_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#41523f",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "display_name": "House 4 Green Board and Batten Wall Solid",
+      "id": "outdoor:house_04_wall_solid",
+      "model": "environment/outdoor/props/models/house_04_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#41523f",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's framed window and dark glazing.",
+      "display_name": "House 4 Green Board and Batten Wall Window",
+      "id": "outdoor:house_04_wall_window",
+      "model": "environment/outdoor/props/models/house_04_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#41523f",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "display_name": "House 4 Green Board and Batten Wall Doorway",
+      "id": "outdoor:house_04_wall_doorway",
+      "model": "environment/outdoor/props/models/house_04_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d8d2bd",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "display_name": "House 4 Green Board and Batten Gable Panel",
+      "id": "outdoor:house_04_gable",
+      "model": "environment/outdoor/props/models/house_04_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2f3236",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "display_name": "House 4 Green Board and Batten Roof Slope",
+      "id": "outdoor:house_04_roof_slope",
+      "model": "environment/outdoor/props/models/house_04_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2f3236",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "display_name": "House 4 Green Board and Batten Roof Ridge",
+      "id": "outdoor:house_04_roof_ridge",
+      "model": "environment/outdoor/props/models/house_04_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d8d2bd",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Vertical corner board covering a panel junction.",
+      "display_name": "House 4 Green Board and Batten Corner Trim",
+      "id": "outdoor:house_04_corner_trim",
+      "model": "environment/outdoor/props/models/house_04_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d8d2bd",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "display_name": "House 4 Green Board and Batten Porch Deck",
+      "id": "outdoor:house_04_porch_deck",
+      "model": "environment/outdoor/props/models/house_04_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d8d2bd",
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "display_name": "House 4 Green Board and Batten Porch Post",
+      "id": "outdoor:house_04_porch_post",
+      "model": "environment/outdoor/props/models/house_04_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d9d6cc",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "display_name": "House 5 White Shiplap Wall Solid",
+      "id": "outdoor:house_05_wall_solid",
+      "model": "environment/outdoor/props/models/house_05_wall_solid.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d9d6cc",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's framed window and dark glazing.",
+      "display_name": "House 5 White Shiplap Wall Window",
+      "id": "outdoor:house_05_wall_window",
+      "model": "environment/outdoor/props/models/house_05_wall_window.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d9d6cc",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "display_name": "House 5 White Shiplap Wall Doorway",
+      "id": "outdoor:house_05_wall_doorway",
+      "model": "environment/outdoor/props/models/house_05_wall_doorway.glb",
+      "size": [
+        3.0,
+        2.7,
+        0.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2e3b4e",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "display_name": "House 5 White Shiplap Gable Panel",
+      "id": "outdoor:house_05_gable",
+      "model": "environment/outdoor/props/models/house_05_gable.glb",
+      "size": [
+        3.0,
+        1.02,
+        0.24
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#59645c",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "display_name": "House 5 White Shiplap Roof Slope",
+      "id": "outdoor:house_05_roof_slope",
+      "model": "environment/outdoor/props/models/house_05_roof_slope.glb",
+      "size": [
+        3.4,
+        1.75,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#59645c",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "display_name": "House 5 White Shiplap Roof Ridge",
+      "id": "outdoor:house_05_roof_ridge",
+      "model": "environment/outdoor/props/models/house_05_roof_ridge.glb",
+      "size": [
+        3.4,
+        0.22,
+        0.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2e3b4e",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Vertical corner board covering a panel junction.",
+      "display_name": "House 5 White Shiplap Corner Trim",
+      "id": "outdoor:house_05_corner_trim",
+      "model": "environment/outdoor/props/models/house_05_corner_trim.glb",
+      "size": [
+        0.18,
+        2.7,
+        0.18
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2e3b4e",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "display_name": "House 5 White Shiplap Porch Deck",
+      "id": "outdoor:house_05_porch_deck",
+      "model": "environment/outdoor/props/models/house_05_porch_deck.glb",
+      "size": [
+        3.0,
+        0.24,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#2e3b4e",
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "display_name": "House 5 White Shiplap Porch Post",
+      "id": "outdoor:house_05_porch_post",
+      "model": "environment/outdoor/props/models/house_05_porch_post.glb",
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#7f8a90",
+      "description": "Genuinely circular hot-tub shell: a tiled basin with a dark cap rail, an outer radius of 1.30 m (a 1.335 m base apron ring, so the bounds measure 2.67 m) and an inner wall of 1.173 m. The bottom sits on the basin floor at y = 0; the rim top is 1.56 m (a 1.50 m deck line). Author a 1.50 m floor-region recess under it and a circular water volume of radius 1.25 m with its surface 1.35 m above the basin floor.",
+      "display_name": "Circular Hot Tub",
+      "id": "core:hot_tub",
+      "model": "environment/pool/props/models/hot_tub.glb",
+      "size": [
+        2.6,
+        1.56,
+        2.6
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "pool"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#4a4d52",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Road Straight",
+      "id": "outdoor:showcase_road_straight",
+      "model": "environment/outdoor/props/models/showcase_road_straight.glb",
+      "size": [
+        8.0,
+        0.07,
+        6.0
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#4a4d52",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Road Unmarked",
+      "id": "outdoor:showcase_road_unmarked",
+      "model": "environment/outdoor/props/models/showcase_road_unmarked.glb",
+      "size": [
+        8.0,
+        0.064,
+        6.0
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#d4b976",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Road Dash",
+      "id": "outdoor:showcase_road_dash",
+      "model": "environment/outdoor/props/models/showcase_road_dash.glb",
+      "size": [
+        0.12,
+        0.006,
+        1.5
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Sidewalk",
+      "id": "outdoor:showcase_sidewalk",
+      "model": "environment/outdoor/props/models/showcase_sidewalk.glb",
+      "size": [
+        2.4,
+        0.14,
+        6.0
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Sidewalk Corner",
+      "id": "outdoor:showcase_sidewalk_corner",
+      "model": "environment/outdoor/props/models/showcase_sidewalk_corner.glb",
+      "size": [
+        2.4,
+        0.14,
+        2.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Curb",
+      "id": "outdoor:showcase_curb",
+      "model": "environment/outdoor/props/models/showcase_curb.glb",
+      "size": [
+        0.24,
+        0.14,
+        6.0
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Curb Ramp",
+      "id": "outdoor:showcase_curb_ramp",
+      "model": "environment/outdoor/props/models/showcase_curb_ramp.glb",
+      "size": [
+        1.2,
+        0.14,
+        2.4
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Sidewalk Transition",
+      "id": "outdoor:showcase_sidewalk_transition",
+      "model": "environment/outdoor/props/models/showcase_sidewalk_transition.glb",
+      "size": [
+        2.4,
+        0.14,
+        1.2
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Rock Face",
+      "id": "outdoor:showcase_rock_face",
+      "model": "environment/outdoor/props/models/showcase_rock_face.glb",
+      "size": [
+        4.0,
+        5.0,
+        2.2
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Rock Face Variant",
+      "id": "outdoor:showcase_rock_face_variant",
+      "model": "environment/outdoor/props/models/showcase_rock_face_variant.glb",
+      "size": [
+        3.4,
+        4.8,
+        2.6
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#9d9890",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Boulder",
+      "id": "outdoor:showcase_boulder",
+      "model": "environment/outdoor/props/models/showcase_boulder.glb",
+      "size": [
+        1.4,
+        0.85,
+        1.3
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Lighting",
+      "color": "#9d9890",
+      "description": "Five rigid animated flames, flicker clip 1.25 s. Add a real point light at [0,1.48,0]; emissive materials alone do not illuminate surroundings.",
+      "display_name": "Showcase Campfire",
+      "id": "outdoor:showcase_campfire",
+      "model": "environment/outdoor/props/models/showcase_campfire.glb",
+      "size": [
+        1.3,
+        1.25,
+        1.3
+      ],
+      "solid": false,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6a5a45",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Road Gate",
+      "id": "outdoor:showcase_road_gate",
+      "model": "environment/outdoor/props/models/showcase_road_gate.glb",
+      "size": [
+        8.0,
+        3.6,
+        0.24
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "category": "Structure",
+      "color": "#6a5a45",
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "display_name": "Showcase Stump Seat",
+      "id": "outdoor:showcase_stump_seat",
+      "model": "environment/outdoor/props/models/showcase_stump_seat.glb",
+      "size": [
+        0.7,
+        0.45,
+        0.6
+      ],
+      "solid": true,
+      "source": "file",
+      "theme": "outdoor"
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "color": "#35373c",
+      "description": "Dark neutral road albedo using the existing tileable concrete grain.",
+      "display_name": "Showcase Asphalt",
+      "id": "outdoor:showcase_asphalt",
+      "shine": 0.06,
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "theme": "outdoor",
+      "tile_metres": 2.0
+    },
+    {
+      "asset_class": "environment",
+      "asset_type": "material",
+      "color": "#dfbc55",
+      "description": "Muted yellow road paint; normal nonemissive albedo.",
+      "display_name": "Showcase Road Marking",
+      "id": "outdoor:showcase_road_marking",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_white_01",
+      "theme": "outdoor",
+      "tile_metres": 1.0
+    }
+  ],
+  "format_version": 2,
+  "themes": [
+    {
+      "description": "Institutional office interiors: liminal wallpaper, carpet, panel ceilings, fluorescent light and office furniture.",
+      "display_name": "Office",
+      "id": "office"
+    },
+    {
+      "description": "Public swimming pool interiors: pale commercial tile, a sterile ceiling, white resin furniture, privacy curtains, chrome and silver metalwork, cool light and the NO DIVING sign.",
+      "display_name": "Pool",
+      "id": "pool"
+    },
+    {
+      "description": "Ordinary residential interiors: clean off-white wallpaper and paint, hardwood and cream carpet floors, a simple kitchen tile, painted baseboards and trim, flat and plaster ceilings, warm white flush-mount ceiling light and simple kitchen cabinetry.",
+      "display_name": "Home",
+      "id": "home"
+    },
+    {
+      "description": "Night exterior: a dark starry sky, tileable grass ground, a dirt and gravel path with feathered edges, a restrained concrete walkway, a leafy tree, warm exterior lamps and modular house facade parts.",
+      "display_name": "Outdoor",
+      "id": "outdoor"
+    }
+  ]
+}

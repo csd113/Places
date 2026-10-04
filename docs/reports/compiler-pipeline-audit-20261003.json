@@ -1,0 +1,1346 @@
+{
+  "status": "Validated",
+  "base_revision": {
+    "main": "a53696eed70b45b397f83dc58265aeeb740158a5",
+    "origin_main": "a53696eed70b45b397f83dc58265aeeb740158a5",
+    "starting_working": "e66d3a05f6f6cf33eb8657c1d62abf6befb8980e"
+  },
+  "conditions": "Documented desktop/VM load; no owned concurrent heavy work in timed compiler builds. Demo optimized pair3 retains a brief formatting overlap in its final two seconds.",
+  "compiler_hashes": {
+    "created_utc": "2026-10-04T03:35:13.156474+00:00",
+    "pipeline_identity": "asset_inputs_v2",
+    "binary": "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/places-compile-final",
+    "sha256": "7c01a36c28ab84f1a24164bf48175a60f0c1df846c56b258e16a9bb2cc49256b",
+    "own_jobs": "No owned compile/test/profile/gameplay during timed measurements.",
+    "background_policy": "User explicitly requested testing now without waiting for external CPU idle; per-run snapshots and load averages retained."
+  },
+  "clean_builds": {
+    "test_room": {
+      "baseline": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 8.001725250011077,
+          "cpu_seconds": 52.810226,
+          "effective_cores": 6.655801759742535,
+          "peak_rss_bytes": 337625088
+        },
+        "samples": [
+          {
+            "wall_seconds": 7.355628249992151,
+            "cpu_seconds": 52.810226,
+            "effective_cores": 7.179567020676494,
+            "peak_rss_bytes": 312049664,
+            "started_utc": "2026-10-04T03:35:18.080300+00:00",
+            "finished_utc": "2026-10-04T03:35:25.435989+00:00",
+            "package_sha256": "3291769bca80a23ec053ca959f8c29874e299f461160e19226116ed43f6ad75d"
+          },
+          {
+            "wall_seconds": 8.001725250011077,
+            "cpu_seconds": 53.257897,
+            "effective_cores": 6.655801759742535,
+            "peak_rss_bytes": 356630528,
+            "started_utc": "2026-10-04T03:35:35.813201+00:00",
+            "finished_utc": "2026-10-04T03:35:43.815000+00:00",
+            "package_sha256": "3291769bca80a23ec053ca959f8c29874e299f461160e19226116ed43f6ad75d"
+          },
+          {
+            "wall_seconds": 8.457636500010267,
+            "cpu_seconds": 52.237083999999996,
+            "effective_cores": 6.176321718240857,
+            "peak_rss_bytes": 337625088,
+            "started_utc": "2026-10-04T03:35:44.098505+00:00",
+            "finished_utc": "2026-10-04T03:35:52.556485+00:00",
+            "package_sha256": "3291769bca80a23ec053ca959f8c29874e299f461160e19226116ed43f6ad75d"
+          }
+        ]
+      },
+      "optimized": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 5.153642416000366,
+          "cpu_seconds": 34.060033000000004,
+          "effective_cores": 6.468540754108391,
+          "peak_rss_bytes": 289783808
+        },
+        "samples": [
+          {
+            "wall_seconds": 5.153642416000366,
+            "cpu_seconds": 33.336546,
+            "effective_cores": 6.468540754108391,
+            "peak_rss_bytes": 309067776,
+            "started_utc": "2026-10-04T03:35:25.556623+00:00",
+            "finished_utc": "2026-10-04T03:35:30.710307+00:00",
+            "package_sha256": "077a5fb7e9002d5acb74e9ff8ce00005246a2d847f66a50e4ad1e3be8305e571"
+          },
+          {
+            "wall_seconds": 4.814247375004925,
+            "cpu_seconds": 34.060033000000004,
+            "effective_cores": 7.0748406442170335,
+            "peak_rss_bytes": 289783808,
+            "started_utc": "2026-10-04T03:35:30.881563+00:00",
+            "finished_utc": "2026-10-04T03:35:35.695864+00:00",
+            "package_sha256": "077a5fb7e9002d5acb74e9ff8ce00005246a2d847f66a50e4ad1e3be8305e571"
+          },
+          {
+            "wall_seconds": 6.000929375004489,
+            "cpu_seconds": 34.858388999999995,
+            "effective_cores": 5.808831736163187,
+            "peak_rss_bytes": 284442624,
+            "started_utc": "2026-10-04T03:35:52.870430+00:00",
+            "finished_utc": "2026-10-04T03:35:58.871555+00:00",
+            "package_sha256": "077a5fb7e9002d5acb74e9ff8ce00005246a2d847f66a50e4ad1e3be8305e571"
+          }
+        ]
+      },
+      "speedup": 1.5526349335313505,
+      "seconds_saved": 2.848082834010711,
+      "reduction_percent": 35.59335949465108
+    },
+    "places_demo": {
+      "baseline": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 1203.783958874992,
+          "cpu_seconds": 11023.000941,
+          "effective_cores": 9.153598901000366,
+          "peak_rss_bytes": 2221867008
+        },
+        "samples": [
+          {
+            "wall_seconds": 1702.9385712920048,
+            "cpu_seconds": 11300.881976,
+            "effective_cores": 6.636106649123649,
+            "peak_rss_bytes": 1792065536,
+            "started_utc": "2026-10-04T03:35:59.214869+00:00",
+            "finished_utc": "2026-10-04T04:04:22.162961+00:00",
+            "package_sha256": "d8a3dbcbe8d4d4b98cfec1333d797dafc10626c97e118f429a9a8133831188db"
+          },
+          {
+            "wall_seconds": 1172.7894976660027,
+            "cpu_seconds": 11023.000941,
+            "effective_cores": 9.398959457717813,
+            "peak_rss_bytes": 2221867008,
+            "started_utc": "2026-10-04T04:12:00.399837+00:00",
+            "finished_utc": "2026-10-04T04:31:33.196920+00:00",
+            "package_sha256": "d8a3dbcbe8d4d4b98cfec1333d797dafc10626c97e118f429a9a8133831188db"
+          },
+          {
+            "wall_seconds": 1203.783958874992,
+            "cpu_seconds": 11018.955522999999,
+            "effective_cores": 9.153598901000366,
+            "peak_rss_bytes": 3135979520,
+            "started_utc": "2026-10-04T04:31:34.155839+00:00",
+            "finished_utc": "2026-10-04T04:51:37.946229+00:00",
+            "package_sha256": "d8a3dbcbe8d4d4b98cfec1333d797dafc10626c97e118f429a9a8133831188db"
+          }
+        ]
+      },
+      "optimized": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 227.74591324999346,
+          "cpu_seconds": 1549.7817049999999,
+          "effective_cores": 6.777857573696965,
+          "peak_rss_bytes": 2485846016
+        },
+        "samples": [
+          {
+            "wall_seconds": 227.74591324999346,
+            "cpu_seconds": 1543.629363,
+            "effective_cores": 6.777857573696965,
+            "peak_rss_bytes": 1954070528,
+            "started_utc": "2026-10-04T04:04:22.434081+00:00",
+            "finished_utc": "2026-10-04T04:08:10.181171+00:00",
+            "package_sha256": "bb547a76ee5d4ce3bcb7f51239c01a95cfae271f711fe8e7767f89ecf7883ada"
+          },
+          {
+            "wall_seconds": 228.7406677089748,
+            "cpu_seconds": 1549.7817049999999,
+            "effective_cores": 6.77527839943082,
+            "peak_rss_bytes": 2485846016,
+            "started_utc": "2026-10-04T04:08:11.428397+00:00",
+            "finished_utc": "2026-10-04T04:12:00.172937+00:00",
+            "package_sha256": "bb547a76ee5d4ce3bcb7f51239c01a95cfae271f711fe8e7767f89ecf7883ada"
+          },
+          {
+            "wall_seconds": 217.8823370830214,
+            "cpu_seconds": 1551.9244170000002,
+            "effective_cores": 7.122763771386656,
+            "peak_rss_bytes": 2689875968,
+            "started_utc": "2026-10-04T04:51:38.149713+00:00",
+            "finished_utc": "2026-10-04T04:55:16.033156+00:00",
+            "package_sha256": "bb547a76ee5d4ce3bcb7f51239c01a95cfae271f711fe8e7767f89ecf7883ada"
+          }
+        ]
+      },
+      "speedup": 5.285644610244292,
+      "seconds_saved": 976.0380456249986,
+      "reduction_percent": 81.08083169152415
+    },
+    "lantern_hollow": {
+      "baseline_earlier": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 444.52056154201273,
+          "cpu_seconds": 3631.270031,
+          "effective_cores": 8.17346194604906,
+          "peak_rss_bytes": 2416967680
+        },
+        "samples": [
+          {
+            "wall_seconds": 413.64035625002,
+            "cpu_seconds": 3604.240229,
+            "effective_cores": 8.713463699904223,
+            "peak_rss_bytes": 2416967680,
+            "started_utc": null,
+            "finished_utc": null,
+            "package_sha256": "e5080258825ecf820801f8f996cfad777ea33dca79dbcbfb97d8d5d0884029e3"
+          },
+          {
+            "wall_seconds": 444.52056154201273,
+            "cpu_seconds": 3633.271894,
+            "effective_cores": 8.17346194604906,
+            "peak_rss_bytes": 2660106240,
+            "started_utc": null,
+            "finished_utc": null,
+            "package_sha256": "e5080258825ecf820801f8f996cfad777ea33dca79dbcbfb97d8d5d0884029e3"
+          },
+          {
+            "wall_seconds": 465.64417270800914,
+            "cpu_seconds": 3631.270031,
+            "effective_cores": 7.798379629410837,
+            "peak_rss_bytes": 2248851456,
+            "started_utc": null,
+            "finished_utc": null,
+            "package_sha256": "e5080258825ecf820801f8f996cfad777ea33dca79dbcbfb97d8d5d0884029e3"
+          }
+        ]
+      },
+      "repaired_architecture_earlier": {
+        "count": 3,
+        "medians": {
+          "wall_seconds": 256.1015451249841,
+          "cpu_seconds": 2291.408447,
+          "effective_cores": 8.939863657919984,
+          "peak_rss_bytes": 2080751616
+        },
+        "samples": [
+          {
+            "wall_seconds": 255.09928729201783,
+            "cpu_seconds": 2291.4673399999997,
+            "effective_cores": 8.982648929853363,
+            "peak_rss_bytes": 2080751616,
+            "started_utc": "2026-10-04T01:37:18.004391+00:00",
+            "finished_utc": "2026-10-04T01:41:33.104481+00:00",
+            "package_sha256": "f2a6ceb4b85545568a6d75a7e1852ed7c3047c84ce478abf72f0a995013387d9"
+          },
+          {
+            "wall_seconds": 256.1015451249841,
+            "cpu_seconds": 2289.512896,
+            "effective_cores": 8.939863657919984,
+            "peak_rss_bytes": 2317729792,
+            "started_utc": "2026-10-04T01:41:33.994277+00:00",
+            "finished_utc": "2026-10-04T01:45:50.096629+00:00",
+            "package_sha256": "f2a6ceb4b85545568a6d75a7e1852ed7c3047c84ce478abf72f0a995013387d9"
+          },
+          {
+            "wall_seconds": 285.25307612499455,
+            "cpu_seconds": 2291.408447,
+            "effective_cores": 8.032896535692156,
+            "peak_rss_bytes": 1501757440,
+            "started_utc": "2026-10-04T01:45:51.005542+00:00",
+            "finished_utc": "2026-10-04T01:50:36.260766+00:00",
+            "package_sha256": "f2a6ceb4b85545568a6d75a7e1852ed7c3047c84ce478abf72f0a995013387d9"
+          }
+        ]
+      },
+      "final_single_spot": {
+        "count": 1,
+        "medians": {
+          "wall_seconds": 246.24709220899967,
+          "cpu_seconds": 2226.781247,
+          "effective_cores": 9.042873266134011,
+          "peak_rss_bytes": 2447163392
+        },
+        "samples": [
+          {
+            "wall_seconds": 246.24709220899967,
+            "cpu_seconds": 2226.781247,
+            "effective_cores": 9.042873266134011,
+            "peak_rss_bytes": 2447163392,
+            "started_utc": "2026-10-04T05:10:35.140382+00:00",
+            "finished_utc": "2026-10-04T05:14:41.388735+00:00",
+            "package_sha256": "a5a3195a2aa99de0c3b76e5b9eb2d88d30eba5377f623d48d5acc23bcd2c25db"
+          }
+        ]
+      },
+      "note": "Earlier three-sample architecture median and later final single sample are distinct windows/binaries; not a three-sample final median."
+    }
+  },
+  "scaling_small": [
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/test_room.json",
+      "workers": 1,
+      "count": 3,
+      "wall_seconds": 26.187788749986794,
+      "cpu_seconds": 26.082282,
+      "effective_cores": 0.9959711470489524,
+      "peak_rss_bytes": 330842112
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/test_room.json",
+      "workers": 2,
+      "count": 3,
+      "wall_seconds": 13.997084625007119,
+      "cpu_seconds": 26.901707,
+      "effective_cores": 1.9224405453636608,
+      "peak_rss_bytes": 376979456
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/test_room.json",
+      "workers": 4,
+      "count": 3,
+      "wall_seconds": 7.699551249999786,
+      "cpu_seconds": 27.183054000000002,
+      "effective_cores": 3.530472506433509,
+      "peak_rss_bytes": 375881728
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/test_room.json",
+      "workers": 8,
+      "count": 3,
+      "wall_seconds": 4.613707334006904,
+      "cpu_seconds": 27.584373,
+      "effective_cores": 5.975475524882223,
+      "peak_rss_bytes": 372555776
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/tests/fixtures/levels/test_room.json",
+      "workers": 12,
+      "count": 3,
+      "wall_seconds": 4.188346749986522,
+      "cpu_seconds": 33.5015,
+      "effective_cores": 7.992366081421271,
+      "peak_rss_bytes": 373243904
+    }
+  ],
+  "scaling_hollow_medium": [
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.json",
+      "workers": 1,
+      "count": 1,
+      "wall_seconds": 239.26346345900674,
+      "cpu_seconds": 239.028226,
+      "effective_cores": 0.9990168266579195,
+      "peak_rss_bytes": 1762050048
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.json",
+      "workers": 2,
+      "count": 1,
+      "wall_seconds": 130.28922133301967,
+      "cpu_seconds": 241.79111300000002,
+      "effective_cores": 1.855802886272389,
+      "peak_rss_bytes": 1841987584
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.json",
+      "workers": 4,
+      "count": 1,
+      "wall_seconds": 75.95594912502565,
+      "cpu_seconds": 246.539087,
+      "effective_cores": 3.245816685065572,
+      "peak_rss_bytes": 1642446848
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.json",
+      "workers": 8,
+      "count": 1,
+      "wall_seconds": 49.94370337500004,
+      "cpu_seconds": 261.159624,
+      "effective_cores": 5.229080071197259,
+      "peak_rss_bytes": 1751203840
+    },
+    {
+      "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/lantern_hollow.json",
+      "workers": 12,
+      "count": 1,
+      "wall_seconds": 44.738499041006435,
+      "cpu_seconds": 301.99369,
+      "effective_cores": 6.750197178568698,
+      "peak_rss_bytes": 1828470784
+    }
+  ],
+  "scaling_archive_hashes": {
+    "final-scaling-small": [
+      "077a5fb7e9002d5acb74e9ff8ce00005246a2d847f66a50e4ad1e3be8305e571"
+    ],
+    "final-scaling-hollow-medium": [
+      "b7931974e9053c209a959c24d576db535337e2f8ec727731572f322a7787f11a"
+    ]
+  },
+  "incremental": {
+    "baseline-small": [
+      {
+        "case": "unchanged",
+        "count": 3,
+        "wall_seconds": 0.3138103749952279,
+        "peak_rss_bytes": 50610176,
+        "cpu_seconds": 0.233709,
+        "effective_cores": 0.744745931371944
+      },
+      {
+        "case": "metadata",
+        "count": 3,
+        "wall_seconds": 6.062583999999333,
+        "peak_rss_bytes": 474857472,
+        "cpu_seconds": 51.497471999999995,
+        "effective_cores": 8.56255006116298
+      },
+      {
+        "case": "light",
+        "count": 3,
+        "wall_seconds": 6.376768916001311,
+        "peak_rss_bytes": 475987968,
+        "cpu_seconds": 51.637247,
+        "effective_cores": 8.2168177473893
+      },
+      {
+        "case": "prop",
+        "count": 3,
+        "wall_seconds": 6.0703624580055475,
+        "peak_rss_bytes": 472317952,
+        "cpu_seconds": 52.090492000000005,
+        "effective_cores": 8.58111724964684
+      },
+      {
+        "case": "material",
+        "count": 3,
+        "wall_seconds": 5.966491458006203,
+        "peak_rss_bytes": 477478912,
+        "cpu_seconds": 50.661776,
+        "effective_cores": 8.48013851291219
+      }
+    ],
+    "final-small": [
+      {
+        "case": "unchanged",
+        "count": 3,
+        "wall_seconds": 0.3166842079954222,
+        "peak_rss_bytes": 49872896,
+        "cpu_seconds": 0.234365,
+        "effective_cores": 0.7403383679665022
+      },
+      {
+        "case": "metadata",
+        "count": 3,
+        "wall_seconds": 0.5267967499967199,
+        "peak_rss_bytes": 84115456,
+        "cpu_seconds": 0.492341,
+        "effective_cores": 0.9323170163306538
+      },
+      {
+        "case": "light",
+        "count": 3,
+        "wall_seconds": 4.808902958990075,
+        "peak_rss_bytes": 375603200,
+        "cpu_seconds": 34.02033,
+        "effective_cores": 7.1711810976619
+      },
+      {
+        "case": "prop",
+        "count": 3,
+        "wall_seconds": 4.302362082991749,
+        "peak_rss_bytes": 376766464,
+        "cpu_seconds": 34.148900999999995,
+        "effective_cores": 7.90292454728634
+      },
+      {
+        "case": "material",
+        "count": 3,
+        "wall_seconds": 4.399822458013659,
+        "peak_rss_bytes": 376176640,
+        "cpu_seconds": 34.014793,
+        "effective_cores": 7.733556597954517
+      }
+    ],
+    "final-hollow": [
+      {
+        "case": "unchanged",
+        "count": 3,
+        "wall_seconds": 2.19191054199473,
+        "peak_rss_bytes": 311197696,
+        "cpu_seconds": 2.0901389999999997,
+        "effective_cores": 0.9535694819451372
+      },
+      {
+        "case": "metadata",
+        "count": 3,
+        "wall_seconds": 7.786347707995446,
+        "peak_rss_bytes": 681984000,
+        "cpu_seconds": 7.73909,
+        "effective_cores": 0.9939306964230585
+      }
+    ]
+  },
+  "incremental_exact_clean_checks": 36,
+  "native": {
+    "binary_sha256": "cb9b11a581cf4c0255e83ec825aa3a1a8a7f055f34f9ab17a476c41d32d7bd6e",
+    "captures": 60,
+    "comparisons": [
+      {
+        "profile": "low",
+        "view": "demo_office",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "demo_window",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "demo_pool",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "demo_ceiling",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "demo_arch",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "demo_desk",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "hollow_street",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "hollow_pond",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "hollow_living",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "low",
+        "view": "hollow_overview",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_office",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_window",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_pool",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_ceiling",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_arch",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "demo_desk",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "hollow_street",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "hollow_pond",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "hollow_living",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "medium",
+        "view": "hollow_overview",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_office",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_window",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_pool",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_ceiling",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_arch",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "demo_desk",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "hollow_street",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "hollow_pond",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "hollow_living",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      },
+      {
+        "profile": "high",
+        "view": "hollow_overview",
+        "pixel_equal": true,
+        "before_dimensions": [
+          1280,
+          720
+        ],
+        "after_dimensions": [
+          1280,
+          720
+        ],
+        "changed_channels": 0,
+        "maximum_channel_difference": 0
+      }
+    ],
+    "backend": "Metal",
+    "distinct_fixture_packages": 29,
+    "fixture_profile_cases": 35,
+    "fixture_cases_all_passed": true
+  },
+  "bundled_quality": {
+    "places_demo": {
+      "before": "tools/bench/results/compiler-audit-20261003/bundled-before/places_demo.placesmap",
+      "after": "assets/levels/places_demo.placesmap",
+      "archive_byte_equal": false,
+      "missing": [],
+      "added": [],
+      "differing_records": [],
+      "stage_key_change": null,
+      "input_key_changes": {
+        "keys": {
+          "lighting_fingerprint": {
+            "before": "b5ab2c2bdfed715b5705a80bf0383ccfcdbef77b60032030ed46f17728b0d9ca",
+            "after": "f4eb9271e530708abde438ac8e13845111069671dbd3b78858e10122710db886"
+          },
+          "compiler_fingerprint": {
+            "before": "352fefc53e195f544afd5f8b61ce0e141ad7fb5b085787d4313737df456494c4",
+            "after": "902b753aa6085817c309780f86a907ffb1945788de62bc004ea6e163e691da27"
+          }
+        },
+        "verified_added_dependencies": [
+          {
+            "kind": "texture",
+            "path": "core/textures/normals/normal_brushed_01.png",
+            "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a",
+            "bytes": 1512724
+          },
+          {
+            "kind": "texture",
+            "path": "core/textures/normals/normal_panel_01.png",
+            "sha256": "d26e318babc7aa46b28c5b1893986dc0edbfa0ba00a0088fb5cc5f94a9bb5a86",
+            "bytes": 898836
+          }
+        ]
+      },
+      "roles": {
+        "irradiance": {
+          "records": 2,
+          "bytes": 1161292,
+          "equal": 2
+        },
+        "probes": {
+          "records": 12,
+          "bytes": 1232400,
+          "equal": 12
+        },
+        "mesh": {
+          "records": 3,
+          "bytes": 3607591,
+          "equal": 3
+        },
+        "collision": {
+          "records": 1,
+          "bytes": 64300,
+          "equal": 1
+        },
+        "probes-meta": {
+          "records": 2,
+          "bytes": 212,
+          "equal": 2
+        },
+        "navigation": {
+          "records": 1,
+          "bytes": 3702310,
+          "equal": 1
+        },
+        "lightmaps-meta": {
+          "records": 2,
+          "bytes": 71160023,
+          "equal": 2
+        },
+        "lighting": {
+          "records": 3,
+          "bytes": 23813626,
+          "equal": 3
+        },
+        "lightmaps": {
+          "records": 2,
+          "bytes": 469762440,
+          "equal": 2
+        },
+        "props": {
+          "records": 3,
+          "bytes": 97416912,
+          "equal": 3
+        },
+        "manifest": {
+          "records": 1,
+          "bytes": 36140,
+          "equal": 0
+        },
+        "semantics": {
+          "records": 1,
+          "bytes": 1048736,
+          "equal": 1
+        }
+      },
+      "quality_equal": true
+    },
+    "model_zoo": {
+      "before": "tools/bench/results/compiler-audit-20261003/bundled-before/model_zoo.placesmap",
+      "after": "assets/levels/model_zoo.placesmap",
+      "archive_byte_equal": false,
+      "missing": [],
+      "added": [],
+      "differing_records": [],
+      "stage_key_change": null,
+      "input_key_changes": {
+        "keys": {
+          "lighting_fingerprint": {
+            "before": "4964c7733b106652ec21baca8b6daf5f563c98f783022b728767fa01a4c299c4",
+            "after": "c7118d8a799f42bbd39fef167897125d0934ffa70921edcd0ad81982fdda0740"
+          },
+          "compiler_fingerprint": {
+            "before": "e498fcf7a950bcae81a91402019ba20537aa258523dda2755b227396b045add0",
+            "after": "7bb174fb3c25cd5904ad02d5c6f30359828b6b88b32b854dfb5175d03d902458"
+          }
+        },
+        "verified_added_dependencies": []
+      },
+      "roles": {
+        "props": {
+          "records": 3,
+          "bytes": 25387956,
+          "equal": 3
+        },
+        "mesh": {
+          "records": 3,
+          "bytes": 5375555,
+          "equal": 3
+        },
+        "lightmaps-meta": {
+          "records": 2,
+          "bytes": 10695347,
+          "equal": 2
+        },
+        "lightmaps": {
+          "records": 2,
+          "bytes": 234881416,
+          "equal": 2
+        },
+        "lighting": {
+          "records": 3,
+          "bytes": 2758945,
+          "equal": 3
+        },
+        "irradiance": {
+          "records": 2,
+          "bytes": 576076,
+          "equal": 2
+        },
+        "collision": {
+          "records": 1,
+          "bytes": 24222,
+          "equal": 1
+        },
+        "navigation": {
+          "records": 1,
+          "bytes": 2557276,
+          "equal": 1
+        },
+        "manifest": {
+          "records": 1,
+          "bytes": 36739,
+          "equal": 0
+        },
+        "semantics": {
+          "records": 1,
+          "bytes": 181938,
+          "equal": 1
+        }
+      },
+      "quality_equal": true
+    },
+    "lantern_hollow": {
+      "before": "tools/bench/results/compiler-audit-20261003/bundled-before/lantern_hollow.placesmap",
+      "after": "assets/levels/lantern_hollow.placesmap",
+      "archive_byte_equal": false,
+      "missing": [],
+      "added": [],
+      "differing_records": [],
+      "stage_key_change": null,
+      "input_key_changes": {
+        "keys": {
+          "lighting_fingerprint": {
+            "before": "5cbf987bb864ae00fd325c1a004a40d68317f379ccec2af0537065e7e0230814",
+            "after": "c8cbf68c29accbd8f9fdf98d9994b4903bb45cc364bf5852a110d4122209bd5c"
+          },
+          "compiler_fingerprint": {
+            "before": "d1ee2deabebd8abf5c3b769b42b37de8845a385c8f3bd04a9781c1ab3129dfce",
+            "after": "1cc714d1f645c5337c71fca2eb08b28767f4a89817165325b3db22d230820f7d"
+          }
+        },
+        "verified_added_dependencies": []
+      },
+      "roles": {
+        "navigation": {
+          "records": 1,
+          "bytes": 1964975,
+          "equal": 1
+        },
+        "lightmaps-meta": {
+          "records": 2,
+          "bytes": 108106760,
+          "equal": 2
+        },
+        "props": {
+          "records": 3,
+          "bytes": 146585724,
+          "equal": 3
+        },
+        "irradiance": {
+          "records": 2,
+          "bytes": 1325452,
+          "equal": 2
+        },
+        "collision": {
+          "records": 1,
+          "bytes": 19555,
+          "equal": 1
+        },
+        "lighting": {
+          "records": 3,
+          "bytes": 6364625,
+          "equal": 3
+        },
+        "mesh": {
+          "records": 3,
+          "bytes": 3100994,
+          "equal": 3
+        },
+        "lightmaps": {
+          "records": 2,
+          "bytes": 234881416,
+          "equal": 2
+        },
+        "manifest": {
+          "records": 1,
+          "bytes": 23899,
+          "equal": 0
+        },
+        "semantics": {
+          "records": 1,
+          "bytes": 433867,
+          "equal": 1
+        }
+      },
+      "quality_equal": true
+    },
+    "movement_test": {
+      "before": "tools/bench/results/compiler-audit-20261003/bundled-before/movement_test.placesmap",
+      "after": "assets/levels/movement_test.placesmap",
+      "archive_byte_equal": false,
+      "missing": [],
+      "added": [],
+      "differing_records": [],
+      "stage_key_change": null,
+      "input_key_changes": {
+        "keys": {
+          "lighting_fingerprint": {
+            "before": "622b97ae5093d9e42c07ae8e1b283a4d87f34c870f797c6c6251443974b78000",
+            "after": "d9a249981b9fdc5c3803390388d5be2cbd5234e62576be280c460a0f84666988"
+          },
+          "compiler_fingerprint": {
+            "before": "224fd24897e353c8708e19276b57221c76508db2b8f522ad28bc8f2e3f2cfb38",
+            "after": "4af51233944c12e12c36bf821fdeec7b6b391eb54902f573c5de2e3851449d28"
+          }
+        },
+        "verified_added_dependencies": []
+      },
+      "roles": {
+        "collision": {
+          "records": 1,
+          "bytes": 49072,
+          "equal": 1
+        },
+        "lightmaps-meta": {
+          "records": 2,
+          "bytes": 1485910,
+          "equal": 2
+        },
+        "lightmaps": {
+          "records": 2,
+          "bytes": 134218120,
+          "equal": 2
+        },
+        "navigation": {
+          "records": 1,
+          "bytes": 2113880,
+          "equal": 1
+        },
+        "irradiance": {
+          "records": 2,
+          "bytes": 1210756,
+          "equal": 2
+        },
+        "lighting": {
+          "records": 3,
+          "bytes": 1717054,
+          "equal": 3
+        },
+        "props": {
+          "records": 3,
+          "bytes": 1316472,
+          "equal": 3
+        },
+        "mesh": {
+          "records": 3,
+          "bytes": 1878019,
+          "equal": 3
+        },
+        "manifest": {
+          "records": 1,
+          "bytes": 11615,
+          "equal": 0
+        },
+        "semantics": {
+          "records": 1,
+          "bytes": 45647,
+          "equal": 1
+        }
+      },
+      "quality_equal": true
+    }
+  },
+  "validation": {
+    "environment": {
+      "RUSTC_WRAPPER": "",
+      "CARGO_NET_OFFLINE": "true",
+      "PLACES_COMPILER_TEST_EVIDENCE": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions"
+    },
+    "runs": [
+      {
+        "label": "fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "started_utc": "2026-10-04T05:39:22.686214+00:00",
+        "finished_utc": "2026-10-04T05:39:23.985431+00:00",
+        "wall_seconds": 1.2987005829927512,
+        "exit_code": 0,
+        "log": "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/final-validation-fmt.log"
+      },
+      {
+        "label": "check",
+        "command": [
+          "cargo",
+          "check",
+          "--workspace",
+          "--all-targets",
+          "--all-features"
+        ],
+        "started_utc": "2026-10-04T05:39:23.986261+00:00",
+        "finished_utc": "2026-10-04T05:39:28.807695+00:00",
+        "wall_seconds": 4.821466833003797,
+        "exit_code": 0,
+        "log": "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/final-validation-check.log"
+      },
+      {
+        "label": "test-default",
+        "command": [
+          "cargo",
+          "test",
+          "--workspace"
+        ],
+        "started_utc": "2026-10-04T05:39:28.808532+00:00",
+        "finished_utc": "2026-10-04T05:45:34.658787+00:00",
+        "wall_seconds": 365.8487414580013,
+        "exit_code": 0,
+        "log": "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/final-validation-test-default.log"
+      },
+      {
+        "label": "verify",
+        "command": [
+          "sh",
+          "tools/verify.sh"
+        ],
+        "started_utc": "2026-10-04T05:45:34.660517+00:00",
+        "finished_utc": "2026-10-04T06:08:00.102015+00:00",
+        "wall_seconds": 1345.435946499987,
+        "exit_code": 0,
+        "log": "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/final-validation-verify.log"
+      }
+    ],
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)"
+  },
+  "preservation_manifest": "debug-maps/compiler-audit-20261003/preserved-build.json",
+  "raw_evidence": "tools/bench/results/compiler-audit-20261003/",
+  "limits": [
+    "Shared-host comparisons do not establish exclusive-host speed.",
+    "Hollow retained median gain is below 2x; final binary has one full-quality spot sample.",
+    "Physical light/geometry/material edits invalidate complete GI; no partial-GI reuse.",
+    "No factorial ablation, allocation-count or lock-wait profiling.",
+    "Existing release panic=abort is retained."
+  ]
+}

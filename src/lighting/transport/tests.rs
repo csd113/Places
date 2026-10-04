@@ -1659,3 +1659,5 @@ fn reordering_charts_does_not_change_the_indirect_field() {
 
 mod probes;
 mod quality;
+
+mod performance;

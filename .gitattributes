@@ -6,3 +6,8 @@ apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace
 # Preserve bundled upstream license copies byte-for-byte in the audit playground.
 /debug-maps/movement-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
 /debug-maps/movement-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace
+
+# Keep the compiler audit's retained native packages publishable, including Hollow.
+/debug-maps/compiler-audit-20261003/packages/*.placesmap filter=lfs diff=lfs merge=lfs -text
+/debug-maps/compiler-audit-20261003/licenses/SDL3-LICENSE.txt -whitespace
+/debug-maps/compiler-audit-20261003/licenses/THIRD_PARTY_LICENSES.txt -whitespace

@@ -148,16 +148,34 @@ impl BatchBuilder {
         transform: &glam::Mat4,
         asset: &crate::props::LoadedPropAsset,
         lighting: &LevelLighting,
+        defer_lighting: bool,
     ) {
         let model = &asset.model;
-        append_instance_vertices(
-            &mut self.vertices,
-            transform,
-            &model.vertices,
-            lighting,
-            &self.lighting_sources,
-            &mut self.sampled_light,
-        );
+        if defer_lighting {
+            // Budget/fallback discovery only. These temporary static vertices
+            // are replaced by real surface receivers before a valid build leaves
+            // preparation; failed plans/fills rebuild the lit fallback explicitly.
+            self.vertices.reserve(model.vertices.len());
+            self.vertices.extend(model.vertices.iter().map(|vertex| {
+                Vertex {
+                    pos: transform
+                        .transform_point3(glam::Vec3::from_array(vertex.pos))
+                        .to_array(),
+                    color: vertex.color,
+                    uv: vertex.uv,
+                    ..Vertex::UNLIT
+                }
+            }));
+        } else {
+            append_instance_vertices(
+                &mut self.vertices,
+                transform,
+                &model.vertices,
+                lighting,
+                &self.lighting_sources,
+                &mut self.sampled_light,
+            );
+        }
         let base =
             u16::try_from(self.vertices.len().saturating_sub(model.vertices.len())).unwrap_or(0);
         for (slot, submesh) in model.submeshes.iter().enumerate() {
@@ -274,7 +292,20 @@ pub fn resolve_prop_instances<'a>(
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
-    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None)
+    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None, false)
+}
+
+/// Preserve historical model/batch budgets and fallback discovery without
+/// evaluating lighting that a successful static lightmap plan replaces.
+/// Animated models still receive their normal vertex lighting.
+pub(super) fn resolve_prop_fallbacks<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    lighting: &LevelLighting,
+    surfaces: &LevelSurfaces<'_>,
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, None, true)
 }
 
 /// Resolves static surface receivers after architecture has reserved its atlas
@@ -287,7 +318,15 @@ pub fn resolve_prop_instances_lightmapped<'a>(
     surfaces: &LevelSurfaces<'_>,
     plan: &mut crate::lighting::lightmap::LightmapPlan,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
-    resolve_prop_instances_inner(level, catalog, assets, lighting, surfaces, Some(plan))
+    resolve_prop_instances_inner(
+        level,
+        catalog,
+        assets,
+        lighting,
+        surfaces,
+        Some(plan),
+        false,
+    )
 }
 
 #[allow(clippy::too_many_lines)] // one bounded deterministic model/cell batching pass
@@ -298,6 +337,7 @@ fn resolve_prop_instances_inner<'a>(
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
     mut plan: Option<&mut crate::lighting::lightmap::LightmapPlan>,
+    defer_static_lighting: bool,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::{HashMap, HashSet};
 
@@ -402,7 +442,12 @@ fn resolve_prop_instances_inner<'a>(
         if lightmapped && let Some(plan) = plan.as_deref_mut() {
             builder.push_lightmapped_instance(&model, &asset, plan, &instance_bounds);
         } else {
-            builder.push_instance(&model, &asset, lighting);
+            builder.push_instance(
+                &model,
+                &asset,
+                lighting,
+                defer_static_lighting && !asset.model.is_animatable(),
+            );
         }
         busy_vertices = busy_vertices.saturating_add(if lightmapped {
             asset.model.indices.len()
@@ -576,7 +621,73 @@ pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
 
 #[cfg(test)]
 mod lighting_reuse_tests {
-    use super::{LevelLighting, append_instance_vertices, lighting_sources};
+    use super::{
+        LevelLighting, LevelSurfaces, append_instance_vertices, lighting_sources,
+        resolve_prop_fallbacks, resolve_prop_instances,
+    };
+
+    #[test]
+    fn deferred_static_lighting_preserves_geometry_budgets_and_animated_colours()
+    -> Result<(), String> {
+        let mut raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/levels/test_room.json"
+        ))
+        .map_err(|error| error.to_string())?;
+        raw.get_mut("props")
+            .and_then(serde_json::Value::as_array_mut)
+            .ok_or("fixture props")?
+            .extend([
+                serde_json::json!({"model":"home:wall_switch", "x":1.0, "z":1.0}),
+                serde_json::json!({"model":"compiler:missing_model", "x":2.0, "z":1.0}),
+            ]);
+        let level = crate::level::LevelDef::from_json(&raw.to_string())
+            .map_err(|error| error.to_string())?;
+        let catalog =
+            crate::loader::PropCatalog::load_from_path(std::path::Path::new("assets/catalog.json"))
+                .ok_or("shipped model catalogue")?;
+        let lighting = LevelLighting::bake(&level);
+        let surfaces = LevelSurfaces::new(&level);
+        let mut assets = crate::props::PropAssets::load_default();
+        let (reference, old_fallbacks) =
+            resolve_prop_instances(&level, &catalog, &mut assets, &lighting, &surfaces);
+        let (actual, fallbacks) =
+            resolve_prop_fallbacks(&level, &catalog, &mut assets, &lighting, &surfaces);
+        assert_eq!(
+            fallbacks.iter().map(|prop| &prop.id).collect::<Vec<_>>(),
+            old_fallbacks
+                .iter()
+                .map(|prop| &prop.id)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(actual.len(), reference.len());
+        let mut animated = 0usize;
+        for (actual, reference) in actual.iter().zip(&reference) {
+            assert_eq!(actual.model, reference.model);
+            assert_eq!(actual.bounds, reference.bounds);
+            assert_eq!(actual.submeshes, reference.submeshes);
+            assert_eq!(actual.indices, reference.indices);
+            assert_eq!(actual.vertices.len(), reference.vertices.len());
+            let asset = assets.resolve(&actual.model)?;
+            if asset.model.is_animatable() {
+                animated = animated.saturating_add(1);
+                assert_eq!(actual.vertices, reference.vertices);
+            } else {
+                for (actual, reference) in actual.vertices.iter().zip(&reference.vertices) {
+                    assert_eq!(actual.pos, reference.pos);
+                    assert_eq!(actual.uv, reference.uv);
+                }
+            }
+        }
+        assert!(
+            animated > 0,
+            "fixture must include the rigid animated switch"
+        );
+        assert!(
+            !fallbacks.is_empty(),
+            "fixture must exercise fallback discovery"
+        );
+        Ok(())
+    }
 
     #[test]
     fn seam_vertices_keep_exact_colours_and_uvs_across_instances() -> Result<(), String> {

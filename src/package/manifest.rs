@@ -158,8 +158,9 @@ pub struct Manifest {
     pub compiler_fingerprint: String,
     /// Developer **stage** fingerprint of the illumination/geometry inputs.
     ///
-    /// It excludes the navigation and AI components, so an encounter or AI
-    /// tuning edit keeps the same lighting fingerprint and the compiler reuses
+    /// It excludes display name/author and navigation/AI components, while
+    /// retaining catalogue and referenced-image/model identities. A display,
+    /// encounter or AI tuning edit keeps the same lighting fingerprint and the compiler reuses
     /// the previous package's prepared geometry, lightmaps, probes and
     /// collision instead of rebaking illumination. `None` on a package built
     /// before the field existed (an explicit `--force` rebuild writes it).

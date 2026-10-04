@@ -8,7 +8,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::geometry::build_level_geometry_mesh_with_lightmaps;
-use super::props::{PropMeshBatch, resolve_prop_instances, resolve_prop_instances_lightmapped};
+use super::props::{
+    PropMeshBatch, resolve_prop_fallbacks, resolve_prop_instances,
+    resolve_prop_instances_lightmapped,
+};
 use super::{
     LevelDef, LevelLighting, LevelMesh, LevelSurfaces, MaterialTable, PropDef,
     build_level_geometry_mesh,
@@ -568,6 +571,18 @@ fn bake_request_with_workers(
         request.probe_bake,
     )?;
     let solution = solve.solution;
+    crate::logging::info(format_args!(
+        "[lightmap-work] triangles={} texels={} direct_rays={} bounce_rays={} cache_cells={}",
+        request.transport.triangle_count(),
+        solution
+            .charts
+            .iter()
+            .map(|chart| chart.texels.len())
+            .fold(0usize, usize::saturating_add),
+        solution.direct_rays,
+        solution.bounce_rays,
+        solution.cache_cells
+    ));
     let atlas_started = std::time::Instant::now();
     let base: Vec<Vec<LightmapTexel>> = solution
         .charts
@@ -656,8 +671,11 @@ pub fn prepare_level_geometry_with_lightmaps(
 
     let surfaces = LevelSurfaces::new(level);
     let started = std::time::Instant::now();
-    let (mut batches, fallbacks) =
-        resolve_prop_instances(level, catalog, assets, &lighting, &surfaces);
+    let (mut batches, fallbacks) = if options.mode == LightmapMode::On {
+        resolve_prop_fallbacks(level, catalog, assets, &lighting, &surfaces)
+    } else {
+        resolve_prop_instances(level, catalog, assets, &lighting, &surfaces)
+    };
     let mut props_millis = elapsed_millis(started);
 
     let mut plan = (options.mode == LightmapMode::On).then(|| LightmapPlan::new(options.config));
@@ -721,24 +739,11 @@ pub fn prepare_level_geometry_with_lightmaps(
             // edit does not. The transport solver's own revision also enters the
             // key through its fingerprint, so a solver change invalidates every
             // cached atlas without invalidating an unchanged source.
-            let mut extra: Vec<u8> = Vec::with_capacity(32);
-            extra.extend_from_slice(&build.lighting.occlusion_fingerprint().to_le_bytes());
-            extra.push(bake.sampling.taps_per_axis);
-            extra.extend_from_slice(&bake.prop_occlusion_cell_m.to_bits().to_le_bytes());
-            extra.extend_from_slice(&crate::lighting::model_fingerprint().to_le_bytes());
-            extra
-                .extend_from_slice(&crate::lighting::transport::solver_fingerprint().to_le_bytes());
-            extra.push(options.solve.taps_per_axis);
-            extra.push(options.solve.bounces);
-            extra.extend_from_slice(
-                &u32::try_from(options.solve.gather_samples)
-                    .unwrap_or(u32::MAX)
-                    .to_le_bytes(),
-            );
-            let key = content_key_with_extra(level, &options.config, options.profile, &extra);
+            let key = lightmap_content_key(level, &build.lighting, options);
             if let Some(cached) = cache.and_then(|cache| cache.get(&key)) {
                 build.lightmaps = Some(cached);
             } else {
+                let scene_started = std::time::Instant::now();
                 match super::light_transport::build_transport_scene(
                     level,
                     &build.mesh,
@@ -769,6 +774,10 @@ pub fn prepare_level_geometry_with_lightmaps(
                         build.lightmap_failure = Some(LightmapFailure::TransportScene);
                     }
                 }
+                crate::logging::info(format_args!(
+                    "[lightmap-timing] transport_scene_and_targets_ms={:.3}",
+                    elapsed_millis(scene_started)
+                ));
             }
         }
     }
@@ -788,6 +797,31 @@ pub fn prepare_level_geometry_with_lightmaps(
     }
 
     PreparedLightmapBuild { build, fill }
+}
+
+/// Preserve the historical atlas identity while refreshing only metadata after
+/// a display/navigation edit. A decoded prepared lighting record carries the
+/// same occluder fingerprint; no light transport needs to run again.
+#[must_use]
+pub fn lightmap_content_key(
+    level: &LevelDef,
+    lighting: &LevelLighting,
+    options: LightmapBuildOptions,
+) -> String {
+    let mut extra = Vec::with_capacity(32);
+    extra.extend_from_slice(&lighting.occlusion_fingerprint().to_le_bytes());
+    extra.push(options.bake.sampling.taps_per_axis);
+    extra.extend_from_slice(&options.bake.prop_occlusion_cell_m.to_bits().to_le_bytes());
+    extra.extend_from_slice(&crate::lighting::model_fingerprint().to_le_bytes());
+    extra.extend_from_slice(&crate::lighting::transport::solver_fingerprint().to_le_bytes());
+    extra.push(options.solve.taps_per_axis);
+    extra.push(options.solve.bounces);
+    extra.extend_from_slice(
+        &u32::try_from(options.solve.gather_samples)
+            .unwrap_or(u32::MAX)
+            .to_le_bytes(),
+    );
+    content_key_with_extra(level, &options.config, options.profile, &extra)
 }
 
 /// Rebuilds the historical vertex-lit mesh against an already-baked lighting
@@ -1081,6 +1115,50 @@ mod tests {
 
     fn build_materials(level: &LevelDef) -> MaterialTable {
         logical_materials(level)
+    }
+
+    #[test]
+    fn failed_atlas_plan_rebuilds_fully_lit_static_props() {
+        let level = LevelDef::from_json(include_str!(
+            "../../../tests/fixtures/levels/test_room.json"
+        ))
+        .expect("retained static-prop fixture");
+        let catalog =
+            crate::loader::PropCatalog::load_from_path(std::path::Path::new("assets/catalog.json"))
+                .expect("shipped model catalogue");
+        let materials = build_materials(&level);
+        let mut assets = crate::props::PropAssets::load_default();
+        let mut options = LightmapBuildOptions::for_lightmaps(LightmapQuality::Full);
+        options.config.max_pages = 0;
+        let prepared = prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            options,
+            None,
+        );
+        assert!(prepared.build.lightmap_failure.is_some());
+        assert!(prepared.fill.is_none());
+        let mut reference = Vec::new();
+        let mesh = rebuild_vertex_lit_level(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            &prepared.build.lighting,
+            &mut reference,
+        );
+        assert_eq!(prepared.build.mesh.ranges, mesh.ranges);
+        assert_eq!(prepared.build.batches.len(), reference.len());
+        assert!(!reference.is_empty());
+        for (actual, reference) in prepared.build.batches.iter().zip(&reference) {
+            assert_eq!(actual.model, reference.model);
+            assert_eq!(actual.vertices, reference.vertices);
+            assert_eq!(actual.indices, reference.indices);
+            assert_eq!(actual.submeshes, reference.submeshes);
+            assert_eq!(actual.bounds, reference.bounds);
+        }
     }
 
     /// The worker's fill must produce exactly the inline build's pages.

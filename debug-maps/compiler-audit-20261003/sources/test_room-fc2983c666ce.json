@@ -1,0 +1,106 @@
+{
+  "author": "Places Team",
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "rotation_degrees": 0.0,
+      "x": 0.0,
+      "z": -4.0
+    }
+  ],
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01"
+  },
+  "format_version": 3,
+  "id": "test_room",
+  "name": "Compiler reuse regression 1",
+  "props": [
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 0.16,
+          "max_slope": 2.6667,
+          "radius": 0.2,
+          "speed_mps": 0.2,
+          "step_height": 0.2
+        }
+      ],
+      "model": "core:crate",
+      "rotation_degrees": 15.0,
+      "x": -4.0,
+      "z": 2.0
+    },
+    {
+      "model": "core:couch",
+      "rotation_degrees": 180.0,
+      "solid": true,
+      "x": 3.0,
+      "y": -0.15,
+      "z": 3.4
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 16.0,
+      "height": 3.5,
+      "width": 12.0,
+      "x": -6.0,
+      "z": -12.0
+    }
+  ],
+  "spawn": {
+    "x": 0.0,
+    "yaw_degrees": 0.0,
+    "z": 0.0
+  },
+  "walls": [
+    {
+      "depth": 0.4,
+      "height": 3.5,
+      "openings": [
+        {
+          "height": 2.1,
+          "kind": "door",
+          "offset": 4.0,
+          "width": 1.2
+        }
+      ],
+      "width": 12.0,
+      "x": -6.0,
+      "z": -12.4
+    },
+    {
+      "depth": 0.4,
+      "height": 3.5,
+      "width": 12.0,
+      "x": -6.0,
+      "z": 4.0
+    },
+    {
+      "depth": 16.0,
+      "height": 3.5,
+      "width": 0.4,
+      "x": -6.4,
+      "z": -12.0
+    },
+    {
+      "depth": 16.0,
+      "height": 3.5,
+      "openings": [
+        {
+          "height": 1.2,
+          "kind": "window",
+          "offset": 5.0,
+          "sill": 1.0,
+          "width": 2.0
+        }
+      ],
+      "width": 0.4,
+      "x": 6.0,
+      "z": -12.0
+    }
+  ]
+}

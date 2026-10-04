@@ -35,7 +35,7 @@
 
 mod probes;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -61,12 +61,15 @@ use crate::package::{FORMAT_VERSION, PACKAGE_EXTENSION};
 use crate::quality::LightmapQuality;
 use crate::quality::{QualityLevel, ReflectionQuality};
 use crate::render::{
-    GEOMETRY_REVISION, LightmapBuildOptions, fill_lightmaps_cancellable, logical_materials,
+    GEOMETRY_REVISION, LightmapBuildOptions, fill_lightmaps_cancellable,
     prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
 };
 
 /// The compiler's product identity, for `created_by`.
 pub const COMPILER_NAME: &str = concat!("places-compile ", env!("CARGO_PKG_VERSION"));
+
+/// Shared maximum CPU allocation for one offline compiler process.
+pub const MAX_WORKERS: usize = 12;
 
 /// One map build request.
 #[derive(Clone, Debug)]
@@ -79,7 +82,7 @@ pub struct BuildRequest {
     pub asset_root: PathBuf,
     /// Lightmap qualities to prepare, in this order.
     pub variants: Vec<LightmapQuality>,
-    /// Shared CPU budget; `1` selects the serial reference path.
+    /// Shared CPU budget; `1` selects serial execution, capped at [`MAX_WORKERS`].
     pub workers: usize,
     /// Rebuild even when the fingerprint matches.
     pub force: bool,
@@ -113,6 +116,27 @@ pub struct BuildReport {
     pub fingerprint: String,
     /// Per-variant statistics.
     pub variant_stats: Vec<VariantStats>,
+    /// Major pipeline phases; nested lighting timings are in verbose diagnostics.
+    #[serde(default)]
+    pub phases: Vec<BuildPhase>,
+}
+
+/// Wall time of one compiler phase, excluding phases it does not invoke.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BuildPhase {
+    /// Stage name, optionally suffixed with the lightmap quality.
+    pub phase: String,
+    /// Elapsed wall time in milliseconds.
+    pub millis: f64,
+}
+
+fn record_phase(phases: &mut Vec<BuildPhase>, phase: impl Into<String>, started: Instant) {
+    let phase = phase.into();
+    let millis = started.elapsed().as_secs_f64() * 1000.0;
+    crate::logging::info(format_args!(
+        "[compiler-timing] phase={phase} millis={millis:.3}"
+    ));
+    phases.push(BuildPhase { phase, millis });
 }
 
 /// Prepared statistics of one variant.
@@ -202,13 +226,15 @@ pub struct VerifyReport {
 #[allow(clippy::too_many_lines)] // one cohesive build pipeline
 pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     let started = Instant::now();
+    let mut phases = Vec::new();
     if request.workers == 0 {
         return Err("--workers must be at least 1".to_string());
     }
     if request.variants.is_empty() {
         return Err("no lightmap variants requested".to_string());
     }
-    crate::render::set_fill_workers(request.workers);
+    let workers = request.workers.min(MAX_WORKERS);
+    crate::render::set_fill_workers(workers);
     let mut warnings = Vec::new();
 
     let source_bytes = read_source(&request.source)?;
@@ -218,29 +244,35 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         .map_err(|error| format!("level source is not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
     let catalog_path = request.asset_root.join("catalog.json");
-    let catalog = crate::loader::PropCatalog::load_from_path(&catalog_path).ok_or_else(|| {
-        format!(
-            "asset root {} has no loadable catalog.json",
-            request.asset_root.display()
-        )
-    })?;
+    let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
     crate::loader::prepare_level(&mut level, catalog.assets(), None);
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::props::PropAssets::with_root(request.asset_root.clone());
-    let materials = logical_materials(&level);
+    let materials = MaterialTable::logical(&level, catalog.assets(), None);
 
     let dependencies = collect_dependencies(&level, &catalog, &request.asset_root, &mut warnings)?;
-    let fingerprint = fingerprint(&source_hash, &request.variants, &dependencies);
+    record_phase(&mut phases, "load_validate_prepare_dependencies", started);
+    let phase_started = Instant::now();
+    let fingerprint = fingerprint_with_catalog(
+        &fingerprint(&source_hash, &request.variants, &dependencies),
+        &catalog_hash,
+    );
     // Stage fingerprint: everything the illumination/geometry/collision/probe
     // preparation reads, with the navigation and AI components removed. An
     // encounter or AI tuning edit therefore matches the previous package's
     // stage key and only the semantics and navigation records are rebuilt.
-    let lighting_fingerprint = lighting_fingerprint(&level, &request.variants, &dependencies)?;
+    let lighting_fingerprint = fingerprint_with_catalog(
+        &lighting_fingerprint(&level, &request.variants, &dependencies)?,
+        &catalog_hash,
+    );
+    record_phase(&mut phases, "fingerprints", phase_started);
+    let phase_started = Instant::now();
 
     if !request.force
         && request.out.exists()
         && let Some(reason) = reuse_current(&request.out, &fingerprint)
     {
+        record_phase(&mut phases, "current_package_integrity", phase_started);
         return Ok(BuildReport {
             source: request.source.display().to_string(),
             out: request.out.display().to_string(),
@@ -256,31 +288,38 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             warnings,
             fingerprint,
             variant_stats: Vec::new(),
+            phases,
         });
     }
+    record_phase(&mut phases, "current_package_integrity", phase_started);
+    let phase_started = Instant::now();
 
     // Canonical bytes: the semantic record is part of the package's identity
     // and two builds of the same content must publish identical archives.
     let semantics = crate::canonical_json::canonical_json_bytes(&level)
         .map_err(|error| format!("could not serialize semantics: {error}"))?;
+    record_phase(&mut phases, "semantics", phase_started);
     let mut blobs: BlobMap = BTreeMap::new();
     let mut variants = Vec::with_capacity(request.variants.len());
     let mut variant_stats = Vec::with_capacity(request.variants.len());
     let mut cache = crate::lighting::lightmap::LightmapCache::memory_only();
     let cancelled = std::sync::atomic::AtomicBool::new(false);
+    let phase_started = Instant::now();
     // Navigation is variant-independent: bake and insert it once, then let
     // every variant reference the same content-addressed blob.
-    let (navigation_bytes, navigation_report) =
-        bake_navigation(&level, request.workers, &mut warnings)?;
+    let (navigation_bytes, navigation_report) = bake_navigation(&level, workers, &mut warnings)?;
     let navigation_name = insert_blob(&mut blobs, navigation_bytes, ".navigation", "navigation");
+    record_phase(&mut phases, "navigation_collision_inputs", phase_started);
+    let phase_started = Instant::now();
     // Reuse the previous package's prepared geometry, lighting, probes and
     // collision when the lighting stage fingerprint matches: an AI-only edit
     // must not rebake illumination.
     let reused = if request.force {
         None
     } else {
-        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &mut warnings)
+        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &level, &mut warnings)
     };
+    record_phase(&mut phases, "prepared_package_integrity", phase_started);
     if let Some((reused_variants, reused_blobs)) = reused {
         for (name, (bytes, role)) in reused_blobs {
             blobs.entry(name).or_insert((bytes, role));
@@ -313,13 +352,20 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             variants.push(variant);
         }
     } else {
+        let phase_started = Instant::now();
         let mut capture = if request.capture_probes {
             Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
         } else {
             None
         };
+        record_phase(&mut phases, "capture_device_materials", phase_started);
         for quality in &request.variants {
-            let (mut variant, stats) = build_variant(
+            crate::logging::info(format_args!(
+                "[compiler-progress] preparing {}",
+                quality.name()
+            ));
+            let phase_started = Instant::now();
+            let (mut variant, stats, build) = build_variant(
                 &level,
                 &catalog,
                 &mut assets,
@@ -332,6 +378,11 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 &navigation_name,
                 &navigation_report,
             )?;
+            record_phase(
+                &mut phases,
+                format!("prepare_encode_{}", quality.name()),
+                phase_started,
+            );
             if let Some(capture) = capture.as_mut() {
                 // A custom asset root can resolve different reflection state
                 // from the logical build. Skip only a proven empty capture.
@@ -340,9 +391,18 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                     == crate::render::MaterialRenderState::from_table(&capture.loaded.materials)
                         .reflections;
                 if stats.probe_points > 0 || !same_reflections {
-                    variant.entries.probes = capture.capture_variant(
-                        &level, &catalog, &assets, *quality, &variant, &mut blobs,
-                    )?;
+                    let phase_started = Instant::now();
+                    crate::logging::info(format_args!(
+                        "[compiler-progress] capturing {}",
+                        quality.name()
+                    ));
+                    variant.entries.probes =
+                        capture.capture_variant(&assets, *quality, build, &mut blobs)?;
+                    record_phase(
+                        &mut phases,
+                        format!("capture_{}", quality.name()),
+                        phase_started,
+                    );
                 }
             }
             variants.push(variant);
@@ -350,19 +410,17 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         }
     }
 
+    let phase_started = Instant::now();
     let mut entries: Vec<PendingEntry> = Vec::with_capacity(blobs.len().saturating_add(2));
     let mut package_entries: Vec<PackageEntry> = Vec::with_capacity(blobs.len().saturating_add(2));
-    for (name, (bytes, role)) in &blobs {
+    for (name, (bytes, role)) in blobs {
         package_entries.push(PackageEntry {
             name: name.clone(),
-            role: role.clone(),
+            role,
             bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
-            sha256: sha256_hex(bytes),
+            sha256: sha256_hex(&bytes),
         });
-        entries.push(PendingEntry {
-            name: name.clone(),
-            bytes: bytes.clone(),
-        });
+        entries.push(PendingEntry { name, bytes });
     }
     package_entries.push(PackageEntry {
         name: "semantics.json".to_string(),
@@ -422,7 +480,10 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         name: "manifest.json".to_string(),
         bytes: manifest_bytes,
     });
+    record_phase(&mut phases, "record_hashes_manifest", phase_started);
+    let phase_started = Instant::now();
     write_archive(&request.out, entries)?;
+    record_phase(&mut phases, "archive_compress_publish", phase_started);
     let bytes = std::fs::metadata(&request.out).map_or(0, |metadata| metadata.len());
     Ok(BuildReport {
         source: request.source.display().to_string(),
@@ -439,6 +500,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         warnings,
         fingerprint,
         variant_stats,
+        phases,
     })
 }
 
@@ -565,13 +627,9 @@ pub fn verify(source: &Path, package: &Path, asset_root: &Path) -> Result<Verify
     let manifest = inspect(package)?;
     let catalog_path = asset_root.join("catalog.json");
     let mut warnings = Vec::new();
-    let dependencies = match crate::loader::PropCatalog::load_from_path(&catalog_path) {
-        Some(catalog) => {
-            crate::loader::prepare_level(&mut level, catalog.assets(), None);
-            collect_dependencies(&level, &catalog, asset_root, &mut warnings)?
-        }
-        None => Vec::new(),
-    };
+    let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
+    crate::loader::prepare_level(&mut level, catalog.assets(), None);
+    let dependencies = collect_dependencies(&level, &catalog, asset_root, &mut warnings)?;
     let variants: Vec<LightmapQuality> = manifest
         .variants
         .iter()
@@ -582,7 +640,10 @@ pub fn verify(source: &Path, package: &Path, asset_root: &Path) -> Result<Verify
             _ => None,
         })
         .collect();
-    let current_fingerprint = fingerprint(&sha256_hex(&source_bytes), &variants, &dependencies);
+    let current_fingerprint = fingerprint_with_catalog(
+        &fingerprint(&sha256_hex(&source_bytes), &variants, &dependencies),
+        &catalog_hash,
+    );
     let mut differences = warnings
         .into_iter()
         .filter(|warning| warning.starts_with("dependency "))
@@ -629,7 +690,7 @@ pub fn resolve_asset_root(explicit: Option<&Path>) -> Result<PathBuf, String> {
 /// The compiler's headless capture context: a window-free renderer plus the
 /// resolved material state the install path needs.
 struct CaptureContext {
-    renderer: crate::render::Renderer,
+    renderer: Option<crate::render::Renderer>,
     loaded: crate::loader::LoadedLevel,
 }
 
@@ -668,23 +729,23 @@ impl CaptureContext {
                 path: PathBuf::new(),
             },
         };
-        let renderer =
-            crate::render::Renderer::new_headless(crate::render::DrawableSize::new(1280, 720))?;
-        Ok(Self { renderer, loaded })
+        // Resolve authored reflection state before deciding whether a GPU is
+        // needed. A world with no routing points has no captures to render.
+        Ok(Self {
+            renderer: None,
+            loaded,
+        })
     }
 
     /// Installs one prepared variant, captures both probe face sizes and
     /// returns the manifest payloads.
     fn capture_variant(
         &mut self,
-        level: &LevelDef,
-        catalog: &crate::loader::PropCatalog,
         assets: &crate::props::PropAssets,
         quality: LightmapQuality,
-        variant: &Variant,
+        build: crate::render::LevelBuild,
         blobs: &mut BlobMap,
     ) -> Result<Vec<ProbePayload>, String> {
-        let build = prepare_build_for_capture(level, catalog, assets, quality)?;
         let probe_points = crate::render::routing_from_mesh(
             &build.mesh,
             &crate::render::MaterialRenderState::from_table(&self.loaded.materials).reflections,
@@ -694,93 +755,36 @@ impl CaptureContext {
         if probe_points.is_empty() {
             return Ok(Vec::new());
         }
-        self.renderer.set_quality(QualityLevel::High);
-        self.renderer.set_lightmap_quality(quality);
-        self.renderer
-            .set_reflection_quality(ReflectionQuality::Full);
-        self.renderer.install_prepared(
+        if self.renderer.is_none() {
+            self.renderer = Some(crate::render::Renderer::new_headless(
+                crate::render::DrawableSize::new(1280, 720),
+            )?);
+        }
+        let renderer = self
+            .renderer
+            .as_mut()
+            .ok_or("capture device is unavailable")?;
+        renderer.set_quality(QualityLevel::High);
+        renderer.set_lightmap_quality(quality);
+        renderer.set_reflection_quality(ReflectionQuality::Full);
+        renderer.install_prepared(
             &self.loaded,
             Arc::new(build),
             assets.clone(),
             crate::render::CharacterScene::new(),
             false,
         );
-        while !self.renderer.advance_prepared_install() {
+        while !renderer.advance_prepared_install() {
             // Upload phases advance one bounded step per call.
         }
         let mut payloads = Vec::with_capacity(2);
-        let full = self.renderer.read_back_probe_faces()?;
+        let full = renderer.read_back_probe_faces()?;
         payloads.push(probe_payload(&full, &probe_points, blobs)?);
-        self.renderer
-            .reprepare_reflection_probes(ReflectionQuality::Medium);
-        let medium = self.renderer.read_back_probe_faces()?;
+        renderer.reprepare_reflection_probes(ReflectionQuality::Medium);
+        let medium = renderer.read_back_probe_faces()?;
         payloads.push(probe_payload(&medium, &probe_points, blobs)?);
-        let _ = variant;
         Ok(payloads)
     }
-}
-
-/// Rebuilds the same prepared world the variant records came from, for the
-/// capture install. The CPU work is repeated here because records are already
-/// encoded; the alternative (holding every variant's build in memory) costs
-/// more than one extra bake on a developer machine.
-fn prepare_build_for_capture(
-    level: &LevelDef,
-    catalog: &crate::loader::PropCatalog,
-    assets: &crate::props::PropAssets,
-    quality: LightmapQuality,
-) -> Result<crate::render::LevelBuild, String> {
-    let materials = crate::render::logical_materials(level);
-    let mut assets = assets.clone();
-    let mut cache = crate::lighting::lightmap::LightmapCache::memory_only();
-    let cancelled = std::sync::atomic::AtomicBool::new(false);
-    crate::lighting::set_preparation_assets(catalog.clone(), assets.clone());
-    let prepared = prepare_level_geometry_with_lightmaps(
-        level,
-        catalog,
-        &mut assets,
-        &materials,
-        LightmapBuildOptions::for_lightmaps(quality),
-        Some(&mut cache),
-    );
-    let mut build = prepared.build;
-    report_preparation(quality, &build);
-    if let Some(fill) = prepared.fill {
-        match fill_lightmaps_cancellable(&fill, &cancelled) {
-            crate::render::LightmapFillOutcome::Filled(product) => {
-                build.lightmap_millis = product.lightmaps.stats.bake_millis;
-                crate::render::dump_lightmaps_for_level(level, &product.lightmaps);
-                build.lightmaps = Some(std::sync::Arc::new(product.lightmaps));
-                build.lightmap_failure = None;
-            }
-            crate::render::LightmapFillOutcome::Failed(
-                failure @ (crate::lighting::lightmap::LightmapFailure::TransportEnergy
-                | crate::lighting::lightmap::LightmapFailure::FillNonFinite),
-            ) => {
-                return Err(format!(
-                    "{} lighting bake failed physical validation ({}); inspect the room/texel diagnostic and repair the solver before rebuilding",
-                    quality.name(),
-                    failure.name()
-                ));
-            }
-            crate::render::LightmapFillOutcome::Failed(failure) => {
-                build.mesh = rebuild_vertex_lit_level(
-                    level,
-                    catalog,
-                    &mut assets,
-                    &materials,
-                    &build.lighting,
-                    &mut build.batches,
-                );
-                build.lightmaps = None;
-                build.lightmap_failure = Some(failure);
-            }
-            crate::render::LightmapFillOutcome::Cancelled => {
-                return Err("capture preparation was cancelled".to_string());
-            }
-        }
-    }
-    Ok(build)
 }
 
 /// Encodes one captured face set as one KTX2 cube per probe plus a positions
@@ -1002,7 +1006,7 @@ fn build_variant(
     warnings: &mut Vec<String>,
     navigation_name: &str,
     navigation_report: &crate::nav::NavBakeReport,
-) -> Result<(Variant, VariantStats), String> {
+) -> Result<(Variant, VariantStats, crate::render::LevelBuild), String> {
     let options = LightmapBuildOptions::for_lightmaps(quality);
     let collision = CollisionWorld::from_level(level);
     // The bake derives prop occlusion boxes from the same request's model
@@ -1017,6 +1021,8 @@ fn build_variant(
         Some(cache),
     );
     let mut build = prepared.build;
+    let mut capture_colours = None;
+    let mut capture_empty_atlas = None;
     report_preparation(quality, &build);
     let mut lightmap_failure = build
         .lightmap_failure
@@ -1030,6 +1036,7 @@ fn build_variant(
                 // fully vertex-lit surface set): the mesh already carries the
                 // vertex-colour path everywhere, so the variant ships without
                 // an atlas and says why.
+                capture_empty_atlas = Some(Arc::new(product.lightmaps));
                 build.lightmaps = None;
                 build.probes = None;
                 build.lightmap_failure = None;
@@ -1081,6 +1088,17 @@ fn build_variant(
                 // rewrite the blended decals' vertex light from the same probe
                 // field moving objects use. Cut-out decals are untouched.
                 if let Some(field) = build.probes.as_deref() {
+                    // Captures historically use the pre-relit decal colours
+                    // and no moving-object field. Retain just those colours,
+                    // rather than rebaking the whole world to recover them.
+                    capture_colours = Some(
+                        build
+                            .mesh
+                            .ranges
+                            .iter()
+                            .flat_map(|range| range.vertices.iter().map(|vertex| vertex.color))
+                            .collect::<Vec<_>>(),
+                    );
                     crate::render::relight_blend_decals(
                         &mut build.mesh,
                         level,
@@ -1092,6 +1110,7 @@ fn build_variant(
             }
             crate::render::LightmapFillOutcome::Failed(
                 failure @ (crate::lighting::lightmap::LightmapFailure::FillNonFinite
+                | crate::lighting::lightmap::LightmapFailure::Worker
                 | crate::lighting::lightmap::LightmapFailure::TransportEnergy),
             ) => {
                 return Err(format!(
@@ -1227,7 +1246,30 @@ fn build_variant(
             probes: Vec::new(),
         },
     };
-    Ok((variant, stats))
+    // Records above retain the labelled field and relit runtime mesh. Move the
+    // same variant directly into capture with its historical capture state;
+    // at most one prepared variant is retained, and the atlas is never copied.
+    if let Some(colours) = capture_colours {
+        for (vertex, colour) in build
+            .mesh
+            .ranges
+            .iter_mut()
+            .flat_map(|range| range.vertices.iter_mut())
+            .zip(colours)
+        {
+            vertex.color = colour;
+        }
+    }
+    build.probes = None;
+    if let Some(empty) = capture_empty_atlas {
+        // The old capture path installed a successfully filled empty atlas;
+        // keep that state even though the runtime package omits empty pages.
+        build.lightmaps = Some(empty);
+    }
+    if let Some(atlas) = build.lightmaps.as_deref() {
+        crate::render::dump_lightmaps_for_level(level, atlas);
+    }
+    Ok((variant, stats, build))
 }
 
 fn report_preparation(quality: LightmapQuality, build: &crate::render::LevelBuild) {
@@ -1299,10 +1341,20 @@ fn collect_dependencies(
     material_ids.sort();
     material_ids.dedup();
     for id in material_ids {
-        if let Some(texture) = catalog.assets().material_texture(&id)
-            && let Some(path) = catalog.assets().texture_path(texture)
+        // Reflection captures consume albedo, normal and emission-mask images.
+        // Changing any of their bytes must invalidate the shared prepared stage.
+        let material = catalog.assets().material(&id);
+        for texture in [
+            catalog.assets().material_texture(&id),
+            material.and_then(|entry| entry.normal_texture.as_deref()),
+            material.and_then(|entry| entry.emissive_mask.as_deref()),
+        ]
+        .into_iter()
+        .flatten()
         {
-            add(DependencyKind::Texture, path)?;
+            if let Some(path) = catalog.assets().texture_path(texture) {
+                add(DependencyKind::Texture, path)?;
+            }
         }
     }
     for light in &level.ceiling_lights {
@@ -1521,13 +1573,34 @@ pub(crate) fn bake_navigation(
     Ok((bytes, report))
 }
 
+/// Parse exactly the catalogue bytes included in the build key, including
+/// definitions that reference unchanged model/texture files.
+fn load_catalog_identity(path: &Path) -> Result<(crate::loader::PropCatalog, String), String> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("could not read catalog {}: {error}", path.display()))?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| format!("catalog {} is not valid UTF-8", path.display()))?;
+    let catalog = crate::loader::PropCatalog::from_json_str(text)
+        .map_err(|error| format!("catalog {} is invalid: {error}", path.display()))?;
+    Ok((catalog, sha256_hex(&bytes)))
+}
+
+/// Versioned catalogue identity surrounds both complete and reusable stage
+/// keys. No map record or package schema changes; old keys miss safely once.
+fn fingerprint_with_catalog(input: &str, catalog_hash: &str) -> String {
+    // Version 2 finalizes canonical ray-boundary eligibility. Invalidate private
+    // experimental packages too, even when their asset and solver keys match.
+    sha256_hex(format!("asset_inputs_v2\ninput {input}\ncatalog {catalog_hash}\n").as_bytes())
+}
+
 /// The illumination/geometry stage fingerprint.
 ///
 /// It folds everything the prepared static world depends on — the level with
 /// the navigation and AI components removed, the dependency identities, the
 /// record versions, the lighting model and the transport solver, and the
-/// requested variants — so an edit that only changes an AI behavior or a
-/// navigation body keeps the same key and the previous package's prepared
+/// requested variants. Display name/author and navigation/AI components are
+/// excluded; the outer key additionally hashes the exact catalogue snapshot.
+/// An edit restricted to those display/navigation fields keeps the same key and the previous package's prepared
 /// geometry, lightmaps, probes and collision can be reused.
 ///
 /// # Errors
@@ -1557,6 +1630,10 @@ pub(crate) fn lighting_fingerprint_with_revision(
 ) -> Result<String, String> {
     use std::fmt::Write as _;
     let mut stripped = level.clone();
+    // Display metadata is encoded anew in semantics and the manifest. It is
+    // never read by static geometry, collision, illumination or probe baking.
+    stripped.name.clear();
+    stripped.author.clear();
     strip_navigation_components(&mut stripped);
     let bytes = crate::canonical_json::canonical_json_bytes(&stripped)
         .map_err(|error| format!("could not serialize the lighting stage input: {error}"))?;
@@ -1569,7 +1646,11 @@ pub(crate) fn lighting_fingerprint_with_revision(
         "level_format {}",
         crate::level::LEVEL_FORMAT_VERSION
     );
-    let _ = writeln!(canonical, "stage lighting navigations_excluded");
+    // Explicit stage-key version: older packages miss once, then reuse safely.
+    let _ = writeln!(
+        canonical,
+        "stage lighting v2 navigation_display_metadata_excluded"
+    );
     // This reusable stage also stores collision boxes, including region rims.
     let _ = writeln!(
         canonical,
@@ -1652,6 +1733,7 @@ fn strip_navigation_components(level: &mut LevelDef) {
 fn reuse_prepared_lighting(
     out: &Path,
     lighting_fingerprint: &str,
+    level: &LevelDef,
     warnings: &mut Vec<String>,
 ) -> Option<(Vec<Variant>, BlobMap)> {
     if !out.exists() {
@@ -1667,34 +1749,83 @@ fn reuse_prepared_lighting(
     if manifest.lighting_fingerprint.as_deref() != Some(lighting_fingerprint) {
         return None;
     }
+    let mut needed = BTreeSet::new();
+    for variant in &manifest.variants {
+        let entries = &variant.entries;
+        needed.extend([
+            entries.mesh.as_str(),
+            entries.props.as_str(),
+            entries.lighting.as_str(),
+            entries.collision.as_str(),
+        ]);
+        needed.extend(entries.lightmaps.as_deref());
+        needed.extend(entries.lightmaps_meta.as_deref());
+        needed.extend(entries.irradiance.as_deref());
+        for probe in &entries.probes {
+            needed.insert(probe.positions.as_str());
+            needed.extend(probe.cubemaps.iter().map(String::as_str));
+        }
+    }
     let mut blobs: BlobMap = BTreeMap::new();
     for entry in &manifest.entries {
         if entry.name == "semantics.json" {
             continue;
         }
         let bytes = read_declared_entry(&mut reader, entry).ok()?;
-        blobs.insert(entry.name.clone(), (bytes, entry.role.clone()));
+        // Verify all old records, but carry forward only referenced static
+        // data. Navigation is rebuilt; retaining its previous blobs would
+        // accumulate orphan records after repeated navigation edits.
+        if needed.contains(entry.name.as_str()) {
+            blobs.insert(entry.name.clone(), (bytes, entry.role.clone()));
+        }
     }
     // Every variant must still name the mandatory records and every named
     // entry must resolve in the reused blob set.
-    for variant in &manifest.variants {
-        for name in [
-            &variant.entries.mesh,
-            &variant.entries.props,
-            &variant.entries.lighting,
-            &variant.entries.collision,
-        ] {
-            if !blobs.contains_key(name) {
-                return None;
-            }
-        }
+    if needed.iter().any(|name| !blobs.contains_key(*name)) {
+        return None;
     }
+    let mut variants = manifest.variants;
+    refresh_reused_atlas_keys(level, &mut variants, &mut blobs)?;
     warnings.push(format!(
         "reused prepared geometry, lighting, probes and collision from {} (lighting stage fingerprint \
          unchanged; only the semantics and navigation records were rebuilt)",
         out.display()
     ));
-    Some((manifest.variants, blobs))
+    Some((variants, blobs))
+}
+
+/// A clean build's diagnostic atlas key includes display/navigation fields.
+/// Refresh that small record while reusing all solved texel/probe bytes, so an
+/// incremental archive is exactly the independent clean archive of its source.
+fn refresh_reused_atlas_keys(
+    level: &LevelDef,
+    variants: &mut [Variant],
+    blobs: &mut BlobMap,
+) -> Option<()> {
+    for variant in variants {
+        let Some(previous) = variant.entries.lightmaps_meta.clone() else {
+            continue;
+        };
+        let quality = LightmapQuality::parse(&variant.lightmap_quality)?;
+        let lighting =
+            crate::package::lighting::read_lighting(&blobs.get(&variant.entries.lighting)?.0)
+                .ok()?;
+        let mut meta: crate::package::lightmaps::LightmapsMeta =
+            serde_json::from_slice(&blobs.get(&previous)?.0).ok()?;
+        meta.content_key = crate::render::lightmap_content_key(
+            level,
+            &lighting,
+            LightmapBuildOptions::for_lightmaps(quality),
+        );
+        let mut bytes = serde_json::to_vec(&meta).ok()?;
+        bytes.push(b'\n');
+        let name = insert_blob(blobs, bytes, ".lightmaps.json", "lightmaps-meta");
+        if name != previous {
+            blobs.remove(&previous);
+        }
+        variant.entries.lightmaps_meta = Some(name);
+    }
+    Some(())
 }
 
 fn fingerprint(
@@ -1830,6 +1961,8 @@ mod tests {
     )]
 
     use super::*;
+
+    mod performance;
 
     #[test]
     fn maintained_dense_props_fit_the_runtime_record_budget() {

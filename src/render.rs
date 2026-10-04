@@ -36,7 +36,8 @@ pub(crate) use common::light_transport::{EntityLightingSource, entity_lighting};
 pub(in crate::render) use common::WallUnit;
 pub(crate) use common::api::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
-    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level, set_fill_workers,
+    lightmap_content_key, prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+    set_fill_workers,
 };
 pub use common::camera::RenderCamera;
 pub use common::materials::MaterialRenderState;

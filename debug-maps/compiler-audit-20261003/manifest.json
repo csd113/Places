@@ -1,0 +1,714 @@
+[
+  {
+    "alias": "compiler_reuse-75ec558cf9d8",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 1",
+    "purpose": "reuse-18378/iteration-1",
+    "package": "packages/compiler_reuse-75ec558cf9d8.placesmap",
+    "package_sha256": "75ec558cf9d8c48da6f06428d21833e567a98eef59161af3bef664d2387315ef",
+    "source": "sources/compiler_reuse-75ec558cf9d8.json",
+    "source_sha256": "de119a8df72e6ab52402a50d772805132e35feef08084737461b3ab0938e6e91",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-18378/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-50113/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-54896/iteration-1.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-78ce486d08cc",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 0",
+    "purpose": "reuse-12142/iteration-0",
+    "package": "packages/compiler_reuse-78ce486d08cc.placesmap",
+    "package_sha256": "78ce486d08cc45ac9dcda2b6a56860c9e31ac2f5eda9ee3b2370304decf063f1",
+    "source": "sources/compiler_reuse-78ce486d08cc.json",
+    "source_sha256": "a7d075699da0f544badc36ad354429d6fa5c92257a1f0e6e794016abf85269ea",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-12142/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-135/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-4550/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-71742/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-82088/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-99458/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2163/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2970/iteration-0.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-9c39f44a2701",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse",
+    "purpose": "corrupt-cache-50113/before",
+    "package": "packages/compiler_reuse-9c39f44a2701.placesmap",
+    "package_sha256": "9c39f44a27015349fe62b6c84d4bfb79447cad35e3ef51b487f577b5352cd4a8",
+    "source": "sources/compiler_reuse-9c39f44a2701.json",
+    "source_sha256": "9a1d3780734c7e899b6e4fcb85af4fe4131654c77e772e2cd5c63454bf4b7c59",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-50113/before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-54896/before.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-b97db8fef189",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 1",
+    "purpose": "reuse-12142/iteration-1",
+    "package": "packages/compiler_reuse-b97db8fef189.placesmap",
+    "package_sha256": "b97db8fef189f8643017d25ad451639619a375f4a0c1ff31f1babc672c305b77",
+    "source": "sources/compiler_reuse-b97db8fef189.json",
+    "source_sha256": "de119a8df72e6ab52402a50d772805132e35feef08084737461b3ab0938e6e91",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-12142/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-135/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-4550/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-71742/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-82088/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-99458/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2163/iteration-1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2970/iteration-1.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-d3b2379614ba",
+    "id": "compiler_reuse",
+    "name": "Corrupt cache metadata regression",
+    "purpose": "corrupt-cache-50113/cache.clean",
+    "package": "packages/compiler_reuse-d3b2379614ba.placesmap",
+    "package_sha256": "d3b2379614ba28783c6dc9874d231fd7db8e0680c1c107eb3c8097fe3ef517ec",
+    "source": "sources/compiler_reuse-d3b2379614ba.json",
+    "source_sha256": "cede0a3f8d475ec550e0a8b624907a2599a141b60d1f655d8947885d12faaa09",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-50113/cache.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-50113/cache.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-54896/cache.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/corrupt-cache-54896/cache.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-e7e72d337e1c",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 2",
+    "purpose": "reuse-12142/iteration-2",
+    "package": "packages/compiler_reuse-e7e72d337e1c.placesmap",
+    "package_sha256": "e7e72d337e1cbaba4dac1ce11ee7535623539a502fc1192cf5979e46e1a75ce7",
+    "source": "sources/compiler_reuse-e7e72d337e1c.json",
+    "source_sha256": "b3eb5b519dcca33087285770919fb3e72039806be3012dc98c45e3c6e99fb9d7",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-12142/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-12142/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-12142/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-135/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-135/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-135/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-4550/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-4550/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-4550/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-71742/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-71742/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-71742/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-82088/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-82088/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-82088/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-99458/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-99458/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-99458/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2163/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2163/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2163/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2970/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2970/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-2970/working.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-ea48ca918d91",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 2",
+    "purpose": "reuse-18378/iteration-2",
+    "package": "packages/compiler_reuse-ea48ca918d91.placesmap",
+    "package_sha256": "ea48ca918d91ad27b2725734fec429eb536d80bc65d996e71415ae46871aeb9b",
+    "source": "sources/compiler_reuse-ea48ca918d91.json",
+    "source_sha256": "b3eb5b519dcca33087285770919fb3e72039806be3012dc98c45e3c6e99fb9d7",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-18378/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-18378/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-18378/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-50113/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-50113/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-50113/working.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-54896/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-54896/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-54896/working.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "compiler_reuse-fbb403abad3f",
+    "id": "compiler_reuse",
+    "name": "Compiler reuse regression 0",
+    "purpose": "reuse-18378/iteration-0",
+    "package": "packages/compiler_reuse-fbb403abad3f.placesmap",
+    "package_sha256": "fbb403abad3ff763a16e0a8c57070090f4e0f426cf225a8061e22d0e080ecfaf",
+    "source": "sources/compiler_reuse-fbb403abad3f.json",
+    "source_sha256": "a7d075699da0f544badc36ad354429d6fa5c92257a1f0e6e794016abf85269ea",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-18378/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-50113/iteration-0.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-54896/iteration-0.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "lantern_hollow-4ad30336aa3a",
+    "id": "lantern_hollow",
+    "name": "Lantern Hollow \u2014 compiler metadata regression",
+    "purpose": "incremental-final-hollow/metadata-r1-clean",
+    "package": "packages/lantern_hollow-4ad30336aa3a.placesmap",
+    "package_sha256": "4ad30336aa3ae076ea4db202b5833b9be0c98b3b1a5de6e7bd6bec961edf142f",
+    "source": "sources/lantern_hollow-4ad30336aa3a.json",
+    "source_sha256": "9188fe0bec1349a334d0ed8e9da3758e14f3ab5d2477f16b96b0e7a45df5dca1",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "lantern_hollow-a5a3195a2aa9",
+    "id": "lantern_hollow",
+    "name": "Lantern Hollow",
+    "purpose": "incremental-final-hollow/metadata-r1-before",
+    "package": "packages/lantern_hollow-a5a3195a2aa9.placesmap",
+    "package_sha256": "a5a3195a2aa99de0c3b76e5b9eb2d88d30eba5377f623d48d5acc23bcd2c25db",
+    "source": "sources/lantern_hollow-a5a3195a2aa9.json",
+    "source_sha256": "1e2c53846cfa21892b3b66e43658925ec28fcea8f4143324f998e1193a91d0c0",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/metadata-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-hollow/unchanged-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-077a5fb7e900",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-final-small/light-r1-before",
+    "package": "packages/test_room-077a5fb7e900.placesmap",
+    "package_sha256": "077a5fb7e9002d5acb74e9ff8ce00005246a2d847f66a50e4ad1e3be8305e571",
+    "source": "sources/test_room-077a5fb7e900.json",
+    "source_sha256": "39315416421d60f70551593799db3c5df2469071a9958bf519fe49b8301fb12d",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/unchanged-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-32740733eea2",
+    "id": "test_room",
+    "name": "Test Room \u2014 compiler metadata regression",
+    "purpose": "incremental-baseline-small/metadata-r1-clean",
+    "package": "packages/test_room-32740733eea2.placesmap",
+    "package_sha256": "32740733eea2b5973e6bddacbe46b684e8e604339dd91bcdd67069a0252338b3",
+    "source": "sources/test_room-32740733eea2.json",
+    "source_sha256": "452c4f1237a998df9d0124e5a54a79d872f4296f0053e9398ac69eeb784a90e0",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-3291769bca80",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-baseline-small/light-r1-before",
+    "package": "packages/test_room-3291769bca80.placesmap",
+    "package_sha256": "3291769bca80a23ec053ca959f8c29874e299f461160e19226116ed43f6ad75d",
+    "source": "sources/test_room-3291769bca80.json",
+    "source_sha256": "39315416421d60f70551593799db3c5df2469071a9958bf519fe49b8301fb12d",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/metadata-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r1-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r2-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r3-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/unchanged-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-5ce1cb7cb2f5",
+    "id": "test_room",
+    "name": "Test Room \u2014 compiler metadata regression",
+    "purpose": "incremental-final-small/metadata-r1-clean",
+    "package": "packages/test_room-5ce1cb7cb2f5.placesmap",
+    "package_sha256": "5ce1cb7cb2f53c9fac8926bbe528868f7785f9546a94730dac6c7877d8d96c40",
+    "source": "sources/test_room-5ce1cb7cb2f5.json",
+    "source_sha256": "452c4f1237a998df9d0124e5a54a79d872f4296f0053e9398ac69eeb784a90e0",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/metadata-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-6b0843dba415",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-final-small/prop-r1-clean",
+    "package": "packages/test_room-6b0843dba415.placesmap",
+    "package_sha256": "6b0843dba415eea575f5679b819280ab8b22c71104d281feb2f3687a0e41c4b1",
+    "source": "sources/test_room-6b0843dba415.json",
+    "source_sha256": "1c19320c712a31f146a95119d4b0ece50159ecde2bb991d3eaea592571249780",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/prop-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-6c8e2a8a03f0",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "catalogue-18378/catalogue-before",
+    "package": "packages/test_room-6c8e2a8a03f0.placesmap",
+    "package_sha256": "6c8e2a8a03f04169f1b4704d9d372b1f8a95b82bf8f3702599dc30345a996044",
+    "source": "sources/test_room-6c8e2a8a03f0.json",
+    "source_sha256": "cab870c9bcfdf111d57d0d012ef053d8da9656d473ea57b1b770e6847607b156",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-18378/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-50113/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-54896/catalogue-before.placesmap"
+    ],
+    "variants": [
+      "off"
+    ],
+    "catalogue": "catalogues/64f53ddd816b69ae7a8826569f195be5244d9f6979cd2629c172a46eb12abaae.json",
+    "catalogue_sha256": "64f53ddd816b69ae7a8826569f195be5244d9f6979cd2629c172a46eb12abaae"
+  },
+  {
+    "alias": "test_room-73fb374c1df9",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "catalogue-18378/catalogue-input.clean",
+    "package": "packages/test_room-73fb374c1df9.placesmap",
+    "package_sha256": "73fb374c1df9cdbcf4bdab2e3b902c01188a37332c3a6c18249494cffaa4347c",
+    "source": "sources/test_room-73fb374c1df9.json",
+    "source_sha256": "cab870c9bcfdf111d57d0d012ef053d8da9656d473ea57b1b770e6847607b156",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-18378/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-18378/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-50113/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-50113/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-54896/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-54896/catalogue-input.placesmap"
+    ],
+    "variants": [
+      "off"
+    ],
+    "catalogue": "catalogues/934133a4edc3a345154ce98bc50b20e73283382b151a09b5d0f3757f1a9d3cb4.json",
+    "catalogue_sha256": "934133a4edc3a345154ce98bc50b20e73283382b151a09b5d0f3757f1a9d3cb4"
+  },
+  {
+    "alias": "test_room-76e0b6a557ea",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "catalogue-12142/catalogue-input.clean",
+    "package": "packages/test_room-76e0b6a557ea.placesmap",
+    "package_sha256": "76e0b6a557eac4e2b0625766d3a2005dbdea2f69ddea779d518ecfc9395a1d56",
+    "source": "sources/test_room-76e0b6a557ea.json",
+    "source_sha256": "cab870c9bcfdf111d57d0d012ef053d8da9656d473ea57b1b770e6847607b156",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-12142/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-12142/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-135/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-135/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-4550/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-4550/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-71742/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-71742/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-82088/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-82088/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-98302/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-98302/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-99458/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-99458/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2163/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2163/catalogue-input.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2970/catalogue-input.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2970/catalogue-input.placesmap"
+    ],
+    "variants": [
+      "off"
+    ],
+    "catalogue": "catalogues/934133a4edc3a345154ce98bc50b20e73283382b151a09b5d0f3757f1a9d3cb4.json",
+    "catalogue_sha256": "934133a4edc3a345154ce98bc50b20e73283382b151a09b5d0f3757f1a9d3cb4"
+  },
+  {
+    "alias": "test_room-78bc21d5a49c",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-final-small/material-r1-clean",
+    "package": "packages/test_room-78bc21d5a49c.placesmap",
+    "package_sha256": "78bc21d5a49cf9669923a5c1aa5818772a5ecc5eb93b9417e59db527d8dc824b",
+    "source": "sources/test_room-78bc21d5a49c.json",
+    "source_sha256": "84f8870d459306b68aaa0ad317e039d13ed9d2b1fdb17853ffb83c14ab41c1ce",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/material-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-83818aea232f",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "failure-18378/valid",
+    "package": "packages/test_room-83818aea232f.placesmap",
+    "package_sha256": "83818aea232f57052b160d8b1d703647729655c6976bea36b3e828a8a9dfabf0",
+    "source": "sources/test_room-83818aea232f.json",
+    "source_sha256": "a943cbf5a9487c2296eede1364072e319708d77b9cda1cb9671bee82f73a021e",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-18378/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-50113/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-54896/valid.placesmap"
+    ],
+    "variants": [
+      "off"
+    ]
+  },
+  {
+    "alias": "test_room-93d14a3c6521",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-baseline-small/prop-r1-clean",
+    "package": "packages/test_room-93d14a3c6521.placesmap",
+    "package_sha256": "93d14a3c6521cfca203cb5360856f5416fac897fcac0788a76ad8ca6ea5447ce",
+    "source": "sources/test_room-93d14a3c6521.json",
+    "source_sha256": "1c19320c712a31f146a95119d4b0ece50159ecde2bb991d3eaea592571249780",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/prop-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-9b1cc7bf0c24",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "failure-12142/valid",
+    "package": "packages/test_room-9b1cc7bf0c24.placesmap",
+    "package_sha256": "9b1cc7bf0c24712696dc3406afb1e3a3f25606efab7aefa47d3e7d2fbeac4e4f",
+    "source": "sources/test_room-9b1cc7bf0c24.json",
+    "source_sha256": "a943cbf5a9487c2296eede1364072e319708d77b9cda1cb9671bee82f73a021e",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-12142/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-135/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-4550/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-71742/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-82088/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-98302/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-99458/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-2163/valid.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/failure-2970/valid.placesmap"
+    ],
+    "variants": [
+      "off"
+    ]
+  },
+  {
+    "alias": "test_room-9e656e65ef79",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "catalogue-12142/catalogue-before",
+    "package": "packages/test_room-9e656e65ef79.placesmap",
+    "package_sha256": "9e656e65ef793c1e1cc17532f964bd07cc761c1ee18eb2200846508923f2d727",
+    "source": "sources/test_room-9e656e65ef79.json",
+    "source_sha256": "cab870c9bcfdf111d57d0d012ef053d8da9656d473ea57b1b770e6847607b156",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-12142/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-135/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-4550/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-71742/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-82088/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-99458/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2163/catalogue-before.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/catalogue-2970/catalogue-before.placesmap"
+    ],
+    "variants": [
+      "off"
+    ],
+    "catalogue": "catalogues/64f53ddd816b69ae7a8826569f195be5244d9f6979cd2629c172a46eb12abaae.json",
+    "catalogue_sha256": "64f53ddd816b69ae7a8826569f195be5244d9f6979cd2629c172a46eb12abaae"
+  },
+  {
+    "alias": "test_room-cb8485abf58c",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-baseline-small/light-r1-clean",
+    "package": "packages/test_room-cb8485abf58c.placesmap",
+    "package_sha256": "cb8485abf58ccfb6768ff560afa1b909b3a0a7b1d6dd2d4049f9994fc8a074be",
+    "source": "sources/test_room-cb8485abf58c.json",
+    "source_sha256": "5e8d92d391487f4883e5e348f34190e20bc8c115ed689d909731603604f8ca89",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/light-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-e0c19e7a8aef",
+    "id": "test_room",
+    "name": "Compiler reuse regression 0",
+    "purpose": "reuse-98302/iteration-0",
+    "package": "packages/test_room-e0c19e7a8aef.placesmap",
+    "package_sha256": "e0c19e7a8aef67e1f90386cec13812dc92dd9d610c13b41be56cd1f37076d41b",
+    "source": "sources/test_room-e0c19e7a8aef.json",
+    "source_sha256": "85d12fb4ddbbd7b73081197d269138d53fb27cfa632713fa0ba2366f6362b748",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-98302/iteration-0.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-e3f70b9a1e9e",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-final-small/light-r1-clean",
+    "package": "packages/test_room-e3f70b9a1e9e.placesmap",
+    "package_sha256": "e3f70b9a1e9e8cf05dc79c059e15112faa3837174269460196829df8dfdc22db",
+    "source": "sources/test_room-e3f70b9a1e9e.json",
+    "source_sha256": "5e8d92d391487f4883e5e348f34190e20bc8c115ed689d909731603604f8ca89",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-final-small/light-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-f6917b4f604f",
+    "id": "test_room",
+    "name": "Test Room",
+    "purpose": "incremental-baseline-small/material-r1-clean",
+    "package": "packages/test_room-f6917b4f604f.placesmap",
+    "package_sha256": "f6917b4f604f7ee273e7ec6ffda7b83170d1b997f2c9032acacc6e539ba854dd",
+    "source": "sources/test_room-f6917b4f604f.json",
+    "source_sha256": "84f8870d459306b68aaa0ad317e039d13ed9d2b1fdb17853ffb83c14ab41c1ce",
+    "source_kind": "decoded semantics snapshot",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r1-clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r1.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/tools/bench/results/compiler-audit-20261003/incremental-baseline-small/material-r3.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-f9533d694ee3",
+    "id": "test_room",
+    "name": "Compiler reuse regression 2",
+    "purpose": "reuse-98302/iteration-2",
+    "package": "packages/test_room-f9533d694ee3.placesmap",
+    "package_sha256": "f9533d694ee35a526753420c2ef4612facc1d5078d04145f20c97bcbb7bd422e",
+    "source": "sources/test_room-f9533d694ee3.json",
+    "source_sha256": "a1e0cf67a6a6db9de7c3a1cc8161d6627bab3ce903bd7e23d41612a6ee3a1df3",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-98302/iteration-2.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-98302/working.clean.placesmap",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-98302/working.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  },
+  {
+    "alias": "test_room-fc2983c666ce",
+    "id": "test_room",
+    "name": "Compiler reuse regression 1",
+    "purpose": "reuse-98302/iteration-1",
+    "package": "packages/test_room-fc2983c666ce.placesmap",
+    "package_sha256": "fc2983c666ce51e1d249528464f35f62ced25b04ad8e08abcf17729890c7554a",
+    "source": "sources/test_room-fc2983c666ce.json",
+    "source_sha256": "6ba19ea4e6000053b4df3c081d8ef5415aaf8a0c91904078b782d0195ddbfcac",
+    "source_kind": "original authored source",
+    "origins": [
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/compiler-audit-20261003/regressions/reuse-98302/iteration-1.placesmap"
+    ],
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ]
+  }
+]

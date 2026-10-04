@@ -1,0 +1,43 @@
+{
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 1.5,
+      "z": 1.5
+    }
+  ],
+  "format_version": 3,
+  "id": "compiler_reuse",
+  "name": "Compiler reuse",
+  "props": [
+    {
+      "model": "core:crate",
+      "scale": 0.5,
+      "solid": true,
+      "x": 0.7,
+      "z": 0.7
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 3.0,
+      "height": 2.5,
+      "width": 3.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "spawn": {
+    "x": 1.5,
+    "z": 1.5
+  },
+  "walls": [
+    {
+      "depth": 0.1,
+      "height": 2.5,
+      "width": 3.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 1.5,
+      "z": 1.5
+    }
+  ],
+  "format_version": 3,
+  "id": "compiler_reuse",
+  "name": "Compiler reuse regression 1",
+  "props": [
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 0.16,
+          "max_slope": 2.6667,
+          "radius": 0.2,
+          "speed_mps": 0.2,
+          "step_height": 0.2
+        }
+      ],
+      "model": "core:crate",
+      "scale": 0.5,
+      "solid": true,
+      "x": 0.7,
+      "z": 0.7
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 3.0,
+      "height": 2.5,
+      "width": 3.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "spawn": {
+    "x": 1.5,
+    "z": 1.5
+  },
+  "walls": [
+    {
+      "depth": 0.1,
+      "height": 2.5,
+      "width": 3.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ]
+}

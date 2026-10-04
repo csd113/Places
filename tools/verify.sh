@@ -44,7 +44,7 @@ cargo run --quiet --release --bin places-compile -- validate assets/levels/model
 cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors tests.test_asset_audit
-python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness tests.test_compiler_bench
 python3 -m unittest tests.test_geometry_repair
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build

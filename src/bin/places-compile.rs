@@ -37,6 +37,7 @@ OPTIONS:
                       source (the gate that keeps shipped packages from going
                       stale unnoticed).
   --workers N         Shared CPU budget for this run; 1 forces the serial path.
+                      Capped at 12; defaults to available CPU parallelism.
                       Also read from PLACES_TOOL_WORKERS; the flag wins.
   --variants <list>   Comma-separated lightmap qualities to prepare
                       (default: off,medium,full).
@@ -111,6 +112,9 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
                 options.workers = value
                     .parse::<usize>()
                     .map_err(|_| CliError::Usage(format!("invalid --workers value '{value}'")))?;
+                if options.workers == 0 {
+                    return Err(CliError::Usage("--workers must be at least 1".to_string()));
+                }
                 index = index.saturating_add(2);
             }
             Some("--variants") => {
@@ -153,6 +157,7 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
                 std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get)
             });
     }
+    options.workers = options.workers.min(compiler::MAX_WORKERS);
     Ok(options)
 }
 
@@ -428,4 +433,23 @@ fn print_json<T: serde::Serialize>(value: &T) -> Result<(), CliError> {
         .map_err(|error| CliError::Failure(format!("could not serialize result: {error}")))?;
     println!("{text}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_worker_budget_is_positive_and_bounded() {
+        assert!(matches!(
+            parse_options(&["--workers".into(), "0".into()]),
+            Err(CliError::Usage(_))
+        ));
+        for (requested, expected) in [(1, 1), (2, 2), (4, 4), (8, 8), (12, 12), (64, 12)] {
+            assert!(
+                parse_options(&["--workers".into(), requested.to_string()])
+                    .is_ok_and(|options| options.workers == expected)
+            );
+        }
+    }
 }

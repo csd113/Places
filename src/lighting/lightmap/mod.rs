@@ -218,6 +218,8 @@ pub enum LightmapFailure {
     Layout,
     /// The fill pass returned the wrong number of texels for a chart.
     FillSize,
+    /// An offline worker could not start or failed before returning its batch.
+    Worker,
     /// The fill pass returned a non-finite colour.
     FillNonFinite,
     /// Directional encoding changed the integrated irradiance at the surface.
@@ -239,6 +241,7 @@ impl LightmapFailure {
             Self::DegenerateQuad => "degenerate quad",
             Self::Layout => "atlas layout",
             Self::FillSize => "fill size",
+            Self::Worker => "worker failure",
             Self::FillNonFinite => "non-finite fill",
             Self::TransportEnergy => "transport energy mismatch",
             Self::InvalidConfig => "invalid config",
