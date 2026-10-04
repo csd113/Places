@@ -1,0 +1,594 @@
+{
+  "rust_gate": {
+    "command": [
+      "sh",
+      "tools/check-rust.sh"
+    ],
+    "exit_code": 0,
+    "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-rust-gate-latest.log",
+    "ordinary_tests_passed": 1995,
+    "ignored_tests": 23
+  },
+  "expanded_clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--message-format=json",
+      "--",
+      "-D",
+      "warnings",
+      "-D",
+      "future_incompatible",
+      "-D",
+      "unused_results",
+      "-D",
+      "unsafe_op_in_unsafe_fn",
+      "-D",
+      "clippy::all",
+      "-D",
+      "clippy::pedantic",
+      "-D",
+      "clippy::nursery",
+      "-D",
+      "clippy::cargo",
+      "-D",
+      "clippy::unwrap_used",
+      "-D",
+      "clippy::expect_used",
+      "-D",
+      "clippy::panic",
+      "-D",
+      "clippy::todo",
+      "-D",
+      "clippy::unimplemented",
+      "-D",
+      "clippy::indexing_slicing",
+      "-D",
+      "clippy::string_slice",
+      "-D",
+      "clippy::default_numeric_fallback",
+      "-D",
+      "clippy::lossy_float_literal",
+      "-D",
+      "clippy::as_conversions",
+      "-D",
+      "clippy::arithmetic_side_effects",
+      "-D",
+      "clippy::undocumented_unsafe_blocks",
+      "-D",
+      "clippy::multiple_unsafe_ops_per_block",
+      "-D",
+      "clippy::allow_attributes_without_reason",
+      "-D",
+      "clippy::iter_over_hash_type",
+      "-D",
+      "clippy::let_underscore_must_use",
+      "-D",
+      "clippy::map_err_ignore",
+      "-D",
+      "clippy::rest_pattern_accessible_field",
+      "-D",
+      "clippy::wildcard_enum_match_arm",
+      "-D",
+      "clippy::shadow_unrelated",
+      "-D",
+      "clippy::shadow_reuse",
+      "-D",
+      "clippy::shadow_same",
+      "-D",
+      "clippy::missing_assert_message",
+      "-D",
+      "clippy::large_stack_arrays",
+      "-D",
+      "clippy::large_stack_frames",
+      "-D",
+      "clippy::large_enum_variant"
+    ],
+    "summary": {
+      "exit_code": 0,
+      "emitted_diagnostics": 0,
+      "unique_diagnostics": 0,
+      "by_lint": {}
+    }
+  },
+  "release_build": {
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "--bins"
+    ],
+    "exit_code": 0,
+    "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-release-build-latest.log"
+  },
+  "desktop": [
+    {
+      "command": [
+        "target/release/places-compile",
+        "validate",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/test_room-w12-r1.placesmap",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4964797080028802,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-1.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "verify",
+        "tests/fixtures/levels/test_room.json",
+        "--package",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/test_room-w12-r1.placesmap",
+        "--asset-root",
+        "assets",
+        "--require-current",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.027253208012552932,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-2.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "validate",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/places_demo-w12-r1.placesmap",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 5.4503882080025505,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-3.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "verify",
+        "assets/levels/places_demo.json",
+        "--package",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/places_demo-w12-r1.placesmap",
+        "--asset-root",
+        "assets",
+        "--require-current",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2124295830144547,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-4.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "validate",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/level0_pit-w12-r1.placesmap",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 1.585048665991053,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-5.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "verify",
+        "debug-maps/movement-audit-20261003/sources/level0_pit.json",
+        "--package",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/level0_pit-w12-r1.placesmap",
+        "--asset-root",
+        "assets",
+        "--require-current",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04832854200503789,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-6.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "validate",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/lantern_hollow-w12-r1.placesmap",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 4.200623624987202,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-7.log"
+    },
+    {
+      "command": [
+        "target/release/places-compile",
+        "verify",
+        "assets/levels/lantern_hollow.json",
+        "--package",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final/lantern_hollow-w12-r1.placesmap",
+        "--asset-root",
+        "assets",
+        "--require-current",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.11653933298657648,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-8.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_package"
+      ],
+      "exit_code": 0,
+      "seconds": 33.969193917000666,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-9.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_packaging",
+        "tests.test_glb_accessors",
+        "tests.test_asset_audit"
+      ],
+      "exit_code": 0,
+      "seconds": 3.1652119169884827,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-10.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_tool_execution",
+        "tests.test_zoo_generator",
+        "tests.test_bench_metrics",
+        "tests.test_lightmap_harness",
+        "tests.test_compiler_bench"
+      ],
+      "exit_code": 0,
+      "seconds": 27.586391207994893,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-11.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_geometry_repair"
+      ],
+      "exit_code": 0,
+      "seconds": 353.58703991700895,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-12.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "bundled_static_models_fit_medium_and_full_atlas_plans",
+        "--",
+        "--ignored"
+      ],
+      "exit_code": 0,
+      "seconds": 47.59490837500198,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-13.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "render::wgpu::renderer::low_lighting_tests",
+        "--",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 2.629798500012839,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-14.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_compiled_build"
+      ],
+      "exit_code": 0,
+      "seconds": 41.17817066700081,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-15.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_wgpu_bootstrap"
+      ],
+      "exit_code": 0,
+      "seconds": 147.0853812090063,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-16.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1557763330056332,
+      "log": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/final-desktop-gate-17.log"
+    }
+  ],
+  "assets": [
+    {
+      "command": [
+        "python3",
+        "tools/entities/author_halloween_assets.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 1.5435019580181688,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-1.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/entities/check_clip_boundaries.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2608034170116298,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-2.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/levels/build_outdoor_fixture.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04301004100125283,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-3.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/levels/build_outdoor_route.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.12504745801561512,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-4.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/levels/build_lantern_hollow.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.1102360830118414,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-5.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/levels/build_lighting_quality.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03294504102086648,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-6.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "tests.test_showcase_assets",
+        "tests.test_ghost_surface",
+        "tests.test_lantern_hollow"
+      ],
+      "exit_code": 0,
+      "seconds": 2.696385957999155,
+      "log": "target/agent-work/lint-hardening/final-asset-gate-7.log"
+    }
+  ],
+  "native_comparison": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/native-comparison-final/report.json",
+  "movement_comparison": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/movement-comparison/report.json",
+  "compiler_comparison": [
+    {
+      "map": "test_room",
+      "baseline_seconds": 4.826036083017243,
+      "candidate_seconds": 4.39812516697566,
+      "percent_change": -8.866716051862845,
+      "quality_equal": true,
+      "baseline_cpu_seconds": 33.279461,
+      "candidate_cpu_seconds": 33.69073,
+      "baseline_peak_rss": 376913920,
+      "candidate_peak_rss": 378159104
+    },
+    {
+      "map": "places_demo",
+      "baseline_seconds": 193.82462304201908,
+      "candidate_seconds": 165.71354566601804,
+      "percent_change": -14.503357176609533,
+      "quality_equal": true,
+      "baseline_cpu_seconds": 1522.031698,
+      "candidate_cpu_seconds": 1508.544816,
+      "baseline_peak_rss": 2528444416,
+      "candidate_peak_rss": 4549623808
+    },
+    {
+      "map": "level0_pit",
+      "baseline_seconds": 97.00882566598011,
+      "candidate_seconds": 84.0800299590046,
+      "percent_change": -13.327442754014795,
+      "quality_equal": true,
+      "baseline_cpu_seconds": 875.7317240000001,
+      "candidate_cpu_seconds": 871.29245,
+      "baseline_peak_rss": 1771094016,
+      "candidate_peak_rss": 2969763840
+    },
+    {
+      "map": "lantern_hollow",
+      "baseline_seconds": 272.8837895000179,
+      "candidate_seconds": 238.89064912497997,
+      "percent_change": -12.457002461494948,
+      "quality_equal": true,
+      "baseline_cpu_seconds": 2271.600818,
+      "candidate_cpu_seconds": 2237.219004,
+      "baseline_peak_rss": 1913536512,
+      "candidate_peak_rss": 2799812608
+    }
+  ],
+  "runtime_comparison": {
+    "update_mean_ms": {
+      "before": 1.392,
+      "after": 1.468,
+      "percent_change": 5.4597701149425415
+    },
+    "render_mean_ms": {
+      "before": 1.304,
+      "after": 1.244,
+      "percent_change": -4.601226993865037
+    },
+    "frame_mean_ms": {
+      "before": 2.7,
+      "after": 2.722,
+      "percent_change": 0.8148148148148016
+    },
+    "frame_median_ms": {
+      "before": 2.388,
+      "after": 2.427,
+      "percent_change": 1.633165829145744
+    },
+    "frame_p95_ms": {
+      "before": 3.963,
+      "after": 4.01,
+      "percent_change": 1.1859702245773374
+    },
+    "loop_median_ms": {
+      "before": 2.388,
+      "after": 2.427,
+      "percent_change": 1.633165829145744
+    },
+    "draw_calls": {
+      "before": 248,
+      "after": 248,
+      "percent_change": 0.0
+    },
+    "total_vertices": {
+      "before": 474845,
+      "after": 474845,
+      "percent_change": 0.0
+    },
+    "vbo_bytes": {
+      "before": 30390080,
+      "after": 30390080,
+      "percent_change": 0.0
+    },
+    "index_bytes": {
+      "before": 975714,
+      "after": 975714,
+      "percent_change": 0.0
+    },
+    "texture_binds": {
+      "before": 149,
+      "after": 149,
+      "percent_change": 0.0
+    }
+  },
+  "late_cli_confirmation": [
+    {
+      "binary": "places",
+      "exit_code": 1,
+      "stderr": "Error: \"a command-line argument is not valid UTF-8 (1 encoded bytes)\"\n"
+    },
+    {
+      "binary": "places-compile",
+      "exit_code": 2,
+      "stderr": "places-compile: a command-line argument is not valid UTF-8 (1 encoded bytes)\n\nplaces-compile: build and inspect Places map packages (.placesmap)\n\nUSAGE:\n  places-compile build <source.json> [--out <package>] [--variants off,medium,full]\n                       [--asset-root <dir>] [--workers N] [--force] [--json]\n  places-compile build-collection <dir> [--variants off,medium,full]\n                       [--asset-root <dir>] [--workers N] [--force] [--json]\n  places-compile validate <package> [--json]\n  places-compile inspect <package> [--json]\n  places-compile verify <source.json> --package <package> [--asset-root <dir>] [--json]\n                       [--require-current]\n  places-compile --help | --version\n\nOPTIONS:\n  --asset-root <dir>  Asset root holding catalog.json (default: PLACES_ASSET_ROOT\n                      or the discovered assets directory).\n  --require-current   verify only: exit 1 when the package is not current for the\n                      source (the gate that keeps shipped packages from going\n                      stale unnoticed).\n  --workers N         Shared CPU budget for this run; 1 forces the serial path.\n                      Capped at 12; defaults to available CPU parallelism.\n                      Also read from PLACES_TOOL_WORKERS; the flag wins.\n  --variants <list>   Comma-separated lightmap qualities to prepare\n                      (default: off,medium,full).\n  --out <package>     Output path (default: the source's sibling .placesmap).\n  --force             Rebuild even when the existing package is current.\n  --json              Machine-readable result on stdout.\n"
+    }
+  ],
+  "compiler_memory_confirmation": [
+    {
+      "side": "after",
+      "command": [
+        "python3",
+        "tools/bench/compiler_bench.py",
+        "--binary",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places-compile",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-memory-confirmation-after",
+        "--maps",
+        "assets/levels/places_demo.json",
+        "--workers",
+        "12",
+        "--repeat",
+        "1",
+        "--baseline",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final",
+        "--label",
+        "Sequential after/before memory confirmation; no other Places jobs"
+      ],
+      "exit_code": 0,
+      "report": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-memory-confirmation-after/report.json",
+      "summary": [
+        {
+          "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.json",
+          "workers": 12,
+          "count": 1,
+          "wall_seconds": 171.06447020798805,
+          "cpu_seconds": 1501.9127669999998,
+          "effective_cores": 8.779805445127824,
+          "peak_rss_bytes": 2769371136
+        }
+      ],
+      "seconds": 171.9618446669774
+    },
+    {
+      "side": "before",
+      "command": [
+        "python3",
+        "tools/bench/compiler_bench.py",
+        "--binary",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/baseline/places-compile",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-memory-confirmation-before",
+        "--maps",
+        "assets/levels/places_demo.json",
+        "--workers",
+        "12",
+        "--repeat",
+        "1",
+        "--baseline",
+        "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final",
+        "--label",
+        "Sequential after/before memory confirmation; no other Places jobs"
+      ],
+      "exit_code": 0,
+      "report": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-memory-confirmation-before/report.json",
+      "summary": [
+        {
+          "map": "/Users/connordawkins/Documents/GitHub/Places/assets/levels/places_demo.json",
+          "workers": 12,
+          "count": 1,
+          "wall_seconds": 169.0969273749797,
+          "cpu_seconds": 1503.187794,
+          "effective_cores": 8.889503891851424,
+          "peak_rss_bytes": 3411214336
+        }
+      ],
+      "seconds": 169.93392783400486
+    }
+  ],
+  "late_cli_compiler_confirmation": "/Users/connordawkins/Documents/GitHub/Places/target/agent-work/lint-hardening/compiler-final-cli-confirmation/report.json"
+}

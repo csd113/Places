@@ -1,6 +1,11 @@
 // Test code: unwrap/expect, indexing and permissive arithmetic are idiomatic in
 // tests; the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::float_cmp, clippy::indexing_slicing)]
+#![allow(
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::indexing_slicing,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 

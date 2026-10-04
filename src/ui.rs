@@ -171,6 +171,17 @@ impl UiState {
     }
 }
 
+const fn app_state_tag(state: AppState) -> u8 {
+    match state {
+        AppState::MainMenu => 0,
+        AppState::LevelSelect => 1,
+        AppState::Settings => 2,
+        AppState::Playing => 3,
+        AppState::Paused => 4,
+        AppState::PauseSettings => 5,
+    }
+}
+
 /// Hashes every input that can change the generated menu/settings geometry, so
 /// an unchanged screen can be reused instead of rebuilt each frame.
 fn ui_signature(
@@ -181,7 +192,7 @@ fn ui_signature(
     version: &str,
 ) -> u64 {
     let mut hasher = DefaultHasher::new();
-    (app_state as u8).hash(&mut hasher);
+    app_state_tag(app_state).hash(&mut hasher);
     ui_state.main_menu_idx.hash(&mut hasher);
     ui_state.level_select_idx.hash(&mut hasher);
     ui_state.pause_menu_idx.hash(&mut hasher);
@@ -626,7 +637,7 @@ pub fn loading_geometry(ui_state: &UiState, version: &str) -> Vec<Vertex> {
         .status_message
         .as_deref()
         .unwrap_or("Preparing level...");
-    let status = fit_text(status, 400.0, 1.0);
+    let status_text = fit_text(status, 400.0, 1.0);
     let status_color = if ui_state.status_is_error {
         [1.0, 0.4, 0.3]
     } else {
@@ -634,8 +645,8 @@ pub fn loading_geometry(ui_state: &UiState, version: &str) -> Vec<Vertex> {
     };
     draw_text(
         &mut vertices,
-        &status,
-        centered_x(&status, 1.0, 22.0, 458.0),
+        &status_text,
+        centered_x(&status_text, 1.0, 22.0, 458.0),
         128.0,
         1.0,
         status_color,
@@ -730,14 +741,14 @@ fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
         let is_sel = i == ui_state.level_select_idx;
         // `> ` or `  ` plus the row indent, then the label; a long name is
         // shortened so it cannot run past the panel.
-        let label = fit_text(label, 320.0, 1.0);
+        let fitted_label = fit_text(label, 320.0, 1.0);
 
         if is_sel {
             add_rect(vertices, 38.0, y - 2.0, 380.0, y + 14.0, [0.25, 0.23, 0.16]);
-            let line = format!("> {label}");
+            let line = format!("> {fitted_label}");
             draw_text(vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
         } else {
-            let line = format!("  {label}");
+            let line = format!("  {fitted_label}");
             draw_text(vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
         }
     }
@@ -1359,7 +1370,7 @@ fn adjust_value(
 /// Toggles the live lighting override without rewriting texture preferences.
 fn toggle_low_lighting(ui_state: &mut UiState, settings: &mut Settings) {
     let enabled = !settings.use_low_quality_lighting;
-    settings.set_use_low_quality_lighting(enabled);
+    let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(enabled);
     ui_state.set_status(
         if enabled {
             "Low lighting on; textures unchanged"
@@ -1387,7 +1398,7 @@ const MOUSE_SENSITIVITY_STEP: f32 = 0.02;
 
 /// Moves a scalar value one step and wraps it around `min`..=`max`.
 fn step_range(value: &mut f32, direction: i32, step: f32, min: f32, max: f32) {
-    *value += if direction < 0 { -step } else { step };
+    *value += if direction < 0_i32 { -step } else { step };
     if *value > max {
         *value = min;
     } else if *value < min {
@@ -1400,7 +1411,11 @@ mod tests {
     // Test code: `expect` documents the invariant being asserted and row
     // indexing documents which row a page declares; the production lints stay
     // enforced everywhere else in the crate.
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::quality::QualityLevel;
@@ -1535,7 +1550,7 @@ mod tests {
                 ui.advanced_expanded = advanced_expanded;
                 let count = page.item_count(advanced_expanded);
                 for idx in 0..count {
-                    for direction in [1, -1] {
+                    for direction in [1_i32, -1_i32] {
                         let action = activate_settings_item(
                             page,
                             idx,
@@ -1606,7 +1621,7 @@ mod tests {
         assert_eq!(settings.quality, "high");
 
         // Right walks High -> Low -> Medium -> High.
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             0,
             &mut ui,
@@ -1620,7 +1635,7 @@ mod tests {
             "Low must rebuild the GPU resources"
         );
 
-        activate_settings_item(
+        let _activate_settings_item_status_2 = activate_settings_item(
             SettingsPage::Graphics,
             0,
             &mut ui,
@@ -1638,7 +1653,7 @@ mod tests {
             "Medium must rebuild the GPU resources"
         );
 
-        activate_settings_item(
+        let _activate_settings_item_status_3 = activate_settings_item(
             SettingsPage::Graphics,
             0,
             &mut ui,
@@ -1650,7 +1665,7 @@ mod tests {
         assert!(settings.take_pending_apply().graphics);
 
         // Left walks the other way.
-        activate_settings_item(
+        let _activate_settings_item_status_4 = activate_settings_item(
             SettingsPage::Graphics,
             0,
             &mut ui,
@@ -1663,7 +1678,7 @@ mod tests {
             QualityLevel::Medium,
             "left steps back"
         );
-        activate_settings_item(
+        let _activate_settings_item_status_5 = activate_settings_item(
             SettingsPage::Graphics,
             0,
             &mut ui,
@@ -1697,13 +1712,13 @@ mod tests {
 
         // High -> Low -> Medium -> High with right, and the reverse with left.
         for (direction, expected) in [
-            (1, "low"),
-            (1, "medium"),
-            (1, "high"),
-            (-1, "medium"),
-            (-1, "low"),
+            (1_i32, "low"),
+            (1_i32, "medium"),
+            (1_i32, "high"),
+            (-1_i32, "medium"),
+            (-1_i32, "low"),
         ] {
-            activate_settings_item(
+            let _activate_settings_item_status = activate_settings_item(
                 SettingsPage::Graphics,
                 FILTERING_ROW,
                 &mut ui,
@@ -1726,9 +1741,9 @@ mod tests {
             );
         }
         assert_eq!(ui.status_message.as_deref(), Some("Texture filtering: Low"));
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
-        assert_eq!(rows[FILTERING_ROW].value, "< Low >");
-        assert_eq!(rows[0].value, "< High >", "quality stayed put");
+        let low_rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        assert_eq!(low_rows[FILTERING_ROW].value, "< Low >");
+        assert_eq!(low_rows[0].value, "< High >", "quality stayed put");
 
         // An unknown stored name resolves to the default before stepping, and
         // the stored value is rewritten to the canonical name.
@@ -1754,7 +1769,7 @@ mod tests {
         assert_eq!(settings.quality_level(), QualityLevel::Low);
         assert!(settings.bloom_enabled());
 
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             1,
             &mut ui,
@@ -1770,7 +1785,7 @@ mod tests {
             "bloom must not rewrite the quality level"
         );
 
-        activate_settings_item(
+        let _activate_settings_item_status_2 = activate_settings_item(
             SettingsPage::Graphics,
             1,
             &mut ui,
@@ -1799,7 +1814,7 @@ mod tests {
 
         // An explicit change clears the override and persists the new choice.
         let mut ui = UiState::new();
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             1,
             &mut ui,
@@ -1888,7 +1903,7 @@ mod tests {
 
         // One right step is one 0.02 deg/px increment.
         let mut ui = UiState::new();
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Controls,
             sensitivity_index,
             &mut ui,
@@ -1901,14 +1916,14 @@ mod tests {
             "stepped to {}",
             settings.mouse_sensitivity
         );
-        let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
-        assert_eq!(rows[sensitivity_index].value, "< 0.14 deg/px >");
+        let updated_rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
+        assert_eq!(updated_rows[sensitivity_index].value, "< 0.14 deg/px >");
 
         // Walking one step below the minimum wraps to the maximum, and one
         // step above the maximum wraps back to the minimum; the value never
         // leaves the configured range.
         settings.mouse_sensitivity = crate::settings::MIN_MOUSE_SENSITIVITY;
-        activate_settings_item(
+        let _activate_settings_item_status_2 = activate_settings_item(
             SettingsPage::Controls,
             sensitivity_index,
             &mut ui,
@@ -1921,7 +1936,7 @@ mod tests {
             "stepping below the minimum wraps to the maximum: {}",
             settings.mouse_sensitivity
         );
-        activate_settings_item(
+        let _activate_settings_item_status_3 = activate_settings_item(
             SettingsPage::Controls,
             sensitivity_index,
             &mut ui,
@@ -1947,7 +1962,7 @@ mod tests {
 
         // VSync: an immediate backend update, not a restart. It is the third
         // Graphics row, after Graphics Quality and Bloom.
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             2,
             &mut ui,
@@ -1959,7 +1974,7 @@ mod tests {
         assert!(settings.take_pending_apply().vsync);
 
         // Window mode.
-        activate_settings_item(
+        let _activate_settings_item_status_2 = activate_settings_item(
             SettingsPage::Display,
             0,
             &mut ui,
@@ -1969,7 +1984,7 @@ mod tests {
         );
         assert_eq!(settings.window_mode(), WindowMode::Fullscreen);
         assert!(settings.take_pending_apply().window);
-        activate_settings_item(
+        let _activate_settings_item_status_3 = activate_settings_item(
             SettingsPage::Display,
             0,
             &mut ui,
@@ -1980,7 +1995,7 @@ mod tests {
         assert_eq!(settings.window_mode(), WindowMode::Windowed);
 
         // Resolution steps to the next mode that fits the work area.
-        activate_settings_item(
+        let _activate_settings_item_status_4 = activate_settings_item(
             SettingsPage::Display,
             1,
             &mut ui,
@@ -1992,13 +2007,13 @@ mod tests {
         assert!(settings.take_pending_apply().window);
 
         // In fullscreen the resolution follows the display and is not edited.
-        settings.set_window_mode(WindowMode::Fullscreen);
-        let _ = settings.take_pending_apply();
+        let _window_mode_changed = settings.set_window_mode(WindowMode::Fullscreen);
+        let _cleared_pending_apply = settings.take_pending_apply();
         let fullscreen_display = DisplayStatus {
             mode: WindowMode::Fullscreen,
             ..display
         };
-        activate_settings_item(
+        let _activate_settings_item_status_5 = activate_settings_item(
             SettingsPage::Display,
             1,
             &mut ui,
@@ -2067,7 +2082,7 @@ mod tests {
         let mut ui = UiState::new();
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             2,
             &mut ui,
@@ -2112,7 +2127,7 @@ mod tests {
             &display,
             "test",
         );
-        activate_settings_item(
+        let _activate_settings_item_status = activate_settings_item(
             SettingsPage::Graphics,
             toggle,
             &mut ui,
@@ -2136,14 +2151,14 @@ mod tests {
         assert_eq!(settings.texture_filtering_preset(), "high");
 
         ui.advanced_expanded = true;
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        let advanced_rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
         for option in [SettingsValue::Lightmaps, SettingsValue::Reflections] {
-            let index = rows
+            let index = advanced_rows
                 .iter()
                 .position(|row| row.kind == SettingsRowKind::Value(option))
                 .expect("advanced option");
-            assert_eq!(rows[index].value, "Off (Low lighting)");
-            activate_settings_item(
+            assert_eq!(advanced_rows[index].value, "Off (Low lighting)");
+            let _activate_settings_item_status_2 = activate_settings_item(
                 SettingsPage::Graphics,
                 index,
                 &mut ui,
@@ -2158,13 +2173,13 @@ mod tests {
         }
         assert_eq!(settings.lightmaps, "full");
         assert_eq!(settings.reflections, "full");
-        let toggle = rows
+        let restored_toggle = advanced_rows
             .iter()
             .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::LowQualityLighting))
             .expect("expanded toggle");
-        activate_settings_item(
+        let _activate_settings_item_status_3 = activate_settings_item(
             SettingsPage::Graphics,
-            toggle,
+            restored_toggle,
             &mut ui,
             &mut settings,
             &display,
@@ -2191,8 +2206,8 @@ mod tests {
         let display = DisplayStatus::default();
 
         // Left/right over the header must not change the expansion state.
-        for direction in [-1, 1, -1] {
-            activate_settings_item(
+        for direction in [-1_i32, 1_i32, -1_i32] {
+            let _activate_settings_item_status = activate_settings_item(
                 SettingsPage::Graphics,
                 3,
                 &mut ui,
@@ -2278,18 +2293,18 @@ mod tests {
         let mut ui = UiState::new();
         ui.advanced_expanded = true;
         let mut settings = Settings::default();
-        settings.set_quality(QualityLevel::Low);
-        let _ = settings.take_pending_apply();
+        let _quality_changed = settings.set_quality(QualityLevel::Low);
+        let _cleared_pending_apply = settings.take_pending_apply();
         let display = DisplayStatus::default();
 
         // Low starts at Lightmaps Off; right walks Off -> Medium -> Full -> Off.
         for (direction, expected) in [
-            (1, LightmapQuality::Medium),
-            (1, LightmapQuality::Full),
-            (1, LightmapQuality::Off),
-            (-1, LightmapQuality::Full),
+            (1_i32, LightmapQuality::Medium),
+            (1_i32, LightmapQuality::Full),
+            (1_i32, LightmapQuality::Off),
+            (-1_i32, LightmapQuality::Full),
         ] {
-            activate_settings_item(
+            let _activate_settings_item_status = activate_settings_item(
                 SettingsPage::Graphics,
                 5,
                 &mut ui,
@@ -2306,7 +2321,7 @@ mod tests {
         }
 
         // Reflections has its own three-way selector at row 6.
-        activate_settings_item(
+        let _activate_settings_item_status_2 = activate_settings_item(
             SettingsPage::Graphics,
             6,
             &mut ui,

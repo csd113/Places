@@ -69,27 +69,34 @@ impl<'a> SurfaceFilter<'a> {
         }
         let normal = patch_normal(patch);
         let point = coverage::footprint_point(patch, u, v);
-        let magnitude = point.iter().fold(1.0_f32, |scale, v| scale.max(v.abs()));
+        let magnitude = point
+            .iter()
+            .fold(1.0_f32, |scale, coordinate| scale.max(coordinate.abs()));
         let (_, surface) = self.scene.near_surface(
             point,
             8.0 * SURFACE_OFFSET_M * magnitude,
             false,
             Some(normal),
         )?;
-        let surface = u32::try_from(surface).ok()?;
-        for candidate in self.surfaces.get(&surface)? {
+        let surface_id = u32::try_from(surface).ok()?;
+        for candidate in self.surfaces.get(&surface_id)? {
             let (other, chart) = self.charts.get(*candidate)?;
             if other.kind != patch.kind
                 || dot(normal, patch_normal(other)) < 1.0 - 8.0 * f32::EPSILON
             {
                 continue;
             }
-            let (u, v) = other.local_of(point);
-            if !(-1.0e-5..=1.0 + 1.0e-5).contains(&u) || !(-1.0e-5..=1.0 + 1.0e-5).contains(&v) {
+            let (neighbor_u, neighbor_v) = other.local_of(point);
+            if !(-1.0e-5..=1.0 + 1.0e-5).contains(&neighbor_u)
+                || !(-1.0e-5..=1.0 + 1.0e-5).contains(&neighbor_v)
+            {
                 continue;
             }
             let plane_distance = dot(
-                sub(other.point_at(u.clamp(0.0, 1.0), v.clamp(0.0, 1.0)), point),
+                sub(
+                    other.point_at(neighbor_u.clamp(0.0, 1.0), neighbor_v.clamp(0.0, 1.0)),
+                    point,
+                ),
                 normal,
             )
             .abs();
@@ -97,7 +104,7 @@ impl<'a> SurfaceFilter<'a> {
                 continue;
             }
             let first = *self.starts.get(*candidate)?;
-            let (value, receiver) = self.interpolate(chart, first, u, v)?;
+            let (value, receiver) = self.interpolate(chart, first, neighbor_u, neighbor_v)?;
             if centre
                 .albedo
                 .iter()
@@ -113,7 +120,12 @@ impl<'a> SurfaceFilter<'a> {
     }
 
     // UVs are clamped and chart axes are validated/bounded before filtering.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "UVs are clamped and chart axes are checked to fit u16 before flooring; saturating native casts and checked slice access keep invalid coordinates within safe fallback paths."
+    )]
     fn interpolate(
         &self,
         chart: &Chart,
@@ -162,8 +174,8 @@ impl<'a> SurfaceFilter<'a> {
         let height = usize::try_from(chart.height).ok()?;
         let first = *self.starts.get(chart_index)?;
         if let (Some(x), Some(y)) = (
-            column.checked_add_signed(di as isize),
-            row.checked_add_signed(dj as isize),
+            column.checked_add_signed(isize::try_from(di).ok()?),
+            row.checked_add_signed(isize::try_from(dj).ok()?),
         ) && x < width
             && y < height
         {
@@ -211,7 +223,12 @@ pub(super) fn filter_accumulators(
                 let receiver = receivers.get(index).ok_or(LightmapFailure::FillSize)?;
                 let mut weight_sum = 1.0;
                 let mut total = *centre;
-                for (di, dj) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                for (di, dj) in [
+                    (-1_i32, 0_i32),
+                    (1_i32, 0_i32),
+                    (0_i32, -1_i32),
+                    (0_i32, 1_i32),
+                ] {
                     let Some((source, origin)) = field.neighbour(chart_index, column, row, di, dj)
                     else {
                         continue;

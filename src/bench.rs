@@ -210,8 +210,8 @@ fn non_empty_var(name: &str) -> Option<String> {
 /// True when the value is a non-empty, non-`0`/`false`/`off` string.
 fn env_flag(name: &str) -> bool {
     std::env::var(name).is_ok_and(|value| {
-        let value = value.trim().to_ascii_lowercase();
-        !matches!(value.as_str(), "" | "0" | "false" | "no" | "off")
+        let normalized_value = value.trim().to_ascii_lowercase();
+        !matches!(normalized_value.as_str(), "" | "0" | "false" | "no" | "off")
     })
 }
 
@@ -233,25 +233,17 @@ pub enum WindowAction {
 /// the runner, like every other malformed benchmark value.
 #[must_use]
 pub fn parse_window_action(value: &str) -> Option<WindowAction> {
-    let value = value.trim();
-    if value.eq_ignore_ascii_case("minimize") {
+    let trimmed_value = value.trim();
+    if trimmed_value.eq_ignore_ascii_case("minimize") {
         return Some(WindowAction::Minimize);
     }
-    if value.eq_ignore_ascii_case("restore") {
+    if trimmed_value.eq_ignore_ascii_case("restore") {
         return Some(WindowAction::Restore);
     }
-    let (width, height) = value.strip_prefix("resize:")?.split_once('x')?;
-    let width = width
-        .trim()
-        .parse::<u32>()
-        .ok()
-        .filter(|value| *value > 0)?;
-    let height = height
-        .trim()
-        .parse::<u32>()
-        .ok()
-        .filter(|value| *value > 0)?;
-    Some(WindowAction::Resize(width, height))
+    let (width, height) = trimmed_value.strip_prefix("resize:")?.split_once('x')?;
+    let pixel_width = width.trim().parse::<u32>().ok().filter(|edge| *edge > 0)?;
+    let pixel_height = height.trim().parse::<u32>().ok().filter(|edge| *edge > 0)?;
+    Some(WindowAction::Resize(pixel_width, pixel_height))
 }
 
 /// One scripted live graphics-preference change.
@@ -279,16 +271,16 @@ pub enum GraphicsChange {
 /// malformed benchmark value.
 #[must_use]
 pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
-    let (setting, value) = value.split_once('=')?;
+    let (setting, setting_value) = value.split_once('=')?;
     match setting.trim().to_ascii_lowercase().as_str() {
         "filtering" => crate::settings::TEXTURE_FILTERING_NAMES
             .iter()
-            .find(|name| name.eq_ignore_ascii_case(value.trim()))
+            .find(|name| name.eq_ignore_ascii_case(setting_value.trim()))
             .copied()
             .map(GraphicsChange::Filtering),
-        "lightmaps" => LightmapQuality::parse(value).map(GraphicsChange::Lightmaps),
-        "reflections" => ReflectionQuality::parse(value).map(GraphicsChange::Reflections),
-        "bloom" => parse_on_off(value).map(GraphicsChange::Bloom),
+        "lightmaps" => LightmapQuality::parse(setting_value).map(GraphicsChange::Lightmaps),
+        "reflections" => ReflectionQuality::parse(setting_value).map(GraphicsChange::Reflections),
+        "bloom" => parse_on_off(setting_value).map(GraphicsChange::Bloom),
         _ => None,
     }
 }
@@ -371,7 +363,11 @@ impl TimingSummary {
 /// One sample is recorded per frame, so a run long enough to round the count
 /// (2^24 frames is six days at 30 fps) would need a gigabyte of records; the
 /// cast is exact for every run this harness can produce.
-#[allow(clippy::cast_precision_loss)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "Recorded frame counts are capped at MAX_RECORDED_FRAMES (120000), below f32's exact integer limit."
+)]
 const fn sample_count_f32(count: usize) -> f32 {
     count as f32
 }
@@ -385,9 +381,14 @@ fn percentile(sorted: &[f32], fraction: f32) -> f32 {
     // `usize::try_from(f32)` is unstable (`convert_float_to_int`), so the
     // rounded index narrows with `as`; `min(last)` below keeps it in bounds
     // and the cast's saturation matches the historical behaviour.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let index = index as usize;
-    sorted.get(index.min(last)).copied().unwrap_or(0.0)
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`usize::try_from(f32)` is unstable (`convert_float_to_int`), so the rounded index narrows with `as`; `min(last)` below keeps it in bounds and the cast's saturation matches the historical behaviour."
+    )]
+    let sample_index = index as usize;
+    sorted.get(sample_index.min(last)).copied().unwrap_or(0.0)
 }
 
 /// One recorded frame: timings plus the geometry counters submitted with it.
@@ -428,17 +429,32 @@ impl Bench {
     /// the returned value is a no-op and holds no file handle or buffers.
     #[must_use]
     pub fn new() -> Self {
-        let config = BenchConfig::from_env();
+        Self::from_config(BenchConfig::from_env())
+    }
+
+    fn from_config(config: BenchConfig) -> Self {
         let mut csv = config
             .out_path
             .as_ref()
-            .and_then(|path| std::fs::File::create(path).ok());
+            .and_then(|path| match std::fs::File::create(path) {
+                Ok(file) => Some(file),
+                Err(error) => {
+                    crate::logging::warn(format!(
+                        "[bench] could not create {}: {error}",
+                        path.display()
+                    ));
+                    None
+                }
+            });
         if let Some(file) = csv.as_mut() {
             // Header row: column order must match `record_frame`.
-            let _ = writeln!(
+            if let Err(error) = writeln!(
                 file,
                 "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes"
-            );
+            ) {
+                crate::logging::warn(format!("[bench] could not write CSV header: {error}"));
+                csv = None;
+            }
         }
         let mut quality_cycle: Vec<(u64, crate::quality::QualityLevel)> =
             std::env::var(QUALITY_CYCLE_ENV)
@@ -663,8 +679,8 @@ impl Bench {
         };
         self.recorded = self.recorded.saturating_add(1);
 
-        if let Some(file) = self.csv.as_mut() {
-            let _ = writeln!(
+        if let Some(file) = self.csv.as_mut()
+            && let Err(error) = writeln!(
                 file,
                 "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{}",
                 self.recorded,
@@ -684,7 +700,11 @@ impl Bench {
                 stats.texture_binds,
                 stats.material_changes,
                 stats.reflection_passes,
-            );
+            )
+        {
+            crate::logging::warn(format!("[bench] could not write CSV frame: {error}"));
+            // Stop retrying a failed stream on every benchmark frame.
+            self.csv = None;
         }
         self.frames.push(FrameRecord { timings, stats });
     }
@@ -698,7 +718,10 @@ impl Bench {
     /// Writes the run summary to stdout as a single `BENCH_SUMMARY {...}` line.
     /// Called once, when the run ends.
     // The benchmark harness consumes this machine-readable stdout record.
-    #[allow(clippy::print_stdout)]
+    #[expect(
+        clippy::print_stdout,
+        reason = "The benchmark harness consumes this machine-readable stdout record."
+    )]
     pub fn finish(&mut self) {
         if !self.config.enabled || self.frames.is_empty() {
             println!("BENCH_SUMMARY {{\"frames\":0}}");
@@ -709,11 +732,11 @@ impl Bench {
         let mut swap: Vec<f32> = self.frames.iter().map(|f| f.timings.swap_ms).collect();
         let mut frame: Vec<f32> = self.frames.iter().map(|f| f.timings.frame_ms).collect();
         let mut loop_ms: Vec<f32> = self.frames.iter().map(|f| f.timings.loop_ms).collect();
-        let update = TimingSummary::from_samples(&mut update);
-        let render = TimingSummary::from_samples(&mut render);
-        let swap = TimingSummary::from_samples(&mut swap);
-        let frame = TimingSummary::from_samples(&mut frame);
-        let loop_ms = TimingSummary::from_samples(&mut loop_ms);
+        let update_summary = TimingSummary::from_samples(&mut update);
+        let render_summary = TimingSummary::from_samples(&mut render);
+        let swap_summary = TimingSummary::from_samples(&mut swap);
+        let frame_summary = TimingSummary::from_samples(&mut frame);
+        let loop_summary = TimingSummary::from_samples(&mut loop_ms);
 
         let last = self.frames.last().copied().unwrap_or_default();
         let level = std::env::var("PLACES_LEVEL").unwrap_or_default();
@@ -722,28 +745,28 @@ impl Bench {
             self.frames.len(),
             self.reported_swap_interval
                 .map_or_else(|| "null".to_string(), |value| value.to_string()),
-            update.mean_ms,
-            render.mean_ms,
-            swap.mean_ms,
-            frame.mean_ms,
-            loop_ms.mean_ms,
-            frame.median_ms,
-            loop_ms.median_ms,
-            frame.p95_ms,
-            frame.p99_ms,
-            loop_ms.p95_ms,
-            loop_ms.p99_ms,
-            frame.min_ms,
-            frame.max_ms,
-            loop_ms.min_ms,
-            loop_ms.max_ms,
-            TimingSummary::fps_from_ms(loop_ms.median_ms),
-            TimingSummary::fps_from_ms(loop_ms.p95_ms),
-            TimingSummary::fps_from_ms(loop_ms.p99_ms),
-            TimingSummary::fps_from_ms(loop_ms.p99_ms),
-            TimingSummary::fps_from_ms(loop_ms.mean_ms),
-            TimingSummary::fps_from_ms(frame.mean_ms),
-            TimingSummary::fps_from_ms(loop_ms.max_ms),
+            update_summary.mean_ms,
+            render_summary.mean_ms,
+            swap_summary.mean_ms,
+            frame_summary.mean_ms,
+            loop_summary.mean_ms,
+            frame_summary.median_ms,
+            loop_summary.median_ms,
+            frame_summary.p95_ms,
+            frame_summary.p99_ms,
+            loop_summary.p95_ms,
+            loop_summary.p99_ms,
+            frame_summary.min_ms,
+            frame_summary.max_ms,
+            loop_summary.min_ms,
+            loop_summary.max_ms,
+            TimingSummary::fps_from_ms(loop_summary.median_ms),
+            TimingSummary::fps_from_ms(loop_summary.p95_ms),
+            TimingSummary::fps_from_ms(loop_summary.p99_ms),
+            TimingSummary::fps_from_ms(loop_summary.p99_ms),
+            TimingSummary::fps_from_ms(loop_summary.mean_ms),
+            TimingSummary::fps_from_ms(frame_summary.mean_ms),
+            TimingSummary::fps_from_ms(loop_summary.max_ms),
             last.stats.total_vertices,
             last.stats.visible_vertices,
             last.stats.culled_vertices,
@@ -756,8 +779,10 @@ impl Bench {
             last.stats.material_changes,
             last.stats.reflection_passes,
         );
-        if let Some(file) = self.csv.as_mut() {
-            let _ = file.flush();
+        if let Some(file) = self.csv.as_mut()
+            && let Err(error) = file.flush()
+        {
+            crate::logging::warn(format!("[bench] could not flush CSV: {error}"));
         }
     }
 }
@@ -772,7 +797,11 @@ impl Default for Bench {
 fn millis(duration: std::time::Duration) -> f32 {
     // Frame timings are milliseconds-scale; the cast narrows a diagnostic
     // value and rounds rather than truncating.
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Frame timings are milliseconds-scale; the cast narrows a diagnostic value and rounds rather than truncating."
+    )]
     let millis = duration.as_secs_f64() as f32 * 1000.0;
     millis
 }

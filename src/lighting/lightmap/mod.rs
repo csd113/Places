@@ -455,12 +455,16 @@ impl LightmapPatch {
     /// reflects onto its real geometry to provide valid diagonal edge samples.
     #[must_use]
     pub fn point_at(&self, u: f32, v: f32) -> [f32; 3] {
-        let mut u = finite_unit(u);
-        let mut v = finite_unit(v);
-        if self.is_triangular() && u + v > 1.0 {
-            (u, v) = (1.0 - v, 1.0 - u);
+        let mut unit_u = finite_unit(u);
+        let mut unit_v = finite_unit(v);
+        if self.is_triangular() && unit_u + unit_v > 1.0 {
+            (unit_u, unit_v) = (1.0 - unit_v, 1.0 - unit_u);
         }
-        let diagonal = if self.is_triangular() { 0.0 } else { u.min(v) };
+        let diagonal = if self.is_triangular() {
+            0.0
+        } else {
+            unit_u.min(unit_v)
+        };
         std::array::from_fn(|axis| {
             self.diagonal_correction
                 .get(axis)
@@ -469,12 +473,12 @@ impl LightmapPatch {
                 .mul_add(
                     diagonal,
                     self.u_axis.get(axis).copied().unwrap_or(0.0).mul_add(
-                        u,
+                        unit_u,
                         self.v_axis
                             .get(axis)
                             .copied()
                             .unwrap_or(0.0)
-                            .mul_add(v, self.origin.get(axis).copied().unwrap_or(0.0)),
+                            .mul_add(unit_v, self.origin.get(axis).copied().unwrap_or(0.0)),
                     ),
                 )
         })
@@ -615,19 +619,19 @@ impl Chart {
         let y = f32::from(u16::try_from(self.y.min(page_edge)).unwrap_or(u16::MAX));
         let width = f32::from(u16::try_from(self.width.saturating_sub(1)).unwrap_or(u16::MAX));
         let height = f32::from(u16::try_from(self.height.saturating_sub(1)).unwrap_or(u16::MAX));
-        let u = if u.is_finite() {
+        let unit_u = if u.is_finite() {
             u.clamp(0.0, 1.0)
         } else {
             0.0
         };
-        let v = if v.is_finite() {
+        let unit_v = if v.is_finite() {
             v.clamp(0.0, 1.0)
         } else {
             0.0
         };
         [
-            quantize_uv(width.mul_add(u, x + 0.5) / edge),
-            quantize_uv(height.mul_add(v, y + 0.5) / edge),
+            quantize_uv(width.mul_add(unit_u, x + 0.5) / edge),
+            quantize_uv(height.mul_add(unit_v, y + 0.5) / edge),
         ]
     }
 }
@@ -645,7 +649,12 @@ fn quantize_uv(value: f32) -> u16 {
     };
     // `clamped * 65535 + 0.5` is in [0.5, 65535.5], so the truncating cast only
     // drops the fraction and cannot leave the u16 range.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`clamped * 65535 + 0.5` is in [0.5, 65535.5], so the truncating cast only drops the fraction and cannot leave the u16 range."
+    )]
     let scaled = (clamped.mul_add(65_535.0, 0.5)) as u32;
     u16::try_from(scaled).unwrap_or(u16::MAX)
 }
@@ -773,7 +782,12 @@ fn texels_for(metres: f32, texels_per_metre: f32, cap: u32) -> u32 {
     let requested = (metres * texels_per_metre).ceil().max(1.0);
     let cap_f = f32::from(u16::try_from(cap).unwrap_or(u16::MAX)).max(1.0);
     let capped = requested.min(cap_f);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The finite integral page dimension is capped by a u16 page edge before conversion."
+    )]
     // `capped` is finite and in [1, cap], and cap is a page edge bounded by u16.
     let value = capped as u32;
     value.clamp(1, cap)

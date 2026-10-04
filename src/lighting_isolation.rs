@@ -23,13 +23,13 @@
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::redundant_clone,
     clippy::suboptimal_flops,
-    clippy::while_float
+    clippy::while_float,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use crate::level::LevelDef;
@@ -285,8 +285,8 @@ fn a_lit_corner_has_no_artificial_collapse() {
         "both faces must resolve the same room"
     );
     let mut previous = (f32::NAN, 0.0_f32);
-    for step in 0..=30 {
-        let x = 0.2 + step as f32 * 0.1;
+    for step in 0_i32..=30_i32 {
+        let x = 0.2 + crate::test_support::exact_f32(step) * 0.1;
         let sample = lighting
             .sample_face(
                 north_room,
@@ -399,22 +399,22 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
     // vertex on the red side of that plane must be red-dominant, and every one
     // on the blue side blue-dominant, with no vertex in between left at the
     // wrong room's hue.
-    let mut red_vertices = 0;
-    let mut blue_vertices = 0;
+    let mut red_vertices = 0_i32;
+    let mut blue_vertices = 0_i32;
     for vertex in &walls {
         let [x, y, z] = vertex.pos;
         if !(0.4..=5.6).contains(&z) {
             continue;
         }
         if (57.0..=57.2).contains(&x) {
-            red_vertices += 1;
+            red_vertices += 1_i32;
             assert!(
                 vertex.color[0] > vertex.color[2],
                 "a red-side wall vertex at ({x}, {y}, {z}) is not red: {:?}",
                 &vertex.color[..3]
             );
         } else if (57.6..=57.8).contains(&x) {
-            blue_vertices += 1;
+            blue_vertices += 1_i32;
             assert!(
                 vertex.color[2] > vertex.color[0],
                 "a blue-side wall vertex at ({x}, {y}, {z}) is not blue: {:?}",
@@ -423,7 +423,7 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
         }
     }
     assert!(
-        red_vertices > 0 && blue_vertices > 0,
+        red_vertices > 0_i32 && blue_vertices > 0_i32,
         "the shared wall must emit vertices on both sides: {red_vertices}/{blue_vertices}"
     );
 

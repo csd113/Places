@@ -38,8 +38,11 @@ fn evaluate(
             let axis = usize::from(taps.clamp(1, 3));
             let count = match emitter.shape {
                 EmitterShape::Point => 1,
-                EmitterShape::Line { .. } => axis,
-                EmitterShape::Rect { .. } => axis.saturating_mul(axis),
+                EmitterShape::Line {
+                    direction: _,
+                    half_length: _,
+                } => axis,
+                EmitterShape::Rect { u: _, v: _ } => axis.saturating_mul(axis),
             };
             result.rays = result.rays.saturating_add(count);
         }
@@ -66,7 +69,10 @@ fn evaluate(
 
 /// Centre visibility classifies edges. Medium integrates 2×2 subtexels at
 /// edges; Full integrates 4×4. The one-tap vertex/diagnostic path stays exact.
-#[allow(clippy::too_many_arguments)] // one pass's scene, chart domain and bounded solve budget
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one pass's scene, chart domain and bounded solve budget"
+)] // one pass's scene, chart domain and bounded solve budget
 pub(super) fn direct_pass(
     scene: &TransportScene,
     charts: &[(LightmapPatch, Chart)],
@@ -145,8 +151,11 @@ impl FootprintPass<'_> {
         let width = usize::try_from(chart.width).unwrap_or(1).max(1);
         let height = usize::try_from(chart.height).unwrap_or(1).max(1);
         let local = index.saturating_sub(first);
-        let column = local % width;
-        let row = local / width;
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "The width has just been normalized with max(1), so unsigned row and column decomposition cannot divide by zero."
+        )]
+        let (column, row) = (local % width, local / width);
         let u = texel_axis(column, width);
         let v = texel_axis(row, height);
         let du = 1.0 / f32::from(u16::try_from(width.saturating_sub(1).max(1)).unwrap_or(u16::MAX));
@@ -155,7 +164,7 @@ impl FootprintPass<'_> {
         let normal = patch_normal(patch);
         let mut edge = false;
         let mut rays = 0_usize;
-        for (outside, u, v) in [
+        for (outside, adjacent_u, adjacent_v) in [
             (column == 0, u - du, v),
             (column.saturating_add(1) == width, u + du, v),
             (row == 0, u, v - dv),
@@ -164,8 +173,10 @@ impl FootprintPass<'_> {
             if !outside {
                 continue;
             }
-            let point = footprint_point(patch, u, v);
-            let magnitude = point.iter().fold(1.0_f32, |scale, v| scale.max(v.abs()));
+            let point = footprint_point(patch, adjacent_u, adjacent_v);
+            let magnitude = point
+                .iter()
+                .fold(1.0_f32, |scale, coordinate| scale.max(coordinate.abs()));
             if self
                 .scene
                 .near_surface(
@@ -207,7 +218,9 @@ impl FootprintPass<'_> {
     ) -> TransportReceiver {
         let normal = patch_normal(patch);
         let point = footprint_point(patch, u, v);
-        let magnitude = point.iter().fold(1.0_f32, |scale, v| scale.max(v.abs()));
+        let magnitude = point
+            .iter()
+            .fold(1.0_f32, |scale, coordinate| scale.max(coordinate.abs()));
         let supported = self
             .scene
             .near_surface(
@@ -221,11 +234,11 @@ impl FootprintPass<'_> {
             let position = receiver_position(point, normal);
             (position, position)
         } else {
-            let u = u.clamp(0.0, 1.0);
-            let v = v.clamp(0.0, 1.0);
+            let unit_u = u.clamp(0.0, 1.0);
+            let unit_v = v.clamp(0.0, 1.0);
             (
-                receiver_position(patch.point_at(u, v), normal),
-                receiver_ray_origin(patch, u, v, normal),
+                receiver_position(patch.point_at(unit_u, unit_v), normal),
+                receiver_ray_origin(patch, unit_u, unit_v, normal),
             )
         };
         TransportReceiver {
@@ -250,8 +263,11 @@ impl FootprintPass<'_> {
         let width = usize::try_from(chart.width).unwrap_or(0).max(1);
         let height = usize::try_from(chart.height).unwrap_or(0).max(1);
         let local = index.saturating_sub(*first);
-        let column = local % width;
-        let row = local / width;
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "The width has just been normalized with max(1), so unsigned row and column decomposition cannot divide by zero."
+        )]
+        let (column, row) = (local % width, local / width);
         let edge = column == 0
             || row == 0
             || column.saturating_add(1) == width

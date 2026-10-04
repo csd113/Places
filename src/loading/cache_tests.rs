@@ -1,7 +1,13 @@
 //! Small immutable prepared-cache contracts; no shipped models or package
 //! records, and no GPU work.
-#![allow(clippy::expect_used)] // Fixture construction reports exact failures.
-#![allow(clippy::arithmetic_side_effects)] // Fixture sizes are tiny bounded values.
+#![allow(
+    clippy::expect_used,
+    reason = "Fixture construction reports exact failures."
+)] // Fixture construction reports exact failures.
+#![allow(
+    clippy::arithmetic_side_effects,
+    reason = "Fixture sizes are tiny bounded values."
+)] // Fixture sizes are tiny bounded values.
 use super::*;
 
 fn empty_records() -> Arc<PreparedRecords> {

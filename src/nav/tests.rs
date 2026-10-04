@@ -9,16 +9,14 @@
 // for the ignored developer captures that emit the stair inventory.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::format_push_string,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::print_stdout,
     clippy::unreachable,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use glam::Vec3;
@@ -203,7 +201,7 @@ fn a_staircase_connects_two_levels_and_a_cliff_does_not() {
         }"#,
     );
     let cliff = bake_level(&cliff_level, 1);
-    let result = cliff.path(
+    let cliff_result = cliff.path(
         &PathQuery {
             class,
             start: Vec3::new(1.0, 0.0, 3.0),
@@ -215,12 +213,15 @@ fn a_staircase_connects_two_levels_and_a_cliff_does_not() {
         &mut scratch,
     );
     assert!(
-        matches!(result, PathResult::Unreachable | PathResult::Path(_)),
+        matches!(cliff_result, PathResult::Unreachable | PathResult::Path(_)),
         "a cliff must not fabricate a route"
     );
-    if let PathResult::Path(path) = result {
+    if let PathResult::Path(cliff_path) = cliff_result {
         assert!(
-            !path.complete || path.reached().is_some_and(|reached| reached.y < 0.5),
+            !cliff_path.complete
+                || cliff_path
+                    .reached()
+                    .is_some_and(|cliff_endpoint| cliff_endpoint.y < 0.5),
             "a cliff path must not reach the raised floor"
         );
     }
@@ -276,8 +277,8 @@ fn headroom_and_narrow_passages_use_the_agent_body() {
     );
     // The beam's own footprint (x 4..7, z 2.6..4) is walkable for the small
     // body and never for the reference humanoid: the real headroom control.
-    let mut human_cells = 0;
-    let mut small_cells = 0;
+    let mut human_cells = 0_i32;
+    let mut small_cells = 0_i32;
     for index in 0..mesh.grid().cell_count() {
         let columns = usize::try_from(mesh.grid().cells_x).unwrap_or(1);
         let cx = index % columns;
@@ -289,17 +290,17 @@ fn headroom_and_narrow_passages_use_the_agent_body() {
             continue;
         }
         if mesh.grid().is_walkable(0, index) {
-            human_cells += 1;
+            human_cells += 1_i32;
         }
         if mesh.grid().is_walkable(1, index) {
-            small_cells += 1;
+            small_cells += 1_i32;
         }
     }
     assert_eq!(
-        human_cells, 0,
+        human_cells, 0_i32,
         "a 1.8 m body must never fit under the 1.45 m beam"
     );
-    assert!(small_cells > 0, "a 0.22 m body fits under the beam");
+    assert!(small_cells > 0_i32, "a 0.22 m body fits under the beam");
     // The reference body may or may not fit the gap; it must never fit under
     // the 1.45 m beam. Assert the structural rule instead of a flaky fit:
     // the small body reaches the far side; the human's route, when complete,
@@ -379,17 +380,20 @@ fn doors_block_unless_open_or_openable() {
         ..TestDoors::default()
     };
     let locked_result = mesh.path(&door_query(&locked, true), &mut scratch);
-    if let PathResult::Path(path) = locked_result {
-        assert!(!path.complete, "a locked door must not be crossed");
+    if let PathResult::Path(locked_path) = locked_result {
+        assert!(!locked_path.complete, "a locked door must not be crossed");
     }
 
     // Open: the portal is passable and no door request is needed.
     let open = TestDoors::default();
-    let PathResult::Path(path) = mesh.path(&door_query(&open, false), &mut scratch) else {
+    let PathResult::Path(open_path) = mesh.path(&door_query(&open, false), &mut scratch) else {
         panic!("an open door must be passable");
     };
-    assert!(path.complete);
-    assert_eq!(path.door_requests, [] as [std::string::String; 0]);
+    assert!(open_path.complete);
+    assert!(
+        open_path.door_requests.is_empty(),
+        "path.door_requests must be empty"
+    );
 }
 
 #[test]
@@ -495,7 +499,7 @@ fn region_labels_are_one_walkable_component_per_class() {
     let mut regions = std::collections::BTreeSet::new();
     for index in 0..mesh.grid().cell_count() {
         if let Some(region) = mesh.grid().region_of(class, index) {
-            regions.insert(region);
+            let _new_entry = regions.insert(region);
         }
     }
     assert_eq!(regions.len(), 2, "two disjoint rooms are two regions");
@@ -716,6 +720,12 @@ fn demo_partial_route(
 
 /// True when any leg of `path`, sampled at half-cell steps, passes through a
 /// cell that belongs to `door`'s baked portal.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent route oracle ceils and clamps its sample count to 1..=4096 before native truncation; it does not reuse the production corridor implementation."
+)]
 fn route_crosses_portal(mesh: &NavMesh, path: &Path, door: &str) -> bool {
     let Some(portal) = mesh
         .grid()
@@ -730,7 +740,8 @@ fn route_crosses_portal(mesh: &NavMesh, path: &Path, door: &str) -> bool {
         let distance = (leg[1] - leg[0]).length();
         let steps = (distance / (cell_m * 0.5)).ceil().clamp(1.0, 4096.0) as u32;
         for step in 0..=steps {
-            let t = f32::from(u16::try_from(step).unwrap_or(u16::MAX)) / steps.max(1) as f32;
+            let t = f32::from(u16::try_from(step).unwrap_or(u16::MAX))
+                / crate::test_support::exact_f32(steps.max(1));
             let x = (leg[1].x - leg[0].x).mul_add(t, leg[0].x);
             let z = (leg[1].z - leg[0].z).mul_add(t, leg[0].z);
             let Some((cx, cz)) = mesh.grid().cell_at(x, z) else {
@@ -749,11 +760,11 @@ fn route_crosses_portal(mesh: &NavMesh, path: &Path, door: &str) -> bool {
 
 /// Advances every real Demo door until nothing is moving.
 fn settle_doors(doors: &mut Doors) {
-    for _ in 0..1200 {
+    for _ in 0_i32..1_200_i32 {
         if !doors.any_moving() {
             return;
         }
-        doors.advance(1.0 / 60.0, |_, _| false);
+        let _advance_status = doors.advance(1.0 / 60.0, |_, _| false);
     }
     panic!("a demo door never settled");
 }
@@ -1144,7 +1155,7 @@ fn the_demo_home_staircase_connects_the_lower_floor_to_the_balcony_by_class() {
 }
 
 /// Emits one route probe as a JSON object, one entry per baked class.
-#[allow(clippy::too_many_arguments)] // one cohesive JSON emitter
+#[expect(clippy::too_many_arguments, reason = "one cohesive JSON emitter")] // one cohesive JSON emitter
 fn emit_route_probe(
     out: &mut String,
     mesh: &NavMesh,
@@ -1259,7 +1270,7 @@ fn riser_pairs_over_step_height(
             continue;
         };
         let cz = u32::try_from(index / columns).unwrap_or(0);
-        for (dx, dz) in [(0_i32, 1_i32), (1, 0), (1, 1)] {
+        for (dx, dz) in [(0_i32, 1_i32), (1_i32, 0_i32), (1_i32, 1_i32)] {
             let (Some(nx), Some(nz)) = (cx.checked_add_signed(dx), cz.checked_add_signed(dz))
             else {
                 continue;
@@ -1283,7 +1294,7 @@ fn riser_pairs_over_step_height(
                 continue;
             }
             let distance = grid.cell_m
-                * if dx != 0 && dz != 0 {
+                * if dx != 0_i32 && dz != 0_i32 {
                     std::f32::consts::SQRT_2
                 } else {
                     1.0
@@ -1312,7 +1323,10 @@ fn riser_pairs_over_step_height(
 /// `cargo test --lib nav::tests::capture_demo_transition_class_matrix -- --ignored --nocapture`
 #[test]
 #[ignore = "developer capture: Demo stair inventory"]
-#[allow(clippy::too_many_lines)] // one capture document, read top to bottom
+#[expect(
+    clippy::too_many_lines,
+    reason = "one capture document, read top to bottom"
+)] // one capture document, read top to bottom
 fn capture_demo_transition_class_matrix() {
     let (level, mesh, report) = demo_nav();
     let classes = [demo_human(&mesh), demo_spooner(&mesh), demo_rat(&mesh)];
@@ -1652,4 +1666,28 @@ fn an_empty_level_bakes_an_empty_record() {
         &mut scratch,
     );
     assert!(matches!(result, PathResult::Invalid(_)));
+}
+
+#[test]
+fn huge_nearest_radius_finishes_after_the_grid_is_exhausted() {
+    let definition = level(
+        r#"{
+            "format_version": 3, "id": "nav_radius_limit", "name": "Radius limit",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ]
+        }"#,
+    );
+    let mesh = bake_level(&definition, 1);
+    let elevated = Vec3::new(2.0, 100.0, 2.0);
+    assert!(
+        mesh.nearest(0, elevated, f32::MAX, 0.0, &NoDoors, false)
+            .is_none(),
+        "an exhausted grid returns no point even when the radius quotient overflows"
+    );
+    let ground = Vec3::new(2.0, 0.0, 2.0);
+    assert_eq!(
+        mesh.nearest(0, ground, f32::MAX, 0.0, &NoDoors, false),
+        mesh.nearest(0, ground, 1.0, 0.0, &NoDoors, false),
+        "bounding the search retains the selected nearest point"
+    );
 }

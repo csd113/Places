@@ -1,18 +1,22 @@
 // Test code: loose casts and permissive arithmetic are idiomatic here.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::indexing_slicing,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 //! Unit tests for player/wall collision.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::needless_collect, clippy::panic)]
+#![allow(
+    clippy::expect_used,
+    clippy::needless_collect,
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 use crate::level::LevelDef;
@@ -58,10 +62,10 @@ fn test_showcase_level_collision_matches_the_solid_flags() {
             .iter()
             .find(|prop| prop.model == model)
             .unwrap_or_else(|| panic!("showcase places a {model}"));
-        let resolved =
+        let prop_resolved =
             resolve_player_collision(Vec2::new(prop.x, prop.z), PLAYER_RADIUS, 0.0, &aabbs);
         assert!(
-            (resolved - Vec2::new(prop.x, prop.z)).length() < 1e-3,
+            (prop_resolved - Vec2::new(prop.x, prop.z)).length() < 1e-3,
             "{model} must stay passable"
         );
     }
@@ -136,9 +140,9 @@ fn test_variable_height_wall_collision() {
     // Half-height wall from y: 0.0 to 1.0 (blocks player)
     let half_wall = WallAabb::with_y(0.0, 0.0, 0.0, 5.0, 1.0, 0.4);
     assert!(half_wall.intersects_player_y(0.0));
-    let walls = vec![half_wall];
-    let resolved = resolve_player_collision(candidate, PLAYER_RADIUS, 0.0, &walls);
-    assert_ne!(resolved, candidate);
+    let half_walls = vec![half_wall];
+    let half_resolved = resolve_player_collision(candidate, PLAYER_RADIUS, 0.0, &half_walls);
+    assert_ne!(half_resolved, candidate);
 }
 
 /// One 10x10 m room with a single 10 x 0.4 m wall at z = 4.8..5.2 and the
@@ -604,10 +608,10 @@ fn highest_support_top_allows_one_walkable_step() {
             Some(0.75)
         );
         // More than one step below it: out of reach, no support at all.
-        let max_top = 0.75 - PLAYER_STEP_HEIGHT - 0.01;
-        assert_eq!(highest_support_top(x, z, max_top, &boxes), None);
+        let unreachable_top = 0.75 - PLAYER_STEP_HEIGHT - 0.01;
+        assert_eq!(highest_support_top(x, z, unreachable_top, &boxes), None);
         assert_eq!(
-            highest_support_top_indexed(&index, x, z, max_top, &boxes),
+            highest_support_top_indexed(&index, x, z, unreachable_top, &boxes),
             None
         );
         // Off the footprint the centre containment refuses the top.
@@ -624,12 +628,12 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
     use crate::collision_index::CollisionIndex;
 
     let mut boxes = Vec::new();
-    for row in 0..30 {
-        for column in 0..30 {
-            let x = row as f32 * 3.7 - 55.0;
-            let z = column as f32 * 3.1 - 55.0;
+    for row in 0_i32..30_i32 {
+        for column in 0_i32..30_i32 {
+            let x = crate::test_support::exact_f32(row) * 3.7 - 55.0;
+            let z = crate::test_support::exact_f32(column) * 3.1 - 55.0;
             boxes.push(WallAabb::with_y(x, 0.0, z, 0.4, 3.0, 2.2));
-            if (row + column) % 7 == 0 {
+            if (row + column) % 7_i32 == 0_i32 {
                 boxes.push(WallAabb::with_y(x + 1.0, 1.2, z + 0.4, 1.6, 0.2, 0.9));
             }
         }
@@ -640,10 +644,10 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
         state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
         state
     };
-    for _ in 0..600 {
-        let x = (next() % 14_000) as f32 / 100.0 - 70.0;
-        let z = (next() % 14_000) as f32 / 100.0 - 70.0;
-        let foot_y = (next() % 400) as f32 / 100.0 - 1.0;
+    for _ in 0_i32..600_i32 {
+        let x = crate::test_support::exact_f32(next() % 14_000) / 100.0 - 70.0;
+        let z = crate::test_support::exact_f32(next() % 14_000) / 100.0 - 70.0;
+        let foot_y = crate::test_support::exact_f32(next() % 400) / 100.0 - 1.0;
         let body = if next() % 2 == 0 {
             PLAYER_HEIGHT
         } else {
@@ -676,12 +680,12 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
     // index must therefore visit candidates in the same order the linear scan
     // does: every box index ascending.
     let mut cluster = Vec::new();
-    for row in 0..6 {
-        for column in 0..6 {
+    for row in 0_i32..6_i32 {
+        for column in 0_i32..6_i32 {
             cluster.push(WallAabb::with_y(
-                row as f32 * 0.9 - 3.0,
+                crate::test_support::exact_f32(row) * 0.9 - 3.0,
                 0.0,
-                column as f32 * 0.9 - 3.0,
+                crate::test_support::exact_f32(column) * 0.9 - 3.0,
                 1.4,
                 2.0,
                 1.4,
@@ -689,10 +693,10 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
         }
     }
     let cluster_index = CollisionIndex::build(&cluster);
-    for x100 in 0..70 {
-        for z100 in 0..70 {
-            let x = x100 as f32 * 0.1 - 3.5;
-            let z = z100 as f32 * 0.1 - 3.5;
+    for x100 in 0_i32..70_i32 {
+        for z100 in 0_i32..70_i32 {
+            let x = crate::test_support::exact_f32(x100) * 0.1 - 3.5;
+            let z = crate::test_support::exact_f32(z100) * 0.1 - 3.5;
             let pos = Vec2::new(x, z);
             assert_eq!(
                 resolve_player_collision_for_body(pos, PLAYER_RADIUS, 0.0, PLAYER_HEIGHT, &cluster),

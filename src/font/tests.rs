@@ -2,7 +2,11 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::indexing_slicing)]
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 use crate::test_support::assert_exact;

@@ -566,11 +566,11 @@ fn validate_animated_emissions(level: &LevelDef) -> Result<(), String> {
             .as_deref()
             .map(str::trim)
             .filter(|effect| !effect.is_empty());
-        if let Some(effect) = effect
-            && crate::render::AnimationEffect::parse(effect).is_none()
+        if let Some(effect_name) = effect
+            && crate::render::AnimationEffect::parse(effect_name).is_none()
         {
             return Err(format!(
-                "Animated emission {i} (`{id}`) has an unknown effect `{effect}`; \
+                "Animated emission {i} (`{id}`) has an unknown effect `{effect_name}`; \
                  expected `pulse` or `flicker`"
             ));
         }
@@ -740,7 +740,11 @@ fn validate_rooms(level: &LevelDef) -> Result<(), String> {
         if !r.floor_y.is_finite() || !(r.floor_y + r.height).is_finite() {
             return Err(format!("Room {i} floor elevation must be a finite number"));
         }
-        if let crate::level::CeilingProfileDef::Gable { ridge_rise, .. } = r.ceiling {
+        if let crate::level::CeilingProfileDef::Gable {
+            ridge_rise,
+            ridge: _,
+        } = r.ceiling
+        {
             if !ridge_rise.is_finite() {
                 return Err(format!(
                     "Room {i} ceiling ridge rise must be a finite number"
@@ -791,12 +795,12 @@ fn validate_rooms(level: &LevelDef) -> Result<(), String> {
 /// authors no shine passes unchanged.
 fn validate_surface_shine(level: &LevelDef) -> Result<(), String> {
     let check = |label: &str, shine: Option<f32>| -> Result<(), String> {
-        let Some(shine) = shine else {
+        let Some(coefficient) = shine else {
             return Ok(());
         };
-        if !shine.is_finite() || !(0.0..=1.0).contains(&shine) {
+        if !coefficient.is_finite() || !(0.0..=1.0).contains(&coefficient) {
             return Err(format!(
-                "{label} shine must be a finite number between 0.0 and 1.0, found {shine:?}"
+                "{label} shine must be a finite number between 0.0 and 1.0, found {coefficient:?}"
             ));
         }
         Ok(())
@@ -810,7 +814,10 @@ fn validate_surface_shine(level: &LevelDef) -> Result<(), String> {
     }
     for (i, wall) in level.walls.iter().enumerate() {
         check(&format!("Wall {i}"), wall.shine)?;
-        for (face, shine) in &wall.face_shine {
+        // Stable order also makes the first rejected face reproducible.
+        let mut faces: Vec<_> = wall.face_shine.iter().collect();
+        faces.sort_unstable_by_key(|(face, _)| *face);
+        for (face, shine) in faces {
             check(&format!("Wall {i} face `{face}`"), Some(*shine))?;
         }
         for (j, opening) in wall.openings.iter().enumerate() {
@@ -984,11 +991,11 @@ fn validate_water_shape(i: usize, volume: &crate::level::WaterVolumeDef) -> Resu
             // mismatch is rejected by name.
             let diameter = 2.0 * radius;
             for (name, value) in [("width", volume.width), ("depth", volume.depth)] {
-                if let Some(value) = value
-                    && (!value.is_finite() || (value - diameter).abs() > 1.0e-4)
+                if let Some(dimension) = value
+                    && (!dimension.is_finite() || (dimension - diameter).abs() > 1.0e-4)
                 {
                     return Err(format!(
-                        "Water volume {i} {name} ({value:?}) must be absent or equal \
+                        "Water volume {i} {name} ({dimension:?}) must be absent or equal \
                          2 * radius ({diameter:?}); a circle's bounding box is derived"
                     ));
                 }
@@ -2286,7 +2293,10 @@ impl<'a> LevelIndex<'a> {
 /// The action, condition and binding checks read only these facts, so a target
 /// that resolves always has a known capability set and every failure names the
 /// record and the missing capability.
-#[allow(clippy::struct_excessive_bools)] // independent capability bits, not mutually exclusive states
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent capability bits, not mutually exclusive states"
+)] // independent capability bits, not mutually exclusive states
 #[derive(Default)]
 struct EntityFacts<'a> {
     /// Diagnostic kind name, e.g. `prop` or `trigger volume`.
@@ -2352,7 +2362,7 @@ impl EntityFacts<'_> {
 ///
 /// The same pass validates every authored component on the records that carry
 /// them and builds the capability index the binding checks read.
-#[allow(clippy::too_many_lines)] // one cohesive id + capability pass
+#[expect(clippy::too_many_lines, reason = "one cohesive id + capability pass")] // one cohesive id + capability pass
 fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
@@ -2453,7 +2463,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
             &format!("Sequence {i}"),
             "sequence",
         )?;
-        index.sequences.insert(sequence.id.trim().to_string());
+        let _new_entry = index.sequences.insert(sequence.id.trim().to_string());
     }
     let mut template_seen: HashSet<&str> = HashSet::new();
     let mut template_first: HashMap<&str, String> = HashMap::new();
@@ -2469,9 +2479,11 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("spawn template");
         facts.is_spawn_template = true;
         validate_components(&context, &template.components, &mut facts)?;
-        index
-            .spawn_templates
-            .insert(template.id.trim().to_string(), facts);
+        drop(
+            index
+                .spawn_templates
+                .insert(template.id.trim().to_string(), facts),
+        );
     }
     let mut group_seen: HashSet<&str> = HashSet::new();
     let mut group_first: HashMap<&str, String> = HashMap::new();
@@ -2483,7 +2495,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
             &format!("Spawn group {i}"),
             "spawn group",
         )?;
-        index.spawn_groups.insert(group.id.trim().to_string());
+        let _new_entry_2 = index.spawn_groups.insert(group.id.trim().to_string());
     }
 
     // Capability facts for every placed record, in authored order.
@@ -2502,7 +2514,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("prop");
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
-        index.entities.insert(id.clone(), facts);
+        drop(index.entities.insert(id.clone(), facts));
     }
     for (i, door) in level.doors.iter().enumerate() {
         let Some(id) = door_ids.get(i) else {
@@ -2512,7 +2524,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("door");
         facts.is_door = true;
         validate_components(&context, &door.components, &mut facts)?;
-        index.entities.insert(id.clone(), facts);
+        drop(index.entities.insert(id.clone(), facts));
     }
     for (i, fixture) in level.ceiling_lights.iter().enumerate() {
         let Some(id) = light_ids.get(i) else {
@@ -2521,7 +2533,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("ceiling light");
         facts.is_light_fixture = true;
         facts.light_switchable = fixture.switchable;
-        index.entities.insert(id.clone(), facts);
+        drop(index.entities.insert(id.clone(), facts));
     }
     for (i, _volume) in level.volumes.iter().enumerate() {
         let Some(id) = volume_ids.get(i) else {
@@ -2529,31 +2541,33 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         };
         let mut facts = EntityFacts::of("trigger volume");
         facts.is_volume = true;
-        index.entities.insert(id.clone(), facts);
+        drop(index.entities.insert(id.clone(), facts));
     }
     // Water volumes and effect emitters become entities too (they carry no
     // components), so an `enable`/`disable` action can name one: the same
     // resolution the runtime performs when it creates their controllers.
     for id in &water_ids {
-        index
-            .entities
-            .insert(id.clone(), EntityFacts::of("water volume"));
+        drop(
+            index
+                .entities
+                .insert(id.clone(), EntityFacts::of("water volume")),
+        );
     }
     for id in &effect_ids {
-        index.entities.insert(id.clone(), EntityFacts::of("effect"));
+        drop(index.entities.insert(id.clone(), EntityFacts::of("effect")));
     }
     for timer in &level.timers {
         let id = timer.id.trim();
         let mut facts = EntityFacts::of("timer");
         facts.is_timer = true;
-        index.entities.insert(id.to_string(), facts);
+        drop(index.entities.insert(id.to_string(), facts));
     }
     for point in &level.spawn_points {
         let id = point.id.trim();
-        index.spawn_points.insert(id.to_string());
+        let _new_entry_3 = index.spawn_points.insert(id.to_string());
         let mut facts = EntityFacts::of("spawn point");
         facts.is_spawn_point = true;
-        index.entities.insert(id.to_string(), facts);
+        drop(index.entities.insert(id.to_string(), facts));
     }
     Ok(index)
 }
@@ -2577,15 +2591,15 @@ fn validate_instance_id<'a>(
         ));
     }
     if !seen.insert(trimmed) {
-        let first = first
+        let first_context = first
             .get(trimmed)
             .map_or_else(|| "an earlier record".to_string(), String::clone);
         return Err(format!(
-            "{context} id `{trimmed}` duplicates `{first}`; {namespace} ids must be unique \
+            "{context} id `{trimmed}` duplicates `{first_context}`; {namespace} ids must be unique \
              per level"
         ));
     }
-    first.insert(trimmed, context.to_string());
+    drop(first.insert(trimmed, context.to_string()));
     Ok(())
 }
 
@@ -2628,30 +2642,62 @@ fn validate_components<'a>(
     let mut state_names: HashSet<&'a str> = HashSet::new();
     for (i, component) in components.iter().enumerate() {
         match component {
-            ComponentDef::State { name, .. } => {
-                let name = name.trim();
-                if name.is_empty() {
+            ComponentDef::State { name, value: _ } => {
+                let state_name = name.trim();
+                if state_name.is_empty() {
                     return Err(format!(
                         "{context} `state` component {i} must name a non-empty state"
                     ));
                 }
-                if !state_names.insert(name) {
+                if !state_names.insert(state_name) {
                     return Err(format!(
-                        "{context} declares two `state` components named `{name}`; state \
+                        "{context} declares two `state` components named `{state_name}`; state \
                          names must be unique per entity"
                     ));
                 }
             }
-            other @ (ComponentDef::Interactable { .. }
-            | ComponentDef::Animation { .. }
-            | ComponentDef::Audio { .. }
-            | ComponentDef::Light { .. }
-            | ComponentDef::Material { .. }
-            | ComponentDef::Lifetime { .. }
-            | ComponentDef::Steam { .. }
-            | ComponentDef::Water { .. }
-            | ComponentDef::NavAgent { .. }
-            | ComponentDef::NavObstacle { .. }
+            other @ (ComponentDef::Interactable {
+                prompt: _,
+                reach: _,
+                enabled: _,
+                label: _,
+            }
+            | ComponentDef::Animation {
+                clip: _,
+                speed: _,
+                looped: _,
+                playing: _,
+            }
+            | ComponentDef::Audio {
+                sound: _,
+                gain: _,
+                looped: _,
+                enabled: _,
+                playing: _,
+            }
+            | ComponentDef::Light {
+                enabled: _,
+                switchable: _,
+                emission_scale: _,
+            }
+            | ComponentDef::Material {
+                variants: _,
+                current: _,
+            }
+            | ComponentDef::Lifetime { seconds: _ }
+            | ComponentDef::Steam { enabled: _ }
+            | ComponentDef::Water { enabled: _ }
+            | ComponentDef::NavAgent {
+                radius: _,
+                speed_mps: _,
+                height: _,
+                step_height: _,
+                max_slope: _,
+            }
+            | ComponentDef::NavObstacle {
+                size: _,
+                affects_nav: _,
+            }
             | ComponentDef::Fade(_)
             | ComponentDef::Glow(_)
             | ComponentDef::Ai(_)) => {
@@ -2669,9 +2715,18 @@ fn validate_components<'a>(
     let has_ai = components
         .iter()
         .any(|component| matches!(component, ComponentDef::Ai(_)));
-    let has_body = components
-        .iter()
-        .any(|component| matches!(component, ComponentDef::NavAgent { .. }));
+    let has_body = components.iter().any(|component| {
+        matches!(
+            component,
+            ComponentDef::NavAgent {
+                radius: _,
+                speed_mps: _,
+                height: _,
+                step_height: _,
+                max_slope: _
+            }
+        )
+    });
     if has_ai && !has_body {
         return Err(format!(
             "{context} authors an `ai` component without a `nav_agent` body; an agent needs \
@@ -2683,7 +2738,7 @@ fn validate_components<'a>(
 }
 
 /// One component's authored values, and the capability it grants.
-#[allow(clippy::too_many_lines)] // one match arm per component kind
+#[expect(clippy::too_many_lines, reason = "one match arm per component kind")] // one match arm per component kind
 fn validate_component_value<'a>(
     context: &str,
     i: usize,
@@ -2699,7 +2754,7 @@ fn validate_component_value<'a>(
         } => {
             if prompt
                 .as_deref()
-                .is_some_and(|prompt| prompt.trim().is_empty())
+                .is_some_and(|prompt_text| prompt_text.trim().is_empty())
             {
                 return Err(format!(
                     "{context} `interactable` component {i} prompt must not be blank when \
@@ -2708,20 +2763,20 @@ fn validate_component_value<'a>(
             }
             if label
                 .as_deref()
-                .is_some_and(|label| label.trim().is_empty())
+                .is_some_and(|label_text| label_text.trim().is_empty())
             {
                 return Err(format!(
                     "{context} `interactable` component {i} label must not be blank when \
                      specified"
                 ));
             }
-            if let Some(reach) = reach
-                && !(reach.is_finite()
-                    && *reach > 0.0
-                    && *reach <= crate::interact::MAX_INTERACTION_REACH_M)
+            if let Some(reach_m) = reach
+                && !(reach_m.is_finite()
+                    && *reach_m > 0.0
+                    && *reach_m <= crate::interact::MAX_INTERACTION_REACH_M)
             {
                 return Err(format!(
-                    "{context} `interactable` component {i} reach ({reach:?} m) must be \
+                    "{context} `interactable` component {i} reach ({reach_m:?} m) must be \
                      between 0 and {} metres",
                     crate::interact::MAX_INTERACTION_REACH_M
                 ));
@@ -2729,7 +2784,12 @@ fn validate_component_value<'a>(
             facts.has_interactable = true;
             facts.interactable_enabled = *enabled;
         }
-        ComponentDef::Animation { clip, .. } => {
+        ComponentDef::Animation {
+            clip,
+            speed: _,
+            looped: _,
+            playing: _,
+        } => {
             if clip.trim().is_empty() {
                 return Err(format!(
                     "{context} `animation` component {i} clip must not be blank"
@@ -2737,7 +2797,13 @@ fn validate_component_value<'a>(
             }
             facts.has_animation = true;
         }
-        ComponentDef::Audio { sound, .. } => {
+        ComponentDef::Audio {
+            sound,
+            gain: _,
+            looped: _,
+            enabled: _,
+            playing: _,
+        } => {
             if sound.trim().is_empty() {
                 return Err(format!(
                     "{context} `audio` component {i} sound must not be blank"
@@ -2748,7 +2814,7 @@ fn validate_component_value<'a>(
         ComponentDef::Light {
             emission_scale,
             switchable,
-            ..
+            enabled: _,
         } => {
             if !emission_scale.is_finite() || *emission_scale < 0.0 {
                 return Err(format!(
@@ -2795,17 +2861,17 @@ fn validate_component_value<'a>(
                 }
                 facts.material_variants.push(name);
             }
-            if let Some(current) = current {
-                let current = current.trim();
-                if current.is_empty() {
+            if let Some(current_name) = current {
+                let trimmed_current = current_name.trim();
+                if trimmed_current.is_empty() {
                     return Err(format!(
                         "{context} `material` component {i} current must not be blank when \
                          specified"
                     ));
                 }
-                if !names.contains(current) {
+                if !names.contains(trimmed_current) {
                     return Err(format!(
-                        "{context} `material` component {i} current `{current}` is not one \
+                        "{context} `material` component {i} current `{trimmed_current}` is not one \
                          of its variants"
                     ));
                 }
@@ -2917,13 +2983,13 @@ fn validate_component_value<'a>(
                         ("fade_out_seconds", def.fade_out_seconds),
                         ("fade_in_seconds", def.fade_in_seconds),
                     ] {
-                        if let Some(value) = value
-                            && (!value.is_finite()
-                                || value <= 0.0
-                                || value > crate::level::MAX_FADE_SECONDS)
+                        if let Some(coefficient) = value
+                            && (!coefficient.is_finite()
+                                || coefficient <= 0.0
+                                || coefficient > crate::level::MAX_FADE_SECONDS)
                         {
                             return Err(format!(
-                                "{context} `fade` component {i} {name} ({value:?}) must be a \
+                                "{context} `fade` component {i} {name} ({coefficient:?}) must be a \
                                  finite number between 0 and {}",
                                 crate::level::MAX_FADE_SECONDS
                             ));
@@ -2998,10 +3064,13 @@ fn validate_component_value<'a>(
                 ));
             }
         }
-        ComponentDef::State { .. }
-        | ComponentDef::Steam { .. }
-        | ComponentDef::Water { .. }
-        | ComponentDef::NavObstacle { .. } => {}
+        ComponentDef::State { name: _, value: _ }
+        | ComponentDef::Steam { enabled: _ }
+        | ComponentDef::Water { enabled: _ }
+        | ComponentDef::NavObstacle {
+            size: _,
+            affects_nav: _,
+        } => {}
     }
     Ok(())
 }
@@ -3241,22 +3310,26 @@ fn validate_conditions(
             ));
         };
         match condition {
-            ConditionDef::State { name, .. } => {
-                let name = name.trim();
-                if name.is_empty() {
+            ConditionDef::State {
+                name,
+                target: _,
+                equals: _,
+            } => {
+                let state_name = name.trim();
+                if state_name.is_empty() {
                     return Err(format!("{condition_context} names no state"));
                 }
-                if !facts.state_names.contains(name) {
+                if !facts.state_names.contains(state_name) {
                     return Err(format!(
-                        "{condition_context} reads state `{name}` on `{target}`, which does \
+                        "{condition_context} reads state `{state_name}` on `{target}`, which does \
                          not author that state"
                     ));
                 }
             }
-            ConditionDef::Locked { .. }
-            | ConditionDef::Unlocked { .. }
-            | ConditionDef::DoorOpen { .. }
-            | ConditionDef::DoorClosed { .. } => {
+            ConditionDef::Locked { target: _ }
+            | ConditionDef::Unlocked { target: _ }
+            | ConditionDef::DoorOpen { target: _ }
+            | ConditionDef::DoorClosed { target: _ } => {
                 if !facts.is_door {
                     return Err(format!(
                         "{condition_context} targets `{target}`, a {}; locked/unlocked and \
@@ -3265,10 +3338,10 @@ fn validate_conditions(
                     ));
                 }
             }
-            ConditionDef::SequenceRunning { .. }
-            | ConditionDef::SequenceIdle { .. }
-            | ConditionDef::Enabled { .. }
-            | ConditionDef::Disabled { .. } => {}
+            ConditionDef::SequenceRunning { target: _ }
+            | ConditionDef::SequenceIdle { target: _ }
+            | ConditionDef::Enabled { target: _ }
+            | ConditionDef::Disabled { target: _ } => {}
         }
     }
     Ok(())
@@ -3333,7 +3406,7 @@ fn validate_action_list(
 
 /// One action: every target resolves and the action fits the target's
 /// capabilities.
-#[allow(clippy::too_many_lines)] // one match arm per action kind
+#[expect(clippy::too_many_lines, reason = "one match arm per action kind")] // one match arm per action kind
 fn validate_action(
     action_context: &ActionContext<'_>,
     action: &ActionDef,
@@ -3364,7 +3437,7 @@ fn validate_action(
         ActionDef::Enable { target } | ActionDef::Disable { target } => {
             validate_explicit_target(action_context, target.as_deref(), index)?;
         }
-        ActionDef::SetLight { target, .. } => check_action_target(
+        ActionDef::SetLight { target, on: _ } => check_action_target(
             action_context,
             target.as_deref(),
             implicit,
@@ -3373,7 +3446,11 @@ fn validate_action(
              non-switchable light is baked once and cannot change",
             |facts| facts.light_capable() && facts.light_switchable,
         )?,
-        ActionDef::PlayAnimation { target, clip, .. }
+        ActionDef::PlayAnimation {
+            target,
+            clip,
+            looped: _,
+        }
         | ActionDef::ToggleAnimation { target, clip } => {
             check_action_target(
                 action_context,
@@ -3383,14 +3460,21 @@ fn validate_action(
                 "a target with an `animation` component",
                 |facts| facts.has_animation,
             )?;
-            if clip.as_deref().is_some_and(|clip| clip.trim().is_empty()) {
+            if clip
+                .as_deref()
+                .is_some_and(|clip_name| clip_name.trim().is_empty())
+            {
                 return Err(format!(
                     "{} clip must not be blank when specified",
                     action_context_label(action_context)
                 ));
             }
         }
-        ActionDef::PlaySound { target, sound, .. } => {
+        ActionDef::PlaySound {
+            target,
+            sound,
+            looped: _,
+        } => {
             check_action_target(
                 action_context,
                 target.as_deref(),
@@ -3399,7 +3483,10 @@ fn validate_action(
                 "a target with an `audio` component",
                 |facts| facts.has_audio,
             )?;
-            if sound.as_ref().is_some_and(|sound| sound.trim().is_empty()) {
+            if sound
+                .as_ref()
+                .is_some_and(|sound_name| sound_name.trim().is_empty())
+            {
                 return Err(format!(
                     "{} `sound` must not be blank when specified",
                     action_context_label(action_context)
@@ -3415,8 +3502,8 @@ fn validate_action(
             |facts| facts.has_audio,
         )?,
         ActionDef::ChangeMaterial { target, variant } => {
-            let variant = variant.trim();
-            if variant.is_empty() {
+            let variant_name = variant.trim();
+            if variant_name.is_empty() {
                 return Err(format!(
                     "{} needs a non-empty material variant name",
                     action_context_label(action_context)
@@ -3431,7 +3518,13 @@ fn validate_action(
                  baked static prop's material is prepared geometry and cannot change)",
                 |facts| facts.is_spawn_template && facts.has_material,
             )?;
-            check_action_variant(action_context, target.as_deref(), implicit, index, variant)?;
+            check_action_variant(
+                action_context,
+                target.as_deref(),
+                implicit,
+                index,
+                variant_name,
+            )?;
         }
         ActionDef::MoveObject {
             target,
@@ -3440,14 +3533,14 @@ fn validate_action(
             z,
             speed,
         } => {
-            if !x.is_finite() || !z.is_finite() || y.is_some_and(|y| !y.is_finite()) {
+            if !x.is_finite() || !z.is_finite() || y.is_some_and(|height| !height.is_finite()) {
                 return Err(format!(
                     "{} coordinates must be finite numbers",
                     action_context_label(action_context)
                 ));
             }
-            if let Some(speed) = speed
-                && (!speed.is_finite() || *speed <= 0.0)
+            if let Some(speed_mps) = speed
+                && (!speed_mps.is_finite() || *speed_mps <= 0.0)
             {
                 return Err(format!(
                     "{} speed must be a finite positive number of metres per second",
@@ -3464,16 +3557,20 @@ fn validate_action(
                 |facts| facts.is_spawn_template,
             )?;
         }
-        ActionDef::SetState { target, name, .. } => {
-            let name = name.trim();
-            if name.is_empty() {
+        ActionDef::SetState {
+            target,
+            name,
+            value: _,
+        } => {
+            let state_name = name.trim();
+            if state_name.is_empty() {
                 return Err(format!(
                     "{} needs a non-empty state name",
                     action_context_label(action_context)
                 ));
             }
             let requirement = format!(
-                "an authored state named `{name}` (or a timer/trigger-volume target: the \
+                "an authored state named `{state_name}` (or a timer/trigger-volume target: the \
                  runtime owns those states); a `set_state` may only change a state the \
                  target already authors"
             );
@@ -3483,7 +3580,7 @@ fn validate_action(
                 implicit,
                 index,
                 &requirement,
-                |facts| facts.state_names.contains(name) || facts.is_timer || facts.is_volume,
+                |facts| facts.state_names.contains(state_name) || facts.is_timer || facts.is_volume,
             )?;
         }
         ActionDef::ToggleLabel { target } => check_action_target(
@@ -3495,16 +3592,16 @@ fn validate_action(
             |facts| facts.is_prop,
         )?,
         ActionDef::StartSequence { sequence, target } => {
-            let sequence = sequence.trim();
-            if sequence.is_empty() {
+            let sequence_id = sequence.trim();
+            if sequence_id.is_empty() {
                 return Err(format!(
                     "{} needs a non-empty sequence id",
                     action_context_label(action_context)
                 ));
             }
-            if !index.sequences.contains(sequence) {
+            if !index.sequences.contains(sequence_id) {
                 return Err(format!(
-                    "{} references unknown sequence `{sequence}`",
+                    "{} references unknown sequence `{sequence_id}`",
                     action_context_label(action_context)
                 ));
             }
@@ -3526,7 +3623,9 @@ fn validate_action(
             )?;
         }
         ActionDef::StartTimer {
-            target, seconds, ..
+            target,
+            seconds,
+            repeat: _,
         } => {
             check_action_target(
                 action_context,
@@ -3536,8 +3635,8 @@ fn validate_action(
                 "a timer target",
                 |facts| facts.is_timer,
             )?;
-            if let Some(seconds) = seconds
-                && (!seconds.is_finite() || *seconds <= 0.0)
+            if let Some(duration) = seconds
+                && (!duration.is_finite() || *duration <= 0.0)
             {
                 return Err(format!(
                     "{} seconds override must be a finite positive number of seconds",
@@ -3568,16 +3667,16 @@ fn validate_action(
             validate_spawn_action(action_context, &spawn, implicit, index)?;
         }
         ActionDef::DespawnEntity { target } => {
-            let target = target.trim();
-            if target.is_empty() {
+            let target_id = target.trim();
+            if target_id.is_empty() {
                 return Err(format!(
                     "{} target must not be blank",
                     action_context_label(action_context)
                 ));
             }
-            if !index.entities.contains_key(target) && !index.spawn_groups.contains(target) {
+            if !index.entities.contains_key(target_id) && !index.spawn_groups.contains(target_id) {
                 return Err(format!(
-                    "{} targets `{target}`; `despawn_entity` needs an authored entity id \
+                    "{} targets `{target_id}`; `despawn_entity` needs an authored entity id \
                      or spawn group id",
                     action_context_label(action_context)
                 ));
@@ -3743,20 +3842,22 @@ fn validate_spawn_action(
             "{label} `template` must not be blank when specified"
         ));
     }
-    if let Some(template) = template
-        && !index.spawn_templates.contains_key(template)
+    if let Some(template_id) = template
+        && !index.spawn_templates.contains_key(template_id)
     {
         return Err(format!(
-            "{label} references unknown spawn template `{template}`"
+            "{label} references unknown spawn template `{template_id}`"
         ));
     }
     if let Some(group) = spawn.group {
-        let group = group.trim();
-        if group.is_empty() {
+        let group_id = group.trim();
+        if group_id.is_empty() {
             return Err(format!("{label} `group` must not be blank when specified"));
         }
-        if !index.spawn_groups.contains(group) {
-            return Err(format!("{label} references unknown spawn group `{group}`"));
+        if !index.spawn_groups.contains(group_id) {
+            return Err(format!(
+                "{label} references unknown spawn group `{group_id}`"
+            ));
         }
     }
     if let Some(name) = spawn.name
@@ -3770,9 +3871,9 @@ fn validate_spawn_action(
     if spawn.point.is_some() && point.is_none() {
         return Err(format!("{label} `point` must not be blank when specified"));
     }
-    if let Some(point) = point {
-        if !index.spawn_points.contains(point) {
-            return Err(format!("{label} targets unknown spawn point `{point}`"));
+    if let Some(point_id) = point {
+        if !index.spawn_points.contains(point_id) {
+            return Err(format!("{label} targets unknown spawn point `{point_id}`"));
         }
         return Ok(());
     }
@@ -3802,8 +3903,8 @@ fn record_sequence_owner(
     sequence: &str,
     owner: &str,
 ) -> bool {
-    let sequence = sequence.trim();
-    let Some(list) = owners.get_mut(sequence) else {
+    let sequence_id = sequence.trim();
+    let Some(list) = owners.get_mut(sequence_id) else {
         return false; // an unknown sequence is a named error elsewhere
     };
     if list.iter().any(|existing| existing == owner) {
@@ -3823,7 +3924,7 @@ fn record_sequence_owner(
 fn collect_sequence_owners(level: &LevelDef) -> HashMap<String, Vec<String>> {
     let mut owners: HashMap<String, Vec<String>> = HashMap::new();
     for sequence in &level.sequences {
-        owners.entry(sequence.id.trim().to_string()).or_default();
+        let _owner_slots = owners.entry(sequence.id.trim().to_string()).or_default();
     }
     let mut deferred: Vec<(String, String)> = Vec::new();
     for record in authored_bindings(level) {
@@ -3831,11 +3932,13 @@ fn collect_sequence_owners(level: &LevelDef) -> HashMap<String, Vec<String>> {
             for action in &binding.actions {
                 if let ActionDef::StartSequence { sequence, target } = action {
                     match target.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
-                        Some(target) => {
-                            record_sequence_owner(&mut owners, sequence, target);
+                        Some(target_id) => {
+                            let _record_sequence_owner_status =
+                                record_sequence_owner(&mut owners, sequence, target_id);
                         }
                         None => {
-                            record_sequence_owner(&mut owners, sequence, &record.id);
+                            let _record_sequence_owner_status_2 =
+                                record_sequence_owner(&mut owners, sequence, &record.id);
                         }
                     }
                 }
@@ -3854,8 +3957,9 @@ fn collect_sequence_owners(level: &LevelDef) -> HashMap<String, Vec<String>> {
             } = step
             {
                 match target.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
-                    Some(target) => {
-                        record_sequence_owner(&mut owners, to, target);
+                    Some(target_id) => {
+                        let _record_sequence_owner_status_3 =
+                            record_sequence_owner(&mut owners, to, target_id);
                     }
                     None => {
                         deferred.push((from.clone(), to.trim().to_string()));
@@ -3887,7 +3991,7 @@ fn collect_sequence_owners(level: &LevelDef) -> HashMap<String, Vec<String>> {
 /// A `wait_animation` step's clip is only checked to be a non-empty name: a
 /// model's clip set is not known to the loader, so the step's `timeout` is the
 /// runtime bound that keeps a missing clip from stranding the sequence.
-#[allow(clippy::too_many_lines)] // one match arm per step kind
+#[expect(clippy::too_many_lines, reason = "one match arm per step kind")] // one match arm per step kind
 fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
     if level.sequences.len() > MAX_LEVEL_SEQUENCES {
         return Err(format!(
@@ -3935,7 +4039,7 @@ fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), St
                 SequenceStepDef::Move { x, y, z, speed } => {
                     if !x.is_finite()
                         || !z.is_finite()
-                        || y.is_some_and(|y| !y.is_finite())
+                        || y.is_some_and(|height| !height.is_finite())
                         || !speed.is_finite()
                         || *speed <= 0.0
                     {
@@ -3951,7 +4055,10 @@ fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), St
                     }
                 }
                 SequenceStepDef::WaitAnimation { clip, timeout } => {
-                    if clip.as_deref().is_some_and(|clip| clip.trim().is_empty()) {
+                    if clip
+                        .as_deref()
+                        .is_some_and(|clip_name| clip_name.trim().is_empty())
+                    {
                         return Err(format!(
                             "{step_context} clip must not be blank when specified"
                         ));
@@ -3966,26 +4073,29 @@ fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), St
                         ));
                     }
                 }
-                SequenceStepDef::Emit { key, .. } => {
-                    if key.as_deref().is_some_and(|key| key.trim().is_empty()) {
+                SequenceStepDef::Emit { key, on: _ } => {
+                    if key
+                        .as_deref()
+                        .is_some_and(|key_name| key_name.trim().is_empty())
+                    {
                         return Err(format!(
                             "{step_context} key must not be blank when specified"
                         ));
                     }
                 }
-                SequenceStepDef::SetState { name, .. } => {
-                    let name = name.trim();
-                    if name.is_empty() {
+                SequenceStepDef::SetState { name, value: _ } => {
+                    let state_name = name.trim();
+                    if state_name.is_empty() {
                         return Err(format!("{step_context} must name a non-empty state"));
                     }
                     for owner in owners {
                         if let Some(facts) = index.facts_of(owner)
-                            && !facts.state_names.contains(name)
+                            && !facts.state_names.contains(state_name)
                             && !facts.is_timer
                             && !facts.is_volume
                         {
                             return Err(format!(
-                                "{step_context} writes state `{name}` on `{owner}`, a {}, \
+                                "{step_context} writes state `{state_name}` on `{owner}`, a {}, \
                                  which does not author it; a sequence state write may only \
                                  change a state its owner already authors",
                                 facts.kind
@@ -4065,13 +4175,13 @@ fn validate_spawns(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), Strin
             ));
         }
         if let Some(group) = point.group.as_deref() {
-            let group = group.trim();
-            if group.is_empty() {
+            let group_id = group.trim();
+            if group_id.is_empty() {
                 return Err(format!("{context} group must not be blank when specified"));
             }
-            if !index.spawn_groups.contains(group) {
+            if !index.spawn_groups.contains(group_id) {
                 return Err(format!(
-                    "{context} references unknown spawn group `{group}`"
+                    "{context} references unknown spawn group `{group_id}`"
                 ));
             }
         }
@@ -4160,7 +4270,7 @@ fn sequence_completes_immediately(sequence: &SequenceDef) -> bool {
 /// treated as consuming time, and the walk is bounded by [`MAX_CYCLE_DEPTH`]
 /// and [`MAX_CYCLE_VISITS`], so a chain the compiler cannot see whole is left
 /// to the runtime's own chain budget instead of rejecting a legitimate map.
-#[allow(clippy::too_many_lines)] // one linear graph construction pass
+#[expect(clippy::too_many_lines, reason = "one linear graph construction pass")] // one linear graph construction pass
 fn validate_zero_delay_cycles(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
     let sequence_by_id: HashMap<&str, &SequenceDef> = level
         .sequences
@@ -4202,17 +4312,21 @@ fn validate_zero_delay_cycles(level: &LevelDef, index: &LevelIndex<'_>) -> Resul
         let mut out = Vec::new();
         if info.traversable {
             for action in info.actions {
-                if let ActionDef::StartSequence { sequence, .. } = action {
-                    let sequence = sequence.trim();
-                    if sequence_by_id.contains_key(sequence) {
+                if let ActionDef::StartSequence {
+                    sequence,
+                    target: _,
+                } = action
+                {
+                    let sequence_id = sequence.trim();
+                    if sequence_by_id.contains_key(sequence_id) {
                         out.push(CycleNode::Sequence {
-                            id: sequence.to_string(),
+                            id: sequence_id.to_string(),
                         });
                     }
                 }
             }
         }
-        edges.insert(node, out);
+        drop(edges.insert(node, out));
     }
     for sequence in &level.sequences {
         let id = sequence.id.trim();
@@ -4224,12 +4338,18 @@ fn validate_zero_delay_cycles(level: &LevelDef, index: &LevelIndex<'_>) -> Resul
                 break;
             }
             if let SequenceStepDef::Action {
-                action: ActionDef::StartSequence { sequence: to, .. },
+                action:
+                    ActionDef::StartSequence {
+                        sequence: to,
+                        target: _,
+                    },
             } = step
             {
-                let to = to.trim();
-                if sequence_by_id.contains_key(to) {
-                    out.push(CycleNode::Sequence { id: to.to_string() });
+                let destination_id = to.trim();
+                if sequence_by_id.contains_key(destination_id) {
+                    out.push(CycleNode::Sequence {
+                        id: destination_id.to_string(),
+                    });
                 }
             }
         }
@@ -4251,7 +4371,7 @@ fn validate_zero_delay_cycles(level: &LevelDef, index: &LevelIndex<'_>) -> Resul
                 }
             }
         }
-        edges.insert(node, out);
+        drop(edges.insert(node, out));
     }
     let mut state: HashMap<CycleNode, u8> = HashMap::new();
     let mut visits = MAX_CYCLE_VISITS;
@@ -4295,7 +4415,7 @@ fn cycle_dfs(
         return None;
     }
     *visits = visits.saturating_sub(1);
-    state.insert(node.clone(), 1);
+    let _previous_value = state.insert(node.clone(), 1);
     stack.push(node.clone());
     if let Some(neighbours) = edges.get(node) {
         for next in neighbours {
@@ -4319,8 +4439,8 @@ fn cycle_dfs(
             }
         }
     }
-    stack.pop();
-    state.insert(node.clone(), 2);
+    drop(stack.pop());
+    let _previous_value_2 = state.insert(node.clone(), 2);
     None
 }
 
@@ -4455,7 +4575,7 @@ fn validate_float_fields(
 /// entity can climb, and no wall may block the body anywhere along it. A
 /// `solid: true` prop is refused because its own collision box would block
 /// its first step.
-#[allow(clippy::too_many_lines)] // one cohesive route validation pass
+#[expect(clippy::too_many_lines, reason = "one cohesive route validation pass")] // one cohesive route validation pass
 fn validate_routes(level: &LevelDef) -> Result<(), String> {
     if u64::try_from(level.routes.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ROUTES {
         return Err(format!(
@@ -4535,18 +4655,45 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                     radius,
                     height,
                     step_height,
-                    ..
+                    speed_mps: _,
+                    max_slope: _,
                 } => Some((*radius, *height, *step_height)),
-                ComponentDef::Interactable { .. }
-                | ComponentDef::Animation { .. }
-                | ComponentDef::Audio { .. }
-                | ComponentDef::Light { .. }
-                | ComponentDef::Material { .. }
-                | ComponentDef::State { .. }
-                | ComponentDef::Lifetime { .. }
-                | ComponentDef::Steam { .. }
-                | ComponentDef::Water { .. }
-                | ComponentDef::NavObstacle { .. }
+                ComponentDef::Interactable {
+                    prompt: _,
+                    reach: _,
+                    enabled: _,
+                    label: _,
+                }
+                | ComponentDef::Animation {
+                    clip: _,
+                    speed: _,
+                    looped: _,
+                    playing: _,
+                }
+                | ComponentDef::Audio {
+                    sound: _,
+                    gain: _,
+                    looped: _,
+                    enabled: _,
+                    playing: _,
+                }
+                | ComponentDef::Light {
+                    enabled: _,
+                    switchable: _,
+                    emission_scale: _,
+                }
+                | ComponentDef::Material {
+                    variants: _,
+                    current: _,
+                }
+                | ComponentDef::State { name: _, value: _ }
+                | ComponentDef::Lifetime { seconds: _ }
+                | ComponentDef::Steam { enabled: _ }
+                | ComponentDef::Water { enabled: _ }
+                | ComponentDef::NavObstacle {
+                    size: _,
+                    affects_nav: _,
+                }
                 | ComponentDef::Fade(_)
                 | ComponentDef::Glow(_)
                 | ComponentDef::Ai(_) => None,
@@ -4578,9 +4725,31 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+/// A route interpolation count whose adjacent indices remain exact in f32.
+fn route_sample_count(requested: f32, context: &str) -> Result<u32, String> {
+    const MAX_EXACT_SAMPLES: f32 = 16_777_216.0;
+    let count = requested.ceil().max(1.0);
+    if !requested.is_finite() || count > MAX_EXACT_SAMPLES {
+        return Err(format!(
+            "{context} (`move_to`) segment exceeds the exact interpolation sample budget"
+        ));
+    }
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The finite integer sample count is checked within 1..=2^24 before conversion."
+    )]
+    let samples = count as u32;
+    Ok(samples)
+}
+
 /// One route's ordered steps: finite data, real floors and clear straight
 /// segments between consecutive waypoints.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Route validation keeps authored step inputs, entity body dimensions, floor and collision data explicit."
+)]
 fn validate_route_steps(
     id: &str,
     steps: &[crate::level::RouteStepDef],
@@ -4643,7 +4812,11 @@ fn validate_route_steps(
                     ));
                 }
             }
-            crate::level::RouteStepDef::Play { clip, seconds, .. } => {
+            crate::level::RouteStepDef::Play {
+                clip,
+                seconds,
+                looped: _,
+            } => {
                 if clip.trim().is_empty() {
                     return Err(format!("{context} (`play`) needs a clip name"));
                 }
@@ -4668,8 +4841,14 @@ fn validate_route_steps(
 /// floor, and no wall may block the body there. The height change between
 /// consecutive samples is bounded by the entity step, so a route cannot climb
 /// a cliff in one sample.
-#[allow(clippy::arithmetic_side_effects)] // bounded world-space segment sampling
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "bounded world-space segment sampling"
+)] // bounded world-space segment sampling
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Route validation keeps authored step inputs, entity body dimensions, floor and collision data explicit."
+)]
 fn route_path_is_clear(
     context: &str,
     walls: &[crate::collision::WallAabb],
@@ -4689,11 +4868,14 @@ fn route_path_is_clear(
     if !distance.is_finite() {
         return Err(format!("{context} (`move_to`) segment is not finite"));
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let samples = ((distance / SAMPLE_M).ceil() as u32).max(1);
+    let samples = route_sample_count(distance / SAMPLE_M, context)?;
     let mut previous_y = from.y;
     for index in 0..=samples {
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Both index and nonzero sample count are checked at or below f32's exact integer limit."
+        )]
         let t = index as f32 / samples as f32;
         let point = start + delta * t;
         let Some(floor_y) = floor.walk_height_at(point.x, point.y) else {
@@ -4769,7 +4951,7 @@ fn validate_volumes(level: &LevelDef) -> Result<(), String> {
             return Err(format!("{context} width and depth must be positive"));
         }
         for (name, value) in [("bottom_y", volume.bottom_y), ("top_y", volume.top_y)] {
-            if value.is_some_and(|value| !value.is_finite()) {
+            if value.is_some_and(|height| !height.is_finite()) {
                 return Err(format!(
                     "{context} {name} must be a finite number when specified"
                 ));
@@ -5133,14 +5315,14 @@ pub fn resolve_fixture_sheets(
     // Decode the distinct fixture sheets ahead of the serial pass, exactly like
     // a level's own materials: each family's sheet is one independent PNG, and
     // a level with many fixtures of one family then pays its decode once.
-    if let Some(root) = root.as_deref() {
+    if let Some(asset_root) = root.as_deref() {
         let references: Vec<(String, String)> = level
             .ceiling_lights
             .iter()
             .filter_map(|light| catalog.fixture_sheet_path(&light.fixture))
             .map(|path| (path.to_string(), path.to_string()))
             .collect();
-        cache.prefetch_catalog(root, &references);
+        cache.prefetch_catalog(asset_root, &references);
     }
     // Resolve one sheet per family used, then one per switchable fixture (its
     // own face), each at the material index the geometry emitter assigns it.
@@ -5210,14 +5392,14 @@ fn resolve_fixture_sheet(
     cache: &mut TextureCache,
 ) -> Result<Option<ResolvedFixtureSheet>, String> {
     if fixture_id.starts_with("pack:") {
-        let Some(pack) = pack else {
+        let Some(pack_id) = pack else {
             return Ok(None);
         };
-        let Some(path) = pack.texture_for(fixture_id) else {
+        let Some(path) = pack_id.texture_for(fixture_id) else {
             return Ok(None);
         };
-        let key = pack.cache_key(&path);
-        let image = pack
+        let key = pack_id.cache_key(&path);
+        let image = pack_id
             .decode_texture(cache, &path)
             .map_err(|error| format!("fixture `{fixture_id}`: {error}"))?;
         return Ok(Some(ResolvedFixtureSheet {
@@ -5318,9 +5500,9 @@ pub(crate) fn prepare_level(
     pack: Option<&PackMaterials>,
 ) {
     let materials = MaterialTable::logical(level, catalog, pack);
-    level.align_ceiling_fixtures(&materials);
-    level.snap_ceiling_decals(&materials);
-    generate_automatic_baseboards(level, catalog);
+    let _align_ceiling_fixtures_status = level.align_ceiling_fixtures(&materials);
+    let _snap_ceiling_decals_status = level.snap_ceiling_decals(&materials);
+    let _generate_automatic_baseboards_status = generate_automatic_baseboards(level, catalog);
 }
 
 /// Generates the baseboard runs every wall face's resolved material declares
@@ -5490,7 +5672,7 @@ fn baseboard_face_floor(
         }
         floor = Some(sample);
     }
-    let floor = floor?;
+    let floor_y = floor?;
     // The wall's own base is its absolute world `y`; a non-finite value falls
     // back to the room floor under the footprint centre.
     let base = if wall.y.is_finite() {
@@ -5503,7 +5685,7 @@ fn baseboard_face_floor(
             )
             .unwrap_or(0.0)
     };
-    ((base - floor).abs() <= BASEBOARD_BASE_AGREEMENT_M).then_some(floor)
+    ((base - floor_y).abs() <= BASEBOARD_BASE_AGREEMENT_M).then_some(floor_y)
 }
 
 /// The run spans of one face with every floor-reaching opening removed.
@@ -5522,22 +5704,22 @@ fn baseboard_segments(wall: &WallDef, length: f32, along_positive: bool) -> Vec<
         } else {
             (length - opening.end(), length - opening.offset)
         };
-        let low = low.max(0.0);
-        let high = high.min(length);
-        if high <= low {
+        let clipped_low = low.max(0.0);
+        let clipped_high = high.min(length);
+        if clipped_high <= clipped_low {
             continue;
         }
         let mut next: Vec<(f32, f32)> = Vec::new();
         for (span_low, span_high) in spans {
-            if high <= span_low || low >= span_high {
+            if clipped_high <= span_low || clipped_low >= span_high {
                 next.push((span_low, span_high));
                 continue;
             }
-            if low > span_low {
-                next.push((span_low, low));
+            if clipped_low > span_low {
+                next.push((span_low, clipped_low));
             }
-            if high < span_high {
-                next.push((high, span_high));
+            if clipped_high < span_high {
+                next.push((clipped_high, span_high));
             }
         }
         spans = next;
@@ -6012,7 +6194,7 @@ impl LevelManager {
             .map_err(|e| format!("Failed to create levels directory: {e}"))?;
         let target_path = self.levels_dir.join(file_name);
         if source_path != target_path {
-            fs::copy(source_path, &target_path)
+            let _map_err_status = fs::copy(source_path, &target_path)
                 .map_err(|e| format!("Failed to copy file to {}: {e}", target_path.display()))?;
         }
         self.refresh();
@@ -6036,8 +6218,18 @@ impl LevelManager {
     /// Returns a message when a candidate package is malformed; files that
     /// import cleanly are reported through the returned count.
     pub fn import_available(&mut self) -> Result<usize, String> {
-        let _ = fs::create_dir_all(&self.import_dir);
-        let _ = fs::create_dir_all(&self.levels_dir);
+        fs::create_dir_all(&self.import_dir).map_err(|error| {
+            format!(
+                "Failed to create import directory {}: {error}",
+                self.import_dir.display()
+            )
+        })?;
+        fs::create_dir_all(&self.levels_dir).map_err(|error| {
+            format!(
+                "Failed to create levels directory {}: {error}",
+                self.levels_dir.display()
+            )
+        })?;
         let mut imported_count: usize = 0;
         let nested_import = self.levels_dir.join("import");
         let candidate_dirs = [self.import_dir.clone(), nested_import];
@@ -6048,7 +6240,7 @@ impl LevelManager {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if crate::package::is_package_path(&path) {
-                    self.import_file(&path)?;
+                    drop(self.import_file(&path)?);
                     imported_count = imported_count.saturating_add(1);
                 } else if path
                     .extension()

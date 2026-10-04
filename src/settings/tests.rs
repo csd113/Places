@@ -2,7 +2,11 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::doc_markdown, clippy::expect_used)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::expect_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
@@ -272,12 +276,12 @@ fn test_quality_defaults_validates_and_round_trips() {
 
     // Every real level survives sanitizing, in any case.
     for level in QualityLevel::ALL {
-        let mut settings = Settings {
+        let mut quality_settings = Settings {
             quality: level.name().to_uppercase(),
             ..Default::default()
         };
-        settings.sanitize();
-        assert_eq!(settings.quality_level(), level);
+        quality_settings.sanitize();
+        assert_eq!(quality_settings.quality_level(), level);
     }
 
     // An unrecognised quality name resolves to the default level.
@@ -329,7 +333,7 @@ fn test_quality_and_filtering_persist_round_trip() {
         }
     }
 
-    let _ = fs::remove_file(path);
+    crate::test_support::remove_file_if_present(path);
 }
 
 #[test]
@@ -352,7 +356,7 @@ fn test_settings_persistence() {
     assert_exact(loaded.look_speed_h, 120.0);
     assert_eq!(loaded.bindings.forward, "UP");
 
-    let _ = fs::remove_file(test_path);
+    crate::test_support::remove_file_if_present(test_path);
 }
 
 #[test]
@@ -371,7 +375,7 @@ fn test_missing_or_invalid_preferences_fallback() {
     let loaded_corrupt = Settings::load_or_default_from_path(&corrupt_path);
     assert_eq!(loaded_corrupt, default_settings);
 
-    let _ = fs::remove_file(corrupt_path);
+    crate::test_support::remove_file_if_present(corrupt_path);
 }
 
 /// A hand-edited file can contain a reserved key, an empty name or two actions
@@ -426,7 +430,7 @@ fn test_malformed_settings_file_is_preserved_and_recovered() {
     let loaded_again = Settings::load_or_default_reporting(&path);
     assert_eq!(loaded_again, Settings::default());
 
-    let _ = fs::remove_file(scratch.join("settings.json.invalid"));
+    crate::test_support::remove_file_if_present(scratch.join("settings.json.invalid"));
 }
 
 /// First run: `ensure_saved_to_path` writes the defaults once, and never
@@ -436,7 +440,7 @@ fn test_ensure_saved_writes_defaults_only_once() {
     let scratch = std::path::Path::new("target/agent-work/tests/settings");
     fs::create_dir_all(scratch).expect("scratch dir is writable");
     let path = scratch.join("ensure-saved.json");
-    let _ = fs::remove_file(&path);
+    crate::test_support::remove_file_if_present(&path);
 
     Settings::default().ensure_saved_to_path(&path);
     assert!(path.exists(), "first run writes the default file");
@@ -454,7 +458,7 @@ fn test_ensure_saved_writes_defaults_only_once() {
         "existing file is not replaced",
     );
 
-    let _ = fs::remove_file(path);
+    crate::test_support::remove_file_if_present(path);
 }
 
 /// Action names are shown to the player in the settings prompt and status
@@ -577,7 +581,7 @@ fn test_new_preferences_persist_round_trip() {
     assert_eq!(loaded.quality_level(), crate::quality::QualityLevel::High);
     assert!(loaded.vsync_enabled());
 
-    let _ = fs::remove_file(path);
+    crate::test_support::remove_file_if_present(path);
 }
 
 /// A zero, absurd or malformed display value is repaired rather than accepted.
@@ -603,12 +607,12 @@ fn test_display_values_are_sanitized() {
 
     // Every real mode survives, case-insensitively.
     for mode in WindowMode::ALL {
-        let mut settings = Settings {
+        let mut mode_settings = Settings {
             window_mode: mode.name().to_uppercase(),
             ..Settings::default()
         };
-        settings.sanitize();
-        assert_eq!(settings.window_mode(), mode);
+        mode_settings.sanitize();
+        assert_eq!(mode_settings.window_mode(), mode);
     }
 }
 
@@ -780,7 +784,7 @@ fn test_quality_and_texture_filtering_are_independent() {
     assert_eq!(settings.texture_filtering, "low");
     assert!(settings.set_quality(QualityLevel::Medium));
     assert_eq!(settings.texture_filtering, "medium", "cascade rewrites it");
-    let _ = settings.take_pending_apply();
+    let _cleared_pending_apply = settings.take_pending_apply();
 }
 
 /// Selecting the value already in force changes nothing and owes nothing.
@@ -885,7 +889,7 @@ fn test_the_quality_preset_mapping_table_is_exact() {
         ),
     ] {
         let mut settings = Settings::default();
-        settings.set_quality(level);
+        let _quality_changed = settings.set_quality(level);
         assert_eq!(settings.texture_filtering_preset(), filtering);
         assert_eq!(settings.texture_filtering, filtering);
         assert_eq!(settings.lightmap_quality(), lightmaps);
@@ -908,7 +912,7 @@ fn test_quality_cascades_the_advanced_presets_and_requests_one_graphics_apply() 
     assert!(settings.set_texture_filtering("low"));
     assert!(settings.set_lightmap_quality(LightmapQuality::Off));
     assert!(settings.set_reflection_quality(ReflectionQuality::Off));
-    let _ = settings.take_pending_apply();
+    let _cleared_pending_apply = settings.take_pending_apply();
 
     for (level, filtering, lightmaps, reflections) in [
         (
@@ -971,8 +975,8 @@ fn test_advanced_overrides_never_change_the_quality_label() {
     ];
     for (level, which, lightmaps, reflections, filtering) in cases {
         let mut settings = Settings::default();
-        settings.set_quality(level);
-        let _ = settings.take_pending_apply();
+        let _quality_changed = settings.set_quality(level);
+        let _cleared_pending_apply = settings.take_pending_apply();
         if which == "lightmaps" {
             assert!(settings.set_lightmap_quality(lightmaps));
         } else {
@@ -1004,9 +1008,9 @@ fn test_advanced_overrides_persist_round_trip() {
     let path = scratch.join("advanced-round-trip.json");
 
     let mut settings = Settings::default();
-    settings.set_quality(QualityLevel::Low);
-    settings.set_lightmap_quality(LightmapQuality::Full);
-    let _ = settings.take_pending_apply();
+    let _quality_changed = settings.set_quality(QualityLevel::Low);
+    let _lightmap_quality_changed = settings.set_lightmap_quality(LightmapQuality::Full);
+    let _cleared_pending_apply = settings.take_pending_apply();
     settings.save_to_path(&path).expect("save settings");
 
     let loaded = Settings::load_or_default_from_path(&path);
@@ -1022,7 +1026,7 @@ fn test_advanced_overrides_persist_round_trip() {
     assert!(json.contains(r#""lightmaps": "full""#), "{json}");
     assert!(json.contains(r#""reflections": "off""#), "{json}");
 
-    let _ = fs::remove_file(path);
+    crate::test_support::remove_file_if_present(path);
 }
 
 /// A file that omits the Advanced keys derives all three from its saved
@@ -1083,7 +1087,7 @@ fn test_a_valid_settings_file_is_not_renamed() {
     fs::create_dir_all(scratch).expect("scratch dir is writable");
     let path = scratch.join("valid-advanced.json");
     let invalid = scratch.join("valid-advanced.json.invalid");
-    let _ = fs::remove_file(&invalid);
+    crate::test_support::remove_file_if_present(&invalid);
     fs::write(
         &path,
         settings_json(
@@ -1100,7 +1104,7 @@ fn test_a_valid_settings_file_is_not_renamed() {
     assert_eq!(loaded.lightmap_quality(), LightmapQuality::Full);
     assert_eq!(loaded.reflection_quality(), ReflectionQuality::Off);
 
-    let _ = fs::remove_file(path);
+    crate::test_support::remove_file_if_present(path);
 }
 
 /// Each Advanced setter clears its own startup override and records one
@@ -1204,12 +1208,12 @@ fn a_missing_jump_binding_defaults_on_load() {
         },
         "mouse_sensitivity": 0.44
     }"#;
-    let parsed: Settings = serde_json::from_str(with_jump).expect("a newer file parses");
-    assert_eq!(parsed.bindings.jump, "J");
-    assert_exact(parsed.mouse_sensitivity, 0.44);
+    let explicit_jump: Settings = serde_json::from_str(with_jump).expect("a newer file parses");
+    assert_eq!(explicit_jump.bindings.jump, "J");
+    assert_exact(explicit_jump.mouse_sensitivity, 0.44);
 
     // A round trip through serialization keeps both new fields.
-    let json = serde_json::to_string(&parsed).expect("serialize");
+    let json = serde_json::to_string(&explicit_jump).expect("serialize");
     assert!(json.contains(r#""jump":"J""#), "{json}");
     assert!(json.contains(r#""mouse_sensitivity":0.44"#), "{json}");
 }
@@ -1236,10 +1240,11 @@ fn a_missing_interact_binding_defaults_on_load() {
             "jump": "SPACE", "crouch": "C", "interact": "Q"
         }
     }"#;
-    let parsed: Settings = serde_json::from_str(with_interact).expect("a newer file parses");
-    assert_eq!(parsed.bindings.interact, "Q");
+    let explicit_interact: Settings =
+        serde_json::from_str(with_interact).expect("a newer file parses");
+    assert_eq!(explicit_interact.bindings.interact, "Q");
 
-    let json = serde_json::to_string(&parsed).expect("serialize");
+    let json = serde_json::to_string(&explicit_interact).expect("serialize");
     assert!(json.contains(r#""interact":"Q""#), "{json}");
 }
 
@@ -1301,7 +1306,7 @@ fn without_interact_bindings() -> &'static str {
 fn a_saved_quality_restarts_as_the_same_graphics_configuration() {
     for level in QualityLevel::ALL {
         let mut saved = Settings::default();
-        saved.set_quality(level);
+        let _quality_changed = saved.set_quality(level);
         let json = serde_json::to_string(&saved).expect("settings serialize");
         let mut loaded: Settings = serde_json::from_str(&json).expect("settings parse");
         loaded.sanitize();
@@ -1354,8 +1359,8 @@ fn a_quality_reached_through_low_is_the_same_configuration_as_a_direct_launch() 
     for level in QualityLevel::ALL {
         for start in QualityLevel::ALL {
             let mut settings = Settings::default();
-            settings.set_quality(start);
-            settings.set_quality(level);
+            let _quality_changed = settings.set_quality(start);
+            let _quality_changed_2 = settings.set_quality(level);
             assert_eq!(
                 settings.graphics_spec(),
                 direct(level),
@@ -1372,8 +1377,8 @@ fn a_quality_reached_through_low_is_the_same_configuration_as_a_direct_launch() 
 #[test]
 fn re_selecting_the_stored_quality_is_still_an_explicit_request() {
     let mut settings = Settings::default();
-    settings.set_quality(QualityLevel::High);
-    let _ = settings.take_pending_apply();
+    let _quality_changed = settings.set_quality(QualityLevel::High);
+    let _cleared_pending_apply = settings.take_pending_apply();
     assert!(!settings.set_quality(QualityLevel::High), "no value change");
     assert!(
         !settings.take_pending_apply().graphics,

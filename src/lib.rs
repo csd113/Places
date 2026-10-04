@@ -114,7 +114,10 @@ const fn menu_next(index: usize, len: usize) -> usize {
 ///
 /// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
 // Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "Startup CLI output that has no logger to route through."
+)]
 fn log_prop_usage(renderer: &Renderer) {
     if !logging::verbose() {
         return;
@@ -187,7 +190,10 @@ fn log_prop_usage(renderer: &Renderer) {
 /// objects a level spawns (and the previous level's objects being cleared) are
 /// visible in the developer telemetry.
 // Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "Startup CLI output that has no logger to route through."
+)]
 fn log_dynamic_scene(renderer: &Renderer) {
     if !logging::verbose() {
         return;
@@ -250,7 +256,10 @@ fn package_root() -> PathBuf {
 /// package has to run from its own root. A development build already does this
 /// and is left alone.
 // Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stderr)]
+#[expect(
+    clippy::print_stderr,
+    reason = "Startup CLI output that has no logger to route through."
+)]
 fn use_package_assets() -> PathBuf {
     let package = package_root();
     let current = std::env::current_dir().ok();
@@ -354,11 +363,12 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
     }
 
     let mut builder = video.window("Places", width, height);
-    builder.position_centered().resizable().high_pixel_density();
+    let _configured_position_centered =
+        builder.position_centered().resizable().high_pixel_density();
     if settings.window_mode() == WindowMode::Fullscreen {
         // A window asked for fullscreen without an explicit display mode is
         // borderless desktop fullscreen.
-        builder.fullscreen();
+        let _configured_fullscreen = builder.fullscreen();
     }
     let window = builder
         .build()
@@ -426,13 +436,13 @@ fn log_asset_catalog(level_manager: &loader::LevelManager) {
         .iter()
         .map(|theme| theme.id.as_str())
         .collect();
-    let themes = if themes.is_empty() {
+    let available_themes = if themes.is_empty() {
         "(none)".to_string()
     } else {
         themes.join(", ")
     };
     logging::info(format!(
-        "[assets] {} placeable asset(s) of {} catalog entries; themes: {themes}",
+        "[assets] {} placeable asset(s) of {} catalog entries; themes: {available_themes}",
         catalog.len(),
         catalog.assets().len()
     ));
@@ -445,16 +455,16 @@ fn log_asset_catalog(level_manager: &loader::LevelManager) {
 /// fixtures and their benchmarks are unaffected by it.
 fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLevel) {
     if loaded.level.id == loader::DEMO_LEVEL_ID {
-        renderer.set_dynamic_demo(&loaded.level);
+        let _dynamic_demo_changed = renderer.set_dynamic_demo(&loaded.level);
     }
     // Floating props are level content, not a demonstration: every level that
     // authors `float` gets them, and the spawn is idempotent. It runs after
     // the demo spawn because that one clears the whole dynamic scene first.
-    renderer.set_floating_props(&loaded.level);
+    let _floating_props_changed = renderer.set_floating_props(&loaded.level);
     // Ambient effects are level content too: the install already built the
     // steam plumes from the resolved material table, and this idempotent call
     // is the engine's explicit hand-off.
-    renderer.set_level_effects(&loaded.level);
+    let _level_effects_changed = renderer.set_level_effects(&loaded.level);
 }
 
 /// Builds the renderer for the initial level and applies the persisted texture
@@ -605,7 +615,10 @@ fn spawn_override_from_env() -> Option<[f32; 4]> {
 
 /// Opens the `PLACES_STATE_LOG` CSV file, reporting why it cannot be used.
 // Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stderr)]
+#[expect(
+    clippy::print_stderr,
+    reason = "Startup CLI output that has no logger to route through."
+)]
 fn open_state_log() -> Option<std::fs::File> {
     let path = std::env::var("PLACES_STATE_LOG")
         .ok()
@@ -679,7 +692,11 @@ fn pause_requested() -> bool {
 /// The `PLACES_CAPTURE=frame.png` developer path captures rendered pixels
 /// directly for reproducible visual checks.
 // CLI output that has no logger to route through.
-#[allow(clippy::print_stdout, clippy::print_stderr)]
+#[expect(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "CLI output that has no logger to route through."
+)]
 fn write_capture(renderer: &mut Renderer, path: &Path) {
     match renderer.capture_default_framebuffer() {
         Ok(image) => match loader::encode_png(&image) {
@@ -867,7 +884,8 @@ impl FrameLoop<'_> {
             self.ui_state
                 .set_status("Stopping level preparation...".to_string(), false);
             let (width, height) = self.window.size_in_pixels();
-            self.renderer
+            let _drawable_size_changed = self
+                .renderer
                 .set_drawable_size(DrawableSize::new(width, height));
             self.renderer.render_scene(render::RenderCamera::new(
                 *self.spawn_pos,
@@ -883,7 +901,7 @@ impl FrameLoop<'_> {
                 APP_VERSION,
             );
             self.renderer.render_ui(vertices);
-            self.renderer.present(self.window);
+            let _present_status = self.renderer.present(self.window);
             std::thread::sleep(std::time::Duration::from_millis(16));
         }
         if let Err(error) = self.loader.join_finished() {
@@ -899,7 +917,7 @@ impl FrameLoop<'_> {
     }
 
     /// One complete frame: input, simulation, render, present, telemetry.
-    #[allow(clippy::too_many_lines)] // one cohesive frame: input, update, draw
+    // one cohesive frame: input, update, draw
     fn frame(&mut self) {
         // A fatal GPU condition must stop the process through the normal
         // shutdown path instead of issuing more work on a lost device.
@@ -944,7 +962,7 @@ impl FrameLoop<'_> {
                 .bench
                 .quality_cycle_at(self.ready_frames.saturating_add(1))
         {
-            self.settings.set_quality(level);
+            let _quality_changed = self.settings.set_quality(level);
         }
         if self.bench.enabled()
             && self.load_intent.is_none()
@@ -1012,7 +1030,7 @@ impl FrameLoop<'_> {
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
-        self.renderer.update_dynamic(self.game.delta_seconds());
+        let _update_stats = self.renderer.update_dynamic(self.game.delta_seconds());
         // Animated characters follow the player's locomotion state unless a
         // map-authored route or interaction addresses them by instance id
         // (`game.entity_frames()`); the renderer re-skins only the characters
@@ -1114,7 +1132,10 @@ impl FrameLoop<'_> {
     /// stable runtime key, and this is the one place they become renderer
     /// calls. A failed spawn is counted in the world and reported once per
     /// model here, never retried in a loop.
-    #[allow(clippy::too_many_lines)] // one command dispatcher, one arm per command
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one command dispatcher, one arm per command"
+    )] // one command dispatcher, one arm per command
     fn apply_world_commands(&mut self) {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
@@ -1136,9 +1157,9 @@ impl FrameLoop<'_> {
                         .and_then(|handle| self.game.entities().instance_id_of(handle))
                         .map(str::to_string);
                     let mut spawned_character = false;
-                    if let Some(instance_id) = instance_id.as_deref() {
+                    if let Some(character_id) = instance_id.as_deref() {
                         match self.renderer.spawn_runtime_character(
-                            instance_id,
+                            character_id,
                             &model,
                             position.to_array(),
                             yaw_degrees,
@@ -1176,9 +1197,10 @@ impl FrameLoop<'_> {
                     entity,
                     instance_id,
                 } => {
-                    self.renderer.despawn_runtime_model(entity);
+                    let _despawn_runtime_model_status = self.renderer.despawn_runtime_model(entity);
                     if !instance_id.is_empty() {
-                        self.renderer.despawn_runtime_character(&instance_id);
+                        let _despawn_runtime_character_status =
+                            self.renderer.despawn_runtime_character(&instance_id);
                     }
                 }
                 crate::entities::WorldCommand::SetDynamicTransform {
@@ -1186,23 +1208,28 @@ impl FrameLoop<'_> {
                     position,
                     yaw_degrees,
                 } => {
-                    self.renderer
-                        .set_runtime_transform(entity, position.to_array(), yaw_degrees);
+                    let _runtime_transform_changed = self.renderer.set_runtime_transform(
+                        entity,
+                        position.to_array(),
+                        yaw_degrees,
+                    );
                     if let Some(instance_id) = self
                         .game
                         .entities()
                         .handle_for_dynamic_key(entity)
                         .and_then(|handle| self.game.entities().instance_id_of(handle))
                     {
-                        self.renderer.set_runtime_character_transform(
-                            instance_id,
-                            position.to_array(),
-                            yaw_degrees,
-                        );
+                        let _runtime_character_transform_changed =
+                            self.renderer.set_runtime_character_transform(
+                                instance_id,
+                                position.to_array(),
+                                yaw_degrees,
+                            );
                     }
                 }
                 crate::entities::WorldCommand::SetDynamicEmission { entity, scale } => {
-                    self.renderer.set_runtime_emission(entity, scale);
+                    let _runtime_emission_changed =
+                        self.renderer.set_runtime_emission(entity, scale);
                 }
                 crate::entities::WorldCommand::PlaySound {
                     entity,
@@ -1223,12 +1250,13 @@ impl FrameLoop<'_> {
                     let _ = entity;
                 }
                 crate::entities::WorldCommand::SetEffectEnabled { index, enabled } => {
-                    let index = usize::try_from(index).unwrap_or(usize::MAX);
-                    self.renderer.set_effect_enabled(index, enabled);
+                    let effect_index = usize::try_from(index).unwrap_or(usize::MAX);
+                    let _effect_enabled_changed =
+                        self.renderer.set_effect_enabled(effect_index, enabled);
                 }
                 crate::entities::WorldCommand::SetWaterEnabled { index, enabled } => {
-                    let index = usize::try_from(index).unwrap_or(usize::MAX);
-                    self.game.set_water_enabled(index, enabled);
+                    let water_index = usize::try_from(index).unwrap_or(usize::MAX);
+                    self.game.set_water_enabled(water_index, enabled);
                 }
             }
         }
@@ -1388,7 +1416,7 @@ impl FrameLoop<'_> {
                 .as_ref()
                 .map(|level| loading::Source::retained(level.clone()))
         });
-        let Some(source) = source else {
+        let Some(rebuild_source) = source else {
             // Nothing to rebuild from: the request cannot be scheduled here.
             // Hold it so the reconciliation does not retry every frame; the
             // next world commit makes the request schedulable again.
@@ -1412,7 +1440,7 @@ impl FrameLoop<'_> {
             })
             .to_string(),
         );
-        self.request_load(source, intent);
+        self.request_load(rebuild_source, intent);
     }
 
     /// Keeps the one-line "Applying ..." hint in step with the renderer.
@@ -1482,12 +1510,18 @@ impl FrameLoop<'_> {
                 .set_size(width, height)
                 .map_err(|error| error.to_string()),
             bench::WindowAction::Minimize => {
-                self.window.minimize();
-                Ok(())
+                if self.window.minimize() {
+                    Ok(())
+                } else {
+                    Err(sdl3::get_error().to_string())
+                }
             }
             bench::WindowAction::Restore => {
-                self.window.restore();
-                Ok(())
+                if self.window.restore() {
+                    Ok(())
+                } else {
+                    Err(sdl3::get_error().to_string())
+                }
             }
         };
         if let Err(error) = result {
@@ -1595,7 +1629,7 @@ impl FrameLoop<'_> {
                 drawable_width,
                 drawable_height,
                 if window_size.0 == 0 {
-                    0.0
+                    0.0_f64
                 } else {
                     f64::from(drawable_width) / f64::from(window_size.0)
                 },
@@ -1615,8 +1649,7 @@ impl FrameLoop<'_> {
     fn log_player_state(&mut self) {
         if let Some(log) = self.state_log.as_mut()
             && self.game.frame_count().is_multiple_of(STATE_LOG_INTERVAL)
-        {
-            let _ = writeln!(
+            && let Err(error) = writeln!(
                 log,
                 "{},{:.4},{:.4},{:.4},{:.4},{:.4}",
                 self.game.frame_count(),
@@ -1625,7 +1658,10 @@ impl FrameLoop<'_> {
                 self.game.player_position.z,
                 self.game.player_yaw,
                 self.game.player_pitch
-            );
+            )
+        {
+            logging::warn(format!("[state] could not write player state: {error}"));
+            *self.state_log = None;
         }
     }
 
@@ -1669,7 +1705,7 @@ impl FrameLoop<'_> {
             self.load_generation,
             &serde_json::json!({
                 "id": received.id, "kind": format!("{:?}", received.action),
-                "latency_ms": received.latency.as_secs_f64() * 1000.0,
+                "latency_ms": received.latency.as_secs_f64() * 1_000.0_f64,
             })
             .to_string(),
         );
@@ -1688,7 +1724,7 @@ impl FrameLoop<'_> {
                 }
             }
             perf::actions::Action::Escape {} => {
-                self.handle_event(&Event::KeyDown {
+                let _handle_event_status = self.handle_event(&Event::KeyDown {
                     timestamp: 0,
                     window_id: self.window.id(),
                     keycode: Some(Keycode::Escape),
@@ -1698,7 +1734,7 @@ impl FrameLoop<'_> {
                     which: 0,
                     raw: 0,
                 });
-                self.handle_event(&Event::KeyUp {
+                let _handle_event_status_2 = self.handle_event(&Event::KeyUp {
                     timestamp: 0,
                     window_id: self.window.id(),
                     keycode: Some(Keycode::Escape),
@@ -1726,8 +1762,9 @@ impl FrameLoop<'_> {
                 }
             }
             perf::actions::Action::Lightmaps { quality } => {
-                if let Some(quality) = quality::LightmapQuality::parse(&quality) {
-                    self.settings.set_lightmap_quality(quality);
+                if let Some(lightmap_quality) = quality::LightmapQuality::parse(&quality) {
+                    let _lightmap_quality_changed =
+                        self.settings.set_lightmap_quality(lightmap_quality);
                 }
             }
             perf::actions::Action::LowLighting { enabled } => {
@@ -1763,7 +1800,7 @@ impl FrameLoop<'_> {
             return self.handle_scripted_action(received);
         }
 
-        if let Event::Quit { .. } = event {
+        if let Event::Quit { timestamp: _ } = event {
             self.game.stop();
             return false;
         }
@@ -1771,7 +1808,12 @@ impl FrameLoop<'_> {
         // Window focus is tracked before any screen-specific handling so a
         // focus change is never swallowed by a rebind or a menu branch:
         // `sync_mouse_capture` reconciles relative mouse mode from it.
-        if let Event::Window { win_event, .. } = event {
+        if let Event::Window {
+            win_event,
+            timestamp: _,
+            window_id: _,
+        } = event
+        {
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
                 // A key released while another window had focus may never
@@ -1798,7 +1840,12 @@ impl FrameLoop<'_> {
                 Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     repeat: false,
-                    ..
+                    timestamp: _,
+                    window_id: _,
+                    scancode: _,
+                    keymod: _,
+                    which: _,
+                    raw: _
                 }
             )
         {
@@ -1813,33 +1860,9 @@ impl FrameLoop<'_> {
             }
         }
 
-        // 1. If currently waiting for key rebinding in Settings
+        // Rebinding consumes keyboard input before overlay/menu/gameplay keys.
         if let Some(action) = self.ui_state.rebinding_action {
-            if let Event::KeyDown {
-                keycode: Some(key), ..
-            } = event
-            {
-                if *key == Keycode::Escape {
-                    self.ui_state.cancel_rebinding();
-                } else {
-                    let key_str = keycode_to_str(*key);
-                    match self.settings.bindings.set_key(action, &key_str) {
-                        Ok(()) => {
-                            let label = crate::settings::action_label(action);
-                            self.ui_state
-                                .set_status(format!("Bound {label} to [{key_str}]"), false);
-                            if let Err(error) = self.settings.save() {
-                                self.ui_state
-                                    .set_status(format!("Could not save settings: {error}"), true);
-                            }
-                        }
-                        Err(err) => {
-                            self.ui_state.set_status(err, true);
-                        }
-                    }
-                    self.ui_state.rebinding_action = None;
-                }
-            }
+            self.handle_rebinding_event(event, action);
             return true;
         }
 
@@ -1848,7 +1871,12 @@ impl FrameLoop<'_> {
         if let Event::KeyDown {
             keycode: Some(Keycode::Minus | Keycode::KpMinus),
             repeat: false,
-            ..
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
         } = event
         {
             self.perf_overlay.toggle();
@@ -1861,7 +1889,12 @@ impl FrameLoop<'_> {
             if let Event::KeyDown {
                 keycode: Some(Keycode::Escape),
                 repeat: false,
-                ..
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                which: _,
+                raw: _,
             } = event
             {
                 self.input_handler.clear_gameplay_inputs();
@@ -1874,6 +1907,42 @@ impl FrameLoop<'_> {
             self.handle_menu_nav(nav);
         }
         true
+    }
+
+    /// Handles a key while the Controls screen is waiting for a binding.
+    fn handle_rebinding_event(&mut self, event: &Event, action: &str) {
+        if let Event::KeyDown {
+            keycode: Some(key),
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            repeat: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            if *key == Keycode::Escape {
+                self.ui_state.cancel_rebinding();
+            } else {
+                let key_str = keycode_to_str(*key);
+                match self.settings.bindings.set_key(action, &key_str) {
+                    Ok(()) => {
+                        let label = crate::settings::action_label(action);
+                        self.ui_state
+                            .set_status(format!("Bound {label} to [{key_str}]"), false);
+                        if let Err(error) = self.settings.save() {
+                            self.ui_state
+                                .set_status(format!("Could not save settings: {error}"), true);
+                        }
+                    }
+                    Err(err) => {
+                        self.ui_state.set_status(err, true);
+                    }
+                }
+                self.ui_state.rebinding_action = None;
+            }
+        }
     }
 
     /// Dispatches one menu navigation event for the current screen.
@@ -2273,10 +2342,10 @@ impl FrameLoop<'_> {
                     self.trace.record("preparation_result", id, &serde_json::json!({
                         "level": prepared.loaded.level.id, "wall_ms": prepared.preparation_millis,
                         "cache_hit": prepared.cache_hit,
-                        "lighting_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.lighting_millis },
-                        "props_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.props_millis },
-                        "surfaces_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.surfaces_millis },
-                        "atlas_ms": if prepared.cache_hit { 0.0 } else { prepared.build.lightmap_millis },
+                        "lighting_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.lighting_millis },
+                        "props_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.props_millis },
+                        "surfaces_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.surfaces_millis },
+                        "atlas_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.lightmap_millis },
                         "retained_bytes": prepared.build.retained_bytes(),
                     }).to_string());
                     let loading::PreparedWorld {
@@ -2286,7 +2355,9 @@ impl FrameLoop<'_> {
                         characters,
                         assets,
                         probes,
-                        ..
+                        preparation_millis: _,
+                        cache_hit: _,
+                        lightmaps: _,
                     } = prepared;
                     self.renderer.install_prepared_precompiled(
                         &loaded,
@@ -2324,8 +2395,8 @@ impl FrameLoop<'_> {
         let phase = self.loader.phase();
         if phase != self.load_phase {
             self.load_phase = phase;
-            if let Some(phase) = phase {
-                let label = match phase {
+            if let Some(active_phase) = phase {
+                let label = match active_phase {
                     loading::Phase::Queued => "Waiting for previous preparation",
                     loading::Phase::Reading => "Reading level and assets",
                     loading::Phase::Geometry => "Assembling compiled world",
@@ -2747,7 +2818,7 @@ impl FrameLoop<'_> {
             return;
         }
 
-        self.renderer.set_drawable_size(drawable);
+        let _drawable_size_changed = self.renderer.set_drawable_size(drawable);
 
         // Render scene
         let (cam_pos, cam_yaw, cam_pitch) = match self.game.app_state() {
@@ -2763,7 +2834,7 @@ impl FrameLoop<'_> {
         };
         // `PLACES_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
         // measures the same view twice; it never changes gameplay.
-        let (cam_yaw, cam_pitch) = match self.bench.camera_override() {
+        let (render_yaw, render_pitch) = match self.bench.camera_override() {
             Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
             None => (cam_yaw, cam_pitch),
         };
@@ -2772,8 +2843,8 @@ impl FrameLoop<'_> {
         if !skip_render {
             self.renderer.render_scene(render::RenderCamera::new(
                 cam_pos,
-                cam_yaw,
-                cam_pitch,
+                render_yaw,
+                render_pitch,
                 self.settings.fov_degrees,
             ));
         }
@@ -2793,7 +2864,7 @@ impl FrameLoop<'_> {
         // Menu/settings UI geometry is cached and only rebuilt when its inputs
         // change. Floating interaction labels and the aimed-at prompt are
         // appended to the same submission.
-        self.submit_ui(drawable, cam_pos, cam_yaw, cam_pitch, skip_render);
+        self.submit_ui(drawable, cam_pos, render_yaw, render_pitch, skip_render);
         // `PLACES_BENCH_FINISH=1`: force submitted GPU work to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".
@@ -2926,7 +2997,7 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     perf::startup_mark("window");
     // Boot applies every setting explicitly (window, swap interval, renderer),
     // so no pending work is owed after it.
-    let _ = settings.take_pending_apply();
+    let _cleared_pending_apply = settings.take_pending_apply();
     Ok((sdl_context, video_subsystem, window, settings, bench))
 }
 
@@ -2936,9 +3007,10 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
         .filter(|value| !value.trim().is_empty());
     let initial_entry = requested
         .as_ref()
-        .and_then(|requested| {
+        .and_then(|requested_level| {
             level_manager.entries().iter().find(|entry| {
-                entry.id == requested.trim() || entry.name.eq_ignore_ascii_case(requested.trim())
+                entry.id == requested_level.trim()
+                    || entry.name.eq_ignore_ascii_case(requested_level.trim())
             })
         })
         .or_else(|| {
@@ -2948,9 +3020,10 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
                 .find(|entry| entry.id == loader::DEMO_LEVEL_ID)
         })
         .cloned();
-    let direct = requested.as_ref().is_some_and(|requested| {
+    let direct = requested.as_ref().is_some_and(|requested_level| {
         initial_entry.as_ref().is_some_and(|entry| {
-            entry.id == requested.trim() || entry.name.eq_ignore_ascii_case(requested.trim())
+            entry.id == requested_level.trim()
+                || entry.name.eq_ignore_ascii_case(requested_level.trim())
         })
     });
     if requested.is_some() && !direct {
@@ -2985,7 +3058,10 @@ fn dispatch_geometry_cli(args: &[String]) -> Result<(), Box<dyn std::error::Erro
 /// from any working directory or a staged packaged layout can be checked
 /// without a display or a GPU. Returns true when the flag was handled.
 // Startup CLI output has no logger to route through.
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "Startup CLI output has no logger to route through."
+)]
 fn dispatch_list_levels_cli(args: &[String]) -> bool {
     if !args.iter().any(|argument| argument == "--list-levels") {
         return false;
@@ -3002,6 +3078,20 @@ fn dispatch_list_levels_cli(args: &[String]) -> bool {
     true
 }
 
+/// Reads native arguments without panicking on an invalid Unicode sequence.
+fn command_line_arguments() -> Result<Vec<String>, String> {
+    std::env::args_os()
+        .skip(1)
+        .map(std::ffi::OsString::into_string)
+        .collect::<Result<_, _>>()
+        .map_err(|invalid_argument| {
+            format!(
+                "a command-line argument is not valid UTF-8 ({} encoded bytes)",
+                invalid_argument.len()
+            )
+        })
+}
+
 /// Runs the Places player: window, renderer, discovery, loading and the frame loop.
 ///
 /// The library root exists so the offline compiler (`places-compile`) shares the
@@ -3012,7 +3102,7 @@ fn dispatch_list_levels_cli(args: &[String]) -> bool {
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The geometry checker is a headless CLI mode: it must run before any SDL
     // or wgpu bootstrap, and it exits the process with its own status.
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args = command_line_arguments()?;
     dispatch_geometry_cli(&args)?;
     if dispatch_list_levels_cli(&args) {
         return Ok(());

@@ -63,3 +63,12 @@ pub mod ui;
 pub mod world;
 
 pub use renderer::WgpuRenderer;
+
+/// Byte size of one GPU record in a const buffer layout.
+#[expect(
+    clippy::as_conversions,
+    reason = "Places' desktop targets use at most 64-bit usize, so a GPU record's size converts exactly to BufferAddress during const evaluation"
+)]
+pub(super) const fn buffer_element_bytes<T>() -> wgpu::BufferAddress {
+    std::mem::size_of::<T>() as wgpu::BufferAddress
+}

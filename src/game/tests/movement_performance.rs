@@ -6,7 +6,10 @@ use std::hint::black_box;
 use std::time::Instant;
 
 // Assertions and fixture decoding belong to this opt-in test, not gameplay.
-#[allow(clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "Assertions and fixture decoding belong to this opt-in test, not gameplay."
+)]
 #[test]
 #[ignore = "opt-in before/after movement hot-path measurement"]
 fn measure_controller_hot_path() {
@@ -42,7 +45,7 @@ fn measure_controller_hot_path() {
         game.set_app_state(AppState::Playing);
         let settings = Settings::default();
         let mut samples = Vec::new();
-        for _ in 0..7 {
+        for _ in 0_i32..7_i32 {
             let start = Instant::now();
             for frame in 0..20_000_u32 {
                 if frame % 240 == 0 {
@@ -58,9 +61,9 @@ fn measure_controller_hot_path() {
                     &[Control::MoveForward][..]
                 };
                 game.update_player_movement(&mut InputState::holding(controls), &settings);
-                black_box(game.player_position);
+                let _black_box_status = black_box(game.player_position);
             }
-            samples.push(start.elapsed().as_secs_f64() * 1_000_000.0 / 20_000.0);
+            samples.push(start.elapsed().as_secs_f64() * 1_000_000.0_f64 / 20_000.0_f64);
         }
         samples.sort_by(f64::total_cmp);
         let median = samples.get(3).copied().expect("seven samples");

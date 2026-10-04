@@ -983,8 +983,36 @@
       "display_name": "Validation Marking",
       "asset_class": "diagnostic",
       "asset_type": "decal",
-      "source": "generated",
-      "description": "Internal validation marking used by the rendering diagnostic."
+      "source": "file",
+      "model": "core/decals/validation_atlas_01.png",
+      "description": "Fixed validation atlas with the original four-cell layout and bottom-up row convention."
+    },
+    {
+      "id": "core:tex_missing",
+      "display_name": "Missing Texture Checker",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/missing_01.png",
+      "description": "Embedded 64x64 magenta and dark checker for broken external textures."
+    },
+    {
+      "id": "core:tex_ui_font_01",
+      "display_name": "UI Bitmap Font Atlas",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/ui/font_01.png",
+      "description": "Embedded 128x64 ASCII atlas with sixteen 8x8 cells per row and the reserved opaque white UI cell."
+    },
+    {
+      "id": "core:tex_white_fallback_01",
+      "display_name": "Emergency White Sheet",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/white_fallback_01.png",
+      "description": "Embedded 2x2 opaque white sheet used only if the primary white asset cannot decode."
     },
     {
       "id": "spooner-man",

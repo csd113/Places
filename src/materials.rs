@@ -36,7 +36,8 @@
 //! Module layout
 //! -------------
 //! ```text
-//! image.rs     PNG decode/encode, the diagnostic pattern and the session cache
+//! builtin.rs   fixed embedded PNG sheets and their build invariants
+//! image.rs     PNG decode/encode, the diagnostic sheet and the session cache
 //! pack.rs      material definitions carried inside a level pack
 //! resolve.rs   material id -> catalog -> texture -> decoded image
 //! decal.rs     external PNG decal sheets
@@ -45,6 +46,7 @@
 //! tests.rs     unit tests for the whole pipeline
 //! ```
 
+mod builtin;
 mod decal;
 mod emission;
 mod image;
@@ -55,6 +57,8 @@ mod response;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use builtin::BuiltinImage;
 
 pub use decal::{ResolvedDecalSheet, resolve_decal_sheet};
 pub use emission::{

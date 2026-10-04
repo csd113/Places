@@ -20,17 +20,10 @@
 //! touches component tables or the renderer, which keeps a decision, a move
 //! and an event reproducible from the same inputs.
 
-// The navigation/AI runtime is numeric kernel code: bounded `f32` geometry
-// over validated finite records, lattice indices converted after their caps
-// are enforced, and fixed-size arrays walked by index. Those are exactly the
-// shapes the cast/float/index lints flag, so they are allowed here as a unit;
-// no other module inherits them, and every allocation and collection access
-// still goes through bounds-checked paths.
+// Preserve exact sentinel comparisons, floating-point operation order and
+// cohesive geometry/query stages. Numeric conversions and integer arithmetic
+// are audited at their local expressions instead of exempting the module.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::float_cmp,
     clippy::imprecise_flops,
     clippy::missing_const_for_fn,
@@ -38,7 +31,8 @@
     clippy::similar_names,
     clippy::suboptimal_flops,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
 pub mod movement;
@@ -212,10 +206,10 @@ impl AiDef {
     /// True when `role` is one this agent reacts to.
     #[must_use]
     pub fn reacts_to_role(&self, role: Option<&str>) -> bool {
-        let Some(role) = role else {
+        let Some(authored_role) = role else {
             return false;
         };
-        self.reacts_to.iter().any(|tag| tag == role)
+        self.reacts_to.iter().any(|tag| tag == authored_role)
     }
 }
 
@@ -302,12 +296,15 @@ impl AiState {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Idle => "idle",
-            Self::Wander { .. } => "wander",
-            Self::Follow { .. } => "follow",
-            Self::Flee { .. } => "flee",
-            Self::Investigate { .. } => "investigate",
-            Self::Pursue { .. } => "pursue",
-            Self::Catch { .. } => "catch",
+            Self::Wander { destination: _ } => "wander",
+            Self::Follow { target: _ } => "follow",
+            Self::Flee {
+                threat: _,
+                destination: _,
+            } => "flee",
+            Self::Investigate { point: _ } => "investigate",
+            Self::Pursue { target: _ } => "pursue",
+            Self::Catch { target: _ } => "catch",
             Self::Scripted => "scripted",
             Self::Caught => "caught",
         }
@@ -318,11 +315,14 @@ impl AiState {
     pub const fn is_moving(self) -> bool {
         matches!(
             self,
-            Self::Wander { .. }
-                | Self::Follow { .. }
-                | Self::Flee { .. }
-                | Self::Investigate { .. }
-                | Self::Pursue { .. }
+            Self::Wander { destination: _ }
+                | Self::Follow { target: _ }
+                | Self::Flee {
+                    threat: _,
+                    destination: _
+                }
+                | Self::Investigate { point: _ }
+                | Self::Pursue { target: _ }
         )
     }
 }
@@ -410,7 +410,7 @@ impl AiAgent {
     pub const fn frozen(&self) -> bool {
         matches!(
             self.state,
-            AiState::Catch { .. } | AiState::Caught | AiState::Scripted
+            AiState::Catch { target: _ } | AiState::Caught | AiState::Scripted
         )
     }
 }
@@ -745,7 +745,7 @@ impl AiWorld {
                     )
                 },
             );
-            let _ = writeln!(
+            let _formatted_text = writeln!(
                 out,
                 "{} state={} pos=({:.2},{:.2},{:.2}) speed={:.2} goal={:?} waypoints={} \
                  doors={:?} contact={} catch_radius={:.2} caught={} stuck={:.1}",
@@ -779,7 +779,7 @@ impl AiWorld {
                 continue;
             }
             let scripted = ctx.scripted.contains(&agent.handle);
-            if scripted && !matches!(agent.state, AiState::Catch { .. }) {
+            if scripted && !matches!(agent.state, AiState::Catch { target: _ }) {
                 if !matches!(agent.state, AiState::Scripted) {
                     set_state(agent, AiState::Scripted, out);
                 }
@@ -797,12 +797,12 @@ impl AiWorld {
         // Apply catches after the iteration so the caught agent is frozen
         // without a second mutable borrow of the list.
         for (predator, prey) in &out.catches {
-            self.mark_caught(*prey);
+            let _mark_caught_status = self.mark_caught(*prey);
             if let Some(agent) = self
                 .agents
                 .iter_mut()
                 .find(|agent| agent.handle == *predator)
-                && matches!(agent.state, AiState::Catch { .. })
+                && matches!(agent.state, AiState::Catch { target: _ })
             {
                 agent.catch_cooldown = agent.def.idle_seconds.max(1.0);
             }
@@ -893,7 +893,7 @@ fn decide_predator(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
         }
         return;
     }
-    if matches!(agent.state, AiState::Investigate { .. }) {
+    if matches!(agent.state, AiState::Investigate { point: _ }) {
         if investigation_done(agent) {
             set_state(agent, AiState::Idle, out);
             agent.interest = None;
@@ -930,15 +930,20 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
         (reacts && close).then_some((contact.handle, contact.position))
     });
     let Some((threat_handle, threat_position)) = threat else {
-        if matches!(agent.state, AiState::Flee { .. })
-            && (agent.path.waypoints.is_empty()
-                || agent
-                    .path
-                    .reached()
-                    .is_none_or(|reached| reached.distance(agent.position) < 0.35))
+        if matches!(
+            agent.state,
+            AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ) && (agent.path.waypoints.is_empty()
+            || agent
+                .path
+                .reached()
+                .is_none_or(|reached| reached.distance(agent.position) < 0.35))
         {
             set_state(agent, AiState::Idle, out);
-        } else if matches!(agent.state, AiState::Investigate { .. }) {
+        } else if matches!(agent.state, AiState::Investigate { point: _ }) {
             if investigation_done(agent) {
                 set_state(agent, AiState::Idle, out);
                 agent.interest = None;
@@ -971,11 +976,11 @@ fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome
             threat_changed || destination_lost || done || threatened
         }
         AiState::Idle
-        | AiState::Wander { .. }
-        | AiState::Follow { .. }
-        | AiState::Investigate { .. }
-        | AiState::Pursue { .. }
-        | AiState::Catch { .. }
+        | AiState::Wander { destination: _ }
+        | AiState::Follow { target: _ }
+        | AiState::Investigate { point: _ }
+        | AiState::Pursue { target: _ }
+        | AiState::Catch { target: _ }
         | AiState::Scripted
         | AiState::Caught => true,
     };
@@ -1016,21 +1021,21 @@ fn decide_follower(agent: &mut AiAgent, _ctx: &AiTickContext<'_>, out: &mut AiOu
         .contact
         .clone()
         .filter(|contact| !contact.heard_only && agent.def.reacts_to_role(Some(&contact.role)));
-    let Some(contact) = contact else {
-        if matches!(agent.state, AiState::Follow { .. }) {
+    let Some(active_contact) = contact else {
+        if matches!(agent.state, AiState::Follow { target: _ }) {
             set_state(agent, AiState::Idle, out);
         }
         return;
     };
-    let desired = (contact.radius + 1.2).max(1.0);
-    let distance = contact.position.distance(agent.position);
+    let desired = (active_contact.radius + 1.2).max(1.0);
+    let distance = active_contact.position.distance(agent.position);
     if distance > desired * 1.6
-        && !matches!(agent.state, AiState::Follow { target } if target == contact.handle)
+        && !matches!(agent.state, AiState::Follow { target } if target == active_contact.handle)
     {
         set_state(
             agent,
             AiState::Follow {
-                target: contact.handle,
+                target: active_contact.handle,
             },
             out,
         );
@@ -1068,7 +1073,7 @@ fn decide_wanderer(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
 /// placed it, so a second activation of the same switch finds it in place.
 fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     match agent.state {
-        AiState::Wander { .. } => {
+        AiState::Wander { destination: _ } => {
             let done = agent.path.waypoints.is_empty()
                 || (agent.path.complete
                     && agent
@@ -1082,11 +1087,14 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
             return;
         }
         AiState::Idle => {}
-        AiState::Follow { .. }
-        | AiState::Flee { .. }
-        | AiState::Investigate { .. }
-        | AiState::Pursue { .. }
-        | AiState::Catch { .. }
+        AiState::Follow { target: _ }
+        | AiState::Flee {
+            threat: _,
+            destination: _,
+        }
+        | AiState::Investigate { point: _ }
+        | AiState::Pursue { target: _ }
+        | AiState::Catch { target: _ }
         | AiState::Scripted
         | AiState::Caught => return,
     }
@@ -1142,33 +1150,41 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         return;
     };
     let goal = match agent.state {
-        AiState::Wander { destination } | AiState::Flee { destination, .. } => Some(destination),
+        AiState::Wander { destination }
+        | AiState::Flee {
+            destination,
+            threat: _,
+        } => Some(destination),
         AiState::Investigate { point } => Some(point),
         AiState::Follow { target } | AiState::Pursue { target } => {
-            ctx.target(target).map(|target| target.position)
+            ctx.target(target).map(|target_actor| target_actor.position)
         }
-        AiState::Idle | AiState::Catch { .. } | AiState::Scripted | AiState::Caught => None,
+        AiState::Idle | AiState::Catch { target: _ } | AiState::Scripted | AiState::Caught => None,
     };
-    let Some(goal) = goal else {
+    let Some(goal_position) = goal else {
         agent.speed_mps = 0.0;
         return;
     };
     let speed = match agent.state {
-        AiState::Flee { .. } | AiState::Pursue { .. } => agent.def.run_speed,
+        AiState::Flee {
+            threat: _,
+            destination: _,
+        }
+        | AiState::Pursue { target: _ } => agent.def.run_speed,
         AiState::Idle
-        | AiState::Wander { .. }
-        | AiState::Follow { .. }
-        | AiState::Investigate { .. }
-        | AiState::Catch { .. }
+        | AiState::Wander { destination: _ }
+        | AiState::Follow { target: _ }
+        | AiState::Investigate { point: _ }
+        | AiState::Catch { target: _ }
         | AiState::Scripted
         | AiState::Caught => agent.def.walk_speed,
     };
     let goal_changed = agent
         .path_goal
-        .is_none_or(|planned| planned.distance(goal) > REPLAN_TARGET_M);
+        .is_none_or(|planned| planned.distance(goal_position) > REPLAN_TARGET_M);
     let door_changed = agent.path_door_version != ctx.door_version;
     let close_range_replan =
-        matches!(agent.state, AiState::Pursue { .. }) && agent.path_age >= REPLAN_INTERVAL_S;
+        matches!(agent.state, AiState::Pursue { target: _ }) && agent.path_age >= REPLAN_INTERVAL_S;
     // A failed attempt is retried on a bounded cadence, not every tick: the
     // attempted goal is remembered so the same failure cannot become a
     // per-frame scan, and the age keeps growing so a state's own completion
@@ -1178,8 +1194,8 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     });
     let already_done = agent
         .path_done_goal
-        .is_some_and(|done| done.distance(goal) <= 0.25);
-    let planner_interval = if matches!(agent.state, AiState::Pursue { .. }) {
+        .is_some_and(|done| done.distance(goal_position) <= 0.25);
+    let planner_interval = if matches!(agent.state, AiState::Pursue { target: _ }) {
         REPLAN_INTERVAL_S
     } else {
         PATH_RETRY_S
@@ -1198,7 +1214,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         let query = PathQuery {
             class,
             start: agent.position,
-            goal,
+            goal: goal_position,
             can_open_doors: agent.profile.can_open_doors,
             max_expansions: 65536,
             doors: ctx.doors,
@@ -1218,13 +1234,13 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 // the age so a state's completion timeout can still fire.
                 agent.path_failed_at = Some(agent.clock);
             }
-            agent.path_goal = Some(goal);
+            agent.path_goal = Some(goal_position);
             agent.current_waypoint = 0;
         } else {
             // Keep the age and the attempted goal: the caller's timeout
             // rules and the retry cadence both read them.
             agent.path_failed_at = Some(agent.clock);
-            agent.path_goal = Some(goal);
+            agent.path_goal = Some(goal_position);
             agent.path_done_goal = None;
             agent.path.clear();
             agent.current_waypoint = 0;
@@ -1248,7 +1264,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         .get(agent.current_waypoint)
         .copied()
         .or_else(|| agent.path.waypoints.last().copied());
-    let Some(waypoint) = waypoint else {
+    let Some(next_waypoint) = waypoint else {
         agent.speed_mps = 0.0;
         return;
     };
@@ -1262,7 +1278,12 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         speed_mps: speed,
     };
     match mover.step_with_leaves(
-        waypoint, ctx.delta, ctx.walls, ctx.index, ctx.floor, ctx.leaves,
+        next_waypoint,
+        ctx.delta,
+        ctx.walls,
+        ctx.index,
+        ctx.floor,
+        ctx.leaves,
     ) {
         MoveStep::Moved {
             position,
@@ -1284,7 +1305,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.path_goal = None;
                 agent.current_waypoint = 0;
             }
-            if waypoint.distance(agent.position) < movement::ARRIVE_RADIUS_M {
+            if next_waypoint.distance(agent.position) < movement::ARRIVE_RADIUS_M {
                 agent.current_waypoint = agent.current_waypoint.saturating_add(1);
             }
             out.moved.push((
@@ -1297,7 +1318,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.path_done_goal = agent.path_goal;
                 agent.path.clear();
                 agent.current_waypoint = 0;
-                if matches!(agent.state, AiState::Wander { .. }) {
+                if matches!(agent.state, AiState::Wander { destination: _ }) {
                     agent.wait_remaining = agent.def.idle_seconds;
                 }
             }
@@ -1319,7 +1340,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.path_done_goal = agent.path_goal;
                 agent.path.clear();
                 agent.current_waypoint = 0;
-                if matches!(agent.state, AiState::Wander { .. }) {
+                if matches!(agent.state, AiState::Wander { destination: _ }) {
                     agent.wait_remaining = agent.def.idle_seconds;
                 }
             }
@@ -1330,7 +1351,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
 
 /// Fires a catch when the predator is genuinely on top of a visible target.
 fn try_catch(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
-    if !matches!(agent.state, AiState::Pursue { .. }) || agent.catch_cooldown > 0.0 {
+    if !matches!(agent.state, AiState::Pursue { target: _ }) || agent.catch_cooldown > 0.0 {
         return;
     }
     let AiState::Pursue {
@@ -1368,6 +1389,10 @@ fn try_catch(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) 
 }
 
 /// True when the predator may catch this target right now.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+)]
 fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> bool {
     let dx = target.position.x - agent.position.x;
     let dz = target.position.z - agent.position.z;
@@ -1409,6 +1434,11 @@ fn choose_flee_destination(
     for index in 0..FLEE_CANDIDATES {
         // The first candidate is straight away from the threat; the rest
         // sweep the full circle so a cornered agent always has choices.
+        #[expect(
+            clippy::cast_precision_loss,
+            clippy::as_conversions,
+            reason = "The fixed candidate count is 16 and the loop index is smaller; both integers have exact f32 representations."
+        )]
         let turn = (index as f32 / FLEE_CANDIDATES as f32) * std::f32::consts::TAU;
         let (sin, cos) = (base_angle + turn).sin_cos();
         for distance in [
@@ -1435,12 +1465,17 @@ fn choose_flee_destination(
                 continue;
             };
             let separation = threat.distance(point.position);
-            let region_cells = nav.region_cells(class, region) as f32;
+            let region_cells =
+                f32::from(u16::try_from(nav.region_cells(class, region).min(4000)).unwrap_or(4000));
             // Never pick a destination that starts by running at the threat:
             // the farther side of a big region is useless if reaching it means
             // passing through the predator.
-            let to_candidate = point.position - agent.position;
-            let to_threat = threat - agent.position;
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+            )]
+            let (to_candidate, to_threat) =
+                (point.position - agent.position, threat - agent.position);
             let approach =
                 if to_candidate.length_squared() > 1.0e-6 && to_threat.length_squared() > 1.0e-6 {
                     to_candidate.normalize().dot(to_threat.normalize())
@@ -1497,6 +1532,11 @@ fn choose_flee_destination(
 ///
 /// Several directions around the post are tried before giving up, so a large
 /// wander radius next to a wall does not make the agent stand still forever.
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    reason = "The eight candidate indices convert exactly; the u32 perception phase intentionally becomes a rounded finite f32 angular offset without changing its stored counter."
+)]
 fn choose_wander_destination(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Vec3> {
     let nav = ctx.nav?;
     let class = agent.class?;

@@ -128,7 +128,10 @@ impl EnvironmentBindings {
     /// is preserved exactly. The reflection sampler is the same clamped linear
     /// policy, matching the reference's probe and planar textures.
     #[must_use]
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The GPU environment binds the existing device, texture resources and sampler policy together in one bootstrap operation."
+    )]
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -244,7 +247,10 @@ pub const fn static_environment(lightmap_enabled: bool, fog: FogState) -> Enviro
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)]
+    #![allow(
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 
@@ -268,16 +274,16 @@ mod tests {
         let environment = static_environment(true, FogState::SHIPPED).with_lightmaps(3, 2, 0b11);
         assert_eq!(environment.lightmap_page_count, 3);
         assert_eq!(environment.lightmap_switchable & 0xF, 2);
-        assert_eq!((environment.lightmap_switchable >> 8) & 0xF, 0b11);
+        assert_eq!((environment.lightmap_switchable >> 8_i32) & 0xF, 0b11);
     }
 
     #[test]
     fn a_probe_chain_length_reaches_the_uniform_bits() {
         let environment = static_environment(true, FogState::SHIPPED).with_probe_mips(6);
-        assert_eq!((environment.lightmap_switchable >> 16) & 0xF, 6);
+        assert_eq!((environment.lightmap_switchable >> 16_i32) & 0xF, 6);
         assert_eq!(environment.lightmap_switchable & 0x0000_FFFF, 0);
         let clamped = environment.with_probe_mips(0xFFFF_FFFF);
-        assert_eq!((clamped.lightmap_switchable >> 16) & 0xF, 0xF);
+        assert_eq!((clamped.lightmap_switchable >> 16_i32) & 0xF, 0xF);
     }
 
     #[test]

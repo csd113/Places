@@ -13,9 +13,6 @@
 // idiomatic in tests; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
@@ -23,7 +20,8 @@
     clippy::suboptimal_flops,
     clippy::too_many_lines,
     clippy::redundant_closure_for_method_calls,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::fmt::Write as _;
@@ -221,7 +219,7 @@ fn test_archway_openings_transmit_light() {
 /// with a ramp, a flight, a column, a knee wall, an archway, a rail, a
 /// threshold and two baseboards, plus a fixture every third cell.
 fn architecture_stress_level_for(grid: usize) -> LevelDef {
-    let extent = grid as f32 * 7.0 + 2.0;
+    let extent = crate::test_support::exact_f32(grid) * 7.0 + 2.0;
     let mut json = String::from(
         r#"{
             "format_version": 3,
@@ -240,8 +238,8 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
     let mut arrays = [String::new(), String::new(), String::new(), String::new()];
     for cz in 0..grid {
         for cx in 0..grid {
-            let ox = cx as f32 * 7.0 + 1.0;
-            let oz = cz as f32 * 7.0 + 1.0;
+            let ox = crate::test_support::exact_f32(cx) * 7.0 + 1.0;
+            let oz = crate::test_support::exact_f32(cz) * 7.0 + 1.0;
             let index = cx + cz * grid;
             if index > 0 {
                 json.push(',');
@@ -249,13 +247,13 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
                     array.push(',');
                 }
             }
-            let _ = write!(
+            let _formatted_record = write!(
                 json,
                 r#"{{ "x": {ox}, "z": {oz}, "width": 1.0, "depth": 4.0, "rise": 1.0,
                      "material": "core:carpet_beige_01",
                      "edge_material": "core:wallpaper_yellow_01" }}"#
             );
-            let _ = write!(
+            let _formatted_record_2 = write!(
                 arrays[0],
                 r#"{{ "x": {}, "z": {oz}, "width": 1.0, "depth": 4.0, "rise": 1.0, "steps": 5,
                      "material": "core:carpet_beige_01",
@@ -263,21 +261,21 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
                      "side_material": "core:wallpaper_yellow_01" }}"#,
                 ox + 2.0
             );
-            let _ = write!(
+            let _formatted_record_3 = write!(
                 arrays[1],
                 r#"{{ "x": {}, "z": {oz}, "width": 0.3, "depth": 0.3,
                      "material": "core:metal_panel_01",
                      "cap_material": "core:plastic_panel_01" }}"#,
                 ox + 4.0
             );
-            let _ = write!(
+            let _formatted_record_4 = write!(
                 arrays[2],
                 r#"{{ "x": {}, "z": {oz}, "width": 1.5, "depth": 0.2, "height": 1.0,
                      "material": "core:wallpaper_yellow_01",
                      "cap_material": "core:metal_panel_01" }}"#,
                 ox + 4.5
             );
-            let _ = write!(
+            let _formatted_record_5 = write!(
                 arrays[3],
                 r#"{{ "x": {}, "z": {}, "width": 0.3, "depth": 2.0, "height": 3.0,
                      "opening_width": 1.0, "opening_height": 2.2, "arch_rise": 0.2,
@@ -289,7 +287,7 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
         }
     }
     json.push_str("],\n");
-    let _ = write!(
+    let _formatted_record_6 = write!(
         json,
         r#""stairs": [{}],
            "columns": [{}],
@@ -303,34 +301,34 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
     let mut lights = String::new();
     for cz in 0..grid {
         for cx in 0..grid {
-            let ox = cx as f32 * 7.0 + 1.0;
-            let oz = cz as f32 * 7.0 + 1.0;
+            let ox = crate::test_support::exact_f32(cx) * 7.0 + 1.0;
+            let oz = crate::test_support::exact_f32(cz) * 7.0 + 1.0;
             let index = cx + cz * grid;
             if index > 0 {
                 rails.push(',');
                 thresholds.push(',');
                 baseboards.push(',');
             }
-            let _ = write!(
+            let _formatted_record_7 = write!(
                 rails,
                 r#"{{ "x": {ox}, "z": {}, "length": 3.0, "rotation_degrees": 0.0,
                      "height": 0.95, "material": "core:metal_panel_01" }}"#,
                 oz + 5.0
             );
-            let _ = write!(
+            let _formatted_record_8 = write!(
                 thresholds,
                 r#"{{ "x": {}, "z": {}, "length": 1.0, "rotation_degrees": 90.0,
                      "material": "core:linoleum_01" }}"#,
                 ox + 2.0,
                 oz + 5.5
             );
-            let _ = write!(
+            let _formatted_record_9 = write!(
                 baseboards,
                 r#"{{ "x": {ox}, "z": {}, "length": 4.0, "rotation_degrees": 0.0,
                      "material": "core:wallpaper_yellow_01" }}"#,
                 oz + 6.0
             );
-            let _ = write!(
+            let _formatted_record_10 = write!(
                 baseboards,
                 r#",{{ "x": {}, "z": {}, "length": 4.0, "rotation_degrees": 90.0,
                      "material": "core:wallpaper_yellow_01" }}"#,
@@ -341,7 +339,7 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
                 if !lights.is_empty() {
                     lights.push(',');
                 }
-                let _ = write!(
+                let _formatted_record_11 = write!(
                     lights,
                     r#"{{ "fixture": "core:fluorescent_panel_01", "x": {},
                          "z": {}, "brightness": 0.5 }}"#,
@@ -351,7 +349,7 @@ fn architecture_stress_level_for(grid: usize) -> LevelDef {
             }
         }
     }
-    let _ = write!(
+    let _formatted_record_12 = write!(
         json,
         r#""guardrails": [{rails}],
            "thresholds": [{thresholds}],
@@ -432,27 +430,27 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
     // the historical four-page budget, so the oversized build is pinned against
     // that budget explicitly (the shipped one is eight pages).
     let oversized = architecture_stress_level_for(10);
-    let materials = logical_materials(&oversized);
+    let oversized_materials = logical_materials(&oversized);
     let mut options = crate::render::LightmapBuildOptions::for_profile(
         crate::quality::QualityProfile::Full,
         crate::lighting::lightmap::LightmapMode::On,
     );
     options.config.max_pages = 4;
-    let build = crate::render::build_level_geometry_timed_with_lightmaps(
+    let oversized_build = crate::render::build_level_geometry_timed_with_lightmaps(
         &oversized,
         &catalog,
         &mut assets,
-        &materials,
+        &oversized_materials,
         options,
         None,
     );
     assert_eq!(
-        build.lightmap_failure,
+        oversized_build.lightmap_failure,
         Some(crate::lighting::lightmap::LightmapFailure::PageOverflow),
         "the oversized level reports its fallback by name"
     );
-    assert!(build.mesh.vertex_count > 0);
-    for range in &build.mesh.ranges {
+    assert!(oversized_build.mesh.vertex_count > 0);
+    for range in &oversized_build.mesh.ranges {
         for vertex in &range.vertices {
             assert!(vertex.pos.iter().all(|value| value.is_finite()));
             assert!(vertex.color.iter().all(|value| value.is_finite()));
@@ -515,7 +513,7 @@ fn test_guardrails_work_at_every_orientation() {
         let rail = &level.guardrails[0];
         let materials = logical_materials(&level);
         let mesh = build_level_geometry_with_materials(&level, &materials);
-        let mut triangles = 0;
+        let mut triangles = 0_i32;
         for triangle in emitted_triangles(&mesh) {
             assert!(
                 triangle.world_area > 1.0e-9,
@@ -527,9 +525,9 @@ fn test_guardrails_work_at_every_orientation() {
                     "angle {angle}: non-finite point {point:?}"
                 );
             }
-            triangles += 1;
+            triangles += 1_i32;
         }
-        assert!(triangles > 0, "angle {angle}: the rail emits faces");
+        assert!(triangles > 0_i32, "angle {angle}: the rail emits faces");
         // The run's endpoints and the top rail's height.
         let start = rail.point_at(0.0, 0.0);
         let end = rail.point_at(1.0, 0.0);
@@ -967,8 +965,8 @@ fn test_guardrail_follows_a_stair_flight_as_a_handrail() {
     // rail-height and one rail-height plus one riser.
     // The run spans the first nosing to the last (the top tread's front), so
     // the resolved base line is exactly the nosing line.
-    for sample in 0..=40 {
-        let fraction = sample as f32 / 40.0;
+    for sample in 0_i32..=40_i32 {
+        let fraction = crate::test_support::exact_f32(sample) / 40.0;
         let (x, z) = rail.point_at(fraction, 0.0);
         let nosing = 0.3 + 0.5 * (x - 3.0);
         let rail_top = rail.base_y_at(&surfaces, fraction) + rail.height();
@@ -988,7 +986,7 @@ fn test_guardrail_follows_a_stair_flight_as_a_handrail() {
     // Posts are vertical: every quad's two bottom corners and two top corners
     // share the same plan position.
     let metal = materials.index_of("core:metal_brushed_01").expect("metal");
-    let mut posts = 0;
+    let mut posts = 0_i32;
     for triangle in emitted_triangles(&mesh) {
         if triangle.material != metal {
             continue;
@@ -1012,10 +1010,10 @@ fn test_guardrail_follows_a_stair_flight_as_a_handrail() {
                 .count()
                 == 2;
         if two_levels && max - min > 0.2 && normal[1].abs() < 0.2 {
-            posts += 1;
+            posts += 1_i32;
         }
     }
-    assert!(posts > 0, "the rail emits vertical post faces");
+    assert!(posts > 0_i32, "the rail emits vertical post faces");
     let solid = rail.solid_box(&surfaces).expect("the rail is solid");
     assert!(
         solid.max[1] >= stair.top_offset() + rail.height() - 0.05,
@@ -1353,12 +1351,12 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
     let index = materials
         .index_of("core:baseboard_office_01")
         .expect("the generated trim material resolves");
-    let mut trim_triangles = 0;
+    let mut trim_triangles = 0_i32;
     for triangle in &triangles {
         if triangle.material != index {
             continue;
         }
-        trim_triangles += 1;
+        trim_triangles += 1_i32;
         for point in triangle.points {
             let on_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
                 point[1] >= floor - 1.0e-3
@@ -1367,7 +1365,7 @@ fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
             assert!(on_a_floor, "office trim floating at y {}", point[1]);
         }
     }
-    assert!(trim_triangles > 0, "the office trim is drawn");
+    assert!(trim_triangles > 0_i32, "the office trim is drawn");
 }
 
 /// Each primitive's documented bounds are enforced exactly, and malformed
@@ -1564,11 +1562,11 @@ fn test_walking_surfaces_may_not_span_rooms_with_different_floors() {
         error.contains("Ramp 0") && error.contains("different floors"),
         "{error}"
     );
-    let error = check(
+    let stairs_error = check(
         r#""stairs": [ { "x": 5.5, "z": 2.0, "width": 1.0, "depth": 2.0, "rise": 0.5, "steps": 2 } ]"#,
     )
     .expect_err("a flight across floors is rejected");
-    assert!(error.contains("Staircase 0"), "{error}");
+    assert!(stairs_error.contains("Staircase 0"), "{stairs_error}");
     // The same piece inside one room stays legal.
     assert!(
         check(r#""ramps": [ { "x": 1.0, "z": 2.0, "width": 1.0, "depth": 2.0, "rise": 0.5 } ]"#)
@@ -1660,7 +1658,7 @@ fn test_architecture_uvs_stay_at_world_scale() {
     let tile = materials
         .entry(wallpaper)
         .map_or(2.0, |entry| entry.tile_metres);
-    let mut checked = 0;
+    let mut checked = 0_i32;
     for triangle in emitted_triangles(&mesh) {
         if triangle.material != wallpaper || triangle.world_area <= 1.0e-6 {
             continue;
@@ -1672,9 +1670,9 @@ fn test_architecture_uvs_stay_at_world_scale() {
             density > 0.05 / tile && density < 20.0 / tile,
             "a half-wall face tiles at {density:.4} UV per metre (material tile {tile} m)"
         );
-        checked += 1;
+        checked += 1_i32;
     }
-    assert!(checked > 0, "the half wall must emit wallpaper faces");
+    assert!(checked > 0_i32, "the half wall must emit wallpaper faces");
 }
 
 // ---------------------------------------------------------------------------
@@ -1742,8 +1740,8 @@ fn test_loader_rejects_baseboards_and_thresholds_buried_in_walls() {
         "\"z\": 0.0, \"length\": 4.0",
         "\"z\": 0.15, \"length\": 4.0",
     );
-    let level = parse(&visible_board);
-    crate::loader::validate_level(&level).expect("a board on the wall face is accepted");
+    let visible_level = parse(&visible_board);
+    crate::loader::validate_level(&visible_level).expect("a board on the wall face is accepted");
 
     let buried_threshold = r#"{
         "format_version": 3,
@@ -1758,9 +1756,10 @@ fn test_loader_rejects_baseboards_and_thresholds_buried_in_walls() {
             { "x": 3.0, "z": 3.0, "length": 1.0, "material": "core:carpet_beige_01" }
         ]
     }"#;
-    let level = parse(buried_threshold);
-    let error = crate::loader::validate_level(&level).expect_err("a buried strip is rejected");
-    assert!(error.contains("Threshold 0"), "{error}");
+    let threshold_level = parse(buried_threshold);
+    let threshold_error =
+        crate::loader::validate_level(&threshold_level).expect_err("a buried strip is rejected");
+    assert!(threshold_error.contains("Threshold 0"), "{threshold_error}");
 }
 
 // ---------------------------------------------------------------------------
@@ -1866,7 +1865,7 @@ fn test_walkable_floor_matches_surface_atlas_around_ramp_and_region_edges() {
     let stair = &level.stairs[0];
     let (sx0, sx1, sz0, _sz1) = stair.bounds();
     for step in 0..=stair.step_count() {
-        let boundary = sz0 + stair.tread_depth() * step as f32;
+        let boundary = sz0 + stair.tread_depth() * crate::test_support::exact_f32(step);
         for x in [sx0, f32::midpoint(sx0, sx1), sx1] {
             probes.push((x, boundary));
             probes.push((x, boundary - 1e-5));
@@ -1996,10 +1995,11 @@ fn test_ramp_sweep_is_monotone_in_every_orientation() {
         let piece = &level.ramps[0];
         let bounds = piece.bounds();
         let axis = piece.axis();
-        let samples = 48;
+        let samples = 48_i32;
         let mut previous = f32::NAN;
-        for sample in 0..=samples {
-            let fraction = sample as f32 / samples as f32;
+        for sample in 0_i32..=samples {
+            let fraction =
+                crate::test_support::exact_f32(sample) / crate::test_support::exact_f32(samples);
             let (px, pz) = along_axis(bounds, axis, fraction);
             let atlas = surfaces.floor_y_at(px, pz).expect("inside the room");
             let walk = floor.height_at(px, pz).expect("inside the room");
@@ -2057,7 +2057,8 @@ fn test_stair_sweep_steps_exactly_once_per_tread() {
         assert_eq!(piece.step_count(), steps);
         for step in 0..steps {
             let (start, end) = piece.tread_span(step);
-            let expected = offset_y + piece.riser_height() * (step + 1) as f32;
+            let expected =
+                offset_y + piece.riser_height() * crate::test_support::exact_f32(step + 1);
             for at in [start + 1e-4, f32::midpoint(start, end), end - 1e-4] {
                 let (px, pz) = match axis {
                     WallAxis::X => (at, f32::midpoint(bounds.2, bounds.3)),
@@ -2557,8 +2558,8 @@ fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
         .expect("tile")
         .tile_metres;
     let mesh = build_level_geometry_with_materials(&level, &materials);
-    let mut side_vertices = 0;
-    let mut cap_vertices = 0;
+    let mut side_vertices = 0_i32;
+    let mut cap_vertices = 0_i32;
     for range in &mesh.ranges {
         if range.key.kind != crate::render::SurfaceKind::Wall || range.key.material != material {
             continue;
@@ -2573,10 +2574,10 @@ fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
             }
             // The top and bottom ring caps map to world plan coordinates.
             if (vertex.uv[0] * tile - x).abs() < 0.02 && (vertex.uv[1] * tile - z).abs() < 0.02 {
-                cap_vertices += 1;
+                cap_vertices += 1_i32;
                 continue;
             }
-            side_vertices += 1;
+            side_vertices += 1_i32;
             // Compass angle from the ring's north point (0 = -Z), matching the
             // level's angle convention; u is the arc length on this face.
             let angle = dx.atan2(-dz).rem_euclid(std::f32::consts::TAU);
@@ -2602,11 +2603,11 @@ fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
         }
     }
     assert!(
-        side_vertices >= 24 * 4,
+        side_vertices >= 24_i32 * 4_i32,
         "the ring's two faces are emitted: {side_vertices}"
     );
     assert!(
-        cap_vertices >= 24 * 2,
+        cap_vertices >= 24_i32 * 2_i32,
         "the ring's caps use the plan mapping: {cap_vertices}"
     );
 }
@@ -2983,8 +2984,8 @@ fn test_the_demo_stair_handrails_follow_the_nosing_line() {
             (resolved - pitch).abs() < 1.0e-3,
             "rail {index} slope {resolved} must equal the stair pitch {pitch}"
         );
-        for sample in 0..=40 {
-            let fraction = sample as f32 / 40.0;
+        for sample in 0_i32..=40_i32 {
+            let fraction = crate::test_support::exact_f32(sample) / 40.0;
             let (x, z) = rail.point_at(fraction, 0.0);
             let floor = surfaces
                 .room_floor_y_at(x, z)

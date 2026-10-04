@@ -6,7 +6,7 @@ fn random_coordinate(state: &mut u32) -> f32 {
     *state ^= state.wrapping_shl(13);
     *state ^= state.wrapping_shr(17);
     *state ^= state.wrapping_shl(5);
-    f32::from((*state >> 16) as u16) / 4096.0 - 8.0
+    f32::from(u16::try_from(*state >> 16).expect("fixture integer fits u16")) / 4096.0 - 8.0
 }
 
 #[test]
@@ -63,18 +63,18 @@ fn cancellation_and_worker_failure_cannot_return_partial_results() {
 #[test]
 fn prepared_ray_preserves_watertight_distance_bits() {
     let mut state = 0x29b4_5c73;
-    for index in 0..50_000 {
-        let magnitude = match index % 4 {
-            0 => 0.001,
-            1 => 1.0,
-            2 => 1000.0,
+    for index in 0_i32..50_000_i32 {
+        let magnitude = match index % 4_i32 {
+            0_i32 => 0.001,
+            1_i32 => 1.0,
+            2_i32 => 1000.0,
             _ => 1_000_000.0,
         };
         let mut vector = || std::array::from_fn(|_| random_coordinate(&mut state) * magnitude);
         let Some(triangle) = TransportTriangle::new(vector(), vector(), vector(), [0.5; 3]) else {
             continue;
         };
-        let origin = if index % 5 == 0 {
+        let origin = if index % 5_i32 == 0_i32 {
             triangle.p0
         } else {
             vector()
@@ -85,10 +85,10 @@ fn prepared_ray_preserves_watertight_distance_bits() {
             reference_ray_triangle(origin, direction, &triangle).map(f32::to_bits),
             "ray {index} at scale {magnitude}"
         );
-        for direction in [[0.0; 3], [1.0, 1.0, 1.0], [0.0, -1.0, 0.0], [f32::NAN; 3]] {
+        for edge_direction in [[0.0; 3], [1.0, 1.0, 1.0], [0.0, -1.0, 0.0], [f32::NAN; 3]] {
             assert_eq!(
-                ray_triangle(origin, direction, &triangle).map(f32::to_bits),
-                reference_ray_triangle(origin, direction, &triangle).map(f32::to_bits)
+                ray_triangle(origin, edge_direction, &triangle).map(f32::to_bits),
+                reference_ray_triangle(origin, edge_direction, &triangle).map(f32::to_bits)
             );
         }
     }
@@ -115,7 +115,7 @@ fn reused_bvh_entries_preserve_nearest_hits_and_opaque_visibility() {
     }
     let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
     let mut state = 0x25bc_964f;
-    for _ in 0..10_000 {
+    for _ in 0_i32..10_000_i32 {
         let mut vector = || std::array::from_fn(|_| random_coordinate(&mut state));
         let origin = vector();
         let direction = vector();
@@ -159,9 +159,9 @@ fn accelerated_tree_preserves_original_identity_at_edges_and_coincident_faces() 
         }
         let scene = TransportScene::new(triangles, Vec::new()).expect("scaled seams");
         let mut state = 0x881a_322f;
-        for index in 0..20_000 {
+        for index in 0_i32..20_000_i32 {
             let origin = std::array::from_fn(|_| random_coordinate(&mut state) * magnitude);
-            let direction = if index % 2 == 0 {
+            let direction = if index % 2_i32 == 0_i32 {
                 [0.0, -1.0, 0.0]
             } else {
                 std::array::from_fn(|_| random_coordinate(&mut state))
@@ -243,7 +243,7 @@ fn representative_map_ray_benchmark() {
         let mut rays = Vec::new();
         for receiver in receivers.iter().step_by(stride) {
             let mut state = ray_seed(0, 0);
-            for _ in 0..32 {
+            for _ in 0_i32..32_i32 {
                 let (u1, u2) = next_pair(&mut state);
                 rays.push((
                     receiver.ray_origin,
@@ -272,8 +272,8 @@ fn representative_map_ray_benchmark() {
             );
         }
         let mut samples = [Vec::new(), Vec::new()];
-        for _ in 0..5 {
-            for (channel, samples) in samples.iter_mut().enumerate() {
+        for _ in 0_i32..5_i32 {
+            for (channel, channel_samples) in samples.iter_mut().enumerate() {
                 let started = std::time::Instant::now();
                 for (origin, direction) in &rays {
                     let hit = if channel == 0 {
@@ -281,9 +281,9 @@ fn representative_map_ray_benchmark() {
                     } else {
                         scene.intersect(*origin, *direction)
                     };
-                    std::hint::black_box(hit);
+                    let _hit = std::hint::black_box(hit);
                 }
-                samples.push(started.elapsed().as_secs_f64());
+                channel_samples.push(started.elapsed().as_secs_f64());
             }
         }
         reports.push(
@@ -365,6 +365,11 @@ fn distance_pruning_preserves_cache_connectivity_and_tie_order() {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "The independent f64 ray oracle intentionally rounds to the f32 intersection API and rejects non-finite results immediately below."
+)]
 fn reference_ray_triangle(
     origin: [f32; 3],
     direction: [f32; 3],
@@ -407,8 +412,8 @@ fn reference_ray_triangle(
     let edge_a = c[0] * b[1] - c[1] * b[0];
     let edge_b = a[0] * c[1] - a[1] * c[0];
     let edge_c = b[0] * a[1] - b[1] * a[0];
-    if (edge_a < 0.0 || edge_b < 0.0 || edge_c < 0.0)
-        && (edge_a > 0.0 || edge_b > 0.0 || edge_c > 0.0)
+    if (edge_a < 0.0_f64 || edge_b < 0.0_f64 || edge_c < 0.0_f64)
+        && (edge_a > 0.0_f64 || edge_b > 0.0_f64 || edge_c > 0.0_f64)
     {
         return None;
     }
@@ -548,9 +553,9 @@ fn reference_nearest_visible_surface(
         for dy in -2_isize..=2 {
             for dx in -2_isize..=2 {
                 let cell = [
-                    base[0] + dx as f32,
-                    base[1] + dy as f32,
-                    base[2] + dz as f32,
+                    base[0] + crate::test_support::exact_f32(dx),
+                    base[1] + crate::test_support::exact_f32(dy),
+                    base[2] + crate::test_support::exact_f32(dz),
                 ];
                 let Some(index) = lattice_cell(cell, cache.dims) else {
                     continue;
@@ -564,13 +569,13 @@ fn reference_nearest_visible_surface(
                     continue;
                 };
                 let distance = dx.abs() + dy.abs() + dz.abs();
-                let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
+                let distance_f32 = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
                 // Keep the nearest/tie ordering: a farther representative
                 // cannot replace an already visible one.
-                if best.is_some_and(|(current, _)| distance >= current) {
+                if best.is_some_and(|(current, _)| distance_f32 >= current) {
                     continue;
                 }
-                best = Some((distance, *value));
+                best = Some((distance_f32, *value));
             }
         }
     }
@@ -627,7 +632,7 @@ fn reference_layer_solve(
         .filter(|(_, emitter)| emitter.switchable.is_none() && emitter.intensity > 0.0)
         .map(|(index, _)| index)
         .collect();
-    let mut pass = |emitters: &[usize], apply_fill, probes| {
+    let mut pass = |emitters: &[usize], apply_fill, probe_output| {
         scene
             .solve_pass(
                 charts,
@@ -641,7 +646,7 @@ fn reference_layer_solve(
                 &mut direct_rays,
                 &mut bounce_rays,
                 &mut cache_cells,
-                probes,
+                probe_output,
             )
             .expect("reference pass")
     };
@@ -670,18 +675,18 @@ fn reference_layer_solve(
 
 #[test]
 fn shared_layers_match_independent_reference_for_sky_water_darkness_and_all_bounce_orders() {
-    for configuration in 0..4 {
+    for configuration in 0_i32..4_i32 {
         let (mut scene, charts) = two_room_scene(0.7);
         let mut switchable = point([2.5, 2.5, 6.0], if configuration == 3 { 0.0 } else { 0.8 });
         switchable.switchable = Some(7);
-        if configuration > 0 {
+        if configuration > 0_i32 {
             scene.emitters.clear();
         }
         scene.emitters.push(switchable);
-        if configuration == 2 {
+        if configuration == 2_i32 {
             scene.sky_radiance = [0.03, 0.01, 0.1];
         }
-        if configuration == 3 {
+        if configuration == 3_i32 {
             scene = scene.with_water(vec![TransportWaterBody {
                 x0: 0.0,
                 x1: 4.0,

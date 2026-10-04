@@ -185,17 +185,17 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
         capacity: LIGHTMAP_ATLAS_MAX_PAGES,
         ..LightmapUploadStats::default()
     };
-    let Some(lightmaps) = lightmaps else {
+    let Some(level_lightmaps) = lightmaps else {
         return stats;
     };
-    if lightmaps.pages.len() > LIGHTMAP_ATLAS_MAX_PAGES
-        || lightmaps.switchable.len() > MAX_SWITCHABLE_GROUPS
+    if level_lightmaps.pages.len() > LIGHTMAP_ATLAS_MAX_PAGES
+        || level_lightmaps.switchable.len() > MAX_SWITCHABLE_GROUPS
     {
         return stats;
     }
     let mut pages = 0usize;
     let mut edge = 0u32;
-    for page in &lightmaps.pages {
+    for page in &level_lightmaps.pages {
         if page.width == 0 || page.height == 0 || page.width != page.height {
             return stats;
         }
@@ -212,7 +212,7 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
     // The uniform carries one page count and the shader addresses every group
     // with it, so each switchable contribution must mirror the base pages
     // exactly.
-    for contribution in &lightmaps.switchable {
+    for contribution in &level_lightmaps.switchable {
         if contribution.pages.len() != pages {
             return stats;
         }
@@ -222,21 +222,21 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
             }
         }
     }
-    let edge = usize::try_from(edge).unwrap_or(usize::MAX);
+    let edge_pixels = usize::try_from(edge).unwrap_or(usize::MAX);
     stats.pages = pages;
-    stats.page_edge = u32::try_from(edge).unwrap_or(u32::MAX);
-    stats.page_texels = edge
-        .checked_mul(edge)
+    stats.page_edge = u32::try_from(edge_pixels).unwrap_or(u32::MAX);
+    stats.page_texels = edge_pixels
+        .checked_mul(edge_pixels)
         .and_then(|texels| texels.checked_mul(pages))
         .unwrap_or(usize::MAX);
-    stats.resident_bytes = lightmaps
+    stats.resident_bytes = level_lightmaps
         .layer_count()
-        .saturating_mul(edge)
-        .saturating_mul(edge)
+        .saturating_mul(edge_pixels)
+        .saturating_mul(edge_pixels)
         .saturating_mul(8);
-    stats.charts = lightmaps.stats.charts;
-    stats.chart_texels = lightmaps.stats.texels;
-    stats.cache_hit = lightmaps.stats.cache_hit;
+    stats.charts = level_lightmaps.stats.charts;
+    stats.chart_texels = level_lightmaps.stats.texels;
+    stats.cache_hit = level_lightmaps.stats.cache_hit;
     stats
 }
 
@@ -277,16 +277,16 @@ impl LightmapAtlas {
         let (fallback, fallback_view) =
             Self::upload_white_array(device, queue, FALLBACK_EDGE, FALLBACK_LAYERS);
         let stats = upload_stats(lightmaps);
-        if let Some(lightmaps) = lightmaps
+        if let Some(level_lightmaps) = lightmaps
             && stats.pages == 0
-            && !lightmaps.pages.is_empty()
+            && !level_lightmaps.pages.is_empty()
         {
             crate::logging::warn_once(
                 "lightmap-atlas-pages-rejected",
                 format!(
                     "[lightmaps] atlas carries {} page(s) that cannot share one square array \
                      (resident {}); binding the vertex-lit fallback",
-                    lightmaps.pages.len(),
+                    level_lightmaps.pages.len(),
                     stats.pages
                 ),
             );
@@ -391,10 +391,10 @@ impl LightmapAtlas {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        if let Some(lightmaps) = lightmaps {
+        if let Some(level_lightmaps) = lightmaps {
             let mut layer = 0u32;
-            for group in core::iter::once(&lightmaps.pages)
-                .chain(lightmaps.switchable.iter().map(|entry| &entry.pages))
+            for group in core::iter::once(&level_lightmaps.pages)
+                .chain(level_lightmaps.switchable.iter().map(|entry| &entry.pages))
             {
                 for page in group {
                     let bytes = page_rgba16f(page);
@@ -453,10 +453,10 @@ mod tests {
     // Test code: unwrap/indexing/float comparisons are idiomatic here.
     #![allow(
         clippy::arithmetic_side_effects,
-        clippy::cast_possible_truncation,
         clippy::float_cmp,
         clippy::indexing_slicing,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;

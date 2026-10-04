@@ -714,7 +714,8 @@ fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -
     let vertices = world_vertices(&chunk.vertices);
     let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("places-wgpu-decal-vertices"),
-        size: (vertices.len() as u64)
+        size: u64::try_from(vertices.len())
+            .unwrap_or(u64::MAX)
             .saturating_mul(WORLD_VERTEX_STRIDE)
             .max(4),
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -1061,7 +1062,8 @@ mod tests {
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -1153,8 +1155,8 @@ mod tests {
             "outdoor:decal_path_edge_01",
         )
         .expect("the feather sheet has an index");
-        let index = MaterialIndex::try_from(index).expect("index fits");
-        assert!(decal_sheet_is_blend(index, &flags));
+        let sheet_index = MaterialIndex::try_from(index).expect("index fits");
+        assert!(decal_sheet_is_blend(sheet_index, &flags));
         // The generated atlas and an out-of-range external index are cut-out.
         assert!(!decal_sheet_is_blend(0, &flags));
         let beyond = MaterialIndex::try_from(DECAL_EXTERNAL_BASE + 7).expect("index");
@@ -1166,18 +1168,18 @@ mod tests {
         let bias = DECAL_DEPTH_BIAS;
         // The reference's `glPolygonOffset(-1.0, -4.0)`: a slope-scaled term of
         // one and a constant term of four depth-buffer steps, both negative.
-        assert_eq!(bias.constant, -4);
+        assert_eq!(bias.constant, -4_i32);
         assert_eq!(bias.slope_scale, -1.0);
         assert_eq!(bias.clamp, 0.0);
         assert!(
-            bias.constant < 0 && bias.slope_scale < 0.0,
+            bias.constant < 0_i32 && bias.slope_scale < 0.0,
             "both terms must pull the decal towards the camera, got {bias:?}"
         );
 
         // The mapping swaps the APIs' names: GL `factor` (slope) -> wgpu
         // `slope_scale`, GL `units` (constant) -> wgpu `constant`.
         let mapped = depth_bias_state(-2.5, -9);
-        assert_eq!(mapped.constant, -9);
+        assert_eq!(mapped.constant, -9_i32);
         assert_eq!(mapped.slope_scale, -2.5);
         assert_eq!(mapped.clamp, 0.0);
     }
@@ -1275,8 +1277,8 @@ mod tests {
             assert_eq!(vertex.uv, rect[corner]);
         }
         let external = decal_range(external_base, decal_uv_rect_full());
-        let rect = decal_uv_rect_for_sheet(external.key.material);
-        assert_eq!(rect, decal_uv_rect_full());
+        let external_rect = decal_uv_rect_for_sheet(external.key.material);
+        assert_eq!(external_rect, decal_uv_rect_full());
     }
 
     #[test]
@@ -1300,9 +1302,9 @@ mod tests {
         assert!(draws.is_empty());
         assert_eq!(packer.vertex_total(), 0);
 
-        let (packer, draws) = pack_decal_ranges(&mesh(vec![floor_range()]));
-        assert!(packer.chunks.is_empty());
-        assert!(draws.is_empty());
+        let (floor_packer, floor_draws) = pack_decal_ranges(&mesh(vec![floor_range()]));
+        assert!(floor_packer.chunks.is_empty());
+        assert!(floor_draws.is_empty());
     }
 
     #[test]
@@ -1364,8 +1366,8 @@ mod tests {
         // An odd source edge follows the same block rule `texture.rs` uses: a
         // 3x1 image halves to one texel averaging its first two columns.
         let odd = RawImage::new(3, 1, vec![0, 0, 0, 0, 4, 4, 4, 4, 8, 8, 8, 8]);
-        let half = halve(&odd);
-        assert_eq!((half.width, half.height), (1, 1));
-        assert_eq!(half.rgba, vec![2, 2, 2, 2]);
+        let odd_half = halve(&odd);
+        assert_eq!((odd_half.width, odd_half.height), (1, 1));
+        assert_eq!(odd_half.rgba, vec![2, 2, 2, 2]);
     }
 }

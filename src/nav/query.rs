@@ -14,17 +14,10 @@
 //! and the route is replanned, while an openable door is crossed only when the
 //! caller's profile says the agent may open it. Nothing here mutates the mesh.
 
-// The navigation/AI runtime is numeric kernel code: bounded `f32` geometry
-// over validated finite records, lattice indices converted after their caps
-// are enforced, and fixed-size arrays walked by index. Those are exactly the
-// shapes the cast/float/index lints flag, so they are allowed here as a unit;
-// no other module inherits them, and every allocation and collection access
-// still goes through bounds-checked paths.
+// Preserve exact sentinel comparisons, floating-point operation order and
+// cohesive geometry/query stages. Numeric conversions and integer arithmetic
+// are audited at their local expressions instead of exempting the module.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::float_cmp,
     clippy::imprecise_flops,
     clippy::missing_const_for_fn,
@@ -32,7 +25,8 @@
     clippy::similar_names,
     clippy::suboptimal_flops,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
 use std::collections::BinaryHeap;
@@ -319,9 +313,14 @@ impl NavMesh {
         // caller's tolerance plus one walkable step, never by a whole body
         // height, so a goal can not snap one floor down.
         let max_vertical = vertical_tolerance + profile.step_height + STEP_EPS;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::as_conversions,
+            reason = "The nonnegative radius cast saturates even if division overflows; scan_ring caps the result to the furthest grid cell."
+        )]
         let max_ring = i32::try_from((max_distance / self.grid.cell_m).ceil() as i64)
             .unwrap_or(i32::MAX)
-            .max(0);
+            .max(0_i32);
         let origin_cx = i32::try_from(cx).unwrap_or(i32::MAX);
         let origin_cz = i32::try_from(cz).unwrap_or(i32::MAX);
         let start_cell = self.grid.index_of(cx, cz)?;
@@ -379,7 +378,7 @@ impl NavMesh {
     /// Ring order makes the first hit the nearest by horizontal distance; ties
     /// inside a ring resolve to the lowest cell index, so a query is
     /// deterministic.
-    #[allow(clippy::too_many_arguments)] // one cohesive ring search
+    #[expect(clippy::too_many_arguments, reason = "one cohesive ring search")] // one cohesive ring search
     fn scan_ring(
         &self,
         class: usize,
@@ -397,20 +396,33 @@ impl NavMesh {
         doors: &dyn NavDoorState,
         can_open_doors: bool,
     ) -> Option<NavPoint> {
-        let _ = (cx, cz);
-        for ring in 0..=max_ring {
+        let bounds = (
+            origin_cx.checked_neg()?,
+            i32::try_from(self.grid.cells_x.saturating_sub(cx.saturating_add(1)))
+                .unwrap_or(i32::MAX),
+            origin_cz.checked_neg()?,
+            i32::try_from(self.grid.cells_z.saturating_sub(cz.saturating_add(1)))
+                .unwrap_or(i32::MAX),
+        );
+        let grid_radius = bounds
+            .0
+            .abs()
+            .max(bounds.1)
+            .max(bounds.2.abs())
+            .max(bounds.3);
+        for ring in 0_i32..=max_ring.min(grid_radius) {
             let mut best: Option<(f32, NavPoint)> = None;
-            for (dx, dz) in ring_offsets(ring) {
+            for (dx, dz) in ring_offsets(ring, bounds) {
                 let Some(nx) = origin_cx.checked_add(dx) else {
                     continue;
                 };
                 let Some(nz) = origin_cz.checked_add(dz) else {
                     continue;
                 };
-                if nx < 0 || nz < 0 {
+                let (Ok(column), Ok(row)) = (u32::try_from(nx), u32::try_from(nz)) else {
                     continue;
-                }
-                let Some(index) = self.grid.index_of(nx as u32, nz as u32) else {
+                };
+                let Some(index) = self.grid.index_of(column, row) else {
                     continue;
                 };
                 let Some(cell_region) =
@@ -427,7 +439,7 @@ impl NavMesh {
                 if (surface - position.y).abs() > max_vertical {
                     continue;
                 }
-                let (cell_x, cell_z) = self.grid.cell_center(nx as u32, nz as u32);
+                let (cell_x, cell_z) = self.grid.cell_center(column, row);
                 let distance = (cell_x - position.x).hypot(cell_z - position.z);
                 if distance > max_distance {
                     continue;
@@ -462,6 +474,13 @@ impl NavMesh {
     /// everything from the first walkable cell on must be walkable and
     /// step-continuous, so a corridor that crosses a wall, a locked door or a
     /// floor still fails.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "The float sample count is clamped to 1..=4096 before saturation/truncation; all visited sample indices and counts have exact f32 representations."
+    )]
     fn corridor_from_mesh(
         &self,
         class: usize,
@@ -507,9 +526,9 @@ impl NavMesh {
             let Some(y) = self.grid.surface(index) else {
                 continue;
             };
-            if let Some(previous) = previous {
+            if let Some(previous_y) = previous {
                 let allowed = profile.step_height + profile.max_slope * sample_distance + STEP_EPS;
-                if (y - previous).abs() > allowed {
+                if (y - previous_y).abs() > allowed {
                     return false;
                 }
             }
@@ -647,7 +666,7 @@ impl NavMesh {
                 if !self.grid.is_walkable(query.class, next) {
                     continue;
                 }
-                let diagonal = dx != 0 && dz != 0;
+                let diagonal = dx != 0_i32 && dz != 0_i32;
                 if diagonal && !self.corner_open(query, cx, cz, dx, dz) {
                     continue;
                 }
@@ -722,12 +741,12 @@ impl NavMesh {
             if parent == u32::MAX {
                 break;
             }
-            let parent = usize::try_from(parent).unwrap_or(usize::MAX);
-            if parent == cursor || chain.len() > cells {
+            let parent_index = usize::try_from(parent).unwrap_or(usize::MAX);
+            if parent_index == cursor || chain.len() > cells {
                 break;
             }
-            chain.push(parent);
-            cursor = parent;
+            chain.push(parent_index);
+            cursor = parent_index;
         }
         if chain.last().copied() != Some(start.cell) {
             chain.push(start.cell);
@@ -797,6 +816,13 @@ impl NavMesh {
     /// True when a straight walked segment stays on walkable cells for the
     /// class, without a rise a step or a slope cannot explain.
     #[must_use]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "The float sample count is clamped to 1..=4096 before saturation/truncation; all visited sample indices and counts have exact f32 representations."
+    )]
     pub fn segment_clear(
         &self,
         class: usize,
@@ -839,9 +865,9 @@ impl NavMesh {
             let Some(y) = self.grid.surface(index) else {
                 return false;
             };
-            if let Some(previous) = previous {
+            if let Some(previous_y) = previous {
                 let allowed = profile.step_height + profile.max_slope * sample_distance + STEP_EPS;
-                if (y - previous).abs() > allowed {
+                if (y - previous_y).abs() > allowed {
                     return false;
                 }
             }
@@ -949,7 +975,7 @@ impl NavMesh {
             return "no such navigation class".to_string();
         };
         let mut out = String::new();
-        let _ = writeln!(
+        let _formatted_nav_class = writeln!(
             out,
             "nav class {class} r={:.2} h={:.2} grid {}x{} @ {:.2} m origin ({:.1},{:.1})",
             profile.radius,
@@ -1006,18 +1032,12 @@ fn heuristic(grid: &NavGrid, cell: usize, goal: Vec3) -> f32 {
 
 /// The column of a row-major cell index.
 fn cell_column(grid: &NavGrid, index: usize) -> Option<u32> {
-    if grid.cells_x == 0 {
-        return None;
-    }
-    u32::try_from(index % usize::try_from(grid.cells_x).ok()?).ok()
+    u32::try_from(index.checked_rem(usize::try_from(grid.cells_x).ok()?)?).ok()
 }
 
 /// The row of a row-major cell index.
 fn cell_row(grid: &NavGrid, index: usize) -> Option<u32> {
-    if grid.cells_x == 0 {
-        return None;
-    }
-    u32::try_from(index / usize::try_from(grid.cells_x).ok()?).ok()
+    u32::try_from(index.checked_div(usize::try_from(grid.cells_x).ok()?)?).ok()
 }
 
 /// Writes the open set and cost arrays for one cell.
@@ -1077,24 +1097,34 @@ const NEIGHBOUR_STEPS: [(i32, i32); 8] = [
     (1, 1),
 ];
 
-/// The offsets on one Chebyshev ring, in row-major order.
-fn ring_offsets(ring: i32) -> Vec<(i32, i32)> {
-    if ring <= 0 {
-        return vec![(0, 0)];
-    }
-    let mut offsets = Vec::with_capacity(usize::try_from(ring).unwrap_or(0) * 8);
-    for dx in -ring..=ring {
-        offsets.push((dx, -ring));
-        offsets.push((dx, ring));
-    }
-    for dz in (-ring + 1)..ring {
-        offsets.push((-ring, dz));
-        offsets.push((ring, dz));
-    }
-    offsets
+/// In-grid offsets on one Chebyshev ring, retaining the query tie order.
+fn ring_offsets(
+    ring: i32,
+    (min_x, max_x, min_z, max_z): (i32, i32, i32, i32),
+) -> impl Iterator<Item = (i32, i32)> {
+    let radius = ring.max(0_i32);
+    let negative = radius.saturating_neg();
+    let horizontal = (negative.max(min_x)..=radius.min(max_x)).flat_map(move |dx| {
+        [(dx, negative), (dx, radius)]
+            .into_iter()
+            .take(if radius == 0 { 1 } else { 2 })
+            .filter(move |(_, dz)| (min_z..=max_z).contains(dz))
+    });
+    let vertical = (negative.saturating_add(1).max(min_z)..=radius.saturating_sub(1).min(max_z))
+        .flat_map(move |dz| {
+            [(negative, dz), (radius, dz)]
+                .into_iter()
+                .filter(move |(dx, _)| (min_x..=max_x).contains(dx))
+        });
+    horizontal.chain(vertical)
 }
 
 /// Counts cells per region for one class.
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    reason = "NavMesh validates the 2^21-cell package cap before computing statistics, so every region population converts exactly to f32."
+)]
 fn region_stats(grid: &NavGrid, class: usize) -> Vec<RegionStat> {
     let mut stats: Vec<RegionStat> = Vec::new();
     for index in 0..grid.cell_count() {
@@ -1139,3 +1169,40 @@ pub fn cell_is_surface(flags: u8) -> bool {
 
 /// The sentinel for "no region" is re-exported for tests and diagnostics.
 pub const NO_REGION_CELL: u16 = NO_REGION;
+
+#[cfg(test)]
+mod tests {
+    use super::ring_offsets;
+
+    #[test]
+    fn navigation_rings_visit_each_in_grid_cell_once_in_the_existing_tie_order() {
+        let bounds = (-1_i32, 2_i32, -1_i32, 1_i32);
+        let centre: Vec<_> = ring_offsets(0, bounds).collect();
+        assert_eq!(centre, [(0_i32, 0_i32)], "the centre is visited once");
+        let first: Vec<_> = ring_offsets(1, bounds).collect();
+        assert_eq!(
+            first,
+            [
+                (-1_i32, -1_i32),
+                (-1_i32, 1_i32),
+                (0_i32, -1_i32),
+                (0_i32, 1_i32),
+                (1_i32, -1_i32),
+                (1_i32, 1_i32),
+                (-1_i32, 0_i32),
+                (1_i32, 0_i32)
+            ],
+            "the original top/bottom then left/right tie order is retained"
+        );
+        let outer: Vec<_> = ring_offsets(2, bounds).collect();
+        assert_eq!(
+            outer,
+            [(2_i32, -1_i32), (2_i32, 0_i32), (2_i32, 1_i32)],
+            "out-of-grid edges are skipped"
+        );
+        assert!(
+            ring_offsets(3, bounds).next().is_none(),
+            "no cell lies past the grid"
+        );
+    }
+}

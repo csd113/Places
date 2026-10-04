@@ -1,0 +1,31 @@
+name: Rust verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install native build dependencies
+        run: brew install sdl3 pkg-config
+      - name: Select repository toolchain
+        run: rustup show active-toolchain
+      - name: Format, check, lint and test
+        run: sh tools/check-rust.sh
+      - name: Check patch whitespace
+        run: git diff --check

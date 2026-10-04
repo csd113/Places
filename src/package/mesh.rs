@@ -65,8 +65,8 @@ const SHINE_BASE: u8 = 1;
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn write_mesh(mesh: &LevelMesh) -> Result<Vec<u8>, String> {
-    let ranges =
-        u32::try_from(mesh.ranges.len()).map_err(|_| "mesh has too many ranges".to_string())?;
+    let ranges = u32::try_from(mesh.ranges.len())
+        .map_err(|error| format!("mesh has too many ranges: {error}"))?;
     let mut writer = Writer::with_capacity(mesh.ranges.len().saturating_mul(64));
     writer.bytes(&MESH_MAGIC);
     writer.u16(MESH_RECORD_VERSION);
@@ -83,10 +83,10 @@ pub fn write_mesh(mesh: &LevelMesh) -> Result<Vec<u8>, String> {
         writer.i32(range.start);
         writer.i32(range.count);
     }
-    let vertex_count =
-        u32::try_from(mesh.vertex_count).map_err(|_| "mesh has too many vertices".to_string())?;
-    let index_count =
-        u32::try_from(mesh.index_count).map_err(|_| "mesh has too many indices".to_string())?;
+    let vertex_count = u32::try_from(mesh.vertex_count)
+        .map_err(|error| format!("mesh has too many vertices: {error}"))?;
+    let index_count = u32::try_from(mesh.index_count)
+        .map_err(|error| format!("mesh has too many indices: {error}"))?;
     writer.u32(vertex_count);
     writer.u32(index_count);
     for range in &mesh.ranges {
@@ -182,9 +182,9 @@ pub fn read_mesh(bytes: &[u8]) -> Result<LevelMesh, String> {
             },
         },
         vertex_count: usize::try_from(declared_vertices)
-            .map_err(|_| "mesh vertex count is too large".to_string())?,
+            .map_err(|error| format!("mesh vertex count is too large: {error}"))?,
         index_count: usize::try_from(declared_indices)
-            .map_err(|_| "mesh index count is too large".to_string())?,
+            .map_err(|error| format!("mesh index count is too large: {error}"))?,
     })
 }
 
@@ -204,7 +204,7 @@ fn write_range(writer: &mut Writer, range: &LevelMeshRange) -> Result<(), String
     writer.f32_3(range.bounds.min);
     writer.f32_3(range.bounds.max);
     let vertex_count = u32::try_from(range.vertices.len())
-        .map_err(|_| "mesh range holds too many vertices".to_string())?;
+        .map_err(|error| format!("mesh range holds too many vertices: {error}"))?;
     writer.u32(vertex_count);
     for vertex in &range.vertices {
         write_vertex(writer, vertex);
@@ -257,14 +257,14 @@ fn read_range(
             "mesh range declares {vertex_count} vertices (record declares {declared_vertices})"
         ));
     }
-    let vertex_count = usize::try_from(vertex_count)
-        .map_err(|_| "mesh range vertex count is too large".to_string())?;
-    let mut vertices = Vec::with_capacity(vertex_count.min(4096));
-    for _ in 0..vertex_count {
+    let range_vertex_count = usize::try_from(vertex_count)
+        .map_err(|error| format!("mesh range vertex count is too large: {error}"))?;
+    let mut vertices = Vec::with_capacity(range_vertex_count.min(4096));
+    for _ in 0..range_vertex_count {
         vertices.push(read_vertex(reader)?);
     }
     let indices = reader.u16s(declared_indices)?;
-    let vertex_count_u64 = u64::try_from(vertex_count).unwrap_or(u64::MAX);
+    let vertex_count_u64 = u64::try_from(range_vertex_count).unwrap_or(u64::MAX);
     if indices
         .iter()
         .any(|index| u64::from(*index) >= vertex_count_u64)

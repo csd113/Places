@@ -112,7 +112,7 @@ pub struct MaterialUniform {
 }
 
 /// Bytes one material uniform occupies.
-pub const MATERIAL_UNIFORM_SIZE: u64 = std::mem::size_of::<MaterialUniform>() as u64;
+pub const MATERIAL_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<MaterialUniform>();
 
 /// The resolved material identity: what a GPU material is deduplicated by.
 ///
@@ -178,14 +178,14 @@ impl MaterialUniform {
         }
         // No other bit is ever written; the mask keeps a future bit from
         // leaking into the shader before it has a consumer.
-        let flags = flags & MATERIAL_FLAG_MASK;
+        let shader_flags = flags & MATERIAL_FLAG_MASK;
         Self {
             specular: state.specular,
             roughness: state.roughness,
             normal_strength: state.normal_strength,
             alpha_cutoff: state.alpha.cutoff,
             opacity: state.alpha.opacity,
-            flags,
+            flags: shader_flags,
             reflection_strength: state.reflection_strength(),
             reflection_mode: reflection_mode_code(state),
             emission_color: emission.color,
@@ -530,7 +530,7 @@ pub fn material_identities(
         let slot = seen.get(&identity).copied().unwrap_or_else(|| {
             entries.push(identity);
             let slot = entries.len().saturating_sub(1);
-            seen.insert(identity, slot);
+            let _previous_value = seen.insert(identity, slot);
             slot
         });
         per_draw.push(slot);
@@ -573,7 +573,10 @@ impl WorldMaterials {
     #[must_use]
     // One cohesive resolution pass: the per-material loop threads the same
     // cache, stats and inputs, and the emission/reflection gates read one entry.
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One cohesive resolution pass: the per-material loop threads the same cache, stats and inputs, and the emission/reflection gates read one entry."
+    )]
     pub fn resolve(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -639,13 +642,13 @@ impl WorldMaterials {
             } else {
                 None
             };
-            let emission_record = animation.map_or(emission_record, |animation| {
-                emission_record.with_scale(animation.factor(0.0))
+            let scaled_emission = animation.map_or(emission_record, |active_animation| {
+                emission_record.with_scale(active_animation.factor(0.0))
             });
             let uniform = MaterialUniform::from_state_with_emission(
                 &resolved,
                 normal.is_some(),
-                emission_record,
+                scaled_emission,
             );
             if uniform.response_enabled() {
                 stats.response_materials = stats.response_materials.saturating_add(1);
@@ -653,7 +656,7 @@ impl WorldMaterials {
             if uniform.reflection_eligible() {
                 stats.reflection_eligible = stats.reflection_eligible.saturating_add(1);
             }
-            if emission_record.is_emissive() {
+            if scaled_emission.is_emissive() {
                 stats.emission_materials = stats.emission_materials.saturating_add(1);
             }
             let normal_texture = if let Some(resolved_texture) = normal {
@@ -778,10 +781,10 @@ impl WorldMaterials {
     /// per-frame allocation: the material records are level resources.
     pub fn update_animations(&mut self, queue: &wgpu::Queue, seconds: f32) {
         for (slot, animation) in self.animations.iter().enumerate() {
-            let Some(animation) = animation else {
+            let Some(active_animation) = animation else {
                 continue;
             };
-            let factor = animation.factor(seconds);
+            let factor = active_animation.factor(seconds);
             let Some(entry) = self.entries.get_mut(slot) else {
                 continue;
             };
@@ -810,7 +813,7 @@ impl WorldMaterials {
         if self.animations.get(slot).is_some_and(Option::is_some) {
             return false;
         }
-        let scale = if scale.is_finite() {
+        let unit_scale = if scale.is_finite() {
             scale.clamp(0.0, 1.0)
         } else {
             0.0
@@ -818,11 +821,11 @@ impl WorldMaterials {
         let Some(entry) = self.entries.get_mut(slot) else {
             return false;
         };
-        if (entry.applied_scale - scale).abs() <= f32::EPSILON {
+        if (entry.applied_scale - unit_scale).abs() <= f32::EPSILON {
             return false;
         }
-        entry.applied_scale = scale;
-        entry.write_emission_scale(queue, scale);
+        entry.applied_scale = unit_scale;
+        entry.write_emission_scale(queue, unit_scale);
         true
     }
 
@@ -937,13 +940,15 @@ impl GpuMaterial {
     /// at the field's offset move, and a scale that did not change is skipped by
     /// the caller.
     pub fn write_emission_scale(&self, queue: &wgpu::Queue, scale: f32) {
-        let offset = std::mem::offset_of!(MaterialUniform, emission_scale) as u64;
+        let offset = u64::try_from(std::mem::offset_of!(MaterialUniform, emission_scale))
+            .unwrap_or(u64::MAX);
         queue.write_buffer(&self.uniform_buffer, offset, &scale.to_le_bytes());
     }
 
     /// Writes a new frame reflection mode into the material's uniform.
     pub fn write_reflection_mode(&self, queue: &wgpu::Queue, mode: u32) {
-        let offset = std::mem::offset_of!(MaterialUniform, reflection_mode) as u64;
+        let offset = u64::try_from(std::mem::offset_of!(MaterialUniform, reflection_mode))
+            .unwrap_or(u64::MAX);
         queue.write_buffer(&self.uniform_buffer, offset, &mode.to_le_bytes());
     }
 }
@@ -1049,7 +1054,12 @@ fn create_material_bind_group(
 #[cfg(test)]
 mod tests {
     // Test code: unwrap/indexing/float comparisons are idiomatic here.
-    #![allow(clippy::float_cmp, clippy::indexing_slicing, clippy::unwrap_used)]
+    #![allow(
+        clippy::float_cmp,
+        clippy::indexing_slicing,
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 

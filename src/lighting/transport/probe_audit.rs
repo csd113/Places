@@ -25,12 +25,12 @@ pub(super) struct ProbeAudit {
 
 impl ProbeAudit {
     pub(super) fn new(position: [f32; 3], target_room: i32, direct: &Accumulator) -> Self {
-        let direct = compress(direct);
+        let compressed_direct = compress(direct);
         Self {
             position,
             target_room,
-            direct: direct.irradiance,
-            direct_moment: direct.direction,
+            direct: compressed_direct.irradiance,
+            direct_moment: compressed_direct.direction,
             indirect: [0.0; 3],
             indirect_moment: [0.0; 3],
             surface_hits: 0,
@@ -144,13 +144,13 @@ fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
     let Some(directory) = std::env::var_os(DUMP_ENV) else {
         return Ok(());
     };
-    let directory = std::path::PathBuf::from(directory);
-    std::fs::create_dir_all(&directory)
+    let dump_path = std::path::PathBuf::from(directory);
+    std::fs::create_dir_all(&dump_path)
         .map_err(|error| format!("probe dump directory: {error}"))?;
-    let path = directory.join(name);
+    let path = dump_path.join(name);
     // A failed serialization must not publish a partial diagnostic. Creation
     // is exclusive so a pre-existing temporary file/symlink is never followed.
-    let temporary = directory.join(format!(".{name}.{}.tmp", std::process::id()));
+    let temporary = dump_path.join(format!(".{name}.{}.tmp", std::process::id()));
     let file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -165,8 +165,16 @@ fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
             .map_err(|error| format!("probe dump flush: {error}"))?;
         std::fs::rename(&temporary, &path).map_err(|error| format!("probe dump publish: {error}"))
     })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temporary);
+    if let Err(error) = result {
+        if let Err(cleanup_error) = std::fs::remove_file(&temporary)
+            && cleanup_error.kind() != std::io::ErrorKind::NotFound
+        {
+            return Err(format!(
+                "{error}; probe dump cleanup {}: {cleanup_error}",
+                temporary.display()
+            ));
+        }
+        return Err(error);
     }
-    result
+    Ok(())
 }

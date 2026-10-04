@@ -8,7 +8,8 @@
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::unwrap_used,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -213,10 +214,10 @@ fn sight_requires_range_fov_and_line_of_sight() {
         Vec3::new(6.0, 0.0, 8.0),
         prey_def(),
     );
-    rig.tick(1);
+    drop(rig.tick(1));
     let predator = rig.world.agent("cat").expect("the cat exists");
     assert!(
-        matches!(predator.state, AiState::Pursue { .. }),
+        matches!(predator.state, AiState::Pursue { target: _ }),
         "the cat pursues what it sees, got {:?}",
         predator.state
     );
@@ -227,12 +228,12 @@ fn sight_requires_range_fov_and_line_of_sight() {
         Vec3::new(6.0, 0.0, 3.0),
         prey_def(),
     );
-    blocked.tick(1);
-    let predator = blocked.world.agent("cat").expect("the cat exists");
+    drop(blocked.tick(1));
+    let blocked_predator = blocked.world.agent("cat").expect("the cat exists");
     assert!(
-        !matches!(predator.state, AiState::Pursue { .. }),
+        !matches!(blocked_predator.state, AiState::Pursue { target: _ }),
         "a wall blocks sight, got {:?}",
-        predator.state
+        blocked_predator.state
     );
 
     // Out of range: no pursuit either.
@@ -241,9 +242,9 @@ fn sight_requires_range_fov_and_line_of_sight() {
         Vec3::new(0.5, 0.0, 10.0),
         prey_def(),
     );
-    far.tick(1);
-    let predator = far.world.agent("cat").expect("the cat exists");
-    assert!(!matches!(predator.state, AiState::Pursue { .. }));
+    drop(far.tick(1));
+    let far_predator = far.world.agent("cat").expect("the cat exists");
+    assert!(!matches!(far_predator.state, AiState::Pursue { target: _ }));
 }
 
 #[test]
@@ -256,10 +257,16 @@ fn a_fleeing_rat_moves_away_and_keeps_clear_of_the_wall() {
     let start = rig.world.agent("rat").expect("rat").position;
     let mut saw_flee = false;
     let mut travelled = 0.0_f32;
-    for _ in 0..240 {
-        rig.tick(1);
+    for _ in 0_i32..240_i32 {
+        drop(rig.tick(1));
         let rat = rig.world.agent("rat").expect("rat");
-        if matches!(rat.state, AiState::Flee { .. }) {
+        if matches!(
+            rat.state,
+            AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ) {
             saw_flee = true;
         }
         travelled = travelled.max(rat.position.distance(start));
@@ -292,10 +299,10 @@ fn a_catch_fires_once_and_freezes_the_prey() {
     assert_eq!(rat.speed_mps, 0.0);
     // More ticks do not catch again or move the prey.
     let position = rat.position;
-    let outcome = rig.tick(120);
-    assert!(outcome.catches.is_empty(), "a catch fires once");
-    let rat = rig.world.agent("rat").expect("rat");
-    assert_eq!(rat.position, position, "a caught rat does not move");
+    let later_outcome = rig.tick(120);
+    assert!(later_outcome.catches.is_empty(), "a catch fires once");
+    let caught_rat = rig.world.agent("rat").expect("rat");
+    assert_eq!(caught_rat.position, position, "a caught rat does not move");
 }
 
 #[test]
@@ -336,17 +343,29 @@ fn hearing_finds_a_threat_out_of_sight() {
     let rat_agent = rig.world.agent("rat").expect("rat");
     assert_eq!(rat_agent.handle, rat);
     assert!(
-        matches!(rat_agent.state, AiState::Flee { .. }),
+        matches!(
+            rat_agent.state,
+            AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ),
         "a heard threat starts a flee, got {:?}",
         rat_agent.state
     );
     // Silence and distance: the rat settles back to idle.
-    rig.tick(300);
-    let rat_agent = rig.world.agent("rat").expect("rat");
+    drop(rig.tick(300));
+    let later_rat = rig.world.agent("rat").expect("rat");
     assert!(
-        !matches!(rat_agent.state, AiState::Flee { .. }),
+        !matches!(
+            later_rat.state,
+            AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ),
         "the rat settles after the noise stops, got {:?}",
-        rat_agent.state
+        later_rat.state
     );
 }
 
@@ -420,15 +439,18 @@ fn removing_an_agent_releases_its_state() {
         Vec3::new(5.0, 0.0, 8.0),
         prey_def(),
     );
-    rig.tick(2);
+    drop(rig.tick(2));
     let prey = rig.prey;
     assert!(rig.world.remove(prey));
     assert!(rig.world.agent("rat").is_none());
     // The predator's target snapshot no longer resolves: it drops pursuit.
-    rig.tick(2);
+    drop(rig.tick(2));
     let predator = rig.world.agent("cat").expect("cat");
     assert!(
-        matches!(predator.state, AiState::Idle | AiState::Investigate { .. }),
+        matches!(
+            predator.state,
+            AiState::Idle | AiState::Investigate { point: _ }
+        ),
         "a lost target releases the pursuit, got {:?}",
         predator.state
     );
@@ -479,7 +501,7 @@ fn a_door_capable_agent_requests_and_crosses_a_closed_door() {
     let index = CollisionIndex::build(&collision.walls);
     let mut crossed = false;
     let mut requested = false;
-    for tick in 0..(60 * 20) {
+    for tick in 0_i32..(60_i32 * 20_i32) {
         let targets = world
             .agents()
             .iter()
@@ -523,11 +545,11 @@ fn a_door_capable_agent_requests_and_crosses_a_closed_door() {
             requested = true;
             // The world applies a request through the ordinary door state
             // machine; the test plays that part.
-            doors.request_open("divider");
+            let _request_open_status = doors.request_open("divider");
         }
         // Advance any moving leaf so it can settle open.
-        for _ in 0..4 {
-            doors.advance(1.0 / 60.0, |_, _| false);
+        for _ in 0_i32..4_i32 {
+            let _advance_status = doors.advance(1.0 / 60.0, |_, _| false);
         }
         if world
             .agent("cat")
@@ -560,7 +582,7 @@ fn a_doorless_prey_never_requests_a_closed_door() {
     );
     let index = CollisionIndex::build(&collision.walls);
     let mut requested = false;
-    for _ in 0..(60 * 10) {
+    for _ in 0_i32..(60_i32 * 10_i32) {
         let targets = world
             .agents()
             .iter()
@@ -594,7 +616,7 @@ fn a_doorless_prey_never_requests_a_closed_door() {
         let mut out = AiOutcome::default();
         world.tick(&ctx, &mut out);
         requested |= !out.door_requests.is_empty();
-        doors.advance(1.0 / 60.0, |_, _| false);
+        let _advance_status = doors.advance(1.0 / 60.0, |_, _| false);
     }
     assert!(
         !requested,
@@ -614,7 +636,7 @@ fn an_unreachable_investigate_goal_times_out_without_query_spam() {
     // hears can never be reached. It must not pin in `investigate` forever,
     // and it must not re-path every frame while the goal stays impossible.
     let (level, collision, mut doors) = door_fixture();
-    doors.set_locked("divider", true);
+    let _locked_changed = doors.set_locked("divider", true);
     let mesh = bake_mesh(&level, &collision, &doors);
     let mut store = EntityStore::new();
     let cat = store.insert();
@@ -633,7 +655,7 @@ fn an_unreachable_investigate_goal_times_out_without_query_spam() {
     let mut queries = 0usize;
     let mut entered = false;
     let mut recovered = false;
-    for _ in 0..(60 * 8) {
+    for _ in 0_i32..(60_i32 * 8_i32) {
         let targets = world
             .agents()
             .iter()
@@ -676,14 +698,14 @@ fn an_unreachable_investigate_goal_times_out_without_query_spam() {
         queries = queries.saturating_add(out.path_queries);
         if matches!(
             world.agent("cat").expect("cat").state,
-            AiState::Investigate { .. }
+            AiState::Investigate { point: _ }
         ) {
             entered = true;
         } else if entered {
             recovered = true;
             break;
         }
-        doors.advance(1.0 / 60.0, |_, _| false);
+        let _advance_status = doors.advance(1.0 / 60.0, |_, _| false);
     }
     assert!(entered, "the cat investigates the sound it heard");
     assert!(
@@ -722,7 +744,7 @@ fn a_wanderer_with_no_route_still_returns_to_its_post() {
     let mut moved = 0.0_f32;
     let start = Vec3::new(2.0, 0.0, 3.5);
     let mut stuck_in_wander = true;
-    for _ in 0..(60 * 12) {
+    for _ in 0_i32..(60_i32 * 12_i32) {
         let targets = world
             .agents()
             .iter()
@@ -757,7 +779,7 @@ fn a_wanderer_with_no_route_still_returns_to_its_post() {
         world.tick(&ctx, &mut out);
         let agent = world.agent("rat").expect("rat");
         moved = moved.max(agent.position.distance(start));
-        if !matches!(agent.state, AiState::Wander { .. }) {
+        if !matches!(agent.state, AiState::Wander { destination: _ }) {
             stuck_in_wander = false;
         }
     }
@@ -906,7 +928,11 @@ fn drive_shared_mover(
             &fixture.collision.floor,
             &leaves,
         ) {
-            MoveStep::Moved { .. } => {
+            MoveStep::Moved {
+                position: _,
+                yaw_degrees: _,
+                speed_mps: _,
+            } => {
                 let moved =
                     glam::Vec2::new(mover.position.x - previous.x, mover.position.z - previous.z)
                         .length();

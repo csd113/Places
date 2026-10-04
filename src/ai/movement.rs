@@ -11,17 +11,10 @@
 //! `substep * NAV_MAX_SLOPE <= step_height`, so a continuous stair or ramp
 //! that the bake accepts is climbable here too; a test pins that relationship.
 
-// The navigation/AI runtime is numeric kernel code: bounded `f32` geometry
-// over validated finite records, lattice indices converted after their caps
-// are enforced, and fixed-size arrays walked by index. Those are exactly the
-// shapes the cast/float/index lints flag, so they are allowed here as a unit;
-// no other module inherits them, and every allocation and collection access
-// still goes through bounds-checked paths.
+// Preserve exact sentinel comparisons, floating-point operation order and
+// cohesive geometry/query stages. Numeric conversions and integer arithmetic
+// are audited at their local expressions instead of exempting the module.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::float_cmp,
     clippy::imprecise_flops,
     clippy::missing_const_for_fn,
@@ -29,7 +22,8 @@
     clippy::similar_names,
     clippy::suboptimal_flops,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
 use glam::Vec3;
@@ -129,7 +123,7 @@ impl AgentMove {
         if !waypoint.is_finite() || !self.position.is_finite() {
             return MoveStep::Blocked;
         }
-        let delta = delta.clamp(0.0, MAX_MOVE_STEP_S);
+        let step_delta = delta.clamp(0.0, MAX_MOVE_STEP_S);
         let flat = Vec3::new(
             waypoint.x - self.position.x,
             0.0,
@@ -146,18 +140,28 @@ impl AgentMove {
         self.yaw_degrees = turn_toward(
             self.yaw_degrees.to_radians(),
             target_yaw.to_radians(),
-            ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians() * delta.max(1.0e-4),
+            ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians() * step_delta.max(1.0e-4),
         )
         .to_degrees();
-        let travel = (self.speed_mps * delta).min(distance);
+        let travel = (self.speed_mps * step_delta).min(distance);
         if travel <= 0.0 {
             return MoveStep::Arrived;
         }
         let substep_count = (travel / NAV_MOVE_SUBSTEP_M).ceil().clamp(1.0, 64.0);
         let substep = travel / substep_count;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::as_conversions,
+            reason = "The substep count is clamped to 1..=64 before casting; a NaN count retains the existing zero-step saturation behavior."
+        )]
         let count = substep_count as u32;
         let mut moved = 0.0_f32;
         for _ in 0..count {
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+            )]
             let candidate = self.position + direction * substep;
             let resolved = resolve_player_collision_with_doors(
                 index,
@@ -175,7 +179,7 @@ impl AgentMove {
                     MoveStep::Moved {
                         position: self.position,
                         yaw_degrees: self.yaw_degrees,
-                        speed_mps: moved / delta.max(1.0e-4),
+                        speed_mps: moved / step_delta.max(1.0e-4),
                     }
                 } else {
                     MoveStep::Blocked
@@ -195,7 +199,7 @@ impl AgentMove {
         MoveStep::Moved {
             position: self.position,
             yaw_degrees: self.yaw_degrees,
-            speed_mps: moved / delta.max(1.0e-4),
+            speed_mps: moved / step_delta.max(1.0e-4),
         }
     }
 }

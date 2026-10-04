@@ -285,7 +285,11 @@ pub fn evaluate(condition: &ConditionDef, view: &impl ConditionView) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use std::collections::HashMap;
 
@@ -303,28 +307,30 @@ mod tests {
 
     impl TestView {
         fn with_state(mut self, target: &str, name: &str, value: StateValue) -> Self {
-            self.states
-                .insert((target.to_owned(), name.to_owned()), value);
+            drop(
+                self.states
+                    .insert((target.to_owned(), name.to_owned()), value),
+            );
             self
         }
 
         fn with_enabled(mut self, target: &str, value: bool) -> Self {
-            self.enabled.insert(target.to_owned(), value);
+            let _previous_value = self.enabled.insert(target.to_owned(), value);
             self
         }
 
         fn with_locked(mut self, target: &str, value: bool) -> Self {
-            self.locked.insert(target.to_owned(), value);
+            let _previous_value = self.locked.insert(target.to_owned(), value);
             self
         }
 
         fn with_door(mut self, target: &str, value: bool) -> Self {
-            self.doors.insert(target.to_owned(), value);
+            let _previous_value = self.doors.insert(target.to_owned(), value);
             self
         }
 
         fn with_sequence(mut self, target: &str, value: bool) -> Self {
-            self.sequences.insert(target.to_owned(), value);
+            let _previous_value = self.sequences.insert(target.to_owned(), value);
             self
         }
     }
@@ -413,9 +419,9 @@ mod tests {
     fn clear_resets_records_and_the_drop_counter() {
         let mut queue = EventQueue::new();
         for _ in 0..EventQueue::MAX_QUEUED_EVENTS {
-            queue.push(record(1, EventKind::Interact, 0, "x"));
+            let _push_status = queue.push(record(1, EventKind::Interact, 0, "x"));
         }
-        queue.push(record(1, EventKind::Interact, 0, "x"));
+        let _push_status_2 = queue.push(record(1, EventKind::Interact, 0, "x"));
         assert_eq!(queue.dropped(), 1);
         queue.clear();
         assert!(queue.is_empty());
@@ -426,10 +432,10 @@ mod tests {
     #[test]
     fn drain_stale_keeps_only_the_current_generation_in_order() {
         let mut queue = EventQueue::new();
-        queue.push(record(4, EventKind::Interact, 0, "old"));
-        queue.push(record(5, EventKind::Spawn, 1, "kept_a"));
-        queue.push(record(4, EventKind::Timer, 2, "old"));
-        queue.push(record(5, EventKind::ObjectState, 3, "kept_b"));
+        let _push_status = queue.push(record(4, EventKind::Interact, 0, "old"));
+        let _push_status_2 = queue.push(record(5, EventKind::Spawn, 1, "kept_a"));
+        let _push_status_3 = queue.push(record(4, EventKind::Timer, 2, "old"));
+        let _push_status_4 = queue.push(record(5, EventKind::ObjectState, 3, "kept_b"));
         assert_eq!(queue.drain_stale(5), 2);
         assert_eq!(queue.len(), 2);
         assert_eq!(queue.pop().map(|item| item.key), Some("kept_a".to_owned()));

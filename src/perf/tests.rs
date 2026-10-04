@@ -2,7 +2,12 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 
@@ -55,10 +60,21 @@ fn test_parse_devfreq_load() {
 }
 
 #[test]
+fn devfreq_load_rejects_non_finite_counters_and_bounds_large_ratios() {
+    for input in ["NaN", "inf%", "NaN@500000000", "NaN 100", "100 inf"] {
+        assert_eq!(parse_devfreq_load(input), None, "{input}");
+    }
+    assert_eq!(parse_devfreq_load("1e308 / 1e-308"), Some(100.0));
+    assert_eq!(parse_devfreq_load("-1e308 / 1e-308"), Some(0.0));
+}
+
+#[test]
 fn test_parse_drm_busy_percent() {
     assert_eq!(parse_drm_busy_percent("90"), Some(90.0));
     assert_eq!(parse_drm_busy_percent("90%"), Some(90.0));
     assert_eq!(parse_drm_busy_percent("invalid"), None);
+    assert_eq!(parse_drm_busy_percent("NaN"), None);
+    assert_eq!(parse_drm_busy_percent("inf%"), None);
 }
 
 #[test]
@@ -69,7 +85,7 @@ fn test_gpu_sampler_never_uses_clock_frequency() {
     // Directly parsing a frequency without load format produces clamped 100 or is not a load file.
     // But more importantly, sample_gpu_from_paths only looks for 'load' or 'utilization', never 'cur_freq'!
     let temp_dir = std::env::temp_dir().join("places_test_gpu_no_freq");
-    let _ = fs::remove_dir_all(&temp_dir);
+    crate::test_support::remove_dir_if_present(&temp_dir);
     let devfreq_dir = temp_dir.join("devfreq/test.gpu");
     fs::create_dir_all(&devfreq_dir).unwrap();
 
@@ -87,13 +103,13 @@ fn test_gpu_sampler_never_uses_clock_frequency() {
         "GPU sampler must never substitute clock frequency as utilization!"
     );
 
-    let _ = fs::remove_dir_all(&temp_dir);
+    crate::test_support::remove_dir_if_present(&temp_dir);
 }
 
 #[test]
 fn test_sample_gpu_from_paths_with_mock_devfreq_load() {
     let temp_dir = std::env::temp_dir().join("places_test_gpu_mock");
-    let _ = fs::remove_dir_all(&temp_dir);
+    crate::test_support::remove_dir_if_present(&temp_dir);
     let devfreq_dir = temp_dir.join("devfreq/test.gpu");
     fs::create_dir_all(&devfreq_dir).unwrap();
 
@@ -106,7 +122,7 @@ fn test_sample_gpu_from_paths_with_mock_devfreq_load() {
     );
     assert_eq!(sampled, Some(61.0));
 
-    let _ = fs::remove_dir_all(&temp_dir);
+    crate::test_support::remove_dir_if_present(&temp_dir);
 }
 
 #[test]
@@ -133,7 +149,7 @@ fn test_perf_overlay_text_format_and_caching() {
     overlay.set_visible(true);
 
     // Simulate frames with real delta times
-    for _ in 0..15 {
+    for _ in 0_i32..15_i32 {
         overlay.update(0.0333); // ~30 FPS frame time
     }
 
@@ -165,6 +181,8 @@ fn test_parse_debugfs_utilization() {
     assert_eq!(parse_debugfs_utilization("utilization=65"), Some(65.0));
     assert_eq!(parse_debugfs_utilization("UTILIZATION = 80%"), Some(80.0));
     assert_eq!(parse_debugfs_utilization("not_a_number"), None);
+    assert_eq!(parse_debugfs_utilization("utilization=NaN"), None);
+    assert_eq!(parse_debugfs_utilization("inf%"), None);
 }
 
 #[test]

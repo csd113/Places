@@ -108,7 +108,11 @@ impl CollisionIndex {
         };
         let span_x = (max_x - min_x).max(0.0);
         let span_z = (max_z - min_z).max(0.0);
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Collision count only selects a clamped cell-size heuristic; rounding cannot affect query correctness."
+        )]
         let count = boxes.len() as f32;
         let target = count.sqrt().max(1.0);
         let mut cell_m = (span_x.max(span_z) / target).clamp(MIN_CELL_M, MAX_CELL_M);
@@ -145,14 +149,14 @@ impl CollisionIndex {
         let mut starts = Vec::with_capacity(slots.saturating_add(1));
         let mut running = 0_u32;
         starts.push(0);
-        for count in &counts {
-            running = running.saturating_add(*count);
+        for cell_count in &counts {
+            running = running.saturating_add(*cell_count);
             starts.push(running);
         }
         let mut cursors: Vec<u32> = starts.iter().take(slots).copied().collect();
         let mut items = vec![u32::MAX; usize::try_from(running).unwrap_or(usize::MAX)];
         for (box_index, range) in ranges.iter().enumerate() {
-            let box_index = u32::try_from(box_index).unwrap_or(u32::MAX);
+            let packed_box_index = u32::try_from(box_index).unwrap_or(u32::MAX);
             for z in range.1..=range.3 {
                 for x in range.0..=range.2 {
                     let slot = cell_slot(x, z, cells_x);
@@ -161,7 +165,7 @@ impl CollisionIndex {
                     };
                     let position = usize::try_from(*cursor).unwrap_or(usize::MAX);
                     if let Some(item) = items.get_mut(position) {
-                        *item = box_index;
+                        *item = packed_box_index;
                     }
                     *cursor = cursor.saturating_add(1);
                 }
@@ -262,13 +266,13 @@ impl CollisionIndex {
             self.visit_all(boxes, &mut visit);
             return;
         }
-        let radius = radius.max(0.0);
+        let nonnegative_radius = radius.max(0.0);
         self.visit_cells(
             self.grid().range(
-                from.x.min(to.x) - radius,
-                from.x.max(to.x) + radius,
-                from.y.min(to.y) - radius,
-                from.y.max(to.y) + radius,
+                from.x.min(to.x) - nonnegative_radius,
+                from.x.max(to.x) + nonnegative_radius,
+                from.y.min(to.y) - nonnegative_radius,
+                from.y.max(to.y) + nonnegative_radius,
             ),
             boxes,
             &mut visit,
@@ -303,7 +307,7 @@ impl CollisionIndex {
     /// Conservative by a one-cell margin, which is what keeps it a superset of
     /// the cells the segment truly crosses at cell corners. Boxes are visited
     /// in ascending index order, like the linear scan.
-    #[allow(clippy::too_many_arguments)] // the ray and its inputs, one each
+    // the ray and its inputs, one each
     pub fn for_each_ray(
         &self,
         origin: Vec3,
@@ -328,8 +332,13 @@ impl CollisionIndex {
             self.visit_all(boxes, &mut visit);
             return;
         }
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let samples = samples.max(1.0) as u32;
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "The finite integral ray sample count is checked against MAX_RAY_SAMPLES (1000000) and raised to at least one."
+        )]
+        let sample_count = samples.max(1.0) as u32;
         let stamp = self.begin_query();
         let grid = self.grid();
         // The scratch borrow is held across `visit`, so a visitor must not
@@ -337,9 +346,13 @@ impl CollisionIndex {
         // this crate only inspects the box it is handed.
         let mut scratch = self.scratch.borrow_mut();
         scratch.clear();
-        for index in 0..=samples {
-            #[allow(clippy::cast_precision_loss)]
-            let t = max_t * (index as f32 / samples as f32);
+        for index in 0..=sample_count {
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_precision_loss,
+                reason = "Both interpolation indices are bounded by MAX_RAY_SAMPLES (1000000), below f32's exact integer limit."
+            )]
+            let t = max_t * (index as f32 / sample_count as f32);
             let point_x = direction.x.mul_add(t, origin.x);
             let point_z = direction.z.mul_add(t, origin.z);
             let range = grid.range(point_x, point_x, point_z, point_z);
@@ -518,10 +531,15 @@ fn clamp_cell(value: f32, last: u32) -> u32 {
     if value >= upper {
         return last;
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The finite nonnegative floored coordinate is checked below the small u16 grid edge before conversion."
+    )]
     // `value` is finite, positive and below `last`, which fits a `u32`.
-    let value = value as u32;
-    value.min(last)
+    let cell_index = value as u32;
+    cell_index.min(last)
 }
 
 /// Cell counts for a span and edge, at least one cell per axis.
@@ -536,9 +554,14 @@ fn cell_counts(span_x: f32, span_z: f32, cell_m: f32) -> (u32, u32) {
         }
         // Saturate rather than truncate; `build` then grows the cell until the
         // grid fits the budget.
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let count = count.min(f32::from(u16::MAX)) as u32;
-        count.max(1)
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "Saturate rather than truncate; `build` then grows the cell until the grid fits the budget."
+        )]
+        let cell_count = count.min(f32::from(u16::MAX)) as u32;
+        cell_count.max(1)
     };
     (axis(span_x), axis(span_z))
 }
@@ -564,7 +587,8 @@ fn cell_count(cells_x: u32, cells_z: u32) -> usize {
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
     use super::*;
@@ -596,25 +620,23 @@ mod tests {
     #[test]
     fn disc_queries_match_the_linear_scan() {
         let mut boxes = Vec::new();
-        for row in 0..40 {
-            for column in 0..40 {
+        for row in 0_i32..40_i32 {
+            for column in 0_i32..40_i32 {
                 boxes.push(wall(
-                    row as f32 * 7.0 - 100.0,
-                    column as f32 * 5.0 - 100.0,
+                    crate::test_support::exact_f32(row) * 7.0 - 100.0,
+                    crate::test_support::exact_f32(column) * 5.0 - 100.0,
                     0.4,
-                    (column % 3 + 1) as f32 * 2.5,
+                    crate::test_support::exact_f32(column % 3_i32 + 1_i32) * 2.5,
                 ));
             }
         }
         let index = CollisionIndex::build(&boxes);
         let mut state = 0x1234_5678_u32;
-        for _ in 0..400 {
+        for _ in 0_i32..400_i32 {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            #[allow(clippy::cast_precision_loss)]
-            let x = ((state >> 8) % 30_000) as f32 / 100.0 - 150.0;
+            let x = crate::test_support::exact_f32((state >> 8_i32) % 30_000) / 100.0 - 150.0;
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            #[allow(clippy::cast_precision_loss)]
-            let z = ((state >> 8) % 30_000) as f32 / 100.0 - 150.0;
+            let z = crate::test_support::exact_f32((state >> 8_i32) % 30_000) / 100.0 - 150.0;
             let mut expected: Vec<WallAabb> = boxes
                 .iter()
                 .filter(|wall| wall.overlaps_disc(x, z, 0.3))
@@ -642,7 +664,7 @@ mod tests {
             wall(10.0, 10.0, 1.0, 1.0),
         ];
         let index = CollisionIndex::build(&boxes);
-        for _ in 0..3 {
+        for _ in 0_i32..3_i32 {
             // Repeated calls must not be suppressed by a stale stamp, and a
             // box spanning several cells must still appear exactly once.
             let hits = visited(|visit| {
@@ -663,13 +685,11 @@ mod tests {
         ];
         let index = CollisionIndex::build(&boxes);
         let mut state = 7_u32;
-        for _ in 0..200 {
+        for _ in 0_i32..200_i32 {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            #[allow(clippy::cast_precision_loss)]
-            let x = ((state >> 10) % 2000) as f32 / 100.0 - 10.0;
+            let x = crate::test_support::exact_f32((state >> 10_i32) % 2000) / 100.0 - 10.0;
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            #[allow(clippy::cast_precision_loss)]
-            let z = ((state >> 10) % 2000) as f32 / 100.0 - 10.0;
+            let z = crate::test_support::exact_f32((state >> 10_i32) % 2000) / 100.0 - 10.0;
             let mut expected: Vec<WallAabb> = boxes
                 .iter()
                 .filter(|wall| wall.supports_center(x, z))
@@ -692,15 +712,15 @@ mod tests {
 
     #[test]
     fn ray_queries_are_a_superset_of_the_segment() {
-        let boxes: Vec<WallAabb> = (0..50)
+        let boxes: Vec<WallAabb> = (0_i32..50_i32)
             .map(|index| {
-                let offset = index as f32 * 4.0;
+                let offset = crate::test_support::exact_f32(index) * 4.0;
                 wall(offset, 3.0, 6.0, 0.2)
             })
             .collect();
         let index = CollisionIndex::build(&boxes);
-        for slot in 0..50 {
-            let offset = slot as f32 * 4.0;
+        for slot in 0_i32..50_i32 {
+            let offset = crate::test_support::exact_f32(slot) * 4.0;
             let origin = Vec3::new(offset - 5.0, 1.0, 3.1);
             let mut hit = false;
             index.for_each_ray(origin, Vec3::X, 12.0, &boxes, |wall| {
@@ -716,15 +736,15 @@ mod tests {
     fn an_empty_index_visits_every_box() {
         let boxes = vec![wall(0.0, 0.0, 1.0, 1.0), wall(5.0, 5.0, 1.0, 1.0)];
         let index = CollisionIndex::empty();
-        let mut seen = 0;
-        index.for_each_disc(0.0, 0.0, 0.1, &boxes, |_| seen += 1);
-        assert_eq!(seen, 2);
-        let mut seen = 0;
-        index.for_each_point(0.0, 0.0, &boxes, |_| seen += 1);
-        assert_eq!(seen, 2);
-        let mut seen = 0;
-        index.for_each_ray(Vec3::ZERO, Vec3::X, 1.0, &boxes, |_| seen += 1);
-        assert_eq!(seen, 2);
+        let mut seen = 0_i32;
+        index.for_each_disc(0.0, 0.0, 0.1, &boxes, |_| seen += 1_i32);
+        assert_eq!(seen, 2_i32);
+        let mut point_hits = 0_i32;
+        index.for_each_point(0.0, 0.0, &boxes, |_| point_hits += 1_i32);
+        assert_eq!(point_hits, 2_i32);
+        let mut ray_hits = 0_i32;
+        index.for_each_ray(Vec3::ZERO, Vec3::X, 1.0, &boxes, |_| ray_hits += 1_i32);
+        assert_eq!(ray_hits, 2_i32);
     }
 
     #[test]
@@ -738,9 +758,9 @@ mod tests {
         let index = CollisionIndex::build(&boxes);
         let (cells_x, cells_z) = index.cells();
         assert!(u64::from(cells_x) * u64::from(cells_z) <= MAX_CELLS);
-        let mut seen = 0;
-        index.for_each_disc(0.0, 0.0, 0.3, &boxes, |_| seen += 1);
-        assert_eq!(seen, 0, "the far walls must not be a disc candidate");
+        let mut seen = 0_i32;
+        index.for_each_disc(0.0, 0.0, 0.3, &boxes, |_| seen += 1_i32);
+        assert_eq!(seen, 0_i32, "the far walls must not be a disc candidate");
     }
 
     #[test]
@@ -751,12 +771,12 @@ mod tests {
             wall(0.0, 0.0, 2.0, 2.0),
         ];
         let index = CollisionIndex::build(&boxes);
-        let mut seen = 0;
+        let mut seen = 0_i32;
         index.for_each_point(1.0, 1.0, &boxes, |wall| {
             if wall.supports_center(1.0, 1.0) {
-                seen += 1;
+                seen += 1_i32;
             }
         });
-        assert_eq!(seen, 1);
+        assert_eq!(seen, 1_i32);
     }
 }

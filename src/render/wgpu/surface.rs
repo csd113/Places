@@ -415,7 +415,7 @@ mod tests {
         for (actual, display) in linear.iter().zip(REFERENCE_CLEAR_DISPLAY.iter()) {
             let expected = srgb_to_linear(*display);
             assert!(
-                (actual - expected).abs() < 1.0e-6,
+                (actual - expected).abs() < 1.0e-6_f64,
                 "surface clear {actual} must be srgb_to_linear({display}) = {expected}"
             );
         }

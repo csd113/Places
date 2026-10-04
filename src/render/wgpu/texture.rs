@@ -33,9 +33,6 @@ const RGBA_BYTES: u32 = 4;
 /// The same four bytes as [`RGBA_BYTES`], for texel-chunk slice arithmetic.
 const RGBA_CHANNELS: usize = 4;
 
-/// Bytes of the generated fallback of last resort (2x2 RGBA8).
-const FALLBACK_BYTES: usize = 16;
-
 /// Worker threads one texture batch may start.
 ///
 /// One upload runs on a handful of sheets, so more workers than this cannot
@@ -219,10 +216,10 @@ impl TextureFiltering {
     /// empty or unknown value keeps the default (High).
     #[must_use]
     pub fn parse(mode: &str) -> Self {
-        let mode = mode.trim();
-        if mode.eq_ignore_ascii_case("low") {
+        let trimmed_mode = mode.trim();
+        if trimmed_mode.eq_ignore_ascii_case("low") {
             Self::Low
-        } else if mode.eq_ignore_ascii_case("medium") {
+        } else if trimmed_mode.eq_ignore_ascii_case("medium") {
             Self::Medium
         } else {
             Self::High
@@ -782,9 +779,8 @@ pub struct TextureUploadRequest<'a> {
 ///
 /// The workers borrow only the decoded [`RawImage`]s and the key's fit
 /// parameters; `Arc` handles, cache maps and GPU state never cross a thread.
-/// Each slot is `None` only if the job was never claimed, which can only happen
-/// after a worker panic that `thread::scope` propagates anyway; the caller then
-/// falls back to the identical serial preparation.
+/// Unprepared slots remain `None` after a spawn failure or worker panic; the
+/// caller falls back to the identical serial preparation for those requests.
 fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<PreparedTexture>> {
     let jobs = requests.len();
     let slots: Vec<Option<PreparedTexture>> = (0..jobs).map(|_| None).collect();
@@ -796,10 +792,11 @@ fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<Prepar
         .clamp(1, MAX_TEXTURE_WORKERS)
         .min(jobs);
     let next = AtomicUsize::new(0);
-    let slots = Mutex::new(slots);
+    let shared_slots = Mutex::new(slots);
     std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(workers);
         for _ in 0..workers {
-            scope.spawn(|| {
+            let spawned = std::thread::Builder::new().spawn_scoped(scope, || {
                 loop {
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     if index >= jobs {
@@ -813,16 +810,33 @@ fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<Prepar
                         request.key.level,
                         request.key.class,
                     );
-                    if let Ok(mut slots) = slots.lock()
-                        && let Some(slot) = slots.get_mut(index)
+                    if let Ok(mut locked_slots) = shared_slots.lock()
+                        && let Some(slot) = locked_slots.get_mut(index)
                     {
                         *slot = Some(prepared);
                     }
                 }
             });
+            match spawned {
+                Ok(handle) => handles.push(handle),
+                Err(error) => {
+                    crate::logging::warn(format!(
+                        "[textures] could not start preparation worker: {error}; using serial fallback"
+                    ));
+                    break;
+                }
+            }
+        }
+        for handle in handles {
+            if let Err(payload) = handle.join() {
+                crate::logging::warn(format!(
+                    "[textures] preparation worker panicked: {}; using serial fallback",
+                    crate::logging::panic_message(payload.as_ref())
+                ));
+            }
         }
     });
-    slots
+    shared_slots
         .into_inner()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
@@ -974,7 +988,7 @@ impl TextureCache {
             if self.persistent.len() <= max_entries && bytes <= max_bytes {
                 break;
             }
-            self.persistent.remove(&key);
+            drop(self.persistent.remove(&key));
             bytes = bytes.saturating_sub(size);
         }
     }
@@ -1016,7 +1030,10 @@ impl TextureCache {
     /// [`RawImage`]s with their own session key. Their GPU identity is the same
     /// kind of cache entry, clamped because fitted UVs never repeat.
     #[must_use]
-    #[allow(clippy::too_many_arguments)] // one upload entry point: device/queue plus the fitted sheet's identity
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one upload entry point: device/queue plus the fitted sheet's identity"
+    )] // one upload entry point: device/queue plus the fitted sheet's identity
     pub fn get_or_upload_fitted(
         &mut self,
         device: &wgpu::Device,
@@ -1098,7 +1115,7 @@ impl TextureCache {
                 continue;
             }
             let slot = misses.len();
-            first_pending.insert(identity, slot);
+            let _previous_value = first_pending.insert(identity, slot);
             misses.push(request);
             plans.push(Plan::Miss(slot));
         }
@@ -1111,7 +1128,7 @@ impl TextureCache {
             // A worker that never filled its slot (only possible if it
             // panicked, which `thread::scope` would have propagated) falls back
             // to the identical serial preparation rather than failing.
-            let prepared = slot.unwrap_or_else(|| {
+            let prepared_texture = slot.unwrap_or_else(|| {
                 PreparedTexture::prepare(request.image, request.key.level, request.key.class)
             });
             let texture = Arc::new(GpuTexture::upload_prepared(
@@ -1121,13 +1138,15 @@ impl TextureCache {
                 &self.samplers,
                 &TextureUpload {
                     key: &request.key,
-                    prepared: &prepared,
+                    prepared: &prepared_texture,
                     origin: request.origin,
                     fallback: false,
                 },
             ));
-            self.map_mut(request.origin)
-                .insert(request.key.clone(), Arc::clone(&texture));
+            drop(
+                self.map_mut(request.origin)
+                    .insert(request.key.clone(), Arc::clone(&texture)),
+            );
             uploaded.push((CacheOutcome::Uploaded, texture));
         }
         crate::perf::startup_mark("textures: GPU upload");
@@ -1180,7 +1199,7 @@ impl TextureCache {
                 fallback: false,
             },
         ));
-        self.map_mut(origin).insert(key, Arc::clone(&texture));
+        drop(self.map_mut(origin).insert(key, Arc::clone(&texture)));
         (CacheOutcome::Uploaded, texture)
     }
 
@@ -1214,18 +1233,12 @@ impl TextureCache {
     }
 }
 
-/// The decoded fallback sheet: the committed white PNG, or a generated
-/// 2x2 white fill if the embedded bytes were ever corrupt (they are pinned by
-/// a test, so the second arm is unreachable in practice and exists only so a
-/// broken install degrades to white instead of failing to start).
+/// The committed white sheet, with an embedded 2x2 PNG of the original
+/// emergency white pixels if the primary repository image cannot decode.
 #[must_use]
 pub fn fallback_white_image() -> RawImage {
-    decode_png(FALLBACK_WHITE_PNG).unwrap_or_else(|_| {
-        // Generated fallback of last resort: 2x2 opaque white (16 bytes).
-        let mut rgba = vec![0u8; FALLBACK_BYTES];
-        rgba.fill(u8::MAX);
-        RawImage::new(2, 2, rgba)
-    })
+    decode_png(FALLBACK_WHITE_PNG)
+        .unwrap_or_else(|_| crate::materials::BuiltinImage::EmergencyWhite.decode())
 }
 
 /// Mip levels a full chain of this image holds.
@@ -1420,14 +1433,17 @@ mod tests {
         clippy::expect_used,
         clippy::float_cmp,
         clippy::indexing_slicing,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
 
     /// A raw RGBA8 image over the given dimensions and texel function.
     fn image(width: u32, height: u32, texel: impl Fn(u32, u32) -> [u8; 4]) -> RawImage {
-        let mut rgba = Vec::with_capacity((width * height) as usize * 4);
+        let mut rgba = Vec::with_capacity(
+            usize::try_from(width * height).expect("fixture integer fits usize") * 4,
+        );
         for y in 0..height {
             for x in 0..width {
                 rgba.extend_from_slice(&texel(x, y));
@@ -1438,7 +1454,9 @@ mod tests {
 
     /// One channel value of one texel.
     fn channel(image: &RawImage, x: u32, y: u32, channel: usize) -> u8 {
-        let offset = ((y * image.width + x) * 4) as usize + channel;
+        let offset = usize::try_from((y * image.width + x) * 4)
+            .expect("fixture integer fits usize")
+            + channel;
         image.rgba[offset]
     }
 
@@ -1616,7 +1634,8 @@ mod tests {
     fn reference_halve(source: &RawImage) -> RawImage {
         let width = (source.width / 2).max(1);
         let height = (source.height / 2).max(1);
-        let mut rgba = vec![0u8; (width * height * 4) as usize];
+        let mut rgba =
+            vec![0u8; usize::try_from(width * height * 4).expect("fixture integer fits usize")];
         for out_y in 0..height {
             let y0 = out_y.saturating_mul(2);
             let y1 = y0.saturating_add(2).min(source.height.max(1));
@@ -1627,7 +1646,8 @@ mod tests {
                 let mut count = 0u32;
                 for y in y0..y1 {
                     for x in x0..x1 {
-                        let offset = ((y * source.width + x) * 4) as usize;
+                        let offset = usize::try_from((y * source.width + x) * 4)
+                            .expect("fixture integer fits usize");
                         let Some(texel) = source.rgba.get(offset..offset + 4) else {
                             continue;
                         };
@@ -1641,7 +1661,8 @@ mod tests {
                 if count == 0 {
                     continue;
                 }
-                let offset = ((out_y * width + out_x) * 4) as usize;
+                let offset = usize::try_from((out_y * width + out_x) * 4)
+                    .expect("fixture integer fits usize");
                 for (index, sum) in sums.iter().enumerate() {
                     rgba[offset + index] = u8::try_from((sum + count / 2) / count).unwrap_or(255);
                 }
@@ -1763,12 +1784,12 @@ mod tests {
         for (slot, request) in prepared.iter().zip(&requests) {
             let serial =
                 PreparedTexture::prepare(request.image, request.key.level, request.key.class);
-            let slot = slot.as_ref().expect("every request has a prepared slot");
-            assert_eq!(slot.width, serial.width);
-            assert_eq!(slot.height, serial.height);
-            assert_eq!(slot.mip_levels, serial.mip_levels);
-            assert_eq!(slot.levels, serial.levels);
-            assert_eq!(slot.resident_bytes, serial.resident_bytes);
+            let prepared_slot = slot.as_ref().expect("every request has a prepared slot");
+            assert_eq!(prepared_slot.width, serial.width);
+            assert_eq!(prepared_slot.height, serial.height);
+            assert_eq!(prepared_slot.mip_levels, serial.mip_levels);
+            assert_eq!(prepared_slot.levels, serial.levels);
+            assert_eq!(prepared_slot.resident_bytes, serial.resident_bytes);
         }
     }
 
@@ -1842,7 +1863,9 @@ mod tests {
         );
         assert_eq!(
             image.rgba.len(),
-            (image.width as usize) * (image.height as usize) * 4,
+            usize::try_from(image.width).expect("fixture integer fits usize")
+                * usize::try_from(image.height).expect("fixture integer fits usize")
+                * 4,
             "the fallback buffer must match its dimensions"
         );
         assert!(
@@ -2127,7 +2150,10 @@ mod tests {
     /// ```
     #[test]
     #[ignore = "requires a GPU adapter"]
-    #[allow(clippy::too_many_lines)] // one self-contained GPU measurement: setup, shader, dispatch, compare
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one self-contained GPU measurement: setup, shader, dispatch, compare"
+    )] // one self-contained GPU measurement: setup, shader, dispatch, compare
     fn the_srgb_sample_round_trip_is_measured_on_this_adapter() {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -2278,19 +2304,23 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             pass.dispatch_workgroups(1, 1, 1);
         }
         encoder.copy_buffer_to_buffer(&results, 0, &readback, 0, 256 * 4);
-        queue.submit([encoder.finish()]);
+        let _submission = queue.submit([encoder.finish()]);
 
         let slice = readback.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = sender.send(result);
+            sender
+                .send(result)
+                .expect("read-back receiver remains live until its callback");
         });
-        let _ = device.poll(wgpu::PollType::wait_indefinitely());
+        let _poll_status = device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("GPU work completes before test read-back");
         receiver.recv().expect("map callback").expect("buffer maps");
         let data = slice.get_mapped_range().expect("mapped range");
         let mut errors = std::collections::BTreeMap::<i32, usize>::new();
         let mut worst = 0i32;
-        for (value, word) in (0..256i32).zip(data.as_chunks::<4>().0.iter()) {
+        for (value, word) in (0_i32..256i32).zip(data.as_chunks::<4>().0.iter()) {
             let byte = i32::from_le_bytes(*word);
             let error = byte - value;
             *errors.entry(error).or_default() += 1;
@@ -2301,12 +2331,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         // The measurement is the test's purpose: report the full distribution
         // so a backend whose hardware decode differs is visible in the log.
         // Printing is deliberate here, so the crate's stdout lint is allowed.
-        #[allow(clippy::print_stdout)]
+        #[expect(
+            clippy::print_stdout,
+            reason = "The measurement is the test's purpose: report the full distribution so a backend whose hardware decode differs is visible in the log. Printing is deliberate here, so the crate's stdout lint is allowed."
+        )]
         {
             println!("srgb round-trip error distribution: {errors:?}");
         }
         assert!(
-            worst <= 1,
+            worst <= 1_i32,
             "the hardware sRGB decode must invert the IEC encode within one byte: {errors:?}"
         );
     }

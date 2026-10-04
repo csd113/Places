@@ -231,7 +231,7 @@ impl WgpuCharacters {
                 };
                 value.meshes.push(mesh);
                 let index = value.meshes.len().saturating_sub(1);
-                mesh_index_by_path.insert(model_path, index);
+                let _previous_value = mesh_index_by_path.insert(model_path, index);
                 index
             };
             let Some(mesh) = value.meshes.get(mesh_index) else {
@@ -462,31 +462,31 @@ impl WgpuCharacters {
                 CharacterKey::Placed(slot) => scene.characters().get(*slot),
                 CharacterKey::Runtime(instance_id) => scene.runtime_character(instance_id),
             };
-            let Some(character) = character else {
+            let Some(scene_character) = character else {
                 continue;
             };
             // A fade is a per-frame environment write, so the comparison also
             // covers opacity: a still, settled pose writes nothing, while a
             // fading ghost rewrites only its own uniform.
-            let transform_changed = character.transform() != gpu.uploaded_transform;
+            let transform_changed = scene_character.transform() != gpu.uploaded_transform;
 
-            gpu.environment.update(
+            let _update_stats = gpu.environment.update(
                 queue,
                 &environment
-                    .with_model(character.transform())
-                    .with_entity_lighting(Some(character.entity_lighting()))
-                    .with_opacity(character.opacity()),
+                    .with_model(scene_character.transform())
+                    .with_entity_lighting(Some(scene_character.entity_lighting()))
+                    .with_opacity(scene_character.opacity()),
             );
-            gpu.uploaded_transform = character.transform();
+            gpu.uploaded_transform = scene_character.transform();
             if transform_changed {
-                gpu.world_bounds = character.world_bounds();
+                gpu.world_bounds = scene_character.world_bounds();
             }
-            if character.animator().revision() == gpu.uploaded_revision {
+            if scene_character.animator().revision() == gpu.uploaded_revision {
                 continue;
             }
-            Self::fill_vertices(character, &mut self.scratch);
+            Self::fill_vertices(scene_character, &mut self.scratch);
             queue.write_buffer(&gpu.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
-            gpu.uploaded_revision = character.animator().revision();
+            gpu.uploaded_revision = scene_character.animator().revision();
             uploaded = uploaded.saturating_add(1);
         }
         uploaded
@@ -509,7 +509,7 @@ impl WgpuCharacters {
     pub fn environment(&self, character: usize) -> Option<&wgpu::BindGroup> {
         self.characters
             .get(character)
-            .map(|character| character.environment.bind_group())
+            .map(|gpu_character| gpu_character.environment.bind_group())
     }
 
     /// One character's world bounds.
@@ -530,12 +530,12 @@ impl WgpuCharacters {
     ) -> Option<(&wgpu::Buffer, &wgpu::Buffer, u32, u32)> {
         let entry = self.characters.get(character)?;
         let mesh = self.meshes.get(entry.mesh)?;
-        let submesh = mesh.submeshes.get(submesh)?;
+        let mesh_part = mesh.submeshes.get(submesh)?;
         Some((
             &entry.vertex_buffer,
             &mesh.index_buffer,
-            submesh.first_index,
-            submesh.index_count,
+            mesh_part.first_index,
+            mesh_part.index_count,
         ))
     }
 
@@ -553,7 +553,7 @@ impl WgpuCharacters {
     pub fn submesh_pass(&self, character: usize, submesh: usize) -> Option<BatchPass> {
         let entry = self.characters.get(character)?;
         let mesh = self.meshes.get(entry.mesh)?;
-        mesh.submeshes.get(submesh).map(|submesh| submesh.pass)
+        mesh.submeshes.get(submesh).map(|mesh_part| mesh_part.pass)
     }
 
     /// True when one character has at least one submesh in `pass`.
@@ -602,8 +602,8 @@ impl WgpuCharacters {
     pub fn submesh_texture(&self, character: usize, submesh: usize) -> Option<&GpuTexture> {
         let entry = self.characters.get(character)?;
         let mesh = self.meshes.get(entry.mesh)?;
-        let submesh = mesh.submeshes.get(submesh)?;
-        submesh
+        let mesh_part = mesh.submeshes.get(submesh)?;
+        mesh_part
             .texture
             .and_then(|index| mesh.textures.get(index).map(Arc::as_ref))
             .or(self.fallback.as_deref())

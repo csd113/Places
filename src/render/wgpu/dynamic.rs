@@ -132,7 +132,10 @@ impl WgpuDynamic {
     #[must_use]
     // One cohesive level upload: the per-model loop and the per-object loop
     // share the same counters and context.
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One cohesive level upload: the per-model loop and the per-object loop share the same counters and context."
+    )]
     pub fn upload(ctx: &mut DynamicUploadContext<'_>, scene: &DynamicScene) -> Self {
         let mut value = Self::default();
         if scene.is_empty() {
@@ -257,7 +260,8 @@ impl WgpuDynamic {
             .collect();
         let vertex_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-dynamic-vertices"),
-            size: (vertices.len() as u64)
+            size: u64::try_from(vertices.len())
+                .unwrap_or(u64::MAX)
                 .saturating_mul(WORLD_VERTEX_STRIDE)
                 .max(4),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -330,7 +334,7 @@ impl WgpuDynamic {
             let uniform = environment
                 .with_model(live.transform())
                 .with_entity_lighting(live.entity_lighting());
-            object.environment.update(queue, &uniform);
+            let _update_stats = object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
         }
     }
@@ -353,13 +357,15 @@ impl WgpuDynamic {
     pub fn environment(&self, object: usize) -> Option<&wgpu::BindGroup> {
         self.objects
             .get(object)
-            .map(|object| object.environment.bind_group())
+            .map(|gpu_object| gpu_object.environment.bind_group())
     }
 
     /// One object's world bounds.
     #[must_use]
     pub fn world_bounds(&self, object: usize) -> Option<Aabb> {
-        self.objects.get(object).map(|object| object.world_bounds)
+        self.objects
+            .get(object)
+            .map(|gpu_object| gpu_object.world_bounds)
     }
 
     /// One object's geometry: vertex buffer, index buffer, index range of one
@@ -370,14 +376,14 @@ impl WgpuDynamic {
         object: usize,
         submesh: usize,
     ) -> Option<(&wgpu::Buffer, &wgpu::Buffer, u32, u32)> {
-        let object = self.objects.get(object)?;
-        let mesh = self.meshes.get(object.mesh)?;
-        let submesh = mesh.submeshes.get(submesh)?;
+        let gpu_object = self.objects.get(object)?;
+        let mesh = self.meshes.get(gpu_object.mesh)?;
+        let mesh_part = mesh.submeshes.get(submesh)?;
         Some((
             &mesh.vertex_buffer,
             &mesh.index_buffer,
-            submesh.first_index,
-            submesh.index_count,
+            mesh_part.first_index,
+            mesh_part.index_count,
         ))
     }
 
@@ -386,7 +392,7 @@ impl WgpuDynamic {
     pub fn submesh_count(&self, object: usize) -> usize {
         self.objects
             .get(object)
-            .and_then(|object| self.meshes.get(object.mesh))
+            .and_then(|gpu_object| self.meshes.get(gpu_object.mesh))
             .map_or(0, |mesh| mesh.submeshes.len())
     }
 
@@ -399,9 +405,9 @@ impl WgpuDynamic {
     /// The draw pass one object's submesh belongs to.
     #[must_use]
     pub fn submesh_pass(&self, object: usize, submesh: usize) -> Option<BatchPass> {
-        let object = self.objects.get(object)?;
-        let mesh = self.meshes.get(object.mesh)?;
-        mesh.submeshes.get(submesh).map(|submesh| submesh.pass)
+        let gpu_object = self.objects.get(object)?;
+        let mesh = self.meshes.get(gpu_object.mesh)?;
+        mesh.submeshes.get(submesh).map(|mesh_part| mesh_part.pass)
     }
 
     /// True when the object's submesh emits.
@@ -409,7 +415,7 @@ impl WgpuDynamic {
     pub fn submesh_emissive(&self, object: usize, submesh: usize) -> bool {
         self.objects
             .get(object)
-            .and_then(|object| object.emissive.get(submesh))
+            .and_then(|gpu_object| gpu_object.emissive.get(submesh))
             .copied()
             .unwrap_or(false)
     }
@@ -429,19 +435,19 @@ impl WgpuDynamic {
     /// The texture of one object's submesh.
     #[must_use]
     pub fn submesh_texture(&self, object: usize, submesh: usize) -> Option<&GpuTexture> {
-        let object = self.objects.get(object)?;
-        let mesh = self.meshes.get(object.mesh)?;
-        let submesh = mesh.submeshes.get(submesh)?;
-        mesh.textures.get(submesh.texture).map(Arc::as_ref)
+        let gpu_object = self.objects.get(object)?;
+        let mesh = self.meshes.get(gpu_object.mesh)?;
+        let mesh_part = mesh.submeshes.get(submesh)?;
+        mesh.textures.get(mesh_part.texture).map(Arc::as_ref)
     }
 
     /// The distinct vertices one object indexes.
     #[must_use]
     pub fn object_vertex_count(&self, object: usize) -> usize {
-        let Some(object) = self.objects.get(object) else {
+        let Some(gpu_object) = self.objects.get(object) else {
             return 0;
         };
-        self.meshes.get(object.mesh).map_or(0, |mesh| {
+        self.meshes.get(gpu_object.mesh).map_or(0, |mesh| {
             usize::try_from(mesh.vertex_count).unwrap_or(usize::MAX)
         })
     }
@@ -449,7 +455,10 @@ impl WgpuDynamic {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)]
+    #![allow(
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 

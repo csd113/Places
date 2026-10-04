@@ -113,13 +113,21 @@ impl SequenceStepDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::Action { .. } => "action",
-            Self::Wait { .. } => "wait",
-            Self::Move { .. } => "move",
-            Self::Face { .. } => "face",
-            Self::WaitAnimation { .. } => "wait_animation",
-            Self::Emit { .. } => "emit",
-            Self::SetState { .. } => "set_state",
+            Self::Action { action: _ } => "action",
+            Self::Wait { seconds: _ } => "wait",
+            Self::Move {
+                x: _,
+                y: _,
+                z: _,
+                speed: _,
+            } => "move",
+            Self::Face { yaw_degrees: _ } => "face",
+            Self::WaitAnimation {
+                clip: _,
+                timeout: _,
+            } => "wait_animation",
+            Self::Emit { on: _, key: _ } => "emit",
+            Self::SetState { name: _, value: _ } => "set_state",
             Self::Stop => "stop",
         }
     }
@@ -132,7 +140,18 @@ impl SequenceStepDef {
     pub const fn is_delayed(&self) -> bool {
         matches!(
             self,
-            Self::Wait { .. } | Self::Move { .. } | Self::Face { .. } | Self::WaitAnimation { .. }
+            Self::Wait { seconds: _ }
+                | Self::Move {
+                    x: _,
+                    y: _,
+                    z: _,
+                    speed: _
+                }
+                | Self::Face { yaw_degrees: _ }
+                | Self::WaitAnimation {
+                    clip: _,
+                    timeout: _
+                }
         )
     }
 
@@ -141,12 +160,20 @@ impl SequenceStepDef {
     pub fn actions(&self) -> Vec<&ActionDef> {
         match self {
             Self::Action { action } => vec![action],
-            Self::Wait { .. }
-            | Self::Move { .. }
-            | Self::Face { .. }
-            | Self::WaitAnimation { .. }
-            | Self::Emit { .. }
-            | Self::SetState { .. }
+            Self::Wait { seconds: _ }
+            | Self::Move {
+                x: _,
+                y: _,
+                z: _,
+                speed: _,
+            }
+            | Self::Face { yaw_degrees: _ }
+            | Self::WaitAnimation {
+                clip: _,
+                timeout: _,
+            }
+            | Self::Emit { on: _, key: _ }
+            | Self::SetState { name: _, value: _ }
             | Self::Stop => Vec::new(),
         }
     }
@@ -155,7 +182,10 @@ impl SequenceStepDef {
 /// One sequence's runtime state, owned by the entity running it.
 // The flags are independent state-machine facts (which step effect ran, which
 // step waiter was satisfied), not interchangeable booleans.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "The flags are independent state-machine facts (which step effect ran, which step waiter was satisfied), not interchangeable booleans."
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SequenceRuntime {
     /// Id of the running sequence.
@@ -312,7 +342,11 @@ pub const SEQUENCE_ARRIVE_EPS_M: f32 = 0.02;
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::level::EventKindName;

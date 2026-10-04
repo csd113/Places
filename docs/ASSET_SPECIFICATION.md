@@ -69,10 +69,9 @@ introducing it.
    draw commands, and do not synthesize a missing texture on demand when the
    application or a level loads. The shared untextured white sheet is a real
    committed PNG like every other texture (`core:tex_white_01`, §12.2). The
-   few images the engine still generates (the HUD font atlas, the internal
-   decal atlas, the missing-texture diagnostic, lightmap atlases and reflection
-   probes) are internal machinery, listed in §12.3, and are not an authoring
-   path.
+   HUD font atlas, internal decal atlas and diagnostic fallback sheets are
+   committed PNGs with fixed layouts (§12.3). Lightmap atlases and reflection
+   probes are computed lighting data, rather than authored texture imagery.
 
 3. **PNG is the only raster format the runtime accepts.** The decoder
    signature-checks every texture and rejects anything that is not a PNG
@@ -536,7 +535,7 @@ contract.
 Decals are local surface markings (floor arrows, hazard stripes, safety
 signs). Two decal pipelines exist:
 
-* an internal generated atlas (`core:decal_test_01` only), which is test
+* an internal fixed PNG atlas (`core:decal_test_01` only), which is test
   machinery and not an authoring path; and
 * **file-backed decal sheets**, the normal authoring path. A catalog `decal`
   entry's `model` is the PNG.
@@ -920,16 +919,31 @@ A theme that wants patterned fixture housing would introduce a fitted body
 sheet the way the luminous face already is one — the white sheet itself is not
 an authoring target.
 
-### 12.3 Internal generated images (not authoring paths)
+### 12.3 Internal image resources
 
-These images are produced by the engine and are deliberately not shipped as
-PNGs. They are listed so no one mistakes them for assets to replace:
+The fixed internal sheets are ordinary catalogued PNGs. They are embedded
+from their repository files so a broken external asset or an installation
+without an asset directory can still display the UI and diagnostic fallback.
+Their decoded RGBA pixels are pinned by tests against the previous runtime
+images; changing compression is safe, but changing layout or orientation is not.
+
+| Image | Catalog id and repository path | Contract |
+|---|---|---|
+| 128×64 HUD font atlas | `core:tex_ui_font_01` → `assets/core/ui/font_01.png` | Fixed 2:1 RGBA8 sheet, top-down rows; ASCII 32–126 in sixteen 8×8 cells per row. Cell zero stays opaque white for UI quads, glyph ink is white with binary alpha, unused cells remain transparent. No tiling. |
+| 256×256 validation decal atlas | `core:decal_test_01` → `assets/core/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
+| 64×64 missing-texture checker | `core:tex_missing` → `assets/core/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
+| 2×2 emergency white sheet | `core:tex_white_fallback_01` → `assets/core/textures/white_fallback_01.png` | Fixed square opaque RGBA8 sheet, every channel 255. Used only if the embedded primary white sheet cannot decode. No tiling or authored UV detail. |
+
+These layouts are engine resources rather than map authoring targets. The
+existing atlas accessors and decal material slot remain unchanged. The shared
+decode accepts only a closed set of embedded repository files; failure is a
+repository build invariant, covered by complete pixel hashes and dimension
+checks. External images continue to use fallible decoding and the checker.
+
+Computed lighting images are derived from level geometry and light settings:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| 128×64 HUD font atlas | `src/font.rs` | project-owned bitmap UI font |
-| 256×256 decal atlas (one live cell) | `src/render/common/decals.rs` | internal validation marking machinery |
-| 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |
 | Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
 | Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps) | baked per level load |
 

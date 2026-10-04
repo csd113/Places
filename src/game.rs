@@ -411,7 +411,10 @@ pub use crate::entities::DispatchReport;
 /// Manages game loop timing, player state, and menu lifecycle.
 // The flags are independent, documented state machines (Rust's enum-per-flag
 // would obscure the existing public fields), not interchangeable booleans.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "The flags are independent, documented state machines (Rust's enum-per-flag would obscure the existing public fields), not interchangeable booleans."
+)]
 pub struct Game {
     running: bool,
     app_state: AppState,
@@ -1191,7 +1194,12 @@ impl Game {
         // vertical path is considered (especially at ledges and ceilings).
         let step_count = (delta / VERTICAL_SUBSTEP).ceil().clamp(1.0, 12.0);
         // The clamp is finite and bounded by the twelve simulation substeps.
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "Finite frame deltas produce 1..=12 integral substeps; the saturating cast preserves the existing zero-step behavior for a malformed NaN delta"
+        )]
         let steps = step_count as usize;
         let step_delta = delta / step_count;
         let mut substep_input = *input;
@@ -1383,25 +1391,25 @@ impl Game {
     /// Once swimming, the state is held while deep water remains under the
     /// player ([`Self::deep_water_under`]).
     fn entering_water(&self, sample: Option<WaterSample>) -> bool {
-        let Some(sample) = sample else {
+        let Some(water) = sample else {
             return false;
         };
         // The body must be in the water: the feet below the wade depth. The
         // deep-under test can also be true from a surface pose over deep water
         // (a cancelled climb), which must never start swimming from a
         // toe-touch.
-        if sample.surface_y - self.feet_y() <= WADE_DEPTH {
+        if water.surface_y - self.feet_y() <= WADE_DEPTH {
             return false;
         }
-        if !self.deep_water_under(Some(sample)) || self.vertical_velocity > 0.0 {
+        if !self.deep_water_under(Some(water)) || self.vertical_velocity > 0.0 {
             return false;
         }
         if self.vertical_velocity == 0.0
-            && self.player_position.y > sample.surface_y + SWIM_BAND_MARGIN
+            && self.player_position.y > water.surface_y + SWIM_BAND_MARGIN
         {
             return false;
         }
-        self.standable_water_exit(sample.surface_y).is_none()
+        self.standable_water_exit(water.surface_y).is_none()
     }
 
     /// True when the sample's swimming volume is deep under the player,
@@ -1424,14 +1432,14 @@ impl Game {
     /// pose as shallow water, hand the body to the airborne pass, and let the
     /// rim collider depenetrate the disc by up to a body radius.
     fn deep_water_under(&self, sample: Option<WaterSample>) -> bool {
-        sample.is_some_and(|sample| {
-            sample.swimming
-                && (sample.surface_y - self.feet_y() > WADE_DEPTH
-                    || (self.player_position.y >= sample.surface_y - SWIM_BAND_MARGIN
+        sample.is_some_and(|water| {
+            water.swimming
+                && (water.surface_y - self.feet_y() > WADE_DEPTH
+                    || (self.player_position.y >= water.surface_y - SWIM_BAND_MARGIN
                         && self
                             .floor
                             .walk_height_at(self.player_position.x, self.player_position.z)
-                            .is_some_and(|support| sample.surface_y - support > WADE_DEPTH)))
+                            .is_some_and(|support| water.surface_y - support > WADE_DEPTH)))
         })
     }
 
@@ -1814,7 +1822,7 @@ impl Game {
             PLAYER_RADIUS - CONTACT_EPS,
             max_top + CONTACT_EPS,
         );
-        let floor = match (floor, ceiling_top) {
+        let support_floor = match (floor, ceiling_top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (a, b) => a.or(b),
         };
@@ -1836,7 +1844,7 @@ impl Game {
                 top = Some(top.map_or(height, |current| current.max(height)));
             }
         }
-        match (floor, top) {
+        match (support_floor, top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (Some(a), None) => Some(a),
             (None, Some(b)) => Some(b),
@@ -1878,7 +1886,7 @@ impl Game {
             PLAYER_RADIUS - CONTACT_EPS,
             floor_ceiling,
         );
-        let floor = match (floor, ceiling_top) {
+        let support_floor = match (floor, ceiling_top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (a, b) => a.or(b),
         };
@@ -1890,14 +1898,14 @@ impl Game {
             current_surface + CONTACT_EPS,
             &self.walls,
         );
-        let surface_y = match (floor, top) {
-            (Some(floor), Some(top)) if top > floor => top,
-            (Some(floor), _) => self
+        let surface_y = match (support_floor, top) {
+            (Some(floor_y), Some(prop_top)) if prop_top > floor_y => prop_top,
+            (Some(floor_y), _) => self
                 .floor
                 .walk_height_below(x, z, floor_ceiling)
-                .unwrap_or(floor)
-                .max(floor),
-            (None, Some(top)) => top,
+                .unwrap_or(floor_y)
+                .max(floor_y),
+            (None, Some(prop_top)) => prop_top,
             (None, None) => return None,
         };
         Some(WalkSupport {
@@ -1942,13 +1950,7 @@ impl Game {
             ));
         }
         let max_step = PLAYER_RADIUS * 0.5;
-        // Clamped up to at least one sub-step (as the historical `max(1)` did)
-        // and down to a million: the ceiling is far above anything
-        // `MAX_SIM_DELTA` can produce, and it keeps the count exactly
-        // representable so the cast below cannot truncate.
-        let step_count = (total_dist / max_step).ceil().clamp(1.0, 1_048_576.0);
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let steps = step_count as usize;
+        let (steps, step_count) = horizontal_step_counts(total_dist, max_step);
         let step_delta = Vec3::from_array(
             total_delta
                 .to_array()
@@ -1993,7 +1995,7 @@ impl Game {
                 current_floor = step_y;
                 live_feet = step_y;
             }
-            if matches!(sweep_mode, HorizontalMode::Swim { .. }) {
+            if matches!(sweep_mode, HorizontalMode::Swim { surface_y: _ }) {
                 // The ordinary wall band lets a rim within the water-exit
                 // allowance through; the camera must still clear that rim
                 // before the body crosses it, or the climb would drag the eye
@@ -2063,7 +2065,7 @@ impl Game {
         foot_y: f32,
         mode: HorizontalMode,
     ) -> Vec2 {
-        if matches!(mode, HorizontalMode::Swim { .. }) {
+        if matches!(mode, HorizontalMode::Swim { surface_y: _ }) {
             resolve_player_collision_with_doors(
                 &self.collision_index,
                 to,
@@ -2262,16 +2264,16 @@ impl Game {
                 too_tall |= wall.max_y > feet + PLAYER_STEP_HEIGHT + STEP_EPS;
                 top = Some(top.map_or(wall.max_y, |height| height.max(wall.max_y)));
             });
-        let top = top.filter(|_| !too_tall);
+        let accepted_top = top.filter(|_| !too_tall);
         if self.movement_debug {
             crate::logging::warn(format_args!(
-                "[movement] step_attempt from={from:?} to={to:?} feet={feet} maximum={PLAYER_STEP_HEIGHT} top={top:?} rejected_tall={too_tall}"
+                "[movement] step_attempt from={from:?} to={to:?} feet={feet} maximum={PLAYER_STEP_HEIGHT} top={accepted_top:?} rejected_tall={too_tall}"
             ));
         }
-        let top = top?;
+        let step_top = accepted_top?;
         if [from, to].into_iter().any(|point| {
             self.head_limit_at(point.x, point.y, feet)
-                .is_some_and(|limit| limit < top + self.body_height() - CONTACT_EPS)
+                .is_some_and(|limit| limit < step_top + self.body_height() - CONTACT_EPS)
         }) {
             if self.movement_debug {
                 crate::logging::warn("[movement] step_rejected reason=head_clearance");
@@ -2281,16 +2283,16 @@ impl Game {
         let resolved = crate::collision::sweep_horizontal(
             &self.horizontal_world(),
             (from, to),
-            (top, self.body_height(), PLAYER_RADIUS),
+            (step_top, self.body_height(), PLAYER_RADIUS),
             false,
         );
         let accepted = resolved.distance_squared(to) <= 1e-10;
         if self.movement_debug {
             crate::logging::warn(format_args!(
-                "[movement] step_result accepted={accepted} top={top} resolved={resolved:?}"
+                "[movement] step_result accepted={accepted} top={step_top} resolved={resolved:?}"
             ));
         }
-        accepted.then_some(top)
+        accepted.then_some(step_top)
     }
 
     /// Resolves one walking sub-step through [`Self::walking_support_at`]:
@@ -2501,7 +2503,7 @@ impl Game {
             min_y >= eye + WATER_EXIT_EYE_CLEARANCE_M - CONTACT_EPS
                 || max_y <= eye - WATER_EXIT_EYE_CLEARANCE_M + CONTACT_EPS
         };
-        for _ in 0..4 {
+        for _ in 0_i32..4_i32 {
             let mut collided = false;
             self.collision_index.for_each_disc(
                 position.x,
@@ -2553,7 +2555,7 @@ impl Game {
         }
 
         self.vertical_accumulator = 0.0;
-        self.integrate_vertical_substep(self.sim_delta_seconds);
+        let _vertical_step = self.integrate_vertical_substep(self.sim_delta_seconds);
     }
 
     /// Advances the airborne player through one bounded simulation interval.
@@ -2967,7 +2969,7 @@ impl Game {
         let floor = self
             .floor
             .walk_height_at(self.player_position.x, self.player_position.z);
-        if let Some(surface) = sample.map(|sample| sample.surface_y)
+        if let Some(surface) = sample.map(|water| water.surface_y)
             && self.player_position.y >= surface - EXIT_EYE_MARGIN
             && let Some(support) = self.standable_water_exit(surface)
         {
@@ -3104,8 +3106,8 @@ impl Game {
         }
         // An obstruction or a clamp never pushes the climber down: holding the
         // current height is the worst case.
-        let target = target.min(ladder.top_y).max(feet);
-        self.set_feet_y(target);
+        let clamped_target = target.min(ladder.top_y).max(feet);
+        self.set_feet_y(clamped_target);
         self.vertical_velocity = 0.0;
         self.vertical_accumulator = 0.0;
 
@@ -3113,11 +3115,11 @@ impl Game {
         // walkable surface within a step of them takes over. This is a normal
         // grounded transition (the deck under the player), never a snap
         // through the rim: the feet are already at the top.
-        if target >= ladder.top_y - STEP_EPS
+        if clamped_target >= ladder.top_y - STEP_EPS
             && let Some(support) = self
                 .floor
                 .walk_height_at(self.player_position.x, self.player_position.z)
-            && (support - target).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS
+            && (support - clamped_target).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS
             && self.head_clear_for(support, height)
         {
             self.player_floor_y = support;
@@ -3165,6 +3167,23 @@ impl Game {
 }
 
 /// The component of `move_dir` along a ladder's facing, with zero for no
+/// Collision subdivision count and its exact floating point divisor.
+///
+/// The million-step ceiling preserves the existing cap, stays exactly
+/// representable in f32 and fits every supported usize target. Non-finite
+/// NaN displacements retain the float cast's zero-step fallback.
+fn horizontal_step_counts(distance: f32, max_step: f32) -> (usize, f32) {
+    let divisor = (distance / max_step).ceil().clamp(1.0, 1_048_576.0);
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "Non-NaN counts are integral and clamped to 1..=1048576; Rust's float cast maps NaN to zero steps."
+    )]
+    let count = divisor as usize;
+    (count, divisor)
+}
+
 /// input so a released key never counts as intent.
 fn normalized_climb_intent(move_dir: Vec3, ladder: &Ladder) -> f32 {
     if move_dir.length_squared() <= 0.0 {

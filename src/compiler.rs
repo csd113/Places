@@ -131,12 +131,15 @@ pub struct BuildPhase {
 }
 
 fn record_phase(phases: &mut Vec<BuildPhase>, phase: impl Into<String>, started: Instant) {
-    let phase = phase.into();
-    let millis = started.elapsed().as_secs_f64() * 1000.0;
+    let phase_name = phase.into();
+    let millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
     crate::logging::info(format_args!(
-        "[compiler-timing] phase={phase} millis={millis:.3}"
+        "[compiler-timing] phase={phase_name} millis={millis:.3}"
     ));
-    phases.push(BuildPhase { phase, millis });
+    phases.push(BuildPhase {
+        phase: phase_name,
+        millis,
+    });
 }
 
 /// Prepared statistics of one variant.
@@ -223,7 +226,7 @@ pub struct VerifyReport {
 /// or catalog is missing, any preparation step fails, a record cannot be
 /// encoded, or the archive cannot be published. A failed build never replaces
 /// an existing package.
-#[allow(clippy::too_many_lines)] // one cohesive build pipeline
+#[expect(clippy::too_many_lines, reason = "one cohesive build pipeline")] // one cohesive build pipeline
 pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     let started = Instant::now();
     let mut phases = Vec::new();
@@ -239,7 +242,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
 
     let source_bytes = read_source(&request.source)?;
     let source_text = std::str::from_utf8(&source_bytes)
-        .map_err(|_| "level source is not valid UTF-8".to_string())?;
+        .map_err(|error| format!("level source is not valid UTF-8: {error}"))?;
     let mut level = LevelDef::from_json(source_text)
         .map_err(|error| format!("level source is not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
@@ -266,13 +269,13 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         &catalog_hash,
     );
     record_phase(&mut phases, "fingerprints", phase_started);
-    let phase_started = Instant::now();
+    let integrity_started = Instant::now();
 
     if !request.force
         && request.out.exists()
         && let Some(reason) = reuse_current(&request.out, &fingerprint)
     {
-        record_phase(&mut phases, "current_package_integrity", phase_started);
+        record_phase(&mut phases, "current_package_integrity", integrity_started);
         return Ok(BuildReport {
             source: request.source.display().to_string(),
             out: request.out.display().to_string(),
@@ -291,26 +294,30 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             phases,
         });
     }
-    record_phase(&mut phases, "current_package_integrity", phase_started);
-    let phase_started = Instant::now();
+    record_phase(&mut phases, "current_package_integrity", integrity_started);
+    let semantics_started = Instant::now();
 
     // Canonical bytes: the semantic record is part of the package's identity
     // and two builds of the same content must publish identical archives.
     let semantics = crate::canonical_json::canonical_json_bytes(&level)
         .map_err(|error| format!("could not serialize semantics: {error}"))?;
-    record_phase(&mut phases, "semantics", phase_started);
+    record_phase(&mut phases, "semantics", semantics_started);
     let mut blobs: BlobMap = BTreeMap::new();
     let mut variants = Vec::with_capacity(request.variants.len());
     let mut variant_stats = Vec::with_capacity(request.variants.len());
     let mut cache = crate::lighting::lightmap::LightmapCache::memory_only();
     let cancelled = std::sync::atomic::AtomicBool::new(false);
-    let phase_started = Instant::now();
+    let navigation_started = Instant::now();
     // Navigation is variant-independent: bake and insert it once, then let
     // every variant reference the same content-addressed blob.
     let (navigation_bytes, navigation_report) = bake_navigation(&level, workers, &mut warnings)?;
     let navigation_name = insert_blob(&mut blobs, navigation_bytes, ".navigation", "navigation");
-    record_phase(&mut phases, "navigation_collision_inputs", phase_started);
-    let phase_started = Instant::now();
+    record_phase(
+        &mut phases,
+        "navigation_collision_inputs",
+        navigation_started,
+    );
+    let reuse_started = Instant::now();
     // Reuse the previous package's prepared geometry, lighting, probes and
     // collision when the lighting stage fingerprint matches: an AI-only edit
     // must not rebake illumination.
@@ -319,10 +326,10 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     } else {
         reuse_prepared_lighting(&request.out, &lighting_fingerprint, &level, &mut warnings)
     };
-    record_phase(&mut phases, "prepared_package_integrity", phase_started);
+    record_phase(&mut phases, "prepared_package_integrity", reuse_started);
     if let Some((reused_variants, reused_blobs)) = reused {
         for (name, (bytes, role)) in reused_blobs {
-            blobs.entry(name).or_insert((bytes, role));
+            let _interned_blob = blobs.entry(name).or_insert((bytes, role));
         }
         for mut variant in reused_variants {
             variant.entries.navigation.clone_from(&navigation_name);
@@ -352,19 +359,19 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             variants.push(variant);
         }
     } else {
-        let phase_started = Instant::now();
+        let device_started = Instant::now();
         let mut capture = if request.capture_probes {
             Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
         } else {
             None
         };
-        record_phase(&mut phases, "capture_device_materials", phase_started);
+        record_phase(&mut phases, "capture_device_materials", device_started);
         for quality in &request.variants {
             crate::logging::info(format_args!(
                 "[compiler-progress] preparing {}",
                 quality.name()
             ));
-            let phase_started = Instant::now();
+            let variant_started = Instant::now();
             let (mut variant, stats, build) = build_variant(
                 &level,
                 &catalog,
@@ -381,27 +388,29 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
             record_phase(
                 &mut phases,
                 format!("prepare_encode_{}", quality.name()),
-                phase_started,
+                variant_started,
             );
-            if let Some(capture) = capture.as_mut() {
+            if let Some(capture_context) = capture.as_mut() {
                 // A custom asset root can resolve different reflection state
                 // from the logical build. Skip only a proven empty capture.
                 let same_reflections = crate::render::MaterialRenderState::from_table(&materials)
                     .reflections
-                    == crate::render::MaterialRenderState::from_table(&capture.loaded.materials)
-                        .reflections;
+                    == crate::render::MaterialRenderState::from_table(
+                        &capture_context.loaded.materials,
+                    )
+                    .reflections;
                 if stats.probe_points > 0 || !same_reflections {
-                    let phase_started = Instant::now();
+                    let capture_started = Instant::now();
                     crate::logging::info(format_args!(
                         "[compiler-progress] capturing {}",
                         quality.name()
                     ));
                     variant.entries.probes =
-                        capture.capture_variant(&assets, *quality, build, &mut blobs)?;
+                        capture_context.capture_variant(&assets, *quality, build, &mut blobs)?;
                     record_phase(
                         &mut phases,
                         format!("capture_{}", quality.name()),
-                        phase_started,
+                        capture_started,
                     );
                 }
             }
@@ -410,7 +419,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         }
     }
 
-    let phase_started = Instant::now();
+    let manifest_started = Instant::now();
     let mut entries: Vec<PendingEntry> = Vec::with_capacity(blobs.len().saturating_add(2));
     let mut package_entries: Vec<PackageEntry> = Vec::with_capacity(blobs.len().saturating_add(2));
     for (name, (bytes, role)) in blobs {
@@ -480,10 +489,10 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         name: "manifest.json".to_string(),
         bytes: manifest_bytes,
     });
-    record_phase(&mut phases, "record_hashes_manifest", phase_started);
-    let phase_started = Instant::now();
+    record_phase(&mut phases, "record_hashes_manifest", manifest_started);
+    let publication_started = Instant::now();
     write_archive(&request.out, entries)?;
-    record_phase(&mut phases, "archive_compress_publish", phase_started);
+    record_phase(&mut phases, "archive_compress_publish", publication_started);
     let bytes = std::fs::metadata(&request.out).map_or(0, |metadata| metadata.len());
     Ok(BuildReport {
         source: request.source.display().to_string(),
@@ -569,7 +578,7 @@ pub fn validate(path: &Path) -> Result<ValidationReport, String> {
         bytes = bytes.saturating_add(u64::try_from(data.len()).unwrap_or(u64::MAX));
         if entry.name == "semantics.json" {
             let semantics = std::str::from_utf8(&data)
-                .map_err(|_| "semantics.json is not valid UTF-8".to_string())?;
+                .map_err(|error| format!("semantics.json is not valid UTF-8: {error}"))?;
             let level = LevelDef::from_json(semantics)
                 .map_err(|error| format!("semantics.json is not valid: {error}"))?;
             crate::loader::validate_level(&level)?;
@@ -620,7 +629,7 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 pub fn verify(source: &Path, package: &Path, asset_root: &Path) -> Result<VerifyReport, String> {
     let source_bytes = read_source(source)?;
     let source_text = std::str::from_utf8(&source_bytes)
-        .map_err(|_| "level source is not valid UTF-8".to_string())?;
+        .map_err(|error| format!("level source is not valid UTF-8: {error}"))?;
     let mut level = LevelDef::from_json(source_text)
         .map_err(|error| format!("level source is not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
@@ -845,7 +854,8 @@ fn probe_payload(
     Ok(ProbePayload {
         face_edge,
         levels,
-        count: u32::try_from(probes.len()).map_err(|_| "probe count is too large".to_string())?,
+        count: u32::try_from(probes.len())
+            .map_err(|error| format!("probe count is too large: {error}"))?,
         cubemaps,
         positions: positions_name,
     })
@@ -992,8 +1002,8 @@ fn check_dependencies(manifest: &Manifest, warnings: &mut Vec<String>) {
 /// `(blob name, (bytes, role))` for one variant's prepared records.
 type BlobMap = BTreeMap<String, (Vec<u8>, String)>;
 
-#[allow(clippy::too_many_arguments)] // one cohesive variant build
-#[allow(clippy::too_many_lines)] // one cohesive variant build
+#[expect(clippy::too_many_arguments, reason = "one cohesive variant build")] // one cohesive variant build
+#[expect(clippy::too_many_lines, reason = "one cohesive variant build")] // one cohesive variant build
 fn build_variant(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -1042,8 +1052,7 @@ fn build_variant(
                 build.lightmap_failure = None;
                 lightmap_failure = Some("no charts".to_string());
             }
-            crate::render::LightmapFillOutcome::Filled(product) => {
-                let mut product = product;
+            crate::render::LightmapFillOutcome::Filled(mut product) => {
                 // Label the prepared moving-object field: a probe in no room or
                 // inside a wall is never sampled, which is what stops light
                 // from bleeding through a floor or a full-height wall.
@@ -1058,13 +1067,13 @@ fn build_variant(
                     let mut covered = vec![false; build.lighting.rooms().len()];
                     for probe in &field.probes {
                         if let Ok(room) = usize::try_from(probe.room)
-                            && let Some(covered) = covered.get_mut(room)
+                            && let Some(room_coverage) = covered.get_mut(room)
                         {
-                            *covered = true;
+                            *room_coverage = true;
                         }
                     }
-                    for (room, covered) in covered.iter().enumerate() {
-                        if !covered {
+                    for (room, is_covered) in covered.iter().enumerate() {
+                        if !is_covered {
                             warnings.push(format!(
                                 "{} room {room} has no valid irradiance probe at {:.3} m spacing",
                                 quality.name(),
@@ -1289,7 +1298,7 @@ fn insert_blob(
     role: impl Into<String>,
 ) -> String {
     let name = blob_name(&bytes, suffix);
-    blobs
+    let _interned_blob = blobs
         .entry(name.clone())
         .or_insert_with(|| (bytes, role.into()));
     name
@@ -1320,7 +1329,7 @@ fn collect_dependencies(
                 return Ok(());
             }
         };
-        identities.insert(
+        drop(identities.insert(
             key,
             PackageDependency {
                 kind,
@@ -1328,7 +1337,7 @@ fn collect_dependencies(
                 sha256: sha256_hex(&bytes),
                 bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
             },
-        );
+        ));
         Ok(())
     };
 
@@ -1388,7 +1397,10 @@ const fn dependency_kind_name(kind: DependencyKind) -> &'static str {
 /// navigable cell for its class is reported as a build warning naming it,
 /// because an actor that cannot navigate is an authoring defect, not a load
 /// failure of an otherwise valid map.
-#[allow(clippy::too_many_lines)] // one cohesive offline bake plus its diagnostics
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive offline bake plus its diagnostics"
+)] // one cohesive offline bake plus its diagnostics
 pub(crate) fn bake_navigation(
     level: &LevelDef,
     workers: usize,
@@ -1399,20 +1411,23 @@ pub(crate) fn bake_navigation(
     let doors = crate::door::Doors::from_level(level);
     let surfaces = crate::level::LevelSurfaces::new(level);
     let mut classes = vec![crate::nav::reference_class()];
-    let register_profile = |classes: &mut Vec<crate::package::navigation::NavClass>,
+    let register_profile = |registered_classes: &mut Vec<crate::package::navigation::NavClass>,
                             class: crate::package::navigation::NavClass|
      -> Result<(), String> {
-        if classes.iter().any(|existing| existing.matches(&class)) {
+        if registered_classes
+            .iter()
+            .any(|existing| existing.matches(&class))
+        {
             return Ok(());
         }
-        if classes.len() >= crate::package::MAX_NAV_CLASSES {
+        if registered_classes.len() >= crate::package::MAX_NAV_CLASSES {
             return Err(format!(
                 "level authors more than {} distinct nav_agent bodies; the navigation record \
                  supports at most that many baked classes",
                 crate::package::MAX_NAV_CLASSES
             ));
         }
-        classes.push(class);
+        registered_classes.push(class);
         Ok(())
     };
     let profile_class = |component: &ComponentDef| -> Option<crate::package::navigation::NavClass> {
@@ -1421,7 +1436,7 @@ pub(crate) fn bake_navigation(
             height,
             step_height,
             max_slope,
-            ..
+            speed_mps: _,
         } = component
         {
             return crate::package::navigation::NavClass::new(
@@ -1439,7 +1454,7 @@ pub(crate) fn bake_navigation(
             height,
             step_height,
             max_slope,
-            ..
+            speed_mps: _,
         } = component
         {
             return Some(crate::nav::NavAgentProfile {
@@ -1475,10 +1490,11 @@ pub(crate) fn bake_navigation(
             if !*affects_nav {
                 continue;
             }
-            let size = size.unwrap_or_else(|| prop.resolved_size(crate::level::PROP_FALLBACK_SIZE));
+            let body_size =
+                size.unwrap_or_else(|| prop.resolved_size(crate::level::PROP_FALLBACK_SIZE));
             let (half_x, half_z) = crate::interact::rotated_half_extents(
-                size[0] * 0.5,
-                size[2] * 0.5,
+                body_size[0] * 0.5,
+                body_size[2] * 0.5,
                 prop.rotation_degrees,
             );
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
@@ -1487,7 +1503,7 @@ pub(crate) fn bake_navigation(
                 base_y,
                 prop.z - half_z,
                 half_x * 2.0,
-                size[1],
+                body_size[1],
                 half_z * 2.0,
             ));
         }
@@ -1515,24 +1531,24 @@ pub(crate) fn bake_navigation(
     if let Ok(mesh) = crate::nav::NavMesh::from_record(grid.clone()) {
         let no_doors = crate::nav::NoDoors;
         let check = |what: &str, profile: &crate::nav::NavAgentProfile, position: glam::Vec3| {
-            let mut warnings = Vec::new();
+            let mut placement_warnings = Vec::new();
             let Some(class) = mesh.class_index(&profile.class()) else {
-                warnings.push(format!(
+                placement_warnings.push(format!(
                     "{} navigation has no baked class for {what}",
                     level.id
                 ));
-                return warnings;
+                return placement_warnings;
             };
             if mesh
                 .nearest(class, position, 2.0, 2.0, &no_doors, profile.can_open_doors)
                 .is_none()
             {
-                warnings.push(format!(
+                placement_warnings.push(format!(
                     "{} navigation: {what} at ({:.2}, {:.2}) has no navigable placement",
                     level.id, position.x, position.z
                 ));
             }
-            warnings
+            placement_warnings
         };
         let ids = level.prop_instance_ids();
         for (index, prop) in level.props.iter().enumerate() {
@@ -1579,7 +1595,7 @@ fn load_catalog_identity(path: &Path) -> Result<(crate::loader::PropCatalog, Str
     let bytes = std::fs::read(path)
         .map_err(|error| format!("could not read catalog {}: {error}", path.display()))?;
     let text = std::str::from_utf8(&bytes)
-        .map_err(|_| format!("catalog {} is not valid UTF-8", path.display()))?;
+        .map_err(|error| format!("catalog {} is not valid UTF-8: {error}", path.display()))?;
     let catalog = crate::loader::PropCatalog::from_json_str(text)
         .map_err(|error| format!("catalog {} is invalid: {error}", path.display()))?;
     Ok((catalog, sha256_hex(&bytes)))
@@ -1640,24 +1656,24 @@ pub(crate) fn lighting_fingerprint_with_revision(
     let mut canonical = String::with_capacity(1024);
     canonical.push_str(COMPILER_NAME);
     canonical.push('\n');
-    let _ = writeln!(canonical, "format {FORMAT_VERSION}");
-    let _ = writeln!(
+    let _formatted_format_format = writeln!(canonical, "format {FORMAT_VERSION}");
+    let _formatted_level_format = writeln!(
         canonical,
         "level_format {}",
         crate::level::LEVEL_FORMAT_VERSION
     );
     // Explicit stage-key version: older packages miss once, then reuse safely.
-    let _ = writeln!(
+    let _formatted_stage_lighting = writeln!(
         canonical,
         "stage lighting v2 navigation_display_metadata_excluded"
     );
     // This reusable stage also stores collision boxes, including region rims.
-    let _ = writeln!(
+    let _formatted_rim_backing = writeln!(
         canonical,
         "rim_backing {}",
         crate::level::RIM_BACKING.to_bits()
     );
-    let _ = writeln!(
+    let _formatted_records_mesh = writeln!(
         canonical,
         "records mesh {} props {} collision {} lighting {} probes {} lightmaps {}",
         crate::package::mesh::MESH_RECORD_VERSION,
@@ -1667,7 +1683,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
         crate::package::world::PROBE_POSITIONS_VERSION,
         crate::package::lightmaps::LIGHTMAPS_RECORD_VERSION,
     );
-    let _ = writeln!(
+    let _formatted_solver_model = writeln!(
         canonical,
         "solver {} model {}",
         crate::lighting::transport::solver_fingerprint(),
@@ -1677,12 +1693,12 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // source, and the lightmaps are baked against that geometry. A geometry
     // revision therefore invalidates both stages together instead of letting
     // a stale mesh and its old lightmaps be reused.
-    let _ = writeln!(canonical, "geometry {geometry_revision}");
+    let _formatted_geometry_geometry = writeln!(canonical, "geometry {geometry_revision}");
     for quality in variants {
-        let _ = writeln!(canonical, "variant {}", quality.name());
+        let _formatted_variant = writeln!(canonical, "variant {}", quality.name());
     }
     for dependency in dependencies {
-        let _ = writeln!(
+        let _formatted_dep = writeln!(
             canonical,
             "dep {} {} {} {}",
             dependency_kind_name(dependency.kind),
@@ -1691,7 +1707,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
             dependency.bytes
         );
     }
-    let _ = writeln!(
+    let _formatted_prepared = writeln!(
         canonical,
         "prepared {}",
         crate::package::hash::sha256_hex(&bytes)
@@ -1707,8 +1723,17 @@ fn strip_navigation_components(level: &mut LevelDef) {
             !matches!(
                 component,
                 ComponentDef::Ai(_)
-                    | ComponentDef::NavAgent { .. }
-                    | ComponentDef::NavObstacle { .. }
+                    | ComponentDef::NavAgent {
+                        radius: _,
+                        speed_mps: _,
+                        height: _,
+                        step_height: _,
+                        max_slope: _
+                    }
+                    | ComponentDef::NavObstacle {
+                        size: _,
+                        affects_nav: _
+                    }
             )
         });
     };
@@ -1762,7 +1787,7 @@ fn reuse_prepared_lighting(
         needed.extend(entries.lightmaps_meta.as_deref());
         needed.extend(entries.irradiance.as_deref());
         for probe in &entries.probes {
-            needed.insert(probe.positions.as_str());
+            let _new_entry = needed.insert(probe.positions.as_str());
             needed.extend(probe.cubemaps.iter().map(String::as_str));
         }
     }
@@ -1776,7 +1801,7 @@ fn reuse_prepared_lighting(
         // data. Navigation is rebuilt; retaining its previous blobs would
         // accumulate orphan records after repeated navigation edits.
         if needed.contains(entry.name.as_str()) {
-            blobs.insert(entry.name.clone(), (bytes, entry.role.clone()));
+            drop(blobs.insert(entry.name.clone(), (bytes, entry.role.clone())));
         }
     }
     // Every variant must still name the mandatory records and every named
@@ -1821,7 +1846,7 @@ fn refresh_reused_atlas_keys(
         bytes.push(b'\n');
         let name = insert_blob(blobs, bytes, ".lightmaps.json", "lightmaps-meta");
         if name != previous {
-            blobs.remove(&previous);
+            drop(blobs.remove(&previous));
         }
         variant.entries.lightmaps_meta = Some(name);
     }
@@ -1850,24 +1875,24 @@ pub(crate) fn fingerprint_with_revision(
     let mut canonical = String::with_capacity(1024);
     canonical.push_str(COMPILER_NAME);
     canonical.push('\n');
-    let _ = writeln!(canonical, "format {FORMAT_VERSION}");
+    let _formatted_format_format = writeln!(canonical, "format {FORMAT_VERSION}");
     // The semantics record is the authored level itself; a schema revision
     // changes what a package means even when nothing else moved, so the level
     // format version is part of the build identity.
-    let _ = writeln!(
+    let _formatted_level_format = writeln!(
         canonical,
         "level_format {}",
         crate::level::LEVEL_FORMAT_VERSION
     );
-    let _ = writeln!(canonical, "source {source_sha256}");
+    let _formatted_source_source = writeln!(canonical, "source {source_sha256}");
     // Collision and navigation are prepared offline. A rim-width change must
     // invalidate packages even when their authored source and mesh are unchanged.
-    let _ = writeln!(
+    let _formatted_rim_backing = writeln!(
         canonical,
         "rim_backing {}",
         crate::level::RIM_BACKING.to_bits()
     );
-    let _ = writeln!(
+    let _formatted_records_mesh = writeln!(
         canonical,
         "records mesh {} props {} collision {} lighting {} probes {} navigation {}",
         crate::package::mesh::MESH_RECORD_VERSION,
@@ -1881,7 +1906,7 @@ pub(crate) fn fingerprint_with_revision(
     // solver as well as of the source. Folding both revisions in means a
     // recalibrated model or a moved solver invalidates an existing package
     // instead of silently reusing its captures.
-    let _ = writeln!(
+    let _formatted_solver_model = writeln!(
         canonical,
         "solver {} model {}",
         crate::lighting::transport::solver_fingerprint(),
@@ -1890,12 +1915,12 @@ pub(crate) fn fingerprint_with_revision(
     // The emitted static geometry is a function of the emitter as well as of
     // the source, so the geometry revision is part of the package identity
     // even when the source bytes did not move.
-    let _ = writeln!(canonical, "geometry {geometry_revision}");
+    let _formatted_geometry_geometry = writeln!(canonical, "geometry {geometry_revision}");
     for quality in variants {
-        let _ = writeln!(canonical, "variant {}", quality.name());
+        let _formatted_variant = writeln!(canonical, "variant {}", quality.name());
     }
     for dependency in dependencies {
-        let _ = writeln!(
+        let _formatted_dep = writeln!(
             canonical,
             "dep {} {} {} {}",
             dependency_kind_name(dependency.kind),
@@ -1932,7 +1957,7 @@ fn reuse_current(out: &Path, fingerprint: &str) -> Option<String> {
 fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), String> {
     let mut reader = open_package(path)?;
     for entry in &manifest.entries {
-        read_declared_entry(&mut reader, entry)?;
+        drop(read_declared_entry(&mut reader, entry)?);
     }
     Ok(())
 }
@@ -1957,7 +1982,8 @@ mod tests {
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::indexing_slicing,
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;

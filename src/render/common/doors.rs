@@ -194,12 +194,12 @@ pub fn build_door_models(
         }
     }
 
-    let frame = frame_mesh.into_model()?;
+    let frame_model = frame_mesh.into_model()?;
     let leaf = leaf_mesh.into_model()?;
-    let frame_alphas = submesh_alphas(&frame, &slot_alphas);
+    let frame_alphas = submesh_alphas(&frame_model, &slot_alphas);
     let leaf_alphas = submesh_alphas(&leaf, &slot_alphas);
     Some(DoorModels {
-        frame,
+        frame: frame_model,
         leaf,
         textures,
         frame_alphas,
@@ -310,7 +310,10 @@ impl MeshBuilder {
     /// The vertex colour is the quad's baked face shade (`shade` scales the
     /// orientation term), which is how a dynamic model with no per-vertex
     /// normals still shows its relief.
-    #[allow(clippy::arithmetic_side_effects)] // bounded world dimensions and a positive tiling period
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded world dimensions and a positive tiling period"
+    )] // bounded world dimensions and a positive tiling period
     fn quad(&mut self, corners: [[f32; 3]; 4], paint: Paint) {
         let p0 = Vec3::from(corners[0]);
         let p1 = Vec3::from(corners[1]);
@@ -337,7 +340,7 @@ impl MeshBuilder {
     }
 
     /// Appends an axis-aligned box as six quads in slot `slot`.
-    #[allow(clippy::arithmetic_side_effects)] // fixed, bounded dimensions
+    // fixed, bounded dimensions
     fn push_box(&mut self, min: [f32; 3], max: [f32; 3], paint: Paint) {
         let [x0, y0, z0] = min;
         let [x1, y1, z1] = max;
@@ -364,8 +367,15 @@ impl MeshBuilder {
     }
 
     /// Appends a capped cylinder whose axis runs along Z.
-    #[allow(clippy::arithmetic_side_effects)] // bounded segment count and radius
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // bounded segment count
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded segment count and radius"
+    )] // bounded segment count and radius
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "The private cylinder builders receive the fixed small KNOB_SEGMENTS count; count and loop indices fit f32 exactly"
+    )] // bounded segment count
     fn push_cylinder_z(
         &mut self,
         centre: (f32, f32),
@@ -435,8 +445,15 @@ impl MeshBuilder {
     }
 
     /// Appends a capped cylinder whose axis runs along Y, for hinge knuckles.
-    #[allow(clippy::arithmetic_side_effects)] // bounded segment count and radius
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // bounded segment count
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded segment count and radius"
+    )] // bounded segment count and radius
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "The private cylinder builders receive the fixed small KNOB_SEGMENTS count; count and loop indices fit f32 exactly"
+    )] // bounded segment count
     fn push_cylinder_y(
         &mut self,
         centre: (f32, f32),
@@ -510,7 +527,7 @@ impl MeshBuilder {
     /// Adjacent runs in the same slot merge into one submesh, so a slab's six
     /// faces are one draw and the handle chain is one more. Each submesh's
     /// `texture` is its slot index into the shared texture list.
-    #[allow(clippy::arithmetic_side_effects)] // bounded index counts
+    // bounded index counts
     fn into_model(self) -> Option<PropModel> {
         if self.indices.is_empty() || self.vertices.is_empty() {
             return None;
@@ -560,7 +577,7 @@ impl MeshBuilder {
 /// casings land; the liner runs the whole tunnel and laps 30 mm into the wall
 /// on every side so no wall reveal shows through a gap. Every box either laps
 /// its neighbour or ends inside it, so no two frame faces share a plane.
-#[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
+// bounded door dimensions
 fn push_frame(builder: &mut MeshBuilder, def: &DoorDef, frame: DoorFrame, tile: f32) {
     let (near, far) = frame.span();
     let (z0, z1) = (near.min(far), near.max(far));
@@ -667,7 +684,7 @@ fn hinge_heights(height: f32) -> [f32; 2] {
 /// flat face with raised strips: the recesses give the silhouette of a real
 /// door, and their side walls and floors carry the darker baked shades that
 /// make the relief read under the dynamic probe light.
-#[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
+// bounded door dimensions
 fn push_interior_leaf(builder: &mut MeshBuilder, def: &DoorDef, slab_tile: f32, handle_tile: f32) {
     let half = def.thickness * 0.5;
     let stile = INTERIOR_STILE_M.min(def.width * 0.22);
@@ -761,7 +778,7 @@ fn push_interior_leaf(builder: &mut MeshBuilder, def: &DoorDef, slab_tile: f32, 
 
 /// The sauna leaf: wooden stiles and rails around a glass panel, with a wooden
 /// round handle on both faces and hinge furniture to match.
-#[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
+// bounded door dimensions
 fn push_sauna_leaf(
     builder: &mut MeshBuilder,
     def: &DoorDef,
@@ -826,7 +843,7 @@ fn push_sauna_leaf(
 }
 
 /// A round handle on one face: rose, stem and knob along the leaf normal.
-#[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
+// bounded door dimensions
 fn push_knob(
     builder: &mut MeshBuilder,
     def: &DoorDef,
@@ -867,7 +884,7 @@ fn push_knob(
 }
 
 /// The door's own hinge leaves: a plate on each face at every hinge height.
-#[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
+// bounded door dimensions
 fn push_hinge_plates(builder: &mut MeshBuilder, def: &DoorDef, side: f32, inset: f32, tile: f32) {
     let half = def.thickness * 0.5;
     let z0 = half * side;
@@ -911,7 +928,12 @@ pub fn door_model_bounds(model: &PropModel) -> Option<(Vec3, Vec3)> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::float_cmp)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::assets::AssetCatalog;
@@ -964,8 +986,14 @@ mod tests {
             },
         )
         .expect("door models build");
-        assert_ne!(models.frame.vertices, [] as [crate::gltf::PropVertex; 0]);
-        assert_ne!(models.leaf.vertices, [] as [crate::gltf::PropVertex; 0]);
+        assert!(
+            !models.frame.vertices.is_empty(),
+            "models.frame.vertices must contain entries"
+        );
+        assert!(
+            !models.leaf.vertices.is_empty(),
+            "models.leaf.vertices must contain entries"
+        );
         let (min, max) = door_model_bounds(&models.leaf).expect("bounds");
         assert!(min.x.abs() < 1e-3, "the leaf starts at its hinge: {min:?}");
         assert!(max.x >= 0.9 - 1e-3, "the leaf reaches its latch edge");
@@ -1094,7 +1122,6 @@ mod tests {
 
     /// Vector difference, kept out of the operator form so the test body
     /// itself stays lint-clean. Test-only, bounded model coordinates.
-    #[allow(clippy::arithmetic_side_effects)]
     fn sub(a: Vec3, b: Vec3) -> Vec3 {
         Vec3::new(a.x - b.x, a.y - b.y, a.z - b.z)
     }

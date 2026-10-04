@@ -3,7 +3,8 @@
     clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::float_cmp,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    reason = "These isolated preference tests assert exact values and fail immediately on invalid GPU setup or fixture indices."
 )]
 
 use super::*;
@@ -100,7 +101,7 @@ fn install(renderer: &mut WgpuRenderer, loaded: &LoadedLevel, settings: &Setting
         build.lightmap_failure
     );
     renderer.install_prepared(loaded, build, assets, CharacterScene::new(), preserve);
-    for _ in 0..100 {
+    for _ in 0_i32..100_i32 {
         if renderer.advance_prepared_install() {
             break;
         }
@@ -174,25 +175,25 @@ fn high_on_medium_off_high_and_repeated_toggles_install_real_resources() {
     let mut renderer = WgpuRenderer::new_headless(DrawableSize::new(96, 96)).expect("native GPU");
     let mut settings = Settings::default();
     install(&mut renderer, &loaded, &settings, false);
-    settings.set_use_low_quality_lighting(true);
+    let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(true);
     install(&mut renderer, &loaded, &settings, true);
-    settings.set_quality(QualityLevel::Medium);
+    let _quality_changed = settings.set_quality(QualityLevel::Medium);
     install(&mut renderer, &loaded, &settings, true);
-    settings.set_use_low_quality_lighting(false);
+    let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
     install(&mut renderer, &loaded, &settings, true);
-    settings.set_quality(QualityLevel::High);
+    let _quality_changed_2 = settings.set_quality(QualityLevel::High);
     install(&mut renderer, &loaded, &settings, true);
     for enabled in [true, false, true, false] {
-        settings.set_use_low_quality_lighting(enabled);
+        let _use_low_quality_lighting_changed_3 = settings.set_use_low_quality_lighting(enabled);
         install(&mut renderer, &loaded, &settings, true);
     }
-    settings.set_quality(QualityLevel::Low);
+    let _quality_changed_3 = settings.set_quality(QualityLevel::Low);
     install(&mut renderer, &loaded, &settings, true);
     for quality in [QualityLevel::Medium, QualityLevel::High] {
-        settings.set_use_low_quality_lighting(true);
-        settings.set_quality(quality);
+        let _use_low_quality_lighting_changed_4 = settings.set_use_low_quality_lighting(true);
+        let _quality_changed_4 = settings.set_quality(quality);
         install(&mut renderer, &loaded, &settings, true);
-        settings.set_use_low_quality_lighting(false);
+        let _use_low_quality_lighting_changed_5 = settings.set_use_low_quality_lighting(false);
         install(&mut renderer, &loaded, &settings, true);
     }
 }
@@ -226,7 +227,7 @@ fn low_snapshot(renderer: &mut WgpuRenderer) -> LowSnapshot {
     let mut dynamic = Vec::new();
     for position in [[0.7, 0.0, 0.7], [1.5, 0.0, 1.5], [2.2, 0.0, 2.2]] {
         assert!(renderer.set_runtime_transform(7, position, 0.0));
-        renderer.update_dynamic(0.0);
+        let _update_stats = renderer.update_dynamic(0.0);
         let lighting = renderer
             .dynamic
             .get(id)
@@ -252,13 +253,13 @@ fn override_matches_actual_low_static_dynamic_and_material_paths() {
     let loaded = fixture();
     let mut renderer = WgpuRenderer::new_headless(DrawableSize::new(96, 96)).expect("native GPU");
     let mut low = Settings::default();
-    low.set_quality(QualityLevel::Low);
+    let _quality_changed = low.set_quality(QualityLevel::Low);
     install(&mut renderer, &loaded, &low, false);
     let baseline = low_snapshot(&mut renderer);
     for quality in [QualityLevel::Medium, QualityLevel::High] {
         let mut settings = Settings::default();
-        settings.set_quality(quality);
-        settings.set_use_low_quality_lighting(true);
+        let _quality_changed_2 = settings.set_quality(quality);
+        let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(true);
         install(&mut renderer, &loaded, &settings, true);
         assert_eq!(
             low_snapshot(&mut renderer),

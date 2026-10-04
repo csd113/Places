@@ -15,13 +15,12 @@
 // idiomatic in tests; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use crate::level::{FogRegionDef, LevelDef, MAX_FOG_REGIONS};
@@ -138,7 +137,7 @@ fn fog_void_validation_scene_round_trips_through_a_package() {
         force: true,
         capture_probes: false,
     };
-    crate::compiler::build(&request).expect("the validation scene compiles offline");
+    drop(crate::compiler::build(&request).expect("the validation scene compiles offline"));
     assert!(out.exists(), "the package was published");
 
     let manager = crate::loader::LevelManager::with_paths(
@@ -179,7 +178,7 @@ fn fog_void_validation_scene_round_trips_through_a_package() {
         loaded.level.fog_regions.len() <= MAX_FOG_REGIONS,
         "the scene is inside the shader budget"
     );
-    let _ = std::fs::remove_dir_all(&root);
+    crate::test_support::remove_dir_if_present(&root);
 }
 
 /// The fog-region and void-wall caps are the shader/uniform contract; the

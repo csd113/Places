@@ -91,8 +91,11 @@ impl LightShape {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Point => "point",
-            Self::Rect { .. } => "rect",
-            Self::Line { .. } => "line",
+            Self::Rect {
+                half_width: _,
+                half_depth: _,
+            } => "rect",
+            Self::Line { length: _ } => "line",
         }
     }
 
@@ -281,12 +284,12 @@ impl LightFalloff {
         if !t.is_finite() || t >= 1.0 {
             return 0.0;
         }
-        let t = if t < 0.0 { 0.0 } else { t };
+        let nonnegative_t = if t < 0.0 { 0.0 } else { t };
         match self {
             // Delegated so the historical curve cannot drift by one rounding
             // step: it is the same function the bake always used.
-            Self::Smooth => smooth_falloff(t),
-            Self::Linear => 1.0 - t,
+            Self::Smooth => smooth_falloff(nonnegative_t),
+            Self::Linear => 1.0 - nonnegative_t,
             Self::Constant => 1.0,
         }
     }

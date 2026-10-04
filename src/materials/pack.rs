@@ -275,123 +275,125 @@ impl PackMaterials {
 #[must_use]
 pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMaterialDef> {
     let mut result = HashMap::new();
-    let Some(json_str) = json_str else {
+    let Some(source_json) = json_str else {
         return result;
     };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) else {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(source_json) else {
         return result;
     };
     let table = value
         .get("materials")
         .and_then(|materials| materials.as_object())
         .or_else(|| value.as_object());
-    let Some(table) = table else {
+    let Some(definitions) = table else {
         return result;
     };
-    for (key, value) in table {
+    for (key, material_value) in definitions {
         if key == "materials" {
             continue;
         }
-        let definition = if let Some(path) = value.as_str() {
+        let definition = if let Some(path) = material_value.as_str() {
             PackMaterialDef {
                 texture: path.to_string(),
                 ..PackMaterialDef::default()
             }
         } else {
-            let Some(path) = value.get("texture").and_then(|texture| texture.as_str()) else {
+            let Some(path) = material_value
+                .get("texture")
+                .and_then(|texture| texture.as_str())
+            else {
                 continue;
             };
             PackMaterialDef {
                 texture: path.to_string(),
-                tile_metres: value.get("tile_metres").and_then(parse_tile_metres),
-                tint: value.get("tint").and_then(parse_unit_rgb),
-                emissive: value.get("emissive").and_then(parse_unit_rgb),
-                emissive_intensity: value
+                tile_metres: material_value
+                    .get("tile_metres")
+                    .and_then(parse_tile_metres),
+                tint: material_value.get("tint").and_then(parse_unit_rgb),
+                emissive: material_value.get("emissive").and_then(parse_unit_rgb),
+                emissive_intensity: material_value
                     .get("emissive_intensity")
                     .and_then(parse_emissive_intensity),
-                emissive_mask: value
+                emissive_mask: material_value
                     .get("emissive_mask")
                     .and_then(|mask| mask.as_str())
                     .map(str::trim)
                     .filter(|mask| !mask.is_empty())
                     .map(str::to_string),
-                normal_texture: value
+                normal_texture: material_value
                     .get("normal_texture")
                     .and_then(|texture| texture.as_str())
                     .map(str::trim)
                     .filter(|texture| !texture.is_empty())
                     .map(str::to_string),
-                normal_strength: value.get("normal_strength").and_then(parse_unit_number),
-                specular: value.get("specular").and_then(parse_unit_number),
-                specular_color: value.get("specular_color").and_then(parse_unit_rgb),
-                shine: value.get("shine").and_then(parse_unit_number),
-                alpha_mode: value
+                normal_strength: material_value
+                    .get("normal_strength")
+                    .and_then(parse_unit_number),
+                specular: material_value.get("specular").and_then(parse_unit_number),
+                specular_color: material_value
+                    .get("specular_color")
+                    .and_then(parse_unit_rgb),
+                shine: material_value.get("shine").and_then(parse_unit_number),
+                alpha_mode: material_value
                     .get("alpha_mode")
                     .and_then(|mode| mode.as_str())
                     .map(str::trim)
                     .filter(|mode| !mode.is_empty())
                     .map(str::to_string),
-                opacity: value.get("opacity").and_then(parse_unit_number),
-                alpha_cutoff: value.get("alpha_cutoff").and_then(parse_unit_number),
-                reflection_mode: value
+                opacity: material_value.get("opacity").and_then(parse_unit_number),
+                alpha_cutoff: material_value
+                    .get("alpha_cutoff")
+                    .and_then(parse_unit_number),
+                reflection_mode: material_value
                     .get("reflection_mode")
                     .and_then(|mode| mode.as_str())
                     .map(str::trim)
                     .filter(|mode| !mode.is_empty())
                     .map(str::to_string),
-                reflection_strength: value.get("reflection_strength").and_then(parse_unit_number),
+                reflection_strength: material_value
+                    .get("reflection_strength")
+                    .and_then(parse_unit_number),
             }
         };
         if !definition.texture.is_empty() {
-            result.insert(key.clone(), definition);
+            drop(result.insert(key.clone(), definition));
         }
     }
     result
 }
 
-/// Reads an optional `tile_metres` number.
-///
-/// JSON numbers are `f64`; the material model stores `f32`, so the value is
-/// narrowed here exactly as it always has been. Non-finite and non-positive
-/// results are discarded when the field is read
-/// ([`PackMaterialDef::tile_metres`]).
+/// Narrows a JSON scalar to the material's finite `f32` representation.
+fn finite_material_number(number: f64) -> Option<f32> {
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Material fields are stored as f32; conversion rounds once, and non-finite results are rejected before storage"
+    )]
+    let narrowed = number as f32;
+    narrowed.is_finite().then_some(narrowed)
+}
+
+/// Reads an optional `tile_metres` number; the accessor checks positivity.
 fn parse_tile_metres(value: &serde_json::Value) -> Option<f32> {
-    // `f64 -> f32` can round (that is the point of the field) and saturates to
-    // an infinity for absurd JSON, which the reader filters out.
-    #[allow(clippy::cast_possible_truncation)]
-    let narrowed = value.as_f64()? as f32;
-    Some(narrowed)
+    finite_material_number(value.as_f64()?)
 }
 
-/// Parses an optional `emissive_intensity` number.
-///
-/// Non-finite results and values outside `0.0..=MAX_EMISSION_INTENSITY` are
-/// discarded: the field is decoration on top of `emissive`, and a discarded
-/// one leaves the default in its place.
+/// Reads an intensity, checking its authored range before rounding to `f32`.
 fn parse_emissive_intensity(value: &serde_json::Value) -> Option<f32> {
-    // `f64 -> f32` can round and saturates to an infinity for absurd JSON;
-    // both outcomes are filtered out below.
-    #[allow(clippy::cast_possible_truncation)]
-    let narrowed = value.as_f64()? as f32;
-    if !narrowed.is_finite() || !(0.0..=MAX_EMISSION_INTENSITY).contains(&narrowed) {
+    let number = value.as_f64()?;
+    if !(0.0_f64..=f64::from(MAX_EMISSION_INTENSITY)).contains(&number) {
         return None;
     }
-    Some(narrowed)
+    finite_material_number(number)
 }
 
-/// Parses an optional unit-interval number (`0.0..=1.0`).
-///
-/// Non-finite results and out-of-range values are discarded: the field is
-/// decoration, and a discarded one leaves the documented default in its place.
+/// Reads a unit interval, checking its authored range before rounding to `f32`.
 fn parse_unit_number(value: &serde_json::Value) -> Option<f32> {
-    // `f64 -> f32` can round and saturates to an infinity for absurd JSON;
-    // both outcomes are filtered out below.
-    #[allow(clippy::cast_possible_truncation)]
-    let narrowed = value.as_f64()? as f32;
-    if !narrowed.is_finite() || !(0.0..=1.0).contains(&narrowed) {
+    let number = value.as_f64()?;
+    if !(0.0_f64..=1.0_f64).contains(&number) {
         return None;
     }
-    Some(narrowed)
+    finite_material_number(number)
 }
 
 /// Parses a `[r, g, b]` unit-RGB array (a tint or emissive colour) from JSON.
@@ -402,15 +404,7 @@ fn parse_unit_rgb(value: &serde_json::Value) -> Option<[f32; 3]> {
         return None;
     }
     for (slot, channel) in tint.iter_mut().zip(array) {
-        // `f64 -> f32` rounds to the nearest `f32`; a value whose rounded form
-        // falls outside `[0, 1]` is rejected on the next line, so only
-        // correctly rounded in-range channels are stored.
-        #[allow(clippy::cast_possible_truncation)]
-        let value = channel.as_f64()? as f32;
-        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
-            return None;
-        }
-        *slot = value;
+        *slot = parse_unit_number(channel)?;
     }
     Some(tint)
 }

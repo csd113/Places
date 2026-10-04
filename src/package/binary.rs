@@ -95,8 +95,8 @@ impl Writer {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn blob(&mut self, value: &[u8]) -> Result<(), String> {
-        let length =
-            u32::try_from(value.len()).map_err(|_| "byte run is too long to encode".to_string())?;
+        let length = u32::try_from(value.len())
+            .map_err(|error| format!("byte run is too long to encode: {error}"))?;
         self.u32(length);
         self.bytes(value);
         Ok(())
@@ -130,7 +130,7 @@ impl Writer {
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn u16s(&mut self, values: &[u16]) -> Result<(), String> {
         let length = u32::try_from(values.len())
-            .map_err(|_| "index run is too long to encode".to_string())?;
+            .map_err(|error| format!("index run is too long to encode: {error}"))?;
         self.u32(length);
         for value in values {
             self.u16(*value);
@@ -144,7 +144,7 @@ impl Writer {
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn blob_f32s(&mut self, values: &[f32]) -> Result<(), String> {
         let length = u32::try_from(values.len())
-            .map_err(|_| "float run is too long to encode".to_string())?;
+            .map_err(|error| format!("float run is too long to encode: {error}"))?;
         self.u32(length);
         for value in values {
             self.f32(*value);
@@ -158,7 +158,7 @@ impl Writer {
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn blob_u32s(&mut self, values: &[u32]) -> Result<(), String> {
         let length = u32::try_from(values.len())
-            .map_err(|_| "integer run is too long to encode".to_string())?;
+            .map_err(|error| format!("integer run is too long to encode: {error}"))?;
         self.u32(length);
         for value in values {
             self.u32(*value);
@@ -229,7 +229,7 @@ impl<'a> Reader<'a> {
         let bytes: [u8; 2] = self
             .bytes(2)?
             .try_into()
-            .map_err(|_| "record is truncated".to_string())?;
+            .map_err(|error| format!("record is truncated: {error}"))?;
         Ok(u16::from_le_bytes(bytes))
     }
 
@@ -241,7 +241,7 @@ impl<'a> Reader<'a> {
         let bytes: [u8; 4] = self
             .bytes(4)?
             .try_into()
-            .map_err(|_| "record is truncated".to_string())?;
+            .map_err(|error| format!("record is truncated: {error}"))?;
         Ok(u32::from_le_bytes(bytes))
     }
 
@@ -253,7 +253,7 @@ impl<'a> Reader<'a> {
         let bytes: [u8; 8] = self
             .bytes(8)?
             .try_into()
-            .map_err(|_| "record is truncated".to_string())?;
+            .map_err(|error| format!("record is truncated: {error}"))?;
         Ok(u64::from_le_bytes(bytes))
     }
 
@@ -265,7 +265,7 @@ impl<'a> Reader<'a> {
         let bytes: [u8; 4] = self
             .bytes(4)?
             .try_into()
-            .map_err(|_| "record is truncated".to_string())?;
+            .map_err(|error| format!("record is truncated: {error}"))?;
         Ok(i32::from_le_bytes(bytes))
     }
 
@@ -277,7 +277,7 @@ impl<'a> Reader<'a> {
         let bytes: [u8; 4] = self
             .bytes(4)?
             .try_into()
-            .map_err(|_| "record is truncated".to_string())?;
+            .map_err(|error| format!("record is truncated: {error}"))?;
         Ok(f32::from_le_bytes(bytes))
     }
 
@@ -304,8 +304,9 @@ impl<'a> Reader<'a> {
                 "byte run declares {length} bytes (limit {max_length})"
             ));
         }
-        let length = usize::try_from(length).map_err(|_| "byte run is too long".to_string())?;
-        Ok(self.bytes(length)?.to_vec())
+        let byte_length =
+            usize::try_from(length).map_err(|error| format!("byte run is too long: {error}"))?;
+        Ok(self.bytes(byte_length)?.to_vec())
     }
 
     /// Reads a length-prefixed UTF-8 string, bounded by `max_length`.
@@ -314,7 +315,7 @@ impl<'a> Reader<'a> {
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn str(&mut self, max_length: u64) -> Result<String, String> {
         let bytes = self.blob(max_length)?;
-        String::from_utf8(bytes).map_err(|_| "string is not valid UTF-8".to_string())
+        String::from_utf8(bytes).map_err(|error| format!("string is not valid UTF-8: {error}"))
     }
 
     /// Reads an `[f32; 3]`.
@@ -344,12 +345,13 @@ impl<'a> Reader<'a> {
                 "index run declares {count} entries (limit {max_count})"
             ));
         }
-        let count = usize::try_from(count).map_err(|_| "index run is too long".to_string())?;
-        let byte_length = count
+        let index_count =
+            usize::try_from(count).map_err(|error| format!("index run is too long: {error}"))?;
+        let byte_length = index_count
             .checked_mul(2)
             .ok_or_else(|| "index run length overflow".to_string())?;
         let bytes = self.bytes(byte_length)?;
-        let mut values = Vec::with_capacity(count);
+        let mut values = Vec::with_capacity(index_count);
         for pair in bytes.as_chunks::<2>().0 {
             values.push(u16::from_le_bytes(*pair));
         }
@@ -367,9 +369,10 @@ impl<'a> Reader<'a> {
                 "float run declares {count} entries (limit {max_count})"
             ));
         }
-        let count = usize::try_from(count).map_err(|_| "float run is too long".to_string())?;
-        let mut values = Vec::with_capacity(count.min(16384));
-        for _ in 0..count {
+        let float_count =
+            usize::try_from(count).map_err(|error| format!("float run is too long: {error}"))?;
+        let mut values = Vec::with_capacity(float_count.min(16384));
+        for _ in 0..float_count {
             values.push(self.f32()?);
         }
         Ok(values)
@@ -386,9 +389,10 @@ impl<'a> Reader<'a> {
                 "integer run declares {count} entries (limit {max_count})"
             ));
         }
-        let count = usize::try_from(count).map_err(|_| "integer run is too long".to_string())?;
-        let mut values = Vec::with_capacity(count.min(16384));
-        for _ in 0..count {
+        let integer_count =
+            usize::try_from(count).map_err(|error| format!("integer run is too long: {error}"))?;
+        let mut values = Vec::with_capacity(integer_count.min(16384));
+        for _ in 0..integer_count {
             values.push(self.u32()?);
         }
         Ok(values)
@@ -405,7 +409,7 @@ impl<'a> Reader<'a> {
                 "{what} declares {count} entries (limit {max_count})"
             ));
         }
-        usize::try_from(count).map_err(|_| format!("{what} count is too large"))
+        usize::try_from(count).map_err(|error| format!("{what} count is too large: {error}"))
     }
 }
 

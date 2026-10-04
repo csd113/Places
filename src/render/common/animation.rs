@@ -138,7 +138,7 @@ impl EmissionAnimation {
         } else {
             0.0
         };
-        let hz = match self.effect {
+        let effect_hz = match self.effect {
             AnimationEffect::Pulse => hz.min(MAX_PULSE_HZ),
             AnimationEffect::Flicker => hz,
         };
@@ -154,7 +154,7 @@ impl EmissionAnimation {
         };
         Self {
             effect: self.effect,
-            hz,
+            hz: effect_hz,
             depth,
             phase,
         }
@@ -167,7 +167,6 @@ impl EmissionAnimation {
     #[must_use]
     // Float-only arithmetic on finite inputs: no overflow, no panic path, and
     // the result is clamped to `[0, 1]`.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn factor(self, seconds: f32) -> f32 {
         if !seconds.is_finite() {
             return 1.0;
@@ -204,14 +203,14 @@ const FLICKER_GATE_B_OFFSET: f32 = 0.2;
 
 /// A square wave of unit period that is high for `duty` of each cycle.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // float-only
+// float-only
 fn square(cycle: f32, duty: f32) -> bool {
     cycle.fract().abs() < duty
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // the shapes are pinned by exact values
+    #![allow(clippy::float_cmp, reason = "the shapes are pinned by exact values")] // the shapes are pinned by exact values
 
     use super::*;
 
@@ -240,14 +239,18 @@ mod tests {
         for effect in AnimationEffect::ALL {
             let animation = EmissionAnimation::new(effect).sanitized();
             let floor = 1.0 - animation.depth;
-            for step in 0..600 {
-                let seconds = f64::from(step) / 60.0;
-                #[allow(clippy::cast_possible_truncation)] // a handful of seconds
-                let seconds = seconds as f32;
-                let value = animation.factor(seconds);
+            for step in 0_i32..600_i32 {
+                let seconds = f64::from(step) / 60.0_f64;
+                #[expect(
+                    clippy::as_conversions,
+                    clippy::cast_possible_truncation,
+                    reason = "The finite 0..10-second fixture clock is intentionally rounded to the animation API's f32 time domain"
+                )]
+                let animation_seconds = seconds as f32;
+                let value = animation.factor(animation_seconds);
                 assert!(
                     (floor - 1.0e-5..=1.0 + 1.0e-5).contains(&value),
-                    "{} left [{floor}, 1]: {value} at {seconds}",
+                    "{} left [{floor}, 1]: {value} at {animation_seconds}",
                     effect.name()
                 );
             }
@@ -257,46 +260,57 @@ mod tests {
     #[test]
     fn a_pulse_is_a_slow_breath_and_is_not_always_dim() {
         let animation = EmissionAnimation::new(AnimationEffect::Pulse);
-        let mut bright = 0;
-        let mut dim = 0;
-        for step in 0..480 {
-            #[allow(clippy::cast_possible_truncation)]
-            let seconds = (f64::from(step) / 60.0) as f32;
+        let mut bright = 0_i32;
+        let mut dim = 0_i32;
+        for step in 0_i32..480_i32 {
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                reason = "Reference timestamps deliberately round f64 division into the f32 animation clock, preserving the existing sample sequence."
+            )]
+            let seconds = (f64::from(step) / 60.0_f64) as f32;
             if animation.factor(seconds) > 0.97 {
-                bright += 1;
+                bright += 1_i32;
             }
             if animation.factor(seconds) < 0.93 {
-                dim += 1;
+                dim += 1_i32;
             }
         }
-        assert!(bright > 30, "a pulse must spend time at full brightness");
-        assert!(dim > 30, "a pulse must actually move");
+        assert!(
+            bright > 30_i32,
+            "a pulse must spend time at full brightness"
+        );
+        assert!(dim > 30_i32, "a pulse must actually move");
     }
 
     #[test]
     fn a_flicker_is_at_rest_most_of_the_time() {
         let animation = EmissionAnimation::new(AnimationEffect::Flicker);
-        let mut at_rest = 0;
-        let mut dipping = 0;
-        let mut samples = 0;
-        for step in 0..1200 {
-            #[allow(clippy::cast_possible_truncation)]
-            let seconds = (f64::from(step) / 60.0) as f32;
+        let mut at_rest = 0_i32;
+        let mut dipping = 0_i32;
+        let mut samples = 0_i32;
+        for step in 0_i32..1_200_i32 {
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                reason = "Reference timestamps deliberately round f64 division into the f32 animation clock, preserving the existing sample sequence."
+            )]
+            let seconds = (f64::from(step) / 60.0_f64) as f32;
             let value = animation.factor(seconds);
             if value > 0.999 {
-                at_rest += 1;
+                at_rest += 1_i32;
             }
             if value < 0.8 {
-                dipping += 1;
+                dipping += 1_i32;
             }
-            samples += 1;
+            samples += 1_i32;
         }
         let resting_share = f64::from(at_rest) / f64::from(samples);
         assert!(
-            resting_share > 0.6,
+            resting_share > 0.6_f64,
             "a flicker is an occasional stutter, not a strobe: {resting_share}"
         );
-        assert!(dipping > 0, "a flicker that never dips is invisible");
+        assert!(dipping > 0_i32, "a flicker that never dips is invisible");
     }
 
     #[test]

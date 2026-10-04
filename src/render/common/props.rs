@@ -329,7 +329,7 @@ pub fn resolve_prop_instances_lightmapped<'a>(
     )
 }
 
-#[allow(clippy::too_many_lines)] // one bounded deterministic model/cell batching pass
+// one bounded deterministic model/cell batching pass
 fn resolve_prop_instances_inner<'a>(
     level: &'a LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -418,7 +418,7 @@ fn resolve_prop_instances_inner<'a>(
                 index
             }
             _ => {
-                models_seen.insert(model_path.clone());
+                let _new_entry = models_seen.insert(model_path.clone());
                 let textures = textures_by_model
                     .entry(model_path.clone())
                     .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
@@ -430,7 +430,7 @@ fn resolve_prop_instances_inner<'a>(
                 }
                 builders.push(builder);
                 let index = builders.len().saturating_sub(1);
-                index_by_batch.insert(key.clone(), index);
+                let _previous_value = index_by_batch.insert(key.clone(), index);
                 index
             }
         };
@@ -439,8 +439,8 @@ fn resolve_prop_instances_inner<'a>(
             continue;
         };
         builder.bounds = builder.bounds.union(&instance_bounds);
-        if lightmapped && let Some(plan) = plan.as_deref_mut() {
-            builder.push_lightmapped_instance(&model, &asset, plan, &instance_bounds);
+        if lightmapped && let Some(active_plan) = plan.as_deref_mut() {
+            builder.push_lightmapped_instance(&model, &asset, active_plan, &instance_bounds);
         } else {
             builder.push_instance(
                 &model,
@@ -462,7 +462,10 @@ fn resolve_prop_instances_inner<'a>(
 
 /// Derives a stable UV tangent frame for each actual triangle while retaining
 /// valid smooth normals. Lighting coordinates never replace the source UVs.
-#[allow(clippy::arithmetic_side_effects)] // bounded float frame math; degenerate triangles are rejected
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "bounded float frame math; degenerate triangles are rejected"
+)] // bounded float frame math; degenerate triangles are rejected
 fn model_triangle_vertices(
     source: [&crate::gltf::PropVertex; 3],
     transform: &glam::Mat4,
@@ -561,14 +564,14 @@ fn append_instance_vertices(
                 vertex.normal.unwrap_or([0.0, 1.0, 0.0]),
             ))
             .normalize_or_zero();
-        let light =
+        let surface_light =
             light.plus(lighting.global_surface_light(position.to_array(), normal.to_array()));
         batch.push(Vertex {
             pos: [position.x, position.y, position.z],
             color: [
-                vertex.color[0] * light.r,
-                vertex.color[1] * light.g,
-                vertex.color[2] * light.b,
+                vertex.color[0] * surface_light.r,
+                vertex.color[1] * surface_light.g,
+                vertex.color[2] * surface_light.b,
                 vertex.color[3],
             ],
             uv: vertex.uv,
@@ -614,7 +617,10 @@ pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
         glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z));
     // `glam` matrix multiplication is per-element `f32` arithmetic with no
     // overflow or panic path; clippy cannot see that through the operator impl.
-    #[allow(clippy::arithmetic_side_effects)]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "`glam` matrix multiplication is per-element `f32` arithmetic with no integer overflow or panic path; clippy cannot see that through the operator impl."
+    )]
     let transform = translation * rotation * scale;
     transform
 }
@@ -637,8 +643,8 @@ mod lighting_reuse_tests {
             .and_then(serde_json::Value::as_array_mut)
             .ok_or("fixture props")?
             .extend([
-                serde_json::json!({"model":"home:wall_switch", "x":1.0, "z":1.0}),
-                serde_json::json!({"model":"compiler:missing_model", "x":2.0, "z":1.0}),
+                serde_json::json!({"model":"home:wall_switch", "x":1.0_f64, "z":1.0_f64}),
+                serde_json::json!({"model":"compiler:missing_model", "x":2.0_f64, "z":1.0_f64}),
             ]);
         let level = crate::level::LevelDef::from_json(&raw.to_string())
             .map_err(|error| error.to_string())?;
@@ -661,20 +667,22 @@ mod lighting_reuse_tests {
         );
         assert_eq!(actual.len(), reference.len());
         let mut animated = 0usize;
-        for (actual, reference) in actual.iter().zip(&reference) {
-            assert_eq!(actual.model, reference.model);
-            assert_eq!(actual.bounds, reference.bounds);
-            assert_eq!(actual.submeshes, reference.submeshes);
-            assert_eq!(actual.indices, reference.indices);
-            assert_eq!(actual.vertices.len(), reference.vertices.len());
-            let asset = assets.resolve(&actual.model)?;
+        for (actual_batch, reference_batch) in actual.iter().zip(&reference) {
+            assert_eq!(actual_batch.model, reference_batch.model);
+            assert_eq!(actual_batch.bounds, reference_batch.bounds);
+            assert_eq!(actual_batch.submeshes, reference_batch.submeshes);
+            assert_eq!(actual_batch.indices, reference_batch.indices);
+            assert_eq!(actual_batch.vertices.len(), reference_batch.vertices.len());
+            let asset = assets.resolve(&actual_batch.model)?;
             if asset.model.is_animatable() {
                 animated = animated.saturating_add(1);
-                assert_eq!(actual.vertices, reference.vertices);
+                assert_eq!(actual_batch.vertices, reference_batch.vertices);
             } else {
-                for (actual, reference) in actual.vertices.iter().zip(&reference.vertices) {
-                    assert_eq!(actual.pos, reference.pos);
-                    assert_eq!(actual.uv, reference.uv);
+                for (actual_vertex, reference_vertex) in
+                    actual_batch.vertices.iter().zip(&reference_batch.vertices)
+                {
+                    assert_eq!(actual_vertex.pos, reference_vertex.pos);
+                    assert_eq!(actual_vertex.uv, reference_vertex.uv);
                 }
             }
         }

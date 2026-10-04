@@ -225,7 +225,11 @@ fn cell_axis(value: f32, cell_metres: f32) -> i32 {
     } else {
         // `index` is inside `(-2^20, 2^20)` here, so it is an integral value
         // that fits `i32` exactly: the cast neither truncates nor saturates.
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "`index` is inside `(-2^20, 2^20)` here, so it is an integral value that fits `i32` exactly: the cast neither truncates nor saturates."
+        )]
         {
             index as i32
         }
@@ -350,9 +354,13 @@ fn centroid(vertices: &[crate::render::Vertex]) -> [f32; 3] {
     let count = {
         // Clamped to `[1, 2^24]`, the exact range of consecutive integers in
         // `f32`, so the cast is lossless for every run a level can build.
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Clamped to `[1, 2^24]`, the exact range of consecutive integers in `f32`, so the cast is lossless for every run a level can build."
+        )]
         {
-            vertices.len().clamp(1, 1 << 24) as f32
+            vertices.len().clamp(1, 1 << 24_i32) as f32
         }
     };
     [centre[0] / count, centre[1] / count, centre[2] / count]
@@ -535,7 +543,7 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
                 let index = u16::try_from(current.vertices.len()).unwrap_or(u16::MAX);
                 current.vertices.push(*vertex);
                 current.bounds.expand(vertex.pos);
-                seen.insert(key, index);
+                let _previous_value = seen.insert(key, index);
                 index
             };
         }

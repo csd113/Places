@@ -14,6 +14,6 @@
 /// Returns an error when the value cannot be represented as JSON (for example
 /// a non-finite float).
 pub fn canonical_json_bytes<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    let value = serde_json::to_value(value).map_err(|error| error.to_string())?;
-    serde_json::to_vec(&value).map_err(|error| error.to_string())
+    let json_value = serde_json::to_value(value).map_err(|error| error.to_string())?;
+    serde_json::to_vec(&json_value).map_err(|error| error.to_string())
 }

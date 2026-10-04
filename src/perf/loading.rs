@@ -30,7 +30,7 @@ impl LoadTrace {
         };
         let value = serde_json::json!({
             "event": event, "request": request, "detail": detail,
-            "elapsed_ms": self.started.elapsed().as_secs_f64() * 1000.0,
+            "elapsed_ms": self.started.elapsed().as_secs_f64() * 1_000.0_f64,
         });
         let failed = writeln!(output, "{value}").is_err()
             || (!matches!(

@@ -344,7 +344,11 @@ impl KeyBindings {
             } else {
                 current.to_uppercase()
             };
-            let _ = self.assign(action, &key);
+            // ACTIONS is the same closed binding list used by assign; retain a
+            // diagnostic if a future binding is added to only one of them.
+            if let Err(error) = self.assign(action, &key) {
+                crate::logging::warn(format!("[settings] could not sanitize binding: {error}"));
+            }
             used.push(key.trim().to_uppercase());
         }
     }
@@ -404,7 +408,10 @@ impl SettingsApply {
 /// `settings.json` (minus the session-only [`Self::overrides`]).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 // These are independent player preferences, not mutually exclusive states.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "These are independent player preferences, not mutually exclusive states."
+)]
 pub struct Settings {
     pub bindings: KeyBindings,
     #[serde(default = "default_look_speed_h")]
@@ -614,10 +621,10 @@ pub const TEXTURE_FILTERING_NAMES: [&str; 3] = ["low", "medium", "high"];
 /// The three names round-trip. An empty or unknown value is High, the default.
 #[must_use]
 pub fn texture_filtering_name(value: &str) -> &'static str {
-    let value = value.trim();
-    if value.eq_ignore_ascii_case("low") {
+    let trimmed_value = value.trim();
+    if trimmed_value.eq_ignore_ascii_case("low") {
         "low"
-    } else if value.eq_ignore_ascii_case("medium") {
+    } else if trimmed_value.eq_ignore_ascii_case("medium") {
         "medium"
     } else {
         "high"
@@ -627,14 +634,14 @@ pub fn texture_filtering_name(value: &str) -> &'static str {
 /// The Texture Filtering name a left/right input selects next.
 #[must_use]
 pub fn texture_filtering_step(current: &str, direction: i32) -> &'static str {
-    let current = texture_filtering_name(current);
+    let current_name = texture_filtering_name(current);
     let all = TEXTURE_FILTERING_NAMES;
     let index = all
         .iter()
-        .position(|name| *name == current)
+        .position(|name| *name == current_name)
         .unwrap_or_else(|| all.len().saturating_sub(1));
     let next = cycle_index(index, direction, all.len());
-    all.get(next).copied().unwrap_or(current)
+    all.get(next).copied().unwrap_or(current_name)
 }
 
 /// The Texture Filtering preset an overall quality level selects.
@@ -898,7 +905,7 @@ impl Settings {
     /// Toggles the bloom stage, returning its new effective state.
     pub fn toggle_bloom(&mut self) -> bool {
         let next = !self.bloom_enabled();
-        self.set_bloom(next);
+        let _bloom_changed = self.set_bloom(next);
         next
     }
 
@@ -1072,7 +1079,7 @@ impl Settings {
     /// Toggles `VSync`, returning the new effective state.
     pub fn toggle_vsync(&mut self) -> bool {
         let next = !self.vsync_enabled();
-        self.set_vsync(next);
+        let _vsync_changed = self.set_vsync(next);
         next
     }
 
@@ -1105,7 +1112,7 @@ impl Settings {
         let index = all.iter().position(|mode| *mode == current).unwrap_or(0);
         let next = cycle_index(index, direction, all.len());
         let mode = all.get(next).copied().unwrap_or(current);
-        self.set_window_mode(mode);
+        let _window_mode_changed = self.set_window_mode(mode);
         mode
     }
 
@@ -1120,11 +1127,11 @@ impl Settings {
     /// Dimensions are clamped to [`MIN_WINDOW_EDGE`]..=[`MAX_WINDOW_EDGE`], so
     /// a hand-edited file can never produce an unusable window.
     pub fn set_window_size(&mut self, width: u32, height: u32) -> bool {
-        let width = width.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
-        let height = height.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
-        let changed = self.window_size() != (width, height);
-        self.window_width = width;
-        self.window_height = height;
+        let clamped_width = width.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
+        let clamped_height = height.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
+        let changed = self.window_size() != (clamped_width, clamped_height);
+        self.window_width = clamped_width;
+        self.window_height = clamped_height;
         if changed {
             self.pending.window = true;
         }
@@ -1223,12 +1230,12 @@ impl Settings {
     /// persistent load path is [`Self::load_or_default`], which additionally
     /// reports and preserves a malformed file.
     pub fn load_or_default_from_path<P: AsRef<Path>>(path: P) -> Self {
-        let path = path.as_ref();
-        if !path.exists() {
+        let settings_path = path.as_ref();
+        if !settings_path.exists() {
             return Self::default();
         }
 
-        fs::read_to_string(path).map_or_else(
+        fs::read_to_string(settings_path).map_or_else(
             |_| Self::default(),
             |content| {
                 serde_json::from_str::<Self>(&content).map_or_else(
@@ -1263,18 +1270,18 @@ impl Settings {
     /// [`Self::load_or_default`] against an explicit path, for tests.
     #[must_use]
     pub fn load_or_default_reporting<P: AsRef<Path>>(path: P) -> Self {
-        let path = path.as_ref();
-        if !path.exists() {
+        let settings_path = path.as_ref();
+        if !settings_path.exists() {
             return Self::default();
         }
-        let content = match fs::read_to_string(path) {
+        let content = match fs::read_to_string(settings_path) {
             Ok(content) => content,
             Err(error) => {
                 crate::logging::warn_once(
-                    format!("settings-unreadable:{}", path.display()),
+                    format!("settings-unreadable:{}", settings_path.display()),
                     format!(
                         "[settings] cannot read {}: {error}; using defaults for this session",
-                        path.display()
+                        settings_path.display()
                     ),
                 );
                 return Self::default();
@@ -1286,13 +1293,13 @@ impl Settings {
                 settings
             }
             Err(error) => {
-                let backup = path.with_extension("json.invalid");
-                let preserved = fs::rename(path, &backup).is_ok();
+                let backup = settings_path.with_extension("json.invalid");
+                let preserved = fs::rename(settings_path, &backup).is_ok();
                 crate::logging::warn_once(
-                    format!("settings-invalid:{}", path.display()),
+                    format!("settings-invalid:{}", settings_path.display()),
                     format!(
                         "[settings] {} is not a valid settings file ({error}); using defaults{}",
-                        path.display(),
+                        settings_path.display(),
                         if preserved {
                             format!(" and keeping the old file as {}", backup.display())
                         } else {
@@ -1317,16 +1324,16 @@ impl Settings {
 
     /// [`Self::ensure_saved`] against an explicit path, for tests.
     pub fn ensure_saved_to_path<P: AsRef<Path>>(&self, path: P) {
-        let path = path.as_ref();
-        if path.exists() {
+        let bindings_path = path.as_ref();
+        if bindings_path.exists() {
             return;
         }
-        if let Err(error) = self.save_to_path(path) {
+        if let Err(error) = self.save_to_path(bindings_path) {
             crate::logging::warn_once(
-                format!("settings-unwritable:{}", path.display()),
+                format!("settings-unwritable:{}", bindings_path.display()),
                 format!(
                     "[settings] cannot create {}: {error}; changes will not persist",
-                    path.display()
+                    bindings_path.display()
                 ),
             );
         }

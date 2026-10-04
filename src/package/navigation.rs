@@ -40,16 +40,12 @@
 //! Every count and the whole record are bounded before any allocation; a
 //! malformed record is rejected with a named error, never truncated.
 
-// The navigation codec is a lattice codec: bounded `f32` cell geometry, cell
-// indices converted after their caps are enforced, and fixed-stride runs
-// validated before use. The cast/float lints do not apply to those shapes.
+// Keep the binary codec and its validation in cohesive, readable routines.
+// Numeric conversions and arithmetic exceptions are justified locally.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::missing_const_for_fn,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "The codec uses cohesive routines for validating and encoding each complete record; const qualification is not needed for runtime binary parsing."
 )]
 
 use super::binary::{Reader, Writer};
@@ -171,6 +167,10 @@ pub struct NavGrid {
 impl NavGrid {
     /// Number of cells in the grid.
     #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "The product of two u32 values fits in u64; conversion to the platform's collection size remains checked."
+    )]
     pub fn cell_count(&self) -> usize {
         usize::try_from(u64::from(self.cells_x) * u64::from(self.cells_z)).unwrap_or(usize::MAX)
     }
@@ -185,6 +185,10 @@ impl NavGrid {
     }
 
     /// The row-major index of an in-grid cell, without bounds checks.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Even (u32::MAX * u32::MAX) + u32::MAX fits in u64; the subsequent usize conversion handles smaller platforms."
+    )]
     fn index_unchecked(&self, cx: u32, cz: u32) -> usize {
         usize::try_from(u64::from(cz) * u64::from(self.cells_x) + u64::from(cx))
             .unwrap_or(usize::MAX)
@@ -192,6 +196,11 @@ impl NavGrid {
 
     /// The cell containing `(x, z)`, when the point is inside the grid.
     #[must_use]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::as_conversions,
+        reason = "Floored coordinates use native saturating conversion, then checked u32 conversion and grid bounds reject oversized positions; loaded grid metadata is validated finite with positive spacing."
+    )]
     pub fn cell_at(&self, x: f32, z: f32) -> Option<(u32, u32)> {
         if !x.is_finite() || !z.is_finite() {
             return None;
@@ -203,14 +212,19 @@ impl NavGrid {
         }
         let cx = local_x.floor();
         let cz = local_z.floor();
-        let cx = u32::try_from(cx as i64).ok()?;
-        let cz = u32::try_from(cz as i64).ok()?;
-        self.index_of(cx, cz)?;
-        Some((cx, cz))
+        let cell_x = u32::try_from(cx as i64).ok()?;
+        let cell_z = u32::try_from(cz as i64).ok()?;
+        let _index_of_status = self.index_of(cell_x, cell_z)?;
+        Some((cell_x, cell_z))
     }
 
     /// The cell centre of an in-grid cell.
     #[must_use]
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "In-grid coordinates under the validated 2^21-cell cap convert exactly; arbitrary u32 coordinates supplied to this public helper retain their original finite rounded f32 view."
+    )]
     pub fn cell_center(&self, cx: u32, cz: u32) -> (f32, f32) {
         let half = self.cell_m * 0.5;
         (
@@ -286,7 +300,7 @@ pub fn write_navigation(grid: &NavGrid) -> Result<Vec<u8>, String> {
     writer.u32(grid.cells_z);
     writer.u32(
         u32::try_from(grid.classes.len())
-            .map_err(|_| "navigation record has too many classes".to_string())?,
+            .map_err(|error| format!("navigation record has too many classes: {error}"))?,
     );
     for class in &grid.classes {
         writer.f32(class.radius);
@@ -296,7 +310,7 @@ pub fn write_navigation(grid: &NavGrid) -> Result<Vec<u8>, String> {
     }
     writer.u32(
         u32::try_from(grid.portals.len())
-            .map_err(|_| "navigation record has too many portals".to_string())?,
+            .map_err(|error| format!("navigation record has too many portals: {error}"))?,
     );
     for portal in &grid.portals {
         if u64::try_from(portal.door.len()).unwrap_or(u64::MAX) > MAX_NAV_DOOR_ID_BYTES {
@@ -400,7 +414,8 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     if !origin_x.is_finite() || !origin_z.is_finite() {
         return Err("navigation grid origin is not finite".to_string());
     }
-    let cell_count = usize::try_from(cells).map_err(|_| "navigation grid is too large")?;
+    let cell_count =
+        usize::try_from(cells).map_err(|error| format!("navigation grid is too large: {error}"))?;
     let mut cell_y = Vec::with_capacity(cell_count.min(4096));
     let mut cell_flags = Vec::with_capacity(cell_count.min(4096));
     let mut cell_headroom_cm = Vec::with_capacity(cell_count.min(4096));
@@ -562,7 +577,8 @@ mod tests {
         clippy::expect_used,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -608,9 +624,9 @@ mod tests {
         let mut bad = bytes.clone();
         bad[0] = b'X';
         assert!(read_navigation(&bad).is_err());
-        let mut bad = bytes;
-        bad[4] = 2;
-        assert!(read_navigation(&bad).is_err());
+        let mut wrong_version = bytes;
+        wrong_version[4] = 2;
+        assert!(read_navigation(&wrong_version).is_err());
     }
 
     #[test]

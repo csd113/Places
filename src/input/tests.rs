@@ -2,7 +2,12 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::doc_markdown, clippy::expect_used, clippy::indexing_slicing)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 use crate::test_support::assert_exact;
@@ -203,18 +208,18 @@ fn test_diagonal_movement_combinations() {
     assert!(handler.state().is_held(Control::StrafeRight));
 
     // Backward diagonals S+A and S+D.
-    let mut handler = InputHandler::new();
-    handler.handle_gameplay_event(&key_down(Keycode::S), &bindings);
-    handler.handle_gameplay_event(&key_down(Keycode::A), &bindings);
-    handler.handle_gameplay_event(&key_down(Keycode::D), &bindings);
-    assert!(handler.state().is_held(Control::MoveBackward));
-    assert!(handler.state().is_held(Control::StrafeLeft));
-    assert!(handler.state().is_held(Control::StrafeRight));
-    assert!(!handler.state().is_held(Control::MoveForward));
-    handler.handle_gameplay_event(&key_up(Keycode::S), &bindings);
-    assert!(!handler.state().is_held(Control::MoveBackward));
-    assert!(handler.state().is_held(Control::StrafeLeft));
-    assert!(handler.state().is_held(Control::StrafeRight));
+    let mut backward_handler = InputHandler::new();
+    backward_handler.handle_gameplay_event(&key_down(Keycode::S), &bindings);
+    backward_handler.handle_gameplay_event(&key_down(Keycode::A), &bindings);
+    backward_handler.handle_gameplay_event(&key_down(Keycode::D), &bindings);
+    assert!(backward_handler.state().is_held(Control::MoveBackward));
+    assert!(backward_handler.state().is_held(Control::StrafeLeft));
+    assert!(backward_handler.state().is_held(Control::StrafeRight));
+    assert!(!backward_handler.state().is_held(Control::MoveForward));
+    backward_handler.handle_gameplay_event(&key_up(Keycode::S), &bindings);
+    assert!(!backward_handler.state().is_held(Control::MoveBackward));
+    assert!(backward_handler.state().is_held(Control::StrafeLeft));
+    assert!(backward_handler.state().is_held(Control::StrafeRight));
 }
 
 #[test]
@@ -305,9 +310,9 @@ fn mouse_motion_accumulates_and_is_consumed_exactly_once() {
     assert_exact(dx, 15.5);
     assert_exact(dy, -3.0);
     // Consuming clears: a second take sees no motion at all.
-    let (dx, dy) = handler.state_mut().take_mouse_motion();
-    assert_exact(dx, 0.0);
-    assert_exact(dy, 0.0);
+    let (remaining_horizontal, remaining_vertical) = handler.state_mut().take_mouse_motion();
+    assert_exact(remaining_horizontal, 0.0);
+    assert_exact(remaining_vertical, 0.0);
 }
 
 #[test]
@@ -320,9 +325,9 @@ fn non_finite_mouse_motion_is_ignored() {
     assert_exact(dy, 4.0);
 
     handler.handle_gameplay_event(&mouse_motion(f32::INFINITY, f32::NEG_INFINITY), &bindings);
-    let (dx, dy) = handler.state_mut().take_mouse_motion();
-    assert_exact(dx, 0.0);
-    assert_exact(dy, 0.0);
+    let (infinite_horizontal, infinite_vertical) = handler.state_mut().take_mouse_motion();
+    assert_exact(infinite_horizontal, 0.0);
+    assert_exact(infinite_vertical, 0.0);
 
     // An accumulation that would overflow to infinity is refused as well.
     handler
@@ -331,8 +336,11 @@ fn non_finite_mouse_motion_is_ignored() {
     handler
         .state_mut()
         .accumulate_mouse_motion(f32::MAX, f32::MAX);
-    let (dx, dy) = handler.state_mut().take_mouse_motion();
-    assert!(dx.is_finite() && dy.is_finite(), "{dx} {dy}");
+    let (bounded_horizontal, bounded_vertical) = handler.state_mut().take_mouse_motion();
+    assert!(
+        bounded_horizontal.is_finite() && bounded_vertical.is_finite(),
+        "{bounded_horizontal} {bounded_vertical}"
+    );
 }
 
 #[test]
@@ -414,11 +422,14 @@ fn move_script_parses_ranges_and_rejects_malformed_entries() {
     assert_eq!(script[3].control, Control::LookRight);
     assert_eq!(script[4].control, Control::Crouch);
 
-    let (script, rejected) =
+    let (malformed_script, malformed_entries) =
         parse_move_script("nope@1-2,forward,forward@5,x@1-2,forward@-1-2,forward@9-3,forward@a-b");
-    assert!(script.is_empty(), "no entry survives: {script:?}");
+    assert!(
+        malformed_script.is_empty(),
+        "no entry survives: {malformed_script:?}"
+    );
     assert_eq!(
-        rejected,
+        malformed_entries,
         [
             "nope@1-2",
             "forward",
@@ -438,7 +449,7 @@ fn move_script_parses_ranges_and_rejects_malformed_entries() {
 #[test]
 fn move_script_holds_controls_with_one_press_edge_per_range() {
     let (script, rejected) = parse_move_script("jump@0.2-0.3,jump@1.0-1.0,forward@0.2-0.4");
-    assert_eq!(rejected, [] as [std::string::String; 0]);
+    assert!(rejected.is_empty(), "rejected must be empty");
     let mut state = InputState::default();
     for seconds in [0.0_f32, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0] {
         state.apply_move_script(&script, seconds);
@@ -455,23 +466,23 @@ fn move_script_holds_controls_with_one_press_edge_per_range() {
         );
         state.clear_presses();
     }
-    let mut state = InputState::default();
-    state.apply_move_script(&script, 0.2);
+    let mut pressed_state = InputState::default();
+    pressed_state.apply_move_script(&script, 0.2);
     assert!(
-        state.was_pressed(Control::Jump),
+        pressed_state.was_pressed(Control::Jump),
         "the first held frame presses"
     );
-    state.clear_presses();
-    state.apply_move_script(&script, 0.25);
+    pressed_state.clear_presses();
+    pressed_state.apply_move_script(&script, 0.25);
     assert!(
-        !state.was_pressed(Control::Jump),
+        !pressed_state.was_pressed(Control::Jump),
         "a held frame never re-presses"
     );
-    state.apply_move_script(&script, 0.5);
-    assert!(!state.is_held(Control::Jump), "the range releases");
-    state.apply_move_script(&script, 1.0);
+    pressed_state.apply_move_script(&script, 0.5);
+    assert!(!pressed_state.is_held(Control::Jump), "the range releases");
+    pressed_state.apply_move_script(&script, 1.0);
     assert!(
-        state.was_pressed(Control::Jump),
+        pressed_state.was_pressed(Control::Jump),
         "a second range presses again"
     );
 }

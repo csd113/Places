@@ -64,7 +64,11 @@ pub const fn fixture_is_turned(rotation_degrees: f32) -> bool {
     }
     // `round` yields an integral `f32`, so no fractional part can be lost;
     // magnitudes past `i64::MAX` saturate exactly as this cast always did.
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "`round` yields an integral `f32`, so no fractional part can be lost; magnitudes past `i64::MAX` saturate exactly as this cast always did."
+    )]
     let whole_degrees = rotation_degrees.round() as i64;
     whole_degrees.rem_euclid(180) != 0
 }
@@ -117,9 +121,9 @@ pub fn smooth_falloff(t: f32) -> f32 {
     if t.is_nan() {
         return 0.0;
     }
-    let t = t.clamp(0.0, 1.0);
-    let u = 1.0 - t;
-    u * u * 2.0f32.mul_add(t, 1.0)
+    let unit_t = t.clamp(0.0, 1.0);
+    let u = 1.0 - unit_t;
+    u * u * 2.0f32.mul_add(unit_t, 1.0)
 }
 
 /// Logarithmic compression of a normalised fixture density.
@@ -166,14 +170,14 @@ pub fn room_baseline(area_m2: f32, effective_power: LightColor) -> LightColor {
     let channel = |power: f32| -> f32 {
         // An undefined power emits nothing; +infinity means "as bright as the
         // curve allows" rather than an error, matching the old scalar contract.
-        let power = if power.is_finite() {
+        let finite_power = if power.is_finite() {
             power.max(0.0)
         } else if power > 0.0 {
             f32::INFINITY
         } else {
             0.0
         };
-        let density = power / area;
+        let density = finite_power / area;
         let normalized = compressed_density(density * REFERENCE_LIGHT_AREA_M2);
         let component = saturating_brightness(normalized);
         (BASELINE_MAX - AMBIENT_LEVEL)
@@ -199,7 +203,12 @@ pub fn light_grid_cells(extent_m: f32) -> u32 {
     // `extent_m` is finite and positive, so the ceiling is a finite
     // non-negative integral value; the cast saturates rather than wraps and
     // the clamp bounds the result to `1..=MAX_LIGHT_GRID_CELLS`.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`extent_m` is finite and positive, so the ceiling is a finite non-negative integral value; the cast saturates rather than wraps and the clamp bounds the result to `1..=MAX_LIGHT_GRID_CELLS`."
+    )]
     let cells = ((extent_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_LIGHT_GRID_CELLS);
     cells
 }
@@ -218,7 +227,12 @@ pub fn zone_grid_cells(extent_m: f32) -> u32 {
     // `extent_m` is finite and positive, so the ceiling is a finite
     // non-negative integral value; the cast saturates rather than wraps and
     // the clamp bounds the result to `1..=MAX_ZONE_GRID_CELLS`.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`extent_m` is finite and positive, so the ceiling is a finite non-negative integral value; the cast saturates rather than wraps and the clamp bounds the result to `1..=MAX_ZONE_GRID_CELLS`."
+    )]
     let cells = ((extent_m / ZONE_GRID_CELL_M).ceil() as u32).clamp(1, MAX_ZONE_GRID_CELLS);
     cells
 }
@@ -233,7 +247,12 @@ pub fn wall_light_segments(length_m: f32) -> u32 {
     // `length_m` is finite and positive, so the ceiling is a finite
     // non-negative integral value; the cast saturates rather than wraps and
     // the clamp bounds the result to `1..=MAX_WALL_LIGHT_SEGMENTS`.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`length_m` is finite and positive, so the ceiling is a finite non-negative integral value; the cast saturates rather than wraps and the clamp bounds the result to `1..=MAX_WALL_LIGHT_SEGMENTS`."
+    )]
     let segments = ((length_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_WALL_LIGHT_SEGMENTS);
     segments
 }

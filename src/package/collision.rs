@@ -129,7 +129,7 @@ pub fn write_collision(collision: &CompiledCollision) -> Result<Vec<u8>, String>
     writer.u16(COLLISION_RECORD_VERSION);
     writer.u32(
         u32::try_from(collision.walls.len())
-            .map_err(|_| "collision record has too many walls".to_string())?,
+            .map_err(|error| format!("collision record has too many walls: {error}"))?,
     );
     for wall in &collision.walls {
         wall.write_compiled(&mut writer);
@@ -213,7 +213,8 @@ mod tests {
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -378,9 +379,9 @@ mod tests {
 
         // A version-1 record is the previous layout, whose `swimming` byte
         // would be misread as a shape code; it must be refused by name.
-        let mut bytes = valid_bytes(&test_level());
-        bytes[4..6].copy_from_slice(&1_u16.to_le_bytes());
-        let error = read_collision(&bytes).expect_err("a v1 record must be refused");
+        let mut old_version_bytes = valid_bytes(&test_level());
+        old_version_bytes[4..6].copy_from_slice(&1_u16.to_le_bytes());
+        let error = read_collision(&old_version_bytes).expect_err("a v1 record must be refused");
         assert!(
             error.contains("version 1 is not supported"),
             "the refusal names the version: {error}"

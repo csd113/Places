@@ -2,7 +2,10 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::cast_precision_loss, clippy::float_cmp)]
+#![allow(
+    clippy::float_cmp,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use super::*;
 use crate::test_support::assert_exact;
@@ -84,7 +87,9 @@ fn timing_summary_handles_empty_and_single_samples() {
 
 #[test]
 fn timing_summary_percentiles_use_nearest_rank() {
-    let mut samples: Vec<f32> = (1..=100).map(|value| value as f32).collect();
+    let mut samples: Vec<f32> = (1_i32..=100_i32)
+        .map(|value| crate::test_support::exact_f32(value))
+        .collect();
     let summary = TimingSummary::from_samples(&mut samples);
     assert!((summary.median_ms - 51.0).abs() < 0.01);
     assert!((summary.p95_ms - 95.0).abs() < 0.01);
@@ -95,19 +100,41 @@ fn timing_summary_percentiles_use_nearest_rank() {
 
 #[test]
 fn disabled_bench_records_nothing_and_holds_no_file() {
-    let saved = std::env::var(BENCH_ENV).ok();
-    // SAFETY: no other test in this binary reads PLACES_BENCH.
-    unsafe { std::env::remove_var(BENCH_ENV) };
-    let mut bench = Bench::new();
+    // Inject the disabled configuration rather than mutating the process
+    // environment while other tests and their workers can read it.
+    let mut bench = Bench::from_config(BenchConfig::default());
     assert!(!bench.enabled());
     let now = Instant::now();
     bench.record_frame(now, now, now, now, now, RenderStats::default());
     assert!(bench.frames.is_empty());
     assert!(bench.csv.is_none());
     assert!(!bench.is_complete());
-    if let Some(value) = saved {
-        unsafe { std::env::set_var(BENCH_ENV, value) };
-    }
+}
+
+#[test]
+fn a_failed_csv_write_disables_the_stream_and_keeps_frame_samples() -> std::io::Result<()> {
+    let mut bench = Bench::from_config(BenchConfig {
+        enabled: true,
+        ..BenchConfig::default()
+    });
+    // A read-only handle reliably fails writes without depending on filesystem
+    // permissions, disk capacity, or a special platform device.
+    bench.csv = Some(std::fs::File::open(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/Cargo.toml"
+    ))?);
+    let now = Instant::now();
+    bench.record_frame(now, now, now, now, now, RenderStats::default());
+    assert!(
+        bench.csv.is_none(),
+        "a failed stream must not retry every frame"
+    );
+    assert_eq!(
+        bench.frames.len(),
+        1,
+        "in-memory samples survive a CSV failure"
+    );
+    Ok(())
 }
 
 #[test]
@@ -130,7 +157,7 @@ fn a_huge_warmup_counter_never_overflows_or_records() {
         window_cycle: Vec::new(),
     };
     let now = Instant::now();
-    for _ in 0..3 {
+    for _ in 0_i32..3_i32 {
         bench.record_frame(now, now, now, now, now, RenderStats::default());
     }
     assert_eq!(bench.recorded, 0);
@@ -157,7 +184,7 @@ fn frame_limits_and_completion_are_exact() {
         window_cycle: Vec::new(),
     };
     let now = Instant::now();
-    for _ in 0..5 {
+    for _ in 0_i32..5_i32 {
         bench.record_frame(now, now, now, now, now, RenderStats::default());
     }
     assert_eq!(bench.frames.len(), 2);

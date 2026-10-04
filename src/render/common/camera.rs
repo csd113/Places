@@ -72,9 +72,15 @@ impl RenderCamera {
         // arithmetic with no overflow or panic path; clippy cannot see that
         // through the operator impls, so the two operations below carry a
         // documented allow.
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "`glam`'s vector and matrix operators are per-component `f32` arithmetic with no integer overflow or panic path; clippy cannot see that through the operator impls, so the two operations below carry a documented allow."
+        )]
         let view = glam::Mat4::look_at_rh(self.position, self.position + forward, glam::Vec3::Y);
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "glam matrix multiplication uses floating point components without integer overflow or a panic path."
+        )]
         let mvp = proj * view;
         let frustum = Frustum::from_view_projection(&mvp, DepthRange::NegativeOneToOne);
         (mvp, frustum)

@@ -18,14 +18,12 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::print_stdout,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use std::time::Instant;
@@ -89,8 +87,10 @@ pub fn square_room_level(size: f32, height: f32, count: usize, intensity: Option
             if row * cols + col >= count {
                 break;
             }
-            let x = size * (col as f32 + 1.0) / (cols as f32 + 1.0);
-            let z = size * (row as f32 + 1.0) / (rows as f32 + 1.0);
+            let x = size * (crate::test_support::exact_f32(col) + 1.0)
+                / (crate::test_support::exact_f32(cols) + 1.0);
+            let z = size * (crate::test_support::exact_f32(row) + 1.0)
+                / (crate::test_support::exact_f32(rows) + 1.0);
             lights.push(light(x, z, intensity));
         }
     }
@@ -101,11 +101,17 @@ pub fn square_room_level(size: f32, height: f32, count: usize, intensity: Option
 }
 
 /// Grid shape for `count` roughly evenly spaced fixtures.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "exact_f32 bounds the fixture count by 2^24; its positive square-root ceiling fits usize and truncation retains the original fixture arrangement."
+)]
 fn fixture_grid(count: usize) -> (usize, usize) {
     if count == 0 {
         return (0, 0);
     }
-    let cols = (count as f32).sqrt().ceil() as usize;
+    let cols = crate::test_support::exact_f32(count).sqrt().ceil() as usize;
     ((cols.max(1)), (count.div_ceil(cols.max(1))).max(1))
 }
 
@@ -167,7 +173,7 @@ pub fn measure(
         let started = Instant::now();
         let (built, prop_batches) =
             build_level_geometry_with_assets(level, catalog, &mut local_assets);
-        let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+        let elapsed = started.elapsed().as_secs_f64() * 1_000.0_f64;
         best_total = best_total.min(elapsed);
         if round == 0 {
             cold_total = elapsed;
@@ -176,23 +182,23 @@ pub fn measure(
         mesh = Some(built);
         batches = Some(prop_batches);
     }
-    let mesh = mesh.expect("at least one build");
-    let batches = batches.expect("at least one build");
+    let built_mesh = mesh.expect("at least one build");
+    let built_batches = batches.expect("at least one build");
     let stats = BuildStats {
-        static_vertices: mesh.vertex_count,
-        prop_vertices: batches.iter().map(|batch| batch.vertices.len()).sum(),
-        prop_draws: batches.len(),
-        prop_models: batches.len(),
+        static_vertices: built_mesh.vertex_count,
+        prop_vertices: built_batches.iter().map(|batch| batch.vertices.len()).sum(),
+        prop_draws: built_batches.len(),
+        prop_models: built_batches.len(),
         build_millis: best_total,
         cold_millis: cold_total,
         bake_millis: best_bake,
         estimate_vertices: estimate.total_vertices,
-        floor_vertices: batch_len(&mesh, mesh.batches.floor_batch),
-        ceiling_vertices: batch_len(&mesh, mesh.batches.ceiling_batch),
-        wall_vertices: batch_len(&mesh, mesh.batches.wall_batch),
-        light_vertices: batch_len(&mesh, mesh.batches.light_batch),
+        floor_vertices: batch_len(&built_mesh, built_mesh.batches.floor_batch),
+        ceiling_vertices: batch_len(&built_mesh, built_mesh.batches.ceiling_batch),
+        wall_vertices: batch_len(&built_mesh, built_mesh.batches.wall_batch),
+        light_vertices: batch_len(&built_mesh, built_mesh.batches.light_batch),
     };
-    (stats, mesh, batches)
+    (stats, built_mesh, built_batches)
 }
 
 /// Every generated vertex colour must be finite and inside the renderer range.
@@ -256,8 +262,8 @@ fn bench_many_lights(count: usize) -> LevelDef {
         room(0.0, 0.0, 40.0, 40.0, 3.5),
         (0..count)
             .map(|index| {
-                let x = ((index % 10) as f32).mul_add(4.0, 2.0);
-                let z = ((index / 10) as f32).mul_add(4.0, 2.0);
+                let x = crate::test_support::exact_f32(index % 10).mul_add(4.0, 2.0);
+                let z = crate::test_support::exact_f32(index / 10).mul_add(4.0, 2.0);
                 light(x, z, None)
             })
             .collect::<Vec<_>>()
@@ -275,8 +281,8 @@ fn bench_large_surfaces() -> LevelDef {
         ),
         &(0..16)
             .map(|index| {
-                let x = ((index % 4) as f32).mul_add(30.0, 10.0);
-                let z = ((index / 4) as f32).mul_add(30.0, 10.0);
+                let x = crate::test_support::exact_f32(index % 4_i32).mul_add(30.0, 10.0);
+                let z = crate::test_support::exact_f32(index / 4_i32).mul_add(30.0, 10.0);
                 light(x, z, None)
             })
             .collect::<Vec<_>>()
@@ -293,8 +299,8 @@ fn bench_many_rooms(grid: usize) -> LevelDef {
     let mut walls = Vec::new();
     for row in 0..grid {
         for col in 0..grid {
-            let x = col as f32 * room_size;
-            let z = row as f32 * room_size;
+            let x = crate::test_support::exact_f32(col) * room_size;
+            let z = crate::test_support::exact_f32(row) * room_size;
             rooms.push(room(x, z, room_size, room_size, 3.0));
             lights.push(light(x + 2.5, z + 2.5, None));
             lights.push(light(x + 5.5, z + 5.5, None));
@@ -345,8 +351,8 @@ fn bench_prop_heavy() -> LevelDef {
     let mut props = Vec::new();
     for index in 0..150 {
         let model = models[index % models.len()];
-        let x = ((index % 15) as f32).mul_add(2.0, -14.0);
-        let z = ((index / 15) as f32).mul_add(2.6, -14.0);
+        let x = crate::test_support::exact_f32(index % 15).mul_add(2.0, -14.0);
+        let z = crate::test_support::exact_f32(index / 15).mul_add(2.6, -14.0);
         props.push(format!(r#"{{ "model": "{model}", "x": {x}, "z": {z} }}"#));
     }
     parse(&format!(
@@ -361,7 +367,11 @@ fn bench_prop_heavy() -> LevelDef {
         }}"#,
         room(0.0, 0.0, 30.0, 30.0, 3.0),
         (0..6)
-            .map(|index| light((index as f32).mul_add(4.4, 4.0), 15.0, None))
+            .map(|index| light(
+                crate::test_support::exact_f32(index).mul_add(4.4, 4.0),
+                15.0,
+                None
+            ))
             .collect::<Vec<_>>()
             .join(","),
         props.join(",")
@@ -379,8 +389,8 @@ fn bench_worst_reasonable() -> LevelDef {
     let mut props = Vec::new();
     for row in 0..grid {
         for col in 0..grid {
-            let x = col as f32 * room_size;
-            let z = row as f32 * room_size;
+            let x = crate::test_support::exact_f32(col) * room_size;
+            let z = crate::test_support::exact_f32(row) * room_size;
             rooms.push(room(x, z, room_size, room_size, 3.2));
             lights.push(light(x + 4.5, z + 4.5, None));
             lights.push(light(x + 9.5, z + 9.5, None));
@@ -405,7 +415,7 @@ fn bench_worst_reasonable() -> LevelDef {
                 let model = models[(row + col + index) % models.len()];
                 props.push(format!(
                     r#"{{ "model": "{model}", "x": {}, "z": {} }}"#,
-                    (index as f32).mul_add(6.0, x + 3.0),
+                    crate::test_support::exact_f32(index).mul_add(6.0, x + 3.0),
                     z + 3.0
                 ));
             }
@@ -485,26 +495,27 @@ fn lighting_benchmark_report() {
     let repeat = if cfg!(debug_assertions) { 1 } else { 3 };
 
     let mut rows: Vec<Row> = Vec::new();
-    let mut add = |name: &'static str, level: LevelDef, assets: &mut crate::props::PropAssets| {
-        let (stats, mesh, batches) = measure(&level, &catalog, assets, repeat);
-        assert_vertex_colors_safe(&mesh.all_vertices());
-        for batch in &batches {
-            assert_vertex_colors_safe(&batch.vertices);
-        }
-        assert!(
-            stats.static_vertices <= usize::try_from(MAX_LEVEL_VERTICES).unwrap_or(usize::MAX),
-            "{name}: static geometry exceeds the level budget"
-        );
-        rows.push(Row {
-            name,
-            stats,
-            rooms: level.room_iter().count(),
-            lights: level.ceiling_lights.len(),
-            openings: openings_of(&level),
-            props: level.props.len(),
-            level,
-        });
-    };
+    let mut add =
+        |name: &'static str, level: LevelDef, prop_assets: &mut crate::props::PropAssets| {
+            let (stats, mesh, batches) = measure(&level, &catalog, prop_assets, repeat);
+            assert_vertex_colors_safe(&mesh.all_vertices());
+            for batch in &batches {
+                assert_vertex_colors_safe(&batch.vertices);
+            }
+            assert!(
+                stats.static_vertices <= usize::try_from(MAX_LEVEL_VERTICES).unwrap_or(usize::MAX),
+                "{name}: static geometry exceeds the level budget"
+            );
+            rows.push(Row {
+                name,
+                stats,
+                rooms: level.room_iter().count(),
+                lights: level.ceiling_lights.len(),
+                openings: openings_of(&level),
+                props: level.props.len(),
+                level,
+            });
+        };
 
     add("A Tiny", bench_tiny(), &mut assets);
     add("B Places Demo", shipped_demo(), &mut assets);
@@ -579,7 +590,8 @@ fn lighting_benchmark_report() {
     for row in &rows {
         let estimate = row.level.estimate_geometry();
         assert!(
-            row.stats.static_vertices as u64 <= estimate.total_vertices,
+            u64::try_from(row.stats.static_vertices).expect("fixture integer fits u64")
+                <= estimate.total_vertices,
             "{}: estimate {} does not bound the built {} static vertices",
             row.name,
             estimate.total_vertices,
@@ -642,7 +654,8 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
         let openings: Vec<String> = (0..count)
             .map(|index| {
                 opening(
-                    length * (index as f32 + 1.0) / (count as f32 + 1.0),
+                    length * (crate::test_support::exact_f32(index) + 1.0)
+                        / (crate::test_support::exact_f32(count) + 1.0),
                     1.0,
                     2.1,
                 )
@@ -666,13 +679,14 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
         let estimate = level.estimate_geometry();
         let mesh = build_level_geometry(&level);
         assert!(
-            mesh.vertex_count as u64 <= estimate.total_vertices,
+            u64::try_from(mesh.vertex_count).expect("fixture integer fits u64")
+                <= estimate.total_vertices,
             "length {length} with {count} openings: built {} static vertices but the estimate says {}",
             mesh.vertex_count,
             estimate.total_vertices
         );
         assert!(
-            u64::try_from(mesh.batches.wall_batch.count.max(0)).unwrap_or(0)
+            u64::try_from(mesh.batches.wall_batch.count.max(0_i32)).unwrap_or(0)
                 <= estimate.wall_quads.saturating_mul(6),
             "length {length} with {count} openings: built {} wall vertices but the wall estimate says {}",
             mesh.batches.wall_batch.count,
@@ -682,13 +696,19 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
     }
     // The same must hold for many walls with many openings each.
     let mut walls = Vec::new();
-    for index in 0..40 {
-        let openings: Vec<String> = (0..10)
-            .map(|slot| opening((slot as f32).mul_add(2.0, 1.0), 1.0, 2.1))
+    for index in 0_i32..40_i32 {
+        let openings: Vec<String> = (0_i32..10_i32)
+            .map(|slot| {
+                opening(
+                    crate::test_support::exact_f32(slot).mul_add(2.0, 1.0),
+                    1.0,
+                    2.1,
+                )
+            })
             .collect();
         walls.push(format!(
             r#"{{ "x": {}, "z": 0.0, "width": 0.3, "depth": 21.0, "height": 3.0, "openings": [{}] }}"#,
-            index as f32 * 22.0,
+            crate::test_support::exact_f32(index) * 22.0,
             openings.join(",")
         ));
     }
@@ -708,7 +728,8 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
-        mesh.vertex_count as u64 <= estimate.total_vertices,
+        u64::try_from(mesh.vertex_count).expect("fixture integer fits u64")
+            <= estimate.total_vertices,
         "wall forest: built {} but estimated {}",
         mesh.vertex_count,
         estimate.total_vertices
@@ -721,7 +742,8 @@ fn geometry_storage_does_not_over_reserve_wildly() {
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
-        estimate.total_vertices >= mesh.vertex_count as u64,
+        estimate.total_vertices
+            >= u64::try_from(mesh.vertex_count).expect("fixture integer fits u64"),
         "estimate must bound the build"
     );
     // The loader estimate bounds the unmerged grid; flat-span merging can
@@ -779,8 +801,8 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
             room(0.0, 0.0, 20.0, 20.0, 3.2),
             (0..count)
                 .map(|index| light(
-                    ((index % 4) as f32).mul_add(5.0, 2.0),
-                    ((index / 4) as f32).mul_add(5.0, 2.0),
+                    crate::test_support::exact_f32(index % 4).mul_add(5.0, 2.0),
+                    crate::test_support::exact_f32(index / 4).mul_add(5.0, 2.0),
                     None
                 ))
                 .collect::<Vec<_>>()
@@ -789,11 +811,11 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
         let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
         assert_eq!(batches.len(), 1, "{count} lights: one prop model, one draw");
         let shape = (
-            mesh.batches.floor_batch.count > 0,
-            mesh.batches.ceiling_batch.count > 0,
-            mesh.batches.wall_batch.count > 0,
-            mesh.batches.light_batch.count > 0,
-            mesh.batches.prop_batch.count > 0,
+            mesh.batches.floor_batch.count > 0_i32,
+            mesh.batches.ceiling_batch.count > 0_i32,
+            mesh.batches.wall_batch.count > 0_i32,
+            mesh.batches.light_batch.count > 0_i32,
+            mesh.batches.prop_batch.count > 0_i32,
             batches.len(),
         );
         if let Some(previous) = previous_shape {
@@ -810,7 +832,7 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
                 .unwrap_or(i32::MAX);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6
+            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
         );
     }
 }
@@ -823,11 +845,11 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
     // inside one 12-metre spatial cell so the only thing that could split them
     // is a lighting difference.
     let mut props = Vec::new();
-    for index in 0..10 {
+    for index in 0_i32..10_i32 {
         props.push(format!(
             r#"{{ "model": "core:chair", "x": {}, "z": {} }}"#,
-            (index as f32).mul_add(0.9, 1.0),
-            (index as f32).mul_add(0.9, 1.0)
+            crate::test_support::exact_f32(index).mul_add(0.9, 1.0),
+            crate::test_support::exact_f32(index).mul_add(0.9, 1.0)
         ));
     }
     let level = parse(&format!(
@@ -860,8 +882,8 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
             room(0.0, 0.0, 22.0, 22.0, 3.0),
             light(2.0, 2.0, None),
         ));
-        let (_, batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
-        batches[0].vertices.len()
+        let (_, single_batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
+        single_batches[0].vertices.len()
     };
     assert_eq!(batches[0].vertices.len(), single * 10);
 
@@ -952,9 +974,14 @@ impl Lcg {
             .0
             .wrapping_mul(6_364_136_223_846_793_005)
             .wrapping_add(1_442_695_040_888_963_407);
-        (self.0 >> 33) as u32
+        u32::try_from(self.0 >> 33).expect("fixture integer fits u32")
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "The deterministic integer generator intentionally becomes an approximate f32 fraction; rounding u32 values and its endpoint preserves the existing stress fixture sequence."
+    )]
     fn unit(&mut self) -> f32 {
         self.next_u32() as f32 / u32::MAX as f32
     }
@@ -964,7 +991,7 @@ impl Lcg {
     }
 
     fn int(&mut self, low: i32, high: i32) -> i32 {
-        let span = u32::try_from(high - low + 1).unwrap_or(1).max(1);
+        let span = u32::try_from(high - low + 1_i32).unwrap_or(1).max(1);
         low + i32::try_from(self.next_u32() % span).unwrap_or(0)
     }
 }
@@ -984,7 +1011,7 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         "spooner-man",
     ];
     let mut rng = Lcg(0x5eed_1234_abcd_0001);
-    for case in 0..48 {
+    for case in 0_i32..48_i32 {
         let room_count = usize::try_from(rng.int(1, 4)).unwrap_or(0);
         let mut rooms = Vec::new();
         for _ in 0..room_count {
@@ -1020,7 +1047,9 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         let prop_count = usize::try_from(rng.int(0, 12)).unwrap_or(0);
         let mut props = Vec::new();
         for _ in 0..prop_count {
-            let model = models[(rng.next_u32() as usize) % models.len()];
+            let model = models[usize::try_from(rng.next_u32())
+                .expect("fixture integer fits usize")
+                % models.len()];
             let x = rng.range(-12.0, 30.0);
             let y = rng.range(-0.3, 2.5);
             let z = rng.range(-12.0, 30.0);
@@ -1084,14 +1113,22 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         for batch in &batches {
             assert_vertex_colors_safe(&batch.vertices);
         }
-        assert!(mesh.vertex_count as u64 <= level.estimate_geometry().total_vertices);
         assert!(
-            mesh.vertex_count as u64 + batches.iter().map(|b| b.vertices.len() as u64).sum::<u64>()
-                <= MAX_LEVEL_VERTICES + MAX_LEVEL_PROP_VERTICES as u64
+            u64::try_from(mesh.vertex_count).expect("fixture integer fits u64")
+                <= level.estimate_geometry().total_vertices
+        );
+        assert!(
+            u64::try_from(mesh.vertex_count).expect("fixture integer fits u64")
+                + batches
+                    .iter()
+                    .map(|b| u64::try_from(b.vertices.len()).expect("fixture integer fits u64"))
+                    .sum::<u64>()
+                <= MAX_LEVEL_VERTICES
+                    + u64::try_from(MAX_LEVEL_PROP_VERTICES).expect("fixture integer fits u64")
         );
 
         // A handful of representative sample points per level.
-        for _ in 0..12 {
+        for _ in 0_i32..12_i32 {
             let x = rng.range(-15.0, 35.0);
             let y = rng.range(-1.0, 6.0);
             let z = rng.range(-15.0, 35.0);
@@ -1217,6 +1254,7 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
 
 #[test]
 fn regression_invalid_openings_do_not_create_phantom_doorways() {
+    type OpeningMutation = fn(&mut crate::level::WallOpeningDef);
     let solid = LevelLighting::bake(&shared_wall_level(0.0, 0.0, 1.0));
     // Programmatic malformations that validation would normally reject: none
     // may blend, so the bake must match a wall with no opening at all.
@@ -1226,19 +1264,16 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
         LevelLighting::bake(&level)
     };
     let reference_sample = reference.sample_in_room_luminance(1, 10.5, 0.0, 5.0);
-    for (label, mutate) in [
-        (
-            "zero width",
-            (|o: &mut crate::level::WallOpeningDef| o.width = 0.0)
-                as fn(&mut crate::level::WallOpeningDef),
-        ),
+    let cases: [(&str, OpeningMutation); 7] = [
+        ("zero width", |opening| opening.width = 0.0),
         ("negative width", |o| o.width = -1.0),
         ("zero height", |o| o.height = 0.0),
         ("NaN height", |o| o.height = f32::NAN),
         ("infinite height", |o| o.height = f32::INFINITY),
         ("NaN sill", |o| o.sill = f32::NAN),
         ("non-finite offset", |o| o.offset = f32::INFINITY),
-    ] {
+    ];
+    for (label, mutate) in cases {
         let mut level = shared_wall_level(0.0, 0.0, 1.0);
         mutate(&mut level.walls[0].openings[0]);
         let lighting = LevelLighting::bake(&level);
@@ -1376,7 +1411,11 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
 ///
 /// `add_quad` emits `p0, p1, p2, p0, p2, p3`, so the quad corners are indices
 /// 0, 1, 2 and 5.
-#[allow(clippy::type_complexity, clippy::chunks_exact_to_as_chunks)]
+#[expect(
+    clippy::type_complexity,
+    clippy::chunks_exact_to_as_chunks,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 fn quads(vertices: &[crate::render::Vertex]) -> Vec<([(f32, f32); 4], [[f32; 4]; 4])> {
     assert_eq!(vertices.len() % 6, 0, "batches must be whole quads");
     vertices
@@ -1415,8 +1454,8 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
                 let expected = lighting
                     .sample_in_room(room, x, info.height_m, z)
                     .to_array();
-                let expected = [0.72 * expected[0], 0.72 * expected[1], 0.70 * expected[2]];
-                (0..3).all(|channel| (color[channel] - expected[channel]).abs() < 1e-6)
+                let tinted_expected = [0.72 * expected[0], 0.72 * expected[1], 0.70 * expected[2]];
+                (0..3).all(|channel| (color[channel] - tinted_expected[channel]).abs() < 1e-6)
             })
         };
         for quad in quads(&floor) {
@@ -1511,6 +1550,11 @@ fn merged_wall_strips_share_exact_edges() {
         if (vertex.pos[2] + 0.2).abs() < 1e-4 || (vertex.pos[2] - 23.8).abs() < 1e-4 {
             continue;
         }
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::as_conversions,
+            reason = "The fixed wall fixture spans less than 25 m; rounded millimetre coordinates fit i32 and provide independent shared-edge keys."
+        )]
         let key = (
             (vertex.pos[0] * 1000.0).round() as i32,
             (vertex.pos[1] * 1000.0).round() as i32,
@@ -1523,7 +1567,7 @@ fn merged_wall_strips_share_exact_edges() {
                 "same wall position {key:?} carries two different colours"
             ),
             None => {
-                samples.insert(key, vertex.color);
+                let _previous_sample = samples.insert(key, vertex.color);
             }
         }
     }

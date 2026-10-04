@@ -134,7 +134,7 @@ impl SpawnGroups {
             if id.is_empty() || by_id.contains_key(id) {
                 continue;
             }
-            by_id.insert(id.to_string(), groups.len());
+            let _previous_value = by_id.insert(id.to_string(), groups.len());
             groups.push(SpawnGroupRuntime {
                 def: def.clone(),
                 live: None,
@@ -286,7 +286,11 @@ pub const MAX_SPAWNS_PER_TICK: usize = 64;
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::level::LevelDef;

@@ -106,7 +106,7 @@ impl LightmapsMeta {
             ));
         }
         let groups = usize::try_from(self.page_count)
-            .map_err(|_| "lightmap page count is too large".to_string())?
+            .map_err(|error| format!("lightmap page count is too large: {error}"))?
             .checked_mul(self.switchable_lights.len().saturating_add(1))
             .and_then(|pages| pages.checked_mul(2))
             .ok_or_else(|| "lightmap layer count overflows".to_string())?;
@@ -132,7 +132,7 @@ impl LightmapsMeta {
             ));
         }
         let page_count = usize::try_from(self.page_count)
-            .map_err(|_| "lightmap page count is too large".to_string())?;
+            .map_err(|error| format!("lightmap page count is too large: {error}"))?;
         let mut covered = 0_u64;
         for record in &self.charts {
             let patch = record.patch;
@@ -152,13 +152,13 @@ impl LightmapsMeta {
             }
             let x_end = chart.x.checked_add(chart.width);
             let y_end = chart.y.checked_add(chart.height);
-            let (Some(x_end), Some(y_end)) = (x_end, y_end) else {
+            let (Some(right_edge), Some(bottom_edge)) = (x_end, y_end) else {
                 return Err("lightmap chart rectangle overflows".to_string());
             };
             if chart.width == 0
                 || chart.height == 0
-                || x_end > self.page_edge
-                || y_end > self.page_edge
+                || right_edge > self.page_edge
+                || bottom_edge > self.page_edge
             {
                 return Err("lightmap chart rectangle is outside its page".to_string());
             }
@@ -183,7 +183,7 @@ impl LightmapsMeta {
     /// edge or the layer groups cannot be assembled.
     pub fn into_lightmaps(self, image: &Ktx2Rgba16f) -> Result<LevelLightmaps, String> {
         let page_edge = usize::try_from(self.page_edge)
-            .map_err(|_| "lightmap page edge is too large".to_string())?;
+            .map_err(|error| format!("lightmap page edge is too large: {error}"))?;
         let page_texels = page_edge
             .checked_mul(page_edge)
             .ok_or_else(|| "lightmap page size overflows".to_string())?;
@@ -194,7 +194,7 @@ impl LightmapsMeta {
             return Err("lightmap payload has no image data".to_string());
         };
         let page_count = usize::try_from(self.page_count)
-            .map_err(|_| "lightmap page count is too large".to_string())?;
+            .map_err(|error| format!("lightmap page count is too large: {error}"))?;
         let layer_groups = page_count
             .checked_mul(2)
             .ok_or_else(|| "lightmap layer count overflows".to_string())?;
@@ -225,15 +225,15 @@ impl LightmapsMeta {
             }
             groups.push(pages);
         }
-        let mut groups = groups.into_iter();
-        let Some(base) = groups.next() else {
+        let mut group_iter = groups.into_iter();
+        let Some(base) = group_iter.next() else {
             return Err("lightmap payload has no base layer group".to_string());
         };
         let switchable = self
             .switchable_lights
             .iter()
             .copied()
-            .zip(groups)
+            .zip(group_iter)
             .map(|(light_index, pages)| SwitchableLightmaps { light_index, pages })
             .collect();
         let charts = self
@@ -283,16 +283,16 @@ fn decode_page(
         .iter()
         .zip(direction.as_chunks::<8>().0.iter())
     {
-        let irradiance = [f16_at(irr, 0), f16_at(irr, 2), f16_at(irr, 4)];
-        let direction = [f16_at(dir, 0), f16_at(dir, 2), f16_at(dir, 4)];
+        let irradiance_rgb = [f16_at(irr, 0), f16_at(irr, 2), f16_at(irr, 4)];
+        let direction_rgb = [f16_at(dir, 0), f16_at(dir, 2), f16_at(dir, 4)];
         // The axis pair rides in the planes' alpha channels and is reserved:
         // writers store `[0.5, 0.5]` and the reconstruction ignores it, but the
         // record keeps its three-field shape.
         let axis = [f16_at(irr, 6), f16_at(dir, 6)];
         texels.push(
             LightmapTexel {
-                irradiance,
-                direction,
+                irradiance: irradiance_rgb,
+                direction: direction_rgb,
                 axis,
             }
             .normalized(),
@@ -370,12 +370,12 @@ pub fn write_lightmaps(lightmaps: &LevelLightmaps) -> Result<(Vec<u8>, Vec<u8>),
     // developer measurement, reported in the build output, and never part of
     // the archive bytes.
     let mut stats = lightmaps.stats;
-    stats.bake_millis = 0.0;
+    stats.bake_millis = 0.0_f64;
     let meta = LightmapsMeta {
         record_version: LIGHTMAPS_RECORD_VERSION,
         page_edge: edge,
         page_count: u32::try_from(lightmaps.pages.len())
-            .map_err(|_| "lightmap page count is too large".to_string())?,
+            .map_err(|error| format!("lightmap page count is too large: {error}"))?,
         padding: lightmaps.padding,
         content_key: lightmaps.cache_key.clone(),
         stats,
@@ -462,7 +462,8 @@ mod tests {
         clippy::expect_used,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;

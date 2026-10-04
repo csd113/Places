@@ -785,7 +785,7 @@ pub fn graphics_action(
         return match staged {
             // An install of the configuration already resident changes
             // nothing: let it commit rather than restarting identical work.
-            Some(staged) if staged == requested => GraphicsAction::AwaitCommit,
+            Some(staged_config) if staged_config == requested => GraphicsAction::AwaitCommit,
             // An install of a superseded configuration can only overwrite the
             // resident one; cancel it.
             Some(_) => GraphicsAction::CancelStale,

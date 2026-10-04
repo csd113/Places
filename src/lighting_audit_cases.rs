@@ -10,14 +10,13 @@
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
     clippy::default_trait_access,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::too_many_lines,
     clippy::uninlined_format_args,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use crate::level::{
@@ -71,10 +70,10 @@ fn room_power(lighting: &LevelLighting) -> [f32; 3] {
 
 /// Asserts two per-channel power sums agree in every channel.
 fn assert_power_eq(actual: [f32; 3], expected: [f32; 3], context: &str) {
-    for (channel, (actual, expected)) in actual.iter().zip(expected).enumerate() {
+    for (channel, (actual_power, expected_power)) in actual.iter().zip(expected).enumerate() {
         assert!(
-            (actual - expected).abs() < 1e-5,
-            "{context}: channel {channel} drifted: {actual} vs {expected}"
+            (actual_power - expected_power).abs() < 1e-5,
+            "{context}: channel {channel} drifted: {actual_power} vs {expected_power}"
         );
     }
 }
@@ -131,17 +130,17 @@ fn group_a_larger_area_lowers_the_baseline_and_stays_continuous() {
 
     // Continuity: the baseline is a smooth function of area, with no jump where
     // surfaces would switch tessellation density.
-    let mut previous = f32::INFINITY;
+    let mut previous_geometry = f32::INFINITY;
     for area in scan(1.0, 0.25, 40.0) {
         let level = square_room_level(area.sqrt(), 3.5, 1, None);
         let baseline = bake(&level).rooms()[0].baseline.luminance();
-        if previous.is_finite() {
+        if previous_geometry.is_finite() {
             assert!(
-                previous - baseline < 0.02,
-                "baseline jumped between adjacent areas at {area}: {previous} -> {baseline}"
+                previous_geometry - baseline < 0.02,
+                "baseline jumped between adjacent areas at {area}: {previous_geometry} -> {baseline}"
             );
         }
-        previous = baseline;
+        previous_geometry = baseline;
     }
 }
 
@@ -157,13 +156,13 @@ fn group_a_room_area_extremes_stay_inside_the_budget() {
     let lighting = bake(&level);
     assert!(lighting.rooms()[0].baseline.luminance() >= AMBIENT_LEVEL);
     assert!(lighting.sample_luminance(500.0, 0.0, 500.0).is_finite());
-    build_checked(&level);
+    drop(build_checked(&level));
 
     // Past the budget the loader must reject rather than try to reserve.
     // Sixty-five fully-overlapping 1000 x 1000 m rooms estimate 65 000 000 m^2
     // of floor: past the raised 64 000 000 m^2 budget without building (or
     // baking) anything.
-    let rooms: Vec<String> = (0..65)
+    let rooms: Vec<String> = (0_i32..65_i32)
         .map(|_| room(0.0, 0.0, 1000.0, 1000.0, 3.5))
         .collect();
     let over = parse_current(&level_json(&rooms.join(","), &light(500.0, 500.0, None)));
@@ -198,8 +197,8 @@ fn group_b_zero_light_rooms_stay_at_minimum_ambient_and_render() {
         }
 
         let mesh = build_checked(&level);
-        assert!(mesh.batches.floor_batch.count > 0);
-        assert!(mesh.batches.ceiling_batch.count > 0);
+        assert!(mesh.batches.floor_batch.count > 0_i32);
+        assert!(mesh.batches.ceiling_batch.count > 0_i32);
         // Floors carry the light directly; ceilings apply their own 0.72 tint.
         // Everything stays inside the renderer range and nothing is black.
         let (min, max) = color_range(&mesh);
@@ -250,8 +249,8 @@ fn group_b_a_zero_intensity_fixture_behaves_like_no_fixture() {
         "a zero-output red fixture must not glow red: {:?}",
         panel[0].color
     );
-    let lighting = bake(&coloured_off);
-    assert_eq!(lighting.sample(5.0, 0.0, 5.0), ambient_color());
+    let off_lighting = bake(&coloured_off);
+    assert_eq!(off_lighting.sample(5.0, 0.0, 5.0), ambient_color());
 }
 
 // ===========================================================================
@@ -296,12 +295,12 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
                 .unwrap_or(i32::MAX);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6
+            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6_i32
         );
-        assert!(mesh.batches.floor_batch.count <= 12 * 12 * 6);
-        assert!(mesh.batches.floor_batch.count > 0);
-        assert!(mesh.batches.ceiling_batch.count <= 12 * 12 * 6);
-        assert!(mesh.batches.ceiling_batch.count > 0);
+        assert!(mesh.batches.floor_batch.count <= 12_i32 * 12_i32 * 6_i32);
+        assert!(mesh.batches.floor_batch.count > 0_i32);
+        assert!(mesh.batches.ceiling_batch.count <= 12_i32 * 12_i32 * 6_i32);
+        assert!(mesh.batches.ceiling_batch.count > 0_i32);
         // Draw calls do not scale with light count: an empty wall batch and no
         // props, so the static draw-call shape stays four fixed ranges.
         let non_empty = [
@@ -313,7 +312,7 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
             mesh.batches.decal_batch,
         ]
         .iter()
-        .filter(|range| range.count > 0)
+        .filter(|range| range.count > 0_i32)
         .count();
         assert_eq!(non_empty, 3);
     }
@@ -497,7 +496,7 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
         // Fixtures hang just below the ceiling and pools follow them.
         let fixture_y = lighting.lights()[0].y();
         assert!(fixture_y < height && fixture_y > height - 0.02);
-        build_checked(&level);
+        drop(build_checked(&level));
     }
 
     // Heights outside the supported envelope are rejected by the loader.
@@ -527,9 +526,9 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
     assert!(lighting.rooms()[0].baseline.luminance().is_finite());
     assert!(lighting.sample_luminance(8.0, 0.0, 8.0).is_finite());
     extreme.rooms[0].height = f32::NAN;
-    let lighting = bake(&extreme);
-    assert!(lighting.rooms()[0].baseline.luminance().is_finite());
-    assert!(lighting.sample_luminance(8.0, 0.0, 8.0).is_finite());
+    let extreme_lighting = bake(&extreme);
+    assert!(extreme_lighting.rooms()[0].baseline.luminance().is_finite());
+    assert!(extreme_lighting.sample_luminance(8.0, 0.0, 8.0).is_finite());
 }
 
 // ===========================================================================
@@ -584,7 +583,7 @@ fn group_f_fixture_placement_variants_are_all_deterministic() {
         let fixture_y = first.lights()[0].y();
         assert!(fixture_y.is_finite());
         assert!((fixture_y - 2.99).abs() < 1e-6 || fixture_y > 0.0);
-        build_checked(&level);
+        drop(build_checked(&level));
     }
 }
 
@@ -611,7 +610,7 @@ fn group_f_duplicate_and_overlapping_fixtures_count_once_each_and_saturate() {
     assert!(two.sample_luminance(6.0, 0.0, 6.0) <= MAX_BRIGHTNESS);
 
     // Saturation: 64 coincident fixtures stay capped and finite.
-    let many: Vec<String> = (0..64).map(|_| light(6.0, 6.0, None)).collect();
+    let many: Vec<String> = (0_i32..64_i32).map(|_| light(6.0, 6.0, None)).collect();
     let saturated = parse(&level_json(
         &room(0.0, 0.0, 12.0, 12.0, 3.0),
         &many.join(","),
@@ -636,13 +635,13 @@ fn group_f_rotation_swaps_the_panel_pool_orientation() {
             ),
         ))
     };
-    for rotation in [0.0_f32, 90.0, 180.0, 270.0] {
-        let lighting = bake(&level(rotation));
+    for rotation in [0_i16, 90, 180, 270] {
+        let lighting = bake(&level(f32::from(rotation)));
         // 2 m out along +X vs +Z: at 0 degrees the 1.2 m panel runs along X, so
         // the +X probe is closer to the panel; at 90 degrees it is the reverse.
         let along_x = lighting.sample_luminance(14.0, 2.8, 12.0);
         let along_z = lighting.sample_luminance(12.0, 2.8, 14.0);
-        let swapped = (rotation as i64).rem_euclid(180) != 0;
+        let swapped = (i64::from(rotation)).rem_euclid(180) != 0;
         if swapped {
             assert!(
                 along_z > along_x,
@@ -871,14 +870,14 @@ fn group_h_doorway_transition_is_smooth_and_symmetric() {
         );
         previous = value;
     }
-    let mut previous = blend(1, 10.45);
+    let mut right_previous = blend(1, 10.45);
     for x in scan(10.45, 0.05, 20.0) {
         let value = blend(1, x);
         assert!(
-            (value - previous).abs() < 0.02,
-            "blend stepped inside the dim room at x = {x}: {previous} -> {value}"
+            (value - right_previous).abs() < 0.02,
+            "blend stepped inside the dim room at x = {x}: {right_previous} -> {value}"
         );
-        previous = value;
+        right_previous = value;
     }
 
     // The threshold itself: each face of the 0.4 m wall is the same distance
@@ -918,9 +917,9 @@ fn group_h_doorway_transition_is_smooth_and_symmetric() {
     );
 
     // Both interiors vary smoothly with no NaN.
-    for interior in [0..190, 209..390] {
+    for interior in [0_i32..190_i32, 209_i32..390_i32] {
         for step in interior {
-            let x = step as f32 * 0.05;
+            let x = crate::test_support::exact_f32(step) * 0.05;
             let value = a.sample_luminance(x, 0.0, 5.0);
             assert!(value.is_finite());
             assert!((AMBIENT_LEVEL..=MAX_BRIGHTNESS).contains(&value));
@@ -999,14 +998,14 @@ fn group_h_opening_variants_blend_or_do_not_without_artifacts() {
             );
             previous = value;
         }
-        let mut previous = blend(1, 10.45);
+        let mut right_previous = blend(1, 10.45);
         for x in scan(10.45, 0.2, 20.0) {
             let value = blend(1, x);
             assert!(
-                (value - previous).abs() < 0.05,
-                "{label}: blend step at x = {x}: {previous} -> {value}"
+                (value - right_previous).abs() < 0.05,
+                "{label}: blend step at x = {x}: {right_previous} -> {value}"
             );
-            previous = value;
+            right_previous = value;
         }
         for point in [0.5_f32, 5.0, 9.95, 10.45, 15.0, 20.0] {
             let value = lighting.sample_luminance(point, 0.0, 5.0);
@@ -1319,7 +1318,7 @@ fn group_j_pools_fall_off_monotonically_and_reach_the_room_baseline() {
 fn group_k_local_pool_saturation_is_capped_and_finite() {
     // Eight fixtures in one spot: the summed pool must reach the cap but never
     // exceed it, and never corrupt the sample.
-    let lights: Vec<String> = (0..8).map(|_| light(5.0, 5.0, Some(8.0))).collect();
+    let lights: Vec<String> = (0_i32..8_i32).map(|_| light(5.0, 5.0, Some(8.0))).collect();
     let level = parse(&level_json(
         &room(0.0, 0.0, 20.0, 20.0, 3.0),
         &lights.join(","),
@@ -1367,7 +1366,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     ));
     let mesh = build_checked(&level);
     let wall = mesh.triangles_for(SurfaceKind::Wall);
-    assert_ne!(wall, [] as [crate::Vertex; 0]);
+    assert!(!wall.is_empty(), "wall must contain entries");
 
     // Two wall vertices with different base tints at the same world position
     // differ by the same ratio as their base colours (north face is lighter
@@ -1475,8 +1474,8 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
         r#"{ "model": "core:chair", "x": 9.0, "z": 5.0 }"#,
         &light(5.0, 5.0, None),
     );
-    let bright = |level: &LevelDef, assets: &mut crate::props::PropAssets| {
-        let (_, batches) = build_level_geometry_with_assets(level, &catalog, assets);
+    let bright = |level: &LevelDef, prop_assets: &mut crate::props::PropAssets| {
+        let (_, batches) = build_level_geometry_with_assets(level, &catalog, prop_assets);
         let vertex = batches[0]
             .vertices
             .iter()
@@ -1515,8 +1514,8 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
         &light(18.0, 18.0, None),
     );
     let lighting = bake(&far);
-    let (_, batches) = build_level_geometry_with_assets(&far, &catalog, &mut assets);
-    for vertex in &batches[0].vertices {
+    let (_, far_batches) = build_level_geometry_with_assets(&far, &catalog, &mut assets);
+    for vertex in &far_batches[0].vertices {
         assert_vertex_colors_safe(std::slice::from_ref(vertex));
     }
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1532,9 +1531,10 @@ fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
             &format!(r#"{{ "model": "spooner-man", "x": 8.0, "y": {y}, "z": 8.0 }}"#),
             &light(8.0, 8.0, None),
         );
-        let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_eq!(batches.len(), 1, "{label}: one model, one batch");
-        assert_vertex_colors_safe(&batches[0].vertices);
+        let (_, placement_batches) =
+            build_level_geometry_with_assets(&level, &catalog, &mut assets);
+        assert_eq!(placement_batches.len(), 1, "{label}: one model, one batch");
+        assert_vertex_colors_safe(&placement_batches[0].vertices);
     }
 }
 
@@ -1631,7 +1631,7 @@ fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
     assert!(outside <= MAX_BRIGHTNESS);
     // Deterministic across bakes.
     assert_eq!(lighting.rooms(), bake(&level).rooms());
-    build_checked(&level);
+    drop(build_checked(&level));
 }
 
 // ===========================================================================
@@ -1692,8 +1692,14 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Completely empty.
     let empty = empty_level();
     let lighting = bake(&empty);
-    assert_eq!(lighting.rooms(), []);
-    assert_eq!(lighting.lights(), []);
+    assert!(
+        lighting.rooms().is_empty(),
+        "lighting.rooms() must be empty"
+    );
+    assert!(
+        lighting.lights().is_empty(),
+        "lighting.lights() must be empty"
+    );
     assert_eq!(lighting.sample(0.0, 0.0, 0.0), ambient_color());
     assert_eq!(lighting.summary().rooms, 0);
     assert_exact(
@@ -1738,14 +1744,14 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         align: Default::default(),
         bindings: Vec::new(),
     });
-    let lighting = bake(&zero_room);
-    let baseline = lighting.rooms()[0].baseline.luminance();
+    let zero_lighting = bake(&zero_room);
+    let baseline = zero_lighting.rooms()[0].baseline.luminance();
     assert!(baseline.is_finite() && (AMBIENT_LEVEL..=MAX_BRIGHTNESS).contains(&baseline));
-    assert!(lighting.rooms()[0].area_m2 <= f32::EPSILON);
-    assert!(lighting.sample_luminance(5.0, 0.0, 5.0).is_finite());
-    let mesh = build_checked(&zero_room);
+    assert!(zero_lighting.rooms()[0].area_m2 <= f32::EPSILON);
+    assert!(zero_lighting.sample_luminance(5.0, 0.0, 5.0).is_finite());
+    let zero_mesh = build_checked(&zero_room);
     assert!(
-        mesh.batches.floor_batch.count == 0,
+        zero_mesh.batches.floor_batch.count == 0_i32,
         "a zero-area room must not generate floor geometry"
     );
 
@@ -1758,10 +1764,10 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         ),
         &format!("{},{}", light(5.0, 5.0, None), light(5.0, 5.0, None)),
     ));
-    let lighting = bake(&duplicate);
-    assert_eq!(lighting.rooms()[0].fixture_count, 2);
-    assert_eq!(lighting.rooms()[1].fixture_count, 0);
-    assert_eq!(lighting.room_index_at(5.0, 5.0), Some(0));
+    let duplicate_lighting = bake(&duplicate);
+    assert_eq!(duplicate_lighting.rooms()[0].fixture_count, 2);
+    assert_eq!(duplicate_lighting.rooms()[1].fixture_count, 0);
+    assert_eq!(duplicate_lighting.room_index_at(5.0, 5.0), Some(0));
     let first = bake(&duplicate).rooms().to_vec();
     let second = bake(&duplicate).rooms().to_vec();
     assert_eq!(first, second);
@@ -1783,14 +1789,14 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     };
     duplicate.ceiling_lights[0].x = 1.0e30 + 5.0;
     duplicate.ceiling_lights[0].z = -1.0e30 + 5.0;
-    let lighting = bake(&duplicate);
-    assert!(lighting.rooms()[0].baseline.luminance().is_finite());
+    let distant_lighting = bake(&duplicate);
+    assert!(distant_lighting.rooms()[0].baseline.luminance().is_finite());
     assert!(
-        lighting
+        distant_lighting
             .sample_luminance(1.0e30 + 5.0, 0.0, -1.0e30 + 5.0)
             .is_finite()
     );
-    build_checked(&duplicate);
+    drop(build_checked(&duplicate));
 
     // A level containing only props (no rooms at all).
     let props_only = LevelDef {
@@ -1815,12 +1821,12 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         }],
         ..empty.clone()
     };
-    let lighting = bake(&props_only);
-    assert_eq!(lighting.rooms().len(), 0);
-    assert!(lighting.sample_luminance(1.0, 0.5, 1.0) >= AMBIENT_LEVEL);
-    let mesh = build_checked(&props_only);
+    let props_lighting = bake(&props_only);
+    assert_eq!(props_lighting.rooms().len(), 0);
+    assert!(props_lighting.sample_luminance(1.0, 0.5, 1.0) >= AMBIENT_LEVEL);
+    let props_mesh = build_checked(&props_only);
     assert_eq!(
-        mesh.batches.prop_batch.count, 36,
+        props_mesh.batches.prop_batch.count, 36_i32,
         "placeholder box still renders"
     );
 
@@ -1848,15 +1854,15 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         align: Default::default(),
         bindings: Vec::new(),
     });
-    let lighting = bake(&lights_only);
-    assert_eq!(lighting.lights().len(), 1);
+    let lights_lighting = bake(&lights_only);
+    assert_eq!(lights_lighting.lights().len(), 1);
     assert_exact_named(
-        lighting.lights()[0].intensity(),
+        lights_lighting.lights()[0].intensity(),
         1.0,
         "NaN falls back to 1.0",
     );
-    assert!(lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
-    build_checked(&lights_only);
+    assert!(lights_lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
+    drop(build_checked(&lights_only));
 
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
@@ -1878,11 +1884,14 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         align: Default::default(),
         bindings: Vec::new(),
     });
-    let lighting = bake(&broken);
-    assert_eq!(lighting.lights(), []);
-    assert!(lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
+    let broken_lighting = bake(&broken);
+    assert!(
+        broken_lighting.lights().is_empty(),
+        "lighting.lights() must be empty"
+    );
+    assert!(broken_lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
     assert_eq!(
-        lighting.sample(f32::NAN, f32::INFINITY, f32::NEG_INFINITY),
+        broken_lighting.sample(f32::NAN, f32::INFINITY, f32::NEG_INFINITY),
         ambient_color()
     );
 }

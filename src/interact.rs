@@ -70,7 +70,7 @@ pub fn view_direction(yaw: f32, pitch: f32) -> Vec3 {
     let cos_pitch = pitch.cos();
     // Per-component `f32` trigonometry with bounded operands; the lint cannot
     // see that through the operators.
-    #[allow(clippy::arithmetic_side_effects)]
+
     Vec3::new(yaw.sin() * cos_pitch, pitch.sin(), -yaw.cos() * cos_pitch)
 }
 
@@ -129,7 +129,8 @@ impl InteractableSync {
         let (nx, nz) = (-dz * half_thickness, dx * half_thickness);
         let end_x = (collider.width).mul_add(dx, hx);
         let end_z = (collider.width).mul_add(dz, hz);
-        #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates
+
+        // bounded world coordinates
         let corners = [
             (hx + nx, hz + nz),
             (end_x + nx, end_z + nz),
@@ -318,7 +319,7 @@ impl Interactables {
         let [size_x, size_y, size_z] = item.size;
         let (extent_x, extent_z) = rotated_half_extents(size_x * 0.5, size_z * 0.5, yaw_degrees);
         // Bounded world-space math: the size contract is already validated.
-        #[allow(clippy::arithmetic_side_effects)]
+
         {
             item.bounds = Aabb {
                 min: [position.x - extent_x, position.y, position.z - extent_z],
@@ -349,11 +350,11 @@ pub(crate) fn rotated_half_extents(
     rotation_degrees: f32,
 ) -> (f32, f32) {
     let (sin, cos) = rotation_degrees.to_radians().sin_cos();
-    let sin = sin.abs();
-    let cos = cos.abs();
+    let abs_sin = sin.abs();
+    let abs_cos = cos.abs();
     (
-        half_width.mul_add(cos, half_depth * sin),
-        half_width.mul_add(sin, half_depth * cos),
+        half_width.mul_add(abs_cos, half_depth * abs_sin),
+        half_width.mul_add(abs_sin, half_depth * abs_cos),
     )
 }
 
@@ -382,18 +383,18 @@ pub fn nearest_target(
     if items.is_empty() || direction.length_squared() <= f32::EPSILON {
         return None;
     }
-    let direction = direction.normalize();
+    let unit_direction = direction.normalize();
     let mut best: Option<(usize, f32)> = None;
     for (index, item) in items.iter().enumerate() {
         if !item.enabled {
             continue;
         }
-        let Some(entry) = target_entry(origin, direction, item, doors) else {
+        let Some(entry) = target_entry(origin, unit_direction, item, doors) else {
             continue;
         };
         if occluded_before(
             origin,
-            direction,
+            unit_direction,
             entry,
             item.own_box.as_ref(),
             item.door_index,
@@ -448,18 +449,18 @@ pub fn nearest_target_indexed(
     if items.is_empty() || direction.length_squared() <= f32::EPSILON {
         return None;
     }
-    let direction = direction.normalize();
+    let unit_direction = direction.normalize();
     let mut best: Option<(usize, f32)> = None;
     for (item_index, item) in items.iter().enumerate() {
         if !item.enabled {
             continue;
         }
-        let Some(entry) = target_entry(origin, direction, item, doors) else {
+        let Some(entry) = target_entry(origin, unit_direction, item, doors) else {
             continue;
         };
         if occluded_before_indexed(
             origin,
-            direction,
+            unit_direction,
             entry,
             OwnBody {
                 own_box: item.own_box.as_ref(),
@@ -475,7 +476,7 @@ pub fn nearest_target_indexed(
             best = Some((item_index, entry));
         }
     }
-    best.map(|(index, _)| index)
+    best.map(|(nearest_index, _)| nearest_index)
 }
 
 /// A target's own collision body, which never occludes its own entry.
@@ -490,7 +491,10 @@ struct OwnBody<'a> {
 /// True when the collision world leaves the finite sight line from `origin` to
 /// `point` clear, excluding the target's own collision body.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "bounded world coordinates, as above"
+)] // bounded world coordinates, as above
 pub fn clear_line_of_sight_indexed(
     origin: Vec3,
     point: Vec3,
@@ -523,7 +527,7 @@ pub fn clear_line_of_sight_indexed(
 /// True when any box or door leaf except the target's own blocks the ray
 /// before `entry`, examined through the index.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
+// bounded world coordinates, as above
 fn occluded_before_indexed(
     origin: Vec3,
     direction: Vec3,
@@ -533,10 +537,9 @@ fn occluded_before_indexed(
     walls: &[WallAabb],
     doors: &[DoorCollider],
 ) -> bool {
-    #[allow(clippy::arithmetic_side_effects)]
     let limit = entry - LABEL_OCCLUSION_EPS_M;
     if nearest_door_entry(doors, origin, direction, limit)
-        .is_some_and(|(index, _)| own.own_door != Some(index))
+        .is_some_and(|(door_index, _)| own.own_door != Some(door_index))
     {
         return true;
     }
@@ -573,7 +576,7 @@ fn occluded_before(
 ) -> bool {
     // Float comparison against a fixed tolerance; no overflow path exists for
     // bounded world coordinates.
-    #[allow(clippy::arithmetic_side_effects)]
+
     let limit = entry - LABEL_OCCLUSION_EPS_M;
     if nearest_door_entry(doors, origin, direction, limit)
         .is_some_and(|(index, _)| own_door != Some(index))
@@ -625,7 +628,7 @@ pub fn append_world_labels(
     drawable: DrawableSize,
 ) {
     let viewport = drawable.ui_viewport();
-    if viewport.width <= 0 || viewport.height <= 0 {
+    if viewport.width <= 0_i32 || viewport.height <= 0_i32 {
         return;
     }
     let (view_projection, _) = camera.view_projection(drawable);
@@ -659,7 +662,10 @@ pub fn append_world_labels(
 /// Projected reference-space position of a world point, or `None` when it is
 /// behind the camera or outside the UI viewport.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam projection uses floating point components; finite and viewport checks precede pixel layout."
+)]
 fn project_to_reference(
     view_projection: glam::Mat4,
     drawable: DrawableSize,
@@ -711,7 +717,6 @@ fn pixel_f32(value: u32) -> f32 {
 }
 
 /// Draws one floating label centred at `(x, y)` with a readable backing plate.
-#[allow(clippy::arithmetic_side_effects)]
 fn draw_world_label(vertices: &mut Vec<Vertex>, text: &str, x: f32, y: f32) {
     // Reference-space layout arithmetic: fixed, bounded pixel offsets.
     let width = crate::ui::text_width(text, LABEL_TEXT_SCALE);
@@ -736,7 +741,6 @@ fn draw_world_label(vertices: &mut Vec<Vertex>, text: &str, x: f32, y: f32) {
 }
 
 /// Draws the Interact prompt under the crosshair when something is in reach.
-#[allow(clippy::arithmetic_side_effects)]
 fn draw_interaction_prompt(vertices: &mut Vec<Vertex>, prompt: &str) {
     // Reference-space layout arithmetic: fixed, bounded pixel offsets.
     let text = format!("[E] {prompt}");
@@ -758,7 +762,11 @@ fn draw_interaction_prompt(vertices: &mut Vec<Vertex>, prompt: &str) {
 mod tests {
     // Test code: unwrap/expect, indexing and permissive arithmetic are
     // idiomatic here; production lints stay enforced everywhere else.
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::collision::WallAabb;
@@ -822,11 +830,13 @@ mod tests {
     fn rotated_half_extents_are_conservative() {
         let (x, z) = rotated_half_extents(0.4, 0.2, 0.0);
         assert!((x - 0.4).abs() < 1e-5 && (z - 0.2).abs() < 1e-5);
-        let (x, z) = rotated_half_extents(0.4, 0.2, 90.0);
-        assert!((x - 0.2).abs() < 1e-5 && (z - 0.4).abs() < 1e-5);
-        let (x, z) = rotated_half_extents(0.4, 0.2, 45.0);
+        let (rotated_width, rotated_depth) = rotated_half_extents(0.4, 0.2, 90.0);
+        assert!((rotated_width - 0.2).abs() < 1e-5 && (rotated_depth - 0.4).abs() < 1e-5);
+        let (diagonal_width, diagonal_depth) = rotated_half_extents(0.4, 0.2, 45.0);
         let expected = (0.6_f32) * std::f32::consts::FRAC_1_SQRT_2;
-        assert!((x - expected).abs() < 1e-5 && (z - expected).abs() < 1e-5);
+        assert!(
+            (diagonal_width - expected).abs() < 1e-5 && (diagonal_depth - expected).abs() < 1e-5
+        );
     }
 
     /// Targeting respects reach and occlusion in both directions of the ray.

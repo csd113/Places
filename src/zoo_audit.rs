@@ -16,16 +16,14 @@
 // idiomatic in tests; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::suboptimal_flops,
     clippy::too_many_lines,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::collections::HashSet;
@@ -123,7 +121,12 @@ fn the_zoo_contains_every_required_demonstration() {
         .flat_map(|prop| prop.bindings.iter())
         .flat_map(|binding| binding.actions.iter())
         .filter_map(|action| {
-            if let crate::level::ActionDef::PlayAnimation { clip, .. } = action {
+            if let crate::level::ActionDef::PlayAnimation {
+                clip,
+                target: _,
+                looped: _,
+            } = action
+            {
                 clip.clone()
             } else {
                 None
@@ -192,7 +195,7 @@ fn the_zoo_contains_every_required_demonstration() {
             .iter()
             .filter(|route| route.steps.iter().any(|step| matches!(
                 step,
-                crate::level::RouteStepDef::Play { clip, .. } if clip == "sit_down"
+                crate::level::RouteStepDef::Play { clip, seconds: _, looped: _ } if clip == "sit_down"
             )))
             .count(),
         1,
@@ -204,10 +207,12 @@ fn the_zoo_contains_every_required_demonstration() {
         .iter()
         .filter(|prop| {
             prop.bindings.iter().any(|binding| {
-                binding
-                    .actions
-                    .iter()
-                    .any(|action| matches!(action, crate::level::ActionDef::ToggleAnimation { .. }))
+                binding.actions.iter().any(|action| {
+                    matches!(
+                        action,
+                        crate::level::ActionDef::ToggleAnimation { target: _, clip: _ }
+                    )
+                })
             })
         })
         .count();
@@ -399,13 +404,11 @@ fn the_dense_capacity_fixture_holds_and_collides_at_scale() {
     // The indexed queries must agree with the linear scan over the real world.
     let index = CollisionIndex::build(&world.walls);
     let mut state = 0x51E3D_u32;
-    for _ in 0..256 {
+    for _ in 0_i32..256_i32 {
         state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-        #[allow(clippy::cast_precision_loss)]
-        let x = (state % 40_000) as f32 / 100.0 - 200.0;
+        let x = crate::test_support::exact_f32(state % 40_000) / 100.0 - 200.0;
         state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-        #[allow(clippy::cast_precision_loss)]
-        let z = (state % 40_000) as f32 / 100.0 - 200.0;
+        let z = crate::test_support::exact_f32(state % 40_000) / 100.0 - 200.0;
         assert_eq!(
             crate::collision::highest_support_top(x, z, 3.0, &world.walls),
             crate::collision::highest_support_top_indexed(&index, x, z, 3.0, &world.walls),
@@ -439,29 +442,29 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
     let mut rooms = Vec::new();
     let mut walls = Vec::new();
     for (cx, cz) in [
-        (2000.0, 2000.0),
-        (-2000.0, 2000.0),
-        (-2000.0, -2000.0),
-        (2000.0, -2000.0),
+        (2_000.0_f64, 2_000.0_f64),
+        (-2_000.0_f64, 2_000.0_f64),
+        (-2_000.0_f64, -2_000.0_f64),
+        (2_000.0_f64, -2_000.0_f64),
     ] {
-        rooms.push(serde_json::json!({"x": cx - 13.0, "z": cz - 10.0,
-            "width": 26.0, "depth": 20.0, "height": 4.0}));
+        rooms.push(serde_json::json!({"x": cx - 13.0_f64, "z": cz - 10.0_f64,
+            "width": 26.0_f64, "depth": 20.0_f64, "height": 4.0_f64}));
         for (x, z, width, depth) in [
-            (cx - 13.4, cz - 10.4, 26.8, 0.4),
-            (cx - 13.4, cz + 10.0, 26.8, 0.4),
-            (cx - 13.4, cz - 10.0, 0.4, 20.0),
-            (cx + 13.0, cz - 10.0, 0.4, 20.0),
+            (cx - 13.4_f64, cz - 10.4_f64, 26.8_f64, 0.4_f64),
+            (cx - 13.4_f64, cz + 10.0_f64, 26.8_f64, 0.4_f64),
+            (cx - 13.4_f64, cz - 10.0_f64, 0.4_f64, 20.0_f64),
+            (cx + 13.0_f64, cz - 10.0_f64, 0.4_f64, 20.0_f64),
         ] {
             walls.push(serde_json::json!({"x": x, "z": z, "width": width, "depth": depth}));
         }
     }
     let document = serde_json::json!({
-        "format_version": 3, "id": "far_coordinate_test", "name": "Far coordinate test",
-        "spawn": {"x": 2000.0, "z": 1994.0}, "rooms": rooms, "walls": walls,
-        "props": [{"id": "far_rat", "model": "rat", "x": 1990.0, "z": 2006.0, "rotation_degrees": 0.0, "size": [0.2, 0.2, 0.7]}],
-        "water": [{"x": 2002.0, "z": 1998.0, "width": 6.0, "depth": 4.0, "surface_y": 0.35, "bottom_y": 0.0, "swimming": false}],
-        "volumes": [{"id": "far_trigger", "x": -2002.0, "z": -2002.0, "width": 4.0, "depth": 4.0, "bindings": [{"on": "enter_volume", "actions": [{"action": "reset_to_start"}], "cooldown_seconds": 0.5}]}],
-        "routes": [{"id": "far_rat", "loop": true, "steps": [{"step": "move_to", "x": 1998.0, "z": 2006.0, "speed": 0.1985}, {"step": "wait", "seconds": 0.5}, {"step": "move_to", "x": 1990.0, "z": 2006.0, "speed": 0.5731}, {"step": "wait", "seconds": 0.5}]}],
+        "format_version": 3_i32, "id": "far_coordinate_test", "name": "Far coordinate test",
+        "spawn": {"x": 2_000.0_f64, "z": 1_994.0_f64}, "rooms": rooms, "walls": walls,
+        "props": [{"id": "far_rat", "model": "rat", "x": 1_990.0_f64, "z": 2_006.0_f64, "rotation_degrees": 0.0_f64, "size": [0.2_f64, 0.2_f64, 0.7_f64]}],
+        "water": [{"x": 2_002.0_f64, "z": 1_998.0_f64, "width": 6.0_f64, "depth": 4.0_f64, "surface_y": 0.35_f64, "bottom_y": 0.0_f64, "swimming": false}],
+        "volumes": [{"id": "far_trigger", "x": -2_002.0_f64, "z": -2_002.0_f64, "width": 4.0_f64, "depth": 4.0_f64, "bindings": [{"on": "enter_volume", "actions": [{"action": "reset_to_start"}], "cooldown_seconds": 0.5_f64}]}],
+        "routes": [{"id": "far_rat", "loop": true, "steps": [{"step": "move_to", "x": 1_998.0_f64, "z": 2_006.0_f64, "speed": 0.198_5_f64}, {"step": "wait", "seconds": 0.5_f64}, {"step": "move_to", "x": 1_990.0_f64, "z": 2_006.0_f64, "speed": 0.573_1_f64}, {"step": "wait", "seconds": 0.5_f64}]}],
     });
     let level = LevelDef::from_json(&document.to_string()).expect("the coordinate case parses");
     crate::loader::validate_level(&level).expect("the coordinate case validates");
@@ -470,8 +473,14 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
     // at ±2 km; the controller must stand, walk and collide there.
     assert!(level.props.iter().any(|prop| prop.x.abs() > 1_900.0));
     assert!(!level.water.is_empty());
-    assert_ne!(level.volumes, [] as [crate::level::TriggerVolumeDef; 0]);
-    assert_ne!(level.routes, [] as [crate::level::EntityRouteDef; 0]);
+    assert!(
+        !level.volumes.is_empty(),
+        "level.volumes must contain entries"
+    );
+    assert!(
+        !level.routes.is_empty(),
+        "level.routes must contain entries"
+    );
     for room in level.room_iter() {
         let cx = room.x + room.width * 0.5;
         let cz = room.z + room.depth * 0.5;
@@ -500,7 +509,7 @@ fn collision_and_routes_work_kilometres_from_the_origin() {
         index: &index,
     };
     let start = state.position;
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         route.advance(&mut state, 1.0 / 60.0, &route_world);
     }
     assert!(
@@ -532,30 +541,30 @@ fn the_raised_caps_accept_content_past_the_old_boundary() {
     let mut walls: Vec<String> = Vec::new();
     let mut props: Vec<String> = Vec::new();
     let mut lights: Vec<String> = Vec::new();
-    for index in 0..5_001 {
-        let x = (index % 71) as f32 * 2.0;
-        let z = (index / 71) as f32 * 2.0;
+    for index in 0_i32..5_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0;
         props.push(format!(
             r#"{{"id": "p{index}", "model": "core:crate", "x": {x}, "z": {z}, "size": [0.6, 0.6, 0.6], "solid": false}}"#
         ));
     }
-    for index in 0..5_001 {
-        let x = (index % 71) as f32 * 2.0 + 1.0;
-        let z = (index / 71) as f32 * 2.0 + 1.0;
+    for index in 0_i32..5_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0 + 1.0;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0 + 1.0;
         lights.push(format!(
             r#"{{"id": "l{index}", "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}}}"#
         ));
     }
-    for index in 0..5_001 {
-        let x = (index % 71) as f32 * 2.0 + 0.5;
-        let z = (index / 71) as f32 * 2.0 + 0.5;
+    for index in 0_i32..5_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0 + 0.5;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0 + 0.5;
         walls.push(format!(
             r#"{{"x": {x}, "z": {z}, "width": 0.3, "depth": 0.3, "height": 2.0}}"#
         ));
     }
-    for index in 0..501 {
-        let x = (index % 23) as f32 * 6.0;
-        let z = (index / 23) as f32 * 6.0;
+    for index in 0_i32..501_i32 {
+        let x = crate::test_support::exact_f32(index % 23_i32) * 6.0;
+        let z = crate::test_support::exact_f32(index / 23_i32) * 6.0;
         rooms.push(format!(
             r#"{{"x": {x}, "z": {z}, "width": 5.0, "depth": 5.0, "height": 3.0}}"#
         ));
@@ -605,30 +614,30 @@ fn the_2026_raised_caps_accept_content_past_their_former_boundary() {
     let mut walls: Vec<String> = Vec::new();
     let mut props: Vec<String> = Vec::new();
     let mut lights: Vec<String> = Vec::new();
-    for index in 0..20_001 {
-        let x = (index % 71) as f32 * 2.0;
-        let z = (index / 71) as f32 * 2.0;
+    for index in 0_i32..20_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0;
         props.push(format!(
             r#"{{"id": "p{index}", "model": "core:crate", "x": {x}, "z": {z}, "size": [0.6, 0.6, 0.6], "solid": false}}"#
         ));
     }
-    for index in 0..20_001 {
-        let x = (index % 71) as f32 * 2.0 + 1.0;
-        let z = (index / 71) as f32 * 2.0 + 1.0;
+    for index in 0_i32..20_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0 + 1.0;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0 + 1.0;
         lights.push(format!(
             r#"{{"id": "l{index}", "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}}}"#
         ));
     }
-    for index in 0..20_001 {
-        let x = (index % 71) as f32 * 2.0 + 0.5;
-        let z = (index / 71) as f32 * 2.0 + 0.5;
+    for index in 0_i32..20_001_i32 {
+        let x = crate::test_support::exact_f32(index % 71_i32) * 2.0 + 0.5;
+        let z = crate::test_support::exact_f32(index / 71_i32) * 2.0 + 0.5;
         walls.push(format!(
             r#"{{"x": {x}, "z": {z}, "width": 0.3, "depth": 0.3, "height": 2.0}}"#
         ));
     }
-    for index in 0..2_001 {
-        let x = (index % 45) as f32 * 6.0;
-        let z = (index / 45) as f32 * 6.0;
+    for index in 0_i32..2_001_i32 {
+        let x = crate::test_support::exact_f32(index % 45_i32) * 6.0;
+        let z = crate::test_support::exact_f32(index / 45_i32) * 6.0;
         rooms.push(format!(
             r#"{{"x": {x}, "z": {z}, "width": 5.0, "depth": 5.0, "height": 3.0}}"#
         ));

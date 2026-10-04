@@ -117,17 +117,17 @@ pub fn build_transport_scene(
         .with_receiver_target(receiver_targets(lighting, charts))
         .with_probe_target(probe_targets(lighting, charts))
         .with_sky(sky_radiance(level));
-    let scene = scene.with_global_lights(
+    let lit_scene = scene.with_global_lights(
         level
             .global_illuminators
             .iter()
             .filter_map(crate::lighting::directional::DirectionalLight::from_definition)
             .collect(),
     );
-    if let Err(error) = crate::lighting::transport::diagnostics::dump_scene(&scene, &owners) {
+    if let Err(error) = crate::lighting::transport::diagnostics::dump_scene(&lit_scene, &owners) {
         crate::logging::warn(format_args!("[lighting-diagnostics] {error}"));
     }
-    Some((scene, stats))
+    Some((lit_scene, stats))
 }
 
 /// The runtime environment sample. Prepared values stay linear HDR until
@@ -397,11 +397,11 @@ fn is_water_surface(
     material_id: Option<&str>,
     water: &WaterVolumes,
 ) -> bool {
-    let Some(material_id) = material_id else {
+    let Some(surface_material) = material_id else {
         return false;
     };
     water.volumes().iter().any(|volume| {
-        volume.material_id() == material_id
+        volume.material_id() == surface_material
             && corners.iter().all(|corner| {
                 (corner[1] - volume.surface_y).abs() <= WATER_SURFACE_EPS_M
                     && corner[0] >= volume.x0 - WATER_SURFACE_EPS_M
@@ -550,12 +550,22 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
         f32::from(u16::try_from(width.min(usize::from(u16::MAX))).unwrap_or(u16::MAX)).max(1.0);
     let height_f =
         f32::from(u16::try_from(height.min(usize::from(u16::MAX))).unwrap_or(u16::MAX)).max(1.0);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "Finite wrapped UVs become floored texel indices bounded by u16 texture dimensions and clamped to the last texel."
+    )]
     // Both coordinates are finite and in `0..width` after the modulo and the
     // multiply, so the truncating cast is exact for the range it receives.
     let x_texel = ((u_coordinate * width_f).floor() as u32)
         .min(u32::try_from(width.saturating_sub(1)).unwrap_or(0));
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "Finite wrapped UVs become floored texel indices bounded by u16 texture dimensions and clamped to the last texel."
+    )]
     let y_texel = ((v_coordinate * height_f).floor() as u32)
         .min(u32::try_from(height.saturating_sub(1)).unwrap_or(0));
     let offset = usize::try_from(y_texel)
@@ -581,7 +591,11 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
 mod tests {
     // Test code: unwrap/expect and permissive float comparison are idiomatic
     // here; the production lints stay enforced above.
-    #![allow(clippy::expect_used, clippy::float_cmp)]
+    #![allow(
+        clippy::expect_used,
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 

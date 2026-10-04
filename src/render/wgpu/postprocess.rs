@@ -186,9 +186,9 @@ impl BlurParams {
 }
 
 /// Bytes one [`PostParams`] occupies.
-const POST_PARAMS_SIZE: u64 = std::mem::size_of::<PostParams>() as u64;
+const POST_PARAMS_SIZE: u64 = super::buffer_element_bytes::<PostParams>();
 /// Bytes one [`BlurParams`] occupies.
-const BLUR_PARAMS_SIZE: u64 = std::mem::size_of::<BlurParams>() as u64;
+const BLUR_PARAMS_SIZE: u64 = super::buffer_element_bytes::<BlurParams>();
 
 /// The six parameter sets the engine can produce: the three quality levels
 /// with bloom off and on.
@@ -221,7 +221,7 @@ enum ResolvePath {
 
 /// The uniform slot that carries exactly these settings, if any.
 #[must_use]
-#[allow(clippy::float_cmp)] // authored constants compared for identity, not measurements
+// authored constants compared for identity, not measurements
 fn settings_slot(settings: PostSettings) -> Option<usize> {
     RESOLVE_VARIANTS
         .iter()
@@ -452,7 +452,7 @@ const POST_QUAD_ATTRIBUTES: [wgpu::VertexAttribute; 1] =
 #[must_use]
 const fn quad_vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
-        array_stride: std::mem::size_of::<[f32; 2]>() as u64,
+        array_stride: super::buffer_element_bytes::<[f32; 2]>(),
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &POST_QUAD_ATTRIBUTES,
     }
@@ -1126,8 +1126,7 @@ mod tests {
         clippy::arithmetic_side_effects,
         // The CPU mirrors below keep the shader's plain expression order, so
         // their rounding matches the WGSL's, not a fused multiply-add's.
-        clippy::suboptimal_flops
-    )]
+        clippy::suboptimal_flops, reason = "These isolated tests compare exact reference values and preserve shader expression order; setup and bounds violations fail the test.")]
 
     use super::*;
 
@@ -1335,7 +1334,7 @@ mod tests {
         // only conversion is the output encode; the sample is never decoded.
         let present_start = WGSL.find("fn fs_present").unwrap();
         let present_end = WGSL.find("fn fs_blur").unwrap();
-        let present = &WGSL[present_start..present_end];
+        let present = WGSL.get(present_start..present_end).unwrap();
         assert!(present.contains("srgb_to_linear("));
         assert!(!present.contains("linear_to_srgb("));
     }
@@ -1426,10 +1425,10 @@ mod tests {
         // mid grey.
         let graded = grade([0.8, 0.4, 0.2], 1.03, 1.02);
         let expected = [0.816_08, 0.395_84, 0.185_72];
-        for (actual, expected) in graded.iter().zip(expected) {
+        for (actual, expected_channel) in graded.iter().zip(expected) {
             assert!(
-                (actual - expected).abs() < 1.0e-5,
-                "graded {graded:?} must match {expected}"
+                (actual - expected_channel).abs() < 1.0e-5,
+                "graded {graded:?} must match {expected_channel}"
             );
         }
         // The contrast clamp keeps an over-white channel at one.
@@ -1460,7 +1459,7 @@ mod tests {
 
     #[test]
     fn the_wgsl_declares_the_bindings_the_layouts_use() {
-        for binding in 0..6 {
+        for binding in 0_i32..6_i32 {
             let declaration = format!("@group(0) @binding({binding})");
             assert!(
                 WGSL.contains(&declaration),

@@ -137,7 +137,10 @@ impl PropUpload {
 
     /// Visits one batch, including skipped and empty batches. The caller may
     /// stop between calls without exposing a partially installed world.
-    #[allow(clippy::too_many_lines)] // one batch shares sheet slots, material identities and counters
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one batch shares sheet slots, material identities and counters"
+    )] // one batch shares sheet slots, material identities and counters
     pub(crate) fn push_batch(
         &mut self,
         device: &wgpu::Device,
@@ -224,7 +227,7 @@ impl PropUpload {
                 .and_then(|index| {
                     usize::try_from(index)
                         .ok()
-                        .and_then(|index| index.checked_add(texture_base))
+                        .and_then(|local_slot| local_slot.checked_add(texture_base))
                 })
                 .filter(|index| *index < textures.len());
             let record = EmissionRecord::material(submesh.emission, mask.is_some());
@@ -259,7 +262,7 @@ impl PropUpload {
                 index_count: submesh.index_count,
                 vertex_count: chunks
                     .get(chunk_index)
-                    .map_or(0, |chunk| chunk.vertex_count),
+                    .map_or(0, |mesh_chunk| mesh_chunk.vertex_count),
                 bounds: batch.bounds,
                 texture,
                 material,
@@ -321,7 +324,8 @@ impl WgpuProps {
             .collect();
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-prop-vertices"),
-            size: (vertices.len() as u64)
+            size: u64::try_from(vertices.len())
+                .unwrap_or(u64::MAX)
                 .saturating_mul(WORLD_VERTEX_STRIDE)
                 .max(4),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -373,7 +377,10 @@ impl WgpuProps {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)]
+    #![allow(
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::render::common::mesh::Vertex;

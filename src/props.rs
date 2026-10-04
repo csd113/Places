@@ -179,7 +179,7 @@ impl PropAssets {
         {
             self.report_budget_warning(model_path, &warning);
         }
-        self.models.insert(model_path.to_string(), result.clone());
+        drop(self.models.insert(model_path.to_string(), result.clone()));
         result
     }
 
@@ -234,6 +234,10 @@ impl PropAssets {
 
     /// Cache statistics, used by the performance overlay and tests.
     #[must_use]
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "only commutative saturating integer totals are computed; cache order cannot affect statistics"
+    )]
     pub fn stats(&self) -> PropAssetStats {
         let mut stats = PropAssetStats::default();
         for entry in self.models.values() {

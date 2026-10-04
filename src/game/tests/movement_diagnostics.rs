@@ -59,7 +59,7 @@ fn measured_lane_has_equal_cardinal_and_diagonal_speed_with_irregular_frames() {
             let mut game = game_for(&level);
             play_at(&mut game, 15.0, 0.0, 10.0, 90.0, 0.0);
             let start = game.player_position;
-            run(&mut game, controls, 1.0, pattern);
+            let _run_status = run(&mut game, controls, 1.0, pattern);
             assert!((game.player_position.distance(start) - 3.0).abs() < 0.002);
             assert!(game.grounded);
         }
@@ -80,7 +80,7 @@ fn diagnostic_steps_accept_the_limit_and_refuse_above_it() {
         ] {
             let mut game = game_for(&level);
             play_at(&mut game, 38.0, 0.0, z, 90.0, 0.0);
-            run(&mut game, &[Control::MoveForward], 1.2, pattern);
+            let _run_status = run(&mut game, &[Control::MoveForward], 1.2, pattern);
             if height <= PLAYER_STEP_HEIGHT {
                 assert!(game.player_position.x > 41.0, "step {height}, {pattern:?}");
                 assert!((game.feet_y() - height).abs() < STEP_EPS);
@@ -99,10 +99,10 @@ fn diagnostic_header_requires_crouch_and_refuses_standing_on_the_step() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 48.0, 0.0, 8.0, 90.0, 0.0);
-        run(&mut game, &[Control::MoveForward], 1.0, pattern);
+        let _run_status = run(&mut game, &[Control::MoveForward], 1.0, pattern);
         assert!(game.player_position.x < 50.0 && game.feet_y().abs() < STEP_EPS);
         force_stance(&mut game, Stance::Crouched);
-        run(&mut game, &[Control::MoveForward], 1.0, pattern);
+        let _run_status_2 = run(&mut game, &[Control::MoveForward], 1.0, pattern);
         assert!(game.player_position.x > 51.0);
         game.toggle_stance();
         assert_eq!(game.stance, Stance::Crouched);
@@ -116,18 +116,18 @@ fn diagnostic_ledges_fall_land_and_have_no_off_room_plane() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 56.0, 1.5, 34.0, 90.0, 0.0);
-        run(&mut game, &[Control::MoveForward], 2.0, pattern);
+        let _run_status = run(&mut game, &[Control::MoveForward], 2.0, pattern);
         assert!(game.player_position.x > 61.9 && game.grounded);
         assert!(game.feet_y().abs() < STEP_EPS);
-        run(&mut game, &[], 0.5, pattern);
+        let _run_status_2 = run(&mut game, &[], 0.5, pattern);
         assert!(game.grounded && game.vertical_velocity == 0.0);
 
-        let mut game = game_for(&level);
-        play_at(&mut game, 70.0, 1.5, 35.0, 90.0, 0.0);
-        run(&mut game, &[Control::MoveForward], 1.6, pattern);
-        assert!(game.player_position.x > 74.7);
-        assert!(!game.grounded && game.feet_y() < -1.0);
-        assert_eq!(game.support_at(74.0, 35.0, 1.5), None);
+        let mut outside_game = game_for(&level);
+        play_at(&mut outside_game, 70.0, 1.5, 35.0, 90.0, 0.0);
+        let _run_status_3 = run(&mut outside_game, &[Control::MoveForward], 1.6, pattern);
+        assert!(outside_game.player_position.x > 74.7);
+        assert!(!outside_game.grounded && outside_game.feet_y() < -1.0);
+        assert_eq!(outside_game.support_at(74.0, 35.0, 1.5), None);
     }
 }
 
@@ -190,18 +190,18 @@ fn diagnostic_crouch_passage_clears_smoothly_and_blocks_standing() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 37.5, 0.0, 48.0, 180.0, 0.0);
-        run(&mut game, &[Control::MoveForward], 1.0, pattern);
+        let _run_status = run(&mut game, &[Control::MoveForward], 1.0, pattern);
         assert!(game.player_position.z < 50.0);
         game.toggle_stance();
-        run(&mut game, &[Control::MoveForward], 1.0, pattern);
+        let _run_status_2 = run(&mut game, &[Control::MoveForward], 1.0, pattern);
         game.toggle_stance();
         assert_eq!(game.stance, Stance::Crouched);
-        run(&mut game, &[Control::MoveBackward], 1.0, pattern);
+        let _run_status_3 = run(&mut game, &[Control::MoveBackward], 1.0, pattern);
         let eye = game.player_position.y;
         game.toggle_stance();
         assert_eq!(game.stance, Stance::Standing);
         assert_exact(game.player_position.y, eye);
-        run(&mut game, &[], 1.0, pattern);
+        let _run_status_4 = run(&mut game, &[], 1.0, pattern);
         assert!((game.player_position.y - EYE_HEIGHT).abs() < STEP_EPS);
     }
 }
@@ -213,9 +213,9 @@ fn diagnostic_pool_surfaces_and_exits_flat_and_raised_rims_without_reentry() {
         for (x, z, yaw, exit_height) in [(10.0, 74.0, 0.0, 0.0), (17.0, 75.0, 90.0, 0.2)] {
             let mut game = game_for(&level);
             play_at(&mut game, x, -2.4, z, yaw, 0.0);
-            run(&mut game, &[Control::Jump], 4.0, pattern);
+            let _run_status = run(&mut game, &[Control::Jump], 4.0, pattern);
             assert!(game.swimming && game.player_position.y > -0.15);
-            run(
+            let _run_status_2 = run(
                 &mut game,
                 &[Control::Jump, Control::MoveForward],
                 2.0,
@@ -232,7 +232,7 @@ fn diagnostic_pool_surfaces_and_exits_flat_and_raised_rims_without_reentry() {
                 game.player_position,
                 game.feet_y()
             );
-            run(&mut game, &[], 0.5, pattern);
+            let _run_status_3 = run(&mut game, &[], 0.5, pattern);
             assert!(game.grounded && !game.swimming);
         }
     }
@@ -265,7 +265,7 @@ fn diagnostic_doorway_jump_has_no_horizontal_blip_or_sideways_push() {
         }
         // The header may briefly stop the airborne approach. Once grounded,
         // ordinary walking must finish crossing without a position correction.
-        run(&mut game, &[Control::MoveForward], 0.5, pattern);
+        let _run_status = run(&mut game, &[Control::MoveForward], 0.5, pattern);
         assert!(game.player_position.z > 53.9 && game.grounded);
     }
 }
@@ -276,20 +276,21 @@ fn diagnostic_closed_door_blocks_then_opens_for_ordinary_movement() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 52.6, 0.0, 56.5, 180.0, 0.0);
-        run(&mut game, &[Control::MoveForward], 1.0, pattern);
+        let _run_status = run(&mut game, &[Control::MoveForward], 1.0, pattern);
         assert!(game.player_position.z < 58.0);
         // Clear the leaf's swing before opening; otherwise its obstruction
         // rule correctly holds against the player standing in front of it.
-        run(&mut game, &[Control::MoveBackward], 0.4, pattern);
+        let _run_status_2 = run(&mut game, &[Control::MoveBackward], 0.4, pattern);
         let target = game
             .interactables()
             .index_of("closed_door")
             .expect("manual QA door");
-        game.entities_mut()
+        let _dispatch_report = game
+            .entities_mut()
             .dispatch_interaction(Some(target))
             .expect("toggle the leaf");
-        run(&mut game, &[], 1.0, pattern);
-        run(&mut game, &[Control::MoveForward], 1.5, pattern);
+        let _run_status_3 = run(&mut game, &[], 1.0, pattern);
+        let _run_status_4 = run(&mut game, &[Control::MoveForward], 1.5, pattern);
         assert!(game.player_position.z > 59.0 && game.grounded);
     }
 }
@@ -307,10 +308,10 @@ fn diagnostic_props_and_opposing_walls_do_not_tunnel_or_jitter() {
         ] {
             let mut game = game_for(&level);
             play_at(&mut game, x, 0.0, z, yaw, 0.0);
-            run(&mut game, &[Control::MoveForward], 1.0, pattern);
+            let _run_status = run(&mut game, &[Control::MoveForward], 1.0, pattern);
             assert!(game.player_position.z <= blocked_z + 1e-3);
             let contact = game.player_position;
-            run(&mut game, &[Control::MoveForward], 1.0, pattern);
+            let _run_status_2 = run(&mut game, &[Control::MoveForward], 1.0, pattern);
             assert!(game.player_position.distance(contact) < 1e-3);
             assert!(game.grounded && game.feet_y().abs() < STEP_EPS);
         }
@@ -323,27 +324,27 @@ fn diagnostic_jump_lands_on_desk_and_head_collision_consumes_rise() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 7.0, 0.0, 57.5, 180.0, 0.0);
-        run(
+        let _run_status = run(
             &mut game,
             &[Control::MoveForward, Control::Jump],
             0.55,
             pattern,
         );
-        run(&mut game, &[], 1.0, pattern);
+        let _run_status_2 = run(&mut game, &[], 1.0, pattern);
         assert!(
             game.grounded && (game.feet_y() - 0.75).abs() < STEP_EPS,
             "{pattern:?}: {:?}",
             game.player_position
         );
 
-        let mut game = game_for(&level);
-        play_at(&mut game, 41.0, 0.0, 60.0, 0.0, 0.0);
-        run(&mut game, &[Control::Jump], 0.2, pattern);
-        assert!(game.feet_y() + PLAYER_HEIGHT <= 2.05 + CONTACT_EPS);
-        assert!(game.vertical_velocity <= 0.0);
-        assert!((game.player_position.x - 41.0).abs() < 1e-3);
-        run(&mut game, &[], 1.0, pattern);
-        assert!(game.grounded && game.feet_y().abs() < STEP_EPS);
+        let mut ceiling_game = game_for(&level);
+        play_at(&mut ceiling_game, 41.0, 0.0, 60.0, 0.0, 0.0);
+        let _run_status_3 = run(&mut ceiling_game, &[Control::Jump], 0.2, pattern);
+        assert!(ceiling_game.feet_y() + PLAYER_HEIGHT <= 2.05 + CONTACT_EPS);
+        assert!(ceiling_game.vertical_velocity <= 0.0);
+        assert!((ceiling_game.player_position.x - 41.0).abs() < 1e-3);
+        let _run_status_4 = run(&mut ceiling_game, &[], 1.0, pattern);
+        assert!(ceiling_game.grounded && ceiling_game.feet_y().abs() < STEP_EPS);
     }
 }
 
@@ -353,13 +354,13 @@ fn diagnostic_too_high_jump_cannot_leave_the_body_inside_the_ledge_face() {
     for pattern in PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, 16.0, 0.0, 49.5, 180.0, 0.0);
-        run(
+        let _run_status = run(
             &mut game,
             &[Control::Jump, Control::MoveForward],
             0.7,
             pattern,
         );
-        run(&mut game, &[], 1.0, pattern);
+        let _run_status_2 = run(&mut game, &[], 1.0, pattern);
         assert!(
             game.player_position.z <= 51.0 - PLAYER_RADIUS + CONTACT_EPS,
             "{pattern:?}: {:?}",

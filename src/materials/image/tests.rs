@@ -6,7 +6,8 @@
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -81,10 +82,10 @@ fn a_power_of_two_sheet_halves_exactly() {
 fn downscaling_averages_the_covered_texels() {
     // 4x4 with two distinct columns: a 2x2 result must average each 2x2 block.
     let mut image = solid_image(4, 4, [0, 0, 0, 255]);
-    for y in 0..4 {
-        for x in 0..4 {
-            let offset = usize::try_from(y * 4 + x).unwrap_or(0) * 4;
-            let value = if x < 2 { 40 } else { 200 };
+    for y in 0_i32..4_i32 {
+        for x in 0_i32..4_i32 {
+            let offset = usize::try_from(y * 4_i32 + x).unwrap_or(0) * 4;
+            let value = if x < 2_i32 { 40 } else { 200 };
             image.rgba[offset] = value;
         }
     }
@@ -145,9 +146,11 @@ fn retention_budget_releases_only_cache_ownership() {
     let mut cache = TextureCache::new();
     let active = cache.insert("large", coordinate_image(4));
     let small = cache.insert("small", coordinate_image(1));
-    cache
-        .revisions
-        .insert("source".to_string(), "large".to_string());
+    drop(
+        cache
+            .revisions
+            .insert("source".to_string(), "large".to_string()),
+    );
     cache.trim_retained(1, small.rgba.capacity());
     assert_eq!(cache.len(), 1);
     assert!(cache.get("source").is_none());
@@ -179,7 +182,7 @@ fn prefetch_is_identical_serial_and_parallel() {
     use std::fs;
 
     let root = std::env::temp_dir().join(format!("places-texture-prefetch-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
+    crate::test_support::remove_dir_if_present(&root);
     fs::create_dir_all(&root).expect("scratch root");
     let colours = [
         ("a.png", [10_u8, 20, 30, 255]),
@@ -236,5 +239,5 @@ fn prefetch_is_identical_serial_and_parallel() {
     assert!(Arc::ptr_eq(&image, &serial.get("a.png").expect("cached")));
     assert!(key.contains("a.png"));
 
-    let _ = fs::remove_dir_all(&root);
+    crate::test_support::remove_dir_if_present(&root);
 }

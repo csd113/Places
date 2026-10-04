@@ -54,17 +54,11 @@
 //! pages and samples them; the probe field the renderer interpolates for moving
 //! objects is solved here too, offline.
 
-// The transport solver is a numeric kernel: it evaluates fixed-size
-// three-vectors with explicit `f32` arithmetic (so serial and parallel runs
-// are bit-identical), converts bounded lattice indices after enforcing their
-// caps, and indexes arrays by constants. Those are exactly the shapes the
-// cast/float/index lints flag, so they are allowed here as a unit; no other
-// module inherits them.
+// Preserve the solver's floating-point evaluation order and cohesive stages.
+// Fixed vector indices are 0..3; variable scene/receiver indices come from the
+// validated private scene and matching solve arrays. Numeric conversions and
+// integer arithmetic exceptions are justified locally.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::collapsible_if,
     clippy::derive_partial_eq_without_eq,
     clippy::doc_markdown,
@@ -80,7 +74,8 @@
     clippy::too_long_first_doc_paragraph,
     clippy::too_many_arguments,
     clippy::unnecessary_wraps,
-    clippy::while_let_loop
+    clippy::while_let_loop,
+    reason = "Preserve floating-point evaluation order, cohesive solver stages and diagnostic formatting. Fixed vector indices are 0..3; variable scene/receiver indices refer to validated private scene records and matching solve arrays. Numeric conversions and integer arithmetic exceptions are local."
 )]
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -190,14 +185,14 @@ pub fn solver_fingerprint() -> u64 {
         SOLVER_REVISION,
         u64::from(crate::lighting::probes::PROBE_FIELD_RECORD_VERSION),
         u64::from(crate::lighting::probes::PROBE_SPACING_M.to_bits()),
-        u64::from(crate::lighting::probes::MAX_PROBE_CELLS as u32),
-        u64::from(PROBE_BAKE_RAYS as u32),
+        u64::try_from(crate::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u64::MAX),
+        u64::try_from(PROBE_BAKE_RAYS).unwrap_or(u64::MAX),
         u64::from(PROBE_CLEARANCE_M.to_bits()),
         u64::from(SOFT_KNEE.to_bits()),
         u64::from(BOUNCE_GAIN.to_bits()),
-        u64::from(MAX_BOUNCE_RAYS as u32),
+        u64::try_from(MAX_BOUNCE_RAYS).unwrap_or(u64::MAX),
         u64::from(CACHE_CELL_M.to_bits()),
-        u64::from(MAX_CACHE_CELLS as u32),
+        u64::try_from(MAX_CACHE_CELLS).unwrap_or(u64::MAX),
         u64::from(SURFACE_OFFSET_M.to_bits()),
         u64::from(RAY_EPS_M.to_bits()),
         u64::from(super::tuning::WATER_EXTINCTION_PER_M[0].to_bits()),
@@ -306,7 +301,7 @@ impl TransportTriangle {
             return None;
         }
         let normal = scale(cross, 1.0 / area);
-        let albedo = [
+        let clamped_albedo = [
             albedo[0].clamp(0.0, 1.0),
             albedo[1].clamp(0.0, 1.0),
             albedo[2].clamp(0.0, 1.0),
@@ -317,7 +312,7 @@ impl TransportTriangle {
             p2,
             normal,
             shading_normals: [normal; 3],
-            albedo,
+            albedo: clamped_albedo,
             transmissive: false,
         })
     }
@@ -342,6 +337,11 @@ impl TransportTriangle {
     /// Normalized barycentric interpolation, matching the runtime fragment
     /// shader. Double precision keeps thin model triangles well conditioned.
     #[must_use]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::as_conversions,
+        reason = "Double-precision barycentric calculations intentionally round their clamped unit weights to the f32 shader domain; normalize_or retains the geometric fallback for invalid interpolation."
+    )]
     pub fn shading_normal_at(&self, point: [f32; 3]) -> [f32; 3] {
         let origin = self.p0.map(f64::from);
         let edge_u = std::array::from_fn::<_, 3, _>(|axis| f64::from(self.p1[axis]) - origin[axis]);
@@ -354,7 +354,7 @@ impl TransportTriangle {
         let uv = product(edge_u, edge_v);
         let vv = product(edge_v, edge_v);
         let determinant = uu.mul_add(vv, -(uv * uv));
-        if !determinant.is_finite() || determinant <= 0.0 {
+        if !determinant.is_finite() || determinant <= 0.0_f64 {
             return self.normal;
         }
         let pu = product(delta, edge_u);
@@ -413,7 +413,10 @@ impl EmitterShape {
         match *self {
             Self::Point => 0.0,
             Self::Rect { u, v } => length(add(u, v)).max(length(sub(u, v))),
-            Self::Line { half_length, .. } => half_length.max(0.0),
+            Self::Line {
+                half_length,
+                direction: _,
+            } => half_length.max(0.0),
         }
     }
 
@@ -423,15 +426,15 @@ impl EmitterShape {
     /// rectangle a `taps x taps` grid; a line `taps` points along its axis.
     #[must_use]
     pub fn samples(&self, taps: u8) -> Vec<[f32; 3]> {
-        let taps = usize::from(taps.clamp(1, 3));
+        let tap_count = usize::from(taps.clamp(1, 3));
         match *self {
             Self::Point => vec![[0.0; 3]],
             Self::Rect { u, v } => {
-                let mut out = Vec::with_capacity(taps.saturating_mul(taps));
-                for i in 0..taps {
-                    for j in 0..taps {
-                        let a = tap_offset(i, taps);
-                        let b = tap_offset(j, taps);
+                let mut out = Vec::with_capacity(tap_count.saturating_mul(tap_count));
+                for i in 0..tap_count {
+                    for j in 0..tap_count {
+                        let a = tap_offset(i, tap_count);
+                        let b = tap_offset(j, tap_count);
                         out.push(add(scale(u, a), scale(v, b)));
                     }
                 }
@@ -441,9 +444,9 @@ impl EmitterShape {
                 direction,
                 half_length,
             } => {
-                let mut out = Vec::with_capacity(taps);
-                for i in 0..taps {
-                    let a = tap_offset(i, taps);
+                let mut out = Vec::with_capacity(tap_count);
+                for i in 0..tap_count {
+                    let a = tap_offset(i, tap_count);
                     out.push(scale(direction, half_length * a));
                 }
                 out
@@ -458,8 +461,8 @@ fn tap_offset(index: usize, count: usize) -> f32 {
         return 0.0;
     }
     let last = f32::from(u16::try_from(count.saturating_sub(1)).unwrap_or(u16::MAX)).max(1.0);
-    let index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
-    index.mul_add(2.0 / last, -1.0)
+    let sample_index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    sample_index.mul_add(2.0 / last, -1.0)
 }
 
 /// One resolved light in the transport scene.
@@ -530,11 +533,14 @@ impl TransportEmitter {
         let (half_w, half_d) = source.half_extents();
         let shape = match source.shape {
             LightShape::Point => EmitterShape::Point,
-            LightShape::Rect { .. } => EmitterShape::Rect {
+            LightShape::Rect {
+                half_width: _,
+                half_depth: _,
+            } => EmitterShape::Rect {
                 u: [half_w, 0.0, 0.0],
                 v: [0.0, 0.0, half_d],
             },
-            LightShape::Line { .. } => {
+            LightShape::Line { length: _ } => {
                 // The tube's local X axis after the same yaw rule the fixture
                 // geometry uses: a turned fixture swaps its extents, which for a
                 // tube means the axis runs along Z.
@@ -637,8 +643,8 @@ impl TransportEmitter {
         taps: u8,
     ) -> (f32, [f32; 3]) {
         let samples = self.shape.samples(taps);
-        let total = samples.len().max(1);
-        let mut visible = 0usize;
+        let total = f32::from(u8::try_from(samples.len()).unwrap_or(1).max(1));
+        let mut visible = 0u8;
         let mut direction = [0.0_f32; 3];
         let mut centre_direction = [0.0_f32; 3];
         let mut first = true;
@@ -662,7 +668,7 @@ impl TransportEmitter {
         if visible == 0 {
             return (0.0, [0.0; 3]);
         }
-        let visible_fraction = visible as f32 / total as f32;
+        let visible_fraction = f32::from(visible) / total;
         (visible_fraction, normalize_or(direction, centre_direction))
     }
 
@@ -1124,8 +1130,8 @@ pub fn receiver_targets(
             let room = patch
                 .room
                 .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
-            out.push(room.map_or([0.0; 3], |room| {
-                target_in_room(lighting, room, point[0], point[2])
+            out.push(room.map_or([0.0; 3], |room_index| {
+                target_in_room(lighting, room_index, point[0], point[2])
             }));
         });
     }
@@ -1140,6 +1146,11 @@ pub fn receiver_targets(
 /// point: its room is resolved by height at its own position, and a probe
 /// outside every room gets zero and room `-1`, exactly like a texel.
 #[must_use]
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    reason = "probe_lattice caps every axis at 64; each coordinate is below that cap and converts exactly to f32."
+)]
 pub fn probe_targets(
     lighting: &LevelLighting,
     charts: &[(LightmapPatch, Chart)],
@@ -1184,6 +1195,13 @@ pub fn probe_targets(
 ///
 /// [`bake_probe_field`] and [`probe_targets`] both derive the lattice here, so
 /// the baked field and its targets cannot disagree about the grid.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "Finite extents and positive spacing yield axis counts clamped to 1..=64 before truncation; the resulting small counts convert exactly back to f32 for centering."
+)]
 fn probe_lattice<'a>(
     positions: impl IntoIterator<Item = &'a [f32; 3]>,
 ) -> Option<([f32; 3], f32, [usize; 3])> {
@@ -1208,7 +1226,8 @@ fn probe_lattice<'a>(
     if !max.iter().all(|value| value.is_finite()) {
         return None;
     }
-    let cap = crate::lighting::probes::MAX_PROBE_CELLS as f32;
+    let cap =
+        f32::from(u16::try_from(crate::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u16::MAX));
     for axis in 0..3 {
         if max[axis] - min[axis] < crate::lighting::probes::PROBE_SPACING_M {
             max[axis] = min[axis] + crate::lighting::probes::PROBE_SPACING_M;
@@ -1221,11 +1240,10 @@ fn probe_lattice<'a>(
     {
         return None;
     }
-    let cell = extent
-        .iter()
-        .fold(crate::lighting::probes::PROBE_SPACING_M, |cell, extent| {
-            cell.max(extent / cap)
-        });
+    let cell = extent.iter().fold(
+        crate::lighting::probes::PROBE_SPACING_M,
+        |cell, current_cell| cell.max(current_cell / cap),
+    );
     let dims = std::array::from_fn(|axis| (extent[axis] / cell).ceil().clamp(1.0, cap) as usize);
     // Keep every axis centered in the authored bounds, including an axis
     // smaller than a cell after a large world forces coarser spacing.
@@ -1272,7 +1290,8 @@ impl TransportScene {
             .collect();
         let mut nodes: Vec<BvhNode> = Vec::with_capacity(count.saturating_mul(2).max(1));
         if count > 0 {
-            build_node(&triangles, &centroids, &mut order, &mut nodes, 0, count, 0);
+            let _build_node_status =
+                build_node(&triangles, &centroids, &mut order, &mut nodes, 0, count, 0);
         }
         let mut canonical_leaves = vec![0_u32; count];
         for (index, node) in nodes.iter().enumerate().filter(|(_, node)| node.count > 0) {
@@ -1366,8 +1385,8 @@ impl TransportScene {
                     continue;
                 }
                 visible = visible.saturating_add(1);
-                if let Some(normal) = normal {
-                    accumulate_surface_lobe(accumulator, weight, direction, normal);
+                if let Some(surface_normal) = normal {
+                    accumulate_surface_lobe(accumulator, weight, direction, surface_normal);
                 } else {
                     accumulate_lobe(accumulator, weight, direction);
                 }
@@ -1656,7 +1675,7 @@ impl TransportScene {
                     // Slabs round subtraction/reciprocal/multiplication in f32;
                     // triangles round only after evaluating the distance in f64.
                     // Expand traversal to discover ties, never accepted geometry.
-                    (0..8).fold(distance, |value, _| value.next_up())
+                    (0_i32..8_i32).fold(distance, |value, _| value.next_up())
                 } else {
                     distance
                 }
@@ -1810,7 +1829,9 @@ impl TransportScene {
                         }
                         // At a shared hard edge several faces are equally close.
                         // Receiver identity must follow its own geometric face.
-                        if normal.is_some_and(|normal| dot(normal, triangle.normal) < 0.9999) {
+                        if normal.is_some_and(|surface_normal| {
+                            dot(surface_normal, triangle.normal) < 0.9999
+                        }) {
                             continue;
                         }
                         let triangle_index = usize::try_from(*index).unwrap_or(usize::MAX);
@@ -1904,7 +1925,7 @@ impl TransportScene {
             && self.probe_target.iter().all(|target| {
                 nonnegative(&target.target)
                     && target.position.iter().all(|value| value.is_finite())
-                    && (-1..=i32::from(i16::MAX)).contains(&target.room)
+                    && (-1_i32..=i32::from(i16::MAX)).contains(&target.room)
             })
             && self.water.iter().all(|water| {
                 [
@@ -2051,7 +2072,10 @@ impl TransportScene {
     /// `apply_fill` gates the authored baseline fill: the base solve gets it, a
     /// switchable fixture's own layer must not (the runtime already adds that
     /// layer on top of the base, so a fill in both would double it).
-    #[allow(clippy::too_many_arguments)] // internal pass driver; the arguments are the pass's whole budget
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "internal pass driver; the arguments are the pass's whole budget"
+    )] // internal pass driver; the arguments are the pass's whole budget
     fn solve_pass(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -2074,7 +2098,7 @@ impl TransportScene {
             receivers: &receivers,
             dump: apply_fill,
         };
-        let receiver_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
         let direct_started = std::time::Instant::now();
         let count = receivers.len();
         if !self.receiver_target.is_empty() && self.receiver_target.len() != count {
@@ -2083,7 +2107,7 @@ impl TransportScene {
         let (direct, traced_rays) = coverage::direct_pass(
             self, charts, &receivers, emitters, apply_fill, taps, workers, cancel,
         )?;
-        let direct_ms = direct_started.elapsed().as_secs_f64() * 1000.0;
+        let direct_ms = direct_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let bounce_started = std::time::Instant::now();
         let mut accumulators = direct.clone();
         if accumulators.iter().any(|value| !value.is_finite()) {
@@ -2113,7 +2137,7 @@ impl TransportScene {
             audit.accumulators("bounced", &accumulators);
             *bounce_rays = bounce_rays.saturating_add(rays);
         }
-        let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1000.0;
+        let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.finish_pass(
             charts,
             &receivers,
@@ -2148,7 +2172,7 @@ impl TransportScene {
             taps_per_axis: taps,
             bounces,
             workers,
-            ..
+            gather_samples: _,
         } = options;
         let [receiver_ms, direct_ms, bounce_ms] = timings;
         let audit = StageAudit {
@@ -2157,8 +2181,8 @@ impl TransportScene {
             dump: apply_fill,
         };
         let probe_started = std::time::Instant::now();
-        if let Some(probes) = probes {
-            *probes = Some(bake_probe_field(
+        if let Some(probe_field) = probes {
+            *probe_field = Some(bake_probe_field(
                 self,
                 receivers,
                 &accumulators,
@@ -2168,21 +2192,21 @@ impl TransportScene {
                 cancel,
             )?);
         }
-        let probe_ms = probe_started.elapsed().as_secs_f64() * 1000.0;
+        let probe_ms = probe_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let filter_started = std::time::Instant::now();
         // Direct visibility is deterministic and has no gather noise. Filtering
         // it chart-locally moves shadow edges and changes gradients at seams.
         // Denoise only the diffuse gather, then encode the complete integral.
         let mut indirect = accumulators;
-        for (value, direct) in indirect.iter_mut().zip(direct) {
-            add_scaled(value, direct, -1.0);
+        for (value, direct_term) in indirect.iter_mut().zip(direct) {
+            add_scaled(value, direct_term, -1.0);
         }
         if apply_fill {
             self.audit_indirect(charts, receivers, &indirect, taps);
         }
         let mut filtered = filter::filter_accumulators(self, charts, receivers, &indirect, direct)?;
         audit.texels("filtered", filtered.iter().copied());
-        let filter_ms = filter_started.elapsed().as_secs_f64() * 1000.0;
+        let filter_ms = filter_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let fill_started = std::time::Instant::now();
         if apply_fill {
             filtered = self.apply_chart_fill(charts, receivers, filtered, workers, cancel)?;
@@ -2196,7 +2220,7 @@ impl TransportScene {
         audit.texels("filled", filtered.iter().copied());
         crate::logging::info(format_args!(
             "[transport-timing] base={apply_fill} taps={taps} bounces={bounces} receivers_ms={receiver_ms:.3} direct_visibility_ms={direct_ms:.3} indirect_ms={bounce_ms:.3} probes_ms={probe_ms:.3} filter_ms={filter_ms:.3} fill_ms={:.3}",
-            fill_started.elapsed().as_secs_f64() * 1000.0
+            fill_started.elapsed().as_secs_f64() * 1_000.0_f64
         ));
         assemble_solved_charts(charts, receivers, &filtered)
     }
@@ -2433,7 +2457,7 @@ impl TransportScene {
             return;
         }
         for (target, (probe, attenuation)) in self.probe_target.iter().zip(baked.iter_mut()) {
-            if target.room < 0
+            if target.room < 0_i32
                 || target.target.iter().all(|channel| *channel <= 0.0)
                 || !self.probe_is_clear(target.position)
             {
@@ -2621,13 +2645,13 @@ fn audit_stage(
     values: impl Iterator<Item = LightmapTexel>,
 ) {
     if dump && diagnostics::enabled() {
-        let values = values.collect::<Vec<_>>();
+        let collected_values = values.collect::<Vec<_>>();
         if let Err(error) =
-            diagnostics::dump_stage(stage, charts, receivers, values.iter().copied())
+            diagnostics::dump_stage(stage, charts, receivers, collected_values.iter().copied())
         {
             crate::logging::warn(format_args!("[lighting-diagnostics] {error}"));
         }
-        audit_stage_metrics(stage, charts, receivers, values.into_iter());
+        audit_stage_metrics(stage, charts, receivers, collected_values.into_iter());
     } else {
         audit_stage_metrics(stage, charts, receivers, values);
     }
@@ -2875,7 +2899,12 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 ///
 /// Returns [`LightmapFailure::InvalidConfig`] for an empty or unaddressable
 /// receiver set and propagates cancellation as a fill failure.
-#[allow(clippy::too_many_arguments)] // one bake, every input explicit
+// one bake, every input explicit
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    reason = "probe_lattice caps each axis at 64; lattice_from_index visits only the checked product, so every world-coordinate index converts exactly to f32."
+)]
 fn bake_probe_field(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -2917,16 +2946,19 @@ fn bake_probe_field(
             scene, receivers, values, &cache, position, index, taps, audit,
         )
     })?;
-    let (mut baked, diagnostics): (Vec<_>, Vec<_>) = baked
+    let (mut baked_charts, diagnostics): (Vec<_>, Vec<_>) = baked
         .into_iter()
         .map(|(probe, attenuation, diagnostic)| ((probe, attenuation), diagnostic))
         .unzip();
     // Use the same local support field and continuous response as the atlas.
-    scene.apply_probe_fill(&mut baked);
-    if baked.iter().any(|(probe, _)| probe.validate().is_err()) {
+    scene.apply_probe_fill(&mut baked_charts);
+    if baked_charts
+        .iter()
+        .any(|(probe, _)| probe.validate().is_err())
+    {
         return Err(LightmapFailure::FillNonFinite);
     }
-    let probes = baked.into_iter().map(|(probe, _)| probe).collect();
+    let probes = baked_charts.into_iter().map(|(probe, _)| probe).collect();
     let field = ProbeField {
         min,
         cell_m: cell,
@@ -2950,9 +2982,9 @@ fn probe_front_face(
     diagnostic: &mut Option<probe_audit::ProbeAudit>,
 ) -> bool {
     let front = dot(direction, triangle.normal) < 0.0;
-    if !front && let Some(diagnostic) = diagnostic {
-        diagnostic.surface_hits += 1;
-        diagnostic.zero_radiance_hits += 1;
+    if !front && let Some(back_diagnostic) = diagnostic {
+        back_diagnostic.surface_hits = back_diagnostic.surface_hits.saturating_add(1);
+        back_diagnostic.zero_radiance_hits = back_diagnostic.zero_radiance_hits.saturating_add(1);
     }
     front
 }
@@ -2968,14 +3000,14 @@ fn bake_probe(
     audit: bool,
 ) -> (ProbeSample, [f32; 3], Option<probe_audit::ProbeAudit>) {
     let rays = PROBE_BAKE_RAYS;
-    let inverse_rays = 1.0 / rays as f32;
+    let inverse_rays = 1.0 / f32::from(u16::try_from(rays).unwrap_or(u16::MAX));
     let attenuation = scene.attenuation_at(position);
     let target_room = scene
         .probe_target
         .get(index)
-        .map_or(-1, |target| target.room);
+        .map_or(-1_i32, |target| target.room);
     let clear = scene.probe_is_clear(position);
-    let skip = !clear || (!scene.probe_target.is_empty() && target_room < 0);
+    let skip = !clear || (!scene.probe_target.is_empty() && target_room < 0_i32);
     if skip {
         return (
             ProbeSample {
@@ -2991,7 +3023,8 @@ fn bake_probe(
     }
     let mut accumulator = Accumulator::default();
     let mut visible_emitters = Vec::new();
-    scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
+    let _accumulate_global_status =
+        scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
     for (emitter_index, emitter) in scene.emitters.iter().enumerate() {
         if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
             continue;
@@ -3004,15 +3037,15 @@ fn bake_probe(
     }
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
-    if let Some(diagnostic) = &mut diagnostic {
-        diagnostic.visible_emitters = visible_emitters;
+    if let Some(chart_diagnostic) = &mut diagnostic {
+        chart_diagnostic.visible_emitters = visible_emitters;
     }
     let mut indirect = Accumulator::default();
     for ray in 0..rays {
         let direction = probe_direction(ray);
         let Some((distance, triangle_index)) = scene.intersect(position, direction) else {
-            if let Some(diagnostic) = &mut diagnostic {
-                diagnostic.escaping_rays += 1;
+            if let Some(chart_diagnostic) = &mut diagnostic {
+                chart_diagnostic.escaping_rays = chart_diagnostic.escaping_rays.saturating_add(1);
             }
             // Environment radiance is an incoming contribution just like
             // a reflected surface, with the same sphere-mean convention.
@@ -3032,10 +3065,11 @@ fn bake_probe(
         }
         let cached = cache.sample_surface(scene, hit, triangle_index, receivers, values);
         let radiance = cached.surface_light;
-        if let Some(diagnostic) = &mut diagnostic {
-            diagnostic.surface_hits += 1;
+        if let Some(chart_diagnostic) = &mut diagnostic {
+            chart_diagnostic.surface_hits = chart_diagnostic.surface_hits.saturating_add(1);
             if radiance.iter().all(|channel| *channel <= 0.0) {
-                diagnostic.zero_radiance_hits += 1;
+                chart_diagnostic.zero_radiance_hits =
+                    chart_diagnostic.zero_radiance_hits.saturating_add(1);
             }
         }
         let weight = [
@@ -3045,10 +3079,10 @@ fn bake_probe(
         ];
         accumulate_lobe(&mut indirect, attenuate(weight, attenuation), direction);
     }
-    if let Some(diagnostic) = &mut diagnostic {
+    if let Some(chart_diagnostic) = &mut diagnostic {
         let texel = compress(&indirect);
-        diagnostic.indirect = texel.irradiance;
-        diagnostic.indirect_moment = texel.direction;
+        chart_diagnostic.indirect = texel.irradiance;
+        chart_diagnostic.indirect_moment = texel.direction;
     }
     add_scaled(&mut accumulator, &indirect, 1.0);
     let texel = compress(&accumulator);
@@ -3075,6 +3109,11 @@ pub const PROBE_CLEARANCE_M: f32 = 0.05;
 /// Shared stratified antipodal directions. Pairing cancels a constant
 /// environment's moment exactly; sharing directions makes neighboring probes
 /// depend on changes in geometry/light rather than independent random noise.
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    reason = "The private caller enumerates 64 probe rays, so pair is 0..31 and half is 32; their f32 conversions are exact."
+)]
 fn probe_direction(ray: usize) -> [f32; 3] {
     let pair = ray / 2;
     let half = PROBE_BAKE_RAYS / 2;
@@ -3091,6 +3130,10 @@ fn probe_direction(ray: usize) -> [f32; 3] {
 }
 
 /// The lattice coordinates of a flat probe index.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Both divisors are normalized with max(1), so these unsigned divisions and remainders cannot panic."
+)]
 fn lattice_from_index(index: usize, dims: [usize; 3]) -> (usize, usize, usize) {
     let x = index % dims[0].max(1);
     let y = (index / dims[0].max(1)) % dims[1].max(1);
@@ -3179,7 +3222,12 @@ impl RadianceCache {
             let requested = (extent[axis] / CACHE_CELL_M).ceil().max(1.0);
             let cap = f32::from(u16::try_from(MAX_CACHE_CELLS).unwrap_or(u16::MAX)).max(1.0);
             let capped = requested.min(cap);
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "The integral cache dimension is capped at MAX_CACHE_CELLS (96) before conversion."
+            )]
             // Bounded by MAX_CACHE_CELLS (96), so the cast is exact.
             let count = capped as usize;
             dims[axis] = count.max(1);
@@ -3187,7 +3235,7 @@ impl RadianceCache {
             // inside the grid, so the cache is both bounded and complete.
             cell = cell.max(extent[axis] / f32::from(u16::try_from(count.max(1)).unwrap_or(1)));
         }
-        let cell = if cell.is_finite() && cell > 1.0e-4 {
+        let cell_m = if cell.is_finite() && cell > 1.0e-4 {
             cell
         } else {
             CACHE_CELL_M
@@ -3195,10 +3243,10 @@ impl RadianceCache {
         let total = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
         let mut cells: Vec<Vec<usize>> = vec![Vec::new(); total];
         for (index, receiver) in receivers.iter().enumerate() {
-            let Some(cell_index) = cache_cell(receiver.position, min, cell, dims) else {
+            let Some(cell_index) = cache_cell(receiver.position, min, cell_m, dims) else {
                 continue;
             };
-            let centre = cell_centre(cell_index, min, cell, dims);
+            let centre = cell_centre(cell_index, min, cell_m, dims);
             let distance = (receiver.position[0] - centre[0]).powi(2)
                 + (receiver.position[1] - centre[1]).powi(2)
                 + (receiver.position[2] - centre[2]).powi(2);
@@ -3222,7 +3270,7 @@ impl RadianceCache {
                         receiver.position,
                         old_distance,
                         candidate.position,
-                        cell,
+                        cell_m,
                     )
                     .is_lt()
                 }) {
@@ -3232,12 +3280,12 @@ impl RadianceCache {
                 entries.push(index);
             }
         }
-        let cells = cache_representatives(cells, receivers, min, cell, dims);
+        let representatives = cache_representatives(cells, receivers, min, cell_m, dims);
         Self {
             min,
-            cell,
+            cell: cell_m,
             dims,
-            cells,
+            cells: representatives,
         }
     }
 
@@ -3320,19 +3368,19 @@ impl RadianceCache {
         ];
         let mut total = Accumulator::default();
         let mut weight_sum = 0.0_f32;
-        for dz in 0..2 {
-            for dy in 0..2 {
-                for dx in 0..2 {
-                    let weight = (if dx == 0 { 1.0 - frac[0] } else { frac[0] })
-                        * (if dy == 0 { 1.0 - frac[1] } else { frac[1] })
-                        * (if dz == 0 { 1.0 - frac[2] } else { frac[2] });
+        for dz in 0_i16..2_i16 {
+            for dy in 0_i16..2_i16 {
+                for dx in 0_i16..2_i16 {
+                    let weight = (if dx == 0_i16 { 1.0 - frac[0] } else { frac[0] })
+                        * (if dy == 0_i16 { 1.0 - frac[1] } else { frac[1] })
+                        * (if dz == 0_i16 { 1.0 - frac[2] } else { frac[2] });
                     if weight <= 0.0 {
                         continue;
                     }
                     let cell = [
-                        base[0] + dx as f32,
-                        base[1] + dy as f32,
-                        base[2] + dz as f32,
+                        base[0] + f32::from(dx),
+                        base[1] + f32::from(dy),
+                        base[2] + f32::from(dz),
                     ];
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
@@ -3386,22 +3434,22 @@ impl RadianceCache {
             return Accumulator::default();
         };
         let mut best: Option<(f32, Accumulator)> = None;
-        for dz in -2_isize..=2 {
-            for dy in -2_isize..=2 {
-                for dx in -2_isize..=2 {
+        for dz in -2_i16..=2 {
+            for dy in -2_i16..=2 {
+                for dx in -2_i16..=2 {
                     let cell = [
-                        base[0] + dx as f32,
-                        base[1] + dy as f32,
-                        base[2] + dz as f32,
+                        base[0] + f32::from(dx),
+                        base[1] + f32::from(dy),
+                        base[2] + f32::from(dz),
                     ];
                     let Some(index) = lattice_cell(cell, self.dims) else {
                         continue;
                     };
-                    let distance = dx.abs() + dy.abs() + dz.abs();
-                    let distance = f32::from(u16::try_from(distance).unwrap_or(u16::MAX));
+                    let distance = dx.abs().saturating_add(dy.abs()).saturating_add(dz.abs());
+                    let search_distance = f32::from(distance);
                     // Test distance before visibility: this candidate cannot
                     // replace the best, even if its connectivity ray succeeds.
-                    if best.is_some_and(|(current, _)| distance >= current) {
+                    if best.is_some_and(|(current, _)| search_distance >= current) {
                         continue;
                     }
                     let Some(receiver) = self.representative_at(scene, index, target, receivers)
@@ -3411,7 +3459,7 @@ impl RadianceCache {
                     let Some(value) = values.get(receiver) else {
                         continue;
                     };
-                    best = Some((distance, *value));
+                    best = Some((search_distance, *value));
                 }
             }
         }
@@ -3435,10 +3483,10 @@ fn cache_representatives(
             let centre = cell_centre(index, min, cell, dims);
             entries
                 .into_iter()
-                .map(|index| {
-                    let delta = sub(receivers[index].position, centre);
+                .map(|receiver_index| {
+                    let delta = sub(receivers[receiver_index].position, centre);
                     CacheRepresentative {
-                        receiver: index,
+                        receiver: receiver_index,
                         distance: dot(delta, delta),
                     }
                 })
@@ -3504,8 +3552,10 @@ fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
             (total.moment.get_mut(channel), value.moment.get(channel))
         {
             for axis in 0..3 {
-                if let (Some(component), Some(source)) = (slot.get_mut(axis), source.get(axis)) {
-                    *component += weight * source;
+                if let (Some(component), Some(source_component)) =
+                    (slot.get_mut(axis), source.get(axis))
+                {
+                    *component += weight * source_component;
                 }
             }
         }
@@ -3513,6 +3563,12 @@ fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
 }
 
 /// The world-space centre of one lattice cell.
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    clippy::arithmetic_side_effects,
+    reason = "Private callers enumerate the radiance cache capped at 96 cells per axis, so coordinates convert exactly to f32; max(1) makes every decomposition divisor nonzero."
+)]
 fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32; 3] {
     let mut remaining = index;
     let mut lattice = [0usize; 3];
@@ -3548,7 +3604,12 @@ fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
         if !value.is_finite() || value < 0.0 {
             return None;
         }
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "Finite nonnegative float casts saturate; out-of-grid results are rejected and flattening uses checked arithmetic."
+        )]
         // The value is finite and non-negative; the range check against `dims`
         // rejects anything that would truncate past the grid.
         let cell = value as usize;
@@ -3565,7 +3626,8 @@ fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
 /// A deterministic ray sequence seed; surface gathers share sequence zero,
 /// while probes use their lattice index.
 fn ray_seed(receiver: usize, pass: u8) -> u64 {
-    (receiver as u64)
+    u64::try_from(receiver)
+        .unwrap_or(u64::MAX)
         .wrapping_mul(0x9E37_79B9_7F4A_7C15)
         .wrapping_add(u64::from(pass).wrapping_mul(0xD1B5_4A32_D192_ED03))
         | 1
@@ -3584,12 +3646,16 @@ fn next_unit(state: &mut u64) -> f32 {
     let mut z = *state;
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^= z >> 31;
+    z ^= z >> 31_i32;
     // The top 24 bits are uniform enough for a ray direction, and 2^24 is
     // exactly representable in f32.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "Shifting retains only 24 bits, checked to fit u32; all such integers convert exactly to f32 before normalization by 2^24."
+    )]
     // The shift keeps the value inside 24 bits by construction.
-    let value = ((z >> 40) as u32) as f32 / 16_777_216.0;
+    let value = u32::try_from(z >> 40_i32).unwrap_or(0) as f32 / 16_777_216.0;
     value.min(1.0)
 }
 
@@ -3691,15 +3757,16 @@ fn build_node(
     };
     let mid = start.saturating_add(count / 2);
     if let Some(slice) = order.get_mut(start..end) {
-        slice.select_nth_unstable_by(mid.saturating_sub(start), |a, b| {
-            let ca = centroids
-                .get(usize::try_from(*a).unwrap_or(usize::MAX))
-                .map_or(0.0, |value| value[axis]);
-            let cb = centroids
-                .get(usize::try_from(*b).unwrap_or(usize::MAX))
-                .map_or(0.0, |value| value[axis]);
-            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        let _select_nth_unstable_by_status =
+            slice.select_nth_unstable_by(mid.saturating_sub(start), |a, b| {
+                let ca = centroids
+                    .get(usize::try_from(*a).unwrap_or(usize::MAX))
+                    .map_or(0.0, |value| value[axis]);
+                let cb = centroids
+                    .get(usize::try_from(*b).unwrap_or(usize::MAX))
+                    .map_or(0.0, |value| value[axis]);
+                ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+            });
     }
     let left = build_node(
         triangles,
@@ -3875,8 +3942,8 @@ impl PreparedRay {
         if depth.abs() <= f64::MIN_POSITIVE || !depth.is_finite() {
             return None;
         }
-        let horizontal = (dominant + 1) % 3;
-        let vertical = (horizontal + 1) % 3;
+        let horizontal = dominant.saturating_add(1) % 3;
+        let vertical = horizontal.saturating_add(1) % 3;
         Some(Self {
             origin: origin.map(f64::from),
             parallel: direction.map(|component| component == 0.0),
@@ -3912,8 +3979,8 @@ impl PreparedRay {
         let edge_a = c[0] * b[1] - c[1] * b[0];
         let edge_b = a[0] * c[1] - a[1] * c[0];
         let edge_c = b[0] * a[1] - b[1] * a[0];
-        if (edge_a < 0.0 || edge_b < 0.0 || edge_c < 0.0)
-            && (edge_a > 0.0 || edge_b > 0.0 || edge_c > 0.0)
+        if (edge_a < 0.0_f64 || edge_b < 0.0_f64 || edge_c < 0.0_f64)
+            && (edge_a > 0.0_f64 || edge_b > 0.0_f64 || edge_c > 0.0_f64)
         {
             return None;
         }
@@ -3923,6 +3990,11 @@ impl PreparedRay {
         }
         // Preserve the baseline's f64 divisions and accumulation order. Depth
         // divisions are unnecessary for triangles rejected by the edge test.
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::as_conversions,
+            reason = "The intersection intentionally rounds the f64 reference calculation to f32; non-finite results are rejected immediately below."
+        )]
         let distance = ((edge_a * (a[2] / self.depth)
             + edge_b * (b[2] / self.depth)
             + edge_c * (c[2] / self.depth))
@@ -4030,13 +4102,13 @@ pub fn patch_normal(patch: &LightmapPatch) -> [f32; 3] {
 /// spanning the patch inclusively exactly like the historical fill.
 #[must_use]
 pub fn texel_axis(index: usize, count: usize) -> f32 {
-    let count = u16::try_from(count).unwrap_or(u16::MAX);
-    if count <= 1 {
+    let sample_count = u16::try_from(count).unwrap_or(u16::MAX);
+    if sample_count <= 1 {
         return 0.5;
     }
-    let index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
-    let last = f32::from(count.saturating_sub(1));
-    (index / last).clamp(0.0, 1.0)
+    let sample_index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    let last = f32::from(sample_count.saturating_sub(1));
+    (sample_index / last).clamp(0.0, 1.0)
 }
 
 /// Runs `task` over `0..count` on up to `workers` scoped threads, preserving
@@ -4063,29 +4135,30 @@ fn parallel_map<T: Send>(
         }
         return Ok(out);
     }
-    let workers = workers.min(MAX_TRANSPORT_WORKERS).min(count);
+    let bounded_workers = workers.min(MAX_TRANSPORT_WORKERS).min(count);
     // Large, contiguous jobs balance heterogeneous scenes without scattering
     // every worker's reads across the receiver array. Keep optional slots per
     // batch, rather than per texel: millions of large accumulator copies and
     // Option tags were otherwise retained during result assembly.
-    let batch = count.div_ceil(workers.saturating_mul(8)).clamp(32, 2048);
+    let batch = count
+        .div_ceil(bounded_workers.saturating_mul(8))
+        .clamp(32, 2048);
     let jobs = count.div_ceil(batch);
-    let workers = workers.min(jobs);
+    let job_workers = bounded_workers.min(jobs);
     let next = std::sync::atomic::AtomicUsize::new(0);
     let mut slots: Vec<Option<Vec<T>>> = (0..jobs).map(|_| None).collect();
     let mut failed = false;
     std::thread::scope(|scope| {
         let mut handles = Vec::new();
-        for worker in 0..workers {
-            let task = &task;
-            let cancel = cancel;
-            let next = &next;
+        for worker in 0..job_workers {
+            let worker_task = &task;
+            let next_job = &next;
             let handle = std::thread::Builder::new()
                 .name(format!("transport-solve-{worker}"))
                 .spawn_scoped(scope, move || {
                     let mut completed = Vec::new();
                     loop {
-                        let job = next.fetch_add(1, Ordering::Relaxed);
+                        let job = next_job.fetch_add(1, Ordering::Relaxed);
                         if job >= jobs || cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                             break;
                         }
@@ -4096,14 +4169,14 @@ fn parallel_map<T: Send>(
                             if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                                 break;
                             }
-                            values.push(task(index));
+                            values.push(worker_task(index));
                         }
                         completed.push((job, values));
                     }
                     completed
                 });
             match handle {
-                Ok(handle) => handles.push(handle),
+                Ok(worker_handle) => handles.push(worker_handle),
                 Err(_) => {
                     failed = true;
                     break;

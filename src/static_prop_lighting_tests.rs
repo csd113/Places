@@ -6,14 +6,12 @@
 //! separate approximation of the lighting equation.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use glam::Vec3;
@@ -84,6 +82,12 @@ fn receiver_batch<'a>(build: &'a crate::render::LevelBuild, suffix: &str) -> &'a
 /// Bilinear sampling of the stored moment planes, followed by the same
 /// directional reconstruction the fragment shader applies. UV interpolation
 /// precedes normal reconstruction; colours are deliberately absent here.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "Encoded u16 UVs address bounded atlas pages; flooring their nonnegative pixel coordinates retains the independent shader sampling oracle."
+)]
 fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
     let page = vertices[0].lightmap_page;
     assert!(vertices.iter().all(Vertex::is_lightmapped));
@@ -96,8 +100,12 @@ fn sample(atlas: &LevelLightmaps, vertices: [Vertex; 3]) -> [f32; 3] {
             .sum::<f32>()
             / 3.0
     });
-    let x = uv[0].mul_add(image.width as f32, -0.5).max(0.0);
-    let y = uv[1].mul_add(image.height as f32, -0.5).max(0.0);
+    let x = uv[0]
+        .mul_add(crate::test_support::exact_f32(image.width), -0.5)
+        .max(0.0);
+    let y = uv[1]
+        .mul_add(crate::test_support::exact_f32(image.height), -0.5)
+        .max(0.0);
     let x0 = x.floor() as u32;
     let y0 = y.floor() as u32;
     let dx = x.fract();
@@ -168,7 +176,7 @@ fn mean(values: &[f32]) -> f32 {
         !values.is_empty(),
         "the receiver must have samples in the requested orientation"
     );
-    values.iter().sum::<f32>() / values.len() as f32
+    values.iter().sum::<f32>() / crate::test_support::exact_f32(values.len())
 }
 
 #[test]
@@ -369,7 +377,7 @@ fn legacy_low_and_repeated_medium_high_builds_keep_their_distinct_lighting_contr
 fn animated_sheet_ghosts_keep_probe_lighting_and_do_not_receive_static_atlas_coordinates() {
     let mut level = scene(STUMP, "", 2.0);
     let ghost: crate::level::PropDef = serde_json::from_value(serde_json::json!({
-        "id":"animated_ghost", "model":"sheet-ghost-cat", "x":5.5, "z":3.0
+        "id":"animated_ghost", "model":"sheet-ghost-cat", "x":5.5_f64, "z":3.0_f64
     }))
     .unwrap();
     level.props.push(ghost);
@@ -442,8 +450,8 @@ fn nearby_real_prop_geometry_casts_a_shadow_onto_a_static_stump() {
     let mut occluded = open.clone();
     occluded.props.push(
         serde_json::from_value(serde_json::json!({
-            "id":"occluding_fridge", "model":"core:fridge", "x":2.9, "z":3.0,
-            "scale":1.2,"solid":true
+            "id":"occluding_fridge", "model":"core:fridge", "x":2.9_f64, "z":3.0_f64,
+            "scale":1.2_f64,"solid":true
         }))
         .unwrap(),
     );
@@ -509,7 +517,7 @@ fn authored_normal_triangle() -> Vec<u8> {
     }
     binary.extend_from_slice(&[0, 0]);
     let n = std::f32::consts::FRAC_1_SQRT_2;
-    for _ in 0..3 {
+    for _ in 0_i32..3_i32 {
         for channel in [n, n, 0.0] {
             binary.extend_from_slice(&channel.to_le_bytes());
         }
@@ -557,7 +565,10 @@ fn valid_authored_model_normals_survive_nonuniform_node_transforms() {
 /// changes during authoring; invoke it after generators settle before rebakes.
 #[test]
 #[ignore = "explicit bundled-map atlas planning preflight; no lightmap fill"]
-#[allow(clippy::print_stderr)] // Explicit developer diagnostic, outside normal tests and runtime.
+#[expect(
+    clippy::print_stderr,
+    reason = "Explicit developer diagnostic, outside normal tests and runtime."
+)] // Explicit developer diagnostic, outside normal tests and runtime.
 fn bundled_static_models_fit_medium_and_full_atlas_plans() {
     let root = crate::assets::resolve_asset_root().unwrap();
     let catalog = PropCatalog::load_from_path(&root.join("catalog.json")).unwrap();
@@ -641,8 +652,8 @@ fn thousands_of_model_charts_pack_deterministically_without_gutter_overlap_or_ex
         }
         // Varied triangle charts encounter real packing fragmentation, rather
         // than proving only that equal rectangles tile an empty page.
-        let width = (2 + index * 7 % 11) as f32 / 8.0;
-        let height = (2 + index * 5 % 13) as f32 / 8.0;
+        let width = crate::test_support::exact_f32(2 + index * 7 % 11) / 8.0;
+        let height = crate::test_support::exact_f32(2 + index * 5 % 13) / 8.0;
         inputs.push(patch(PatchKind::Prop, width, height));
     }
     let allocate = || {
@@ -794,11 +805,11 @@ fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preser
         .iter()
         .enumerate()
         .map(|(index, (_, chart))| {
-            let seed = index as f32 + 1.0;
+            let seed = crate::test_support::exact_f32(index) + 1.0;
             (0..chart.width * chart.height)
                 .map(|texel| {
-                    let x = (texel % chart.width) as f32;
-                    let y = (texel / chart.width) as f32;
+                    let x = crate::test_support::exact_f32(texel % chart.width);
+                    let y = crate::test_support::exact_f32(texel / chart.width);
                     LightmapTexel {
                         irradiance: [
                             x.mul_add(0.07, seed),
@@ -825,8 +836,8 @@ fn adjacent_model_charts_assemble_with_their_own_single_texel_gutters_and_preser
         );
     }
     for (page, touched) in atlas.pages().iter().zip(&written) {
-        for (texel, touched) in page.texels.iter().zip(touched) {
-            if !touched {
+        for (texel, texel_written) in page.texels.iter().zip(touched) {
+            if !texel_written {
                 assert_eq!(
                     *texel,
                     LightmapTexel::ZERO,
@@ -903,7 +914,11 @@ fn real_dense_showcase_metadata_exceeds_material_budget_and_loads_under_its_own_
     let package = root.join("levels/lantern_hollow.placesmap");
     let validated = crate::compiler::validate(&package)
         .expect("the compiler validator must accept the same bounded dense chart metadata");
-    assert_eq!(validated.warnings, [] as [std::string::String; 0]);
+    assert!(
+        validated.warnings.is_empty(),
+        "unexpected validation warnings: {:?}",
+        validated.warnings
+    );
     let opened = crate::package::world::open(&package).unwrap();
     let full = opened.manifest.variant("full").unwrap();
     assert!(full.lightmap_failure.is_none());
@@ -1255,8 +1270,8 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
     );
     assert!(prepared.build.lightmap_failure.is_none());
     let fill = prepared.fill.unwrap();
-    let mut nonrectangular = 0;
-    let mut checked = 0;
+    let mut nonrectangular = 0_i32;
+    let mut checked = 0_i32;
     for range in prepared
         .build
         .mesh
@@ -1275,13 +1290,13 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
                     if chart.page != u16::from(vertex.lightmap_page) {
                         return None;
                     }
-                    let edge = fill.config.page_edge as f32;
+                    let edge = crate::test_support::exact_f32(fill.config.page_edge);
                     let u = (f32::from(vertex.lightmap[0]) / 65_535.0)
-                        .mul_add(edge, -(chart.x as f32) - 0.5)
-                        / chart.width.saturating_sub(1).max(1) as f32;
+                        .mul_add(edge, -crate::test_support::exact_f32(chart.x) - 0.5)
+                        / crate::test_support::exact_f32(chart.width.saturating_sub(1).max(1));
                     let v = (f32::from(vertex.lightmap[1]) / 65_535.0)
-                        .mul_add(edge, -(chart.y as f32) - 0.5)
-                        / chart.height.saturating_sub(1).max(1) as f32;
+                        .mul_add(edge, -crate::test_support::exact_f32(chart.y) - 0.5)
+                        / crate::test_support::exact_f32(chart.height.saturating_sub(1).max(1));
                     if (-0.002..=1.002).contains(&u) && (-0.002..=1.002).contains(&v) {
                         Some((patch, u, v))
                     } else {
@@ -1296,18 +1311,18 @@ fn emitted_gable_wall_vertices_bake_at_their_actual_world_positions() {
                 baked.distance(actual) < 0.003,
                 "mesh {actual:?} baked {baked:?}: {patch:?}"
             );
-            checked += 1;
+            checked += 1_i32;
             if patch
                 .diagonal_correction
                 .iter()
                 .any(|value| value.abs() > 0.1)
             {
-                nonrectangular += 1;
+                nonrectangular += 1_i32;
             }
         }
     }
     assert!(
-        checked > 20 && nonrectangular >= 4,
+        checked > 20_i32 && nonrectangular >= 4_i32,
         "must exercise real gable trapezoid emitters"
     );
 }
@@ -1374,7 +1389,11 @@ fn real_full_demo_atlas_loads_with_its_ktx_container_overhead() {
     );
     drop(reader);
     let validated = crate::compiler::validate(&package).unwrap();
-    assert_eq!(validated.warnings, [] as [std::string::String; 0]);
+    assert!(
+        validated.warnings.is_empty(),
+        "unexpected validation warnings: {:?}",
+        validated.warnings
+    );
     let mut assets = crate::props::PropAssets::with_root(root);
     let loaded = crate::package::world::load_variant(
         &package,

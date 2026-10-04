@@ -63,7 +63,8 @@ const MAX_MODEL_PATH: u64 = 1024;
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
-    let count = u32::try_from(batches.len()).map_err(|_| "too many prop batches".to_string())?;
+    let count =
+        u32::try_from(batches.len()).map_err(|error| format!("too many prop batches: {error}"))?;
     let capacity = batches.iter().fold(0_usize, |sum, batch| {
         sum.saturating_add(batch.vertices.len().saturating_mul(80))
     });
@@ -76,7 +77,7 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
         writer.f32_3(batch.bounds.min);
         writer.f32_3(batch.bounds.max);
         let submeshes = u32::try_from(batch.submeshes.len())
-            .map_err(|_| "prop batch has too many submeshes".to_string())?;
+            .map_err(|error| format!("prop batch has too many submeshes: {error}"))?;
         writer.u32(submeshes);
         for submesh in &batch.submeshes {
             write_optional_slot(&mut writer, submesh.texture.map(u32::from))?;
@@ -89,7 +90,7 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
             writer.u32(submesh.index_count);
         }
         let vertices = u32::try_from(batch.vertices.len())
-            .map_err(|_| "prop batch has too many vertices".to_string())?;
+            .map_err(|error| format!("prop batch has too many vertices: {error}"))?;
         writer.u32(vertices);
         for vertex in &batch.vertices {
             write_vertex(&mut writer, vertex);
@@ -118,7 +119,10 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
     }
-    let count = reader.count(MAX_PROP_BATCHES as u64, "prop batch count")?;
+    let count = reader.count(
+        u64::try_from(MAX_PROP_BATCHES).unwrap_or(u64::MAX),
+        "prop batch count",
+    )?;
     let mut batches = Vec::with_capacity(count);
     for _ in 0..count {
         batches.push(read_batch(&mut reader)?);
@@ -154,7 +158,10 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
     {
         return Err("prop batch bounds are inverted".to_string());
     }
-    let submesh_count = reader.count(MAX_PROP_SUBMESHES as u64, "prop submesh count")?;
+    let submesh_count = reader.count(
+        u64::try_from(MAX_PROP_SUBMESHES).unwrap_or(u64::MAX),
+        "prop submesh count",
+    )?;
     let mut submeshes = Vec::with_capacity(submesh_count);
     for _ in 0..submesh_count {
         submeshes.push(read_submesh(reader)?);
@@ -165,16 +172,16 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
             "prop batch declares {vertex_count} vertices (limit {MAX_PROP_BATCH_VERTICES})"
         ));
     }
-    let vertex_count = usize::try_from(vertex_count)
-        .map_err(|_| "prop batch vertex count is too large".to_string())?;
-    let mut vertices = Vec::with_capacity(vertex_count.min(4096));
-    for _ in 0..vertex_count {
+    let batch_vertex_count = usize::try_from(vertex_count)
+        .map_err(|error| format!("prop batch vertex count is too large: {error}"))?;
+    let mut vertices = Vec::with_capacity(batch_vertex_count.min(4096));
+    for _ in 0..batch_vertex_count {
         vertices.push(read_vertex(reader)?);
     }
     let indices = reader.u16s(MAX_PROP_BATCH_VERTICES)?;
     if indices
         .iter()
-        .any(|index| usize::from(*index) >= vertex_count)
+        .any(|index| usize::from(*index) >= batch_vertex_count)
     {
         return Err("prop batch has an index outside its vertex list".to_string());
     }
@@ -183,9 +190,9 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
     }
     for submesh in &submeshes {
         let start = usize::try_from(submesh.first_index)
-            .map_err(|_| "prop submesh range is too large".to_string())?;
+            .map_err(|error| format!("prop submesh range is too large: {error}"))?;
         let length = usize::try_from(submesh.index_count)
-            .map_err(|_| "prop submesh range is too large".to_string())?;
+            .map_err(|error| format!("prop submesh range is too large: {error}"))?;
         let end = start
             .checked_add(length)
             .ok_or_else(|| "prop submesh range overflows".to_string())?;
@@ -210,7 +217,7 @@ fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
     let texture = read_optional_slot(reader)?
         .map(u16::try_from)
         .transpose()
-        .map_err(|_| "prop submesh texture slot does not fit a u16".to_string())?;
+        .map_err(|error| format!("prop submesh texture slot does not fit a u16: {error}"))?;
     let alpha_mode = reader.u8()?;
     let mode = match alpha_mode {
         0 => AlphaMode::Opaque,
@@ -271,11 +278,11 @@ fn write_optional_slot(writer: &mut Writer, slot: Option<u32>) -> Result<(), Str
             writer.u8(0);
         }
         Some(value) => {
-            let value = u16::try_from(value).map_err(|_| {
-                format!("prop texture slot {value} does not fit the record's u16 slot")
+            let texture_slot = u16::try_from(value).map_err(|error| {
+                format!("prop texture slot {value} does not fit the record's u16 slot: {error}")
             })?;
             writer.u8(1);
-            writer.u16(value);
+            writer.u16(texture_slot);
         }
     }
     Ok(())

@@ -49,7 +49,7 @@ pub fn scene_target_size(level: QualityLevel, drawable: DrawableSize) -> Drawabl
         return drawable;
     }
     let factor = scene_target_factor(level, drawable.width);
-    if factor >= 1.0 {
+    if factor >= 1.0_f64 {
         return drawable;
     }
     let width = scale_dimension(drawable.width, factor);
@@ -60,7 +60,12 @@ pub fn scene_target_size(level: QualityLevel, drawable: DrawableSize) -> Drawabl
 /// Scales one drawable dimension, rounding to nearest and never to zero.
 fn scale_dimension(value: u32, factor: f64) -> u32 {
     let scaled = (f64::from(value) * factor).round();
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The rounded nonnegative dimension is clamped within 1..=u32::MAX before conversion."
+    )]
     // `value` is a `u32` and `factor` is in `(0, 1]`, so the product is in
     // `[0, u32::MAX]` and non-negative; the clamp only guards the fractional
     // rounding.
@@ -90,7 +95,7 @@ mod tests {
         let drawable_aspect = f64::from(drawable.width) / f64::from(drawable.height);
         let medium_aspect = f64::from(medium.width) / f64::from(medium.height);
         assert!(
-            (drawable_aspect - medium_aspect).abs() < 1.0e-3,
+            (drawable_aspect - medium_aspect).abs() < 1.0e-3_f64,
             "the target must keep the drawable's aspect ratio"
         );
     }
@@ -104,7 +109,7 @@ mod tests {
         let drawable_aspect = f64::from(drawable.width) / f64::from(drawable.height);
         let low_aspect = f64::from(low.width) / f64::from(low.height);
         assert!(
-            (drawable_aspect - low_aspect).abs() < 1.0e-3,
+            (drawable_aspect - low_aspect).abs() < 1.0e-3_f64,
             "the target must keep the drawable's aspect ratio"
         );
     }

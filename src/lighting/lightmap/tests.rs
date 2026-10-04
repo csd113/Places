@@ -4,19 +4,18 @@
 // idiomatic in tests; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::format_push_string,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::{Chart, ChartAllocator, LightmapConfig, LightmapMode, LightmapPatch, PatchKind};
 use crate::quality::QualityProfile;
+use crate::test_support::{exact_f32, exact_f64};
 
 /// A flat X/Z floor quad at `y`, from `(x0, z0)` to `(x1, z1)`, wound as a floor.
 fn floor_quad(x0: f32, z0: f32, x1: f32, z1: f32, y: f32) -> [[f32; 3]; 4] {
@@ -56,13 +55,19 @@ fn patch_axes_follow_the_quad_winding() {
     let patch = LightmapPatch::from_quad(PatchKind::Wall, corners, Some(4)).expect("valid");
     let (u, v) = patch.local_of(corners[0]);
     assert!((u).abs() < 1.0e-6 && (v).abs() < 1.0e-6, "p0 is (0,0)");
-    let (u, v) = patch.local_of(corners[1]);
-    assert!((u - 1.0).abs() < 1.0e-6 && v.abs() < 1.0e-6, "p1 is (1,0)");
-    let (u, v) = patch.local_of(corners[3]);
-    assert!(u.abs() < 1.0e-6 && (v - 1.0).abs() < 1.0e-6, "p3 is (0,1)");
-    let (u, v) = patch.local_of(corners[2]);
+    let (u1, v1) = patch.local_of(corners[1]);
     assert!(
-        (u - 1.0).abs() < 1.0e-6 && (v - 1.0).abs() < 1.0e-6,
+        (u1 - 1.0).abs() < 1.0e-6 && v1.abs() < 1.0e-6,
+        "p1 is (1,0)"
+    );
+    let (u3, v3) = patch.local_of(corners[3]);
+    assert!(
+        u3.abs() < 1.0e-6 && (v3 - 1.0).abs() < 1.0e-6,
+        "p3 is (0,1)"
+    );
+    let (u2, v2) = patch.local_of(corners[2]);
+    assert!(
+        (u2 - 1.0).abs() < 1.0e-6 && (v2 - 1.0).abs() < 1.0e-6,
         "p2 is (1,1)"
     );
     assert_eq!(patch.kind, PatchKind::Wall);
@@ -173,8 +178,8 @@ fn chart_endpoints_and_bake_samples_map_to_texel_centres() {
             let uv = chart.uv_at(1024, u, v);
             let actual = uv.map(|value| f32::from(value) * 1024.0 / 65_535.0);
             let expected = [
-                (width.saturating_sub(1) as f32).mul_add(u, 10.5),
-                (height.saturating_sub(1) as f32).mul_add(v, 20.5),
+                exact_f32(width.saturating_sub(1)).mul_add(u, 10.5),
+                exact_f32(height.saturating_sub(1)).mul_add(v, 20.5),
             ];
             for axis in 0..2 {
                 // Packed normalized u16 UVs round by at most half an atlas texel / 64.
@@ -187,12 +192,17 @@ fn chart_endpoints_and_bake_samples_map_to_texel_centres() {
 #[test]
 fn packing_is_deterministic_and_disjoint() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let patches: Vec<LightmapPatch> = (0..40)
-        .map(|index| patch(1.0 + (index % 7) as f32, 0.5 + (index % 5) as f32))
+    let patches: Vec<LightmapPatch> = (0_i32..40_i32)
+        .map(|index| {
+            patch(
+                1.0 + exact_f32(index % 7_i32),
+                0.5 + exact_f32(index % 5_i32),
+            )
+        })
         .collect();
-    let pack = |patches: &[LightmapPatch]| {
+    let pack = |source_patches: &[LightmapPatch]| {
         let mut allocator = ChartAllocator::new(config);
-        let charts: Vec<Chart> = patches
+        let charts: Vec<Chart> = source_patches
             .iter()
             .filter_map(|patch| allocator.allocate(patch))
             .collect();
@@ -211,7 +221,7 @@ fn packing_is_deterministic_and_disjoint() {
     // Every outer rectangle (data + both gutters) is disjoint from every other.
     let padding = config.padding;
     for (index, a) in charts.iter().enumerate() {
-        let a = (
+        let first_rect = (
             a.x.saturating_sub(padding),
             a.y.saturating_sub(padding),
             a.x + a.width + padding,
@@ -222,13 +232,16 @@ fn packing_is_deterministic_and_disjoint() {
             .skip(index + 1)
             .filter(|b| b.page == charts[index].page)
         {
-            let b = (
+            let other_rect = (
                 b.x.saturating_sub(padding),
                 b.y.saturating_sub(padding),
                 b.x + b.width + padding,
                 b.y + b.height + padding,
             );
-            let disjoint = a.2 <= b.0 || b.2 <= a.0 || a.3 <= b.1 || b.3 <= a.1;
+            let disjoint = first_rect.2 <= other_rect.0
+                || other_rect.2 <= first_rect.0
+                || first_rect.3 <= other_rect.1
+                || other_rect.3 <= first_rect.1;
             assert!(disjoint, "charts {index} and their gutters overlap");
         }
     }
@@ -287,8 +300,8 @@ fn overflow_is_reported_not_hidden() {
     let usable = config.usable_edge();
     // One chart fills an empty page exactly; a second cannot fit anywhere.
     let big = patch(
-        usable as f32 / config.texels_per_metre,
-        usable as f32 / config.texels_per_metre,
+        exact_f32(usable) / config.texels_per_metre,
+        exact_f32(usable) / config.texels_per_metre,
     );
     assert!(allocator.allocate(&big).is_some(), "first chart fits");
     assert!(allocator.allocate(&big).is_none(), "second chart overflows");
@@ -345,6 +358,12 @@ fn a_two_page_allocator_still_reports_the_same_overflow() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent expectation rounds finite profile densities over fixed 2 m and 10 m fixtures up to integral u32 texel counts."
+)]
 fn chart_texels_match_the_density_and_are_profile_specific() {
     let full = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let low = LightmapConfig::for_profile(crate::quality::QualityProfile::Low);
@@ -493,8 +512,8 @@ fn the_moment_representation_is_smooth_across_the_historical_octahedral_seam() {
         direction: [0.0; 3],
         axis: [0.5, 0.5],
     };
-    for normal in [[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]] {
-        assert_eq!(flat.light_at(normal), [0.4, 0.2, 0.1]);
+    for sample_normal in [[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]] {
+        assert_eq!(flat.light_at(sample_normal), [0.4, 0.2, 0.1]);
     }
 }
 
@@ -522,10 +541,10 @@ fn plus_is_an_exact_component_wise_sum_for_switchable_layers() {
             "irradiance channel {channel}: {} vs {expected}",
             sum.irradiance[channel]
         );
-        let expected = base.direction[channel] + contribution.direction[channel];
+        let expected_moment = base.direction[channel] + contribution.direction[channel];
         assert!(
-            (sum.direction[channel] - expected).abs() < 1.0e-6,
-            "direction channel {channel}: {} vs {expected}",
+            (sum.direction[channel] - expected_moment).abs() < 1.0e-6,
+            "direction channel {channel}: {} vs {expected_moment}",
             sum.direction[channel]
         );
     }
@@ -555,6 +574,12 @@ fn normalized_keeps_the_signed_moment() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent density expectations ceil fixed 4 m and 2 m fixture dimensions into small integral u32 texel counts."
+)]
 fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let mut plan = LightmapPlan::new(config);
@@ -709,11 +734,11 @@ fn assemble_writes_charts_at_their_offsets_and_dilates_their_own_gutters() {
                 let j = index / width;
                 LightmapTexel {
                     irradiance: [
-                        (i as f32).mul_add(0.01, seed),
-                        (j as f32).mul_add(0.02, seed),
+                        exact_f32(i).mul_add(0.01, seed),
+                        exact_f32(j).mul_add(0.02, seed),
                         seed,
                     ],
-                    direction: [seed * 0.5, seed * 0.25, i as f32 * 0.001],
+                    direction: [seed * 0.5, seed * 0.25, exact_f32(i) * 0.001],
                     axis: [0.25, 0.75],
                 }
             })
@@ -735,10 +760,17 @@ fn assemble_writes_charts_at_their_offsets_and_dilates_their_own_gutters() {
         let height = usize::try_from(chart.height).expect("height");
         for j in 0..height {
             for i in 0..width {
-                let value = read_page_texel(page, chart.x + i as u32, chart.y + j as u32)
-                    .expect("a data texel is inside the page");
+                let value = read_page_texel(
+                    page,
+                    chart.x + u32::try_from(i).expect("fixture integer fits u32"),
+                    chart.y + u32::try_from(j).expect("fixture integer fits u32"),
+                )
+                .expect("a data texel is inside the page");
                 assert_eq!(value, data[j * width + i], "chart texel ({i}, {j})");
-                written[(chart.y as usize + j) * page.width as usize + chart.x as usize + i] = true;
+                written[(usize::try_from(chart.y).expect("fixture integer fits usize") + j)
+                    * usize::try_from(page.width).expect("fixture integer fits usize")
+                    + usize::try_from(chart.x).expect("fixture integer fits usize")
+                    + i] = true;
             }
         }
         // Every outer-rectangle texel that is not data must be the chart's own
@@ -747,18 +779,25 @@ fn assemble_writes_charts_at_their_offsets_and_dilates_their_own_gutters() {
             for x in chart.x - padding..chart.x + chart.width + padding {
                 let source_x = x.clamp(chart.x, chart.x + chart.width - 1);
                 let source_y = y.clamp(chart.y, chart.y + chart.height - 1);
-                let expected =
-                    data[(source_y - chart.y) as usize * width + (source_x - chart.x) as usize];
+                let expected = data[usize::try_from(source_y - chart.y)
+                    .expect("fixture integer fits usize")
+                    * width
+                    + usize::try_from(source_x - chart.x).expect("fixture integer fits usize")];
                 let value = read_page_texel(page, x, y).expect("an outer texel is inside the page");
                 assert_eq!(value, expected, "gutter texel ({x}, {y})");
-                written[y as usize * page.width as usize + x as usize] = true;
+                written[usize::try_from(y).expect("fixture integer fits usize")
+                    * usize::try_from(page.width).expect("fixture integer fits usize")
+                    + usize::try_from(x).expect("fixture integer fits usize")] = true;
             }
         }
     }
     // No texel outside both reserved outer rectangles was ever touched.
     for y in 0..page.height {
         for x in 0..page.width {
-            if !written[y as usize * page.width as usize + x as usize] {
+            if !written[usize::try_from(y).expect("fixture integer fits usize")
+                * usize::try_from(page.width).expect("fixture integer fits usize")
+                + usize::try_from(x).expect("fixture integer fits usize")]
+            {
                 assert_eq!(
                     read_page_texel(page, x, y),
                     Some(LightmapTexel::ZERO),
@@ -775,7 +814,7 @@ fn assemble_rejects_wrong_length_and_non_finite_texel_runs() {
     let mut allocator = ChartAllocator::new(config);
     let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
     let charts = [(patch(1.0, 1.0), chart)];
-    let expected = (chart.width * chart.height) as usize;
+    let expected = usize::try_from(chart.width * chart.height).expect("fixture integer fits usize");
     assert!(expected > 1, "the fixture chart has more than one texel");
 
     // `charts` and `texels` are parallel: one run per chart, in plan order.
@@ -880,6 +919,12 @@ fn layout_validation_rejects_overflow_and_out_of_page_charts() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent PNG reference quantizes a clamped display channel with the existing 255-scale and half-up bias; native truncation saturates safely at 255."
+)]
 fn a_page_encodes_as_a_tone_mapped_decodable_png() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Low);
     let chart = Chart {
@@ -920,7 +965,7 @@ fn a_page_encodes_as_a_tone_mapped_decodable_png() {
         (display.clamp(0.0, 1.0).mul_add(255.0, 0.5)) as u8
     };
     let pixel = |x: u32, y: u32| -> [u8; 4] {
-        let offset = ((y * page.width + x) * 4) as usize;
+        let offset = usize::try_from((y * page.width + x) * 4).expect("fixture integer fits usize");
         decoded.rgba[offset..offset + 4]
             .try_into()
             .expect("one RGBA pixel")
@@ -1402,6 +1447,12 @@ fn an_oversized_patch_is_clamped_to_a_page_not_dropped() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent height expectation ceils a fixed 2 m fixture at a finite profile density into its integral u32 texel count."
+)]
 fn chart_texels_are_clamped_to_the_usable_edge() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let huge = patch(400.0, 2.0);
@@ -1459,7 +1510,7 @@ fn the_shipped_demo_fits_the_page_budget_at_both_profiles() {
             QualityProfile::Full => 2_800_000,
         };
         assert!(
-            lightmaps.stats.texels as u64 >= floor,
+            u64::try_from(lightmaps.stats.texels).expect("fixture integer fits u64") >= floor,
             "{profile:?} must bake a substantial chart set: {} of {budget}",
             lightmaps.stats.texels
         );
@@ -1526,14 +1577,14 @@ fn large_tower_level_with_storeys(storeys: u32) -> crate::level::LevelDef {
     let mut rooms: Vec<String> = Vec::new();
     let mut lights: Vec<String> = Vec::new();
     for storey in 0..storeys {
-        let floor_y = -6.0 * storey as f32;
+        let floor_y = -6.0 * exact_f32(storey);
         rooms.push(format!(
             r#"{{"x": 0.0, "z": 0.0, "width": 55.0, "depth": 55.0, "height": 6.0, "floor_y": {floor_y}}}"#
         ));
-        for ix in 0..3 {
-            for iz in 0..3 {
-                let x = 18.0f32.mul_add(ix as f32, 9.0);
-                let z = 18.0f32.mul_add(iz as f32, 9.0);
+        for ix in 0_i32..3_i32 {
+            for iz in 0_i32..3_i32 {
+                let x = 18.0f32.mul_add(exact_f32(ix), 9.0);
+                let z = 18.0f32.mul_add(exact_f32(iz), 9.0);
                 lights.push(format!(
                     r#"{{"fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "brightness": 0.5}}"#
                 ));
@@ -1628,9 +1679,9 @@ fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
         .lightmaps
         .as_deref()
         .unwrap_or_else(|| panic!("Full must produce an atlas for the tower"));
-    assert_ne!(
-        lightmaps.pages,
-        [] as [crate::lighting::lightmap::atlas::LightmapPage; 0]
+    assert!(
+        !lightmaps.pages.is_empty(),
+        "lightmaps.pages must contain entries"
     );
     assert!(
         lightmaps.pages.len() <= config.max_pages,
@@ -1753,10 +1804,10 @@ fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
     let lighting =
         crate::lighting::LevelLighting::bake_with(level, QualityProfile::Full.bake_config());
     let mut out = Vec::new();
-    for i in 0..=4 {
-        for j in 0..=4 {
-            let x = (i as f32).mul_add(2.0, 1.0);
-            let z = (j as f32).mul_add(1.5, 1.0);
+    for i in 0_i32..=4_i32 {
+        for j in 0_i32..=4_i32 {
+            let x = exact_f32(i).mul_add(2.0, 1.0);
+            let z = exact_f32(j).mul_add(1.5, 1.0);
             let color = lighting.sample_in_room(0, x, 0.0, z);
             out.push([color.r, color.g, color.b]);
         }
@@ -1869,10 +1920,10 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
     let a = crate::lighting::LevelLighting::bake_with(&forward, QualityProfile::Full.bake_config());
     let b =
         crate::lighting::LevelLighting::bake_with(&backward, QualityProfile::Full.bake_config());
-    for i in 0..=8 {
-        for j in 0..=6 {
-            let x = (i as f32).mul_add(1.8, 0.5);
-            let z = (j as f32).mul_add(1.8, 0.5);
+    for i in 0_i32..=8_i32 {
+        for j in 0_i32..=6_i32 {
+            let x = exact_f32(i).mul_add(1.8, 0.5);
+            let z = exact_f32(j).mul_add(1.8, 0.5);
             let first = a.sample_in_room(0, x, 0.0, z);
             let second = b.sample_in_room(0, x, 0.0, z);
             for (channel, (one, two)) in [first.r, first.g, first.b]
@@ -1914,7 +1965,10 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
 /// `print_stdout` lint is switched off for this one test.
 #[test]
 #[ignore = "developer measurement: prints places_demo's chart statistics"]
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
+)]
 fn measure_demo_chart_statistics() {
     let level =
         crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
@@ -1949,16 +2003,16 @@ fn measure_demo_chart_statistics() {
             ..config
         });
         for patch in &patches {
-            probe.allocate(patch);
+            let _allocate_status = probe.allocate(patch);
         }
         let padding = u64::from(config.padding);
         let mut data = 0u64;
         let mut outer = 0u64;
         for patch in &patches {
             let (w, h) = config.chart_texels(patch);
-            let (w, h) = (u64::from(w), u64::from(h));
-            data += w * h;
-            outer += (w + padding * 2) * (h + padding * 2);
+            let (width_texels, height_texels) = (u64::from(w), u64::from(h));
+            data += width_texels * height_texels;
+            outer += (width_texels + padding * 2) * (height_texels + padding * 2);
         }
         let edge = u64::from(config.page_edge);
         let budget = edge * edge * u64::try_from(config.max_pages).unwrap_or(1);
@@ -1983,8 +2037,8 @@ fn measure_demo_chart_statistics() {
             budget,
             config.max_pages,
             config.page_edge,
-            100.0 * data as f64 / budget as f64,
-            100.0 * outer as f64 / budget as f64,
+            100.0_f64 * exact_f64(data) / exact_f64(budget),
+            100.0_f64 * exact_f64(outer) / exact_f64(budget),
             probe.page_count(),
             probe.failed(),
             config.texels_per_metre,
@@ -1993,30 +2047,32 @@ fn measure_demo_chart_statistics() {
     }
     // The real two-page build, per profile, for the bake time and page shape.
     for profile in crate::quality::QualityProfile::ALL {
-        let materials = crate::render::logical_materials(&level);
-        let catalog = crate::loader::PropCatalog::builtin();
-        let mut assets = crate::props::PropAssets::default();
-        let build = crate::render::build_level_geometry_timed_with_lightmaps(
+        let profile_materials = crate::render::logical_materials(&level);
+        let profile_catalog = crate::loader::PropCatalog::builtin();
+        let mut profile_assets = crate::props::PropAssets::default();
+        let profile_build = crate::render::build_level_geometry_timed_with_lightmaps(
             &level,
-            &catalog,
-            &mut assets,
-            &materials,
+            &profile_catalog,
+            &mut profile_assets,
+            &profile_materials,
             crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On),
             None,
         );
-        match build.lightmaps.as_deref() {
-            Some(lightmaps) => println!(
+        match profile_build.lightmaps.as_deref() {
+            Some(profile_lightmaps) => println!(
                 "{:?}: real build: {} page(s), {} charts, {} chart texels, {:.1} ms",
                 profile,
-                lightmaps.pages.len(),
-                lightmaps.charts.len(),
-                lightmaps.stats.texels,
-                lightmaps.stats.bake_millis,
+                profile_lightmaps.pages.len(),
+                profile_lightmaps.charts.len(),
+                profile_lightmaps.stats.texels,
+                profile_lightmaps.stats.bake_millis,
             ),
             None => println!(
                 "{:?}: real build: FAILED ({:?})",
                 profile,
-                build.lightmap_failure.unwrap_or(LightmapFailure::Layout),
+                profile_build
+                    .lightmap_failure
+                    .unwrap_or(LightmapFailure::Layout),
             ),
         }
     }

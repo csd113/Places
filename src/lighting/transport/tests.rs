@@ -7,7 +7,6 @@
 //! idiomatic here; production lints stay enforced elsewhere.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
@@ -16,7 +15,8 @@
     clippy::panic,
     clippy::suboptimal_flops,
     clippy::too_many_lines,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -363,14 +363,14 @@ fn an_extended_emitter_produces_a_partial_soft_visibility_transition() {
     );
     triangles.extend(floor(-4.0, -4.0, 4.0, 4.0, [0.6; 3]));
     let scene = TransportScene::new(triangles, vec![emitter]).expect("scene");
-    let emitter = &scene.emitters()[0];
+    let scene_emitter = &scene.emitters()[0];
 
     let mut partial = 0usize;
     let mut fully_lit = 0usize;
     let mut fully_blocked = 0usize;
-    for step in 0..=15 {
+    for step in 0_i32..=15_i32 {
         let z = 1.6 + 0.1 * f32::from(u16::try_from(step).unwrap_or(0));
-        let (weight, _) = emitter.direct(&scene, [-0.2, 0.02, z], 3);
+        let (weight, _) = scene_emitter.direct(&scene, [-0.2, 0.02, z], 3);
         let centre_distance = ((1.2_f32 * 1.2) + (2.0_f32 * 2.0) + (z * z)).sqrt();
         let shape = LightFalloff::Smooth.factor(centre_distance / 12.0);
         let reference = crate::lighting::LOCAL_LIGHT_STRENGTH * 4.0 * shape;
@@ -538,11 +538,11 @@ fn the_emitter_shapes_sample_their_own_extents() {
         direction: [1.0, 0.0, 0.0],
         half_length: 2.0,
     };
-    let samples = line.samples(3);
-    assert_eq!(samples.len(), 3);
-    assert_eq!(samples[0], [-2.0, 0.0, 0.0]);
-    assert_eq!(samples[1], [0.0; 3]);
-    assert_eq!(samples[2], [2.0, 0.0, 0.0]);
+    let line_samples = line.samples(3);
+    assert_eq!(line_samples.len(), 3);
+    assert_eq!(line_samples[0], [-2.0, 0.0, 0.0]);
+    assert_eq!(line_samples[1], [0.0; 3]);
+    assert_eq!(line_samples[2], [2.0, 0.0, 0.0]);
 }
 
 #[test]
@@ -725,7 +725,7 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
     // The compiler labels rooms before packaging; sampling needs valid rooms.
     field.assign_rooms(|_| Some(0));
     reference_field.assign_rooms(|_| Some(0));
-    let mut sampled = 0;
+    let mut sampled = 0_i32;
     for position in [
         [1.0, 0.1, 1.0],
         [2.0, 0.1, 2.0],
@@ -738,7 +738,7 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
         ) else {
             continue;
         };
-        sampled += 1;
+        sampled += 1_i32;
         assert!(
             reference_value.irradiance.iter().sum::<f32>() > 0.0,
             "the plain emitter must light the field at {position:?}"
@@ -751,7 +751,7 @@ fn switchable_fixtures_are_excluded_from_the_moving_object_field() {
             );
         }
     }
-    assert!(sampled > 0, "at least one probe position must resolve");
+    assert!(sampled > 0_i32, "at least one probe position must resolve");
 }
 
 // ------------------------------------------------- water and translucency
@@ -1013,18 +1013,18 @@ fn the_chart_fill_restores_the_authored_baseline_and_keeps_dark_rooms_dark() {
     let scene = TransportScene::new(blocker, vec![emitter])
         .expect("scene")
         .with_receiver_target(target);
-    let solved = scene.solve(&charts, options(0, 1), None).expect("solve");
-    let lit_mean = chart_mean_light(&solved, 0, normal);
+    let targeted_solve = scene.solve(&charts, options(0, 1), None).expect("solve");
+    let targeted_mean = chart_mean_light(&targeted_solve, 0, normal);
     for channel in 0..3 {
         assert!(
-            lit_mean[channel] > 0.0 && lit_mean[channel] < lit_target[channel],
+            targeted_mean[channel] > 0.0 && targeted_mean[channel] < lit_target[channel],
             "channel {channel}: a sealed area must not be lifted to a room-wide target: \
-             {lit_mean:?} vs {lit_target:?}"
+             {targeted_mean:?} vs {lit_target:?}"
         );
     }
     // The chart's own structure survives: the texel under the fixture beats
     // the blocked corner, which is exactly what a per-texel deficit lost.
-    let chart = &solved.charts[0];
+    let chart = &targeted_solve.charts[0];
     let mut near = 0.0_f32;
     let mut far = 0.0_f32;
     for (receiver, texel) in chart.receivers.iter().zip(&chart.texels) {
@@ -1235,11 +1235,11 @@ fn a_chart_fill_preserves_the_tall_chamber_pool_contrast() {
         under.1 > 0 && far.1 > 0,
         "both comparison boxes must sample real texels"
     );
-    let under = under.0 / under.1 as f32;
-    let far = far.0 / far.1 as f32;
+    let under_mean = under.0 / crate::test_support::exact_f32(under.1);
+    let far_mean = far.0 / crate::test_support::exact_f32(far.1);
     assert!(
-        under > far + 15.0 / 255.0,
-        "the floor under the panel ({under:.3}) must clearly beat the far floor ({far:.3}): \
+        under_mean > far_mean + 15.0 / 255.0,
+        "the floor under the panel ({under_mean:.3}) must clearly beat the far floor ({far_mean:.3}): \
          a 17 m ceiling must still pool"
     );
 }
@@ -1318,8 +1318,8 @@ fn the_spatial_fill_includes_ceilings_and_preserves_their_physical_gradients() {
         .expect("scene")
         .solve(&charts, options(2, 1), None)
         .expect("plain solve");
-    let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
-    let filled = TransportScene::new(ground, vec![emitter])
+    let fill_emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
+    let filled = TransportScene::new(ground, vec![fill_emitter])
         .expect("scene")
         .with_receiver_target(target)
         .solve(&charts, options(2, 1), None)
@@ -1393,7 +1393,7 @@ fn the_probe_fill_preserves_a_rooms_internal_structure() {
     let target = receiver_targets(&lighting, &charts);
     let probes = probe_targets(&lighting, &charts);
     assert!(
-        probes.iter().all(|probe| probe.room == 0),
+        probes.iter().all(|probe| probe.room == 0_i32),
         "the one-chart lattice must sit in the lit room"
     );
     let emitter = TransportEmitter::from_baked(&lighting.lights()[0], None);
@@ -1623,12 +1623,18 @@ fn subdivided_coplanar_surfaces_keep_their_bounce_cache_light() {
     ];
     values.push(Accumulator::default());
     let cache = RadianceCache::build(&receivers);
-    for (surface, receiver) in receivers.iter().enumerate() {
-        let actual = cache.sample_surface(&scene, receiver.position, surface, &receivers, &values);
-        for (actual, expected) in actual.irradiance.iter().zip(values[surface].irradiance) {
+    for (surface, surface_receiver) in receivers.iter().enumerate() {
+        let actual = cache.sample_surface(
+            &scene,
+            surface_receiver.position,
+            surface,
+            &receivers,
+            &values,
+        );
+        for (actual_channel, expected) in actual.irradiance.iter().zip(values[surface].irradiance) {
             assert!(
-                (actual - expected).abs() < 1.0e-6,
-                "each triangle must retain its own light, including the dark opposite face: {actual} vs {expected}"
+                (actual_channel - expected).abs() < 1.0e-6,
+                "each triangle must retain its own light, including the dark opposite face: {actual_channel} vs {expected}"
             );
         }
     }

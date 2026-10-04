@@ -29,15 +29,13 @@
 // here; the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::print_stdout,
     clippy::too_many_lines,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use super::LevelLighting;
@@ -121,6 +119,12 @@ struct Dist {
 }
 
 impl Dist {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "Reference percentiles use fixed fractions in 0..=1 of an exact fixture length; rounding and the final index clamp deliberately retain the report definition."
+    )]
     fn of(values: &mut [f32]) -> Self {
         if values.is_empty() {
             return Self::default();
@@ -128,11 +132,11 @@ impl Dist {
         values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let pick = |p: f32| {
             let last = values.len() - 1;
-            let index = (p * last as f32).round() as usize;
+            let index = (p * crate::test_support::exact_f32(last)).round() as usize;
             values[index.min(last)]
         };
         Self {
-            mean: values.iter().sum::<f32>() / values.len() as f32,
+            mean: values.iter().sum::<f32>() / crate::test_support::exact_f32(values.len()),
             p05: pick(0.05),
             p50: pick(0.50),
             p90: pick(0.90),
@@ -153,7 +157,7 @@ fn percent(values: &[f32], condition: impl Fn(f32) -> bool) -> f32 {
         return 0.0;
     }
     let hits = values.iter().filter(|value| condition(**value)).count();
-    hits as f32 * 100.0 / values.len() as f32
+    crate::test_support::exact_f32(hits) * 100.0 / crate::test_support::exact_f32(values.len())
 }
 
 /// The shipped demo level.
@@ -269,19 +273,19 @@ fn terms_at(
 ) -> (LightColor, LightColor, LightColor, LightColor) {
     // A patch outside every room samples the whole-position path, which
     // resolves a room by height; mirror that here.
-    let room = room
-        .filter(|room| lighting.rooms().get(*room).is_some())
+    let resolved_room = room
+        .filter(|room_index| lighting.rooms().get(*room_index).is_some())
         .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
-    let Some(room) = room else {
+    let Some(target_room) = resolved_room else {
         let terms = lighting.pool_terms_in_room(None, point[0], point[1], point[2]);
         let (direct, fill) = screen_terms(&terms);
         return (ambient_color(), direct, fill, LightColor::BLACK);
     };
-    let baseline = lighting.baseline_in_room(room, point[0], point[2]);
+    let baseline = lighting.baseline_in_room(target_room, point[0], point[2]);
     // `point` is already the production path's evaluated position. The public
     // diagnostic `opening_blend` would walk it a second time.
-    let blend = lighting.blend_delta(room, point[0], point[1], point[2]);
-    let terms = lighting.pool_terms_in_room(Some(room), point[0], point[1], point[2]);
+    let blend = lighting.blend_delta(target_room, point[0], point[1], point[2]);
+    let terms = lighting.pool_terms_in_room(Some(target_room), point[0], point[1], point[2]);
     let (direct, fill) = screen_terms(&terms);
     (baseline, direct, fill, blend)
 }
@@ -422,12 +426,12 @@ fn evaluated_sample(
             .filter(|room| lighting.rooms().get(*room).is_some())
             .or_else(|| lighting.room_index_at_height(x, y, z))
     };
-    if let Some(room) = room
+    if let Some(target_room) = room
         && (matches!(patch.kind, PatchKind::Wall)
             || lighting.wall_contains_point(point[0], point[2])
             || patch.room.is_none())
     {
-        (x, z) = lighting.clear_sample(room, x, z);
+        (x, z) = lighting.clear_sample(target_room, x, z);
     }
     (room, [x, y, z])
 }
@@ -438,7 +442,7 @@ fn axis(index: usize, count: u32) -> f32 {
     if count <= 1 {
         return 0.5;
     }
-    index as f32 / (count - 1) as f32
+    crate::test_support::exact_f32(index) / crate::test_support::exact_f32(count - 1)
 }
 
 /// Everything one audit run measures.
@@ -588,15 +592,15 @@ fn decomposition_mismatch(texels: &[Texel]) -> f32 {
                 > 0.05
         })
         .count();
-    hits as f32 * 100.0 / texels.len() as f32
+    crate::test_support::exact_f32(hits) * 100.0 / crate::test_support::exact_f32(texels.len())
 }
 
 /// The counterfactual value with the baseline's span above ambient scaled by
 /// `k`, pools and blends unchanged: the shape the rebalance is choosing.
 fn scaled_value(texel: &Texel, pool: LightColor, fill: LightColor, k: f32) -> f32 {
-    let channel = |base: f32, local: f32, fill: f32, blend: f32| {
+    let channel = |base: f32, local: f32, channel_fill: f32, blend: f32| {
         (base - AMBIENT_LEVEL)
-            .mul_add(k, AMBIENT_LEVEL + local + fill + blend)
+            .mul_add(k, AMBIENT_LEVEL + local + channel_fill + blend)
             .clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     };
     let baseline = texel.baseline;
@@ -661,12 +665,14 @@ fn print_report(measurement: &Measurement, label: &str) {
         if shadowed_n == 0 {
             0.0
         } else {
-            hidden as f32 * 100.0 / shadowed_n as f32
+            crate::test_support::exact_f32(hidden) * 100.0
+                / crate::test_support::exact_f32(shadowed_n)
         },
         if shadowed_n == 0 {
             0.0
         } else {
-            invisible as f32 * 100.0 / shadowed_n as f32
+            crate::test_support::exact_f32(invisible) * 100.0
+                / crate::test_support::exact_f32(shadowed_n)
         },
     );
 
@@ -683,8 +689,9 @@ fn print_report(measurement: &Measurement, label: &str) {
             .iter()
             .map(|t| t.open_value().luminance())
             .sum::<f32>()
-            / fully.len() as f32;
-        let value_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>() / fully.len() as f32;
+            / crate::test_support::exact_f32(fully.len());
+        let value_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>()
+            / crate::test_support::exact_f32(fully.len());
         println!(
             "[bake-range] fully_shadowed: n={} open_value_mean={open_mean:.3} shadowed_value_mean={value_mean:.3} loss={:.3} ({:.0}% of open)",
             fully.len(),
@@ -709,13 +716,13 @@ fn print_report(measurement: &Measurement, label: &str) {
         }
         let values: Vec<f32> = subset.iter().map(|t| t.value_lum()).collect();
         let mut dist = values.clone();
-        let dist = Dist::of(&mut dist);
+        let distribution = Dist::of(&mut dist);
         println!(
             "[bake-range] kind={:<8} n={:<6} value_mean={:.3} p50={:.3} clamp={:.1}%",
             kind.name(),
             subset.len(),
-            dist.mean,
-            dist.p50,
+            distribution.mean,
+            distribution.p50,
             percent(&values, |v| v >= MAX_BRIGHTNESS - 1e-3),
         );
     }
@@ -741,19 +748,20 @@ fn print_report(measurement: &Measurement, label: &str) {
             .collect();
         let dist = Dist::of(&mut values);
         let clamp = percent(&values, |v| v >= MAX_BRIGHTNESS - 1e-3);
-        let hidden = if shadowed_n == 0 {
+        let hidden_percent = if shadowed_n == 0 {
             0.0
         } else {
-            shadowed
-                .iter()
-                .filter(|t| {
-                    let open = scaled_value(t, t.pool_open, t.fill_open, k);
-                    let value = scaled_value(t, t.pool, t.fill, k);
-                    (open - value) < 0.25 * t.occluded_lum()
-                })
-                .count() as f32
-                * 100.0
-                / shadowed_n as f32
+            crate::test_support::exact_f32(
+                shadowed
+                    .iter()
+                    .filter(|t| {
+                        let open = scaled_value(t, t.pool_open, t.fill_open, k);
+                        let occluded_value = scaled_value(t, t.pool, t.fill, k);
+                        (open - occluded_value) < 0.25 * t.occluded_lum()
+                    })
+                    .count(),
+            ) * 100.0
+                / crate::test_support::exact_f32(shadowed_n)
         };
         let shadow_loss = if fully.is_empty() {
             0.0
@@ -765,7 +773,7 @@ fn print_report(measurement: &Measurement, label: &str) {
                         - scaled_value(t, t.pool, t.fill, k)
                 })
                 .sum::<f32>()
-                / fully.len() as f32
+                / crate::test_support::exact_f32(fully.len())
         };
         let open_mean = if fully.is_empty() {
             0.0
@@ -774,7 +782,7 @@ fn print_report(measurement: &Measurement, label: &str) {
                 .iter()
                 .map(|t| scaled_value(t, t.pool_open, t.fill_open, k))
                 .sum::<f32>()
-                / fully.len() as f32
+                / crate::test_support::exact_f32(fully.len())
         };
         println!(
             "[bake-range] BASELINE_MAX={target:.3}: k={k:.3} mean={:.3} p05={:.3} p50={:.3} p90={:.3} clamp={:.1}% hidden={:.1}% shadow_loss={:.3} ({:.0}% of open)",
@@ -783,7 +791,7 @@ fn print_report(measurement: &Measurement, label: &str) {
             dist.p50,
             dist.p90,
             clamp,
-            hidden,
+            hidden_percent,
             shadow_loss,
             if open_mean > 0.0 {
                 shadow_loss * 100.0 / open_mean
@@ -823,7 +831,7 @@ fn baked_light_range_audit_report() {
         "the clamped fraction must stay negligible, got {clamped:.1}%"
     );
 
-    let count = texels.len() as f32;
+    let count = crate::test_support::exact_f32(texels.len());
     let removed = texels.iter().map(Texel::occluded_lum).sum::<f32>() / count;
     let shown = texels.iter().map(Texel::visible_occlusion_lum).sum::<f32>() / count;
     assert!(
@@ -844,8 +852,9 @@ fn baked_light_range_audit_report() {
         .iter()
         .map(|t| t.open_value().luminance())
         .sum::<f32>()
-        / fully.len() as f32;
-    let shadow_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>() / fully.len() as f32;
+        / crate::test_support::exact_f32(fully.len());
+    let shadow_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>()
+        / crate::test_support::exact_f32(fully.len());
     assert!(
         open_mean - shadow_mean > open_mean * 0.35,
         "a fully shadowed sample must lose over a third of its light: {shadow_mean:.3} of {open_mean:.3}"
@@ -853,7 +862,13 @@ fn baked_light_range_audit_report() {
 
     let mut sorted = values;
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let pick = |p: f32| sorted[(p * (sorted.len() - 1) as f32) as usize];
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "The independent report oracle truncates fixed percentile fractions 0.05 and 0.90 of its nonempty, exactly represented fixture length."
+    )]
+    let pick = |p: f32| sorted[(p * crate::test_support::exact_f32(sorted.len() - 1)) as usize];
     assert!(
         pick(0.90) > pick(0.05) * 1.5,
         "lit surfaces must be clearly brighter than the dimmest open surface: p90 {:.3} vs p05 {:.3}",

@@ -12,6 +12,7 @@
 //! Nothing here changes simulation or rendering state; it is deliberately the
 //! only module that is allowed to write to stdout/stderr.
 
+use std::any::Any;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::{Mutex, OnceLock};
@@ -21,6 +22,16 @@ use std::sync::{Mutex, OnceLock};
 /// Any value other than empty, `0`, `false` or `off` enables it, matching the
 /// other `PLACES_*` switches.
 pub const VERBOSE_ENV: &str = "PLACES_VERBOSE";
+
+/// Retains the standard panic messages when a worker join becomes an error.
+/// Custom panic payloads have no required Display implementation.
+pub(crate) fn panic_message(payload: &(dyn Any + Send)) -> &str {
+    payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+        .unwrap_or("non-string panic payload")
+}
 
 /// True when developer telemetry should print.
 #[must_use]
@@ -37,7 +48,10 @@ fn truthy(value: &str) -> bool {
 }
 
 /// Prints one developer telemetry line when [`verbose`] is enabled.
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "this is the central opt-in telemetry output"
+)]
 pub fn info(message: impl Display) {
     if verbose() {
         println!("{message}");
@@ -48,7 +62,7 @@ pub fn info(message: impl Display) {
 ///
 /// Use for a genuine problem the player can act on (a level that failed to
 /// load, a missing asset root, an unwritable settings file).
-#[allow(clippy::print_stderr)]
+#[expect(clippy::print_stderr, reason = "this is the central warning output")]
 pub fn warn(message: impl Display) {
     eprintln!("{message}");
 }
@@ -58,7 +72,10 @@ pub fn warn(message: impl Display) {
 /// `key` identifies the problem class (usually the asset id or file path), so
 /// repeated encounters collapse into one line. Use for problems that can occur
 /// once per item in a loop.
-#[allow(clippy::print_stderr)]
+#[expect(
+    clippy::print_stderr,
+    reason = "this is the central deduplicated warning output"
+)]
 pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
     static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
     let seen = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
@@ -72,7 +89,17 @@ pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
 
 #[cfg(test)]
 mod tests {
-    use super::truthy;
+    use super::{panic_message, truthy};
+
+    #[test]
+    fn worker_panic_messages_preserve_string_payloads() {
+        assert_eq!(panic_message(&"worker failed"), "worker failed");
+        assert_eq!(
+            panic_message(&String::from("owned failure")),
+            "owned failure"
+        );
+        assert_eq!(panic_message(&42_u32), "non-string panic payload");
+    }
 
     #[test]
     fn only_an_explicit_truthy_value_enables_telemetry() {

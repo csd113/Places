@@ -428,7 +428,7 @@ fn slice_pairs(first: &WallSlices, second: &WallSlices, coplanar: bool) -> Vec<S
 /// This is the single classification the checker and the repair planner share:
 /// [`wall_joints`] strips the internal slice detail, the checker keeps it for
 /// the emitted-mesh verification and the planner for its coupled edits.
-#[allow(clippy::too_many_lines)] // one joint pass over every wall pair
+#[expect(clippy::too_many_lines, reason = "one joint pass over every wall pair")] // one joint pass over every wall pair
 fn compute_wall_joints(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<WallJointCandidate> {
     let walls = level_wall_slices(level, surfaces);
     let mut out: Vec<WallJointCandidate> = Vec::new();
@@ -557,12 +557,12 @@ fn compute_wall_joints(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<Wa
             };
             // A coplanar gap is a review-only near-step candidate; an
             // ambiguous authority is never an automatic step either.
-            let kind = if coplanar || (ambiguous && kind == "step") {
+            let reported_kind = if coplanar || (ambiguous && kind == "step") {
                 "near-step"
             } else {
                 kind
             };
-            let auto = kind == "step";
+            let auto = reported_kind == "step";
             let along = anchor_along(span_first, span_second);
             let across = f32::midpoint(
                 first.planes.0.min(second.planes.0),
@@ -592,7 +592,7 @@ fn compute_wall_joints(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<Wa
                         WallAxis::X => "x",
                         WallAxis::Z => "z",
                     },
-                    kind,
+                    kind: reported_kind,
                     first_low: quantise(first_low),
                     first_high: quantise(first_high),
                     second_low: quantise(second_low),
@@ -765,7 +765,7 @@ impl CheckReport {
     #[must_use]
     pub fn to_human(&self, verbose: bool) -> String {
         let mut out = String::new();
-        let _ = writeln!(
+        let _formatted_geometry_check = writeln!(
             out,
             "geometry check: {} ({}){}",
             self.level_id,
@@ -786,18 +786,20 @@ impl CheckReport {
             }
         }
         for (check, (errors, warnings)) in &by_check {
-            let _ = writeln!(out, "  {check}: {errors} error(s), {warnings} warning(s)");
+            let _formatted_check_errors =
+                writeln!(out, "  {check}: {errors} error(s), {warnings} warning(s)");
         }
         for (check, count) in &self.suppressed {
             if *count > 0 {
-                let _ = writeln!(out, "  {check}: {count} suppressed by geometry_intent");
+                let _formatted_check_count =
+                    writeln!(out, "  {check}: {count} suppressed by geometry_intent");
             }
         }
         for finding in &self.findings {
             if !verbose && finding.severity == Severity::Warning {
                 continue;
             }
-            let _ = writeln!(
+            let _formatted_record = writeln!(
                 out,
                 "{} [{}] {}: {} @ ({:.3}, {:.3}, {:.3})",
                 match finding.severity {
@@ -812,7 +814,7 @@ impl CheckReport {
                 finding.position[2]
             );
         }
-        let _ = writeln!(
+        let _formatted_summary_error = writeln!(
             out,
             "summary: {} error(s), {} warning(s){}",
             self.error_count(),
@@ -1026,7 +1028,10 @@ pub fn check_level(level: &LevelDef, source: &str, validated: bool) -> CheckRepo
 ///
 /// Returns a usage or file error, which the caller reports as status `2`.
 // This is the CLI's own reporting path; there is no logger in a headless run.
-#[allow(clippy::print_stdout, clippy::print_stderr)]
+#[expect(
+    clippy::print_stderr,
+    reason = "This is the CLI's own reporting path; there is no logger in a headless run."
+)]
 pub fn run(options: &CliOptions) -> Result<i32, String> {
     let (path, text) = resolve_source(&options.level)?;
     let mut level = match LevelDef::from_json(&text) {
@@ -1068,7 +1073,10 @@ pub fn run(options: &CliOptions) -> Result<i32, String> {
 
 /// Prints and writes one report, returning the exit status.
 // This is the CLI's own reporting path; there is no logger in a headless run.
-#[allow(clippy::print_stdout, clippy::print_stderr)]
+#[expect(
+    clippy::print_stdout,
+    reason = "This is the CLI's own reporting path; there is no logger in a headless run."
+)]
 fn finish(report: &CheckReport, options: &CliOptions) -> Result<i32, String> {
     let status = report.exit_status(options.strict);
     if options.verbose || report.error_count() > 0 {
@@ -1113,20 +1121,20 @@ fn marker_obj(markers: &[Marker]) -> String {
             if let Some(slot) = high.get_mut(axis) {
                 *slot += size;
             }
-            let _ = writeln!(out, "v {} {} {}", low[0], low[1], low[2]);
-            let _ = writeln!(out, "v {} {} {}", high[0], high[1], high[2]);
+            let _formatted_v = writeln!(out, "v {} {} {}", low[0], low[1], low[2]);
+            let _formatted_v_2 = writeln!(out, "v {} {} {}", high[0], high[1], high[2]);
         }
     }
     for line in 0..markers.len() {
         let base = line.saturating_mul(6).saturating_add(1);
-        let _ = writeln!(out, "l {base} {}", base.saturating_add(1));
-        let _ = writeln!(
+        let _formatted_l_base = writeln!(out, "l {base} {}", base.saturating_add(1));
+        let _formatted_l = writeln!(
             out,
             "l {} {}",
             base.saturating_add(2),
             base.saturating_add(3)
         );
-        let _ = writeln!(
+        let _formatted_l_2 = writeln!(
             out,
             "l {} {}",
             base.saturating_add(4),
@@ -1409,7 +1417,11 @@ fn cell_index(value: f32) -> i32 {
     }
     // Bounded to a sane world extent before the cast so a wild coordinate can
     // never wrap.
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Bounded to a sane world extent before the cast so a wild coordinate can never wrap."
+    )]
     let index = scaled.clamp(-1.0e6, 1.0e6) as i32;
     index
 }
@@ -1555,11 +1567,14 @@ impl Checker<'_> {
 impl Checker<'_> {
     /// Confirmed duplicated coplanar surfaces: two triangles on one plane
     /// whose projected areas overlap by more than a threshold.
-    #[allow(clippy::too_many_lines)] // one coplanar-overlap pass over the bucket map
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one coplanar-overlap pass over the bucket map"
+    )] // one coplanar-overlap pass over the bucket map
     fn check_duplicate_surfaces(&mut self, triangles: &[Tri]) {
         // Canonical plane key: a sign-canonical normal and plane distance,
         // quantised to 1 mm so exactly-coincident planes bucket together.
-        let mut planes: HashMap<[i32; 4], Vec<usize>> = HashMap::new();
+        let mut planes: BTreeMap<[i32; 4], Vec<usize>> = BTreeMap::new();
         for (index, triangle) in triangles.iter().enumerate() {
             if triangle.area <= 1.0e-9 {
                 continue;
@@ -1694,7 +1709,11 @@ fn quantize(value: f32) -> i32 {
     if !scaled.is_finite() {
         return 0;
     }
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Rounded coordinates are checked finite and clamped within i32 range before the integral conversion."
+    )]
     let key = scaled.clamp(-2.0e9, 2.0e9) as i32;
     key
 }
@@ -1916,15 +1935,15 @@ fn projected_point_in_triangle(
     let c = project(triangle.points[2]);
     let local = |value: [f32; 2]| [value[0] - a[0], value[1] - a[1]];
     let p = local(point);
-    let b = local(b);
-    let c = local(c);
+    let local_b = local(b);
+    let local_c = local(c);
     let cross = |o: [f32; 2], u: [f32; 2], v: [f32; 2]| {
         (u[0] - o[0]).mul_add(v[1] - o[1], -((u[1] - o[1]) * (v[0] - o[0])))
     };
-    let ab = cross([0.0, 0.0], b, p);
-    let bc = cross(b, c, p);
-    let ca = cross(c, [0.0, 0.0], p);
-    let edge_scale = [b, c].iter().fold(1.0_f32, |largest, value| {
+    let ab = cross([0.0, 0.0], local_b, p);
+    let bc = cross(local_b, local_c, p);
+    let ca = cross(local_c, [0.0, 0.0], p);
+    let edge_scale = [local_b, local_c].iter().fold(1.0_f32, |largest, value| {
         largest.max(value[0].abs().max(value[1].abs()))
     });
     let epsilon = tolerance.mul_add(edge_scale, 1.0e-6);
@@ -2071,7 +2090,10 @@ impl Checker<'_> {
     /// For every joint candidate the emitted mesh must show a triangle on each
     /// declared thickness plane at 1 cm inside each junction end, and no wall
     /// face may sit on an undeclared plane near the junction.
-    #[allow(clippy::too_many_lines)] // one joint's sampling pass, kept together
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one joint's sampling pass, kept together"
+    )] // one joint's sampling pass, kept together
     fn check_joint_emitted(
         &mut self,
         candidate: &WallJointCandidate,
@@ -2302,7 +2324,7 @@ impl Checker<'_> {
     /// facing pair on one plane), never by proximity to a collider face: an
     /// archway's soffit or a threshold top inside a bounding box is ordinary
     /// geometry, and a box AABB cannot tell ownership.
-    #[allow(clippy::too_many_lines)] // one collider pass, kept together for the shared index
+    // one collider pass, kept together for the shared index
     fn check_colliders(
         &mut self,
         colliders: &[Collider],
@@ -2311,14 +2333,14 @@ impl Checker<'_> {
         index: &SpatialHash,
     ) {
         // Exact duplicates between two authored elements.
-        let mut groups: HashMap<[i32; 6], Vec<usize>> = HashMap::new();
+        let mut groups: BTreeMap<[i32; 6], Vec<usize>> = BTreeMap::new();
         for (slot, collider) in colliders.iter().enumerate() {
             groups
                 .entry(aabb_key(&collider.aabb))
                 .or_default()
                 .push(slot);
         }
-        for (key, group) in &groups {
+        for group in groups.values() {
             if group.len() < 2 {
                 continue;
             }
@@ -2338,7 +2360,6 @@ impl Checker<'_> {
                     aabb_centre(&first.aabb),
                 );
             }
-            let _ = key;
         }
 
         // Every authored solid must exist in the engine's own collision set.
@@ -2382,7 +2403,7 @@ impl Checker<'_> {
                     for slot in candidates {
                         let Some(triangle) = usize::try_from(*slot)
                             .ok()
-                            .and_then(|slot| triangles.get(slot))
+                            .and_then(|triangle_slot| triangles.get(triangle_slot))
                         else {
                             continue;
                         };
@@ -2437,27 +2458,27 @@ fn point_in_triangle(point: [f32; 3], triangle: &Tri) -> bool {
     // translation-invariant and leaves only the triangle's own size in the
     // error term.
     let local = |value: [f32; 2]| [value[0] - a[0], value[1] - a[1]];
-    let p = local(p);
-    let a = [0.0_f32, 0.0];
-    let b = local(b);
-    let c = local(c);
+    let local_p = local(p);
+    let local_origin = [0.0_f32, 0.0];
+    let local_b = local(b);
+    let local_c = local(c);
     // The tolerance scales with the triangle's own extent: a 20 m face's cross
     // product carries ~mlp(extent²) of rounding, and an absolute 1e-6 would
     // reject an exactly-on-edge face centre (the ghost-collider false positive
     // this fixes).
-    let scale = [&p, &a, &b, &c]
+    let scale = [&local_p, &local_origin, &local_b, &local_c]
         .iter()
         .flat_map(|value| value.iter())
         .fold(1.0_f32, |largest, value| largest.max(value.abs()));
     let epsilon = (scale * scale).mul_add(1.0e-6, 1.0e-9);
     // The projected cross product is the formula, not unchecked arithmetic.
-    #[allow(clippy::arithmetic_side_effects)]
+
     let cross = |o: [f32; 2], u: [f32; 2], v: [f32; 2]| {
         (u[0] - o[0]).mul_add(v[1] - o[1], (u[1] - o[1]) * -(v[0] - o[0]))
     };
-    let ab = cross(a, b, p);
-    let bc = cross(b, c, p);
-    let ca = cross(c, a, p);
+    let ab = cross(local_origin, local_b, local_p);
+    let bc = cross(local_b, local_c, local_p);
+    let ca = cross(local_c, local_origin, local_p);
     (ab >= -epsilon && bc >= -epsilon && ca >= -epsilon)
         || (ab <= epsilon && bc <= epsilon && ca <= epsilon)
 }
@@ -2555,7 +2576,7 @@ fn aabb_face_centre(aabb: &WallAabb, axis: usize, sign: f32) -> [f32; 3] {
 impl Checker<'_> {
     fn check_props(&mut self, catalog: &crate::loader::PropCatalog, surfaces: &LevelSurfaces<'_>) {
         let props = &self.level.props;
-        let mut by_model: HashMap<&str, Vec<usize>> = HashMap::new();
+        let mut by_model: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
         for (index, prop) in props.iter().enumerate() {
             by_model.entry(prop.model.as_str()).or_default().push(index);
         }
@@ -2569,7 +2590,7 @@ impl Checker<'_> {
                         continue;
                     };
                     // The tolerances are the identity test itself.
-                    #[allow(clippy::arithmetic_side_effects)]
+
                     let same = (a.x - b.x).abs() <= 1.0e-3
                         && (a.z - b.z).abs() <= 1.0e-3
                         && (a.y - b.y).abs() <= 1.0e-3
@@ -2612,7 +2633,7 @@ impl Checker<'_> {
             if width * scale * depth * scale < 0.25 {
                 continue;
             }
-            #[allow(clippy::arithmetic_side_effects)]
+
             let layered = (top - floor).abs() < 0.02 && (base - floor).abs() > 0.02;
             if layered {
                 self.push(
@@ -2739,7 +2760,10 @@ impl Checker<'_> {
         }
     }
 
-    #[allow(clippy::too_many_lines)] // one curved primitive's checks, kept together
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one curved primitive's checks, kept together"
+    )] // one curved primitive's checks, kept together
     fn check_arc_wall(&mut self, index: usize, piece: &ArcWallDef, surfaces: &LevelSurfaces<'_>) {
         let label = format!("arc wall {index}");
         let centre = [piece.x, piece.base_y(surfaces), piece.z];
@@ -2870,7 +2894,10 @@ impl Checker<'_> {
         }
     }
 
-    #[allow(clippy::too_many_lines)] // one curved primitive's checks, kept together
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one curved primitive's checks, kept together"
+    )] // one curved primitive's checks, kept together
     fn check_pillar(&mut self, index: usize, piece: &PillarDef, surfaces: &LevelSurfaces<'_>) {
         let label = format!("pillar {index}");
         let centre = [piece.x, piece.base_y(surfaces), piece.z];
@@ -3090,7 +3117,12 @@ impl Checker<'_> {
         while let Some((ix, iz)) = queue.pop_front() {
             let (cx, cz) = point(ix, iz);
             let current_foot = surfaces.floor_y_at(cx, cz).unwrap_or(foot);
-            for (dx, dz) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
+            for (dx, dz) in [
+                (1i32, 0i32),
+                (-1_i32, 0_i32),
+                (0_i32, 1_i32),
+                (0_i32, -1_i32),
+            ] {
                 let Some(nx) = step_index(ix, dx) else {
                     continue;
                 };
@@ -3247,7 +3279,12 @@ fn span_cells(low: f32, high: f32, cell: f32) -> usize {
     if !value.is_finite() || value <= 0.0 {
         return 1;
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The finite integral geometry sample count is clamped to 1..=1000000 before converting to u64."
+    )]
     // Bounded below by 1 and above by the caller's own cell budget.
     let cells = value.clamp(1.0, 1.0e6) as u64;
     usize::try_from(cells).unwrap_or(1)
@@ -3361,7 +3398,11 @@ fn distance_sq(a: [f32; 3], b: [f32; 3]) -> f32 {
 }
 
 const fn usize_to_f32(value: usize) -> f32 {
-    #[allow(clippy::cast_precision_loss)] // bounded grid indices
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "bounded grid indices"
+    )] // bounded grid indices
     let converted = value as f32;
     converted
 }
@@ -3370,7 +3411,11 @@ const fn usize_to_f32(value: usize) -> f32 {
 ///
 /// Kept with the checker's process-exit path so the narrow `exit` allow stays
 /// in one place.
-#[allow(clippy::exit, clippy::print_stderr)]
+#[expect(
+    clippy::exit,
+    clippy::print_stderr,
+    reason = "The headless CLI reports usage on stderr and exits with its command-line failure code."
+)]
 pub fn exit_usage(error: &str) -> ! {
     eprintln!("geometry check: {error}");
     std::process::exit(2);
@@ -3384,7 +3429,10 @@ pub fn exit_usage(error: &str) -> ! {
 // `std::process::exit` is the correct way for a CLI mode to end the process
 // from inside `main`; this one narrow allow keeps the crate-wide `exit` lint
 // for every other path.
-#[allow(clippy::exit, clippy::print_stderr)]
+#[expect(
+    clippy::print_stderr,
+    reason = "`std::process::exit` is the correct way for a CLI mode to end the process from inside `main`; this one narrow allow keeps the crate-wide `exit` lint for every other path."
+)]
 pub fn main(options: &CliOptions) -> Result<(), Box<dyn std::error::Error>> {
     match run(options) {
         Ok(status) => std::process::exit(status),
@@ -3782,7 +3830,10 @@ const fn segment_end(start: (f32, f32), direction: (f32, f32), length: f32) -> (
 ///
 /// Baseboards and floor regions are excluded: their coupling rules are
 /// deterministic, not review-only.
-#[allow(clippy::too_many_lines)] // one inventory of every placeable family
+#[expect(
+    clippy::too_many_lines,
+    reason = "one inventory of every placeable family"
+)] // one inventory of every placeable family
 fn element_footprints(level: &LevelDef) -> Vec<ElementFootprint> {
     let mut out = Vec::new();
     for (index, prop) in level.props.iter().enumerate() {
@@ -4069,7 +4120,10 @@ fn footprint_touches_face(
 
 /// The deterministic coupled edits for one automatic wall shift, plus the
 /// review entries for elements that must not be moved automatically.
-#[allow(clippy::too_many_lines)] // one linear pass over the coupled element rules
+#[expect(
+    clippy::too_many_lines,
+    reason = "one linear pass over the coupled element rules"
+)] // one linear pass over the coupled element rules
 fn coupled_edits(
     level: &LevelDef,
     candidate: &WallJointCandidate,
@@ -4423,10 +4477,9 @@ impl PlannerState<'_> {
             "wall {} / wall {}",
             candidate.joint.first, candidate.joint.second
         );
-        let step_gone = !after
-            .findings
-            .iter()
-            .any(|finding| finding.check == "wall-joint-step" && finding.id == pair_id);
+        let step_gone = !after.findings.iter().any(|candidate_finding| {
+            candidate_finding.check == "wall-joint-step" && candidate_finding.id == pair_id
+        });
         let after_errors = error_fingerprints(&after);
         let no_new_error = after_errors
             .iter()
@@ -4518,17 +4571,17 @@ fn build_repair_plan(options: &RepairCliOptions) -> Result<(RepairPlan, PathBuf)
 /// The human-readable repair plan.
 fn repair_plan_human(plan: &RepairPlan) -> String {
     let mut out = String::new();
-    let _ = writeln!(
+    let _formatted_geometry_repair = writeln!(
         out,
         "geometry repair plan: {} ({})",
         plan.level.id, plan.level.source
     );
     if plan.findings.is_empty() {
-        let _ = writeln!(out, "  no wall-plane joints found; nothing to do");
+        let _formatted_no_wall = writeln!(out, "  no wall-plane joints found; nothing to do");
         return out;
     }
     for (index, finding) in plan.findings.iter().enumerate() {
-        let _ = writeln!(
+        let _formatted_text = writeln!(
             out,
             "  finding {index}: {} wall {} / wall {}: {:.3} vs {:.3} ({}), shift {:+.4}, \
              authority {}",
@@ -4543,20 +4596,20 @@ fn repair_plan_human(plan: &RepairPlan) -> String {
         );
     }
     for edit in &plan.edits {
-        let _ = writeln!(
+        let _formatted_edit = writeln!(
             out,
             "    edit {}: {} -> {} ({})",
             edit.pointer, edit.old, edit.new, edit.coupled
         );
     }
     for entry in &plan.review {
-        let _ = writeln!(
+        let _formatted_review = writeln!(
             out,
             "  review {} {}: {}",
             entry.kind, entry.pointer, entry.message
         );
     }
-    let _ = writeln!(
+    let _formatted_post_check = writeln!(
         out,
         "  post-check: {} error(s), {} warning(s)",
         plan.post_check.errors, plan.post_check.warnings
@@ -4570,7 +4623,10 @@ fn repair_plan_human(plan: &RepairPlan) -> String {
 ///
 /// Returns a usage or file error, which the caller reports as status `2`.
 // This is the CLI's own reporting path; there is no logger in a headless run.
-#[allow(clippy::print_stdout)]
+#[expect(
+    clippy::print_stdout,
+    reason = "This is the CLI's own reporting path; there is no logger in a headless run."
+)]
 pub fn run_repair(options: &RepairCliOptions) -> Result<i32, String> {
     let (plan, _path) = build_repair_plan(options)?;
     let machine = serde_json::to_string_pretty(&plan)
@@ -4595,7 +4651,11 @@ pub fn run_repair(options: &RepairCliOptions) -> Result<i32, String> {
 // `std::process::exit` is the correct way for a CLI mode to end the process
 // from inside `main`; this one narrow allow keeps the crate-wide `exit` lint
 // for every other path.
-#[allow(clippy::exit, clippy::print_stderr)]
+#[expect(
+    clippy::exit,
+    clippy::print_stderr,
+    reason = "`std::process::exit` is the correct way for a CLI mode to end the process from inside `main`; this one narrow allow keeps the crate-wide `exit` lint for every other path."
+)]
 pub fn repair_main(options: &RepairCliOptions) -> Result<(), Box<dyn std::error::Error>> {
     match run_repair(options) {
         Ok(status) => std::process::exit(status),
@@ -4617,9 +4677,9 @@ mod tests {
         clippy::float_cmp,
         clippy::panic,
         clippy::arithmetic_side_effects,
-        clippy::cast_precision_loss,
         clippy::redundant_closure_for_method_calls,
-        clippy::suboptimal_flops
+        clippy::suboptimal_flops,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -4674,7 +4734,7 @@ mod tests {
 
     /// A minimal level around the given wall fragments and explicit room.
     fn joint_level_room(walls: &[String], room: &str) -> LevelDef {
-        let walls = walls.join(", ");
+        let wall_json = walls.join(", ");
         let text = format!(
             r#"{{
                 "format_version": 3,
@@ -4683,7 +4743,7 @@ mod tests {
                 "author": "Places Team",
                 "spawn": {{ "x": 2.0, "z": 1.0, "yaw_degrees": 0.0 }},
                 "defaults": {{ "wall": "core:wallpaper_yellow_01", "floor": "core:carpet_beige_01", "ceiling": "core:ceiling_panel_01" }},
-                "walls": [{walls}],
+                "walls": [{wall_json}],
                 "rooms": [{room}]
             }}"#
         );
@@ -5066,14 +5126,14 @@ mod tests {
             "{:#?}",
             wall_joints(&covered)
         );
-        let report = check_level(&covered, "joint_fixture", true);
+        let covered_report = check_level(&covered, "joint_fixture", true);
         assert!(
-            !report
+            !covered_report
                 .findings
                 .iter()
-                .any(|finding| finding.check.starts_with("wall-joint")),
+                .any(|candidate_finding| candidate_finding.check.starts_with("wall-joint")),
             "{:#?}",
-            report.findings
+            covered_report.findings
         );
     }
 
@@ -5152,13 +5212,13 @@ mod tests {
         assert_eq!(report.error_count(), 0, "{:#?}", report.findings);
 
         let oversized = joint_level(&[x_wall(1.0, 2.0, 4.0, 0.3), x_wall(5.0, 2.28, 4.0, 0.3)]);
-        let joints = wall_joints(&oversized);
-        assert_eq!(joints.len(), 1, "{joints:#?}");
-        assert_eq!(joints[0].kind, "near-step");
-        assert!(!joints[0].auto_repairable);
+        let oversized_joints = wall_joints(&oversized);
+        assert_eq!(oversized_joints.len(), 1, "{oversized_joints:#?}");
+        assert_eq!(oversized_joints[0].kind, "near-step");
+        assert!(!oversized_joints[0].auto_repairable);
         assert!(
-            (joints[0].shift.abs() - 0.28).abs() <= 1.0e-4,
-            "{joints:#?}"
+            (oversized_joints[0].shift.abs() - 0.28).abs() <= 1.0e-4,
+            "{oversized_joints:#?}"
         );
 
         // Past the near-adjacency bound the pair is not a joint at all.
@@ -5189,12 +5249,12 @@ mod tests {
             x_wall(1.0, 2.0, 0.1, 0.1),
             x_wall(1.1, 2.15, 0.1, 0.1),
         ]);
-        let joints = wall_joints(&small);
-        assert_eq!(joints.len(), 1, "{joints:#?}");
-        assert_eq!(joints[0].kind, "step", "{joints:#?}");
+        let small_joints = wall_joints(&small);
+        assert_eq!(small_joints.len(), 1, "{small_joints:#?}");
+        assert_eq!(small_joints[0].kind, "step", "{small_joints:#?}");
         assert!(
-            (joints[0].shift.abs() - 0.15).abs() <= 1.0e-4,
-            "{joints:#?}"
+            (small_joints[0].shift.abs() - 0.15).abs() <= 1.0e-4,
+            "{small_joints:#?}"
         );
         let report = check_level(&small, "joint_fixture", true);
         assert!(
@@ -5244,11 +5304,11 @@ mod tests {
             (joint.shift.abs() - 0.0011).abs() <= 1.0e-5,
             "1.1 mm must survive as a step: {joint:#?}"
         );
-        let report = check_level(&beyond, "joint_fixture", true);
+        let beyond_report = check_level(&beyond, "joint_fixture", true);
         assert!(
-            has(&report, "wall-joint-step", Severity::Error),
+            has(&beyond_report, "wall-joint-step", Severity::Error),
             "{:#?}",
-            report.findings
+            beyond_report.findings
         );
     }
 
@@ -5282,7 +5342,7 @@ mod tests {
 
         // The original continuous wall also emitted trim behind both panels.
         let mut level = LevelDef::from_json(text).expect("the fixture parses");
-        level.walls.drain(1..3);
+        drop(level.walls.drain(1..3));
         level.walls.first_mut().expect("the north wall").width = 31.2;
         let catalog = crate::assets::AssetCatalog::load_default();
         crate::loader::prepare_level(&mut level, &catalog, None);
@@ -5344,21 +5404,36 @@ mod tests {
 
         // The complete mesh has no mismatch.
         triangles.extend(x_axis_quad(2.0, 5.0, 9.0, 0.0, 3.0, material));
-        let index = WallTriangleIndex::build(&triangles);
-        let mut checker = Checker::new(&level);
-        checker.check_joint_emitted(candidate, &walls, &index, &triangles, &materials);
-        assert!(checker.findings.is_empty(), "{:#?}", checker.findings);
+        let huge_index = WallTriangleIndex::build(&triangles);
+        let mut huge_checker = Checker::new(&level);
+        huge_checker.check_joint_emitted(candidate, &walls, &huge_index, &triangles, &materials);
+        assert!(
+            huge_checker.findings.is_empty(),
+            "{:#?}",
+            huge_checker.findings
+        );
 
         // A face at a plane the source never declares is a generator defect.
         triangles.extend(x_axis_quad(2.08, 4.9, 5.1, 0.25, 2.75, material));
-        let index = WallTriangleIndex::build(&triangles);
-        let mut checker = Checker::new(&level);
-        checker.check_joint_emitted(candidate, &walls, &index, &triangles, &materials);
-        assert_eq!(checker.findings.len(), 1, "{:#?}", checker.findings);
+        let degenerate_index = WallTriangleIndex::build(&triangles);
+        let mut degenerate_checker = Checker::new(&level);
+        degenerate_checker.check_joint_emitted(
+            candidate,
+            &walls,
+            &degenerate_index,
+            &triangles,
+            &materials,
+        );
+        assert_eq!(
+            degenerate_checker.findings.len(),
+            1,
+            "{:#?}",
+            degenerate_checker.findings
+        );
         assert!(
-            checker.findings[0].message.contains("2.080"),
+            degenerate_checker.findings[0].message.contains("2.080"),
             "{}",
-            checker.findings[0].message
+            degenerate_checker.findings[0].message
         );
     }
 
@@ -5400,11 +5475,20 @@ mod tests {
             plan: None,
             json: false,
         };
-        let (plan, _path) = build_repair_plan(&review_options).expect("the gap fixture plans");
-        assert_eq!(plan.findings.len(), 1, "{:#?}", plan.findings);
-        assert!(plan.findings[0].kind == "near-step", "{:#?}", plan.findings);
-        assert!(!plan.findings[0].auto_repairable, "{:#?}", plan.findings);
-        assert!(plan.edits.is_empty(), "{:#?}", plan.edits);
+        let (review_plan, _review_path) =
+            build_repair_plan(&review_options).expect("the gap fixture plans");
+        assert_eq!(review_plan.findings.len(), 1, "{:#?}", review_plan.findings);
+        assert!(
+            review_plan.findings[0].kind == "near-step",
+            "{:#?}",
+            review_plan.findings
+        );
+        assert!(
+            !review_plan.findings[0].auto_repairable,
+            "{:#?}",
+            review_plan.findings
+        );
+        assert!(review_plan.edits.is_empty(), "{:#?}", review_plan.edits);
     }
 
     #[test]
@@ -5591,8 +5675,8 @@ mod tests {
 
         // Walking: from eight directions the resolved centre never ends up
         // inside the drawn polygon, and the body is pushed back.
-        for step in 0..8 {
-            let angle = std::f32::consts::TAU * (step as f32 / 8.0);
+        for step in 0_i32..8_i32 {
+            let angle = std::f32::consts::TAU * (crate::test_support::exact_f32(step) / 8.0);
             let direction = Vec2::new(angle.cos(), angle.sin());
             let start = centre + direction * (pillar.radius + 1.0);
             let resolved = resolve_player_collision(start, PLAYER_RADIUS, 0.0, &boxes);
@@ -5723,7 +5807,7 @@ mod tests {
         let json = report.to_json().expect("serializes");
         assert!(json.contains(CHECK_FORMAT));
         assert!(json.contains("\"errors\": 1"));
-        assert_eq!(report.exit_status(false), 1);
+        assert_eq!(report.exit_status(false), 1_i32);
         assert_eq!(report.markers().len(), 1);
         let obj = marker_obj(&report.markers());
         assert!(

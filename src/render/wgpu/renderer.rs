@@ -285,7 +285,10 @@ impl GraphicsConfig {
 /// One bool per player setting is deliberate: they are independent flags, not
 /// a state machine with one active variant (the same reasoning as
 /// [`WgpuRenderer`]'s own boolean group).
-#[allow(clippy::struct_excessive_bools)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "These flags independently track graphics preferences and surface lifecycle conditions; several can be active together."
+)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct GraphicsDelta {
     /// Texture budgets and scene target.
@@ -364,7 +367,10 @@ impl GraphicsDelta {
 /// surface needs reconfiguring, the player's `VSync` preference, whether the
 /// surface was reported lost, and whether the CPU frustum test runs — not a
 /// state machine with one active variant, so an enum per flag would be worse.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "These flags independently track graphics preferences and surface lifecycle conditions; several can be active together."
+)]
 pub struct WgpuRenderer {
     /// The frame acquired between `render_scene` and `present`.
     ///
@@ -625,7 +631,7 @@ impl WgpuRenderer {
     /// target, when the surface cannot be created for the window, when no
     /// compatible native adapter exists, when the device request fails, or when
     /// the adapter is not the intended native backend.
-    #[allow(clippy::too_many_lines)] // one cohesive device/surface bootstrap
+    // one cohesive device/surface bootstrap
     pub fn new(window: &Window) -> Result<Self, String> {
         if !surface::native_backend_is_compiled() {
             return Err(format!(
@@ -763,8 +769,8 @@ impl WgpuRenderer {
     }
 
     /// Completes renderer construction from an initialized device.
-    #[allow(clippy::too_many_arguments)] // one cohesive construction seam
-    #[allow(clippy::too_many_lines)] // one cohesive construction seam
+    #[expect(clippy::too_many_arguments, reason = "one cohesive construction seam")] // one cohesive construction seam
+    #[expect(clippy::too_many_lines, reason = "one cohesive construction seam")] // one cohesive construction seam
     fn assemble(
         instance: wgpu::Instance,
         surface: Option<wgpu::Surface<'static>>,
@@ -959,10 +965,10 @@ impl WgpuRenderer {
         let slot = Arc::new(Mutex::new(None));
         let writer = Arc::clone(&slot);
         device.set_device_lost_callback(move |reason, message| {
-            if let Ok(mut slot) = writer.lock()
-                && slot.is_none()
+            if let Ok(mut loss_message) = writer.lock()
+                && loss_message.is_none()
             {
-                *slot = Some(format!("{reason:?}: {message}"));
+                *loss_message = Some(format!("{reason:?}: {message}"));
             }
         });
         slot
@@ -1082,12 +1088,12 @@ impl WgpuRenderer {
         }
         // Floats ride an absolute clock before the spin/probe pass, so a
         // moved float's probe is sampled at this frame's surface pose.
-        self.dynamic.update_floats(self.animation_seconds);
+        let _update_stats = self.dynamic.update_floats(self.animation_seconds);
         // Ambient effects ride the same absolute clock: a particle's pose is a
         // pure function of it, so this only records the time and reports which
         // emitters advanced. Their billboards are synced in `render_scene`,
         // where the frame's camera exists.
-        self.effects.update(self.animation_seconds);
+        let _update_stats_2 = self.effects.update(self.animation_seconds);
         let update = self.dynamic.update_with_field(
             delta_seconds,
             self.dynamic_lighting.as_ref(),
@@ -1139,11 +1145,11 @@ impl WgpuRenderer {
             .get(model)
             .model
             .filter(|path| !path.is_empty());
-        let path = path.as_deref().unwrap_or(model);
-        let asset = match self.prop_assets.resolve(path) {
+        let resolved_path = path.as_deref().unwrap_or(model);
+        let asset = match self.prop_assets.resolve(resolved_path) {
             Ok(asset) => asset,
             Err(error) => {
-                self.prop_assets.report_failure(path, &error);
+                self.prop_assets.report_failure(resolved_path, &error);
                 if replaced {
                     self.upload_dynamic();
                 }
@@ -1159,7 +1165,7 @@ impl WgpuRenderer {
             }
             return false;
         };
-        self.runtime_objects.insert(key, id);
+        let _previous_value = self.runtime_objects.insert(key, id);
         self.upload_dynamic();
         true
     }
@@ -1330,10 +1336,10 @@ impl WgpuRenderer {
         }
         for draw in self.door_objects.drain(..) {
             if let Some(id) = draw.frame {
-                self.dynamic.despawn(id);
+                let _despawn_status = self.dynamic.despawn(id);
             }
             if let Some(id) = draw.leaf {
-                self.dynamic.despawn(id);
+                let _despawn_status_2 = self.dynamic.despawn(id);
             }
         }
         for (index, (placement, models)) in self.door_sources.iter().enumerate() {
@@ -1389,7 +1395,7 @@ impl WgpuRenderer {
                 continue;
             };
             let hinge = [door.def.x, door.base_y(), door.def.z];
-            self.dynamic.set_transform(leaf, hinge, door.angle(), 1.0);
+            let _transform_changed = self.dynamic.set_transform(leaf, hinge, door.angle(), 1.0);
         }
     }
 
@@ -1465,7 +1471,8 @@ impl WgpuRenderer {
             // 1. The material uniform: the face's emission scale.
             if let Some(materials) = self.world_materials.as_mut() {
                 let scale = if *enabled { 1.0 } else { 0.0 };
-                materials.set_emission_scale(&self.queue, binding.material_slot, scale);
+                let _emission_scale_changed =
+                    materials.set_emission_scale(&self.queue, binding.material_slot, scale);
             }
             // 2. The baked lighting the environment mask is derived from.
             let Some(lighting) = self.dynamic_lighting.as_mut() else {
@@ -1479,7 +1486,7 @@ impl WgpuRenderer {
         if changed {
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
-                environment.update(&self.queue, &uniform);
+                let _update_stats = environment.update(&self.queue, &uniform);
             }
         }
     }
@@ -1646,7 +1653,7 @@ impl WgpuRenderer {
         }
         let environment = self.level_environment();
         if let Some(characters) = self.world_characters.as_mut() {
-            characters.sync(&self.queue, &self.characters, &environment);
+            let _sync_status = characters.sync(&self.queue, &self.characters, &environment);
         }
         update
     }
@@ -1693,7 +1700,7 @@ impl WgpuRenderer {
         // like `spawn_runtime_model`.
         let entry = self.prop_catalog.get(model);
         let path = entry.model.filter(|path| !path.is_empty());
-        let path = path.as_deref().unwrap_or(model);
+        let resolved_path = path.as_deref().unwrap_or(model);
         self.characters.spawn_runtime_character(
             level,
             &self.prop_catalog,
@@ -1701,7 +1708,7 @@ impl WgpuRenderer {
             lighting,
             self.dynamic_field.as_deref(),
             instance_id,
-            path,
+            resolved_path,
             glam::Vec3::from(position),
             yaw_degrees,
             scale,
@@ -1888,7 +1895,10 @@ impl WgpuRenderer {
     /// The float comparison is exact on purpose: both sides are derived from
     /// the same `probe_bake_position` input by the same code, so a mismatch is
     /// a real change (another level's routing), never rounding noise.
-    #[allow(clippy::float_cmp)] // identical inputs re-derive identical bits
+    #[expect(
+        clippy::float_cmp,
+        reason = "identical inputs re-derive identical bits"
+    )] // identical inputs re-derive identical bits
     fn reflection_targets_match(&self, quality: ReflectionQuality) -> bool {
         let face_size = probe_face_size(quality);
         let wanted = if face_size.is_some() {
@@ -2123,17 +2133,24 @@ impl WgpuRenderer {
             props,
             probes,
             precompiled_probes,
-            ..
+            materials: _,
+            prop_cursor: _,
+            phase: _,
         } = pending;
-        let (Some(atlas), Some(world), Some(world_textures), Some(world_materials), Some(props)) =
-            (atlas, world, world_textures, world_materials, props)
+        let (
+            Some(prepared_atlas),
+            Some(prepared_world),
+            Some(prepared_textures),
+            Some(prepared_materials),
+            Some(prepared_props),
+        ) = (atlas, world, world_textures, world_materials, props)
         else {
             self.fatal = Some("Incomplete GPU level preparation".to_string());
             return false;
         };
-        let preserve_playback =
+        let inherit_playback =
             preserve_playback && self.level_id.as_deref() == Some(loaded.level.id.as_str());
-        if preserve_playback {
+        if inherit_playback {
             characters.inherit_playback_from(&mut self.characters);
         }
         let animation_seconds = self.animation_seconds;
@@ -2144,14 +2161,14 @@ impl WgpuRenderer {
         self.quality = graphics.quality;
         self.lighting_quality = graphics.lighting_quality;
         let uploaded = UploadedLevel {
-            atlas,
+            atlas: prepared_atlas,
             fixture_sheets,
-            world,
-            world_textures,
-            world_materials,
-            props: props.finish(),
+            world: prepared_world,
+            world_textures: prepared_textures,
+            world_materials: prepared_materials,
+            props: prepared_props.finish(),
         };
-        let build = self.install_level_prepared(
+        let installed_build = self.install_level_prepared(
             &loaded,
             build,
             graphics.lightmaps,
@@ -2160,17 +2177,23 @@ impl WgpuRenderer {
             Some((characters, uploaded)),
             precompiled_probes.then_some(probes),
         );
-        if preserve_playback {
+        if inherit_playback {
             self.animation_seconds = animation_seconds;
         }
-        self.retained_build = Some(build);
+        self.retained_build = Some(installed_build);
         self.installed_lightmaps = graphics.lightmaps;
         self.graphics_applied = graphics;
         true
     }
 
-    #[allow(clippy::too_many_lines)] // one cohesive level upload: upload and install
-    #[allow(clippy::too_many_arguments)] // one install seam: world, quality and staged GPU state
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive level upload: upload and install"
+    )] // one cohesive level upload: upload and install
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one install seam: world, quality and staged GPU state"
+    )] // one install seam: world, quality and staged GPU state
     fn install_level_prepared(
         &mut self,
         loaded: &LoadedLevel,
@@ -2193,14 +2216,14 @@ impl WgpuRenderer {
             uploaded_textures,
             uploaded_materials,
             uploaded_props,
-        ) = uploaded.map_or((None, None, None, None, None, None), |uploaded| {
+        ) = uploaded.map_or((None, None, None, None, None, None), |uploaded_level| {
             (
-                Some(uploaded.atlas),
-                Some(uploaded.fixture_sheets),
-                Some(uploaded.world),
-                Some(uploaded.world_textures),
-                Some(uploaded.world_materials),
-                Some(uploaded.props),
+                Some(uploaded_level.atlas),
+                Some(uploaded_level.fixture_sheets),
+                Some(uploaded_level.world),
+                Some(uploaded_level.world_textures),
+                Some(uploaded_level.world_materials),
+                Some(uploaded_level.props),
             )
         });
         let level_changed = self.level_id.as_deref() != Some(loaded.level.id.as_str());
@@ -2394,7 +2417,7 @@ impl WgpuRenderer {
             self.effects = EffectScene::build(&loaded.level, &loaded.materials);
         }
         self.spawn_doors();
-        self.dynamic.update_with_field(
+        let _update_stats = self.dynamic.update_with_field(
             0.0,
             self.dynamic_lighting.as_ref(),
             self.dynamic_field.as_deref(),
@@ -2891,7 +2914,10 @@ impl WgpuRenderer {
     /// The camera is prepared by the renderer-neutral
     /// [`prepare_world_frame`]; the only coordinate decision made here is its
     /// one clip-space correction.
-    #[allow(clippy::too_many_lines)] // one cohesive frame submission: prepare, encode and present
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive frame submission: prepare, encode and present"
+    )] // one cohesive frame submission: prepare, encode and present
     pub fn render_scene(&mut self, camera: RenderCamera) {
         // Per-frame submission counters: RenderStats and the bench CSV report
         // this frame's reflection captures, which is what the documented
@@ -2977,11 +3003,11 @@ impl WgpuRenderer {
                     )
                 })
             });
-            let uniform = match uniform {
+            let view_uniform = match uniform {
                 Some((matrix, plane)) => environment_template.with_planar(matrix, plane),
                 None => environment_template,
             };
-            environment.update(&self.queue, &uniform);
+            let _update_stats = environment.update(&self.queue, &view_uniform);
         }
         if let Some(pipeline) = self.world_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
@@ -3034,7 +3060,7 @@ impl WgpuRenderer {
                 [frame.eye.x, frame.eye.y, frame.eye.z],
             );
         }
-        self.ensure_post_targets();
+        let _ensure_post_targets_status = self.ensure_post_targets();
         self.last_frame = Some(frame);
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
         // hold the swapchain: discard it before acquiring the next one.
@@ -3050,7 +3076,7 @@ impl WgpuRenderer {
                             label: Some("places-wgpu-frame"),
                         });
                 let totals = self.encode_frame_into(&mut encoder, &view, &frame);
-                self.queue.submit([encoder.finish()]);
+                let _submission = self.queue.submit([encoder.finish()]);
                 self.pending_frame = Some(texture);
                 self.record_render_stats(totals);
             }
@@ -3267,10 +3293,11 @@ impl WgpuRenderer {
         pipeline: Option<&'a EffectsPipeline>,
         totals: &mut WorldDrawTotals,
     ) {
-        let (Some(effects), Some(pipeline)) = (self.world_effects.as_ref(), pipeline) else {
+        let (Some(effects), Some(effects_pipeline)) = (self.world_effects.as_ref(), pipeline)
+        else {
             return;
         };
-        let effect_totals = effects.encode(pass, pipeline, self.filtering);
+        let effect_totals = effects.encode(pass, effects_pipeline, self.filtering);
         totals.draw_calls = totals.draw_calls.saturating_add(effect_totals.draws);
         totals.visible_batches = totals.visible_batches.saturating_add(effect_totals.draws);
         totals.visible_vertices = totals
@@ -3444,7 +3471,8 @@ impl WgpuRenderer {
         // present pipelines write the surface format.
         self.post = Some(match self.post.take() {
             Some(mut post) => {
-                post.set_surface_format(&self.device, self.config.format);
+                let _surface_format_changed =
+                    post.set_surface_format(&self.device, self.config.format);
                 post
             }
             None => PostProcess::new(&self.device, self.config.format),
@@ -3552,7 +3580,7 @@ impl WgpuRenderer {
             }
             let presented_drawable = self.presented_drawable();
             if let Some(ui) = self.ui.as_mut() {
-                ui.render(
+                let _draw_stats = ui.render(
                     &self.device,
                     &self.queue,
                     &presented,
@@ -3570,7 +3598,7 @@ impl WgpuRenderer {
                 label: Some("places-wgpu-presented"),
             });
         post.encode_present_to(&mut encoder, &surface);
-        self.queue.submit([encoder.finish()]);
+        let _submission = self.queue.submit([encoder.finish()]);
     }
 
     /// The direct fallback path's UI: no presented target exists, so the HUD
@@ -3589,7 +3617,7 @@ impl WgpuRenderer {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        ui.render(
+        let _draw_stats = ui.render(
             &self.device,
             &self.queue,
             &view,
@@ -3651,7 +3679,10 @@ impl WgpuRenderer {
     /// are resident. All
     /// reflection sampling is suppressed while it runs (every material mode is
     /// zero), so a probe never samples an incomplete cube.
-    #[allow(clippy::too_many_lines)] // one cohesive bake: six face submissions per probe in one loop
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive bake: six face submissions per probe in one loop"
+    )] // one cohesive bake: six face submissions per probe in one loop
     fn bake_reflection_probes(&mut self) {
         if self.reflection_targets.probes().is_empty() {
             return;
@@ -3723,7 +3754,7 @@ impl WgpuRenderer {
                         occlusion_query_set: None,
                         multiview_mask: None,
                     });
-                    pipeline.encode(
+                    let _draw_stats = pipeline.encode(
                         &mut pass,
                         super::world::WorldEncodeInputs {
                             geometry: world,
@@ -3744,7 +3775,7 @@ impl WgpuRenderer {
                         self.decals.as_ref(),
                         self.decal_reflection_pipeline.as_ref(),
                     ) {
-                        let _ = decals.encode(
+                        let _decal_draw_stats = decals.encode(
                             &mut pass,
                             decal_pipeline,
                             super::decals::DecalEncodeInputs {
@@ -3755,7 +3786,7 @@ impl WgpuRenderer {
                         );
                     }
                 }
-                self.queue.submit([encoder.finish()]);
+                let _submission = self.queue.submit([encoder.finish()]);
                 baked = baked.saturating_add(1);
             }
         }
@@ -3854,7 +3885,7 @@ impl WgpuRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            pipeline.encode(
+            let _draw_stats = pipeline.encode(
                 &mut pass,
                 super::world::WorldEncodeInputs {
                     geometry: world,
@@ -3872,7 +3903,7 @@ impl WgpuRenderer {
             );
             // Planar captures include the scene's decals.
             if let Some(decals) = self.decals.as_ref() {
-                let _ = decals.encode(
+                let _decal_draw_stats = decals.encode(
                     &mut pass,
                     decal_pipeline,
                     super::decals::DecalEncodeInputs {
@@ -3883,7 +3914,7 @@ impl WgpuRenderer {
                 );
             }
         }
-        self.queue.submit([encoder.finish()]);
+        let _submission = self.queue.submit([encoder.finish()]);
         self.reflection_passes = self.reflection_passes.saturating_add(1);
         true
     }
@@ -3973,7 +4004,12 @@ impl WgpuRenderer {
 
     /// Waits for submitted GPU work to finish (`PLACES_BENCH_FINISH`).
     pub fn finish(&self) {
-        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        if let Err(error) = self.device.poll(wgpu::PollType::wait_indefinitely()) {
+            logging::warn_once(
+                "wgpu-finish",
+                format!("[wgpu] could not finish GPU work: {error}"),
+            );
+        }
     }
 
     /// Reports a selected entity only on the explicit capture path:
@@ -4159,7 +4195,7 @@ impl WgpuRenderer {
                 label: Some("places-wgpu-capture"),
             });
         let _ = self.encode_frame_into(&mut encoder, &view, &frame);
-        self.queue.submit([encoder.finish()]);
+        let _submission = self.queue.submit([encoder.finish()]);
         if post_presented {
             // The capture re-renders the resolved scene into the presented
             // target, replays the HUD there, then copies the presented image into
@@ -4171,16 +4207,16 @@ impl WgpuRenderer {
                 .as_ref()
                 .and_then(PostProcess::presented_view)
                 .cloned();
-            if let Some(presented) = presented {
+            if let Some(presented_size) = presented {
                 if !self.last_ui.is_empty() {
                     self.ensure_ui_pipeline(SCENE_FORMAT);
                     let presented_drawable = self.presented_drawable();
                     if let Some(ui) = self.ui.as_mut() {
                         let ui_vertices = std::mem::take(&mut self.last_ui);
-                        ui.render(
+                        let _draw_stats = ui.render(
                             &self.device,
                             &self.queue,
-                            &presented,
+                            &presented_size,
                             &ui_vertices,
                             presented_drawable,
                         );
@@ -4195,13 +4231,13 @@ impl WgpuRenderer {
                 if let Some(post) = self.post.as_ref() {
                     post.encode_present_raw_to(&mut copy, &view);
                 }
-                self.queue.submit([copy.finish()]);
+                let _submission_2 = self.queue.submit([copy.finish()]);
             }
         } else if !self.last_ui.is_empty() {
             self.ensure_ui_pipeline(self.config.format);
             if let Some(ui) = self.ui.as_mut() {
                 let ui_vertices = std::mem::take(&mut self.last_ui);
-                ui.render(
+                let _draw_stats_2 = ui.render(
                     &self.device,
                     &self.queue,
                     &view,
@@ -4248,9 +4284,12 @@ impl WgpuRenderer {
             probes.push(super::reflections::ProbeFaceReadback {
                 position: probe.position,
                 face_size,
-                faces: faces
-                    .try_into()
-                    .map_err(|_| "probe read-back did not produce six faces".to_string())?,
+                faces: faces.try_into().map_err(|decoded_faces: Vec<Vec<u8>>| {
+                    format!(
+                        "probe read-back produced {} faces instead of six",
+                        decoded_faces.len()
+                    )
+                })?,
             });
         }
         Ok(probes)
@@ -4424,7 +4463,9 @@ impl WgpuRenderer {
 
     /// Drains callback work so device-loss and validation reports are seen.
     fn poll_device(&self) {
-        let _ = self.device.poll(wgpu::PollType::Poll);
+        if let Err(error) = self.device.poll(wgpu::PollType::Poll) {
+            logging::warn_once("wgpu-poll", format!("[wgpu] device poll failed: {error}"));
+        }
     }
 
     /// Reports and records a device loss, once.
@@ -4436,8 +4477,8 @@ impl WgpuRenderer {
             return true;
         }
         let reported = self.device_lost.lock().ok().and_then(|slot| slot.clone());
-        if let Some(reported) = reported {
-            self.mark_fatal(format!("wgpu device lost ({reported})"));
+        if let Some(reported_size) = reported {
+            self.mark_fatal(format!("wgpu device lost ({reported_size})"));
             return true;
         }
         false
@@ -4461,10 +4502,10 @@ fn packaged_probe_max_mip(
     captures: Option<&crate::package::world::ProbeCaptures>,
     resident_face_size: Option<u32>,
 ) -> u32 {
-    let (Some(captures), Some(face_size)) = (captures, resident_face_size) else {
+    let (Some(probe_captures), Some(face_size)) = (captures, resident_face_size) else {
         return 0;
     };
-    captures
+    probe_captures
         .for_face_size(face_size)
         .map_or(0, |capture| capture.levels.saturating_sub(1))
 }
@@ -4483,8 +4524,8 @@ fn upload_probe_chain(
         return Err("packaged probe chain has no levels".to_string());
     }
     for (level, faces) in chain.iter().enumerate() {
-        let level_u32 =
-            u32::try_from(level).map_err(|_| "probe mip level is too large".to_string())?;
+        let level_u32 = u32::try_from(level)
+            .map_err(|error| format!("probe mip level is too large: {error}"))?;
         let Some(edge) = probe_mip_edge(probe.face_size, level_u32) else {
             return Err(format!(
                 "probe chain has level {level}, past the {}-texel base",
@@ -4510,7 +4551,7 @@ fn upload_probe_chain(
             probe.write_face(queue, level_u32, face, data);
         }
     }
-    u32::try_from(chain.len()).map_err(|_| "probe chain is too long".to_string())
+    u32::try_from(chain.len()).map_err(|error| format!("probe chain is too long: {error}"))
 }
 
 /// Copies one world-format texture into a staging buffer and returns its
@@ -4571,21 +4612,21 @@ fn read_back_cube_face(
             depth_or_array_layers: 1,
         },
     );
-    queue.submit([encoder.finish()]);
+    let _submission = queue.submit([encoder.finish()]);
 
     let slice = buffer.slice(..);
     let (sender, receiver) = std::sync::mpsc::channel();
     slice.map_async(wgpu::MapMode::Read, move |result| {
         // A closed receiver means the caller gave up; there is nothing to
         // report it to.
-        let _ = sender.send(result);
+        let _delivery_to_optional_receiver = sender.send(result);
     });
-    device
+    let _poll_status = device
         .poll(wgpu::PollType::wait_indefinitely())
         .map_err(|error| format!("wgpu could not wait for the probe read-back: {error}"))?;
     receiver
         .recv()
-        .map_err(|_| "the wgpu probe read-back callback was lost".to_string())?
+        .map_err(|error| format!("the wgpu probe read-back callback was lost: {error}"))?
         .map_err(|error| format!("wgpu could not map the probe buffer: {error}"))?;
 
     let height_usize = usize::try_from(level_edge).unwrap_or(usize::MAX);
@@ -4655,21 +4696,21 @@ fn read_back_rgba(
             depth_or_array_layers: 1,
         },
     );
-    queue.submit([encoder.finish()]);
+    let _submission = queue.submit([encoder.finish()]);
 
     let slice = buffer.slice(..);
     let (sender, receiver) = std::sync::mpsc::channel();
     slice.map_async(wgpu::MapMode::Read, move |result| {
         // A closed receiver means the caller gave up; there is nothing to
         // report it to.
-        let _ = sender.send(result);
+        let _delivery_to_optional_receiver = sender.send(result);
     });
-    device
+    let _poll_status = device
         .poll(wgpu::PollType::wait_indefinitely())
         .map_err(|error| format!("wgpu could not wait for the capture read-back: {error}"))?;
     receiver
         .recv()
-        .map_err(|_| "the wgpu capture read-back callback was lost".to_string())?
+        .map_err(|error| format!("the wgpu capture read-back callback was lost: {error}"))?
         .map_err(|error| format!("wgpu could not map the capture buffer: {error}"))?;
 
     let height_usize = usize::try_from(height).unwrap_or(usize::MAX);
@@ -4712,7 +4753,8 @@ mod tests {
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::indexing_slicing,
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;

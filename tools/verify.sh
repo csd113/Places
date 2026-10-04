@@ -1,9 +1,7 @@
 #!/bin/sh
 # Authoritative desktop gate; see docs/VERIFICATION.md. Run from the repo root.
 set -eu
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
-cargo test --workspace --all-features
+sh tools/check-rust.sh
 # Python native/packaging checks must use this source and toolchain, even when
 # an older release binary is already present.
 cargo build --release

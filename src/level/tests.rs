@@ -9,11 +9,21 @@
     clippy::indexing_slicing,
     clippy::many_single_char_names,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
 use crate::test_support::{assert_exact, assert_exact_named};
+
+#[test]
+fn zero_axis_cells_produce_one_finite_origin() {
+    assert_eq!(
+        axis_positions(5.0, 12.0, 0),
+        vec![5.0],
+        "an unsubdivided axis must not divide by zero"
+    );
+}
 
 #[test]
 fn test_parse_single_room_level() {
@@ -47,7 +57,7 @@ fn test_parse_sky_defaults_brightness_and_ambient() {
     assert_exact(sky.brightness, 1.0);
     assert_exact(sky.ambient, 0.0);
 
-    let json = r#"{
+    let default_sky_json = r#"{
         "format_version": 3,
         "id": "sky_tuned",
         "name": "Sky Tuned",
@@ -55,10 +65,10 @@ fn test_parse_sky_defaults_brightness_and_ambient() {
         "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 } ],
         "sky": { "texture": "outdoor:tex_sky_stars_01", "brightness": 0.5, "ambient": 0.08 }
     }"#;
-    let level = LevelDef::from_json(json).expect("valid json");
-    let sky = level.sky.expect("sky parses");
-    assert_exact(sky.brightness, 0.5);
-    assert_exact(sky.ambient, 0.08);
+    let default_sky_level = LevelDef::from_json(default_sky_json).expect("valid json");
+    let default_sky = default_sky_level.sky.expect("sky parses");
+    assert_exact(default_sky.brightness, 0.5);
+    assert_exact(default_sky.ambient, 0.08);
 }
 
 #[test]
@@ -156,8 +166,11 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
         "spawn": { "x": 0.0, "z": 0.0 },
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 400.0, "depth": 400.0, "height": 3.5 }]
     }"#;
-    let huge = LevelDef::from_json(huge).expect("valid json");
-    assert_eq!(huge.estimate_geometry().floor_quads, estimate.floor_quads);
+    let huge_level = LevelDef::from_json(huge).expect("valid json");
+    assert_eq!(
+        huge_level.estimate_geometry().floor_quads,
+        estimate.floor_quads
+    );
 
     // A small room that needs no lighting resolution stays a single quad.
     let small = LevelDef::from_json(
@@ -170,9 +183,9 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
         }"#,
     )
     .expect("valid json");
-    let small = small.estimate_geometry();
-    assert_eq!(small.floor_quads, 1);
-    assert_eq!(small.ceiling_quads, 1);
+    let small_estimate = small.estimate_geometry();
+    assert_eq!(small_estimate.floor_quads, 1);
+    assert_eq!(small_estimate.ceiling_quads, 1);
 }
 
 #[test]
@@ -340,7 +353,7 @@ fn test_a_door_resolves_the_wall_opening_it_fills() {
 
     // A Z-axis wall resolves the same way, and a door whose leaf normal runs
     // along the wall's length still measures the tunnel across its thickness.
-    let json = r#"{
+    let z_json = r#"{
         "format_version": 3,
         "id": "frame_resolve_z",
         "name": "Frame Resolve Z",
@@ -352,15 +365,15 @@ fn test_a_door_resolves_the_wall_opening_it_fills() {
         "doors": [ { "id": "z_door", "x": 3.08, "z": 2.0, "rotation_degrees": 270.0,
                      "width": 1.4, "height": 2.1 } ]
     }"#;
-    let level = LevelDef::from_json(json).expect("z level parses");
-    let frame = level.door_frame(&level.doors[0]);
-    assert!((frame.depth - 0.3).abs() < 1e-5, "{}", frame.depth);
+    let z_level = LevelDef::from_json(z_json).expect("z level parses");
+    let z_frame = z_level.door_frame(&z_level.doors[0]);
+    assert!((z_frame.depth - 0.3).abs() < 1e-5, "{}", z_frame.depth);
     // The leaf sits 80 mm east of the wall centre and its normal points west.
-    assert!((frame.center - 0.08).abs() < 1e-5, "{}", frame.center);
+    assert!((z_frame.center - 0.08).abs() < 1e-5, "{}", z_frame.center);
 
     // A raised doorway whose sill meets the leaf's own raised floor still
     // frames the leaf: the pool-side sauna door is the maintained example.
-    let json = r#"{
+    let raised_json = r#"{
         "format_version": 3,
         "id": "frame_resolve_sill",
         "name": "Frame Resolve Sill",
@@ -372,12 +385,16 @@ fn test_a_door_resolves_the_wall_opening_it_fills() {
         "doors": [ { "id": "raised", "x": 0.7, "y": 0.6, "z": 3.0,
                      "width": 1.4, "height": 2.1 } ]
     }"#;
-    let level = LevelDef::from_json(json).expect("raised level parses");
-    let frame = level.door_frame(&level.doors[0]);
-    assert!((frame.depth - 0.3).abs() < 1e-5, "{}", frame.depth);
-    assert!(frame.center.abs() < 1e-5, "{}", frame.center);
+    let raised_level = LevelDef::from_json(raised_json).expect("raised level parses");
+    let raised_frame = raised_level.door_frame(&raised_level.doors[0]);
+    assert!(
+        (raised_frame.depth - 0.3).abs() < 1e-5,
+        "{}",
+        raised_frame.depth
+    );
+    assert!(raised_frame.center.abs() < 1e-5, "{}", raised_frame.center);
     // A window that happens to span the leaf's height is never a frame.
-    let json = r#"{
+    let window_json = r#"{
         "format_version": 3,
         "id": "frame_resolve_window",
         "name": "Frame Resolve Window",
@@ -389,12 +406,12 @@ fn test_a_door_resolves_the_wall_opening_it_fills() {
         "doors": [ { "id": "in_front_of_a_window", "x": 0.7, "z": 3.0,
                      "width": 1.4, "height": 2.1 } ]
     }"#;
-    let level = LevelDef::from_json(json).expect("window level parses");
-    let frame = level.door_frame(&level.doors[0]);
+    let window_level = LevelDef::from_json(window_json).expect("window level parses");
+    let window_frame = window_level.door_frame(&window_level.doors[0]);
     assert!(
-        (frame.depth - STANDALONE_DOOR_FRAME_DEPTH_M).abs() < 1e-6,
+        (window_frame.depth - STANDALONE_DOOR_FRAME_DEPTH_M).abs() < 1e-6,
         "{}",
-        frame.depth
+        window_frame.depth
     );
 }
 
@@ -507,9 +524,8 @@ fn test_wall_solid_slices_ignores_out_of_range_openings() {
         }]
     );
 
-    let nan_wall =
+    let mut nan_wall =
         wall_with_openings(r#"[{ "offset": 1.0, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#);
-    let mut nan_wall = nan_wall;
     nan_wall.openings[0].offset = f32::NAN;
     assert_eq!(wall_solid_slices(&nan_wall, 3.5).len(), 1);
 
@@ -518,9 +534,9 @@ fn test_wall_solid_slices_ignores_out_of_range_openings() {
     empty.openings.clear();
     empty.width = 0.0;
     empty.depth = 0.0;
-    assert_eq!(
-        wall_solid_slices(&empty, 3.5),
-        [] as [crate::level::WallSlice; 0]
+    assert!(
+        wall_solid_slices(&empty, 3.5).is_empty(),
+        "wall_solid_slices(&empty, 3.5) must be empty"
     );
 }
 
@@ -528,9 +544,9 @@ fn test_wall_solid_slices_ignores_out_of_range_openings() {
 fn test_wall_solid_slices_clamps_oversized_opening() {
     // An opening larger than the wall removes it entirely from collision.
     let wall = wall_with_openings(r#"[{ "offset": -1.0, "width": 10.0, "height": 10.0 }]"#);
-    assert_eq!(
-        wall_solid_slices(&wall, 3.5),
-        [] as [crate::level::WallSlice; 0]
+    assert!(
+        wall_solid_slices(&wall, 3.5).is_empty(),
+        "wall_solid_slices(&wall, 3.5) must be empty"
     );
 }
 
@@ -580,7 +596,8 @@ fn test_estimate_geometry_accounts_for_openings_and_props() {
     // The estimate must bound the geometry that is actually generated.
     let mesh = crate::render::build_level_geometry(&level);
     assert!(
-        u64::try_from(mesh.batches.wall_batch.count.max(0)).unwrap_or(0) <= estimate.wall_quads * 6
+        u64::try_from(mesh.batches.wall_batch.count.max(0_i32)).unwrap_or(0)
+            <= estimate.wall_quads * 6
     );
     let expected_quads = estimate.floor_quads
         + estimate.ceiling_quads
@@ -889,11 +906,17 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     )
     .expect("shallow json");
     let shallow_surfaces = LevelSurfaces::new(&shallow);
-    let room = shallow.room_iter().next().expect("one room");
-    let mut rims = Vec::new();
-    let shallow_grid = shallow_surfaces.floor_grid(room);
-    shallow_grid.push_region_rims(|x, z| shallow_grid.height_at(room, x, z), &mut rims);
-    assert!(rims.is_empty(), "a walkable step must stay walkable");
+    let shallow_room = shallow.room_iter().next().expect("one room");
+    let mut shallow_rims = Vec::new();
+    let shallow_grid = shallow_surfaces.floor_grid(shallow_room);
+    shallow_grid.push_region_rims(
+        |x, z| shallow_grid.height_at(shallow_room, x, z),
+        &mut shallow_rims,
+    );
+    assert!(
+        shallow_rims.is_empty(),
+        "a walkable step must stay walkable"
+    );
 }
 
 #[test]
@@ -1103,19 +1126,19 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
               "faces": { "north": "core:wallpaper_yellow_01" } }
         ]
     }"#;
-    let level = LevelDef::from_json(json).expect("faces level parses");
-    let wall = &level.walls[0];
+    let faces_level = LevelDef::from_json(json).expect("faces level parses");
+    let faces_wall = &faces_level.walls[0];
     assert_eq!(
-        wall.face_ref("north").expect("north").id,
+        faces_wall.face_ref("north").expect("north").id,
         "core:wallpaper_yellow_01"
     );
     assert_eq!(
-        wall.face_ref("north").expect("north").shine,
+        faces_wall.face_ref("north").expect("north").shine,
         None,
         "a face with its own material keeps that material's default"
     );
     assert_eq!(
-        wall.face_ref("south").expect("south").shine,
+        faces_wall.face_ref("south").expect("south").shine,
         Some(0.6),
         "a face falling back to the wall material keeps the wall override"
     );
@@ -1487,8 +1510,9 @@ fn test_fade_proximity_fields_resolve_defaults() {
     assert_exact(proximity.fade_in_seconds, DEFAULT_FADE_IN_SECONDS);
     assert_exact(fade.period_seconds, DEFAULT_FADE_PERIOD_SECONDS);
     assert!(
-        fade.proximity()
-            .is_some_and(|proximity| proximity.far_radius > proximity.near_radius),
+        fade.proximity().is_some_and(
+            |resolved_proximity| resolved_proximity.far_radius > resolved_proximity.near_radius
+        ),
         "the hysteresis band is positive"
     );
 
@@ -2174,7 +2198,7 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
     assert_eq!(float.phase, None);
 
     // The same defaults apply when the block is parsed inside a level.
-    let level = LevelDef::from_json(
+    let float_level = LevelDef::from_json(
         r#"{
             "format_version": 3,
             "id": "float_defaults",
@@ -2188,7 +2212,7 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
         }"#,
     )
     .expect("a level with a float block parses");
-    let block = level.props[0].float.expect("the float block parsed");
+    let block = float_level.props[0].float.expect("the float block parsed");
     assert_exact(block.bob_seconds, DEFAULT_FLOAT_PERIOD_S);
     assert_exact(block.heel_seconds, DEFAULT_FLOAT_PERIOD_S);
     assert_eq!(block.phase, None);
@@ -2351,7 +2375,7 @@ fn test_ceiling_uvs_follow_the_room_tile_frame() {
         .expect("the default ceiling")
         .tile_metres;
     let mesh = crate::render::build_level_geometry_with_materials(&level, &materials);
-    let mut checked = 0;
+    let mut checked = 0_i32;
     let mut differs_from_world_tiling = false;
     for range in &mesh.ranges {
         if range.key.kind != crate::render::SurfaceKind::Ceiling {
@@ -2374,10 +2398,10 @@ fn test_ceiling_uvs_follow_the_room_tile_frame() {
             {
                 differs_from_world_tiling = true;
             }
-            checked += 1;
+            checked += 1_i32;
         }
     }
-    assert!(checked > 0, "the ceiling emitted vertices");
+    assert!(checked > 0_i32, "the ceiling emitted vertices");
     assert!(
         differs_from_world_tiling,
         "the authored frame must move the ceiling UVs off the world grid"
@@ -2660,9 +2684,9 @@ fn fog_regions_parse_defaults_and_fogless_levels_serialize_without_the_key() {
         }"#,
     )
     .expect("clear level parses");
-    let encoded = serde_json::to_string(&clean).expect("clear level serializes");
-    assert!(!encoded.contains("fog_regions"));
-    assert!(!encoded.contains("void_walls"));
+    let clear_encoded = serde_json::to_string(&clean).expect("clear level serializes");
+    assert!(!clear_encoded.contains("fog_regions"));
+    assert!(!clear_encoded.contains("void_walls"));
 }
 
 // ---------------------------------------------------------------------------

@@ -2367,8 +2367,8 @@ the installed asset bundle; see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md).
 **Repository rule: normal editable game textures must exist as real image files in
 the asset tree.** Do not generate normal game artwork procedurally from Rust/source
 code at runtime. Create the PNG, register it in the catalog, reference it by logical
-id. The few remaining code-generated images are internal diagnostics/UI and are
-listed at the end of this section — they are exceptions, not the authoring path.
+id. The fixed internal diagnostic/UI sheets are also PNGs, with their original
+layouts preserved; see the table below and Asset Specification §12.3.
 
 ### Supported formats and limits
 
@@ -2488,14 +2488,15 @@ Do not create separate `texture` catalog entries for decal sheets or fixture fac
 their `model` field *is* the PNG. (A surface material still needs its own `texture`
 entry.)
 
-### Generated internal exceptions (not the authoring path)
+### Internal image resources (not the authoring path)
 
 | Resource | Where | Purpose |
 | --- | --- | --- |
-| Missing-texture diagnostic (64×64 magenta/black) | `src/materials/image.rs` | Visible fallback for any broken surface/decal/fixture texture. |
-| Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/common/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
+| Missing-texture diagnostic (64×64 magenta/black) | `assets/core/textures/missing_01.png` (embedded by the engine) | Visible fallback for any broken surface/decal/fixture texture. |
+| Validation decal atlas (256×256; only `core:decal_test_01`) | `assets/core/decals/validation_atlas_01.png` | Fixed atlas slots, alpha and bottom-up row convention; the existing atlas UV mapping is preserved. |
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
-| HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
+| HUD font atlas (128×64) | `assets/core/ui/font_01.png` | Project-owned bitmap UI font with sixteen 8×8 ASCII cells per row and the reserved white UI cell. |
+| Emergency white sheet (2×2) | `assets/core/textures/white_fallback_01.png` | Embedded opaque white fallback if the primary embedded white PNG cannot decode. |
 | Lightmap atlas (up to four pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
@@ -2710,7 +2711,7 @@ new asset type is added, add a row here and update the referenced sections.
 | `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions, opening `glass` |
 | `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture`, `emissive_mask`, `normal_texture` |
 | `light` | A fixture's visible face PNG (the fixture's mesh family is code) | `model` = `.png` | No (levels name it in `ceiling_lights[].fixture`) | level fixture ids; `src/lighting/tuning.rs` fixture table |
-| `decal` | A surface marking sheet | `model` = `.png` (`source: "file"`), or `source: "generated"` for the internal test atlas | No (levels name it in `decals[].material`) | level decal placement |
+| `decal` | A surface marking sheet | `model` = `.png` (`source: "file"`), including the fixed internal validation atlas | No (levels name it in `decals[].material`) | level decal placement |
 
 `asset_class` is orthogonal to `asset_type` and `theme`. `generated` texture-like
 assets exist only as internal diagnostics (see [Textures](#12-textures)).

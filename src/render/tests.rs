@@ -8,9 +8,6 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::collection_is_never_read,
     clippy::expect_used,
     clippy::float_cmp,
@@ -19,7 +16,8 @@
     clippy::panic,
     clippy::print_stdout,
     clippy::unwrap_used,
-    clippy::wildcard_enum_match_arm
+    clippy::wildcard_enum_match_arm,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
@@ -60,9 +58,10 @@ fn the_unit_quantiser_is_accurate_at_the_lighting_extremes_and_in_between() {
     }
     // The whole usable lighting range, swept at 1/1000.
     let mut worst = 0.0f32;
-    for step in 0..=1000 {
+    for step in 0_i32..=1_000_i32 {
         let value = crate::lighting::AMBIENT_LEVEL
-            + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::AMBIENT_LEVEL) * step as f32
+            + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::AMBIENT_LEVEL)
+                * crate::test_support::exact_f32(step)
                 / 1000.0;
         worst = worst.max(quantised_channel_error(value));
     }
@@ -167,17 +166,26 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
     // 96x64 size is asserted here rather than hidden in the policy.
     let npot = texture_image("core:tex_diagnostic_alt_01");
     assert_eq!((npot.width, npot.height), (96, 64));
-    assert_eq!(npot.rgba.len(), (96 * 64 * 4) as usize);
+    assert_eq!(
+        npot.rgba.len(),
+        usize::try_from(96_i32 * 64_i32 * 4_i32).expect("fixture integer fits usize")
+    );
 }
 
 /// Mean and nearest-rank p95 of a sample, sorted in place.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The independent p95 oracle ceils 95 percent of an exactly represented fixture length and bounds its final collection index."
+)]
 fn seam_distribution(values: &mut [f32]) -> (f32, f32) {
     if values.is_empty() {
         return (0.0, 0.0);
     }
-    let mean = values.iter().sum::<f32>() / values.len() as f32;
+    let mean = values.iter().sum::<f32>() / crate::test_support::exact_f32(values.len());
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let rank = ((values.len() as f32) * 0.95).ceil() as usize;
+    let rank = (crate::test_support::exact_f32(values.len()) * 0.95).ceil() as usize;
     let p95 = values[rank.saturating_sub(1).min(values.len().saturating_sub(1))];
     (mean, p95)
 }
@@ -205,7 +213,8 @@ fn assert_axis_tiles(name: &str, image: &crate::materials::RawImage, horizontal:
         "{name}: a tileable surface needs an interior to compare against"
     );
     let texel = |x: u32, y: u32, channel: u32| -> f32 {
-        let index = ((y * size_x + x) * 4 + channel) as usize;
+        let index =
+            usize::try_from((y * size_x + x) * 4 + channel).expect("fixture integer fits usize");
         f32::from(image.rgba[index])
     };
     // Profile of the wrapped first/last texels, and of an interior texel pair:
@@ -317,9 +326,9 @@ fn test_build_geometry_from_test_room() {
         mesh.vertex_count < mesh.index_count,
         "indexing must share corners"
     );
-    assert!(mesh.batches.floor_batch.count > 0);
-    assert!(mesh.batches.ceiling_batch.count > 0);
-    assert!(mesh.batches.wall_batch.count > 0);
+    assert!(mesh.batches.floor_batch.count > 0_i32);
+    assert!(mesh.batches.ceiling_batch.count > 0_i32);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
 }
 
 #[test]
@@ -347,10 +356,10 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
         crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS,
     )
     .unwrap_or(i32::MAX)
-        * 6;
+        * 6_i32;
     for mesh in [&hundred, &four_hundred] {
-        assert!(mesh.batches.floor_batch.count > 0);
-        assert!(mesh.batches.ceiling_batch.count > 0);
+        assert!(mesh.batches.floor_batch.count > 0_i32);
+        assert!(mesh.batches.ceiling_batch.count > 0_i32);
         assert!(
             mesh.batches.floor_batch.count <= cap,
             "floor geometry must stay capped, got {}",
@@ -364,8 +373,8 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
     }
     // No fixtures and no fixtures nearby: the uniform room merges to one
     // quad on each surface, so area genuinely stops mattering.
-    assert_eq!(hundred.batches.floor_batch.count, 6);
-    assert_eq!(hundred.batches.ceiling_batch.count, 6);
+    assert_eq!(hundred.batches.floor_batch.count, 6_i32);
+    assert_eq!(hundred.batches.ceiling_batch.count, 6_i32);
     assert_eq!(
         hundred.batches.floor_batch.count,
         four_hundred.batches.floor_batch.count
@@ -377,8 +386,8 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
 
     // A room smaller than one lighting cell stays a single quad.
     let small = build_level_geometry(&level(2.0));
-    assert_eq!(small.batches.floor_batch.count, 6);
-    assert_eq!(small.batches.ceiling_batch.count, 6);
+    assert_eq!(small.batches.floor_batch.count, 6_i32);
+    assert_eq!(small.batches.ceiling_batch.count, 6_i32);
 }
 
 /// The final carpet must never read as a metre checker.
@@ -405,14 +414,15 @@ fn test_carpet_png_has_no_metre_checker() {
         let mut texels = 0u32;
         for y in y0..y0 + half_y {
             for x in x0..x0 + half_x {
-                let index = ((y * width + x) * 4) as usize;
+                let index =
+                    usize::try_from((y * width + x) * 4).expect("fixture integer fits usize");
                 total += f32::from(carpet.rgba[index])
                     + f32::from(carpet.rgba[index + 1])
                     + f32::from(carpet.rgba[index + 2]);
                 texels += 1;
             }
         }
-        total / (texels as f32 * 3.0)
+        total / (crate::test_support::exact_f32(texels) * 3.0)
     };
     let quadrants = [
         mean(0, 0),
@@ -435,7 +445,8 @@ fn test_carpet_png_has_no_metre_checker() {
     let mut max = u8::MIN;
     for y in (0..height).step_by(7) {
         for x in (0..width).step_by(5) {
-            let value = carpet.rgba[((y * width + x) * 4) as usize];
+            let value = carpet.rgba
+                [usize::try_from((y * width + x) * 4).expect("fixture integer fits usize")];
             min = min.min(value);
             max = max.max(value);
         }
@@ -530,8 +541,8 @@ fn test_zero_sized_drawable_is_empty_and_safe() {
         // Must not divide by zero or panic when a window is minimized.
         assert!(size.aspect_ratio().is_finite());
         let viewport = size.ui_viewport();
-        assert_eq!(viewport.width, 0);
-        assert_eq!(viewport.height, 0);
+        assert_eq!(viewport.width, 0_i32);
+        assert_eq!(viewport.height, 0_i32);
     }
 }
 
@@ -555,13 +566,19 @@ fn test_ui_viewport_is_uniform_and_centred() {
             vp.width <= i32::try_from(w).unwrap_or(i32::MAX)
                 && vp.height <= i32::try_from(h).unwrap_or(i32::MAX)
         );
-        assert!(vp.x >= 0 && vp.y >= 0);
-        assert!((i32::try_from(size.width).unwrap_or(i32::MAX) - vp.width - 2 * vp.x).abs() <= 1);
-        assert!((i32::try_from(size.height).unwrap_or(i32::MAX) - vp.height - 2 * vp.y).abs() <= 1);
+        assert!(vp.x >= 0_i32 && vp.y >= 0_i32);
+        assert!(
+            (i32::try_from(size.width).unwrap_or(i32::MAX) - vp.width - 2 * vp.x).abs() <= 1_i32
+        );
+        assert!(
+            (i32::try_from(size.height).unwrap_or(i32::MAX) - vp.height - 2 * vp.y).abs() <= 1_i32
+        );
 
         // Reference aspect preserved (within one pixel of rounding).
-        let vp_aspect = vp.width as f32 / vp.height as f32;
-        let ref_aspect = UI_REFERENCE_WIDTH as f32 / UI_REFERENCE_HEIGHT as f32;
+        let vp_aspect =
+            crate::test_support::exact_f32(vp.width) / crate::test_support::exact_f32(vp.height);
+        let ref_aspect = crate::test_support::exact_f32(UI_REFERENCE_WIDTH)
+            / crate::test_support::exact_f32(UI_REFERENCE_HEIGHT);
         assert!(
             (vp_aspect - ref_aspect).abs() < 0.01,
             "{w}x{h} UI aspect distorted: {vp_aspect} vs {ref_aspect}"
@@ -577,7 +594,7 @@ fn test_ui_viewport_baseline_is_identity() {
     let vp = DrawableSize::new(480, 272).ui_viewport();
     assert_eq!(
         (vp.x, vp.y, vp.width, vp.height),
-        (0, 0, 480, 272),
+        (0_i32, 0_i32, 480_i32, 272_i32),
         "the reference canvas UI layout must be pixel-identical to the original"
     );
     assert_exact(vp.scale, 1.0);
@@ -590,8 +607,8 @@ fn test_hidpi_uses_physical_pixels_not_logical_size() {
     let physical = DrawableSize::new(960, 544);
 
     assert_exact(physical.ui_viewport().scale, 2.0);
-    assert_eq!(physical.ui_viewport().width, 960);
-    assert_eq!(physical.ui_viewport().height, 544);
+    assert_eq!(physical.ui_viewport().width, 960_i32);
+    assert_eq!(physical.ui_viewport().height, 544_i32);
     assert!((physical.aspect_ratio() - logical.aspect_ratio()).abs() < 1e-6);
 }
 
@@ -607,7 +624,10 @@ fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
     let physical = DrawableSize::new(logical.0 * 2, logical.1 * 2);
     assert_eq!(physical, DrawableSize::new(3840, 2160));
     assert!(
-        (logical.0 as f32 / logical.1 as f32 - physical.aspect_ratio()).abs() < 1e-6,
+        (crate::test_support::exact_f32(logical.0) / crate::test_support::exact_f32(logical.1)
+            - physical.aspect_ratio())
+        .abs()
+            < 1e-6,
         "a HiDPI drawable must keep the logical window's 16:9 aspect"
     );
 
@@ -629,7 +649,7 @@ fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
 
     // The UI viewport follows the physical drawable, not the logical window.
     assert_exact(physical.ui_viewport().scale, 2160.0 / 272.0);
-    assert_eq!(physical.ui_viewport().height, 2160);
+    assert_eq!(physical.ui_viewport().height, 2_160_i32);
 }
 
 /// A resize (or a `HiDPI` backing-scale change) updates every derived target size
@@ -680,10 +700,10 @@ fn test_build_geometry_from_the_shipped_demo() {
         mesh.vertex_count < mesh.index_count,
         "indexing must share corners"
     );
-    assert!(mesh.batches.floor_batch.count > 0);
-    assert!(mesh.batches.ceiling_batch.count > 0);
-    assert!(mesh.batches.wall_batch.count > 0);
-    assert!(mesh.batches.light_batch.count > 0);
+    assert!(mesh.batches.floor_batch.count > 0_i32);
+    assert!(mesh.batches.ceiling_batch.count > 0_i32);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
+    assert!(mesh.batches.light_batch.count > 0_i32);
 
     // The whole shipped demo stays a modest number of vertices.
     assert!(
@@ -774,8 +794,9 @@ fn prepared_blend_decals_read_the_probe_field_and_cutout_decals_do_not() {
             room: 0,
         }],
     };
-    let decal_colors = |mesh: &LevelMesh| -> Vec<[f32; 4]> {
-        mesh.ranges
+    let decal_colors = |prepared_mesh: &LevelMesh| -> Vec<[f32; 4]> {
+        prepared_mesh
+            .ranges
             .iter()
             .filter(|range| range.key.kind == SurfaceKind::Decal)
             .flat_map(|range| range.vertices.iter().map(|vertex| vertex.color))
@@ -847,9 +868,10 @@ fn an_open_ceiling_room_emits_every_surface_but_the_ceiling() {
 
     // The same room with its default flat ceiling keeps both.
     let closed = lit_room_level(8.0, 8.0, 3.0, "[]");
-    let mesh = build_level_geometry(&closed);
+    let closed_mesh = build_level_geometry(&closed);
     assert!(
-        mesh.ranges
+        closed_mesh
+            .ranges
             .iter()
             .any(|range| range.key.kind == SurfaceKind::Ceiling),
         "a flat room still emits its ceiling"
@@ -1044,7 +1066,7 @@ fn a_floor_patch_keeps_its_exact_edges_without_a_second_slab() {
     assert!(estimate.floor_quads >= 1);
     let floor_quads = (damp.len() + clean.len()) / 6;
     assert!(
-        floor_quads as u64 <= estimate.floor_quads,
+        u64::try_from(floor_quads).expect("fixture integer fits u64") <= estimate.floor_quads,
         "{floor_quads} floor quads exceed the {}-quad estimate",
         estimate.floor_quads
     );
@@ -1113,7 +1135,7 @@ fn wall_material_and_face_overrides_apply_only_to_the_faces_they_name() {
 fn two_cluster_level(props_per_cluster: usize) -> LevelDef {
     let mut props: Vec<String> = Vec::new();
     for index in 0..props_per_cluster {
-        let offset = (index as f32) * 1.4;
+        let offset = crate::test_support::exact_f32(index) * 1.4;
         props.push(format!(
             r#"{{ "model": "core:crate", "x": {}, "z": -20.0, "size": [1.0,1.0,1.0] }}"#,
             offset - 5.0
@@ -1212,7 +1234,7 @@ fn every_range_is_indexed_correctly_and_keeps_its_own_vertex_block() {
         );
         for index in &range.indices {
             assert!(
-                (*index as usize) < range.vertices.len(),
+                usize::from(*index) < range.vertices.len(),
                 "{:?} index {index} is out of range for {} vertices",
                 range.key.kind,
                 range.vertices.len()
@@ -1222,7 +1244,7 @@ fn every_range_is_indexed_correctly_and_keeps_its_own_vertex_block() {
         // corners, it never leaves orphans behind.
         let mut used = vec![false; range.vertices.len()];
         for index in &range.indices {
-            used[*index as usize] = true;
+            used[usize::from(*index)] = true;
         }
         assert!(
             used.iter().all(|seen| *seen),
@@ -1295,9 +1317,9 @@ fn the_packer_keeps_every_range_inside_16_bit_indices() {
     };
     // Three ranges of 40 000 vertices each cannot share one chunk.
     let mut placements = Vec::new();
-    for base in 0..3 {
-        let vertices: Vec<Vertex> = (0..40_000)
-            .map(|i| vertex((base * 40_000 + i) as f32))
+    for base in 0_i32..3_i32 {
+        let vertices: Vec<Vertex> = (0_i32..40_000_i32)
+            .map(|i| vertex(crate::test_support::exact_f32(base * 40_000_i32 + i)))
             .collect();
         let indices: Vec<u16> = (0..40_000u16).collect();
         placements.extend(packer.push(&vertices, &indices));
@@ -1313,7 +1335,7 @@ fn the_packer_keeps_every_range_inside_16_bit_indices() {
         let end = start + usize::try_from(placement.index_count).unwrap_or(0);
         for (offset, value) in chunk.indices[start..end].iter().enumerate() {
             assert_eq!(
-                *value as usize,
+                usize::from(*value),
                 usize::try_from(placement.vertex_start).unwrap_or(0) + offset,
                 "range {index} indices must be re-based into their chunk"
             );
@@ -1336,7 +1358,9 @@ fn a_single_range_larger_than_the_index_space_is_split_not_wrapped() {
     // hold them together with the next range, and the range itself must be
     // re-based correctly as it is split.
     let count = 50_000usize;
-    let vertices: Vec<Vertex> = (0..count).map(|i| vertex(i as f32)).collect();
+    let vertices: Vec<Vertex> = (0..count)
+        .map(|i| vertex(crate::test_support::exact_f32(i)))
+        .collect();
     let mut indices: Vec<u16> = Vec::with_capacity(count * 2);
     for index in 0..count {
         indices.push(u16::try_from(index % count).unwrap_or(u16::MAX));
@@ -1363,7 +1387,7 @@ fn a_single_range_larger_than_the_index_space_is_split_not_wrapped() {
         let end = start + usize::try_from(placement.index_count).unwrap_or(0);
         for index in &chunk.indices[start..end] {
             assert!(
-                (*index as usize) < chunk.vertices.len(),
+                usize::from(*index) < chunk.vertices.len(),
                 "index {index} escapes chunk {}",
                 placement.chunk
             );
@@ -1406,7 +1430,8 @@ fn turning_the_camera_away_rejects_an_entire_cluster() {
     );
     // The two views are mirror images, so they must agree closely and
     // together leave a large fraction of the level unsubmitted.
-    let ratio = far_visible.min(near_visible) as f32 / total as f32;
+    let ratio = crate::test_support::exact_f32(far_visible.min(near_visible))
+        / crate::test_support::exact_f32(total);
     assert!(
         ratio < 0.75,
         "a camera-away view must drop most of the level, kept {ratio:.2}"
@@ -1714,7 +1739,7 @@ fn floors_are_lit_by_the_baseline_and_the_local_fixture_pool() {
     );
     let mesh = build_level_geometry(&level);
     let floor = batch_slice(&mesh, SurfaceKind::Floor);
-    assert_ne!(floor, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!floor.is_empty(), "floor must contain entries");
 
     let bright = brightest(&floor);
     let dim = dimmest(&floor);
@@ -1785,13 +1810,12 @@ fn wall_faces_vary_with_the_baked_lighting() {
 
 #[test]
 fn placeholder_prop_boxes_receive_the_environment_lighting() {
-    let level = lit_room_level(
+    let mut level = lit_room_level(
         20.0,
         20.0,
         3.0,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }]"#,
     );
-    let mut level = level;
     level.props = vec![
         PropDef {
             id: None,
@@ -1836,7 +1860,8 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
     let far: Vec<&Vertex> = props.iter().filter(|v| v.pos[0] <= 5.0).collect();
     assert!(!under.is_empty() && !far.is_empty());
     let mean = |slice: &[&Vertex]| {
-        slice.iter().map(|vertex| vertex.color[0]).sum::<f32>() / slice.len() as f32
+        slice.iter().map(|vertex| vertex.color[0]).sum::<f32>()
+            / crate::test_support::exact_f32(slice.len())
     };
     assert!(
         mean(&under) > mean(&far) + 0.05,
@@ -1895,12 +1920,12 @@ fn vertically_offset_props_sample_their_true_world_position() {
     // The box on the floor is 3 m below the panel, the raised one 1 m; every
     // corresponding vertex must carry exactly the ratio of the two samples
     // taken at its own transformed world position.
-    let mut brighter_vertices = 0;
+    let mut brighter_vertices = 0_i32;
     for index in 0..36 {
         let low = floor_box[index].color[0];
         let high = raised_box[index].color[0];
         if high > low + 1e-6 {
-            brighter_vertices += 1;
+            brighter_vertices += 1_i32;
         }
         let low_light = lighting.sample(
             floor_box[index].pos[0],
@@ -1928,7 +1953,7 @@ fn vertically_offset_props_sample_their_true_world_position() {
         }
     }
     assert!(
-        brighter_vertices > 0,
+        brighter_vertices > 0_i32,
         "the raised prop must be closer to the light"
     );
 }
@@ -1942,10 +1967,10 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
         { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 0.0 }
     ]"#;
     let mut props: Vec<String> = Vec::new();
-    for index in 0..10 {
+    for index in 0_i32..10_i32 {
         props.push(format!(
             r#"{{ "model": "core:chair", "x": {}, "z": 0.0 }}"#,
-            index as f32
+            crate::test_support::exact_f32(index)
         ));
     }
     let level = level_with_wall_and_lights("[]", &format!("[{}]", props.join(",")), lights);
@@ -2005,9 +2030,9 @@ fn malformed_geometry_never_reaches_the_vertex_buffer() {
     level.ceiling_lights[0].z = f32::INFINITY;
 
     let mesh = build_level_geometry(&level);
-    assert_eq!(mesh.batches.floor_batch.count, 0);
-    assert_eq!(mesh.batches.ceiling_batch.count, 0);
-    assert_eq!(mesh.batches.light_batch.count, 0);
+    assert_eq!(mesh.batches.floor_batch.count, 0_i32);
+    assert_eq!(mesh.batches.ceiling_batch.count, 0_i32);
+    assert_eq!(mesh.batches.light_batch.count, 0_i32);
     for vertex in mesh.all_vertices() {
         assert!(
             vertex.pos.iter().all(|value| value.is_finite()),
@@ -2075,9 +2100,9 @@ fn test_wall_without_openings_emits_four_faces() {
     // lighting along each face is flat and the segments merge back into one
     // quad per face.
     let segments = i32::try_from(crate::lighting::wall_light_segments(10.0)).unwrap_or(i32::MAX);
-    assert_eq!(mesh.batches.wall_batch.count, 4 * 6);
-    assert!(4 * 6 <= (2 * segments + 2) * 6);
-    assert_eq!(mesh.batches.prop_batch.count, 0);
+    assert_eq!(mesh.batches.wall_batch.count, 4_i32 * 6_i32);
+    assert!(4_i32 * 6_i32 <= (2_i32 * segments + 2_i32) * 6_i32);
+    assert_eq!(mesh.batches.prop_batch.count, 0_i32);
 }
 
 #[test]
@@ -2095,13 +2120,13 @@ fn test_wall_with_doorway_emits_more_wall_quads() {
     // Three slices, each split into lighting segments, two faces each; plus
     // the door head underside and four cross-section caps (2 wall ends,
     // 2 door jambs). Flat segments merge, so the bound is an upper limit.
-    let mut expected = 0;
+    let mut expected = 0_i32;
     for length in [4.0f32, 2.0, 4.0] {
         expected +=
-            2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
+            2_i32 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
     }
-    assert!(door.batches.wall_batch.count <= (expected + 1 + 4) * 6);
-    assert!(door.batches.wall_batch.count > 0);
+    assert!(door.batches.wall_batch.count <= (expected + 1_i32 + 4_i32) * 6_i32);
+    assert!(door.batches.wall_batch.count > 0_i32);
 }
 
 #[test]
@@ -2114,22 +2139,22 @@ fn test_wall_with_window_emits_sill_and_header_faces() {
     // Four slices: the full-height wall either side of the window plus the
     // sill and header slices, which add a sill top and a head underside,
     // plus 4 cross-section caps. Flat segments merge, so this is a bound.
-    let mut expected = 0;
+    let mut expected = 0_i32;
     for length in [4.0f32, 2.0, 2.0, 4.0] {
         expected +=
-            2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
+            2_i32 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
     }
-    assert!(mesh.batches.wall_batch.count <= (expected + 2 + 4) * 6);
-    assert!(mesh.batches.wall_batch.count > 0);
+    assert!(mesh.batches.wall_batch.count <= (expected + 2_i32 + 4_i32) * 6_i32);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
 }
 
 #[test]
 fn test_geometry_without_openings_contains_floor_ceiling_and_wall_batches() {
     let level = level_with_wall("[]", "[]");
     let mesh = build_level_geometry(&level);
-    assert!(mesh.batches.floor_batch.count > 0);
-    assert!(mesh.batches.ceiling_batch.count > 0);
-    assert!(mesh.batches.wall_batch.count > 0);
+    assert!(mesh.batches.floor_batch.count > 0_i32);
+    assert!(mesh.batches.ceiling_batch.count > 0_i32);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
     assert_eq!(mesh.vertex_count % 6, 0);
 }
 
@@ -2153,13 +2178,13 @@ fn test_z_axis_wall_geometry_runs_along_z() {
     // split into lighting segments, two faces each; plus door head
     // underside and 4 cross-section caps. Flat segments merge, so the bound
     // is an upper limit.
-    let mut expected = 0;
+    let mut expected = 0_i32;
     for length in [4.0f32, 2.0, 4.0] {
         expected +=
-            2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
+            2_i32 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
     }
-    assert!(mesh.batches.wall_batch.count <= (expected + 1 + 4) * 6);
-    assert!(mesh.batches.wall_batch.count > 0);
+    assert!(mesh.batches.wall_batch.count <= (expected + 1_i32 + 4_i32) * 6_i32);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
 
     let wall_vertices = mesh.triangles_for(SurfaceKind::Wall);
     let (min_x, max_x) = wall_vertices.iter().fold((f32::MAX, f32::MIN), |acc, v| {
@@ -2186,7 +2211,7 @@ fn test_prop_batch_is_populated_for_one_prop() {
     // One Y-rotated box = 6 quads = 36 vertices, drawn after every kind of
     // static geometry: the buffer is laid out floor, ceiling, wall, light,
     // then placeholder props.
-    assert_eq!(mesh.batches.prop_batch.count, 36);
+    assert_eq!(mesh.batches.prop_batch.count, 36_i32);
     assert!(
         mesh.batches.prop_batch.start
             >= mesh.batches.light_batch.start + mesh.batches.light_batch.count,
@@ -2197,7 +2222,7 @@ fn test_prop_batch_is_populated_for_one_prop() {
     );
     assert_eq!(
         mesh.index_count_for(SurfaceKind::PropFallback),
-        usize::try_from(mesh.batches.prop_batch.count.max(0)).unwrap_or(0),
+        usize::try_from(mesh.batches.prop_batch.count.max(0_i32)).unwrap_or(0),
         "the prop aggregate span must match the prop ranges"
     );
 }
@@ -2209,7 +2234,7 @@ fn test_props_with_invalid_extents_are_skipped() {
         r#"[{ "model": "core:crate", "x": 1.0, "z": 1.0, "size": [0.0, 1.0, 1.0] }]"#,
     );
     let mesh = build_level_geometry(&level);
-    assert_eq!(mesh.batches.prop_batch.count, 0);
+    assert_eq!(mesh.batches.prop_batch.count, 0_i32);
 }
 
 #[test]
@@ -2230,7 +2255,7 @@ fn test_prop_catalog_supplies_size_and_colour() {
         r#"[{ "model": "core:test_prop", "x": 0.5, "z": 0.5, "rotation_degrees": 45.0 }]"#,
     );
     let mesh = build_level_geometry_with_catalog(&level, &catalog);
-    assert_eq!(mesh.batches.prop_batch.count, 36);
+    assert_eq!(mesh.batches.prop_batch.count, 36_i32);
 }
 
 /// Catalogue + assets used by the real prop-geometry tests. Reading the
@@ -2284,7 +2309,8 @@ fn non_indexed_submission_duplicates_prop_vertices() {
             unique,
             submitted,
             model.triangles,
-            100.0 * unique as f32 / submitted as f32
+            100.0 * crate::test_support::exact_f32(unique)
+                / crate::test_support::exact_f32(submitted)
         );
         total_unique += unique;
         total_submitted += submitted;
@@ -2299,7 +2325,8 @@ fn non_indexed_submission_duplicates_prop_vertices() {
     );
     println!(
         "pack total: {total_unique} unique vs {total_submitted} submitted ({:.0}%)",
-        100.0 * total_unique as f32 / total_submitted as f32
+        100.0 * crate::test_support::exact_f32(total_unique)
+            / crate::test_support::exact_f32(total_submitted)
     );
 }
 
@@ -2332,15 +2359,15 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
 
     // The box placeholder is gone: the chair renders as real geometry.
-    assert_eq!(mesh.batches.prop_batch.count, 0);
+    assert_eq!(mesh.batches.prop_batch.count, 0_i32);
     assert_eq!(batches.len(), 1, "one draw batch per distinct model");
     assert_eq!(
         batches[0].model,
         "environment/office/props/models/chair.glb"
     );
-    assert_ne!(
-        batches[0].vertices,
-        [] as [crate::render::common::mesh::Vertex; 0]
+    assert!(
+        !batches[0].vertices.is_empty(),
+        "batches[0].vertices must contain entries"
     );
     assert_eq!(batches[0].textures.len(), 1, "a single material model");
     assert_eq!(batches[0].submeshes.len(), 1);
@@ -2382,10 +2409,10 @@ fn repeated_instances_share_one_batch_and_reuse_the_model() {
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
     let mut props: Vec<String> = Vec::new();
-    for index in 0..10 {
+    for index in 0_i32..10_i32 {
         props.push(format!(
             r#"{{ "model": "core:chair", "x": {}, "z": 0.0 }}"#,
-            index as f32
+            crate::test_support::exact_f32(index)
         ));
     }
     let level = level_with_wall("[]", &format!("[{}]", props.join(",")));
@@ -2394,8 +2421,8 @@ fn repeated_instances_share_one_batch_and_reuse_the_model() {
     assert_eq!(batches.len(), 1, "ten chairs are one draw batch");
     let single = {
         let one = level_with_wall("[]", r#"[{ "model": "core:chair", "x": 0.0, "z": 0.0 }]"#);
-        let (_, batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
-        batches[0].vertices.len()
+        let (_, single_batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
+        single_batches[0].vertices.len()
     };
     assert_eq!(
         batches[0].vertices.len(),
@@ -2463,7 +2490,7 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
 
     assert_eq!(
-        mesh.batches.prop_batch.count, 0,
+        mesh.batches.prop_batch.count, 0_i32,
         "no placeholder boxes expected"
     );
 
@@ -2505,7 +2532,7 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     let (outdoor_mesh, outdoor_batches) =
         build_level_geometry_with_assets(&outdoor_showcase, &catalog, &mut assets);
     assert_eq!(
-        outdoor_mesh.batches.prop_batch.count, 0,
+        outdoor_mesh.batches.prop_batch.count, 0_i32,
         "no placeholder boxes expected in the outdoor kit fixture"
     );
     assert!(!outdoor_batches.is_empty());
@@ -2516,7 +2543,7 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     let (halloween_mesh, halloween_batches) =
         build_level_geometry_with_assets(&halloween, &catalog, &mut assets);
     assert_eq!(
-        halloween_mesh.batches.prop_batch.count, 0,
+        halloween_mesh.batches.prop_batch.count, 0_i32,
         "no placeholder boxes expected in the Halloween fixture"
     );
     let mut halloween_models: Vec<&str> = halloween_batches
@@ -2659,7 +2686,7 @@ fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
 
     assert!(batches.is_empty(), "no real geometry for a missing model");
     assert_eq!(
-        mesh.batches.prop_batch.count, 36,
+        mesh.batches.prop_batch.count, 36_i32,
         "a missing model must draw its placeholder box"
     );
     assert_eq!(assets.stats().models_failed, 1);
@@ -2699,12 +2726,19 @@ fn normal_matches(actual: [f32; 3], expected: [f32; 3]) -> bool {
 /// Samples one texel of the generated atlas through the same coordinate
 /// convention `decal_uv_rect` hands to the shader (the sheet is stored
 /// bottom-up, so the visual top row maps to the higher `v`).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "Normalized fixture UVs intentionally truncate to pixel coordinates before clamping to the 256-texel sheet; the resulting integer byte offset is checked separately."
+)]
 fn atlas_texel(pixels: &[u8], u: f32, v: f32) -> [u8; 4] {
     let size = DECAL_ATLAS_SIZE;
-    let x = ((u * size as f32) as i32).clamp(0, size - 1);
-    let visual_y = (((1.0 - v) * size as f32) as i32).clamp(0, size - 1);
-    let row = size - 1 - visual_y;
-    let index = ((row * size + x) * 4) as usize;
+    let x = ((u * crate::test_support::exact_f32(size)) as i32).clamp(0_i32, size - 1_i32);
+    let visual_y =
+        (((1.0 - v) * crate::test_support::exact_f32(size)) as i32).clamp(0_i32, size - 1_i32);
+    let row = size - 1_i32 - visual_y;
+    let index = usize::try_from((row * size + x) * 4_i32)
+        .expect("clamped fixture texel has a nonnegative byte offset");
     [
         pixels[index],
         pixels[index + 1],
@@ -2719,7 +2753,7 @@ fn atlas_texel(pixels: &[u8], u: f32, v: f32) -> [u8; 4] {
 #[test]
 fn generated_decal_atlas_cells_match_their_sheet_slots() {
     let atlas = generate_decal_atlas();
-    let size = DECAL_ATLAS_SIZE as usize;
+    let size = usize::try_from(DECAL_ATLAS_SIZE).expect("fixture integer fits usize");
     let cell = |slot: u32| -> Vec<[u8; 4]> {
         let rect = decal_uv_rect(slot);
         let u0 = rect[0][0].min(rect[2][0]);
@@ -2729,8 +2763,12 @@ fn generated_decal_atlas_cells_match_their_sheet_slots() {
         let mut out = Vec::with_capacity(size * size);
         for row in 0..size {
             for column in 0..size {
-                let u = u0 + (u1 - u0) * (column as f32 + 0.5) / size as f32;
-                let v = v0 + (v1 - v0) * (row as f32 + 0.5) / size as f32;
+                let u = u0
+                    + (u1 - u0) * (crate::test_support::exact_f32(column) + 0.5)
+                        / crate::test_support::exact_f32(size);
+                let v = v0
+                    + (v1 - v0) * (crate::test_support::exact_f32(row) + 0.5)
+                        / crate::test_support::exact_f32(size);
                 out.push(atlas_texel(&atlas, u, v));
             }
         }
@@ -2803,7 +2841,10 @@ fn a_catalogued_png_decal_draws_from_its_own_sheet() {
         .expect("the catalogued sign resolves");
     assert_eq!(sheet, DECAL_EXTERNAL_BASE);
     let mesh = build_level_geometry_with_catalog(&level, &catalog);
-    assert_eq!(mesh.batches.decal_batch.count, 6, "one decal is one quad");
+    assert_eq!(
+        mesh.batches.decal_batch.count, 6_i32,
+        "one decal is one quad"
+    );
     let quad = batch_slice(&mesh, SurfaceKind::Decal);
     // Full-sheet UVs: the decal samples the whole PNG (the packed slice does
     // not promise a corner order, so compare the set).
@@ -2865,8 +2906,11 @@ fn a_catalogued_png_decal_draws_from_its_own_sheet() {
         decal_sheet_index(&with_patterns, catalog.assets(), "core:decal_stripes_01"),
         Some(DECAL_EXTERNAL_BASE + 1)
     );
-    let mesh = build_level_geometry_with_catalog(&mixed, &catalog);
-    assert_eq!(mesh.batches.decal_batch.count, 12, "two decals, two quads");
+    let mixed_mesh = build_level_geometry_with_catalog(&mixed, &catalog);
+    assert_eq!(
+        mixed_mesh.batches.decal_batch.count, 12_i32,
+        "two decals, two quads"
+    );
     // A generated decal that is not catalogued draws nothing, exactly like
     // an unknown material.
     assert_eq!(
@@ -2885,7 +2929,10 @@ fn a_wall_decal_lies_on_its_wall_plane_lifted_by_the_decal_offset() {
     );
     let mesh = build_level_geometry(&level);
     let quad = batch_slice(&mesh, SurfaceKind::Decal);
-    assert_eq!(mesh.batches.decal_batch.count, 6, "one decal is one quad");
+    assert_eq!(
+        mesh.batches.decal_batch.count, 6_i32,
+        "one decal is one quad"
+    );
     // Every corner sits on the authored wall plane, lifted out of the wall by
     // exactly the shared decal surface offset and no more.
     for vertex in &quad {
@@ -3054,10 +3101,13 @@ fn unknown_decal_materials_are_skipped_without_failing_the_build() {
     );
     let mesh = build_level_geometry(&level);
     assert_eq!(
-        mesh.batches.decal_batch.count, 0,
+        mesh.batches.decal_batch.count, 0_i32,
         "an unresolved decal sheet must draw nothing"
     );
-    assert!(mesh.batches.wall_batch.count > 0, "the level still builds");
+    assert!(
+        mesh.batches.wall_batch.count > 0_i32,
+        "the level still builds"
+    );
 }
 
 #[test]
@@ -3395,8 +3445,13 @@ fn coincident_overlay_walls_become_one_surface_with_material_runs() {
     let coalesced: Vec<_> = units
         .iter()
         .filter_map(|unit| match unit {
-            WallUnit::Coalesced { wall, runs, .. } => Some((wall, runs)),
-            WallUnit::Plain { .. } => None,
+            WallUnit::Coalesced {
+                wall,
+                runs,
+                members: _,
+                slices: _,
+            } => Some((wall, runs)),
+            WallUnit::Plain { index: _, wall: _ } => None,
         })
         .collect();
     assert_eq!(coalesced.len(), 1, "the overlay is resolved into the host");
@@ -3466,8 +3521,13 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
     let synthetic = units
         .iter()
         .find_map(|unit| match unit {
-            WallUnit::Coalesced { slices, .. } => Some(slices.clone()),
-            WallUnit::Plain { .. } => None,
+            WallUnit::Coalesced {
+                slices,
+                members: _,
+                wall: _,
+                runs: _,
+            } => Some(slices.clone()),
+            WallUnit::Plain { index: _, wall: _ } => None,
         })
         .expect("coalesced unit");
     // The union of an opaque overlay over the host's window is solid: its
@@ -3495,21 +3555,26 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
     );
     let shared_materials = logical_materials(&shared);
     let shared_lookup = MaterialLookup::new(&shared_materials);
-    let units = wall_units(
+    let shared_units = wall_units(
         &shared,
         &crate::level::LevelSurfaces::new(&shared),
         &shared_lookup,
     );
-    let synthetic = units
+    let shared_synthetic = shared_units
         .iter()
         .find_map(|unit| match unit {
-            WallUnit::Coalesced { slices, .. } => Some(slices.clone()),
-            WallUnit::Plain { .. } => None,
+            WallUnit::Coalesced {
+                slices,
+                members: _,
+                wall: _,
+                runs: _,
+            } => Some(slices.clone()),
+            WallUnit::Plain { index: _, wall: _ } => None,
         })
         .expect("coalesced unit");
     // Both walls cut the same door, so the union keeps exactly that hole: the
     // solid area is the full rectangle minus the door.
-    let solid: f32 = synthetic
+    let solid: f32 = shared_synthetic
         .iter()
         .map(|slice| (slice.end - slice.start) * (slice.top - slice.bottom))
         .sum();
@@ -3519,9 +3584,11 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
         "the shared door must survive the merge: solid {solid}, expected {expected}"
     );
     assert!(
-        synthetic.iter().any(|slice| slice.bottom >= 2.1 - 1e-3
-            && slice.start <= 2.5 + 1e-3
-            && slice.end >= 3.5 - 1e-3),
+        shared_synthetic
+            .iter()
+            .any(|slice| slice.bottom >= 2.1 - 1e-3
+                && slice.start <= 2.5 + 1e-3
+                && slice.end >= 3.5 - 1e-3),
         "the header above the shared door must remain solid"
     );
 }
@@ -3534,7 +3601,7 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
 fn l_corner_level(first: &str) -> LevelDef {
     let x_wall = r#"{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 1.0 }"#;
     let z_wall = r#"{ "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 1.0 }"#;
-    let (first, second) = if first == "x" {
+    let (first_wall, second) = if first == "x" {
         (x_wall, z_wall)
     } else {
         (z_wall, x_wall)
@@ -3546,7 +3613,7 @@ fn l_corner_level(first: &str) -> LevelDef {
             "name": "L Corner",
             "spawn": {{ "x": 4.0, "z": 4.0 }},
             "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
-            "walls": [ {first}, {second} ]
+            "walls": [ {first_wall}, {second} ]
         }}"#
     );
     LevelDef::from_json(&json).expect("valid L-corner json")
@@ -3648,16 +3715,16 @@ fn perpendicular_walls_share_exactly_one_top_cap_at_their_corner() {
     // corner: the subtraction must not take the whole cap with it. The
     // samples stay off the cap quads' own diagonals, whose shared edge
     // belongs to both triangles of one quad by construction.
-    assert_exactly_one_cap_at(&caps, 4.0, 0.1);
-    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+    let _assert_exactly_one_cap_at_status = assert_exactly_one_cap_at(&caps, 4.0, 0.1);
+    let _assert_exactly_one_cap_at_status_2 = assert_exactly_one_cap_at(&caps, 0.1, 4.0);
 
     // Reversing the authored order flips the owner, not the coverage: the
     // Z wall now keeps the corner.
     let reversed = build_level_geometry(&l_corner_level("z"));
-    let caps = caps_at(&reversed, 1.0, true);
+    let reversed_caps = caps_at(&reversed, 1.0, true);
     for x in CORNER_SAMPLES_M {
         for z in CORNER_SAMPLES_M {
-            let owner = assert_exactly_one_cap_at(&caps, x, z);
+            let owner = assert_exactly_one_cap_at(&reversed_caps, x, z);
             let max_z = owner.iter().map(|v| v.pos[2]).fold(f32::MIN, f32::max);
             assert!(max_z >= 7.9, "the earlier Z wall must own the corner");
         }
@@ -3697,7 +3764,7 @@ fn a_coalesced_unit_keeps_the_cap_corner_under_its_earliest_member() {
             assert!(max_x >= 7.9, "the coalesced X unit must own the corner");
         }
     }
-    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+    let _assert_exactly_one_cap_at_status = assert_exactly_one_cap_at(&caps, 0.1, 4.0);
 }
 
 #[test]
@@ -3717,8 +3784,8 @@ fn perpendicular_walls_share_exactly_one_bottom_cap_at_their_corner() {
         }
     }
     // The exposed remainder of each base is still capped away from the corner.
-    assert_exactly_one_cap_at(&caps, 4.0, 0.1);
-    assert_exactly_one_cap_at(&caps, 0.1, 4.0);
+    let _assert_exactly_one_cap_at_status = assert_exactly_one_cap_at(&caps, 4.0, 0.1);
+    let _assert_exactly_one_cap_at_status_2 = assert_exactly_one_cap_at(&caps, 0.1, 4.0);
 }
 
 #[test]
@@ -3737,8 +3804,8 @@ fn an_empty_material_id_emits_a_bare_key_not_an_arbitrary_material() {
     let table = logical_materials(&level);
     assert!(table.is_empty(), "empty ids are not materials");
     let mesh = build_level_geometry(&level);
-    assert!(mesh.batches.floor_batch.count > 0);
-    assert!(mesh.batches.ceiling_batch.count > 0);
+    assert!(mesh.batches.floor_batch.count > 0_i32);
+    assert!(mesh.batches.ceiling_batch.count > 0_i32);
     for range in &mesh.ranges {
         assert!(
             !range.key.has_material(),
@@ -3967,9 +4034,9 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
     // Orientation: every segment's UV ring winds the same way as its world
     // ring, so no segment is mirrored; a quad chunk is [p0, p1, p2, p0, p2, p3].
     for quad in round.as_chunks::<6>().0 {
-        let corner = |index: usize| -> [f32; 2] { [quad[index].pos[0], quad[index].pos[2]] };
+        let uv_at = |index: usize| -> [f32; 2] { [quad[index].pos[0], quad[index].pos[2]] };
         let uv_corner = |index: usize| -> [f32; 2] { quad[index].uv };
-        let world_area = quad_area([corner(0), corner(1), corner(2), corner(5)]);
+        let world_area = quad_area([uv_at(0), uv_at(1), uv_at(2), uv_at(5)]);
         let uv_area = quad_area([uv_corner(0), uv_corner(1), uv_corner(2), uv_corner(5)]);
         assert!(
             world_area * uv_area > 0.0,
@@ -4075,9 +4142,9 @@ fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
     // Four side walls span the drop, four bottom-frame strips sit at the frame
     // bottom and four top-flange strips close the body at the ceiling plane.
     let y_bottom = 2.0 - PANEL_BODY_DROP_M;
-    let mut sides = 0;
-    let mut frame = 0;
-    let mut flange = 0;
+    let mut sides = 0_i32;
+    let mut frame = 0_i32;
+    let mut flange = 0_i32;
     for quad in housing.as_chunks::<6>().0 {
         let min_y = quad
             .iter()
@@ -4088,16 +4155,16 @@ fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
             .map(|vertex| vertex.pos[1])
             .fold(f32::MIN, f32::max);
         if (min_y - y_bottom).abs() < 1e-6 && (max_y - 2.0).abs() < 1e-6 {
-            sides += 1;
+            sides += 1_i32;
         } else if (max_y - y_bottom).abs() < 1e-6 {
-            frame += 1;
+            frame += 1_i32;
         } else if (min_y - 2.0).abs() < 1e-6 {
-            flange += 1;
+            flange += 1_i32;
         }
     }
     assert_eq!(
         (sides, frame, flange),
-        (4, 4, 4),
+        (4_i32, 4_i32, 4_i32),
         "side walls, bottom frame and top flange are all real"
     );
     // The housing covers the family's full outer footprint.
@@ -4250,7 +4317,7 @@ fn test_gable_ceiling_is_real_sloped_geometry() {
     .expect("gable json");
     let mesh = build_level_geometry(&level);
     let ceiling = batch_slice(&mesh, SurfaceKind::Ceiling);
-    assert_ne!(ceiling, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!ceiling.is_empty(), "ceiling must contain entries");
     let (min_y, max_y) = y_bounds(&ceiling);
     assert!((min_y - 3.0).abs() < 1e-4, "eaves at {min_y}");
     assert!((max_y - 5.0).abs() < 1e-4, "ridge at {max_y}");
@@ -4304,7 +4371,7 @@ fn test_gable_end_wall_follows_the_sloped_ceiling() {
     .expect("gable walls json");
     let mesh = build_level_geometry(&level);
     let walls = batch_slice(&mesh, SurfaceKind::Wall);
-    assert_ne!(walls, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!walls.is_empty(), "walls must contain entries");
     let (min_y, max_y) = y_bounds(&walls);
     // The wall running along Z climbs to the ridge; the eave wall stays at
     // the eave. Together they span eave to ridge with no flat cap.
@@ -4344,7 +4411,7 @@ fn test_gable_eave_wall_keeps_the_ceiling_strip_its_flat_top_does_not_reach() {
     .expect("gable eave wall json");
     let mesh = build_level_geometry(&level);
     let ceiling = batch_slice(&mesh, SurfaceKind::Ceiling);
-    assert_ne!(ceiling, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!ceiling.is_empty(), "ceiling must contain entries");
     // The wall's centre line is z = 7.85 (its flat top sits at the ceiling
     // there): the covered strip is z 7.85..8.0, and it must stay drawn.
     let strip = ceiling
@@ -4524,7 +4591,7 @@ fn test_horizontal_decals_follow_the_real_surface_height() {
     .expect("elevated decal json");
     let mesh = build_level_geometry(&level);
     let decals = batch_slice(&mesh, SurfaceKind::Decal);
-    assert_ne!(decals, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!decals.is_empty(), "decals must contain entries");
     // The floor decal sits on the elevated floor; the ceiling decal sits on
     // the real ceiling, at 5.0 m, not at the authored 0.0. Each is then lifted
     // off that real surface by the shared offset, along its own normal.
@@ -4556,7 +4623,7 @@ fn test_props_stand_on_the_local_walkable_floor() {
     .expect("elevated prop json");
     let mesh = build_level_geometry(&level);
     let props = batch_slice(&mesh, SurfaceKind::PropFallback);
-    assert_ne!(props, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!props.is_empty(), "props must contain entries");
     // The crate on the room floor spans 2.0..3.0; the one in the recess
     // spans 1.5..2.5.
     assert_eq!(y_bounds(&props), (1.5, 3.0));
@@ -4570,7 +4637,7 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
     let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
     assert_eq!(units.len(), 1);
     assert!(
-        matches!(units[0], WallUnit::Plain { .. }),
+        matches!(units[0], WallUnit::Plain { index: _, wall: _ }),
         "a wall with no coincident twin must not be rewritten"
     );
     let mesh = build_level_geometry(&level);
@@ -4609,7 +4676,7 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
     // generated trim. Retain its original overlapping input as a coalescing
     // regression, alongside the shipped demo, without requiring that overlap
     // in the playable source.
-    rendering_fixture.walls.drain(1..3);
+    drop(rendering_fixture.walls.drain(1..3));
     rendering_fixture.walls[0].width = 31.2;
     for level in [shipped_demo(), rendering_fixture] {
         let name = level.id.as_str();
@@ -4618,7 +4685,17 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
         let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
         let coalesced = units
             .iter()
-            .filter(|unit| matches!(unit, WallUnit::Coalesced { .. }))
+            .filter(|unit| {
+                matches!(
+                    unit,
+                    WallUnit::Coalesced {
+                        members: _,
+                        wall: _,
+                        slices: _,
+                        runs: _
+                    }
+                )
+            })
             .count();
         assert!(
             coalesced >= 1,
@@ -4629,8 +4706,17 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
         // slice's own height, so no face can fall back to the host material at
         // a run boundary.
         for unit in &units {
-            if let WallUnit::Coalesced { slices, runs, .. } = unit {
-                assert_ne!(runs.as_slice(), []);
+            if let WallUnit::Coalesced {
+                slices,
+                runs,
+                members: _,
+                wall: _,
+            } = unit
+            {
+                assert!(
+                    !runs.as_slice().is_empty(),
+                    "runs.as_slice() must contain entries"
+                );
                 for slice in slices {
                     let mut band: Vec<&WallMaterialRun> = runs
                         .iter()
@@ -4662,8 +4748,8 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
             }
         }
         // And the normal build still succeeds with them.
-        let mesh = build_level_geometry(&level);
-        assert!(mesh.batches.wall_batch.count > 0);
+        let built_mesh = build_level_geometry(&level);
+        assert!(built_mesh.batches.wall_batch.count > 0_i32);
     }
 }
 
@@ -4846,7 +4932,7 @@ fn a_two_material_prop_becomes_two_draw_ranges_with_two_textures() {
     let (catalog, mut assets, level) = multi_material_scene();
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     assert_eq!(
-        mesh.batches.prop_batch.count, 0,
+        mesh.batches.prop_batch.count, 0_i32,
         "the real model replaces the box"
     );
     assert_eq!(batches.len(), 1, "one model, one spatial cell");
@@ -4957,15 +5043,15 @@ fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
     let Some(page) = lightmaps.pages.get(usize::from(vertex.lightmap_page)) else {
         return false;
     };
-    let edge = page.width as f32;
+    let edge = crate::test_support::exact_f32(page.width);
     let x = f32::from(vertex.lightmap[0]) / 65535.0 * edge;
     let y = f32::from(vertex.lightmap[1]) / 65535.0 * edge;
     lightmaps.charts.iter().any(|(_, chart)| {
         usize::from(chart.page) == usize::from(vertex.lightmap_page)
-            && x >= chart.x as f32 - 0.25
-            && x <= (chart.x + chart.width) as f32 + 0.25
-            && y >= chart.y as f32 - 0.25
-            && y <= (chart.y + chart.height) as f32 + 0.25
+            && x >= crate::test_support::exact_f32(chart.x) - 0.25
+            && x <= crate::test_support::exact_f32(chart.x + chart.width) + 0.25
+            && y >= crate::test_support::exact_f32(chart.y) - 0.25
+            && y <= crate::test_support::exact_f32(chart.y + chart.height) + 0.25
     })
 }
 
@@ -4978,9 +5064,9 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
         .lightmaps
         .as_deref()
         .expect("the demo must produce an atlas");
-    assert_ne!(
-        lightmaps.pages,
-        [] as [crate::lighting::lightmap::LightmapPage; 0]
+    assert!(
+        !lightmaps.pages.is_empty(),
+        "lightmaps.pages must contain entries"
     );
     assert!(lightmaps.pages.len() <= LIGHTMAP_ATLAS_MAX_PAGES);
     assert!(lightmaps.chart_count() > 0);
@@ -5188,7 +5274,7 @@ fn lightmapped_vertex_colours_carry_tint_and_face_shade_only() {
     let tint = table.entry(index).expect("resolved").tint;
 
     let on_floor = on.mesh.triangles_for(SurfaceKind::Floor);
-    assert_ne!(on_floor, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!on_floor.is_empty(), "on_floor must contain entries");
     for vertex in &on_floor {
         assert_eq!(vertex.color[0], tint[0]);
         assert_eq!(vertex.color[1], tint[1]);
@@ -5275,10 +5361,10 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
                 .iter()
                 .find(|(_, chart)| {
                     usize::from(chart.page) == usize::from(vertex.lightmap_page)
-                        && atlas_u >= chart.x as f32 - 0.75
-                        && atlas_u <= (chart.x + chart.width) as f32 + 0.75
-                        && atlas_v >= chart.y as f32 - 0.75
-                        && atlas_v <= (chart.y + chart.height) as f32 + 0.75
+                        && atlas_u >= crate::test_support::exact_f32(chart.x) - 0.75
+                        && atlas_u <= crate::test_support::exact_f32(chart.x + chart.width) + 0.75
+                        && atlas_v >= crate::test_support::exact_f32(chart.y) - 0.75
+                        && atlas_v <= crate::test_support::exact_f32(chart.y + chart.height) + 0.75
                 })
                 .expect("every lightmapped vertex lies in a chart");
             // A stamped vertex is a quad corner, so its local coordinates are 0
@@ -5370,6 +5456,11 @@ fn atlas_texels_carry_the_solver_values_and_dilated_borders() {
 /// is the same geometry the baker evaluated, not an image-space guess. This is
 /// the renderer-level way to ask the acceptance question "is there per-texel
 /// light under the fixture?" without a GPU.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "The independent report accumulates display values in f64 and intentionally rounds their 0..=255 mean to f32."
+)]
 fn atlas_texels_in_box(
     lightmaps: &LevelLightmaps,
     kind: PatchKind,
@@ -5391,8 +5482,10 @@ fn atlas_texels_in_box(
         let normal = crate::lighting::transport::patch_normal(patch);
         for row in 0..chart.height {
             for column in 0..chart.width {
-                let u = (column as f32 + 0.5) / chart.width as f32;
-                let v = (row as f32 + 0.5) / chart.height as f32;
+                let u = (crate::test_support::exact_f32(column) + 0.5)
+                    / crate::test_support::exact_f32(chart.width);
+                let v = (crate::test_support::exact_f32(row) + 0.5)
+                    / crate::test_support::exact_f32(chart.height);
                 let point = patch.point_at(u, v);
                 if point[0] < min[0]
                     || point[0] > max[0]
@@ -5417,7 +5510,7 @@ fn atlas_texels_in_box(
     let mean = if count == 0 {
         0.0
     } else {
-        (sum / (count as f64 * 3.0) * 255.0) as f32
+        (sum / (crate::test_support::exact_f64(count) * 3.0_f64) * 255.0_f64) as f32
     };
     (mean, count)
 }
@@ -5429,6 +5522,11 @@ fn atlas_texels_in_box(
 /// This is the diagnostic companion to [`atlas_texels_in_box`]: the acceptance
 /// question "what does a particular wall/floor region of the shipped demo
 /// actually carry?" needs the raw distribution, not only its mean.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "The independent report accumulates display values in f64 and intentionally rounds their unit-range mean to f32."
+)]
 fn atlas_box_stats(
     lightmaps: &LevelLightmaps,
     kind: PatchKind,
@@ -5450,8 +5548,10 @@ fn atlas_box_stats(
         let normal = crate::lighting::transport::patch_normal(patch);
         for row in 0..chart.height {
             for column in 0..chart.width {
-                let u = (column as f32 + 0.5) / chart.width as f32;
-                let v = (row as f32 + 0.5) / chart.height as f32;
+                let u = (crate::test_support::exact_f32(column) + 0.5)
+                    / crate::test_support::exact_f32(chart.width);
+                let v = (crate::test_support::exact_f32(row) + 0.5)
+                    / crate::test_support::exact_f32(chart.height);
                 let point = patch.point_at(u, v);
                 if point[0] < min[0]
                     || point[0] > max[0]
@@ -5489,12 +5589,12 @@ fn atlas_box_stats(
     let mean = if count == 0 {
         0.0
     } else {
-        (sum / count as f64) as f32
+        (sum / crate::test_support::exact_f64(count)) as f32
     };
     let zero_share = if count == 0 {
         0.0
     } else {
-        zeros as f32 / count as f32
+        crate::test_support::exact_f32(zeros) / crate::test_support::exact_f32(count)
     };
     (
         if count == 0 { 0.0 } else { min_value },
@@ -5728,7 +5828,7 @@ fn a_tall_chamber_with_lightmaps_off_is_still_lit_by_its_panel() {
         LightmapMode::Off,
     );
     let floor = off.mesh.triangles_for(SurfaceKind::Floor);
-    assert_ne!(floor, [] as [crate::render::common::mesh::Vertex; 0]);
+    assert!(!floor.is_empty(), "floor must contain entries");
     let planar = |v: &Vertex| (v.pos[0] - 6.0).hypot(v.pos[2] - 6.0);
     // The room grid is coarser than the fixture footprint, so compare the
     // brightest vertex within 3.5 m of the emitter with the brightest vertex
@@ -5859,7 +5959,7 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
         &materials,
     );
     assert_eq!(
-        mesh.batches.prop_batch.count, 0,
+        mesh.batches.prop_batch.count, 0_i32,
         "the machine must draw real prop geometry, never a placeholder box"
     );
     let machine = catalog
@@ -5933,7 +6033,7 @@ fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
     );
     let machine_matrix = crate::render::common::props::prop_instance_matrix(prop, base_y);
     let before = dynamic.objects()[0].transform();
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         assert_eq!(dynamic.update(1.0 / 60.0, None).moved, 1);
     }
     assert_ne!(
@@ -6140,7 +6240,7 @@ fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
             .dynamic_scene()
             .objects()
             .iter()
-            .find(|object| object.translation() == [4.0, 1.0, 0.0])
+            .find(|replacement| replacement.translation() == [4.0, 1.0, 0.0])
             .expect("the replacement object is live");
         assert_eq!(replaced.scale(), 1.5);
         replaced.mesh_index()
@@ -6154,7 +6254,7 @@ fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
             .dynamic_scene()
             .objects()
             .iter()
-            .find(|object| object.translation() == [5.0, 1.0, 1.0])
+            .find(|moved_object| moved_object.translation() == [5.0, 1.0, 1.0])
             .expect("the moved object is live");
         (moved.mesh_index(), moved.spin_degrees(), moved.scale())
     };
@@ -6168,7 +6268,7 @@ fn the_runtime_spawn_api_replaces_moves_and_despawns_by_key() {
         .dynamic_scene()
         .objects()
         .iter()
-        .find(|object| object.translation() == [5.0, 1.0, 1.0])
+        .find(|live_object| live_object.translation() == [5.0, 1.0, 1.0])
         .expect("the object is live")
         .emission_scale();
     assert_eq!(scaled, 0.5);
@@ -6563,9 +6663,9 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
         "the panes cover their openings exactly: {pane_area} vs {opening_area}"
     );
     let pane_vertices = mesh.triangles_for_key(panes[0].0);
-    assert_ne!(
-        pane_vertices,
-        [] as [crate::render::common::mesh::Vertex; 0]
+    assert!(
+        !pane_vertices.is_empty(),
+        "pane_vertices must contain entries"
     );
     let lightmapped = pane_vertices
         .iter()
@@ -6633,7 +6733,7 @@ fn the_scene_target_size_follows_the_drawable_and_the_level() {
     for target in [low, medium] {
         let aspect = f64::from(target.width) / f64::from(target.height);
         assert!(
-            (drawable_aspect - aspect).abs() < 1.0e-2,
+            (drawable_aspect - aspect).abs() < 1.0e-2_f64,
             "the scene target must not distort the image: {target:?}"
         );
     }
@@ -7075,17 +7175,17 @@ fn the_surface_frame_follows_the_uv_orientation_and_flips_with_mirrored_uvs() {
     // u = -x: the tangent follows the UV and the handedness flips, so the
     // reconstructed bitangent still runs along +v.
     let mirrored = build([[0.0, 0.0], [-1.0, 0.0], [-1.0, 1.0], [0.0, 1.0]]);
-    let vertex = mirrored.ranges[0].vertices[0];
-    let tangent = glam::Vec3::from(vertex.tangent);
+    let mirrored_vertex = mirrored.ranges[0].vertices[0];
+    let mirrored_tangent = glam::Vec3::from(mirrored_vertex.tangent);
     assert!(
-        (tangent - (-glam::Vec3::X)).length() < 1.0e-5,
-        "{tangent:?}"
+        (mirrored_tangent - (-glam::Vec3::X)).length() < 1.0e-5,
+        "{mirrored_tangent:?}"
     );
-    assert_eq!(vertex.handedness, -1.0);
-    let bitangent = normal.cross(tangent) * vertex.handedness;
+    assert_eq!(mirrored_vertex.handedness, -1.0);
+    let mirrored_bitangent = normal.cross(mirrored_tangent) * mirrored_vertex.handedness;
     assert!(
-        (bitangent - glam::Vec3::Y).length() < 1.0e-5,
-        "{bitangent:?}"
+        (mirrored_bitangent - glam::Vec3::Y).length() < 1.0e-5,
+        "{mirrored_bitangent:?}"
     );
 }
 
@@ -7407,8 +7507,8 @@ fn test_the_home_showcase_draws_every_architectural_material() {
 /// to -1.5, and the water surface sits at -0.15: 1.35 m over the basin floor
 /// and 0.15 m below the deck, the same relationship the demo's pool uses.
 fn water_test_level(opacity: Option<f32>, material: Option<&str>) -> LevelDef {
-    let opacity = opacity.map_or(String::new(), |value| format!(r#", "opacity": {value}"#));
-    let material = material.map_or(String::new(), |id| format!(r#", "material": "{id}""#));
+    let opacity_field = opacity.map_or(String::new(), |value| format!(r#", "opacity": {value}"#));
+    let material_field = material.map_or(String::new(), |id| format!(r#", "material": "{id}""#));
     let json = format!(
         r#"{{
             "format_version": 3,
@@ -7423,7 +7523,7 @@ fn water_test_level(opacity: Option<f32>, material: Option<&str>) -> LevelDef {
             ],
             "water": [
                 {{ "x": 1.0, "z": 1.0, "width": 6.0, "depth": 6.0,
-                   "surface_y": -0.15{opacity}{material} }}
+                   "surface_y": -0.15{opacity_field}{material_field} }}
             ]
         }}"#
     );
@@ -7659,10 +7759,10 @@ fn water_is_ordered_with_the_other_translucent_surfaces() {
             east = Some(index);
         }
     }
-    let west = west.expect("the west pool is a translucent draw");
-    let east = east.expect("the east pool is a translucent draw");
+    let west_draw = west.expect("the west pool is a translucent draw");
+    let east_draw = east.expect("the east pool is a translucent draw");
     assert_ne!(
-        west, east,
+        west_draw, east_draw,
         "the pools sit in different cells, so they stay separate draws"
     );
 
@@ -7676,7 +7776,7 @@ fn water_is_ordered_with_the_other_translucent_surfaces() {
             .expect("a translucent draw is in the order")
     };
     assert!(
-        rank(east) < rank(west),
+        rank(east_draw) < rank(west_draw),
         "the farther pool blends before the nearer one"
     );
 
@@ -7710,7 +7810,7 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
     );
     let lighting = LevelLighting::bake(&level);
-    let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
     assert_eq!(scene.len(), 1, "only the skinned model becomes a character");
     let character = &scene.characters()[0];
     let model_path = catalog
@@ -7743,7 +7843,6 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
     }
 
     // Walking advances the pose; the scene reports the moved character.
-    let mut scene = scene;
     let update = scene.update(
         1.0 / 60.0,
         crate::game::LocomotionSnapshot {
@@ -7898,7 +7997,7 @@ fn the_static_path_still_bakes_the_spooner_man_bind_pose() {
     let level = fixture_level("prop_showcase");
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     assert_eq!(
-        mesh.batches.prop_batch.count, 0,
+        mesh.batches.prop_batch.count, 0_i32,
         "no placeholder boxes for the skinned model"
     );
     let spoonerman: Vec<&PropMeshBatch> = batches
@@ -8026,8 +8125,8 @@ fn two_placed_characters_follow_independent_entity_frames() {
         .iter()
         .find(|character| character.instance_id() == Some("cat_b"))
         .expect("cat_b");
-    let centre = b.transform().transform_point3(glam::Vec3::ZERO);
-    assert!((centre.x - 2.0).abs() < 1e-5 && (centre.z - 4.0).abs() < 1e-5);
+    let b_centre = b.transform().transform_point3(glam::Vec3::ZERO);
+    assert!((b_centre.x - 2.0).abs() < 1e-5 && (b_centre.z - 4.0).abs() < 1e-5);
     assert_ne!(
         a.world_bounds().min,
         b.world_bounds().min,
@@ -8037,19 +8136,19 @@ fn two_placed_characters_follow_independent_entity_frames() {
     // A frame-less pass keeps both transforms (the id lookup, not the player
     // state, decides who moves).
     let (a_transform, b_transform) = (a.transform(), b.transform());
-    scene.update(1.0 / 60.0, crate::game::LocomotionSnapshot::default(), &[]);
-    let a = scene
+    drop(scene.update(1.0 / 60.0, crate::game::LocomotionSnapshot::default(), &[]));
+    let updated_a = scene
         .characters()
         .iter()
         .find(|character| character.instance_id() == Some("cat_a"))
         .expect("cat_a");
-    let b = scene
+    let updated_b = scene
         .characters()
         .iter()
         .find(|character| character.instance_id() == Some("cat_b"))
         .expect("cat_b");
-    assert_eq!(a.transform(), a_transform);
-    assert_eq!(b.transform(), b_transform);
+    assert_eq!(updated_a.transform(), a_transform);
+    assert_eq!(updated_b.transform(), b_transform);
 }
 
 /// The consumer half of the frame contract: a frame yaw of +PI/2 radians
@@ -8088,9 +8187,11 @@ fn an_entity_frame_yaw_rotates_the_model_front_from_plus_z_towards_plus_x() {
         opacity: 1.0,
         glow: None,
     }];
-    scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &frames);
-    let character = &scene.characters()[0];
-    let (_, rotation, _) = character.transform().to_scale_rotation_translation();
+    drop(scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &frames));
+    let rotated_character = &scene.characters()[0];
+    let (_, rotation, _) = rotated_character
+        .transform()
+        .to_scale_rotation_translation();
     let facing = rotation * glam::Vec3::Z;
     assert!(
         (facing - glam::Vec3::X).length() < 1e-4,
@@ -8132,11 +8233,11 @@ fn a_glowing_placed_character_produces_one_keyed_attached_light() {
             fade_with_opacity: true,
         }),
     };
-    scene.update(
+    drop(scene.update(
         1.0 / 60.0,
         LocomotionSnapshot::default(),
         std::slice::from_ref(&frame),
-    );
+    ));
     assert_exact(scene.characters()[0].opacity(), 0.5);
     let lights = scene.dynamic_lights();
     assert_eq!(lights.len(), 1);
@@ -8154,7 +8255,7 @@ fn a_glowing_placed_character_produces_one_keyed_attached_light() {
     );
 
     // The next pass retires a glow the entity no longer carries.
-    scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &[]);
+    drop(scene.update(1.0 / 60.0, LocomotionSnapshot::default(), &[]));
     assert!(scene.dynamic_lights().is_empty());
 }
 
@@ -8246,8 +8347,8 @@ fn entity_hold(animator: &mut crate::render::common::character::CharacterAnimato
         once: true,
         paused: false,
     };
-    for _ in 0..90 {
-        animator.update_cued(1.0 / 60.0, &cue);
+    for _ in 0_i32..90_i32 {
+        let _update_stats = animator.update_cued(1.0 / 60.0, &cue);
     }
 }
 
@@ -8425,12 +8526,12 @@ fn the_shipped_rat_walks_and_runs_with_declared_reference_speeds() {
     assert!(paw_vertices.len() >= 20, "real paw geometry");
 
     let mut animator = CharacterAnimator::new(model).expect("animator");
-    let drive = |animator: &mut CharacterAnimator, cue: PoseCue| -> (f32, f32) {
+    let drive = |driven_animator: &mut CharacterAnimator, cue: PoseCue| -> (f32, f32) {
         let mut lowest = f32::MAX;
         let mut highest_paw_lift = f32::MIN;
-        for _ in 0..90 {
-            animator.update_cued(1.0 / 60.0, &cue);
-            let posed = entity_posed(animator, model);
+        for _ in 0_i32..90_i32 {
+            let _update_stats = driven_animator.update_cued(1.0 / 60.0, &cue);
+            let posed = entity_posed(driven_animator, model);
             lowest = lowest.min(posed.iter().map(|point| point[1]).fold(f32::MAX, f32::min));
             highest_paw_lift = highest_paw_lift.max(
                 paw_vertices
@@ -8504,9 +8605,9 @@ fn the_shipped_skeleton_sits_through_its_pose_cues() {
     assert!(sole_vertices.len() > 20 && !pelvis_vertices.is_empty());
 
     let mut animator = CharacterAnimator::new(model).expect("animator");
-    let bounds = |animator: &mut CharacterAnimator, name: &str| -> (f32, f32, f32, f32) {
-        entity_hold(animator, name);
-        let posed = entity_posed(animator, model);
+    let bounds = |posed_animator: &mut CharacterAnimator, name: &str| -> (f32, f32, f32, f32) {
+        entity_hold(posed_animator, name);
+        let posed = entity_posed(posed_animator, model);
         (
             posed.iter().map(|point| point[1]).fold(f32::MAX, f32::min),
             entity_lowest(&posed, &sole_vertices),
@@ -8520,17 +8621,34 @@ fn the_shipped_skeleton_sits_through_its_pose_cues() {
     assert!((-0.02..=0.02).contains(&sole), "standing soles: {sole}");
     assert!((0.8..=1.0).contains(&pelvis), "standing pelvis: {pelvis}");
 
-    let (lowest, sole, pelvis, floor_head) = bounds(&mut animator, "pose_sit_floor");
-    assert!(lowest > -0.02, "the floor sit sinks through: {lowest}");
-    assert!((-0.02..=0.02).contains(&sole), "floor sit soles: {sole}");
-    assert!((0.0..=0.15).contains(&pelvis), "floor sit pelvis: {pelvis}");
-
-    let (lowest, sole, pelvis, chair_head) = bounds(&mut animator, "pose_sit_chair");
-    assert!(lowest > -0.02, "the chair sit sinks through: {lowest}");
-    assert!((-0.02..=0.02).contains(&sole), "chair sit soles: {sole}");
+    let (floor_lowest, floor_sole, floor_pelvis, floor_head) =
+        bounds(&mut animator, "pose_sit_floor");
     assert!(
-        (0.40..=0.50).contains(&pelvis),
-        "chair sit pelvis: {pelvis}"
+        floor_lowest > -0.02,
+        "the floor sit sinks through: {floor_lowest}"
+    );
+    assert!(
+        (-0.02..=0.02).contains(&floor_sole),
+        "floor sit soles: {floor_sole}"
+    );
+    assert!(
+        (0.0..=0.15).contains(&floor_pelvis),
+        "floor sit pelvis: {floor_pelvis}"
+    );
+
+    let (chair_lowest, chair_sole, chair_pelvis, chair_head) =
+        bounds(&mut animator, "pose_sit_chair");
+    assert!(
+        chair_lowest > -0.02,
+        "the chair sit sinks through: {chair_lowest}"
+    );
+    assert!(
+        (-0.02..=0.02).contains(&chair_sole),
+        "chair sit soles: {chair_sole}"
+    );
+    assert!(
+        (0.40..=0.50).contains(&chair_pelvis),
+        "chair sit pelvis: {chair_pelvis}"
     );
     assert!(
         chair_head > floor_head + 0.3,
@@ -8577,7 +8695,7 @@ fn a_floating_prop_is_skipped_by_the_static_path_and_never_drops_a_box() {
 
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     assert_eq!(
-        mesh.batches.prop_batch.count, 0,
+        mesh.batches.prop_batch.count, 0_i32,
         "a float must never fall back to a placeholder box"
     );
     assert_eq!(batches.len(), 1, "only the static twin batches");
@@ -8628,7 +8746,10 @@ fn a_floating_duck_never_becomes_a_character() {
         "the floating duck must not spawn a character"
     );
     assert!(scene.is_empty(), "no other prop can spawn one either");
-    assert_eq!(scene.claimed_models(), [] as [String; 0]);
+    assert!(
+        scene.claimed_models().is_empty(),
+        "the floating duck must not claim a character model"
+    );
 }
 
 /// a scrub cue eases a clip's time toward one end and re-targets from
@@ -8643,8 +8764,10 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
     let mut animator = CharacterAnimator::new(&model).expect("a rigid animator");
     assert!(animator.is_rigid(), "the switch is posed rigidly");
     let pivot = 1usize;
-    let angle = |animator: &CharacterAnimator| -> f32 {
-        let delta = animator.joint_delta(pivot).expect("the pivot joint exists");
+    let angle = |posed_animator: &CharacterAnimator| -> f32 {
+        let delta = posed_animator
+            .joint_delta(pivot)
+            .expect("the pivot joint exists");
         let (_, rotation, _) = delta.to_scale_rotation_translation();
         2.0 * rotation.w.clamp(-1.0, 1.0).acos().to_degrees()
     };
@@ -8653,20 +8776,20 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
         target,
     };
     let half_traverse = crate::render::common::character::SCRUB_TRAVERSE_SECONDS * 0.5;
-    animator.update_cued(half_traverse, &cue(1.0));
+    let _update_stats = animator.update_cued(half_traverse, &cue(1.0));
     let half = angle(&animator);
     assert!(half > 0.5 && half < 29.5, "mid-travel pose: {half}");
     // A second press mid-travel reverses from the current pose: the angle
     // falls and never jumps to an endpoint.
-    animator.update_cued(0.05, &cue(0.0));
+    let _update_stats_2 = animator.update_cued(0.05, &cue(0.0));
     let reversed = angle(&animator);
     assert!(
         reversed < half && reversed > 0.0,
         "the reversal continues from the current pose: {half} -> {reversed}"
     );
     // Reach the rest end and hold there.
-    for _ in 0..20 {
-        animator.update_cued(0.05, &cue(0.0));
+    for _ in 0_i32..20_i32 {
+        let _update_stats_3 = animator.update_cued(0.05, &cue(0.0));
     }
     assert!(
         angle(&animator) < 0.05,
@@ -8675,8 +8798,8 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
     );
     assert!(animator.take_cue_finished(), "arrival is reported once");
     // Then the far end, and hold.
-    for _ in 0..20 {
-        animator.update_cued(0.05, &cue(1.0));
+    for _ in 0_i32..20_i32 {
+        let _update_stats_4 = animator.update_cued(0.05, &cue(1.0));
     }
     let far = angle(&animator);
     assert!((far - 30.0).abs() < 0.5, "the far end holds: {far}");
@@ -8706,14 +8829,14 @@ fn an_idle_rigid_prop_holds_its_bind_pose() {
         .animator()
         .joint_delta(pivot)
         .expect("the pivot joint exists");
-    scene.update(
+    drop(scene.update(
         1.0,
         LocomotionSnapshot {
             state: crate::game::LocomotionState::Walking,
             speed: 2.0,
         },
         &[],
-    );
+    ));
     let after = scene
         .characters()
         .first()
@@ -8792,8 +8915,8 @@ fn wall_reveals_and_ends_face_out_of_the_solid_on_both_axes() {
     // back-facing: invisible while culling is off, a hole the moment it is on.
     for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
         let (width, depth) = match axis {
-            crate::level::WallAxis::X => (10.0, 0.4),
-            crate::level::WallAxis::Z => (0.4, 10.0),
+            crate::level::WallAxis::X => (10.0_f64, 0.4_f64),
+            crate::level::WallAxis::Z => (0.4_f64, 10.0_f64),
         };
         let json = format!(
             r#"{{
@@ -8895,8 +9018,7 @@ fn a_wall_end_abutting_an_opening_keeps_its_exposed_reveal() {
 
 #[test]
 fn placeholder_prop_box_faces_point_out_of_the_box() {
-    let level = lit_room_level(10.0, 10.0, 3.0, "[]");
-    let mut level = level;
+    let mut level = lit_room_level(10.0, 10.0, 3.0, "[]");
     level.props = vec![PropDef {
         id: None,
         display_name: None,
@@ -8973,15 +9095,15 @@ fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
             glow: None,
         },
     ];
-    for _ in 0..10 {
-        live.update(
+    for _ in 0_i32..10_i32 {
+        drop(live.update(
             0.05,
             LocomotionSnapshot {
                 state: crate::game::LocomotionState::Walking,
                 speed: 0.5,
             },
             &frames,
-        );
+        ));
     }
     let expected: Vec<_> = live
         .characters()
@@ -9136,17 +9258,17 @@ fn doorway_lintel_and_coplanar_wall_slices_keep_the_parent_room() {
         Some(&mut plan),
     );
     assert!(!plan.failed());
-    let mut lintels = 0;
+    let mut lintels = 0_i32;
     for (patch, _) in plan.charts() {
         if patch.kind != PatchKind::Wall || patch.origin[1] < 4.4 {
             continue;
         }
         assert_eq!(patch.room, Some(0), "coplanar wall slice: {patch:?}");
         if patch.origin[0] >= 4.3 && patch.origin[0] <= 5.7 {
-            lintels += 1;
+            lintels += 1_i32;
         }
     }
-    assert!(lintels >= 2, "both lintel faces must be checked");
+    assert!(lintels >= 2_i32, "both lintel faces must be checked");
 
     // The lightmapped path stores material shade in its vertices. A header's
     // lower edge must match the interpolated shade of the adjacent unsliced
@@ -9169,9 +9291,9 @@ fn doorway_lintel_and_coplanar_wall_slices_keep_the_parent_room() {
         .find(|vertex| vertex.pos[1] == 4.5)
         .expect("wall top");
     let header_bottom: Vec<_> = front.iter().filter(|vertex| vertex.pos[1] == 2.1).collect();
-    assert_ne!(
-        header_bottom,
-        [] as [&&crate::render::common::mesh::Vertex; 0]
+    assert!(
+        !header_bottom.is_empty(),
+        "the opening header must have bottom triangles"
     );
     for vertex in header_bottom {
         for channel in 0..3 {
@@ -9206,7 +9328,7 @@ fn maintained_demo_step_risers_meet_their_treads_without_gaps() {
         .iter()
         .filter_map(|(patch, _)| (patch.kind == PatchKind::Floor).then_some(patch))
         .collect();
-    let mut checked = 0;
+    let mut checked = 0_i32;
     for (patch, _) in plan.charts() {
         let p = patch.origin;
         let stair_hall =
@@ -9228,16 +9350,19 @@ fn maintained_demo_step_risers_meet_their_treads_without_gaps() {
                 }
                 let offset = point - glam::Vec3::from_array(floor.origin);
                 let u = glam::Vec3::from_array(floor.u_axis);
-                let v = glam::Vec3::from_array(floor.v_axis);
+                let v_axis = glam::Vec3::from_array(floor.v_axis);
                 let along_u = offset.dot(u) / u.length_squared();
-                let along_v = offset.dot(v) / v.length_squared();
+                let along_v = offset.dot(v_axis) / v_axis.length_squared();
                 (-1e-6..=1.000_001).contains(&along_u) && (-1e-6..=1.000_001).contains(&along_v)
             });
             assert!(touches, "riser edge has no adjoining tread: {point:?}");
-            checked += 1;
+            checked += 1_i32;
         }
     }
-    assert!(checked >= 12, "both maintained stair areas must be checked");
+    assert!(
+        checked >= 12_i32,
+        "both maintained stair areas must be checked"
+    );
 }
 
 #[test]
@@ -9350,7 +9475,10 @@ fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
         .flatten()
         .filter(|vertex| vertex.pos[1] > 3.0)
         .collect();
-    assert_ne!(front, [] as [&crate::render::common::mesh::Vertex; 0]);
+    assert!(
+        !front.is_empty(),
+        "the sloped roof must produce front triangles"
+    );
     for vertex in front {
         assert!((vertex.pos[1] - 3.2).abs() < 1e-6, "roof gap at {vertex:?}");
     }
@@ -9365,7 +9493,7 @@ fn ceiling_bounded_wall_faces_and_endcaps_follow_roof_across_thickness() {
             .flatten()
             .filter(|vertex| vertex.pos[1] > 2.9)
             .collect();
-        assert_ne!(cap, [] as [&crate::render::common::mesh::Vertex; 0]);
+        assert!(!cap.is_empty(), "the sloped roof must produce a cap");
         for vertex in cap {
             let expected = 0.5f32.mul_add(vertex.pos[2], 3.0);
             assert!(
@@ -9536,10 +9664,10 @@ fn valid_dark_probes_are_not_replaced_by_authored_brightness() {
 
     // A field that is brighter than the environment still wins.
     let bright = single_probe(inside, [0.9; 3], 0);
-    let lit = moving_object_light(&lighting, Some(&bright), inside);
+    let bright_light = moving_object_light(&lighting, Some(&bright), inside);
     for channel in 0..3 {
         assert!(
-            lit[channel] > 0.8 && lit[channel] > baseline[channel],
+            bright_light[channel] > 0.8 && bright_light[channel] > baseline[channel],
             "channel {channel}: the prepared field must still carry the light"
         );
     }
@@ -9547,8 +9675,8 @@ fn valid_dark_probes_are_not_replaced_by_authored_brightness() {
     // With no prepared field (the `off` variant) the rule is exactly the
     // historical vertex-lit sample: Low's look is unchanged.
     let historical = lighting.sample(inside[0], inside[1], inside[2]);
-    let lit = moving_object_light(&lighting, None, inside);
-    assert_eq!(lit, [historical.r, historical.g, historical.b]);
+    let fallback_light = moving_object_light(&lighting, None, inside);
+    assert_eq!(fallback_light, [historical.r, historical.g, historical.b]);
 }
 
 /// A roomless point has no prepared probe of its own: it reads the vertex-lit
@@ -9686,7 +9814,7 @@ fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
     let level = wide_material_level(material_count);
     let table = logical_materials(&level);
     assert!(
-        table.len() >= material_count as usize,
+        table.len() >= usize::try_from(material_count).expect("fixture integer fits usize"),
         "the table holds one entry per referenced id: {}",
         table.len()
     );
@@ -9705,13 +9833,13 @@ fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
     let (packer, draws) = pack_world_ranges(&mesh, &state);
     assert_eq!(
         draws.len(),
-        material_count as usize,
+        usize::try_from(material_count).expect("fixture integer fits usize"),
         "every range must produce one drawable placement"
     );
     let used: HashSet<u32> = draws.iter().map(|draw| draw.material).collect();
     assert_eq!(
         used.len(),
-        material_count as usize,
+        usize::try_from(material_count).expect("fixture integer fits usize"),
         "two materials must never share a draw slot"
     );
     assert!(
@@ -9733,7 +9861,7 @@ fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
         );
         for index in &chunk.indices {
             assert!(
-                (*index as usize) < chunk.vertices.len(),
+                usize::from(*index) < chunk.vertices.len(),
                 "index {index} escapes its chunk"
             );
         }
@@ -9748,7 +9876,10 @@ fn a_mesh_past_the_former_material_boundary_batches_without_aliasing() {
     // resolves to its own entry (never a shared fallback).
     let routing = crate::render::common::reflections::ReflectionRouting::default();
     let (identities, per_draw) = super::wgpu::material::material_identities(&draws, &routing);
-    assert_eq!(identities.len(), material_count as usize);
+    assert_eq!(
+        identities.len(),
+        usize::try_from(material_count).expect("fixture integer fits usize")
+    );
     assert_eq!(per_draw.len(), draws.len());
     let above = material_count.saturating_sub(1);
     let entry = table
@@ -9853,7 +9984,7 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
     use crate::lighting::probes::{ProbeField, ProbeSample};
     use crate::render::common::light_transport::{EntityLightingSource, entity_lighting};
     let make_level = |closed: bool| {
-        let depth = if closed { 4.0 } else { 1.5 };
+        let depth = if closed { 4.0_f64 } else { 1.5_f64 };
         LevelDef::from_json(&format!(
             r#"{{
             "format_version":3,"id":"probe_door","name":"Probe door",
@@ -9870,11 +10001,11 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
         min: [0.0; 3],
         cell_m: 2.0,
         dims: [4, 1, 2],
-        probes: (0..8)
+        probes: (0_i32..8_i32)
             .map(|index| {
-                let room = i32::from(index % 4 >= 2);
+                let room = i32::from(index % 4_i32 >= 2_i32);
                 ProbeSample {
-                    irradiance: [if room == 0 { 0.05 } else { 1.0 }; 3],
+                    irradiance: [if room == 0_i32 { 0.05 } else { 1.0 }; 3],
                     room,
                     axis: [0.5; 2],
                     ..ProbeSample::default()

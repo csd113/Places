@@ -370,7 +370,9 @@ impl RoomZones {
     /// Baseline of the area containing `(x, z)`.
     fn baseline_at(&self, x: f32, z: f32) -> Option<LightColor> {
         let zone = self.zone_at(x, z)?;
-        self.zones.get(zone as usize).map(|area| area.baseline)
+        self.zones
+            .get(usize::try_from(zone).ok()?)
+            .map(|area| area.baseline)
     }
 }
 
@@ -387,12 +389,12 @@ fn cell_index(edges: &[f32], value: f32) -> Option<usize> {
     }
     let first = edges.first().copied().unwrap_or(0.0);
     let last = edges.last().copied().unwrap_or(0.0);
-    let value = if first <= last {
+    let clamped_value = if first <= last {
         value.clamp(first, last)
     } else {
         first
     };
-    let index = edges.partition_point(|edge| *edge <= value);
+    let index = edges.partition_point(|edge| *edge <= clamped_value);
     Some(index.saturating_sub(1).min(cells.saturating_sub(1)))
 }
 
@@ -426,13 +428,13 @@ fn panel_min_ceiling_y(
     half_w: f32,
     half_d: f32,
 ) -> f32 {
-    let Some(room) = room else {
+    let Some(room_index) = room else {
         return fallback;
     };
     let mut lowest = f32::INFINITY;
     for corner_x in [x - half_w, x + half_w] {
         for corner_z in [z - half_d, z + half_d] {
-            lowest = lowest.min(room.ceiling_y_at(corner_x, corner_z));
+            lowest = lowest.min(room_index.ceiling_y_at(corner_x, corner_z));
         }
     }
     if lowest.is_finite() { lowest } else { fallback }
@@ -509,8 +511,7 @@ impl RoomIndex {
                 ..Self::default()
             };
         }
-        let edges = |values: Vec<f32>| {
-            let mut values = values;
+        let edges = |mut values: Vec<f32>| {
             values.sort_by(f32::total_cmp);
             (1_usize..16)
                 .filter_map(|step| values.get(values.len().saturating_mul(step) / 16).copied())
@@ -546,9 +547,9 @@ impl RoomIndex {
         let cell = if self.cells.len() <= 1 {
             0
         } else {
-            let x = self.x_edges.partition_point(|edge| *edge <= x);
-            let z = self.z_edges.partition_point(|edge| *edge <= z);
-            z.saturating_mul(16).saturating_add(x)
+            let x_partition = self.x_edges.partition_point(|edge| *edge <= x);
+            let z_partition = self.z_edges.partition_point(|edge| *edge <= z);
+            z_partition.saturating_mul(16).saturating_add(x_partition)
         };
         self.cells.get(cell).map_or(&[], Vec::as_slice)
     }
@@ -585,7 +586,7 @@ impl LightIndex {
         let z_edges = edges(lights.iter().map(BakedLight::z).collect());
         let mut cells = vec![Vec::new(); 256];
         for (index, light) in lights.iter().enumerate() {
-            let Ok(index) = u32::try_from(index) else {
+            let Ok(zone_index) = u32::try_from(index) else {
                 continue;
             };
             let (half_w, half_d) = light.source.half_extents();
@@ -606,7 +607,7 @@ impl LightIndex {
             for z in z0..=z1 {
                 for x in x0..=x1 {
                     if let Some(cell) = cells.get_mut(z.saturating_mul(16).saturating_add(x)) {
-                        cell.push(index);
+                        cell.push(zone_index);
                     }
                 }
             }
@@ -622,9 +623,9 @@ impl LightIndex {
         let cell = if self.cells.len() <= 1 {
             0
         } else {
-            let x = self.x_edges.partition_point(|edge| *edge <= x);
-            let z = self.z_edges.partition_point(|edge| *edge <= z);
-            z.saturating_mul(16).saturating_add(x)
+            let x_partition = self.x_edges.partition_point(|edge| *edge <= x);
+            let z_partition = self.z_edges.partition_point(|edge| *edge <= z);
+            z_partition.saturating_mul(16).saturating_add(x_partition)
         };
         self.cells.get(cell).map_or(&[], Vec::as_slice)
     }
@@ -710,12 +711,12 @@ impl RoomLighting {
     /// Vertical span of the room's air at `(x, z)`: floor to ceiling.
     fn span_at(&self, x: f32, z: f32) -> (f32, f32) {
         let ceiling = self.ceiling_y_at(x, z);
-        let ceiling = if ceiling.is_finite() {
+        let ceiling_y = if ceiling.is_finite() {
             ceiling
         } else {
             self.floor_y + self.height_m
         };
-        (self.floor_y, ceiling)
+        (self.floor_y, ceiling_y)
     }
 }
 
@@ -733,13 +734,13 @@ fn fill_range_for(range: f32) -> f32 {
     if !range.is_finite() {
         return 0.0;
     }
-    let range = range.max(0.0);
+    let positive_range = range.max(0.0);
     let multiplier = if FILL_RANGE_MULTIPLIER.is_finite() {
         FILL_RANGE_MULTIPLIER.max(1.0)
     } else {
         2.0
     };
-    range * multiplier
+    positive_range * multiplier
 }
 
 /// How far apart two spans are on one axis, or zero when they touch or overlap.
@@ -783,14 +784,18 @@ fn baked_rooms(level: &LevelDef) -> (Vec<RoomLighting>, f32, f32) {
         // the bake's fill and fixture span, it simply emits no ceiling
         // surface.
         let profile = match room.ceiling {
-            crate::level::CeilingProfileDef::Gable { ridge_rise, .. }
-                if !(ridge_rise.is_finite() && ridge_rise > 0.0) =>
-            {
+            crate::level::CeilingProfileDef::Gable {
+                ridge_rise,
+                ridge: _,
+            } if !(ridge_rise.is_finite() && ridge_rise > 0.0) => {
                 crate::level::CeilingProfileDef::Flat
             }
             crate::level::CeilingProfileDef::Open => crate::level::CeilingProfileDef::Flat,
             profile @ (crate::level::CeilingProfileDef::Flat
-            | crate::level::CeilingProfileDef::Gable { .. }) => profile,
+            | crate::level::CeilingProfileDef::Gable {
+                ridge: _,
+                ridge_rise: _,
+            }) => profile,
         };
         rooms.push(RoomLighting {
             x0,
@@ -886,7 +891,7 @@ fn resolve_light_room(
                 .then(a.cmp(b))
         })
     };
-    let Some(hint) = hint.filter(|y| y.is_finite()) else {
+    let Some(hint_y) = hint.filter(|y| y.is_finite()) else {
         return smallest(candidates);
     };
     // Prefer the candidate whose air volume contains the hint. When none does
@@ -897,7 +902,7 @@ fn resolve_light_room(
         .copied()
         .filter_map(|index| {
             let room = rooms.get(index)?;
-            Some((span_distance(room, x, z, hint), room.area_m2, index))
+            Some((span_distance(room, x, z, hint_y), room.area_m2, index))
         })
         .min_by(|a, b| {
             a.0.partial_cmp(&b.0)
@@ -1025,11 +1030,11 @@ fn baked_lights(
 
     // Lights owned by placed objects. `surfaces` is only absent when the level
     // has none, which is also when this cannot add anything.
-    if let Some(surfaces) = surfaces {
+    if let Some(level_surfaces) = surfaces {
         lights.extend(baked_attached_lights(
             level,
             rooms,
-            surfaces,
+            level_surfaces,
             default_height_m,
         ));
     }
@@ -1436,7 +1441,7 @@ fn accumulate_zone_areas(
             let Some(&zone) = zone_of_cell.get(index) else {
                 continue;
             };
-            let Some(entry) = zones.get_mut(zone as usize) else {
+            let Some(entry) = zones.get_mut(usize::try_from(zone).unwrap_or(usize::MAX)) else {
                 continue;
             };
             entry.area_m2 = (x1 - x0).mul_add(row_depth, entry.area_m2);
@@ -1476,7 +1481,7 @@ fn accumulate_zone_power(
         if zone == u32::MAX {
             continue;
         }
-        let Some(entry) = zones.get_mut(zone as usize) else {
+        let Some(entry) = zones.get_mut(usize::try_from(zone).unwrap_or(usize::MAX)) else {
             continue;
         };
         let power = light.intensity() * light.height_factor;
@@ -1504,9 +1509,9 @@ fn opening_side(
 ) -> Option<OpeningSide> {
     let room = LevelLighting::room_index_of(rooms, x, z)?;
     let zones = room_zones.get(room).and_then(Option::as_ref);
-    let zone = zones.and_then(|zones| zones.zone_at(x, z));
+    let zone = zones.and_then(|selected_zones| selected_zones.zone_at(x, z));
     let baseline = zones
-        .and_then(|zones| zones.baseline_at(x, z))
+        .and_then(|selected_zones| selected_zones.baseline_at(x, z))
         .unwrap_or_else(|| {
             rooms
                 .get(room)
@@ -1874,7 +1879,11 @@ impl LevelLighting {
     pub fn zone_count(&self) -> usize {
         self.room_zones
             .iter()
-            .map(|zones| zones.as_ref().map_or(1, |zones| zones.zones.len()))
+            .map(|zones| {
+                zones
+                    .as_ref()
+                    .map_or(1, |room_zones| room_zones.zones.len())
+            })
             .sum()
     }
 
@@ -1956,7 +1965,7 @@ impl LevelLighting {
             .map_or_else(ambient_color, |info| info.baseline);
         let zones = self.room_zones.get(room).and_then(Option::as_ref);
         zones
-            .and_then(|zones| zones.baseline_at(x, z))
+            .and_then(|room_zones| room_zones.baseline_at(x, z))
             .unwrap_or(uniform)
     }
 
@@ -2109,9 +2118,9 @@ impl LevelLighting {
             {
                 continue;
             }
-            if let Some(y) = y {
+            if let Some(mount_y) = y {
                 let (floor, ceiling) = room.span_at(x, z);
-                if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
+                if mount_y < floor - ROOM_EDGE_EPS_M || mount_y > ceiling + ROOM_EDGE_EPS_M {
                     continue;
                 }
             }
@@ -2287,10 +2296,10 @@ impl LevelLighting {
             return (x, z);
         }
         for step in 1..=CLEAR_SAMPLE_MAX_STEPS {
-            let Ok(step) = u16::try_from(step) else {
+            let Ok(step_index) = u16::try_from(step) else {
                 break;
             };
-            let walked = f32::from(step) * CLEAR_SAMPLE_STEP_M;
+            let walked = f32::from(step_index) * CLEAR_SAMPLE_STEP_M;
             if walked > distance {
                 break;
             }
@@ -2376,7 +2385,7 @@ impl LevelLighting {
                 value,
             };
         }
-        let Some(room) = room.filter(|index| self.rooms.get(*index).is_some()) else {
+        let Some(room_index) = room.filter(|index| self.rooms.get(*index).is_some()) else {
             let baseline = ambient_color();
             let (direct, fill) = self.local_light(&self.all_lights, None, x, y, z);
             let value = baseline
@@ -2392,18 +2401,21 @@ impl LevelLighting {
                 value,
             };
         };
-        let (x, z) = self.clear_sample(room, x, z);
-        let baseline = self.baseline_at(room, x, z);
-        let candidates = self.room_lights.get(room).map_or(&[][..], Vec::as_slice);
-        let (pool, fill) = self.local_light(candidates, Some(room), x, y, z);
-        let blend = self.blend_delta(room, x, y, z);
+        let (sample_x, sample_z) = self.clear_sample(room_index, x, z);
+        let baseline = self.baseline_at(room_index, sample_x, sample_z);
+        let candidates = self
+            .room_lights
+            .get(room_index)
+            .map_or(&[][..], Vec::as_slice);
+        let (pool, fill) = self.local_light(candidates, Some(room_index), sample_x, y, sample_z);
+        let blend = self.blend_delta(room_index, sample_x, y, sample_z);
         let value = baseline
             .plus(pool)
             .plus(fill)
             .plus(blend)
             .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
         BakeTerms {
-            room: Some(room),
+            room: Some(room_index),
             baseline,
             pool,
             fill,
@@ -2470,8 +2482,8 @@ impl LevelLighting {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return ambient_color();
         }
-        let (x, z) = self.clear_sample(room, x, z);
-        self.illumination_in_room(room, x, y, z)
+        let (sample_x, sample_z) = self.clear_sample(room, x, z);
+        self.illumination_in_room(room, sample_x, y, sample_z)
     }
 
     /// Baked illumination for a lightmap texel: [`Self::sample_in_room`]
@@ -2495,11 +2507,11 @@ impl LevelLighting {
     #[must_use]
     pub fn lightmap_texel(&self, room: Option<usize>, x: f32, y: f32, z: f32) -> LightColor {
         match room {
-            Some(room) if self.rooms.get(room).is_some() => {
+            Some(room_index) if self.rooms.get(room_index).is_some() => {
                 if !x.is_finite() || !y.is_finite() || !z.is_finite() {
                     return ambient_color();
                 }
-                self.illumination_in_room(room, x, y, z)
+                self.illumination_in_room(room_index, x, y, z)
             }
             _ => self.sample(x, y, z),
         }
@@ -2539,8 +2551,8 @@ impl LevelLighting {
         if self.rooms.get(room).is_none() || !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return LightColor::BLACK;
         }
-        let (x, z) = self.clear_sample(room, x, z);
-        let delta = self.blend_delta(room, x, y, z);
+        let (sample_x, sample_z) = self.clear_sample(room, x, z);
+        let delta = self.blend_delta(room, sample_x, y, sample_z);
         if delta.is_finite() {
             delta
         } else {
@@ -2678,7 +2690,7 @@ impl LevelLighting {
         y: f32,
         z: f32,
     ) -> Option<PoolTerm> {
-        let light = self.lights.get(index as usize)?;
+        let light = self.lights.get(usize::try_from(index).ok()?)?;
         if !light.is_active() {
             return None;
         }
@@ -2788,7 +2800,7 @@ impl LevelLighting {
             return Vec::new();
         }
         let candidates: &[u32] = match room {
-            Some(room) => self.room_lights.get(room).map_or(&[], Vec::as_slice),
+            Some(room_index) => self.room_lights.get(room_index).map_or(&[], Vec::as_slice),
             None => &self.all_lights,
         };
         candidates
@@ -2916,7 +2928,7 @@ impl LevelLighting {
         write_rooms(writer, &self.rooms)?;
         write_lights(writer, &self.lights)?;
         writer.u8(u8::try_from(self.global_lights.len())
-            .map_err(|_| "too many directional illuminators".to_string())?);
+            .map_err(|error| format!("too many directional illuminators: {error}"))?);
         for light in &self.global_lights {
             light.write_compiled(writer);
         }
@@ -3028,9 +3040,9 @@ fn read_color(reader: &mut Reader<'_>, what: &str) -> Result<LightColor, String>
 fn write_optional_u32(writer: &mut Writer, value: Option<u32>) {
     match value {
         None => writer.u8(0),
-        Some(value) => {
+        Some(raw_value) => {
             writer.u8(1);
-            writer.u32(value);
+            writer.u32(raw_value);
         }
     }
 }
@@ -3044,7 +3056,8 @@ fn read_optional_u32(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
 }
 
 fn write_rooms(writer: &mut Writer, rooms: &[RoomLighting]) -> Result<(), String> {
-    let count = u32::try_from(rooms.len()).map_err(|_| "too many rooms to encode".to_string())?;
+    let count =
+        u32::try_from(rooms.len()).map_err(|error| format!("too many rooms to encode: {error}"))?;
     writer.u32(count);
     for room in rooms {
         writer.f32(room.x0);
@@ -3068,7 +3081,7 @@ fn write_rooms(writer: &mut Writer, rooms: &[RoomLighting]) -> Result<(), String
         }
         writer.f32(room.area_m2);
         let fixtures = u32::try_from(room.fixture_count)
-            .map_err(|_| "room fixture count is too large".to_string())?;
+            .map_err(|error| format!("room fixture count is too large: {error}"))?;
         writer.u32(fixtures);
         write_color(writer, room.effective_power);
         write_color(writer, room.baseline);
@@ -3103,7 +3116,7 @@ fn read_rooms(reader: &mut Reader<'_>) -> Result<Vec<RoomLighting>, String> {
         };
         let area_m2 = read_finite(reader, "room area")?;
         let fixture_count = usize::try_from(reader.u32()?)
-            .map_err(|_| "room fixture count is too large".to_string())?;
+            .map_err(|error| format!("room fixture count is too large: {error}"))?;
         let effective_power = read_color(reader, "room power")?;
         let baseline = read_color(reader, "room baseline")?;
         rooms.push(RoomLighting {
@@ -3124,7 +3137,8 @@ fn read_rooms(reader: &mut Reader<'_>) -> Result<Vec<RoomLighting>, String> {
 }
 
 fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String> {
-    let count = u32::try_from(lights.len()).map_err(|_| "too many lights to encode".to_string())?;
+    let count = u32::try_from(lights.len())
+        .map_err(|error| format!("too many lights to encode: {error}"))?;
     writer.u32(count);
     for light in lights {
         match light.source.shape {
@@ -3203,8 +3217,8 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
         let enabled = reader.bool()?;
         let height_factor = read_finite(reader, "light height factor")?;
         let room = read_optional_u32(reader)?;
-        if let Some(room) = room
-            && usize::try_from(room).map_or(true, |room| room >= room_count)
+        if let Some(room_id) = room
+            && usize::try_from(room_id).map_or(true, |room_index| room_index >= room_count)
         {
             return Err("light room index is out of range".to_string());
         }
@@ -3222,7 +3236,7 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
                 enabled,
             },
             height_factor,
-            room: room.map(|room| usize::try_from(room).unwrap_or(usize::MAX)),
+            room: room.map(|room_id| usize::try_from(room_id).unwrap_or(usize::MAX)),
             directional,
             owner_prop: owner_prop.map(|owner| usize::try_from(owner).unwrap_or(usize::MAX)),
         });
@@ -3231,11 +3245,12 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
 }
 
 fn write_blends(writer: &mut Writer, blends: &[Vec<OpeningBlend>]) -> Result<(), String> {
-    let count = u32::try_from(blends.len()).map_err(|_| "too many blend rooms".to_string())?;
+    let count =
+        u32::try_from(blends.len()).map_err(|error| format!("too many blend rooms: {error}"))?;
     writer.u32(count);
     for room in blends {
-        let entries =
-            u32::try_from(room.len()).map_err(|_| "too many blends in one room".to_string())?;
+        let entries = u32::try_from(room.len())
+            .map_err(|error| format!("too many blends in one room: {error}"))?;
         writer.u32(entries);
         for blend in room {
             writer.f32(blend.x);
@@ -3257,12 +3272,12 @@ fn read_blends(
     zone_counts: Option<&[usize]>,
 ) -> Result<Vec<Vec<OpeningBlend>>, String> {
     let count = reader.count(MAX_COMPILED_ROOMS, "blend room count")?;
-    if let Some(rooms) = rooms
-        && count != rooms.len()
+    if let Some(zone_rooms) = rooms
+        && count != zone_rooms.len()
     {
         return Err(format!(
             "blend record lists {count} rooms but the bake has {}",
-            rooms.len()
+            zone_rooms.len()
         ));
     }
     let mut blends = Vec::with_capacity(count.min(4096));
@@ -3281,7 +3296,9 @@ fn read_blends(
             if let (Some(counts), Some(zone)) = (zone_counts, own_zone) {
                 let in_range = counts
                     .get(usize::try_from(site).unwrap_or(usize::MAX))
-                    .is_some_and(|zones| usize::try_from(zone).is_ok_and(|zone| zone < *zones));
+                    .is_some_and(|zones| {
+                        usize::try_from(zone).is_ok_and(|zone_index| zone_index < *zones)
+                    });
                 if !in_range {
                     return Err("blend zone index is out of range".to_string());
                 }
@@ -3303,26 +3320,27 @@ fn read_blends(
 }
 
 fn write_room_zones(writer: &mut Writer, zones: &[Option<RoomZones>]) -> Result<(), String> {
-    let count = u32::try_from(zones.len()).map_err(|_| "too many zone rooms".to_string())?;
+    let count =
+        u32::try_from(zones.len()).map_err(|error| format!("too many zone rooms: {error}"))?;
     writer.u32(count);
     for room in zones {
-        let Some(zones) = room else {
+        let Some(room_zones) = room else {
             writer.u8(0);
             continue;
         };
         writer.u8(1);
-        writer.blob_f32s(&zones.edges_x)?;
-        writer.blob_f32s(&zones.edges_z)?;
-        writer.blob_u32s(&zones.zone_of_cell)?;
-        let entries = u32::try_from(zones.zones.len())
-            .map_err(|_| "too many zones in one room".to_string())?;
+        writer.blob_f32s(&room_zones.edges_x)?;
+        writer.blob_f32s(&room_zones.edges_z)?;
+        writer.blob_u32s(&room_zones.zone_of_cell)?;
+        let entries = u32::try_from(room_zones.zones.len())
+            .map_err(|error| format!("too many zones in one room: {error}"))?;
         writer.u32(entries);
-        for zone in &zones.zones {
+        for zone in &room_zones.zones {
             write_color(writer, zone.baseline);
             writer.f32(zone.area_m2);
             write_color(writer, zone.power);
             let fixtures = u32::try_from(zone.fixture_count)
-                .map_err(|_| "zone fixture count is too large".to_string())?;
+                .map_err(|error| format!("zone fixture count is too large: {error}"))?;
             writer.u32(fixtures);
         }
     }
@@ -3357,7 +3375,7 @@ fn read_room_zones(
                 area_m2: read_finite(reader, "zone area")?,
                 power: read_color(reader, "zone power")?,
                 fixture_count: usize::try_from(reader.u32()?)
-                    .map_err(|_| "zone fixture count is too large".to_string())?,
+                    .map_err(|error| format!("zone fixture count is too large: {error}"))?,
             });
         }
         let cells = u64::try_from(edges_x.len().saturating_sub(1))
@@ -3368,7 +3386,7 @@ fn read_room_zones(
         }
         if zone_of_cell
             .iter()
-            .any(|zone| usize::try_from(*zone).map_or(true, |zone| zone >= zones.len()))
+            .any(|zone| usize::try_from(*zone).map_or(true, |zone_index| zone_index >= zones.len()))
         {
             return Err("zone cell index is out of range".to_string());
         }
@@ -3383,7 +3401,8 @@ fn read_room_zones(
 }
 
 fn write_u32_list(writer: &mut Writer, values: &[u32]) -> Result<(), String> {
-    let count = u32::try_from(values.len()).map_err(|_| "list is too long".to_string())?;
+    let count =
+        u32::try_from(values.len()).map_err(|error| format!("list is too long: {error}"))?;
     writer.u32(count);
     for value in values {
         writer.u32(*value);
@@ -3396,7 +3415,7 @@ fn read_u32_list(reader: &mut Reader<'_>, max_index: usize) -> Result<Vec<u32>, 
     let mut values = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
         let value = reader.u32()?;
-        if usize::try_from(value).map_or(true, |value| value >= max_index.max(1)) {
+        if usize::try_from(value).map_or(true, |value_index| value_index >= max_index.max(1)) {
             return Err("index list entry is out of range".to_string());
         }
         values.push(value);
@@ -3405,7 +3424,8 @@ fn read_u32_list(reader: &mut Reader<'_>, max_index: usize) -> Result<Vec<u32>, 
 }
 
 fn write_u32_lists(writer: &mut Writer, lists: &[Vec<u32>]) -> Result<(), String> {
-    let count = u32::try_from(lists.len()).map_err(|_| "too many index lists".to_string())?;
+    let count =
+        u32::try_from(lists.len()).map_err(|error| format!("too many index lists: {error}"))?;
     writer.u32(count);
     for list in lists {
         write_u32_list(writer, list)?;
@@ -3432,7 +3452,8 @@ fn read_u32_lists(
 }
 
 fn write_fixture_lights(writer: &mut Writer, fixtures: &[Option<usize>]) -> Result<(), String> {
-    let count = u32::try_from(fixtures.len()).map_err(|_| "too many fixtures".to_string())?;
+    let count =
+        u32::try_from(fixtures.len()).map_err(|error| format!("too many fixtures: {error}"))?;
     writer.u32(count);
     for fixture in fixtures {
         write_optional_u32(
@@ -3451,12 +3472,12 @@ fn read_fixture_lights(
     let mut fixtures = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
         let value = read_optional_u32(reader)?;
-        if let Some(value) = value
-            && usize::try_from(value).map_or(true, |value| value >= max_light)
+        if let Some(fixture_id) = value
+            && usize::try_from(fixture_id).map_or(true, |fixture_index| fixture_index >= max_light)
         {
             return Err("fixture light index is out of range".to_string());
         }
-        fixtures.push(value.map(|value| usize::try_from(value).unwrap_or(usize::MAX)));
+        fixtures.push(value.map(|fixture_id| usize::try_from(fixture_id).unwrap_or(usize::MAX)));
     }
     Ok(fixtures)
 }
@@ -3549,15 +3570,15 @@ mod room_index_tests {
     #[test]
     fn nonfinite_room_bounds_keep_linear_candidates_above_index_threshold() {
         for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
-            for bound in 0..4 {
+            for bound in 0_i32..4_i32 {
                 let mut rooms = (0_u16..9)
                     .map(|index| room(f32::from(index) * 10.0, 0.0, 0.0, 6.0))
                     .collect::<Vec<_>>();
                 if let Some(room) = rooms.first_mut() {
                     match bound {
-                        0 => room.x0 = invalid,
-                        1 => room.x1 = invalid,
-                        2 => room.z0 = invalid,
+                        0_i32 => room.x0 = invalid,
+                        1_i32 => room.x1 = invalid,
+                        2_i32 => room.z0 = invalid,
                         _ => room.z1 = invalid,
                     }
                 }
@@ -3640,18 +3661,18 @@ mod light_index_tests {
             .ok_or("fixture has no light")?;
         let room = level.rooms.first().cloned().ok_or("fixture has no room")?;
         level.rooms = vec![room.clone(), room.clone(), room];
-        if let Some(room) = level.rooms.get_mut(1) {
-            room.floor_y = 4.0;
-            room.ceiling = CeilingProfileDef::Gable {
+        if let Some(upper_room) = level.rooms.get_mut(1) {
+            upper_room.floor_y = 4.0;
+            upper_room.ceiling = CeilingProfileDef::Gable {
                 ridge: WallAxis::X,
                 ridge_rise: 2.0,
             };
         }
-        if let Some(room) = level.rooms.get_mut(2) {
-            room.x = -1.0;
-            room.z = -1.0;
-            room.width = 2.0;
-            room.depth = 2.0;
+        if let Some(lower_room) = level.rooms.get_mut(2) {
+            lower_room.x = -1.0;
+            lower_room.z = -1.0;
+            lower_room.width = 2.0;
+            lower_room.depth = 2.0;
         }
         level.ceiling_lights = (0_u16..100)
             .map(|index| {

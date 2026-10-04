@@ -14,7 +14,8 @@
     clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::path::{Path, PathBuf};
@@ -110,9 +111,12 @@ fn the_neutral_layer_does_not_depend_on_the_backend() {
             offenders.push(format!("{rel} (backend type)"));
         }
         for line in text.lines() {
-            let line = line.trim_start();
-            if line.starts_with("use ") && line.contains("wgpu") && !line.contains("//") {
-                offenders.push(format!("{rel}: {line}"));
+            let trimmed_line = line.trim_start();
+            if trimmed_line.starts_with("use ")
+                && trimmed_line.contains("wgpu")
+                && !trimmed_line.contains("//")
+            {
+                offenders.push(format!("{rel}: {trimmed_line}"));
             }
         }
     }

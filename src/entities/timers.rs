@@ -123,7 +123,7 @@ impl Timers {
         let repeat = def.repeat;
         let autostart = def.autostart;
         let index = self.timers.len();
-        self.index.insert(def.id.clone(), index);
+        let _previous_value = self.index.insert(def.id.clone(), index);
         self.timers.push(TimerRuntime {
             def,
             remaining: period,
@@ -187,8 +187,8 @@ impl Timers {
             return false;
         }
         timer.period = period;
-        if let Some(repeat) = repeat {
-            timer.repeat = repeat;
+        if let Some(repeat_mode) = repeat {
+            timer.repeat = repeat_mode;
         }
         timer.remaining = period;
         timer.running = true;
@@ -276,7 +276,12 @@ impl<'a> IntoIterator for &'a Timers {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::float_cmp, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 
@@ -305,7 +310,7 @@ mod tests {
         let mut fired = Vec::new();
         assert_eq!(timers.tick(1.0, |index| fired.push(index)), 0);
         assert_eq!(timers.tick(0.5, |index| fired.push(index)), 0);
-        assert_eq!(fired, [] as [usize; 0]);
+        assert!(fired.is_empty(), "fired must be empty");
         assert_eq!(timers.tick(0.5, |index| fired.push(index)), 1);
         assert_eq!(fired, vec![0]);
         let timer = timers.get("gate").expect("gate");
@@ -384,9 +389,9 @@ mod tests {
         assert_eq!(timer.period(), 0.5);
         assert!(timer.repeat());
         assert_eq!(timers.tick(0.5, |_| {}), 1);
-        let timer = timers.get("door").expect("door");
-        assert!(timer.running, "the repeat override re-arms it");
-        assert_eq!(timer.remaining, 0.5);
+        let repeating_timer = timers.get("door").expect("door");
+        assert!(repeating_timer.running, "the repeat override re-arms it");
+        assert_eq!(repeating_timer.remaining, 0.5);
     }
 
     #[test]
@@ -415,7 +420,7 @@ mod tests {
         let mut timers = Timers::new();
         timers.push_authored(def("door", 5.0));
         assert!(timers.start("door", Some(0.25), Some(true)));
-        timers.tick(0.25, |_| {});
+        let _tick_report = timers.tick(0.25, |_| {});
         assert_eq!(timers.get("door").expect("door").fires, 1);
         timers.reset();
         let timer = timers.get("door").expect("door");

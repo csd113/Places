@@ -21,7 +21,20 @@ Per platform:
 | Linux | install SDL3 development headers and `pkg-config` (Debian/Ubuntu: `libsdl3-dev`; Fedora: `SDL3-devel`; Arch: `sdl3` + `pkgconf`) plus the Vulkan loader and a driver (`libvulkan1`/`vulkan-icd-loader`, `mesa-vulkan-drivers`) |
 | Windows | install SDL3 (for example `vcpkg install sdl3`, or a prebuilt SDL3 development package) and a C/C++ toolchain (MSVC Build Tools with the C++ workload, or MinGW-w64); the backend is Direct3D 12 |
 
-No CI configuration is currently tracked; the gate is run manually.
+`.github/workflows/rust.yml` runs the shared Rust gate on macOS for pushes,
+pull requests and manual runs. It selects `rust-toolchain.toml`, installs SDL3
+and `pkg-config`, and calls `sh tools/check-rust.sh`. The desktop gate below
+calls that same script before the asset, package and native GPU checks.
+CI runs the ordinary Rust tests; ignored GPU diagnostics and real-window
+campaigns still require the desktop gate.
+
+The Rust and Clippy policy is configured in `Cargo.toml`: warnings, future
+incompatibilities, unused results, unsafe operations and all four useful Clippy
+groups are denied, alongside the explicit numeric, panic, indexing, unsafe,
+determinism, result handling, enum, shadowing and stack restrictions. Local
+exceptions document their bounds or intentional reference calculations;
+`clippy.toml` lists only unavoidable transitive duplicate crates. Floating-point
+arithmetic remains ordinary engine math.
 
 ## 2. The gate
 
@@ -29,14 +42,19 @@ No CI configuration is currently tracked; the gate is run manually.
 sh tools/verify.sh
 ```
 
+For the same Rust checks CI runs, use `sh tools/check-rust.sh`. The full desktop
+script begins with this gate and then executes the remaining commands below.
+
 The script stops at the first failure and runs these commands in order. It builds
 the release executables before Python/native checks, so an older binary cannot
 stand in for the current source and pinned toolchain:
 
 ```sh
 cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
-cargo test --workspace --all-features
+cargo check --locked --workspace --all-targets --all-features
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
 cargo build --release
 python3 tools/assets/validate.py
 python3 tools/props/build.py --check

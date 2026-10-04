@@ -2,10 +2,10 @@
 // Test fixtures use indexed arrays and small bounded arithmetic deliberately.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
     clippy::indexing_slicing,
     clippy::expect_used,
-    clippy::panic
+    clippy::panic,
+    reason = "Test fixtures use indexed arrays and small bounded arithmetic deliberately."
 )]
 
 use super::*;
@@ -42,7 +42,7 @@ fn walk_to(game: &mut Game, x: f32, z: f32) {
     let settings = Settings::default();
     let mut input = InputState::holding(&[Control::MoveForward]);
     let mut last = game.player_position;
-    for _ in 0..2400 {
+    for _ in 0_i32..2_400_i32 {
         let delta = Vec2::new(x - game.player_position.x, z - game.player_position.z);
         if delta.length() < 0.10 {
             return;
@@ -170,7 +170,7 @@ fn showcase_every_front_door_blocks_closed_and_allows_open_passage() {
     for (index, cx) in [-27.0, -9.0, 9.0, 27.0].into_iter().enumerate() {
         let mut game = at(&level, cx, 9.0);
         let identity = format!("house_{index}_door");
-        game.dispatch_actions(
+        let _dispatch_report = game.dispatch_actions(
             &[ActionDef::Close {
                 target: Some(identity.clone()),
             }],
@@ -183,7 +183,7 @@ fn showcase_every_front_door_blocks_closed_and_allows_open_passage() {
             game.player_position.z > 6.1,
             "closed door {identity} blocks"
         );
-        game.dispatch_actions(
+        let _dispatch_report_2 = game.dispatch_actions(
             &[ActionDef::Open {
                 target: Some(identity),
             }],
@@ -268,9 +268,9 @@ fn showcase_pond_supports_real_crouched_swimming_and_a_safe_exit() {
 #[test]
 fn showcase_84_jump_challenges_cannot_escape_visible_rock_or_gate_edges() {
     let level = level();
-    for index in 0..21 {
-        let across = (index as f32).mul_add(3.9, -39.0);
-        let along = (index as f32).mul_add(3.4, -40.0);
+    for index in 0_i32..21_i32 {
+        let across = (crate::test_support::exact_f32(index)).mul_add(3.9, -39.0);
+        let along = (crate::test_support::exact_f32(index)).mul_add(3.4, -40.0);
         for (x, z, yaw) in [
             (across, -40.8, 0.0_f32),
             (across, 27.0, 180.0),
@@ -279,7 +279,7 @@ fn showcase_84_jump_challenges_cannot_escape_visible_rock_or_gate_edges() {
         ] {
             let mut game = at(&level, x, z);
             game.player_yaw = yaw.to_radians();
-            for _ in 0..6 {
+            for _ in 0_i32..6_i32 {
                 advance(&mut game, &[Control::MoveForward, Control::Jump], 50);
                 advance(&mut game, &[Control::MoveForward], 10);
             }
@@ -314,7 +314,7 @@ fn showcase_both_road_gates_and_their_rock_joints_are_closed() {
     ] {
         let mut game = at(&level, x, z);
         game.player_yaw = yaw.to_radians();
-        for _ in 0..6 {
+        for _ in 0_i32..6_i32 {
             advance(&mut game, &[Control::MoveForward, Control::Jump], 50);
             advance(&mut game, &[Control::MoveForward], 10);
         }

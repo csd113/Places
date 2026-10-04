@@ -1,6 +1,4 @@
 //! Analytical controls for chart segmentation and receiver reconstruction.
-// The numerical oracle uses bounded chart indices and float-to-index conversion.
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 use super::*;
 
 fn moon() -> crate::lighting::directional::DirectionalLight {
@@ -28,8 +26,8 @@ fn coplanar_triangle_diagonal_does_not_select_a_different_bounce_field() {
         })
         .collect::<Vec<_>>();
     let cache = RadianceCache::build(&receivers);
-    for step in 1..20 {
-        let at = step as f32 * 0.1;
+    for step in 1_i32..20_i32 {
+        let at = crate::test_support::exact_f32(step) * 0.1;
         let point = [at, 0.0, 2.0 - at];
         let first = cache
             .sample_surface(&scene, point, 0, &receivers, &values)
@@ -71,17 +69,17 @@ fn adaptive_coverage_reduces_diagonal_shadow_error_without_softening_interiors()
     let medium = scene.solve(&charts, options(0, 2), None).expect("medium");
     let high = scene.solve(&charts, options(0, 3), None).expect("high");
     let mut errors = [0.0_f32; 3];
-    let mut edge_texels = 0;
+    let mut edge_texels = 0_i32;
     for row in 1..16 {
         for column in 1..16 {
-            let x = column as f32 / 8.0;
-            let z = 2.0 - row as f32 / 8.0;
+            let x = crate::test_support::exact_f32(column) / 8.0;
+            let z = 2.0 - crate::test_support::exact_f32(row) / 8.0;
             // Independent 64×64 area-coverage oracle for 0 < x-z < 1.
             let mut visible = 0_u16;
-            for sy in 0..64 {
-                for sx in 0..64 {
-                    let px = x + ((sx as f32 + 0.5) / 64.0 - 0.5) / 8.0;
-                    let pz = z + ((sy as f32 + 0.5) / 64.0 - 0.5) / 8.0;
+            for sy in 0_i32..64_i32 {
+                for sx in 0_i32..64_i32 {
+                    let px = x + ((crate::test_support::exact_f32(sx) + 0.5) / 64.0 - 0.5) / 8.0;
+                    let pz = z + ((crate::test_support::exact_f32(sy) + 0.5) / 64.0 - 0.5) / 8.0;
                     if px - pz <= 0.0 || px - pz >= 1.0 {
                         visible += 1;
                     }
@@ -97,7 +95,7 @@ fn adaptive_coverage_reduces_diagonal_shadow_error_without_softening_interiors()
                 }
             }
             if visible > 0 && visible < 4096 {
-                edge_texels += 1;
+                edge_texels += 1_i32;
             }
         }
     }
@@ -105,7 +103,7 @@ fn adaptive_coverage_reduces_diagonal_shadow_error_without_softening_interiors()
         "[coverage-control] edge_texels={edge_texels} absolute_error={errors:?} direct_rays={:?}",
         [hard.direct_rays, medium.direct_rays, high.direct_rays]
     ));
-    assert!(edge_texels > 10);
+    assert!(edge_texels > 10_i32);
     assert!(
         errors[1] < errors[0] * 0.6,
         "medium coverage error: {errors:?}"
@@ -133,8 +131,9 @@ fn directional_source_has_constant_direction_and_no_distance_falloff() {
         .color
         .map(|value| value * source.intensity * source.incoming[1]);
     for texel in &first.charts[0].texels {
-        for (actual, expected) in texel.light_at([0.0, 1.0, 0.0]).into_iter().zip(expected) {
-            assert!((actual - expected).abs() < 1.0e-6);
+        for (actual, expected_channel) in texel.light_at([0.0, 1.0, 0.0]).into_iter().zip(expected)
+        {
+            assert!((actual - expected_channel).abs() < 1.0e-6);
         }
     }
 }
@@ -251,9 +250,15 @@ fn shared_model_edges_keep_the_receiver_faces_normals_and_albedo() {
         && receiver.normal == [0.0, 1.0, 0.0]));
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "Callers sample fixture UVs in 0..=1 on small fixed chart dimensions; flooring to integer texels retains the independent bilinear reference calculation."
+)]
 fn sample_chart(chart: &SolvedChart, width: usize, height: usize, u: f32, v: f32) -> f32 {
-    let x = u * (width - 1) as f32;
-    let y = v * (height - 1) as f32;
+    let x = u * crate::test_support::exact_f32(width - 1);
+    let y = v * crate::test_support::exact_f32(height - 1);
     let ix = x.floor() as usize;
     let iy = y.floor() as usize;
     let mut value = LightmapTexel::ZERO;
@@ -273,6 +278,12 @@ fn sample_chart(chart: &SolvedChart, width: usize, height: usize, u: f32, v: f32
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The loop samples x in 0..=8 and caps its floored strip coordinate at 3, within the four-strip fixture."
+)]
 fn direct_light_is_invariant_at_a_coplanar_chart_seam() {
     let scene = TransportScene::new(Vec::new(), vec![point([2.0, 0.5, 0.5], 1.0)])
         .expect("valid analytical scene");
@@ -283,12 +294,12 @@ fn direct_light_is_invariant_at_a_coplanar_chart_seam() {
             None,
         )
         .expect("whole solve");
-    let strips = (0..4)
+    let strips = (0_i32..4_i32)
         .map(|strip| {
             floor_patch(
-                2.0 * strip as f32,
+                2.0 * crate::test_support::exact_f32(strip),
                 0.0,
-                2.0 * (strip + 1) as f32,
+                2.0 * crate::test_support::exact_f32(strip + 1_i32),
                 1.0,
                 33,
                 17,
@@ -299,15 +310,15 @@ fn direct_light_is_invariant_at_a_coplanar_chart_seam() {
         .solve(&strips, options(0, 1), None)
         .expect("split solve");
     let mut max_error = 0.0_f32;
-    for step in 0..=800 {
-        let x = step as f32 * 0.01;
+    for step in 0_i32..=800_i32 {
+        let x = crate::test_support::exact_f32(step) * 0.01;
         let strip = (x / 2.0).floor().min(3.0) as usize;
         let a = sample_chart(&whole.charts[0], 129, 17, x / 8.0, 0.5);
         let b = sample_chart(
             &split.charts[strip],
             33,
             17,
-            (x - strip as f32 * 2.0) / 2.0,
+            (x - crate::test_support::exact_f32(strip) * 2.0) / 2.0,
             0.5,
         );
         max_error = max_error.max((a - b).abs());
@@ -388,6 +399,12 @@ fn smooth_model_normals_drive_integration_without_moving_visibility_origins() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The loop samples x strictly between 0 and 8 and caps its floored strip coordinate at 3, within the four-strip fixture."
+)]
 fn medium_and_high_bounce_fields_remain_continuous_across_subdivisions() {
     let mut triangles = floor(0.0, 0.0, 8.0, 1.0, [0.6; 3]);
     let corners = [
@@ -412,12 +429,12 @@ fn medium_and_high_bounce_fields_remain_continuous_across_subdivisions() {
         floor_patch(0.0, 0.0, 8.0, 1.0, 129, 17),
         (wall_patch, wall_chart),
     ];
-    let mut strips = (0..4)
+    let mut strips = (0_i32..4_i32)
         .map(|strip| {
             floor_patch(
-                2.0 * strip as f32,
+                2.0 * crate::test_support::exact_f32(strip),
                 0.0,
-                2.0 * (strip + 1) as f32,
+                2.0 * crate::test_support::exact_f32(strip + 1_i32),
                 1.0,
                 33,
                 17,
@@ -434,15 +451,15 @@ fn medium_and_high_bounce_fields_remain_continuous_across_subdivisions() {
                 .solve(&strips, options(bounces, taps), None)
                 .expect("strips");
             let mut max_error = 0.0_f32;
-            for step in 1..800 {
-                let x = step as f32 * 0.01;
+            for step in 1_i32..800_i32 {
+                let x = crate::test_support::exact_f32(step) * 0.01;
                 let strip = (x / 2.0).floor().min(3.0) as usize;
                 let left = sample_chart(&a.charts[0], 129, 17, x / 8.0, 0.5);
                 let right = sample_chart(
                     &b.charts[strip],
                     33,
                     17,
-                    (x - strip as f32 * 2.0) / 2.0,
+                    (x - crate::test_support::exact_f32(strip) * 2.0) / 2.0,
                     0.5,
                 );
                 max_error = max_error.max((left - right).abs());
@@ -468,14 +485,20 @@ fn vertical_patch(mut patch: LightmapPatch) -> LightmapPatch {
 }
 
 fn sample_wall(chart: &SolvedChart, width: usize, height: usize, u: f32, v: f32) -> f32 {
-    let mut chart = chart.clone();
-    for value in &mut chart.texels {
+    let mut display_chart = chart.clone();
+    for value in &mut display_chart.texels {
         value.direction = [value.direction[0], -value.direction[2], value.direction[1]];
     }
-    sample_chart(&chart, width, height, u, v)
+    sample_chart(&display_chart, width, height, u, v)
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "Fixed positive sample coordinates are floored and capped to the four vertical or three horizontal fixture strips."
+)]
 fn vertical_and_horizontal_wall_strips_have_the_same_lighting_as_one_wall() {
     let triangles = floor(0.0, 0.0, 8.0, 3.0, [0.6; 3])
         .iter()
@@ -493,20 +516,29 @@ fn vertical_and_horizontal_wall_strips_have_the_same_lighting_as_one_wall() {
         TransportScene::new(triangles, vec![point([2.0, 1.5, -0.5], 1.0)]).expect("wall scene");
     let transform = |(patch, chart)| (vertical_patch(patch), chart);
     let whole = [transform(floor_patch(0.0, 0.0, 8.0, 3.0, 129, 49))];
-    let vertical = (0..4)
+    let vertical = (0_i32..4_i32)
         .map(|i| {
             transform(floor_patch(
-                i as f32 * 2.0,
+                crate::test_support::exact_f32(i) * 2.0,
                 0.0,
-                (i + 1) as f32 * 2.0,
+                crate::test_support::exact_f32(i + 1_i32) * 2.0,
                 3.0,
                 33,
                 49,
             ))
         })
         .collect::<Vec<_>>();
-    let horizontal = (0..3)
-        .map(|i| transform(floor_patch(0.0, i as f32, 8.0, (i + 1) as f32, 129, 17)))
+    let horizontal = (0_i32..3_i32)
+        .map(|i| {
+            transform(floor_patch(
+                0.0,
+                crate::test_support::exact_f32(i),
+                8.0,
+                crate::test_support::exact_f32(i + 1_i32),
+                129,
+                17,
+            ))
+        })
         .collect::<Vec<_>>();
     for taps in [2, 3] {
         let a = scene.solve(&whole, options(2, taps), None).expect("whole");
@@ -525,23 +557,36 @@ fn vertical_and_horizontal_wall_strips_have_the_same_lighting_as_one_wall() {
         ] {
             let ix = (x / 2.0_f32).floor().min(3.0) as usize;
             let iy = y.floor().min(2.0) as usize;
-            let whole = sample_wall(&a.charts[0], 129, 49, x / 8.0, 1.0 - y / 3.0);
-            let vertical = sample_wall(
+            let whole_light = sample_wall(&a.charts[0], 129, 49, x / 8.0, 1.0 - y / 3.0);
+            let vertical_light = sample_wall(
                 &b.charts[ix],
                 33,
                 49,
-                (x - ix as f32 * 2.0) / 2.0,
+                (x - crate::test_support::exact_f32(ix) * 2.0) / 2.0,
                 1.0 - y / 3.0,
             );
-            let horizontal = sample_wall(&c.charts[iy], 129, 17, x / 8.0, 1.0 - (y - iy as f32));
+            let horizontal_light = sample_wall(
+                &c.charts[iy],
+                129,
+                17,
+                x / 8.0,
+                1.0 - (y - crate::test_support::exact_f32(iy)),
+            );
             assert!(
-                (whole - vertical).abs() < 2.0e-4 && (whole - horizontal).abs() < 2.0e-4,
-                "wall strips taps={taps}: {whole} {vertical} {horizontal}"
+                (whole_light - vertical_light).abs() < 2.0e-4
+                    && (whole_light - horizontal_light).abs() < 2.0e-4,
+                "wall strips taps={taps}: {whole_light} {vertical_light} {horizontal_light}"
             );
         }
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The fixed positive wall-surround rectangles have dimensions at most 8 m; independent 16-texel-per-metre truncation preserves their small fixture chart counts."
+)]
 fn opening_patch(rect: [f32; 4]) -> (LightmapPatch, Chart) {
     let [x, y, width, height] = rect;
     let (mut patch, chart) = floor_patch(
@@ -567,8 +612,8 @@ fn sample_opening(solution: &TransportSolution, pieces: &[[f32; 4]], x: f32, y: 
     let chart = opening_patch(*rect).1;
     sample_wall(
         &solution.charts[index],
-        chart.width as usize,
-        chart.height as usize,
+        usize::try_from(chart.width).expect("fixture integer fits usize"),
+        usize::try_from(chart.height).expect("fixture integer fits usize"),
         (x - rect[0]) / rect[2],
         1.0 - (y - rect[1]) / rect[3],
     )
@@ -599,10 +644,15 @@ fn rectangular_window_surrounds_keep_lighting_when_subdivided() {
     triangles.extend(floor(0.0, -2.0, 8.0, 0.0, [0.7; 3]));
     let scene =
         TransportScene::new(triangles, vec![point([2.0, 1.5, -0.5], 1.0)]).expect("window wall");
-    let tiles = (0..3)
+    let tiles = (0_i32..3_i32)
         .flat_map(|y| {
-            (0..8).filter_map(move |x| {
-                (!(y == 1 && (3..5).contains(&x))).then_some([x as f32, y as f32, 1.0, 1.0])
+            (0_i32..8_i32).filter_map(move |x| {
+                (!(y == 1_i32 && (3_i32..5_i32).contains(&x))).then_some([
+                    crate::test_support::exact_f32(x),
+                    crate::test_support::exact_f32(y),
+                    1.0,
+                    1.0,
+                ])
             })
         })
         .collect::<Vec<_>>();
@@ -650,17 +700,17 @@ fn a_tilted_shading_normal_does_not_gather_light_from_its_own_backface() {
     let charts = [(patch, chart)];
     let direct = scene.solve(&charts, options(0, 1), None).expect("direct");
     let bounced = scene.solve(&charts, options(1, 1), None).expect("bounce");
-    for (direct, bounced) in direct.charts[0]
+    for (direct_texel, bounced_texel) in direct.charts[0]
         .texels
         .iter()
         .zip(&bounced.charts[0].texels)
     {
-        let direct = direct.light_at([0.6, 0.8, 0.0])[0];
-        let bounced = bounced.light_at([0.6, 0.8, 0.0])[0];
+        let direct_light = direct_texel.light_at([0.6, 0.8, 0.0])[0];
+        let bounced_light = bounced_texel.light_at([0.6, 0.8, 0.0])[0];
         assert!(
-            (direct - bounced).abs() < 1.0e-6,
+            (direct_light - bounced_light).abs() < 1.0e-6,
             "self bounce added {}",
-            bounced - direct
+            bounced_light - direct_light
         );
     }
 }

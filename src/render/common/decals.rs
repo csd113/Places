@@ -1,6 +1,6 @@
-//! Decals: the generated atlas, external PNG sheets and the emitted quads.
+//! Decals: the fixed atlas, external PNG sheets and the emitted quads.
 //!
-//! Decals are small local surface markings. They all share one generated RGBA
+//! Decals are small local surface markings. They all share one committed RGBA
 //! sheet so the whole level draws them with a single texture bind, and they are
 //! authored without a plate: the background is alpha 0 and the decal pass
 //! discards it, which is what lets a cut-out silhouette (a sign, a floor arrow)
@@ -11,7 +11,7 @@ use super::LevelDef;
 
 // ------------------------------------------------------------- decal sheets
 //
-// Decals are small local surface markings. They all share one generated RGBA
+// Decals are small local surface markings. They all share one committed RGBA
 // sheet so the whole level draws them with a single texture bind, and they are
 // authored without a plate: the background is alpha 0 and the decal pass
 // discards it, which is what lets a future NO DIVING sign or floor arrow have
@@ -66,23 +66,21 @@ pub const DECAL_POLYGON_OFFSET: (f32, f32) = (-1.0, -4.0);
 /// Alpha below which the decal pass discards a decal texel.
 pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;
 
-/// Generated decal sheet id for the internal validation marking.
+/// Validation decal sheet id for the internal validation marking.
 ///
-/// This is the only pattern the renderer still draws: it exists to exercise the
-/// atlas machinery (a filled frame, embedded-font text, an unused spare cell),
-/// not to be edited. The floor arrow, the hazard stripes and the Pool safety
-/// sign are all external PNG sheets under `assets/`, so a creator can replace
-/// them without a Rust change.
+/// This fixed PNG sheet exercises the atlas machinery with a filled frame,
+/// font text and unused spare cells. The floor arrow, hazard stripes and Pool
+/// safety sign use separate PNG sheets under `assets/`.
 pub const DECAL_TEST_MATERIAL: &str = "core:decal_test_01";
 
-/// Edge length of the generated decal sheet.
+/// Edge length of the validation decal sheet.
 pub const DECAL_ATLAS_SIZE: i32 = 256;
 /// One decal pattern's cell size inside the sheet.
 pub const DECAL_SLOT_SIZE: i32 = 128;
 /// Transparent gutter between cells, so mip-mapping never bleeds one pattern
 /// into its neighbour.
 const DECAL_SLOT_GUTTER: i32 = 8;
-/// Every generated decal sheet id the renderer can draw, in slot order.
+/// Every fixed decal sheet id the renderer can draw, in slot order.
 ///
 /// The floor arrow, the hazard stripes and the Pool safety sign are not among
 /// these: they are external PNG artwork (`source: "file"` catalog decals)
@@ -90,7 +88,7 @@ const DECAL_SLOT_GUTTER: i32 = 8;
 /// and stay transparent.
 pub const DECAL_MATERIALS: [&str; 1] = [DECAL_TEST_MATERIAL];
 
-/// Resolves a decal material id to its slot in the generated sheet.
+/// Resolves a decal material id to its slot in the fixed sheet.
 ///
 /// Unknown ids are not an error: a level may reference a decal sheet a future
 /// build knows about, and simply drawing nothing is the graceful degradation
@@ -107,12 +105,16 @@ pub fn decal_material_slot(material: &str) -> Option<u32> {
 ///
 /// `DECAL_MATERIALS` is a fixed one-element table, so its length is 1 and the
 /// `u32` conversion is exact; `as` is used because `TryFrom` is not const.
-#[allow(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "The fixed array type contains one material; its length fits u32 and TryFrom is unavailable in a const initializer."
+)]
 pub const DECAL_EXTERNAL_BASE: u32 = DECAL_MATERIALS.len() as u32;
 
 /// True when the catalog declares `material` as a file-backed decal sheet.
 ///
-/// Only these resolve to external PNG artwork; the generated patterns and
+/// Only these resolve to external PNG artwork; the fixed patterns and
 /// unknown ids are handled by [`decal_material_slot`].
 fn catalog_decal_sheet<'a>(
     catalog: &'a crate::assets::AssetCatalog,
@@ -133,16 +135,16 @@ fn catalog_decal_sheet<'a>(
 
 /// External decal sheets a level places, in first-use order.
 ///
-/// A decal asset that is not one of the generated patterns and is declared in
+/// A decal asset that is not one of the fixed patterns and is declared in
 /// the catalog as a file-backed PNG resolves as external artwork, exactly like
 /// a surface texture. Both the mesh builder and the GPU uploader derive the
 /// mapping from the level and the catalog alone, so a decal's sheet index never
-/// needs extra renderer state: `0..4` are the generated atlas patterns, then
+/// needs extra renderer state: `0..DECAL_EXTERNAL_BASE` are the fixed atlas slots, then
 /// one index per external sheet in the order the level first places it. The
 /// mapping is stable and independent of whether a sheet's PNG could actually be
 /// decoded; the renderer draws the diagnostic sheet for a broken file.
 ///
-/// An id that is neither generated nor a catalogued file sheet is skipped, the
+/// An id that is neither a fixed atlas slot nor a catalogued file sheet is skipped, the
 /// same graceful degradation unknown materials use.
 #[must_use]
 pub fn decal_external_sheet_ids(
@@ -206,7 +208,7 @@ pub const fn decal_uv_rect_full() -> [[f32; 2]; 4] {
 /// Per-external-sheet blend flags, in [`decal_external_sheet_ids`] order.
 ///
 /// A catalog decal entry that authors `alpha_mode: "blend"` draws through the
-/// soft-edge pipeline; the generated atlas and every other external sheet stay
+/// soft-edge pipeline; the fixed atlas and every other external sheet stay
 /// on the reference's hard cut-out.
 #[must_use]
 pub fn decal_blend_sheets(level: &LevelDef, catalog: &crate::assets::AssetCatalog) -> Vec<bool> {
@@ -223,7 +225,7 @@ pub fn decal_blend_sheets(level: &LevelDef, catalog: &crate::assets::AssetCatalo
 
 /// Whether one decal range's sheet index is a soft-edged (blended) sheet.
 ///
-/// The generated atlas (indices below [`DECAL_EXTERNAL_BASE`]) is never
+/// The fixed atlas (indices below [`DECAL_EXTERNAL_BASE`]) is never
 /// blended; an
 /// external sheet follows the flag order of [`decal_blend_sheets`].
 #[must_use]
@@ -277,18 +279,19 @@ pub fn relight_blend_decals(
             if normal.length_squared() <= 1.0e-12 {
                 continue;
             }
-            let normal = normal.normalize();
-            let probe = if normal.y.abs() > 0.5 {
+            let unit_normal = normal.normalize();
+            let probe = if unit_normal.y.abs() > 0.5 {
                 super::DECAL_HORIZONTAL_LIGHT_PROBE_M
             } else {
                 super::DECAL_WALL_LIGHT_PROBE_M
             };
-            let sample = normal.mul_add(glam::Vec3::splat(probe), glam::Vec3::from(vertex.pos));
+            let sample =
+                unit_normal.mul_add(glam::Vec3::splat(probe), glam::Vec3::from(vertex.pos));
             let room = lighting.room_index_at_height(sample.x, sample.y, sample.z);
             let Some(display) = field.sample_display(sample.to_array(), room) else {
                 continue;
             };
-            let tint = super::decal_tint_for_normal(normal.to_array());
+            let tint = super::decal_tint_for_normal(unit_normal.to_array());
             vertex.color = [
                 tint[0].mul_add(display[0], 0.0).clamp(0.0, 1.0),
                 tint[1].mul_add(display[1], 0.0).clamp(0.0, 1.0),
@@ -299,154 +302,12 @@ pub fn relight_blend_decals(
     }
 }
 
-/// Writes one texel into the decal sheet, in visual (top-down) coordinates.
+/// Loads the committed validation atlas, retaining its bottom-up row order,
+/// existing slot-zero marking and three transparent cells.
 ///
-/// The sheet is stored bottom-up so the generated text reads upright under the
-/// game's `v` convention (v = 0 is the bottom of the image as displayed); every
-/// other generated sheet is vertically symmetric, so this is the first texture
-/// where the distinction is visible.
-fn decal_atlas_put(pixels: &mut [u8], x: i32, y: i32, color: [u8; 4]) {
-    let (Ok(x), Ok(y)) = (usize::try_from(x), usize::try_from(y)) else {
-        return;
-    };
-    let Ok(size) = usize::try_from(DECAL_ATLAS_SIZE) else {
-        return;
-    };
-    if x >= size || y >= size {
-        return;
-    }
-    // The sheet is stored bottom-up, so the visual top row is the last one.
-    let Some(row) = size.checked_sub(1).and_then(|top| top.checked_sub(y)) else {
-        return;
-    };
-    let Some(index) = row
-        .checked_mul(size)
-        .and_then(|offset| offset.checked_add(x))
-        .and_then(|offset| offset.checked_mul(4))
-    else {
-        return;
-    };
-    let Some(texel) = pixels.get_mut(index..index.saturating_add(4)) else {
-        return;
-    };
-    texel.copy_from_slice(&color);
-}
-
-/// Plain rectangle fill in visual sheet coordinates.
-fn decal_atlas_rect(pixels: &mut [u8], x0: i32, y0: i32, x1: i32, y1: i32, color: [u8; 4]) {
-    for y in y0..=y1 {
-        for x in x0..=x1 {
-            decal_atlas_put(pixels, x, y, color);
-        }
-    }
-}
-
-/// Rectangle outline in visual sheet coordinates.
-fn decal_atlas_frame(
-    pixels: &mut [u8],
-    x0: i32,
-    y0: i32,
-    x1: i32,
-    y1: i32,
-    thickness: i32,
-    color: [u8; 4],
-) {
-    // A frame's bars are `thickness` texels wide, so the inner edge sits
-    // `thickness - 1` texels inside the outer one.
-    let inset = thickness.saturating_sub(1);
-    decal_atlas_rect(pixels, x0, y0, x1, y0.saturating_add(inset), color);
-    decal_atlas_rect(pixels, x0, y1.saturating_sub(inset), x1, y1, color);
-    decal_atlas_rect(pixels, x0, y0, x0.saturating_add(inset), y1, color);
-    decal_atlas_rect(pixels, x1.saturating_sub(inset), y0, x1, y1, color);
-}
-
-/// Stamps one line of the embedded 8x8 font into the sheet at `scale`.
-///
-/// The font table is already the project's own bitmap resource (the HUD uses
-/// it), so diagnostic decal text stays project-created data with no new asset
-/// pipeline.
-fn decal_atlas_text(
-    pixels: &mut [u8],
-    origin_x: i32,
-    origin_y: i32,
-    text: &str,
-    scale: i32,
-    color: [u8; 4],
-) {
-    let mut cursor_x = origin_x;
-    for character in text.bytes() {
-        if character < crate::font::FONT_FIRST_CHAR {
-            continue;
-        }
-        let glyph_index = usize::from(character.saturating_sub(crate::font::FONT_FIRST_CHAR));
-        if let Some(glyph) = crate::font::FONT_DATA.get(glyph_index) {
-            for (row, bits) in glyph.iter().enumerate() {
-                let Ok(row) = i32::try_from(row) else {
-                    continue;
-                };
-                for column in 0..8i32 {
-                    if bits & (0x80 >> column) == 0 {
-                        continue;
-                    }
-                    for dy in 0..scale {
-                        for dx in 0..scale {
-                            let x = cursor_x
-                                .saturating_add(column.saturating_mul(scale))
-                                .saturating_add(dx);
-                            let y = origin_y
-                                .saturating_add(row.saturating_mul(scale))
-                                .saturating_add(dy);
-                            decal_atlas_put(pixels, x, y, color);
-                        }
-                    }
-                }
-            }
-        }
-        cursor_x = cursor_x.saturating_add(8_i32.saturating_mul(scale));
-    }
-}
-
-/// Draws one line of text horizontally centred in a decal cell.
-fn decal_atlas_text_centered(
-    pixels: &mut [u8],
-    slot: i32,
-    text: &str,
-    y: i32,
-    scale: i32,
-    color: [u8; 4],
-) {
-    let (col, row) = (slot % 2, slot / 2);
-    let cell_x = col.saturating_mul(DECAL_SLOT_SIZE);
-    let cell_y = row.saturating_mul(DECAL_SLOT_SIZE);
-    let width = i32::try_from(text.len())
-        .unwrap_or(0)
-        .saturating_mul(8)
-        .saturating_mul(scale);
-    decal_atlas_text(
-        pixels,
-        cell_x.saturating_add(DECAL_SLOT_SIZE.saturating_sub(width) / 2),
-        cell_y.saturating_add(y),
-        text,
-        scale,
-        color,
-    );
-}
-
-/// Generates the shared decal sheet: the internal validation marking, with the
-/// three other cells left transparent.
+/// The historical accessor name remains for renderer callers.
 pub fn generate_decal_atlas() -> Vec<u8> {
-    let size = usize::try_from(DECAL_ATLAS_SIZE).unwrap_or(0);
-    let mut pixels = vec![0u8; size.saturating_mul(size).saturating_mul(4)];
-    let white = [245, 245, 240, 255];
-
-    // Slot 0: the validation marking, "DECAL TEST" in a frame on transparency.
-    // The other three cells stay empty: the arrow, the stripes and the sign are
-    // external PNG sheets now, so nothing else is drawn here.
-    decal_atlas_frame(&mut pixels, 14, 14, 113, 113, 4, white);
-    decal_atlas_text_centered(&mut pixels, 0, "DECAL", 40, 2, white);
-    decal_atlas_text_centered(&mut pixels, 0, "TEST", 72, 2, white);
-
-    pixels
+    crate::materials::BuiltinImage::DecalAtlas.decode().rgba
 }
 
 /// Texture-coordinate rectangle of one decal slot, as
@@ -454,8 +315,8 @@ pub fn generate_decal_atlas() -> Vec<u8> {
 /// winding (`add_decal_quad`).
 #[must_use]
 pub fn decal_uv_rect(slot: u32) -> [[f32; 2]; 4] {
-    let cell = i32::try_from(slot).unwrap_or(0).clamp(0, 3);
-    let (col, row) = (cell % 2, cell / 2);
+    let cell = i32::try_from(slot).unwrap_or(0_i32).clamp(0_i32, 3_i32);
+    let (col, row) = (cell % 2_i32, cell / 2_i32);
     let inset = DECAL_SLOT_GUTTER;
     let x0 = atlas_pixels_f32(col.saturating_mul(DECAL_SLOT_SIZE).saturating_add(inset));
     let x1 = atlas_pixels_f32(

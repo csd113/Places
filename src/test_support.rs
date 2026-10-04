@@ -11,15 +11,104 @@
 // everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
     clippy::indexing_slicing,
     clippy::too_many_lines,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::cmp::Ordering;
 use std::fmt::Display;
+
+/// Converts an integer fixture coordinate without losing adjacent sample points.
+///
+/// A test that needs larger, approximate values should spell out that rounding
+/// instead of silently changing the geometry of an exact sampling fixture.
+#[track_caller]
+#[expect(
+    clippy::panic,
+    reason = "An integer outside the fixture coordinate domain is invalid test setup"
+)]
+pub fn exact_f32(value: impl TryInto<i64>) -> f32 {
+    let integer = value
+        .try_into()
+        .unwrap_or_else(|_| panic!("fixture coordinate does not fit i64"));
+    assert!(
+        (-16_777_216..=16_777_216).contains(&integer),
+        "fixture coordinate {integer} exceeds f32's exact integer range"
+    );
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "The assertion bounds the integer to +/- 2^24, where conversion to f32 is exact"
+    )]
+    let coordinate = integer as f32;
+    coordinate
+}
+
+/// Converts a fixture count without rounding an adjacent integer in `f64`.
+#[track_caller]
+#[expect(
+    clippy::panic,
+    reason = "A count outside the exact measurement domain is invalid test setup"
+)]
+pub fn exact_f64(value: impl TryInto<i64>) -> f64 {
+    let integer = value
+        .try_into()
+        .unwrap_or_else(|_| panic!("fixture count does not fit i64"));
+    assert!(
+        (-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&integer),
+        "fixture count {integer} exceeds f64's exact integer range"
+    );
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "The assertion bounds the integer to +/- 2^53, where conversion to f64 is exact"
+    )]
+    let count = integer as f64;
+    count
+}
+
+#[test]
+fn fixture_coordinates_preserve_the_exact_integer_boundary() {
+    assert_exact(exact_f32(16_777_216_i32), 16_777_216.0);
+    assert_exact(exact_f32(-16_777_216_i32), -16_777_216.0);
+    assert_exact(exact_f32(0_usize), 0.0);
+    assert!(
+        std::panic::catch_unwind(|| exact_f32(16_777_217_i64)).is_err(),
+        "an adjacent coordinate that would round must fail the fixture"
+    );
+    assert!(
+        std::panic::catch_unwind(|| exact_f32(u64::MAX)).is_err(),
+        "an integer outside i64 must fail the fixture"
+    );
+}
+
+/// Removes a test directory, accepting only an already-missing directory.
+#[track_caller]
+pub fn remove_dir_if_present(path: impl AsRef<std::path::Path>) {
+    if let Err(error) = std::fs::remove_dir_all(path.as_ref()) {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::NotFound,
+            "could not clean test directory {}: {error}",
+            path.as_ref().display()
+        );
+    }
+}
+
+/// Removes a test file, accepting only an already-missing file.
+#[track_caller]
+pub fn remove_file_if_present(path: impl AsRef<std::path::Path>) {
+    if let Err(error) = std::fs::remove_file(path.as_ref()) {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::NotFound,
+            "could not clean test file {}: {error}",
+            path.as_ref().display()
+        );
+    }
+}
 
 /// Asserts `actual` is exactly `expected` under IEEE equality.
 #[track_caller]
@@ -42,10 +131,12 @@ pub fn assert_exact_named(actual: f32, expected: f32, context: impl Display) {
 /// Asserts every component of `actual` is exactly `expected`.
 #[track_caller]
 pub fn assert_exact_array<const N: usize>(actual: [f32; N], expected: [f32; N]) {
-    for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
+    for (index, (actual_component, expected_component)) in
+        actual.iter().zip(expected.iter()).enumerate()
+    {
         assert!(
-            actual.partial_cmp(expected) == Some(Ordering::Equal),
-            "component {index}: expected {expected}, got {actual}"
+            actual_component.partial_cmp(expected_component) == Some(Ordering::Equal),
+            "component {index}: expected {expected_component}, got {actual_component}"
         );
     }
 }
@@ -131,35 +222,37 @@ pub fn two_material_glb(first: TestGlbMaterial, second: TestGlbMaterial) -> Vec<
     let mut views: Vec<String> = Vec::new();
     let mut accessors: Vec<String> = Vec::new();
 
-    let mut add_view = |binary: &mut Vec<u8>, payload: &[u8], target: Option<u32>| -> usize {
-        while !binary.len().is_multiple_of(4) {
-            binary.push(0);
+    let mut add_view = |buffer: &mut Vec<u8>, payload: &[u8], target: Option<u32>| -> usize {
+        while !buffer.len().is_multiple_of(4) {
+            buffer.push(0);
         }
-        let offset = binary.len();
-        binary.extend_from_slice(payload);
-        let target = target.map_or(String::new(), |target| format!(r#","target":{target}"#));
+        let offset = buffer.len();
+        buffer.extend_from_slice(payload);
+        let target_field = target.map_or(String::new(), |buffer_target| {
+            format!(r#","target":{buffer_target}"#)
+        });
         views.push(format!(
-            r#"{{"buffer":0,"byteOffset":{offset},"byteLength":{length}{target}}}"#,
+            r#"{{"buffer":0,"byteOffset":{offset},"byteLength":{length}{target_field}}}"#,
             length = payload.len()
         ));
         views.len().saturating_sub(1)
     };
-    let add_accessor = |accessors: &mut Vec<String>,
+    let add_accessor = |records: &mut Vec<String>,
                         view: usize,
                         component_type: u32,
                         count: usize,
                         kind: &str| {
-        accessors.push(format!(
+        records.push(format!(
             r#"{{"bufferView":{view},"componentType":{component_type},"count":{count},"type":"{kind}"}}"#
         ));
-        accessors.len().saturating_sub(1)
+        records.len().saturating_sub(1)
     };
 
     // Quad 0 occupies z in 0..1, quad 1 z in 1..2; both span x in 0..1.
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut indices: Vec<u16> = Vec::new();
-    for quad in 0..2 {
+    for quad in 0_i32..2_i32 {
         let z0 = f32::from(u8::try_from(quad).unwrap_or(0));
         let z1 = z0 + 1.0;
         let base = u16::try_from(positions.len()).unwrap_or(0);
@@ -231,9 +324,10 @@ pub fn two_material_glb(first: TestGlbMaterial, second: TestGlbMaterial) -> Vec<
         );
         if let Some([red, green, blue]) = spec.emissive {
             use std::fmt::Write as _;
-            let _ = write!(material, r#","emissiveFactor":[{red},{green},{blue}]"#);
+            let _formatted_record = write!(material, r#","emissiveFactor":[{red},{green},{blue}]"#);
             if spec.emissive_mask {
-                let _ = write!(material, r#","emissiveTexture":{{"index":{texture}}}"#);
+                let _formatted_record_2 =
+                    write!(material, r#","emissiveTexture":{{"index":{texture}}}"#);
             }
         }
         material.push('}');

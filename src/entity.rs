@@ -62,8 +62,13 @@ impl PoseCue {
     #[must_use]
     pub fn clip_name(&self) -> Option<&str> {
         match self {
-            Self::Clip { name, .. } | Self::Scrub { name, .. } => Some(name),
-            Self::Idle | Self::Walk { .. } => None,
+            Self::Clip {
+                name,
+                once: _,
+                paused: _,
+            }
+            | Self::Scrub { name, target: _ } => Some(name),
+            Self::Idle | Self::Walk { speed_mps: _ } => None,
         }
     }
 }
@@ -188,18 +193,18 @@ impl EntityRoutes {
                         radius,
                         height,
                         step_height,
-                        ..
+                        speed_mps: _, max_slope: _
                     } => Some((*radius, *height, *step_height)),
-                    crate::level::ComponentDef::Interactable { .. }
-                    | crate::level::ComponentDef::Animation { .. }
-                    | crate::level::ComponentDef::Audio { .. }
-                    | crate::level::ComponentDef::Light { .. }
-                    | crate::level::ComponentDef::Material { .. }
-                    | crate::level::ComponentDef::State { .. }
-                    | crate::level::ComponentDef::Lifetime { .. }
-                    | crate::level::ComponentDef::Steam { .. }
-                    | crate::level::ComponentDef::Water { .. }
-                    | crate::level::ComponentDef::NavObstacle { .. }
+                    crate::level::ComponentDef::Interactable { prompt: _, reach: _, enabled: _, label: _ }
+                    | crate::level::ComponentDef::Animation { clip: _, speed: _, looped: _, playing: _ }
+                    | crate::level::ComponentDef::Audio { sound: _, gain: _, looped: _, enabled: _, playing: _ }
+                    | crate::level::ComponentDef::Light { enabled: _, switchable: _, emission_scale: _ }
+                    | crate::level::ComponentDef::Material { variants: _, current: _ }
+                    | crate::level::ComponentDef::State { name: _, value: _ }
+                    | crate::level::ComponentDef::Lifetime { seconds: _ }
+                    | crate::level::ComponentDef::Steam { enabled: _ }
+                    | crate::level::ComponentDef::Water { enabled: _ }
+                    | crate::level::ComponentDef::NavObstacle { size: _, affects_nav: _ }
                     | crate::level::ComponentDef::Ai(_)
                     // The render-side components never move the body.
                     | crate::level::ComponentDef::Fade(_)
@@ -315,7 +320,12 @@ impl EntityRoute {
         // `delta <= 0.1 s` and the substep is `1/60 s`: at most six substeps.
         let substeps = f32::ceil(delta / ENTITY_SUBSTEP_S).max(1.0);
         let substep = delta / substeps;
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "Simulation delta is capped at 0.1 seconds; ceil produces a positive integer of at most six substeps."
+        )]
         let count = substeps as u32;
         for _ in 0..count {
             self.advance_substep(state, substep, world);
@@ -326,7 +336,10 @@ impl EntityRoute {
     }
 
     /// One fixed substep of the active step.
-    #[allow(clippy::arithmetic_side_effects)] // bounded pose/movement arithmetic
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded pose/movement arithmetic"
+    )] // bounded pose/movement arithmetic
     fn advance_substep(&self, state: &mut RouteState, delta: f32, world: &RouteWorld<'_>) {
         if state.finished {
             return;
@@ -396,7 +409,12 @@ impl EntityRoute {
                     self.enter_step(state, state.step + 1);
                 }
             }
-            RouteStepDef::Wait { seconds } | RouteStepDef::Play { seconds, .. } => {
+            RouteStepDef::Wait { seconds }
+            | RouteStepDef::Play {
+                seconds,
+                clip: _,
+                looped: _,
+            } => {
                 state.blocked = false;
                 if state.step_time >= *seconds {
                     self.enter_step(state, state.step + 1);
@@ -425,16 +443,18 @@ impl EntityRoute {
         state.step_time = 0.0;
         state.blocked = false;
         state.cue = match self.steps.get(state.step) {
-            Some(RouteStepDef::Play { clip, looped, .. }) if !clip.trim().is_empty() => {
-                PoseCue::Clip {
-                    name: clip.trim().to_string(),
-                    once: !looped,
-                    paused: false,
-                }
-            }
+            Some(RouteStepDef::Play {
+                clip,
+                looped,
+                seconds: _,
+            }) if !clip.trim().is_empty() => PoseCue::Clip {
+                name: clip.trim().to_string(),
+                once: !looped,
+                paused: false,
+            },
             // A walk step starts walking immediately; the first substep then
             // keeps the same cue, so the transition never flashes an idle pose.
-            Some(RouteStepDef::MoveTo { speed, .. }) => PoseCue::Walk { speed_mps: *speed },
+            Some(RouteStepDef::MoveTo { speed, x: _, z: _ }) => PoseCue::Walk { speed_mps: *speed },
             _ => PoseCue::Idle,
         };
     }
@@ -449,7 +469,14 @@ impl EntityRoute {
         state.step_time = 0.0;
         state.blocked = false;
         state.finished = true;
-        if !matches!(state.cue, PoseCue::Clip { .. }) {
+        if !matches!(
+            state.cue,
+            PoseCue::Clip {
+                name: _,
+                once: _,
+                paused: _
+            }
+        ) {
             state.cue = PoseCue::Idle;
         }
     }
@@ -537,7 +564,11 @@ pub fn turn_toward(current: f32, target: f32, max_step: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::level::LevelDef;
@@ -595,7 +626,7 @@ mod tests {
             index: &index,
         };
         // Four metres at 1 m/s: four seconds of 1/60 s steps.
-        for _ in 0..240 {
+        for _ in 0_i32..240_i32 {
             route.advance(&mut state, 1.0 / 60.0, &world);
         }
         assert!(!state.blocked, "the flat room floor is walkable");
@@ -615,7 +646,7 @@ mod tests {
 
     #[test]
     fn nominal_step_rounding_is_tolerated_but_larger_steps_block() {
-        for (rise, blocked) in [(0.3, false), (0.31, true)] {
+        for (rise, blocked) in [(0.3_f64, false), (0.31_f64, true)] {
             let mut level = level_with_route(
                 r#"{ "id": "runner", "steps": [
                     { "step": "move_to", "x": 6.0, "z": 2.0, "speed": 1.0 },
@@ -625,7 +656,7 @@ mod tests {
             level.rooms.first_mut().expect("room").floor_y = -1.2;
             level.floor_regions.push(
                 serde_json::from_value(serde_json::json!({
-                    "x": 4.0, "z": 0.0, "width": 4.0, "depth": 4.0, "offset_y": rise
+                    "x": 4.0_f64, "z": 0.0_f64, "width": 4.0_f64, "depth": 4.0_f64, "offset_y": rise
                 }))
                 .expect("region"),
             );
@@ -637,7 +668,7 @@ mod tests {
                 floor: &floor,
                 index: &index,
             };
-            for _ in 0..600 {
+            for _ in 0_i32..600_i32 {
                 route.advance(&mut state, 1.0 / 60.0, &world);
             }
             assert_eq!(state.blocked, blocked);
@@ -667,7 +698,7 @@ mod tests {
             index: &index,
         };
         // Ten seconds of 0.1 s frames: far past the room's 20 m edge.
-        for _ in 0..100 {
+        for _ in 0_i32..100_i32 {
             route.advance(&mut state, 0.1, &world);
         }
         assert!(
@@ -714,7 +745,7 @@ mod tests {
         );
         assert_eq!(state.step, 0);
         // 0.75 s is one full loop plus a frame: back at step 0, playing.
-        for _ in 0..46 {
+        for _ in 0_i32..46_i32 {
             route.advance(&mut state, 1.0 / 60.0, &world);
         }
         assert_eq!(state.step, 0, "a looping route restarts");
@@ -745,7 +776,7 @@ mod tests {
             index: &index,
         };
         // 180 degrees at 240 deg/s is 0.75 s; give it a full second.
-        for _ in 0..60 {
+        for _ in 0_i32..60_i32 {
             route.advance(&mut state, 1.0 / 60.0, &world);
         }
         assert!((state.yaw - std::f32::consts::PI).abs() < 1e-3);
@@ -767,7 +798,7 @@ mod tests {
             floor: &floor,
             index: &index,
         };
-        for _ in 0..30 {
+        for _ in 0_i32..30_i32 {
             route.advance(&mut state, 1.0 / 60.0, &world);
         }
         assert!(state.finished);
@@ -783,24 +814,24 @@ mod tests {
 
         // A route that ends walking settles to idle instead of walking in
         // place forever.
-        let level = level_with_route(
+        let walk_level = level_with_route(
             r#"{ "id": "runner", "steps": [
                 { "step": "move_to", "x": 3.0, "z": 2.0, "speed": 1.0 }
             ] }"#,
         );
-        let (routes, walls, floor, index) = world_routes(&level);
-        let route = routes.get("runner").expect("route resolves");
-        let mut state = route.new_state();
-        let world = RouteWorld {
-            walls: &walls,
-            floor: &floor,
-            index: &index,
+        let (walk_routes, walk_walls, walk_floor, walk_index) = world_routes(&walk_level);
+        let walk_route = walk_routes.get("runner").expect("route resolves");
+        let mut walk_state = walk_route.new_state();
+        let walk_world = RouteWorld {
+            walls: &walk_walls,
+            floor: &walk_floor,
+            index: &walk_index,
         };
-        for _ in 0..120 {
-            route.advance(&mut state, 1.0 / 60.0, &world);
+        for _ in 0_i32..120_i32 {
+            walk_route.advance(&mut walk_state, 1.0 / 60.0, &walk_world);
         }
-        assert!(state.finished);
-        assert_eq!(state.cue, PoseCue::Idle);
+        assert!(walk_state.finished);
+        assert_eq!(walk_state.cue, PoseCue::Idle);
     }
 
     #[test]

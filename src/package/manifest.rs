@@ -196,7 +196,10 @@ impl Manifest {
     ///
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
-    #[allow(clippy::too_many_lines)] // one cohesive structural validation pass
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive structural validation pass"
+    )] // one cohesive structural validation pass
     pub fn validate(&self, archive_names: &[String]) -> Result<(), String> {
         if self.package_format != FORMAT_VERSION {
             return Err(format!(
@@ -464,7 +467,11 @@ fn validate_sha256(what: &str, name: &str, value: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::render::ProbeFaceReadback;

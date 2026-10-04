@@ -4,8 +4,6 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::unwrap_in_result,
@@ -15,12 +13,33 @@
     clippy::too_many_lines,
     clippy::uninlined_format_args,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
 use crate::level::{RoomDef, WallDef};
 use crate::test_support::{assert_exact, assert_exact_array};
+
+#[test]
+fn route_sampling_rejects_counts_that_lose_adjacent_float_indices() {
+    let error = route_path_is_clear(
+        "oversized route",
+        &[],
+        &crate::collision_index::CollisionIndex::empty(),
+        &crate::level::WalkableFloor::default(),
+        glam::Vec3::ZERO,
+        (1.0e10, 0.0),
+        0.2,
+        1.0,
+        0.2,
+    )
+    .expect_err("reject the count before running the interpolation loop");
+    assert!(
+        error.contains("exact interpolation sample budget"),
+        "expected a sample-count error, got {error}"
+    );
+}
 
 #[test]
 fn test_validate_level_success() {
@@ -196,8 +215,8 @@ fn test_validate_sky_bounds_and_identifiers() {
             "well-formed",
         ),
     ] {
-        let level = LevelDef::from_json(&base(sky)).expect("valid json");
-        let error = validate_level(&level).expect_err("invalid sky must be rejected");
+        let sky_level = LevelDef::from_json(&base(sky)).expect("valid json");
+        let error = validate_level(&sky_level).expect_err("invalid sky must be rejected");
         assert!(
             error.contains(expected),
             "expected `{expected}` in: {error}"
@@ -417,7 +436,10 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     assert_eq!(ceiling.origin, crate::materials::TextureOrigin::Catalog);
     let image = wall.image.as_ref().expect("diagnostic image");
     assert_eq!((image.width, image.height), (64, 64));
-    assert_eq!(image.rgba.len(), (64 * 64 * 4) as usize);
+    assert_eq!(
+        image.rgba.len(),
+        usize::try_from(64_i32 * 64_i32 * 4_i32).expect("fixture integer fits usize")
+    );
 }
 
 /// The built-in material variants resolve to distinct images, so a level
@@ -430,7 +452,9 @@ fn test_damaged_material_variants_resolve() {
             .iter()
             .enumerate()
             .fold(0x811c_9dc5u64, |hash, (index, byte)| {
-                (hash ^ (u64::from(*byte) + index as u64)).wrapping_mul(0x0100_0000_01b3)
+                (hash
+                    ^ (u64::from(*byte) + u64::try_from(index).expect("fixture integer fits u64")))
+                .wrapping_mul(0x0100_0000_01b3)
             })
     };
     // (maintained id, damaged id)
@@ -494,11 +518,11 @@ fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
 #[test]
 fn test_validate_accepts_moderately_large_level() {
     // 10 rooms of 100x100 m = 100,000 m^2, comfortably under the budget.
-    let rooms: Vec<String> = (0..10)
+    let rooms: Vec<String> = (0_i32..10_i32)
         .map(|i| {
             format!(
                 r#"{{ "x": {}, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }}"#,
-                i as f32 * 100.0
+                crate::test_support::exact_f32(i) * 100.0
             )
         })
         .collect();
@@ -525,7 +549,7 @@ fn test_validate_rejects_pathological_huge_room() {
 fn test_validate_permits_overlapping_rooms_within_budget() {
     // 50 fully-overlapping 100x100 m rooms = 500,000 m^2: overlapping is
     // intentional and allowed, and the total is within budget.
-    let rooms: Vec<String> = (0..50)
+    let rooms: Vec<String> = (0_i32..50_i32)
         .map(|_| {
             r#"{ "x": 0.0, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }"#.to_string()
         })
@@ -582,11 +606,11 @@ fn test_validate_rejects_non_finite_room_elevation() {
     // Finite but absurd is still finite: the elevation itself is accepted,
     // but an infinite one must not be.
     assert!(validate_level(&level).is_ok());
-    let level = vertical_level(r#", "floor_y": 1.0e38"#, "");
-    let level = {
+    let very_high_level = vertical_level(r#", "floor_y": 1.0e38"#, "");
+    let infinite_level = {
         // serde_json cannot express infinity, so build it programmatically.
-        let mut level = level;
-        level.rooms.push(crate::level::RoomDef {
+        let mut mutated_level = very_high_level;
+        mutated_level.rooms.push(crate::level::RoomDef {
             x: 20.0,
             z: 0.0,
             width: 4.0,
@@ -601,9 +625,9 @@ fn test_validate_rejects_non_finite_room_elevation() {
             ceiling_tile_origin: None,
             ceiling_tile_rotation_degrees: None,
         });
-        level
+        mutated_level
     };
-    let err = validate_level(&level).expect_err("non-finite elevation must be rejected");
+    let err = validate_level(&infinite_level).expect_err("non-finite elevation must be rejected");
     assert!(err.contains("floor elevation"), "unexpected error: {err}");
 }
 
@@ -793,14 +817,14 @@ fn test_validate_rejects_ceiling_decals_on_a_gable() {
     assert!(err.contains("gable ceiling"), "unexpected error: {err}");
 
     // The same decal on a flat ceiling (elevated or not) stays valid.
-    let level = vertical_level(
+    let flat_ceiling_level = vertical_level(
         r#", "floor_y": 2.0"#,
         r#", "decals": [
             { "x": 4.0, "y": 5.0, "z": 4.0, "width": 1.0, "height": 1.0,
               "material": "core:decal_test_01", "surface": "ceiling" }
         ]"#,
     );
-    assert!(validate_level(&level).is_ok());
+    assert!(validate_level(&flat_ceiling_level).is_ok());
 }
 
 #[test]
@@ -821,7 +845,7 @@ fn test_validate_rejects_a_decal_that_straddles_a_height_change() {
     assert!(err.contains("height change"), "unexpected error: {err}");
 
     // The same decal fully inside the room floor is fine.
-    let level = vertical_level(
+    let contained_decal_level = vertical_level(
         "",
         r#", "floor_regions": [
             { "x": 4.0, "z": 3.0, "width": 4.0, "depth": 4.0, "offset_y": -1.0 }
@@ -831,7 +855,7 @@ fn test_validate_rejects_a_decal_that_straddles_a_height_change() {
               "material": "core:decal_test_01", "surface": "floor" }
         ]"#,
     );
-    assert!(validate_level(&level).is_ok());
+    assert!(validate_level(&contained_decal_level).is_ok());
 }
 
 #[test]
@@ -988,10 +1012,10 @@ fn test_validate_rejects_window_and_unknown_opening_beyond_wall() {
     let vent = level_with_opening_json(
         r#"{ "kind": "vent", "offset": 9.0, "width": 2.0, "height": 0.4 }"#,
     );
-    let err = validate_level(&vent).expect_err("vent must not extend past the wall");
+    let vent_error = validate_level(&vent).expect_err("vent must not extend past the wall");
     assert!(
-        err.starts_with("Opening extends beyond this wall"),
-        "unexpected error: {err}"
+        vent_error.starts_with("Opening extends beyond this wall"),
+        "unexpected error: {vent_error}"
     );
 }
 
@@ -1009,19 +1033,20 @@ fn test_validate_rejects_invalid_opening_numbers() {
     let negative_offset = level_with_opening_json(
         r#"{ "kind": "door", "offset": -1.0, "width": 1.0, "height": 2.1 }"#,
     );
-    let err = validate_level(&negative_offset).expect_err("negative offset is invalid");
+    let negative_offset_error =
+        validate_level(&negative_offset).expect_err("negative offset is invalid");
     assert!(
-        err.contains("starts before the wall"),
-        "unexpected error: {err}"
+        negative_offset_error.contains("starts before the wall"),
+        "unexpected error: {negative_offset_error}"
     );
 
     let zero_width = level_with_opening_json(
         r#"{ "kind": "door", "offset": 1.0, "width": 0.0, "height": 2.1 }"#,
     );
-    let err = validate_level(&zero_width).expect_err("zero width is invalid");
+    let zero_width_error = validate_level(&zero_width).expect_err("zero width is invalid");
     assert!(
-        err.contains("must have a positive width and height"),
-        "unexpected error: {err}"
+        zero_width_error.contains("must have a positive width and height"),
+        "unexpected error: {zero_width_error}"
     );
 }
 
@@ -1048,10 +1073,10 @@ fn test_validate_rejects_invalid_props() {
     );
 
     let non_finite = level_with_props_json(r#"[{ "model": "core:crate", "x": 1.0, "z": 0.0 }]"#);
-    let mut non_finite = non_finite;
-    non_finite.props[0].x = f32::INFINITY;
+    let mut infinite_position = non_finite;
+    infinite_position.props[0].x = f32::INFINITY;
     assert!(
-        validate_level(&non_finite)
+        validate_level(&infinite_position)
             .expect_err("infinite x is invalid")
             .contains("finite")
     );
@@ -1079,9 +1104,9 @@ fn test_parse_hex_color() {
     assert_eq!(
         parse_hex_color("#6b5f4a"),
         Some([
-            0x6b as f32 / 255.0,
-            0x5f as f32 / 255.0,
-            0x4a as f32 / 255.0
+            crate::test_support::exact_f32(0x006b_i32) / 255.0,
+            crate::test_support::exact_f32(0x005f_i32) / 255.0,
+            crate::test_support::exact_f32(0x004a_i32) / 255.0
         ])
     );
     // The leading '#' is optional and plain greys parse too.
@@ -1169,8 +1194,8 @@ fn test_shipped_test_room_demonstrates_openings_and_props() {
     // The sample is also a real geometry exercise: openings and props must
     // produce drawable batches.
     let mesh = crate::render::build_level_geometry(&level);
-    assert!(mesh.batches.wall_batch.count > 0);
-    assert!(mesh.batches.prop_batch.count > 0);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
+    assert!(mesh.batches.prop_batch.count > 0_i32);
 }
 
 /// The official showcase is the level the README sends a new visitor to, so its
@@ -1314,9 +1339,9 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
     let props = PropCatalog::load_default();
     let assets = crate::assets::AssetCatalog::load_default();
     let mesh = crate::render::build_level_geometry_with_catalog(&level, &props);
-    assert!(mesh.batches.wall_batch.count > 0);
-    assert!(mesh.batches.floor_batch.count > 0);
-    assert!(mesh.batches.light_batch.count > 0);
+    assert!(mesh.batches.wall_batch.count > 0_i32);
+    assert!(mesh.batches.floor_batch.count > 0_i32);
+    assert!(mesh.batches.light_batch.count > 0_i32);
     assert_eq!(
         mesh.batches.decal_batch.count,
         i32::try_from(level.decals.len() * 6).expect("decal quad count fits"),
@@ -1375,7 +1400,10 @@ fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
     assert_eq!(entry.source_type, LevelSourceType::Installed);
     assert_eq!(entry.name, "Community Room");
     assert!(
-        !manager.entries().iter().any(|entry| entry.id == "authored"),
+        !manager
+            .entries()
+            .iter()
+            .any(|candidate_entry| candidate_entry.id == "authored"),
         "a raw source is never a playable row"
     );
     let loaded = manager
@@ -1384,12 +1412,12 @@ fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
     assert_eq!(loaded.level.name, "Community Room");
 
     // Importing a raw source is rejected with the compiler command.
-    let mut manager = LevelManager::with_paths(
+    let mut refreshed_manager = LevelManager::with_paths(
         root.join("assets/levels"),
         levels_dir.clone(),
         import_dir.clone(),
     );
-    let error = manager
+    let error = refreshed_manager
         .import_file(&levels_dir.join("authored.json"))
         .expect_err("a raw source is not importable");
     assert!(
@@ -1405,14 +1433,14 @@ fn test_custom_packages_are_discovered_loaded_and_sources_rejected() {
         .replace("Community Room", "Pack Room");
     let incoming_package = compile_fixture(&incoming, "pack_room.json", &pack_json);
     let target = import_dir.join("pack_room.placesmap");
-    fs::copy(&incoming_package, &target).expect("stage the import");
-    let imported = manager.import_available().expect("import runs");
+    let _expect_status = fs::copy(&incoming_package, &target).expect("stage the import");
+    let imported = refreshed_manager.import_available().expect("import runs");
     assert_eq!(imported, 1, "one package imported");
     assert!(
-        manager
+        refreshed_manager
             .entries()
             .iter()
-            .any(|entry| entry.id == "pack_room"),
+            .any(|candidate_entry| candidate_entry.id == "pack_room"),
         "the imported package is discovered"
     );
 
@@ -1441,7 +1469,7 @@ fn test_authoring_sources_are_skipped_silently() {
         "spawn": { "x": 1.0, "z": 1.0 },
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
     }"#;
-    compile_fixture(&levels_dir, "source_room.json", level_json);
+    drop(compile_fixture(&levels_dir, "source_room.json", level_json));
     // The repository layout: every source sits beside its compiled package.
     // The authoring workflow also leaves sources the player has never compiled
     // and zip bundles; all of them are silently skipped.
@@ -1491,13 +1519,13 @@ fn test_authoring_sources_are_skipped_silently() {
     );
 
     // Explicitly opening a source stays actionable: it names the compiler.
-    let mut manager = LevelManager::with_paths(
+    let mut refreshed_manager = LevelManager::with_paths(
         root.join("assets/levels"),
         levels_dir.clone(),
         import_dir.clone(),
     );
     for source in ["source_room.json", "uncompiled_source.json"] {
-        let error = manager
+        let error = refreshed_manager
             .import_file(&levels_dir.join(source))
             .expect_err("a source is not importable");
         assert!(
@@ -1527,7 +1555,7 @@ fn compile_fixture(
         force: true,
         capture_probes: false,
     };
-    crate::compiler::build(&request).expect("the fixture package builds");
+    drop(crate::compiler::build(&request).expect("the fixture package builds"));
     out
 }
 
@@ -1707,8 +1735,8 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
         .expect("assets/catalog.json must load");
     assert!(!catalog.is_empty());
 
-    let mut levels_checked = 0;
-    let mut props_checked = 0;
+    let mut levels_checked = 0_i32;
+    let mut props_checked = 0_i32;
     for entry in fs::read_dir("assets/levels")
         .expect("assets/levels exists")
         .flatten()
@@ -1722,7 +1750,7 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
             .unwrap_or_else(|e| panic!("{} is not a valid level: {e}", path.display()));
         validate_level(&level)
             .unwrap_or_else(|e| panic!("{} failed validation: {e}", path.display()));
-        levels_checked += 1;
+        levels_checked += 1_i32;
         for prop in &level.props {
             assert!(
                 catalog.contains(&prop.model),
@@ -1730,11 +1758,11 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
                 path.display(),
                 prop.model
             );
-            props_checked += 1;
+            props_checked += 1_i32;
         }
     }
-    assert!(levels_checked >= 1, "expected the shipped level file");
-    assert!(props_checked >= 1, "expected at least one placed prop");
+    assert!(levels_checked >= 1_i32, "expected the shipped level file");
+    assert!(props_checked >= 1_i32, "expected at least one placed prop");
 }
 
 /// Loads one engine regression fixture from `tests/fixtures/levels/`.
@@ -1796,15 +1824,15 @@ fn test_validate_level_rejects_malformed_decals() {
     let mut level = base.clone();
     level.decals[0].x = f32::NAN;
     assert!(validate_level(&level).is_err(), "non-finite x");
-    let mut level = base.clone();
-    level.decals[0].height = -1.0;
-    assert!(validate_level(&level).is_err(), "negative height");
-    let mut level = base.clone();
-    level.decals[0].width = 11.0;
-    assert!(validate_level(&level).is_err(), "oversized width");
-    let mut level = base.clone();
-    level.decals[0].material = "  ".into();
-    assert!(validate_level(&level).is_err(), "empty material");
+    let mut negative_height = base.clone();
+    negative_height.decals[0].height = -1.0;
+    assert!(validate_level(&negative_height).is_err(), "negative height");
+    let mut oversized_width = base.clone();
+    oversized_width.decals[0].width = 11.0;
+    assert!(validate_level(&oversized_width).is_err(), "oversized width");
+    let mut empty_material = base.clone();
+    empty_material.decals[0].material = "  ".into();
+    assert!(validate_level(&empty_material).is_err(), "empty material");
 
     // An unknown surface name is a schema error, not a silently dropped
     // decal: the level does not parse at all.
@@ -1819,9 +1847,12 @@ fn test_validate_level_rejects_malformed_decals() {
 fn test_the_decal_count_is_bounded() {
     let decal = r#"{ "x": 1.0, "y": 1.0, "z": 0.0, "width": 1.0, "height": 0.5,
                      "material": "core:decal_test_01", "surface": "wall_south" }"#;
-    let decals = std::iter::repeat_n(decal, crate::level::MAX_LEVEL_DECALS as usize + 1)
-        .collect::<Vec<_>>()
-        .join(",");
+    let decals = std::iter::repeat_n(
+        decal,
+        usize::try_from(crate::level::MAX_LEVEL_DECALS).expect("fixture integer fits usize") + 1,
+    )
+    .collect::<Vec<_>>()
+    .join(",");
     let level = LevelDef::from_json(&decal_level(&decals)).expect("large decal list still parses");
     assert!(
         validate_level(&level).is_err(),
@@ -1847,7 +1878,7 @@ fn test_rendering_diagnostic_level_shows_every_decal_sheet() {
     );
     assert_eq!(
         mesh.batches.decal_batch.count,
-        i32::try_from(level.decals.len()).unwrap_or(0) * 6,
+        i32::try_from(level.decals.len()).unwrap_or(0_i32) * 6_i32,
         "every diagnostic decal must emit one quad"
     );
 }
@@ -1930,7 +1961,7 @@ fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
     assert!(mesh.vertex_count > 0);
     assert_eq!(
         mesh.batches.decal_batch.count,
-        i32::try_from(level.decals.len()).unwrap_or(0) * 6
+        i32::try_from(level.decals.len()).unwrap_or(0_i32) * 6_i32
     );
 }
 
@@ -2141,7 +2172,7 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
 #[test]
 fn test_the_embedded_demo_is_always_listed_and_loadable() {
     let scratch = std::path::Path::new("target/agent-work/tests/levels-empty");
-    let _ = std::fs::remove_dir_all(scratch);
+    crate::test_support::remove_dir_if_present(scratch);
     std::fs::create_dir_all(scratch).expect("scratch directory is writable");
 
     // `with_paths` never discovers anything under a fresh scratch directory.
@@ -2161,7 +2192,7 @@ fn test_the_embedded_demo_is_always_listed_and_loadable() {
     assert_eq!(loaded.level.id, DEMO_LEVEL_ID);
     assert_eq!(loaded.entry.source_type, LevelSourceType::Embedded);
 
-    let _ = std::fs::remove_dir_all(scratch);
+    crate::test_support::remove_dir_if_present(scratch);
 }
 
 // ------------------------------------------------- generic architecture
@@ -2218,17 +2249,20 @@ fn test_validate_rejects_malformed_ramps() {
     .expect_err("two metres of rise over a half-metre run is a wall, not a ramp");
     assert!(error.contains("too steep"), "{error}");
 
-    let error = architecture_level(
+    let zero_rise_error = architecture_level(
         r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.0 }]"#,
     )
     .expect_err("a ramp with no rise is a floor region");
-    assert!(error.contains("no rise"), "{error}");
+    assert!(zero_rise_error.contains("no rise"), "{zero_rise_error}");
 
-    let error = architecture_level(
+    let outside_error = architecture_level(
         r#", "ramps": [{ "x": 30.0, "z": 30.0, "width": 1.0, "depth": 2.0, "rise": 0.5 }]"#,
     )
     .expect_err("a ramp outside every room");
-    assert!(error.contains("outside every room"), "{error}");
+    assert!(
+        outside_error.contains("outside every room"),
+        "{outside_error}"
+    );
 }
 
 #[test]
@@ -2240,19 +2274,22 @@ fn test_validate_rejects_malformed_staircases() {
     .expect_err("a 0.6 m riser is taller than the walkable step");
     assert!(error.contains("riser"), "{error}");
 
-    let error = architecture_level(
+    let short_tread_error = architecture_level(
         r#", "stairs": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0,
                            "rise": 0.8, "steps": 20 }]"#,
     )
     .expect_err("a 0.1 m tread is not a step");
-    assert!(error.contains("tread"), "{error}");
+    assert!(short_tread_error.contains("tread"), "{short_tread_error}");
 
-    let error = architecture_level(
+    let single_step_error = architecture_level(
         r#", "stairs": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
                            "rise": 0.4, "steps": 1 }]"#,
     )
     .expect_err("a single step is a floor region");
-    assert!(error.contains("at least 2 steps"), "{error}");
+    assert!(
+        single_step_error.contains("at least 2 steps"),
+        "{single_step_error}"
+    );
 }
 
 #[test]
@@ -2264,13 +2301,16 @@ fn test_validate_rejects_walking_surfaces_that_overlap() {
     .expect_err("a floor region inside a ramp has no single floor");
     assert!(error.contains("overlaps ramp"), "{error}");
 
-    let error = architecture_level(
+    let staircase_overlap_error = architecture_level(
         r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 4.0, "rise": 0.5 }],
              "stairs": [{ "x": 1.0, "z": 2.0, "width": 2.0, "depth": 2.0,
                            "rise": 0.4, "steps": 2 }]"#,
     )
     .expect_err("a staircase inside a ramp has no single floor");
-    assert!(error.contains("overlaps staircase"), "{error}");
+    assert!(
+        staircase_overlap_error.contains("overlaps staircase"),
+        "{staircase_overlap_error}"
+    );
 }
 
 #[test]
@@ -2282,19 +2322,22 @@ fn test_validate_rejects_malformed_archways() {
     .expect_err("an opening with no pier left is not an archway");
     assert!(error.contains("too wide"), "{error}");
 
-    let error = architecture_level(
+    let short_archway_error = architecture_level(
         r#", "archways": [{ "x": 5.0, "z": 3.0, "width": 0.3, "depth": 1.4, "height": 1.5,
                              "opening_width": 0.9, "opening_height": 2.1, "arch_rise": 0.2 }]"#,
     )
     .expect_err("the block must be at least as tall as its opening");
-    assert!(error.contains("shorter than its opening"), "{error}");
+    assert!(
+        short_archway_error.contains("shorter than its opening"),
+        "{short_archway_error}"
+    );
 
-    let error = architecture_level(
+    let high_crown_error = architecture_level(
         r#", "archways": [{ "x": 5.0, "z": 3.0, "width": 0.3, "depth": 1.4, "height": 3.0,
                              "opening_width": 0.9, "opening_height": 1.0, "arch_rise": 1.2 }]"#,
     )
     .expect_err("the crown cannot sit at or below the springing line");
-    assert!(error.contains("arch rise"), "{error}");
+    assert!(high_crown_error.contains("arch rise"), "{high_crown_error}");
 }
 
 #[test]
@@ -2306,9 +2349,13 @@ fn test_validate_rejects_a_threshold_over_an_elevation_change() {
     .expect_err("a strip that spans the platform edge would float on one side");
     assert!(error.contains("height change"), "{error}");
 
-    let error = architecture_level(r#", "thresholds": [{ "x": 30.0, "z": 30.0, "length": 1.0 }]"#)
-        .expect_err("a strip outside every room has no floor to sit on");
-    assert!(error.contains("outside every room"), "{error}");
+    let outside_error =
+        architecture_level(r#", "thresholds": [{ "x": 30.0, "z": 30.0, "length": 1.0 }]"#)
+            .expect_err("a strip outside every room has no floor to sit on");
+    assert!(
+        outside_error.contains("outside every room"),
+        "{outside_error}"
+    );
 }
 
 #[test]
@@ -2319,17 +2366,23 @@ fn test_validate_rejects_malformed_trim_and_rails() {
     .expect_err("a 3.5 m rail is not a guardrail");
     assert!(error.contains("height"), "{error}");
 
-    let error = architecture_level(
+    let post_spacing_error = architecture_level(
         r#", "guardrails": [{ "x": 1.0, "z": 1.0, "length": 2.0, "post_spacing": 0.05 }]"#,
     )
     .expect_err("a 5 cm post spacing is a typo");
-    assert!(error.contains("post spacing"), "{error}");
+    assert!(
+        post_spacing_error.contains("post spacing"),
+        "{post_spacing_error}"
+    );
 
-    let error = architecture_level(
+    let baseboard_height_error = architecture_level(
         r#", "baseboards": [{ "x": 1.0, "z": 1.0, "length": 3.0, "height": 1.5 }]"#,
     )
     .expect_err("a 1.5 m skirting board is not trim");
-    assert!(error.contains("height"), "{error}");
+    assert!(
+        baseboard_height_error.contains("height"),
+        "{baseboard_height_error}"
+    );
 }
 
 #[test]
@@ -2357,25 +2410,35 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
 
     let outside =
         parse(r#"{ "x": 30.0, "z": 30.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5 }"#);
-    let error = validate_level(&outside).expect_err("a volume outside every room is rejected");
-    assert!(error.contains("outside every room"), "{error}");
+    let outside_error =
+        validate_level(&outside).expect_err("a volume outside every room is rejected");
+    assert!(
+        outside_error.contains("outside every room"),
+        "{outside_error}"
+    );
 
     let bad_opacity = parse(
         r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5, "opacity": 1.5 }"#,
     );
-    let error = validate_level(&bad_opacity).expect_err("opacity outside 0..=1 is rejected");
-    assert!(error.contains("opacity"), "{error}");
+    let bad_opacity_error =
+        validate_level(&bad_opacity).expect_err("opacity outside 0..=1 is rejected");
+    assert!(bad_opacity_error.contains("opacity"), "{bad_opacity_error}");
 
     let bad_bottom = parse(
         r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5, "bottom_y": 0.0 }"#,
     );
-    let error = validate_level(&bad_bottom).expect_err("a bottom above the surface is rejected");
-    assert!(error.contains("bottom_y"), "{error}");
+    let bad_bottom_error =
+        validate_level(&bad_bottom).expect_err("a bottom above the surface is rejected");
+    assert!(bad_bottom_error.contains("bottom_y"), "{bad_bottom_error}");
 
     let zero_width =
         parse(r#"{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 2.0, "surface_y": -0.5 }"#);
-    let error = validate_level(&zero_width).expect_err("a zero-width volume is rejected");
-    assert!(error.contains("width and depth"), "{error}");
+    let zero_width_error =
+        validate_level(&zero_width).expect_err("a zero-width volume is rejected");
+    assert!(
+        zero_width_error.contains("width and depth"),
+        "{zero_width_error}"
+    );
 }
 
 /// Ladders validate like water volumes: a real room overlap, positive
@@ -2401,7 +2464,7 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
     );
     assert!(ladder.overlaps_disc(19.6, 12.0, 0.3));
 
-    let json = |ladders: &str| -> String {
+    let json = |ladder_json: &str| -> String {
         format!(
             r#"{{
                 "format_version": 3,
@@ -2409,11 +2472,12 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
                 "name": "Ladder Gate",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
                 "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }} ],
-                "ladders": [{ladders}]
+                "ladders": [{ladder_json}]
             }}"#
         )
     };
-    let parse = |ladders: &str| LevelDef::from_json(&json(ladders)).expect("ladder json parses");
+    let parse =
+        |ladder_json: &str| LevelDef::from_json(&json(ladder_json)).expect("ladder json parses");
 
     let valid = parse(
         r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.6,
@@ -2432,15 +2496,23 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
         r#"{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 0.6,
              "bottom_y": 0.0, "top_y": 1.5 }"#,
     );
-    let error = validate_level(&zero_width).expect_err("a zero-width ladder is rejected");
-    assert!(error.contains("width and depth"), "{error}");
+    let zero_width_error =
+        validate_level(&zero_width).expect_err("a zero-width ladder is rejected");
+    assert!(
+        zero_width_error.contains("width and depth"),
+        "{zero_width_error}"
+    );
 
     let outside = parse(
         r#"{ "x": 30.0, "z": 30.0, "width": 0.6, "depth": 0.6,
              "bottom_y": 0.0, "top_y": 1.5 }"#,
     );
-    let error = validate_level(&outside).expect_err("a ladder outside every room is rejected");
-    assert!(error.contains("outside every room"), "{error}");
+    let outside_error =
+        validate_level(&outside).expect_err("a ladder outside every room is rejected");
+    assert!(
+        outside_error.contains("outside every room"),
+        "{outside_error}"
+    );
 }
 
 // ------------------------------------------------- level preparation
@@ -2735,14 +2807,14 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
         .expect("the trim material is referenced by generated runs");
     let mesh = crate::render::build_level_geometry_with_materials(prepared, &materials);
 
-    let mut ranges = 0;
-    let mut vertices = 0;
+    let mut ranges = 0_i32;
+    let mut vertices = 0_i32;
     for range in mesh.ranges.iter().filter(|range| {
         range.key.kind == crate::render::SurfaceKind::Wall && range.key.material == index
     }) {
-        ranges += 1;
+        ranges += 1_i32;
         for vertex in &range.vertices {
-            vertices += 1;
+            vertices += 1_i32;
             let at_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
                 vertex.pos[1] >= floor - 1.0e-3
                     && vertex.pos[1] <= floor + crate::level::BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3
@@ -2754,8 +2826,8 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
             );
         }
     }
-    assert!(ranges > 0, "the office trim emits real ranges");
-    assert!(vertices > 0);
+    assert!(ranges > 0_i32, "the office trim emits real ranges");
+    assert!(vertices > 0_i32);
 }
 
 // ---------------------------------------------------------------------------
@@ -2966,14 +3038,20 @@ fn test_validate_rejects_duplicate_and_malformed_instance_ids() {
         r#"[{ "id": "chair_1", "model": "core:chair", "x": 1.0, "z": 1.0 },
             { "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
     );
-    let err =
+    let default_collision_error =
         validate_level(&default_collision).expect_err("an authored id cannot shadow a default id");
-    assert!(err.contains("chair_1"), "the error names the id: {err}");
+    assert!(
+        default_collision_error.contains("chair_1"),
+        "the error names the id: {default_collision_error}"
+    );
 
     let malformed =
         level_with_props_json(r#"[{ "id": "bad id", "model": "core:chair", "x": 1.0, "z": 1.0 }]"#);
-    let err = validate_level(&malformed).expect_err("a spaced id is malformed");
-    assert!(err.contains("well-formed"), "unexpected error: {err}");
+    let malformed_error = validate_level(&malformed).expect_err("a spaced id is malformed");
+    assert!(
+        malformed_error.contains("well-formed"),
+        "unexpected error: {malformed_error}"
+    );
 }
 
 /// Every placeable record shares one instance-id namespace: a prop and a door
@@ -2993,26 +3071,38 @@ fn test_validate_rejects_duplicate_ids_across_kinds() {
         r#""props": [ { "id": "tick", "model": "core:clock", "x": 2.0, "z": 2.0 } ],
            "timers": [ { "id": "tick", "seconds": 1.0 } ]"#,
     );
-    let err = validate_level(&prop_timer).expect_err("a prop and a timer cannot share an id");
-    assert!(err.contains("`tick`"), "the error names the id: {err}");
+    let prop_timer_error =
+        validate_level(&prop_timer).expect_err("a prop and a timer cannot share an id");
+    assert!(
+        prop_timer_error.contains("`tick`"),
+        "the error names the id: {prop_timer_error}"
+    );
 
     let duplicate_sequences = binding_level(
         r#""sequences": [ { "id": "same", "steps": [ { "step": "stop" } ] },
                           { "id": "same", "steps": [ { "step": "stop" } ] } ]"#,
     );
-    let err = validate_level(&duplicate_sequences).expect_err("sequence ids must be unique");
+    let duplicate_sequences_error =
+        validate_level(&duplicate_sequences).expect_err("sequence ids must be unique");
     assert!(
-        err.contains("sequence ids must be unique per level"),
-        "unexpected error: {err}"
+        duplicate_sequences_error.contains("sequence ids must be unique per level"),
+        "unexpected error: {duplicate_sequences_error}"
     );
-    assert!(err.contains("`same`"), "the error names the id: {err}");
+    assert!(
+        duplicate_sequences_error.contains("`same`"),
+        "the error names the id: {duplicate_sequences_error}"
+    );
 
     let blank_spawn_point = binding_level(
         r#""spawn_templates": [ { "id": "rat", "model": "core:box" } ],
            "spawn_points": [ { "id": "  ", "x": 2.0, "z": 2.0, "template": "rat" } ]"#,
     );
-    let err = validate_level(&blank_spawn_point).expect_err("a blank id is malformed");
-    assert!(err.contains("well-formed"), "unexpected error: {err}");
+    let blank_spawn_point_error =
+        validate_level(&blank_spawn_point).expect_err("a blank id is malformed");
+    assert!(
+        blank_spawn_point_error.contains("well-formed"),
+        "unexpected error: {blank_spawn_point_error}"
+    );
 }
 
 /// Components are capability contracts: a non-repeatable kind may appear once
@@ -3036,10 +3126,11 @@ fn test_validate_rejects_duplicate_component_kinds() {
             "components": [ { "component": "state", "name": "phase", "value": 0 },
                             { "component": "state", "name": "phase", "value": 1 } ] } ]"#,
     );
-    let err = validate_level(&repeated_state).expect_err("repeated state names are invalid");
+    let repeated_state_error =
+        validate_level(&repeated_state).expect_err("repeated state names are invalid");
     assert!(
-        err.contains("two `state` components named `phase`"),
-        "unexpected error: {err}"
+        repeated_state_error.contains("two `state` components named `phase`"),
+        "unexpected error: {repeated_state_error}"
     );
 
     // Distinct state names are the one legal repetition.
@@ -3307,10 +3398,10 @@ fn test_validate_rejects_action_target_mismatches() {
         r#""props": [{}]"#,
         interact_prop_json("plant", r#"{ "action": "lock" }"#)
     ));
-    let err = validate_level(&lock_on_prop).expect_err("lock needs a door");
+    let lock_on_prop_error = validate_level(&lock_on_prop).expect_err("lock needs a door");
     assert!(
-        err.contains("requires a door target"),
-        "unexpected error: {err}"
+        lock_on_prop_error.contains("requires a door target"),
+        "unexpected error: {lock_on_prop_error}"
     );
 
     let static_material = binding_level(&format!(
@@ -3320,12 +3411,16 @@ fn test_validate_rejects_action_target_mismatches() {
             r#"{ "action": "change_material", "variant": "off" }"#
         )
     ));
-    let err = validate_level(&static_material).expect_err("a static prop has no material");
+    let static_material_error =
+        validate_level(&static_material).expect_err("a static prop has no material");
     assert!(
-        err.contains("a baked static prop's material is prepared geometry"),
-        "the error names the rule: {err}"
+        static_material_error.contains("a baked static prop's material is prepared geometry"),
+        "the error names the rule: {static_material_error}"
     );
-    assert!(err.contains("`plant`"), "the error names the target: {err}");
+    assert!(
+        static_material_error.contains("`plant`"),
+        "the error names the target: {static_material_error}"
+    );
 
     // A switchable `light` component on a prop is rejected: only a ceiling
     // fixture has prepared switchable layers.
@@ -3336,11 +3431,12 @@ fn test_validate_rejects_action_target_mismatches() {
             "bindings": [ { "on": "interact",
                 "actions": [ { "action": "set_light", "on": true } ] } ] } ]"#,
     );
-    let err =
+    let switchable_prop_light_error =
         validate_level(&switchable_prop_light).expect_err("a prop light cannot be switchable");
     assert!(
-        err.contains("only a ceiling fixture has prepared switchable lightmap layers"),
-        "unexpected error: {err}"
+        switchable_prop_light_error
+            .contains("only a ceiling fixture has prepared switchable lightmap layers"),
+        "unexpected error: {switchable_prop_light_error}"
     );
 
     // A non-switchable light is not a `set_light` target either.
@@ -3351,11 +3447,11 @@ fn test_validate_rejects_action_target_mismatches() {
             "bindings": [ { "on": "interact",
                 "actions": [ { "action": "set_light", "on": true } ] } ] } ]"#,
     );
-    let err = validate_level(&static_light_target)
+    let static_light_target_error = validate_level(&static_light_target)
         .expect_err("a non-switchable light is not a set_light target");
     assert!(
-        err.contains("a switchable light"),
-        "unexpected error: {err}"
+        static_light_target_error.contains("a switchable light"),
+        "unexpected error: {static_light_target_error}"
     );
 
     let bad_variant = binding_level(
@@ -3368,10 +3464,10 @@ fn test_validate_rejects_action_target_mismatches() {
                 "actions": [ { "action": "change_material", "target": "screen",
                                "variant": "missing" } ] } ] } ]"#,
     );
-    let err = validate_level(&bad_variant).expect_err("the variant must exist");
+    let bad_variant_error = validate_level(&bad_variant).expect_err("the variant must exist");
     assert!(
-        err.contains("no variant `missing`"),
-        "unexpected error: {err}"
+        bad_variant_error.contains("no variant `missing`"),
+        "unexpected error: {bad_variant_error}"
     );
 
     let no_animation = binding_level(&format!(
@@ -3381,20 +3477,21 @@ fn test_validate_rejects_action_target_mismatches() {
             r#"{ "action": "play_animation", "clip": "wave" }"#
         )
     ));
-    let err = validate_level(&no_animation).expect_err("play_animation needs an animation");
+    let no_animation_error =
+        validate_level(&no_animation).expect_err("play_animation needs an animation");
     assert!(
-        err.contains("requires a target with an `animation` component"),
-        "unexpected error: {err}"
+        no_animation_error.contains("requires a target with an `animation` component"),
+        "unexpected error: {no_animation_error}"
     );
 
     let no_audio = binding_level(&format!(
         r#""props": [{}]"#,
         interact_prop_json("bell", r#"{ "action": "play_sound" }"#)
     ));
-    let err = validate_level(&no_audio).expect_err("play_sound needs audio");
+    let no_audio_error = validate_level(&no_audio).expect_err("play_sound needs audio");
     assert!(
-        err.contains("requires a target with an `audio` component"),
-        "unexpected error: {err}"
+        no_audio_error.contains("requires a target with an `audio` component"),
+        "unexpected error: {no_audio_error}"
     );
 
     let static_move = binding_level(&format!(
@@ -3404,10 +3501,11 @@ fn test_validate_rejects_action_target_mismatches() {
             r#"{ "action": "move_object", "x": 3.0, "z": 3.0 }"#
         )
     ));
-    let err = validate_level(&static_move).expect_err("a baked static prop cannot move");
+    let static_move_error =
+        validate_level(&static_move).expect_err("a baked static prop cannot move");
     assert!(
-        err.contains("a baked static prop and a door cannot move"),
-        "unexpected error: {err}"
+        static_move_error.contains("a baked static prop and a door cannot move"),
+        "unexpected error: {static_move_error}"
     );
 
     let label_on_volume = binding_level(
@@ -3415,14 +3513,15 @@ fn test_validate_rejects_action_target_mismatches() {
             "bindings": [ { "on": "enter_volume",
                 "actions": [ { "action": "toggle_label" } ] } ] } ]"#,
     );
-    let err = validate_level(&label_on_volume).expect_err("a volume has no label");
+    let label_on_volume_error =
+        validate_level(&label_on_volume).expect_err("a volume has no label");
     assert!(
-        err.contains("requires a placed prop target"),
-        "unexpected error: {err}"
+        label_on_volume_error.contains("requires a placed prop target"),
+        "unexpected error: {label_on_volume_error}"
     );
     assert!(
-        err.contains("trigger volume"),
-        "the error names the actor: {err}"
+        label_on_volume_error.contains("trigger volume"),
+        "the error names the actor: {label_on_volume_error}"
     );
 
     // A door moves through open/close/toggle, never through move_object.
@@ -3433,10 +3532,10 @@ fn test_validate_rejects_action_target_mismatches() {
                 "actions": [ { "action": "move_object", "target": "front_door",
                                "x": 4.5, "z": 4.0, "speed": 1.0 } ] } ] } ]"#,
     );
-    let err = validate_level(&move_door).expect_err("a door cannot be moved");
+    let move_door_error = validate_level(&move_door).expect_err("a door cannot be moved");
     assert!(
-        err.contains("move_object") && err.contains("open"),
-        "the error names the door rule: {err}"
+        move_door_error.contains("move_object") && move_door_error.contains("open"),
+        "the error names the door rule: {move_door_error}"
     );
 
     let move_template = binding_level(
@@ -3475,10 +3574,11 @@ fn test_validate_rejects_unknown_action_targets() {
             r#"{ "action": "start_sequence", "sequence": "ghost" }"#
         )
     ));
-    let err = validate_level(&unknown_sequence).expect_err("the sequence must resolve");
+    let unknown_sequence_error =
+        validate_level(&unknown_sequence).expect_err("the sequence must resolve");
     assert!(
-        err.contains("unknown sequence `ghost`"),
-        "unexpected error: {err}"
+        unknown_sequence_error.contains("unknown sequence `ghost`"),
+        "unexpected error: {unknown_sequence_error}"
     );
 
     let unknown_point = binding_level(&format!(
@@ -3488,10 +3588,10 @@ fn test_validate_rejects_unknown_action_targets() {
             r#"{ "action": "spawn_entity", "point": "ghost" }"#
         )
     ));
-    let err = validate_level(&unknown_point).expect_err("the point must resolve");
+    let unknown_point_error = validate_level(&unknown_point).expect_err("the point must resolve");
     assert!(
-        err.contains("unknown spawn point `ghost`"),
-        "unexpected error: {err}"
+        unknown_point_error.contains("unknown spawn point `ghost`"),
+        "unexpected error: {unknown_point_error}"
     );
 
     let unknown_timer = binding_level(&format!(
@@ -3501,10 +3601,10 @@ fn test_validate_rejects_unknown_action_targets() {
             r#"{ "action": "start_timer", "target": "ghost" }"#
         )
     ));
-    let err = validate_level(&unknown_timer).expect_err("the timer must resolve");
+    let unknown_timer_error = validate_level(&unknown_timer).expect_err("the timer must resolve");
     assert!(
-        err.contains("unknown entity `ghost`"),
-        "unexpected error: {err}"
+        unknown_timer_error.contains("unknown entity `ghost`"),
+        "unexpected error: {unknown_timer_error}"
     );
 
     let unknown_despawn = binding_level(&format!(
@@ -3514,10 +3614,11 @@ fn test_validate_rejects_unknown_action_targets() {
             r#"{ "action": "despawn_entity", "target": "ghost" }"#
         )
     ));
-    let err = validate_level(&unknown_despawn).expect_err("despawn needs a real target");
+    let unknown_despawn_error =
+        validate_level(&unknown_despawn).expect_err("despawn needs a real target");
     assert!(
-        err.contains("spawn group id"),
-        "the error explains what despawn accepts: {err}"
+        unknown_despawn_error.contains("spawn group id"),
+        "the error explains what despawn accepts: {unknown_despawn_error}"
     );
 }
 
@@ -3546,10 +3647,10 @@ fn test_validate_rejects_unknown_condition_targets_and_states() {
                             "name": "missing", "equals": 0 } ],
                 "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&unknown_state).expect_err("the state must exist");
+    let unknown_state_error = validate_level(&unknown_state).expect_err("the state must exist");
     assert!(
-        err.contains("reads state `missing` on `switch`"),
-        "unexpected error: {err}"
+        unknown_state_error.contains("reads state `missing` on `switch`"),
+        "unexpected error: {unknown_state_error}"
     );
 
     let door_condition_on_prop = binding_level(
@@ -3559,11 +3660,15 @@ fn test_validate_rejects_unknown_condition_targets_and_states() {
                 "when": [ { "check": "locked", "target": "switch" } ],
                 "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&door_condition_on_prop).expect_err("locked needs a door target");
-    assert!(err.contains("need a door"), "unexpected error: {err}");
+    let door_condition_on_prop_error =
+        validate_level(&door_condition_on_prop).expect_err("locked needs a door target");
     assert!(
-        err.contains("`switch`"),
-        "the error names the target: {err}"
+        door_condition_on_prop_error.contains("need a door"),
+        "unexpected error: {door_condition_on_prop_error}"
+    );
+    assert!(
+        door_condition_on_prop_error.contains("`switch`"),
+        "the error names the target: {door_condition_on_prop_error}"
     );
 }
 
@@ -3595,10 +3700,10 @@ fn test_validate_rejects_invented_state_writes() {
             r#"{ "action": "set_state", "name": "  ", "value": 1 }"#
         )
     ));
-    let err = validate_level(&blank).expect_err("a blank state name is invalid");
+    let blank_error = validate_level(&blank).expect_err("a blank state name is invalid");
     assert!(
-        err.contains("needs a non-empty state name"),
-        "unexpected error: {err}"
+        blank_error.contains("needs a non-empty state name"),
+        "unexpected error: {blank_error}"
     );
 
     let authored = binding_level(
@@ -3643,8 +3748,12 @@ fn test_validate_rejects_shadowed_water_and_effect_ids() {
         }"#,
     )
     .expect("the shadow effect level parses");
-    let err = validate_level(&shadowed_effect).expect_err("the synthesized id is reserved");
-    assert!(err.contains("effect_1"), "the error names the id: {err}");
+    let shadowed_effect_error =
+        validate_level(&shadowed_effect).expect_err("the synthesized id is reserved");
+    assert!(
+        shadowed_effect_error.contains("effect_1"),
+        "the error names the id: {shadowed_effect_error}"
+    );
 }
 
 /// A binding only validates on a record that can emit its event.
@@ -3677,11 +3786,11 @@ fn test_validate_rejects_bindings_that_cannot_fire() {
             "bindings": [ { "on": "animation_complete",
                 "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&animation_without_component)
+    let animation_without_component_error = validate_level(&animation_without_component)
         .expect_err("animation_complete needs an animation component");
     assert!(
-        err.contains("has no `animation` component"),
-        "unexpected error: {err}"
+        animation_without_component_error.contains("has no `animation` component"),
+        "unexpected error: {animation_without_component_error}"
     );
 
     let disabled_interactable = binding_level(
@@ -3690,11 +3799,11 @@ fn test_validate_rejects_bindings_that_cannot_fire() {
             "bindings": [ { "on": "interact",
                 "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&disabled_interactable)
+    let disabled_interactable_error = validate_level(&disabled_interactable)
         .expect_err("a disabled interactable never emits interact");
     assert!(
-        err.contains("no enabled `interactable` component"),
-        "unexpected error: {err}"
+        disabled_interactable_error.contains("no enabled `interactable` component"),
+        "unexpected error: {disabled_interactable_error}"
     );
 
     // Acceptance: the kinds that own an event may listen for it.
@@ -3737,17 +3846,22 @@ fn test_validate_rejects_oversized_or_malformed_bindings() {
         r#""props": [{}]"#,
         interact_prop_json("switch", &actions.join(","))
     ));
-    let err = validate_level(&too_many_actions).expect_err("an oversized action batch is invalid");
-    assert!(err.contains("the limit is"), "unexpected error: {err}");
+    let too_many_actions_error =
+        validate_level(&too_many_actions).expect_err("an oversized action batch is invalid");
+    assert!(
+        too_many_actions_error.contains("the limit is"),
+        "unexpected error: {too_many_actions_error}"
+    );
 
     let empty_actions = binding_level(&format!(
         r#""props": [{}]"#,
         interact_prop_json("switch", "")
     ));
-    let err = validate_level(&empty_actions).expect_err("a binding needs an action");
+    let empty_actions_error =
+        validate_level(&empty_actions).expect_err("a binding needs an action");
     assert!(
-        err.contains("must declare at least one action"),
-        "unexpected error: {err}"
+        empty_actions_error.contains("must declare at least one action"),
+        "unexpected error: {empty_actions_error}"
     );
 
     let bad_cooldown = binding_level(
@@ -3756,10 +3870,12 @@ fn test_validate_rejects_oversized_or_malformed_bindings() {
             "bindings": [ { "on": "interact", "cooldown_seconds": -1.0,
                             "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&bad_cooldown).expect_err("a negative cooldown is invalid");
+    let bad_cooldown_error =
+        validate_level(&bad_cooldown).expect_err("a negative cooldown is invalid");
     assert!(
-        err.contains("cooldown_seconds must be a finite number that is not negative"),
-        "unexpected error: {err}"
+        bad_cooldown_error
+            .contains("cooldown_seconds must be a finite number that is not negative"),
+        "unexpected error: {bad_cooldown_error}"
     );
 
     let blank_binding_id = binding_level(
@@ -3768,10 +3884,11 @@ fn test_validate_rejects_oversized_or_malformed_bindings() {
             "bindings": [ { "id": "  ", "on": "interact",
                             "actions": [ { "action": "reset_to_start" } ] } ] } ]"#,
     );
-    let err = validate_level(&blank_binding_id).expect_err("a blank binding id is invalid");
+    let blank_binding_id_error =
+        validate_level(&blank_binding_id).expect_err("a blank binding id is invalid");
     assert!(
-        err.contains("id must not be blank when specified"),
-        "unexpected error: {err}"
+        blank_binding_id_error.contains("id must not be blank when specified"),
+        "unexpected error: {blank_binding_id_error}"
     );
 }
 
@@ -3885,12 +4002,15 @@ fn test_validate_rejects_zero_delay_cycles_but_allows_delayed_ones() {
             ] } ],
            "sequences": [ { "id": "once", "steps": [ { "step": "stop" } ] } ]"#,
     );
-    let err = validate_level(&completion_cycle)
+    let completion_cycle_error = validate_level(&completion_cycle)
         .expect_err("an immediate completion that restarts itself is a zero-delay cycle");
-    assert!(err.contains("Zero-delay cycle"), "unexpected error: {err}");
     assert!(
-        err.contains("binding 1 on `switch`"),
-        "the cycle path names the re-entering binding: {err}"
+        completion_cycle_error.contains("Zero-delay cycle"),
+        "unexpected error: {completion_cycle_error}"
+    );
+    assert!(
+        completion_cycle_error.contains("binding 1 on `switch`"),
+        "the cycle path names the re-entering binding: {completion_cycle_error}"
     );
 
     // ... unless a cooldown or a condition bounds the repetition.
@@ -3943,40 +4063,42 @@ fn test_validate_rejects_malformed_spawns() {
            "spawn_points": [ { "id": "point", "x": 2.0, "z": 2.0, "template": "rat",
                                "group": "ghost" } ]"#,
     );
-    let err = validate_level(&missing_group).expect_err("the group must exist");
+    let missing_group_error = validate_level(&missing_group).expect_err("the group must exist");
     assert!(
-        err.contains("references unknown spawn group `ghost`"),
-        "unexpected error: {err}"
+        missing_group_error.contains("references unknown spawn group `ghost`"),
+        "unexpected error: {missing_group_error}"
     );
 
     let blank_model = binding_level(r#""spawn_templates": [ { "id": "rat", "model": "  " } ]"#);
-    let err = validate_level(&blank_model).expect_err("the template model is required");
+    let blank_model_error =
+        validate_level(&blank_model).expect_err("the template model is required");
     assert!(
-        err.contains("non-empty model id"),
-        "unexpected error: {err}"
+        blank_model_error.contains("non-empty model id"),
+        "unexpected error: {blank_model_error}"
     );
     assert!(
-        err.contains("Spawn template 0"),
-        "the error names the template: {err}"
+        blank_model_error.contains("Spawn template 0"),
+        "the error names the template: {blank_model_error}"
     );
 
     let bad_scale = binding_level(
         r#""spawn_templates": [ { "id": "rat", "model": "core:box", "scale": 0.0 } ]"#,
     );
-    let err = validate_level(&bad_scale).expect_err("the scale must be positive");
+    let bad_scale_error = validate_level(&bad_scale).expect_err("the scale must be positive");
     assert!(
-        err.contains("scale must be a finite positive number"),
-        "unexpected error: {err}"
+        bad_scale_error.contains("scale must be a finite positive number"),
+        "unexpected error: {bad_scale_error}"
     );
 
     let negative_lifetime = binding_level(
         r#""spawn_templates": [ { "id": "rat", "model": "core:box",
                                   "lifetime_seconds": -1.0 } ]"#,
     );
-    let err = validate_level(&negative_lifetime).expect_err("a negative lifetime is invalid");
+    let negative_lifetime_error =
+        validate_level(&negative_lifetime).expect_err("a negative lifetime is invalid");
     assert!(
-        err.contains("lifetime_seconds must be a finite positive number"),
-        "unexpected error: {err}"
+        negative_lifetime_error.contains("lifetime_seconds must be a finite positive number"),
+        "unexpected error: {negative_lifetime_error}"
     );
 
     let template_without_point = binding_level(&format!(
@@ -3987,11 +4109,11 @@ fn test_validate_rejects_malformed_spawns() {
             r#"{ "action": "spawn_entity", "template": "rat" }"#
         )
     ));
-    let err = validate_level(&template_without_point)
+    let template_without_point_error = validate_level(&template_without_point)
         .expect_err("a template without a point cannot resolve");
     assert!(
-        err.contains("names a `template` without a `point`"),
-        "unexpected error: {err}"
+        template_without_point_error.contains("names a `template` without a `point`"),
+        "unexpected error: {template_without_point_error}"
     );
 
     let unknown_spawn_group = binding_level(&format!(
@@ -4003,10 +4125,11 @@ fn test_validate_rejects_malformed_spawns() {
             r#"{ "action": "spawn_entity", "point": "point", "group": "ghost" }"#
         )
     ));
-    let err = validate_level(&unknown_spawn_group).expect_err("the spawn group must exist");
+    let unknown_spawn_group_error =
+        validate_level(&unknown_spawn_group).expect_err("the spawn group must exist");
     assert!(
-        err.contains("references unknown spawn group `ghost`"),
-        "unexpected error: {err}"
+        unknown_spawn_group_error.contains("references unknown spawn group `ghost`"),
+        "unexpected error: {unknown_spawn_group_error}"
     );
 }
 
@@ -4501,8 +4624,11 @@ fn test_ceiling_tile_frame_validation() {
     assert!(error.contains("ceiling tile origin"), "{error}");
     level.rooms[0].ceiling_tile_origin = Some([0.0, 0.0]);
     level.rooms[0].ceiling_tile_rotation_degrees = Some(f32::INFINITY);
-    let error = validate_level(&level).expect_err("a non-finite rotation is rejected");
-    assert!(error.contains("ceiling tile rotation"), "{error}");
+    let level_error = validate_level(&level).expect_err("a non-finite rotation is rejected");
+    assert!(
+        level_error.contains("ceiling tile rotation"),
+        "{level_error}"
+    );
 }
 
 /// Every checked-in level parses and validates against the one final schema.
@@ -4548,7 +4674,7 @@ fn every_checked_in_level_parses_and_validates_against_the_final_schema() {
 #[test]
 fn an_ai_only_edit_reuses_the_prepared_lighting() {
     let dir = std::env::temp_dir().join(format!("places-nav-reuse-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
     fs::create_dir_all(&dir).expect("create the reuse scratch directory");
     let source = dir.join("reuse_level.json");
     let level_json = |ai_speed: f32, room_width: f32| {
@@ -4650,7 +4776,7 @@ fn an_ai_only_edit_reuses_the_prepared_lighting() {
         second_variant.entries.lighting, third_variant.entries.lighting,
         "a geometry edit produces a new lighting record"
     );
-    let _ = fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
 }
 
 /// The emitted-geometry revision is part of both build fingerprints, so an
@@ -5030,7 +5156,10 @@ struct RaisedCapCase {
 /// The room lattice a case's entries are placed on: 4 m × 4 m rooms on a 6 m
 /// pitch, row-major, 90 per row.
 fn cap_room_position(index: usize) -> (f32, f32) {
-    ((index % 90) as f32 * 6.0, (index / 90) as f32 * 6.0)
+    (
+        crate::test_support::exact_f32(index % 90) * 6.0,
+        crate::test_support::exact_f32(index / 90) * 6.0,
+    )
 }
 
 /// `count` rooms on the same lattice as [`cap_room_position`].
@@ -5074,7 +5203,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             make: |_| {
                 r#"{ "x": 1.0, "z": 1.0, "width": 0.4, "depth": 0.4, "height": 2.0 }"#.to_string()
             },
-            limit: crate::level::MAX_LEVEL_WALLS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_WALLS)
+                .expect("fixture integer fits usize"),
             fragment: "too many walls",
         },
         RaisedCapCase {
@@ -5084,7 +5214,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             make: |_| {
                 r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }"#.to_string()
             },
-            limit: crate::level::MAX_LEVEL_CEILING_LIGHTS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_CEILING_LIGHTS)
+                .expect("fixture integer fits usize"),
             fragment: "too many ceiling lights",
         },
         RaisedCapCase {
@@ -5092,7 +5223,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             extra: "",
             rooms: 1,
             make: |_| r#"{ "model": "core:crate", "x": 2.0, "z": 2.0 }"#.to_string(),
-            limit: crate::level::MAX_LEVEL_PROPS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_PROPS)
+                .expect("fixture integer fits usize"),
             fragment: "too many props",
         },
         RaisedCapCase {
@@ -5104,13 +5236,15 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "material": "core:decal_test_01", "surface": "floor" }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_DECALS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_DECALS)
+                .expect("fixture integer fits usize"),
             fragment: "too many decals",
         },
         RaisedCapCase {
             field: "floor_regions",
             extra: "",
-            rooms: crate::level::MAX_LEVEL_FLOOR_REGIONS as usize,
+            rooms: usize::try_from(crate::level::MAX_LEVEL_FLOOR_REGIONS)
+                .expect("fixture integer fits usize"),
             make: |index| {
                 let (x, z) = cap_room_position(index);
                 format!(
@@ -5119,13 +5253,15 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                     z + 1.0
                 )
             },
-            limit: crate::level::MAX_LEVEL_FLOOR_REGIONS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_FLOOR_REGIONS)
+                .expect("fixture integer fits usize"),
             fragment: "too many floor regions",
         },
         RaisedCapCase {
             field: "floor_patches",
             extra: "",
-            rooms: crate::level::MAX_LEVEL_FLOOR_PATCHES as usize,
+            rooms: usize::try_from(crate::level::MAX_LEVEL_FLOOR_PATCHES)
+                .expect("fixture integer fits usize"),
             make: |index| {
                 let (x, z) = cap_room_position(index);
                 format!(
@@ -5135,13 +5271,15 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                     z + 1.0
                 )
             },
-            limit: crate::level::MAX_LEVEL_FLOOR_PATCHES as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_FLOOR_PATCHES)
+                .expect("fixture integer fits usize"),
             fragment: "too many floor patches",
         },
         RaisedCapCase {
             field: "water",
             extra: "",
-            rooms: crate::level::MAX_LEVEL_WATER_VOLUMES as usize,
+            rooms: usize::try_from(crate::level::MAX_LEVEL_WATER_VOLUMES)
+                .expect("fixture integer fits usize"),
             make: |index| {
                 let (x, z) = cap_room_position(index);
                 format!(
@@ -5150,7 +5288,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                     z + 1.0
                 )
             },
-            limit: crate::level::MAX_LEVEL_WATER_VOLUMES as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_WATER_VOLUMES)
+                .expect("fixture integer fits usize"),
             fragment: "too many water volumes",
         },
         RaisedCapCase {
@@ -5162,7 +5301,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "bottom_y": 0.0, "top_y": 2.0, "facing_degrees": 0.0 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_LADDERS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_LADDERS)
+                .expect("fixture integer fits usize"),
             fragment: "too many ladders",
         },
         RaisedCapCase {
@@ -5174,7 +5314,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "offset_y": 0.0, "rise": 0.25 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_RAMPS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_RAMPS)
+                .expect("fixture integer fits usize"),
             fragment: "too many ramps",
         },
         RaisedCapCase {
@@ -5186,7 +5327,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "offset_y": 0.0, "rise": 0.4, "steps": 3 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_STAIRS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_STAIRS)
+                .expect("fixture integer fits usize"),
             fragment: "too many staircases",
         },
         RaisedCapCase {
@@ -5196,7 +5338,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             make: |_| {
                 r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 0.2, "height": 1.0 }"#.to_string()
             },
-            limit: crate::level::MAX_LEVEL_HALF_WALLS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_HALF_WALLS)
+                .expect("fixture integer fits usize"),
             fragment: "too many half walls",
         },
         RaisedCapCase {
@@ -5204,7 +5347,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             extra: "",
             rooms: 1,
             make: |_| r#"{ "x": 1.0, "z": 1.0, "width": 0.3, "depth": 0.3 }"#.to_string(),
-            limit: crate::level::MAX_LEVEL_COLUMNS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_COLUMNS)
+                .expect("fixture integer fits usize"),
             fragment: "too many columns",
         },
         RaisedCapCase {
@@ -5217,7 +5361,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "segments": 8 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_ARC_WALLS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_ARC_WALLS)
+                .expect("fixture integer fits usize"),
             fragment: "too many arc walls",
         },
         RaisedCapCase {
@@ -5227,7 +5372,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             make: |_| {
                 r#"{ "x": 2.0, "z": 2.0, "radius": 0.2, "height": 3.0, "segments": 8 }"#.to_string()
             },
-            limit: crate::level::MAX_LEVEL_PILLARS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_PILLARS)
+                .expect("fixture integer fits usize"),
             fragment: "too many pillars",
         },
         RaisedCapCase {
@@ -5239,7 +5385,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "opening_width": 1.0, "opening_height": 2.0, "arch_rise": 0.2 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_ARCHWAYS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_ARCHWAYS)
+                .expect("fixture integer fits usize"),
             fragment: "too many archways",
         },
         RaisedCapCase {
@@ -5251,7 +5398,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "height": 0.9 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_GUARDRAILS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_GUARDRAILS)
+                .expect("fixture integer fits usize"),
             fragment: "too many guardrails",
         },
         RaisedCapCase {
@@ -5263,7 +5411,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
                      "height": 0.02, "rotation_degrees": 90.0 }"#
                     .to_string()
             },
-            limit: crate::level::MAX_LEVEL_THRESHOLDS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_THRESHOLDS)
+                .expect("fixture integer fits usize"),
             fragment: "too many thresholds",
         },
         RaisedCapCase {
@@ -5273,7 +5422,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             make: |_| {
                 r#"{ "x": 2.0, "z": 2.0, "length": 2.0, "rotation_degrees": 90.0 }"#.to_string()
             },
-            limit: crate::level::MAX_LEVEL_BASEBOARDS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_BASEBOARDS)
+                .expect("fixture integer fits usize"),
             fragment: "too many baseboards",
         },
         RaisedCapCase {
@@ -5281,7 +5431,8 @@ fn raised_cap_cases() -> Vec<RaisedCapCase> {
             extra: "",
             rooms: 1,
             make: |_| r#"{ "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0 }"#.to_string(),
-            limit: crate::level::MAX_LEVEL_AREA_TRIGGERS as usize,
+            limit: usize::try_from(crate::level::MAX_LEVEL_AREA_TRIGGERS)
+                .expect("fixture integer fits usize"),
             fragment: "too many trigger volumes",
         },
         RaisedCapCase {
@@ -5358,7 +5509,7 @@ fn test_validate_rejects_one_over_every_raised_element_cap() {
 
 #[test]
 fn test_validate_rejects_too_many_rooms() {
-    let rooms = crate::level::MAX_LEVEL_ROOMS as usize;
+    let rooms = usize::try_from(crate::level::MAX_LEVEL_ROOMS).expect("fixture integer fits usize");
     let build = |count: usize| {
         LevelDef::from_json(&format!(
             r#"{{ "format_version": 3, "id": "rooms_cap", "name": "Rooms Cap",
@@ -5428,11 +5579,13 @@ fn test_validate_rejects_too_many_distinct_materials_by_name() {
         .expect("the materials cap level parses")
     };
     // 4 ids outside the face map: three defaults plus the wall body.
-    let face_budget = (crate::level::MAX_LEVEL_MATERIALS as usize).saturating_sub(4);
+    let face_budget = usize::try_from(crate::level::MAX_LEVEL_MATERIALS)
+        .expect("fixture integer fits usize")
+        .saturating_sub(4);
     let at_limit = level(face_budget);
     assert_eq!(
         crate::materials::referenced_material_ids(&at_limit).len(),
-        crate::level::MAX_LEVEL_MATERIALS as usize,
+        usize::try_from(crate::level::MAX_LEVEL_MATERIALS).expect("fixture integer fits usize"),
         "the at-limit level must resolve exactly the cap"
     );
     validate_level(&at_limit).expect("a level at the material cap must validate");
@@ -5462,15 +5615,17 @@ fn display_metadata_reuse_keeps_every_physical_dependency_in_the_stage_key() {
         bytes: 123,
     }];
     let revision = crate::render::GEOMETRY_REVISION;
-    let key = |level: &LevelDef, dependencies: &[crate::package::manifest::PackageDependency]| {
-        crate::compiler::lighting_fingerprint_with_revision(
-            level,
-            &variants,
-            dependencies,
-            revision,
-        )
-        .expect("stage identity")
-    };
+    let key =
+        |physical_level: &LevelDef,
+         physical_dependencies: &[crate::package::manifest::PackageDependency]| {
+            crate::compiler::lighting_fingerprint_with_revision(
+                physical_level,
+                &variants,
+                physical_dependencies,
+                revision,
+            )
+            .expect("stage identity")
+        };
     let original = key(&level, &dependencies);
     let mut display_edit = level.clone();
     display_edit.name = "Edited display title".into();

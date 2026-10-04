@@ -553,7 +553,7 @@ impl EntityWorld {
             let _ = self.names.insert(EntityId::new(id), handle);
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
             let size = prop.resolved_size(PROP_FALLBACK_SIZE);
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(prop.x, base_y, prop.z),
@@ -561,7 +561,7 @@ impl EntityWorld {
                     scale: prop.scale,
                 },
             );
-            self.components.renderables.insert(
+            drop(self.components.renderables.insert(
                 handle,
                 Renderable {
                     model: prop.model.clone(),
@@ -571,9 +571,10 @@ impl EntityWorld {
                     // other prop is baked into the static world.
                     dynamic: prop.float.is_some(),
                 },
-            );
+            ));
             if prop.solid {
-                self.components
+                let _previous_value_2 = self
+                    .components
                     .colliders
                     .insert(handle, Collider { size, solid: true });
             }
@@ -601,7 +602,7 @@ impl EntityWorld {
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
             let base_y = def.base_y(level);
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(def.x, base_y, def.z),
@@ -609,7 +610,7 @@ impl EntityWorld {
                     scale: 1.0,
                 },
             );
-            self.components.renderables.insert(
+            drop(self.components.renderables.insert(
                 handle,
                 Renderable {
                     model: String::new(),
@@ -617,7 +618,7 @@ impl EntityWorld {
                     visible: true,
                     dynamic: true,
                 },
-            );
+            ));
             self.apply_component_defs(handle, id, &def.components);
             // A door carries its locked state on the door runtime, not on the
             // component, so a condition can read it through `Doors`.
@@ -638,7 +639,7 @@ impl EntityWorld {
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
             let y = fixture.y.filter(|y| y.is_finite()).unwrap_or(0.0);
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(fixture.x, y, fixture.z),
@@ -646,7 +647,7 @@ impl EntityWorld {
                     scale: 1.0,
                 },
             );
-            self.components.lights.insert(
+            let _previous_value_2 = self.components.lights.insert(
                 handle,
                 Light {
                     enabled: fixture.enabled,
@@ -685,7 +686,7 @@ impl EntityWorld {
             }
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
-            self.components.volumes.insert(
+            let _previous_value = self.components.volumes.insert(
                 handle,
                 TriggerVolume {
                     bounds: [x0, x1, z0, z1],
@@ -714,7 +715,7 @@ impl EntityWorld {
             }
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(def.x, def.y, def.z),
@@ -722,7 +723,7 @@ impl EntityWorld {
                     scale: 1.0,
                 },
             );
-            self.components.steam.insert(
+            let _previous_value_2 = self.components.steam.insert(
                 handle,
                 Steam {
                     enabled: def.enabled,
@@ -747,7 +748,7 @@ impl EntityWorld {
             };
             let handle = self.store.insert();
             let _ = self.names.insert(EntityId::new(id), handle);
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(
@@ -759,7 +760,7 @@ impl EntityWorld {
                     scale: 1.0,
                 },
             );
-            self.components.water.insert(
+            let _previous_value_2 = self.components.water.insert(
                 handle,
                 WaterVolumeCtl {
                     enabled: volume.enabled,
@@ -792,7 +793,7 @@ impl EntityWorld {
                 .y
                 .filter(|y| y.is_finite())
                 .unwrap_or_else(|| surfaces.floor_y_at(def.x, def.z).unwrap_or(0.0));
-            self.components.transforms.insert(
+            let _previous_value = self.components.transforms.insert(
                 handle,
                 Transform {
                     position: Vec3::new(def.x, y, def.z),
@@ -800,13 +801,13 @@ impl EntityWorld {
                     scale: 1.0,
                 },
             );
-            self.components.spawn_points.insert(
+            drop(self.components.spawn_points.insert(
                 handle,
                 SpawnPointComponent {
                     template: def.template.clone(),
                     group: def.group.clone(),
                 },
-            );
+            ));
             self.resolve_bindings_for(handle, &def.bindings);
         }
     }
@@ -894,7 +895,7 @@ impl EntityWorld {
     /// `instance_id` is the entity's stable instance id; it resolves the
     /// deterministic default phase of a `fade` component whose `phase` is
     /// omitted.
-    #[allow(clippy::too_many_lines)] // one cohesive component dispatcher
+    #[expect(clippy::too_many_lines, reason = "one cohesive component dispatcher")] // one cohesive component dispatcher
     fn apply_component_defs(
         &mut self,
         handle: EntityHandle,
@@ -909,29 +910,33 @@ impl EntityWorld {
                     enabled,
                     label,
                 } => {
-                    let prompt = prompt
+                    let prompt_text = prompt
                         .as_deref()
                         .map(str::trim)
                         .unwrap_or_default()
                         .to_string();
-                    let reach = reach
-                        .filter(|reach| reach.is_finite() && *reach > 0.0)
-                        .map_or(DEFAULT_INTERACTION_REACH_M, |reach| {
-                            reach.min(MAX_INTERACTION_REACH_M)
+                    let reach_m = reach
+                        .filter(|candidate_reach| {
+                            candidate_reach.is_finite() && *candidate_reach > 0.0
+                        })
+                        .map_or(DEFAULT_INTERACTION_REACH_M, |valid_reach| {
+                            valid_reach.min(MAX_INTERACTION_REACH_M)
                         });
-                    self.components.interactables.insert(
-                        handle,
-                        InteractableComponent {
-                            prompt,
-                            reach,
-                            enabled: *enabled,
-                            label: label
-                                .as_deref()
-                                .map(str::trim)
-                                .filter(|name| !name.is_empty())
-                                .map(str::to_string),
-                            label_visible: false,
-                        },
+                    drop(
+                        self.components.interactables.insert(
+                            handle,
+                            InteractableComponent {
+                                prompt: prompt_text,
+                                reach: reach_m,
+                                enabled: *enabled,
+                                label: label
+                                    .as_deref()
+                                    .map(str::trim)
+                                    .filter(|name| !name.is_empty())
+                                    .map(str::to_string),
+                                label_visible: false,
+                            },
+                        ),
                     );
                 }
                 ComponentDef::Animation {
@@ -940,7 +945,7 @@ impl EntityWorld {
                     looped,
                     playing,
                 } => {
-                    self.components.animations.insert(
+                    drop(self.components.animations.insert(
                         handle,
                         Animation {
                             clip: clip.clone(),
@@ -953,7 +958,7 @@ impl EntityWorld {
                             playing: *playing,
                             progress: 0.0,
                         },
-                    );
+                    ));
                 }
                 ComponentDef::Audio {
                     sound,
@@ -962,7 +967,7 @@ impl EntityWorld {
                     enabled,
                     playing,
                 } => {
-                    self.components.audio.insert(
+                    drop(self.components.audio.insert(
                         handle,
                         AudioEmitter {
                             sound: sound.clone(),
@@ -975,14 +980,14 @@ impl EntityWorld {
                             enabled: *enabled,
                             playing: *playing,
                         },
-                    );
+                    ));
                 }
                 ComponentDef::Light {
                     enabled,
                     switchable,
                     emission_scale,
                 } => {
-                    self.components.lights.insert(
+                    let _previous_value = self.components.lights.insert(
                         handle,
                         Light {
                             enabled: *enabled,
@@ -1002,40 +1007,42 @@ impl EntityWorld {
                             || variants.first().map(|v| v.name.clone()).unwrap_or_default(),
                             str::to_string,
                         );
-                    self.components.materials.insert(
-                        handle,
-                        Material {
-                            variant,
-                            variants: variants
-                                .iter()
-                                .map(|v| (v.name.clone(), v.emission_scale))
-                                .collect(),
-                        },
+                    drop(
+                        self.components.materials.insert(
+                            handle,
+                            Material {
+                                variant,
+                                variants: variants
+                                    .iter()
+                                    .map(|v| (v.name.clone(), v.emission_scale))
+                                    .collect(),
+                            },
+                        ),
                     );
                 }
                 ComponentDef::State { name, value } => {
                     if let Some(state) = self.components.states.get_mut(handle) {
-                        state.set(name, value.clone());
+                        let _set_status = state.set(name, value.clone());
                     } else {
                         let mut state = ObjectState::default();
-                        state.set(name, value.clone());
-                        self.components.states.insert(handle, state);
+                        let _set_status_2 = state.set(name, value.clone());
+                        drop(self.components.states.insert(handle, state));
                     }
                 }
                 ComponentDef::Lifetime { seconds } => {
-                    self.components.lifetimes.insert(
+                    let _previous_value_2 = self.components.lifetimes.insert(
                         handle,
                         Lifetime {
                             remaining: seconds
                                 .is_finite()
                                 .then_some(*seconds)
-                                .filter(|seconds| *seconds > 0.0),
+                                .filter(|lifetime| *lifetime > 0.0),
                             despawn: true,
                         },
                     );
                 }
                 ComponentDef::Steam { enabled } => {
-                    self.components.steam.insert(
+                    let _previous_value_3 = self.components.steam.insert(
                         handle,
                         Steam {
                             enabled: *enabled,
@@ -1044,7 +1051,8 @@ impl EntityWorld {
                     );
                 }
                 ComponentDef::Water { enabled } => {
-                    self.components
+                    let _previous_value_4 = self
+                        .components
                         .water
                         .insert(handle, WaterVolumeCtl { enabled: *enabled });
                 }
@@ -1055,7 +1063,7 @@ impl EntityWorld {
                     step_height,
                     max_slope,
                 } => {
-                    self.components.nav_agents.insert(
+                    let _previous_value_5 = self.components.nav_agents.insert(
                         handle,
                         NavAgent {
                             radius: *radius,
@@ -1066,34 +1074,34 @@ impl EntityWorld {
                         },
                     );
                 }
-                ComponentDef::Ai(def) => {
-                    self.components.ais.insert(handle, def.clone());
+                ComponentDef::Ai(ai_def) => {
+                    drop(self.components.ais.insert(handle, ai_def.clone()));
                 }
                 ComponentDef::NavObstacle { size, affects_nav } => {
-                    let size = size.unwrap_or_else(|| {
+                    let obstacle_size = size.unwrap_or_else(|| {
                         self.components
                             .colliders
                             .get(handle)
                             .map_or([0.5, 0.5, 0.5], |collider| collider.size)
                     });
-                    self.components.nav_obstacles.insert(
+                    let _previous_value_6 = self.components.nav_obstacles.insert(
                         handle,
                         NavObstacle {
-                            size,
+                            size: obstacle_size,
                             affects_nav: *affects_nav,
                         },
                     );
                 }
-                ComponentDef::Fade(def) => {
+                ComponentDef::Fade(fade_def) => {
                     // A validated level has already rejected a bad phase; a
                     // non-finite one is defensive here and falls back to the
                     // deterministic per-instance default, exactly like an
                     // omitted phase.
-                    let phase = def
+                    let phase = fade_def
                         .phase
                         .filter(|phase| phase.is_finite())
                         .unwrap_or_else(|| crate::level::default_fade_phase(instance_id));
-                    let proximity = def.proximity().filter(|proximity| {
+                    let proximity = fade_def.proximity().filter(|proximity| {
                         proximity.near_radius.is_finite()
                             && proximity.near_radius > 0.0
                             && proximity.far_radius.is_finite()
@@ -1103,15 +1111,15 @@ impl EntityWorld {
                             && proximity.fade_in_seconds.is_finite()
                             && proximity.fade_in_seconds > 0.0
                     });
-                    let max_opacity = def.max_opacity.clamp(0.0, 1.0);
-                    self.components.fades.insert(
+                    let max_opacity = fade_def.max_opacity.clamp(0.0, 1.0);
+                    let _previous_value_7 = self.components.fades.insert(
                         handle,
                         Fade {
-                            period_seconds: def.period_seconds,
+                            period_seconds: fade_def.period_seconds,
                             phase: phase.clamp(0.0, 1.0),
-                            min_opacity: def.min_opacity.clamp(0.0, 1.0),
+                            min_opacity: fade_def.min_opacity.clamp(0.0, 1.0),
                             max_opacity,
-                            enabled: def.enabled,
+                            enabled: fade_def.enabled,
                             proximity,
                             // A proximity fade starts visible and fades out
                             // once the first update sees the player inside
@@ -1121,22 +1129,24 @@ impl EntityWorld {
                         },
                     );
                 }
-                ComponentDef::Glow(def) => {
-                    self.components.glows.insert(
-                        handle,
-                        Glow {
-                            color: def.color,
-                            intensity: def.intensity,
-                            range: def.range,
-                            socket: def
-                                .socket
-                                .as_deref()
-                                .map(str::trim)
-                                .filter(|socket| !socket.is_empty())
-                                .map(str::to_string),
-                            offset: def.offset,
-                            fade_with_opacity: def.fade,
-                        },
+                ComponentDef::Glow(glow_def) => {
+                    drop(
+                        self.components.glows.insert(
+                            handle,
+                            Glow {
+                                color: glow_def.color,
+                                intensity: glow_def.intensity,
+                                range: glow_def.range,
+                                socket: glow_def
+                                    .socket
+                                    .as_deref()
+                                    .map(str::trim)
+                                    .filter(|socket| !socket.is_empty())
+                                    .map(str::to_string),
+                                offset: glow_def.offset,
+                                fade_with_opacity: glow_def.fade,
+                            },
+                        ),
                     );
                 }
             }
@@ -1211,7 +1221,8 @@ impl EntityWorld {
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
             let (extent_x, extent_z) =
                 rotated_half_extents(size_x * 0.5, size_z * 0.5, prop.rotation_degrees);
-            #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates
+
+            // bounded world coordinates
             let (bounds, own_box, anchor) = {
                 let own_box = prop.solid.then(|| {
                     WallAabb::with_y(
@@ -1234,7 +1245,7 @@ impl EntityWorld {
             };
             let (prompt, reach, enabled) = component.map_or_else(
                 || (String::new(), DEFAULT_INTERACTION_REACH_M, false),
-                |component| (component.prompt.clone(), component.reach, component.enabled),
+                |item| (item.prompt.clone(), item.reach, item.enabled),
             );
             items.push(Interactable {
                 id: id.to_string(),
@@ -1377,8 +1388,9 @@ impl EntityWorld {
                 )
                 .map(|component| component.prompt.clone())
                 .unwrap_or_default();
-            self.interactables
-                .sync_door(index, &collider, phase, Some(&prompt));
+            let _sync_door_status =
+                self.interactables
+                    .sync_door(index, &collider, phase, Some(&prompt));
         }
     }
 
@@ -1679,7 +1691,7 @@ impl EntityWorld {
             .get(handle)
             .map_or(Vec3::ZERO, |transform| transform.position);
         self.note_stimulus(position, 8.0, "interact", Some(handle));
-        self.emit(EventKind::Interact, handle, "", Some(handle));
+        let _event_queued = self.emit(EventKind::Interact, handle, "", Some(handle));
         let mut tick = WorldTick::default();
         self.pump_events(&mut tick);
         self.report_queue_refusals(&mut tick);
@@ -1755,7 +1767,10 @@ impl EntityWorld {
     }
 
     /// Runs one action.
-    #[allow(clippy::too_many_lines)] // one cohesive typed action dispatcher
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive typed action dispatcher"
+    )] // one cohesive typed action dispatcher
     fn run_action(
         &mut self,
         action: &ActionDef,
@@ -1769,7 +1784,7 @@ impl EntityWorld {
                 report.player_reset = true;
             }
             ActionDef::Open { target } | ActionDef::Close { target } => {
-                let request_open = matches!(action, ActionDef::Open { .. });
+                let request_open = matches!(action, ActionDef::Open { target: _ });
                 let Some(id) = self.resolve_target(target.as_deref(), actor) else {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
@@ -1844,7 +1859,7 @@ impl EntityWorld {
                 }
             }
             ActionDef::Enable { target } | ActionDef::Disable { target } => {
-                let enable = matches!(action, ActionDef::Enable { .. });
+                let enable = matches!(action, ActionDef::Enable { target: _ });
                 let Some(id) = self.resolve_target(target.as_deref(), actor) else {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
@@ -1863,14 +1878,14 @@ impl EntityWorld {
                 }
             }
             ActionDef::Lock { target } | ActionDef::Unlock { target } => {
-                let locked = matches!(action, ActionDef::Lock { .. });
+                let locked = matches!(action, ActionDef::Lock { target: _ });
                 let Some(id) = self.resolve_target(target.as_deref(), actor) else {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
                 if self.doors.set_locked(&id, locked) {
                     report.actions_run = report.actions_run.saturating_add(1);
-                    self.emit_depth(
+                    let _event_queued = self.emit_depth(
                         EventKind::ObjectState,
                         self.handle_of(&id)
                             .unwrap_or(EntityHandle::from_parts(0, 0)),
@@ -1976,18 +1991,18 @@ impl EntityWorld {
                 let id = self
                     .resolve_target(target.as_deref(), actor)
                     .or_else(|| self.id_of(actor?).map(str::to_string));
-                let Some(id) = id else {
+                let Some(target_id) = id else {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                if self.start_sequence(&id, sequence.trim()) {
+                if self.start_sequence(&target_id, sequence.trim()) {
                     report.actions_run = report.actions_run.saturating_add(1);
                     report.sequences_started = report.sequences_started.saturating_add(1);
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
                     warn_once(
                         "start-sequence-unknown",
-                        format!("[entities] sequence `{sequence}` cannot start on `{id}`"),
+                        format!("[entities] sequence `{sequence}` cannot start on `{target_id}`"),
                     );
                 }
             }
@@ -2123,14 +2138,14 @@ impl EntityWorld {
                             .map(|transform| transform.position.y)
                     })
                     .unwrap_or(0.0);
-                let speed = speed
+                let speed_mps = speed
                     .filter(|value| value.is_finite() && *value > 0.0)
                     .unwrap_or(DEFAULT_MOVE_SPEED_MPS);
                 self.moves.retain(|goal| goal.entity != handle);
                 self.moves.push(MoveGoal {
                     entity: handle,
                     target: Vec3::new(*x, target_y, *z),
-                    speed,
+                    speed: speed_mps,
                 });
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.objects_moved = report.objects_moved.saturating_add(1);
@@ -2201,12 +2216,12 @@ impl EntityWorld {
                     );
                     return;
                 };
-                let sound = sound
+                let sound_name = sound
                     .as_deref()
                     .map(str::trim)
                     .filter(|name| !name.is_empty())
                     .map_or_else(|| emitter.sound.clone(), str::to_string);
-                if sound.is_empty() {
+                if sound_name.is_empty() {
                     report.unsupported = report.unsupported.saturating_add(1);
                     return;
                 }
@@ -2220,7 +2235,7 @@ impl EntityWorld {
                 };
                 self.commands.push(WorldCommand::PlaySound {
                     entity: key,
-                    sound,
+                    sound: sound_name,
                     gain: emitter.gain,
                     looped: *looped,
                 });
@@ -2274,10 +2289,10 @@ impl EntityWorld {
             }
         } else {
             let mut state = ObjectState::default();
-            state.set(name, value);
-            self.components.states.insert(handle, state);
+            let _set_status = state.set(name, value);
+            drop(self.components.states.insert(handle, state));
         }
-        self.emit_depth(EventKind::ObjectState, handle, name, actor, depth);
+        let _event_queued = self.emit_depth(EventKind::ObjectState, handle, name, actor, depth);
         true
     }
 
@@ -2341,7 +2356,7 @@ impl EntityWorld {
                 ),
             );
         }
-        self.emit_state(&id, "light", StateValue::Bool(on), None, 1);
+        let _event_queued = self.emit_state(&id, "light", StateValue::Bool(on), None, 1);
         true
     }
 
@@ -2417,7 +2432,7 @@ impl EntityWorld {
         }
         if changed {
             self.rebuild_interactables_from_tables();
-            self.emit_state(id, "enabled", StateValue::Bool(enable), None, 0);
+            let _event_queued = self.emit_state(id, "enabled", StateValue::Bool(enable), None, 0);
         }
         changed
     }
@@ -2430,8 +2445,14 @@ impl EntityWorld {
                 .rev()
                 .find(|(id, _)| id == instance_id)
                 .and_then(|(_, cue)| match cue {
-                    PoseCue::Scrub { target, .. } => Some(*target),
-                    PoseCue::Idle | PoseCue::Walk { .. } | PoseCue::Clip { .. } => None,
+                    PoseCue::Scrub { target, name: _ } => Some(*target),
+                    PoseCue::Idle
+                    | PoseCue::Walk { speed_mps: _ }
+                    | PoseCue::Clip {
+                        name: _,
+                        once: _,
+                        paused: _,
+                    } => None,
                 });
             let target = match current {
                 Some(target) if target >= 0.5 => 0.0,
@@ -2495,13 +2516,13 @@ impl EntityWorld {
             control.sequence = def.id;
             control.running = true;
         } else {
-            self.components.sequences.insert(
+            drop(self.components.sequences.insert(
                 handle,
                 SequenceCtl {
                     sequence: def.id,
                     running: true,
                 },
-            );
+            ));
         }
         true
     }
@@ -2524,7 +2545,7 @@ impl EntityWorld {
     }
 
     /// Advances every running sequence by as many steps as it can complete.
-    #[allow(clippy::too_many_lines)] // one cohesive step machine
+    #[expect(clippy::too_many_lines, reason = "one cohesive step machine")] // one cohesive step machine
     fn tick_sequences(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
         if self.sequence_runs.is_empty() {
             return;
@@ -2558,11 +2579,11 @@ impl EntityWorld {
                         tick.missing_targets =
                             tick.missing_targets.saturating_add(report.missing_targets);
                         tick.unsupported = tick.unsupported.saturating_add(report.unsupported);
-                        run.advance(&def);
+                        let _advance_status = run.advance(&def);
                     }
                     SequenceStepDef::Wait { seconds } => {
                         if run.step_time >= seconds {
-                            run.advance(&def);
+                            let _advance_status_2 = run.advance(&def);
                         } else {
                             break;
                         }
@@ -2570,14 +2591,14 @@ impl EntityWorld {
                     SequenceStepDef::Move { x, y, z, speed } => {
                         let target = Vec3::new(x, y.unwrap_or(f32::NAN), z);
                         if self.sequence_move_step(&mut run, target, speed, ctx) {
-                            run.advance(&def);
+                            let _advance_status_3 = run.advance(&def);
                         } else {
                             break;
                         }
                     }
                     SequenceStepDef::Face { yaw_degrees } => {
                         if self.sequence_face_step(&run, yaw_degrees, ctx.delta_seconds) {
-                            run.advance(&def);
+                            let _advance_status_4 = run.advance(&def);
                         } else {
                             break;
                         }
@@ -2585,18 +2606,18 @@ impl EntityWorld {
                     SequenceStepDef::WaitAnimation { clip, timeout } => {
                         let complete = run.animation_complete
                             || (timeout > 0.0 && run.step_time >= timeout)
-                            || clip.as_deref().is_some_and(|clip| {
+                            || clip.as_deref().is_some_and(|clip_name| {
                                 self.components
                                     .animations
                                     .get(run.owner)
                                     .is_some_and(|animation| {
                                         !animation.playing
-                                            && animation.clip == clip
+                                            && animation.clip == clip_name
                                             && animation.progress >= 1.0
                                     })
                             });
                         if complete {
-                            run.advance(&def);
+                            let _advance_status_5 = run.advance(&def);
                         } else {
                             break;
                         }
@@ -2606,14 +2627,14 @@ impl EntityWorld {
                             break;
                         }
                         run.step_ran = true;
-                        self.emit_depth(
+                        let _event_queued = self.emit_depth(
                             EventKind::parse(on),
                             run.owner,
                             key.as_deref().unwrap_or_default(),
                             Some(run.owner),
                             1,
                         );
-                        run.advance(&def);
+                        let _advance_status_6 = run.advance(&def);
                     }
                     SequenceStepDef::SetState { name, value } => {
                         if run.step_ran {
@@ -2621,9 +2642,10 @@ impl EntityWorld {
                         }
                         run.step_ran = true;
                         if let Some(id) = self.id_of(run.owner).map(str::to_string) {
-                            self.emit_state(&id, &name, value, Some(run.owner), 1);
+                            let _event_queued_2 =
+                                self.emit_state(&id, &name, value, Some(run.owner), 1);
                         }
-                        run.advance(&def);
+                        let _advance_status_7 = run.advance(&def);
                     }
                     SequenceStepDef::Stop => {
                         // The docs: "ends the sequence here, as if it
@@ -2644,7 +2666,7 @@ impl EntityWorld {
                 if let Some(control) = self.components.sequences.get_mut(run.owner) {
                     control.running = false;
                 }
-                self.emit_depth(
+                let _event_queued_3 = self.emit_depth(
                     EventKind::SequenceComplete,
                     run.owner,
                     "",
@@ -2660,7 +2682,10 @@ impl EntityWorld {
     }
 
     /// One `move` step of a running sequence. Returns true when it moved on.
-    #[allow(clippy::arithmetic_side_effects)] // bounded flat movement arithmetic
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded flat movement arithmetic"
+    )] // bounded flat movement arithmetic
     fn sequence_move_step(
         &mut self,
         run: &mut SequenceRuntime,
@@ -2773,7 +2798,7 @@ impl EntityWorld {
 
     /// The authored water-volume index of a water entity, when it has one.
     fn water_volume_index(&self, handle: EntityHandle) -> Option<u32> {
-        self.components.water.get(handle)?;
+        let _configured_get = self.components.water.get(handle)?;
         let id = self.id_of(handle)?;
         let index = id.strip_prefix("water_")?.parse::<u32>().ok()?;
         index.checked_sub(1)
@@ -2799,7 +2824,7 @@ impl EntityWorld {
             return;
         }
         let mut fires: Vec<usize> = Vec::new();
-        self.timers.tick(delta, |index| fires.push(index));
+        let _tick_report = self.timers.tick(delta, |index| fires.push(index));
         for index in fires {
             let Some(runtime) = self.timers.at(index) else {
                 continue;
@@ -2808,7 +2833,7 @@ impl EntityWorld {
             let Some(handle) = self.handle_of(&id) else {
                 continue;
             };
-            self.emit_depth(EventKind::Timer, handle, &id, None, 1);
+            let _event_queued = self.emit_depth(EventKind::Timer, handle, &id, None, 1);
         }
     }
 
@@ -2850,7 +2875,10 @@ impl EntityWorld {
         }
     }
 
-    #[allow(clippy::arithmetic_side_effects)] // bounded flat movement arithmetic
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded flat movement arithmetic"
+    )] // bounded flat movement arithmetic
     fn tick_moves(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
         if self.moves.is_empty() {
             return;
@@ -3042,7 +3070,7 @@ impl EntityWorld {
 
     // ---- spawns --------------------------------------------------------
 
-    #[allow(clippy::too_many_lines)] // one cohesive spawn validation path
+    #[expect(clippy::too_many_lines, reason = "one cohesive spawn validation path")] // one cohesive spawn validation path
     fn spawn_entity(
         &mut self,
         point: Option<&str>,
@@ -3067,7 +3095,7 @@ impl EntityWorld {
             .map(str::trim)
             .filter(|id| !id.is_empty())
             .unwrap_or(authored_point.template.as_str());
-        let Some(template) = self
+        let Some(spawn_template) = self
             .templates
             .iter()
             .find(|candidate| candidate.id == template_id)
@@ -3091,12 +3119,12 @@ impl EntityWorld {
         if let Some(index) = group_index
             && !self.spawn_groups.admits(index)
         {
-            let group = self
+            let group_name = self
                 .spawn_groups
                 .at(index)
-                .map_or("?", |group| group.def.id.as_str());
+                .map_or("?", |spawn_group| spawn_group.def.id.as_str());
             return Err(SpawnError::Refused(format!(
-                "spawn group `{group}` already has a live member"
+                "spawn group `{group_name}` already has a live member"
             )));
         }
         if self.live_spawns.len() >= spawn::MAX_LIVE_SPAWNS {
@@ -3111,7 +3139,9 @@ impl EntityWorld {
                 spawn::MAX_SPAWNS_PER_TICK
             )));
         }
-        if template.model.trim().is_empty() || !template.scale.is_finite() || template.scale <= 0.0
+        if spawn_template.model.trim().is_empty()
+            || !spawn_template.scale.is_finite()
+            || spawn_template.scale <= 0.0
         {
             return Err(SpawnError::Refused(
                 "the template has no usable model or scale".to_string(),
@@ -3127,7 +3157,7 @@ impl EntityWorld {
             });
         let runtime_name = name
             .map(str::trim)
-            .filter(|name| !name.is_empty())
+            .filter(|candidate_name| !candidate_name.is_empty())
             .map_or_else(
                 || {
                     format!(
@@ -3147,28 +3177,28 @@ impl EntityWorld {
         let _ = self
             .names
             .insert(EntityId::new(runtime_name.clone()), handle);
-        self.components.transforms.insert(
+        let _previous_value = self.components.transforms.insert(
             handle,
             Transform {
                 position: Vec3::new(authored_point.x, base_y, authored_point.z),
                 yaw_degrees: authored_point.yaw_degrees,
-                scale: template.scale,
+                scale: spawn_template.scale,
             },
         );
-        self.components.renderables.insert(
+        drop(self.components.renderables.insert(
             handle,
             Renderable {
-                model: template.model.clone(),
+                model: spawn_template.model.clone(),
                 material: None,
                 visible: true,
                 dynamic: true,
             },
-        );
-        if let Some(seconds) = template
+        ));
+        if let Some(seconds) = spawn_template
             .lifetime_seconds
             .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
         {
-            self.components.lifetimes.insert(
+            let _previous_value_2 = self.components.lifetimes.insert(
                 handle,
                 Lifetime {
                     remaining: Some(seconds),
@@ -3176,8 +3206,8 @@ impl EntityWorld {
                 },
             );
         }
-        self.apply_component_defs(handle, &runtime_name, &template.components);
-        self.resolve_bindings_for(handle, &template.bindings);
+        self.apply_component_defs(handle, &runtime_name, &spawn_template.components);
+        self.resolve_bindings_for(handle, &spawn_template.bindings);
         self.resolve_bindings_for(handle, &authored_point.bindings);
         self.spawns_this_tick = self.spawns_this_tick.saturating_add(1);
         let key = self.next_dynamic_key;
@@ -3189,12 +3219,12 @@ impl EntityWorld {
         }
         self.commands.push(WorldCommand::SpawnDynamic {
             entity: key,
-            model: template.model.clone(),
+            model: spawn_template.model.clone(),
             position: Vec3::new(authored_point.x, base_y, authored_point.z),
             yaw_degrees: authored_point.yaw_degrees,
-            scale: template.scale,
+            scale: spawn_template.scale,
         });
-        self.emit_depth(
+        let _event_queued = self.emit_depth(
             EventKind::Spawn,
             handle,
             &runtime_name,
@@ -3258,10 +3288,10 @@ impl EntityWorld {
         self.dynamic_keys
             .retain(|(candidate, _)| *candidate != handle);
         self.live_spawns.retain(|candidate| *candidate != handle);
-        self.spawn_groups.release(handle);
-        self.ai.remove(handle);
-        if let Some(id) = id {
-            self.names.remove(&id);
+        let _release_status = self.spawn_groups.release(handle);
+        let _removed_value = self.ai.remove(handle);
+        if let Some(removed_id) = id {
+            let _removed_value_2 = self.names.remove(&removed_id);
         }
         self.components.remove_all(handle);
         self.rebuild_interactables_from_tables();
@@ -3297,7 +3327,9 @@ impl EntityWorld {
     /// A stable non-zero key for a non-dynamic entity (audio emitters).
     fn stable_key(&self, handle: EntityHandle) -> Option<u64> {
         self.store.contains(handle).then(|| {
-            (u64::from(handle.index()) << 32) | u64::from(handle.generation()) | (1_u64 << 63)
+            (u64::from(handle.index()) << 32_i32)
+                | u64::from(handle.generation())
+                | (1_u64 << 63_i32)
         })
     }
 
@@ -3380,7 +3412,7 @@ impl EntityWorld {
             tick.frames_dirty = true;
         }
         for (kind, subject, key, actor) in outcome.events {
-            self.emit_depth(kind, subject, &key, actor, 0);
+            let _event_queued = self.emit_depth(kind, subject, &key, actor, 0);
         }
         for (door_id, _agent) in outcome.door_requests {
             if let Some(index) = self.doors.index_of(&door_id)
@@ -3558,7 +3590,7 @@ impl EntityWorld {
                 // the band still counts as one entry edge.
                 entry.inside = point_inside;
             }
-            self.emit(
+            let _event_queued = self.emit(
                 if entered {
                     EventKind::EnterVolume
                 } else {
@@ -3600,7 +3632,7 @@ impl EntityWorld {
         let Some(handle) = self.handle_of(instance_id) else {
             return;
         };
-        let clip = if clip.trim().is_empty() {
+        let completed_clip = if clip.trim().is_empty() {
             // The renderer reports completion by instance id, not clip name.
             // The authoritative name is the entity's `animation` component
             // when it has one, otherwise the cue the entity runtime cued last
@@ -3633,22 +3665,35 @@ impl EntityWorld {
                 .is_some_and(|step| match step {
                     SequenceStepDef::WaitAnimation {
                         clip: Some(wait_clip),
-                        ..
-                    } => *wait_clip == clip,
-                    SequenceStepDef::WaitAnimation { clip: None, .. } => true,
-                    SequenceStepDef::Action { .. }
-                    | SequenceStepDef::Wait { .. }
-                    | SequenceStepDef::Move { .. }
-                    | SequenceStepDef::Face { .. }
-                    | SequenceStepDef::Emit { .. }
-                    | SequenceStepDef::SetState { .. }
+                        timeout: _,
+                    } => *wait_clip == completed_clip,
+                    SequenceStepDef::WaitAnimation {
+                        clip: None,
+                        timeout: _,
+                    } => true,
+                    SequenceStepDef::Action { action: _ }
+                    | SequenceStepDef::Wait { seconds: _ }
+                    | SequenceStepDef::Move {
+                        x: _,
+                        y: _,
+                        z: _,
+                        speed: _,
+                    }
+                    | SequenceStepDef::Face { yaw_degrees: _ }
+                    | SequenceStepDef::Emit { on: _, key: _ }
+                    | SequenceStepDef::SetState { name: _, value: _ }
                     | SequenceStepDef::Stop => false,
                 });
             if waiting {
                 run.animation_complete = true;
             }
         }
-        self.emit(EventKind::AnimationComplete, handle, &clip, Some(handle));
+        let _event_queued = self.emit(
+            EventKind::AnimationComplete,
+            handle,
+            &completed_clip,
+            Some(handle),
+        );
     }
 
     /// Advances every authored route and proximity fade, then republishes the
@@ -3658,7 +3703,7 @@ impl EntityWorld {
     /// distance from it drives every proximity fade. `None` (load seeding and
     /// resets) holds the controllers, so no entity fades until the first frame
     /// the player is known.
-    #[allow(clippy::arithmetic_side_effects)] // bounded pose comparisons
+    #[expect(clippy::arithmetic_side_effects, reason = "bounded pose comparisons")] // bounded pose comparisons
     pub fn update_entities(&mut self, delta: f32, world: &RouteWorld<'_>, player: Option<Vec3>) {
         if self.routes.is_empty() && !self.any_enabled_fade() {
             // Without a route or an enabled fade this stays the historical
@@ -3730,7 +3775,7 @@ impl EntityWorld {
         {
             return;
         }
-        let Some(player) = player.filter(|position| position.is_finite()) else {
+        let Some(player_position) = player.filter(|position| position.is_finite()) else {
             return;
         };
         let handles: Vec<(EntityHandle, f32)> = self
@@ -3742,8 +3787,8 @@ impl EntityWorld {
                 let distance = self
                     .live_position(handle)
                     .map_or(f32::INFINITY, |position| {
-                        let dx = position.x - player.x;
-                        let dz = position.z - player.z;
+                        let dx = position.x - player_position.x;
+                        let dz = position.z - player_position.z;
                         dx.hypot(dz)
                     });
                 (handle, distance)
@@ -3754,12 +3799,12 @@ impl EntityWorld {
                 fade.hold_direction(*distance);
             }
         }
-        let delta = if delta.is_finite() {
+        let step_delta = if delta.is_finite() {
             delta.clamp(0.0, Self::MAX_FADE_STEP_SECONDS)
         } else {
             0.0
         };
-        let mut remaining = delta;
+        let mut remaining = step_delta;
         // A bounded float countdown: at most the 60 s guard divided by the
         // substep, so a corrupt caller can never spin this loop.
         for _ in 0..Self::MAX_FADE_SUBSTEPS {
@@ -3977,8 +4022,11 @@ impl EntityWorld {
             let Some(item_index) = self.interactables.index_of(&route.instance_id) else {
                 continue;
             };
-            self.interactables
-                .set_live_pose(item_index, state.position, state.yaw.to_degrees());
+            let _live_pose_changed = self.interactables.set_live_pose(
+                item_index,
+                state.position,
+                state.yaw.to_degrees(),
+            );
         }
     }
 
@@ -4173,7 +4221,12 @@ fn door_pose_hits_static(
 mod tests {
     // Test code: unwrap/expect, indexing and exact float comparisons are
     // idiomatic here; the production lints stay enforced everywhere else.
-    #![allow(clippy::expect_used, clippy::float_cmp, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::collision_index::CollisionIndex;
@@ -4195,7 +4248,10 @@ mod tests {
     }
 
     /// One tick with a stationary player at `feet`.
-    #[allow(clippy::arithmetic_side_effects)] // test fixture: fixed finite values
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "test fixture: fixed finite values"
+    )] // test fixture: fixed finite values
     fn tick_at(world: &mut EntityWorld, level: &LevelDef, feet: Vec3, delta: f32) -> WorldTick {
         let walls = level.collision_aabbs();
         let index = CollisionIndex::build(&walls);
@@ -4293,7 +4349,7 @@ mod tests {
             .expect("the interaction resolves");
         assert_eq!(report.labels_shown, 1);
         assert!(world.is_label_visible(index));
-        world.dispatch_interaction(Some(index));
+        let _dispatch_report = world.dispatch_interaction(Some(index));
         assert!(!world.is_label_visible(index));
         assert!(world.dispatch_interaction(None).is_none());
     }
@@ -4360,14 +4416,14 @@ mod tests {
         );
 
         // The same state again is not a change, so the chain does not rerun.
-        let actions = vec![ActionDef::SetState {
+        let repeated_actions = vec![ActionDef::SetState {
             target: None,
             name: "on".into(),
             value: StateValue::Bool(true),
         }];
-        world.dispatch_actions(&actions, Some(switch));
-        let mut tick = WorldTick::default();
-        world.pump_events(&mut tick);
+        let _dispatch_report = world.dispatch_actions(&repeated_actions, Some(switch));
+        let mut repeat_tick = WorldTick::default();
+        world.pump_events(&mut repeat_tick);
         assert!(
             world.is_label_visible(index),
             "an unchanged state emits nothing"
@@ -4391,8 +4447,8 @@ mod tests {
         let counter = world.handle_of("counter").expect("counter");
         let outside = Vec3::new(1.0, 0.0, 1.0);
         let inside = Vec3::new(5.5, 0.0, 5.5);
-        let falls = |world: &EntityWorld| {
-            world
+        let falls = |entity_world: &EntityWorld| {
+            entity_world
                 .components()
                 .states
                 .get(counter)
@@ -4409,15 +4465,15 @@ mod tests {
         );
 
         // Staying inside fires nothing new.
-        world
+        let _components_mut_status = world
             .components_mut()
             .states
             .get_mut(counter)
             .expect("state")
             .set("falls", StateValue::Int(0));
         world.update_volumes(inside, inside);
-        let mut tick = WorldTick::default();
-        world.pump_events(&mut tick);
+        let mut stationary_tick = WorldTick::default();
+        world.pump_events(&mut stationary_tick);
         assert_eq!(
             falls(&world),
             Some(StateValue::Int(0)),
@@ -4427,8 +4483,8 @@ mod tests {
         // Leaving and re-entering fires again.
         world.update_volumes(inside, outside);
         world.update_volumes(outside, inside);
-        let mut tick = WorldTick::default();
-        world.pump_events(&mut tick);
+        let mut reentry_tick = WorldTick::default();
+        world.pump_events(&mut reentry_tick);
         assert_eq!(falls(&world), Some(StateValue::Int(1)));
     }
 
@@ -4445,35 +4501,35 @@ mod tests {
         let mut world = EntityWorld::from_level(&level);
         let prop = world.handle_of("lamp_prop").expect("prop");
         let feet = Vec3::new(1.0, 0.0, 1.0);
-        let ticks = |world: &EntityWorld| {
-            world
+        let ticks = |entity_world: &EntityWorld| {
+            entity_world
                 .components()
                 .states
                 .get(prop)
                 .and_then(|state| state.get("ticks").cloned())
         };
-        tick_at(&mut world, &level, feet, 0.5);
+        let _tick_report = tick_at(&mut world, &level, feet, 0.5);
         assert_eq!(ticks(&world), Some(StateValue::Int(0)), "not yet due");
-        tick_at(&mut world, &level, feet, 0.6);
+        let _tick_report_2 = tick_at(&mut world, &level, feet, 0.6);
         assert_eq!(
             ticks(&world),
             Some(StateValue::Int(1)),
             "the timer fired once"
         );
-        world
+        let _components_mut_status = world
             .components_mut()
             .states
             .get_mut(prop)
             .expect("state")
             .set("ticks", StateValue::Int(0));
-        tick_at(&mut world, &level, feet, 2.0);
+        let _tick_report_3 = tick_at(&mut world, &level, feet, 2.0);
         assert_eq!(
             ticks(&world),
             Some(StateValue::Int(0)),
             "a one-shot timer does not re-fire"
         );
         world.reset_runtime();
-        tick_at(&mut world, &level, feet, 1.1);
+        let _tick_report_4 = tick_at(&mut world, &level, feet, 1.1);
         assert_eq!(ticks(&world), Some(StateValue::Int(1)));
     }
 
@@ -4493,14 +4549,14 @@ mod tests {
         assert!(world.start_sequence("controller", "warmup"));
         assert_eq!(world.sequence_count(), 1);
         let feet = Vec3::new(1.0, 0.0, 1.0);
-        let phase = |world: &EntityWorld| {
-            world
+        let phase = |entity_world: &EntityWorld| {
+            entity_world
                 .components()
                 .states
                 .get(controller)
                 .and_then(|state| state.get("phase").cloned())
         };
-        tick_at(&mut world, &level, feet, 0.2);
+        let _tick_report = tick_at(&mut world, &level, feet, 0.2);
         assert_eq!(
             phase(&world),
             Some(StateValue::Text("idle".into())),
@@ -4583,9 +4639,9 @@ mod tests {
         assert_eq!(tick.despawned, 1, "the lifetime expired");
         assert_eq!(world.sequence_count(), 0, "the sequence was cancelled");
         assert!(world.handle_of("beacon").is_none());
-        let tick = tick_at(&mut world, &level, feet, 1.0);
+        let cancelled_tick = tick_at(&mut world, &level, feet, 1.0);
         assert_eq!(
-            tick.sequences_completed, 0,
+            cancelled_tick.sequences_completed, 0,
             "nothing completes after the cancel"
         );
     }
@@ -4616,12 +4672,12 @@ mod tests {
         let commands = world.take_commands();
         assert!(matches!(
             commands.first(),
-            Some(WorldCommand::SpawnDynamic { model, .. }) if model == "core:crate"
+            Some(WorldCommand::SpawnDynamic { model, entity: _, position: _, yaw_degrees: _, scale: _ }) if model == "core:crate"
         ));
         // The at-most-one group refuses a second member while the first lives.
-        let report = world.dispatch_actions(std::slice::from_ref(&spawn), None);
-        assert_eq!(report.spawned, 0);
-        assert_eq!(report.unsupported, 1);
+        let refused_report = world.dispatch_actions(std::slice::from_ref(&spawn), None);
+        assert_eq!(refused_report.spawned, 0);
+        assert_eq!(refused_report.unsupported, 1);
         assert!(
             world.despawn_target("first"),
             "the runtime name despawns it"
@@ -4631,14 +4687,15 @@ mod tests {
             world.spawn_groups().at(0).and_then(|group| group.live),
             None
         );
-        assert!(
-            world
-                .take_commands()
-                .iter()
-                .any(|command| matches!(command, WorldCommand::DespawnDynamic { .. }))
-        );
-        let report = world.dispatch_actions(&[spawn], None);
-        assert_eq!(report.spawned, 1, "the group released");
+        assert!(world.take_commands().iter().any(|command| matches!(
+            command,
+            WorldCommand::DespawnDynamic {
+                entity: _,
+                instance_id: _
+            }
+        )));
+        let released_report = world.dispatch_actions(&[spawn], None);
+        assert_eq!(released_report.spawned, 1, "the group released");
     }
 
     #[test]
@@ -4658,15 +4715,15 @@ mod tests {
             DoorPhase::Closed
         );
         assert_eq!(world.doors().is_locked("vault"), Some(true));
-        let report = world.dispatch_actions(
+        let unlock_report = world.dispatch_actions(
             &[ActionDef::Unlock {
                 target: Some("vault".into()),
             }],
             None,
         );
-        assert_eq!(report.actions_run, 1);
-        let report = world.dispatch_actions(&[open], None);
-        assert_eq!(report.doors_acted, 1);
+        assert_eq!(unlock_report.actions_run, 1);
+        let open_report = world.dispatch_actions(&[open], None);
+        assert_eq!(open_report.doors_acted, 1);
         assert_eq!(
             world.doors().get(0).expect("door").phase(),
             DoorPhase::Opening
@@ -4715,8 +4772,8 @@ mod tests {
                 floor: &floor,
                 nav: None,
             };
-            for _ in 0..180 {
-                world.update_doors(&ctx);
+            for _ in 0_i32..180_i32 {
+                let _update_stats = world.update_doors(&ctx);
             }
             world
         };
@@ -4736,12 +4793,12 @@ mod tests {
             collider.dir_z
         );
 
-        let world = swing(Some(
+        let blocked_world = swing(Some(
             r#"{ "x": 3.5, "z": 4.4, "width": 3.0, "depth": 0.3, "y": 0.0,
                  "height": 3.0 }"#,
         ));
         assert_eq!(
-            world.doors().get(0).expect("door").phase(),
+            blocked_world.doors().get(0).expect("door").phase(),
             DoorPhase::Opening,
             "a wall across the sweep holds the leaf short of its open end"
         );
@@ -4765,9 +4822,12 @@ mod tests {
         assert_eq!(report.lights_toggled, 1);
         assert_eq!(world.take_light_toggles(), vec![(1, false)]);
         assert!(world.take_light_toggles().is_empty(), "drained once");
-        let report = world.dispatch_actions(&[off], None);
-        assert_eq!(report.lights_toggled, 0);
-        assert_eq!(world.take_light_toggles(), [] as [(usize, bool); 0]);
+        let repeated_off_report = world.dispatch_actions(&[off], None);
+        assert_eq!(repeated_off_report.lights_toggled, 0);
+        assert!(
+            world.take_light_toggles().is_empty(),
+            "world.take_light_toggles() must be empty"
+        );
         assert_eq!(world.light_states(), vec![(0, true), (1, false)]);
     }
 
@@ -4781,10 +4841,10 @@ mod tests {
         );
         let mut world = EntityWorld::from_level(&level);
         let plant = world.handle_of("plant").expect("plant");
-        world.emit(EventKind::Interact, plant, "", Some(plant));
+        let _event_queued = world.emit(EventKind::Interact, plant, "", Some(plant));
         world.resolve(&level);
         let feet = Vec3::new(1.0, 0.0, 1.0);
-        tick_at(&mut world, &level, feet, 1.0 / 60.0);
+        let _tick_report = tick_at(&mut world, &level, feet, 1.0 / 60.0);
         let index = world.interactables().index_of("plant").expect("plant");
         assert!(
             !world.is_label_visible(index),
@@ -4803,7 +4863,7 @@ mod tests {
         let mut world = EntityWorld::from_level(&level);
         let plant = world.handle_of("plant").expect("plant");
         // A record from another world generation, queued without any clear.
-        world.events.push(EventRecord {
+        let _push_status = world.events.push(EventRecord {
             generation: world.generation().wrapping_add(1),
             kind: EventKind::Interact,
             subject: plant,
@@ -4836,7 +4896,10 @@ mod tests {
         );
         assert_eq!(report.missing_targets, 1);
         assert_eq!(report.spawned, 0);
-        assert_eq!(world.live_spawns(), []);
+        assert!(
+            world.live_spawns().is_empty(),
+            "world.live_spawns() must be empty"
+        );
     }
 
     #[test]
@@ -4865,7 +4928,7 @@ mod tests {
             .expect("transform")
             .position;
         assert_eq!((start.x, start.z), (5.0, 5.0));
-        let report = world.dispatch_on(
+        let move_report = world.dispatch_on(
             "mover",
             &[ActionDef::MoveObject {
                 target: None,
@@ -4875,12 +4938,12 @@ mod tests {
                 speed: Some(2.0),
             }],
         );
-        assert_eq!(report.objects_moved, 1);
+        assert_eq!(move_report.objects_moved, 1);
         let feet = Vec3::new(1.0, 0.0, 1.0);
         // 1.5 s at 2 m/s covers the three metres.
-        tick_at(&mut world, &level, feet, 0.5);
-        for _ in 0..60 {
-            tick_at(&mut world, &level, feet, 1.0 / 60.0);
+        let _tick_report = tick_at(&mut world, &level, feet, 0.5);
+        for _ in 0_i32..60_i32 {
+            let _tick_report_2 = tick_at(&mut world, &level, feet, 1.0 / 60.0);
         }
         let end = world
             .components()
@@ -4891,7 +4954,7 @@ mod tests {
         assert!((end.x - 8.0).abs() < 0.05, "arrived: {end:?}");
         assert!((end.z - 5.0).abs() < 1.0e-3);
         // A static baked prop refuses the move with a named outcome.
-        let report = world.dispatch_on(
+        let static_move_report = world.dispatch_on(
             "anchor",
             &[ActionDef::MoveObject {
                 target: None,
@@ -4901,8 +4964,11 @@ mod tests {
                 speed: None,
             }],
         );
-        assert_eq!(report.objects_moved, 0);
-        assert_eq!(report.unsupported, 1, "a baked static prop cannot move");
+        assert_eq!(static_move_report.objects_moved, 0);
+        assert_eq!(
+            static_move_report.unsupported, 1,
+            "a baked static prop cannot move"
+        );
     }
 
     #[test]
@@ -4922,7 +4988,7 @@ mod tests {
         let actor = world.handle_of("actor").expect("actor");
         assert!(world.start_sequence("actor", "wave_then_done"));
         let feet = Vec3::new(1.0, 0.0, 1.0);
-        tick_at(&mut world, &level, feet, 0.1);
+        let _tick_report = tick_at(&mut world, &level, feet, 0.1);
         assert_eq!(
             world
                 .components()
@@ -4933,7 +4999,7 @@ mod tests {
             "the wait is not satisfied by time alone"
         );
         world.notify_animation_complete("actor", "wave");
-        tick_at(&mut world, &level, feet, 0.1);
+        let _tick_report_2 = tick_at(&mut world, &level, feet, 0.1);
         assert_eq!(
             world
                 .components()
@@ -4958,7 +5024,7 @@ mod tests {
         );
         let mut world = EntityWorld::from_level(&level);
         let switch = world.handle_of("switch").expect("switch");
-        world.dispatch_actions(
+        let _dispatch_report = world.dispatch_actions(
             &[ActionDef::Toggle {
                 target: Some("lamp".into()),
             }],
@@ -5004,7 +5070,7 @@ mod tests {
             }],
         );
         assert_eq!(report.missing_targets, 1, "a point is required");
-        let report = world.dispatch_on(
+        let spawn_report = world.dispatch_on(
             "crate_point",
             &[ActionDef::SpawnEntity {
                 template: None,
@@ -5013,7 +5079,7 @@ mod tests {
                 name: Some("crate".into()),
             }],
         );
-        assert_eq!(report.spawned, 1);
+        assert_eq!(spawn_report.spawned, 1);
         assert!(
             world.binding_count() > before,
             "the spawn added its bindings"
@@ -5021,7 +5087,7 @@ mod tests {
         // The `spawn` event the spawn queued is processed by the next tick,
         // exactly as a frame-loop spawn would be.
         let feet = Vec3::new(1.0, 0.0, 1.0);
-        tick_at(&mut world, &level, feet, 1.0 / 60.0);
+        let _tick_report = tick_at(&mut world, &level, feet, 1.0 / 60.0);
         let handle = world.handle_of("crate").expect("crate");
         assert_eq!(
             world
@@ -5103,7 +5169,7 @@ mod tests {
             world.entity_frames().is_empty(),
             "no routes and no cues yet"
         );
-        world.dispatch_interaction(Some(index));
+        let _dispatch_report = world.dispatch_interaction(Some(index));
         let frames = world.entity_frames();
         assert_eq!(frames.len(), 1, "the cued prop reaches the renderer");
         assert_eq!(frames[0].instance_id, "lever");
@@ -5209,7 +5275,7 @@ mod tests {
 
         // A tick advances the simulation and republishes the frame: a quarter
         // of the 4 s cycle is the midpoint opacity.
-        tick_at(&mut world, &level, feet, 1.0);
+        let _tick_report = tick_at(&mut world, &level, feet, 1.0);
         assert!(
             (framed_opacity(&world, "ghost") - 0.5).abs() < 1e-6,
             "the enabled fade changed the frame"
@@ -5514,8 +5580,8 @@ mod tests {
             }]
         ));
         // The steam emitter reports its authored index too.
-        let report = world.dispatch_on("effect_1", &[ActionDef::Disable { target: None }]);
-        assert_eq!(report.actions_run, 1);
+        let effect_report = world.dispatch_on("effect_1", &[ActionDef::Disable { target: None }]);
+        assert_eq!(effect_report.actions_run, 1);
         assert!(matches!(
             world.take_commands().as_slice(),
             [WorldCommand::SetEffectEnabled {
@@ -5553,8 +5619,8 @@ mod tests {
             .interactables()
             .index_of("steam_switch")
             .expect("the switch is aimable");
-        let emitter_enabled = |world: &EntityWorld| {
-            world
+        let emitter_enabled = |entity_world: &EntityWorld| {
+            entity_world
                 .components()
                 .steam
                 .get(steam)
@@ -5579,10 +5645,13 @@ mod tests {
 
         // Press two: the `disabled` binding runs and re-enables the same
         // emitter; still exactly one command, one target.
-        let report = world
+        let second_press_report = world
             .dispatch_interaction(Some(switch))
             .expect("the second press dispatches");
-        assert_eq!(report.actions_run, 1, "exactly one binding per press");
+        assert_eq!(
+            second_press_report.actions_run, 1,
+            "exactly one binding per press"
+        );
         assert!(emitter_enabled(&world), "the second press re-enabled it");
         assert!(matches!(
             world.take_commands().as_slice(),
@@ -5611,7 +5680,7 @@ mod tests {
             floor: &floor,
             index: &index,
         };
-        for _ in 0..60 {
+        for _ in 0_i32..60_i32 {
             world.update_entities(1.0 / 60.0, &route_world, None);
         }
         let item_index = world.interactables().index_of("turner").expect("aimable");
@@ -5637,7 +5706,10 @@ mod tests {
 
     /// One tick with a baked navigation mesh, so AI agents can path and move
     /// (the ordinary [`tick_at`] harness passes `nav: None`).
-    #[allow(clippy::arithmetic_side_effects)] // test fixture: fixed finite values
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "test fixture: fixed finite values"
+    )] // test fixture: fixed finite values
     fn tick_with_nav(
         world: &mut EntityWorld,
         level: &LevelDef,
@@ -5712,8 +5784,8 @@ mod tests {
 
         world.note_stimulus(Vec3::new(5.0, 0.0, 2.0), 30.0, "noise", None);
         let start = framed_transform(&world, "hunter").0;
-        for _ in 0..60 {
-            tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
+        for _ in 0_i32..60_i32 {
+            let _tick_report = tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
             let (_, yaw) = framed_transform(&world, "hunter");
             assert!(yaw.is_finite(), "the frame yaw stays finite");
             assert!(
@@ -5748,8 +5820,8 @@ mod tests {
         let mut previous_yaw = turn_start;
         let mut north_yaw = None;
         let mut max_north = east.z;
-        for _ in 0..240 {
-            tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
+        for _ in 0_i32..240_i32 {
+            let _tick_report_2 = tick_with_nav(&mut world, &level, &mesh, feet, 1.0 / 60.0);
             let (position, yaw) = framed_transform(&world, "hunter");
             assert!(
                 yaw.is_finite() && yaw.abs() <= PI + 1e-3,
@@ -5770,15 +5842,15 @@ mod tests {
                 north_yaw = Some(yaw);
             }
         }
-        let north_yaw = north_yaw.expect("the agent walked north after the turn");
+        let resolved_north_yaw = north_yaw.expect("the agent walked north after the turn");
         assert!(
             max_north - east.z > 3.0,
             "the agent covered its northward leg: {max_north} from {}",
             east.z
         );
         assert!(
-            north_yaw.abs() < 0.3,
-            "facing world +Z is yaw ~ 0 radians: got {north_yaw}"
+            resolved_north_yaw.abs() < 0.3,
+            "facing world +Z is yaw ~ 0 radians: got {resolved_north_yaw}"
         );
     }
 }

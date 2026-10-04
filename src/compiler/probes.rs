@@ -151,7 +151,7 @@ mod tests {
                 .sum::<f64>()
                 - 1.0)
                 .abs()
-                < 1.0e-12
+                < 1.0e-12_f64
         );
         let actual = entity_lighting(&lighting, Some(&decoded), position);
         assert_eq!(actual.source, EntityLightingSource::Prepared);

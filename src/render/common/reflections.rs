@@ -102,7 +102,7 @@ impl ReflectionRouting {
 /// A planar range whose vertices do not actually lie on one plane (a material
 /// reused on a curved or stepped surface) is reported and skipped rather than
 /// reflected wrongly.
-#[allow(clippy::print_stderr)] // one line per malformed marking, at level load only
+// one line per malformed marking, at level load only
 #[must_use]
 pub fn routing_from_mesh(
     mesh: &LevelMesh,
@@ -159,7 +159,14 @@ pub fn routing_from_mesh(
             );
             continue;
         };
-        let index = merge_plane(&mut routing.planes, normal, offset, range.bounds);
+        let Some(index) = merge_plane(&mut routing.planes, normal, offset, range.bounds) else {
+            crate::logging::warn_once(
+                "planar-route-capacity",
+                "[reflections] too many distinct mirror planes for u16 routes; skipping that range"
+                    .to_string(),
+            );
+            continue;
+        };
         if let Some(entry) = routing.plane_for_range.get_mut(range_index) {
             *entry = Some(index);
         }
@@ -207,7 +214,7 @@ impl ProbeCluster {
 ///
 /// The radius is deliberately room-sized: a room's worth of polished floor is
 /// one probe, and the next room is another.
-#[allow(clippy::arithmetic_side_effects)] // float-only, finite inputs
+// float-only, finite inputs
 fn add_probe_sample(clusters: &mut Vec<ProbeCluster>, centre: [f32; 3], area: f32) {
     if !area.is_finite() || area <= 0.0 {
         return;
@@ -310,7 +317,7 @@ fn merge_plane(
     normal: [f32; 3],
     offset: f32,
     bounds: Aabb,
-) -> u16 {
+) -> Option<u16> {
     for (index, plane) in planes.iter_mut().enumerate() {
         let same_normal = plane
             .normal
@@ -318,25 +325,22 @@ fn merge_plane(
             .zip(normal)
             .all(|(left, right)| (left - right).abs() <= PLANE_MERGE_EPS);
         if same_normal && (plane.offset - offset).abs() <= PLANE_MERGE_EPS {
+            let route = u16::try_from(index).ok()?;
             plane.bounds = union_bounds(plane.bounds, bounds);
-            #[allow(clippy::cast_possible_truncation)] // one level has far fewer planes
-            return index as u16;
+            return Some(route);
         }
     }
+    let route = u16::try_from(planes.len()).ok()?;
     planes.push(ReflectionPlane {
         normal,
         offset,
         bounds,
     });
-    // `planes.len()` is at most one more than the number of planes, and a level
-    // cannot produce 65 536 distinct mirror planes: the value fits a `u16`.
-    #[allow(clippy::arithmetic_side_effects, clippy::cast_possible_truncation)]
-    let index = (planes.len() - 1) as u16;
-    index
+    Some(route)
 }
 
 /// Smallest box containing both.
-#[allow(clippy::arithmetic_side_effects)] // float min/max of finite inputs
+// float min/max of finite inputs
 const fn union_bounds(left: Aabb, right: Aabb) -> Aabb {
     Aabb {
         min: [
@@ -360,7 +364,6 @@ const fn union_bounds(left: Aabb, right: Aabb) -> Aabb {
 /// exactly what makes the reflected image line up with the surface.
 #[must_use]
 // Float-only arithmetic on finite inputs: no overflow and no panic path.
-#[allow(clippy::arithmetic_side_effects)]
 pub fn mirror_matrix(normal: [f32; 3], offset: f32) -> glam::Mat4 {
     let [nx, ny, nz] = normal;
     let scale = -2.0_f32;
@@ -394,7 +397,7 @@ pub fn mirror_matrix(normal: [f32; 3], offset: f32) -> glam::Mat4 {
 
 /// Mirrors one point through a plane.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // glam float math
+#[expect(clippy::arithmetic_side_effects, reason = "glam float math")] // glam float math
 pub fn mirror_point(normal: [f32; 3], offset: f32, point: [f32; 3]) -> [f32; 3] {
     let n = glam::Vec3::new(normal[0], normal[1], normal[2]);
     let p = glam::Vec3::new(point[0], point[1], point[2]);
@@ -404,14 +407,17 @@ pub fn mirror_point(normal: [f32; 3], offset: f32, point: [f32; 3]) -> [f32; 3] 
 
 /// Size of the planar reflection target for a scene target of `scene_size`.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // integer division by a small constant
+// integer division by a small constant
 pub fn planar_target_size(scene_size: DrawableSize) -> DrawableSize {
     if scene_size.is_empty() {
         return scene_size;
     }
     let divisor = PLANAR_REFLECTION_SCALE_DIVISOR.max(1);
     // Integer division by a small constant: no overflow, no panic.
-    #[allow(clippy::arithmetic_side_effects)]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Integer division by a small constant: no overflow, no panic."
+    )]
     DrawableSize::new(
         (scene_size.width / divisor).max(1),
         (scene_size.height / divisor).max(1),
@@ -525,7 +531,7 @@ pub fn nearest_probe(positions: &[[f32; 3]], camera: [f32; 3]) -> Option<usize> 
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::indexing_slicing)] // fixed-index test fixtures
+    #![allow(clippy::indexing_slicing, reason = "fixed-index test fixtures")] // fixed-index test fixtures
 
     use super::*;
 
@@ -658,6 +664,41 @@ mod tests {
     }
 
     #[test]
+    fn plane_routes_stop_before_the_u16_index_would_wrap() {
+        let bounds = Aabb {
+            min: [0.0; 3],
+            max: [1.0; 3],
+        };
+        let normal = [0.0, 1.0, 0.0];
+        let mut planes = vec![
+            ReflectionPlane {
+                normal,
+                offset: 0.0,
+                bounds,
+            };
+            usize::from(u16::MAX).saturating_add(1)
+        ];
+        planes[usize::from(u16::MAX)].offset = 2.0;
+        assert_eq!(
+            merge_plane(&mut planes, normal, 2.0, bounds),
+            Some(u16::MAX),
+            "the last representable route still merges"
+        );
+        let capacity = planes.len();
+        assert_eq!(
+            merge_plane(&mut planes, normal, 3.0, bounds),
+            None,
+            "a new plane must not wrap to route zero"
+        );
+        assert_eq!(planes.len(), capacity, "rejection must not append a plane");
+        assert_eq!(
+            merge_plane(&mut planes, normal, 0.0, bounds),
+            Some(0),
+            "existing routes remain usable at capacity"
+        );
+    }
+
+    #[test]
     fn one_planar_material_keeps_every_plane_it_appears_on() {
         // The audited counterexample: two disjoint floor patches of the same
         // planar material at different heights. Both ranges must keep their own
@@ -715,15 +756,15 @@ mod tests {
             ([0.0, 0.0, 0.0], [2.0, 3.0, 0.0]),
         ] {
             let mesh = test_mesh(vec![bounded_range(0, min, max)]);
-            let routing = routing_from_mesh(&mesh, &reflections, 1);
-            assert_eq!(routing.probe_points.len(), 1, "{min:?}..{max:?}");
+            let plane_routing = routing_from_mesh(&mesh, &reflections, 1);
+            assert_eq!(plane_routing.probe_points.len(), 1, "{min:?}..{max:?}");
         }
 
         // A line-like range has no area and still contributes nothing.
         let line = test_mesh(vec![bounded_range(0, [0.0, 0.0, 0.0], [2.0, 0.0, 0.0])]);
-        let routing = routing_from_mesh(&line, &reflections, 1);
+        let line_routing = routing_from_mesh(&line, &reflections, 1);
         assert!(
-            routing.probe_points.is_empty(),
+            line_routing.probe_points.is_empty(),
             "a zero-area range must not create a probe"
         );
     }

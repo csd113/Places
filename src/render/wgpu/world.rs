@@ -210,7 +210,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_ar
 ];
 
 /// Bytes between consecutive world vertices.
-pub const WORLD_VERTEX_STRIDE: u64 = std::mem::size_of::<WorldVertex>() as u64;
+pub const WORLD_VERTEX_STRIDE: u64 = super::buffer_element_bytes::<WorldVertex>();
 
 /// The explicit world vertex buffer layout.
 ///
@@ -276,7 +276,10 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
     let (view_projection, frustum) = camera.view_projection(render_size);
     // `glam` matrix products are per-element `f32` arithmetic with no overflow
     // or panic path.
-    #[allow(clippy::arithmetic_side_effects)]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "`glam` matrix products are per-element `f32` arithmetic with no integer overflow or panic path."
+    )]
     let corrected = clip_correction() * view_projection;
     WorldFrame {
         view_projection: corrected,
@@ -325,7 +328,7 @@ impl CameraUniform {
 }
 
 /// Bytes one camera uniform occupies.
-pub const CAMERA_UNIFORM_SIZE: u64 = std::mem::size_of::<CameraUniform>() as u64;
+pub const CAMERA_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<CameraUniform>();
 
 /// True when the two uniforms carry the same bits for every field the shader
 /// reads.
@@ -348,7 +351,7 @@ fn camera_uniform_same_bits(left: &CameraUniform, right: &CameraUniform) -> bool
 /// moved while the matrix rounding stayed equal still has to be uploaded).
 #[must_use]
 pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUniform) -> bool {
-    previous.is_none_or(|previous| !camera_uniform_same_bits(&previous, &next))
+    previous.is_none_or(|previous_uniform| !camera_uniform_same_bits(&previous_uniform, &next))
 }
 
 /// One regional fog volume, as the fragment shader reads it: 64 bytes.
@@ -591,7 +594,8 @@ impl EnvironmentUniform {
         switchable_mask: u32,
     ) -> Self {
         self.lightmap_page_count = page_count;
-        self.lightmap_switchable = (switchable_count & 0x000F) | ((switchable_mask & 0x000F) << 8);
+        self.lightmap_switchable =
+            (switchable_count & 0x000F) | ((switchable_mask & 0x000F) << 8_i32);
         self
     }
 
@@ -604,7 +608,7 @@ impl EnvironmentUniform {
     #[must_use]
     pub const fn with_probe_mips(mut self, max_mip: u32) -> Self {
         self.lightmap_switchable =
-            (self.lightmap_switchable & 0x0000_FFFF) | ((max_mip & 0x000F) << 16);
+            (self.lightmap_switchable & 0x0000_FFFF) | ((max_mip & 0x000F) << 16_i32);
         self
     }
 
@@ -641,7 +645,7 @@ impl EnvironmentUniform {
 }
 
 /// Bytes one environment uniform occupies.
-pub const ENVIRONMENT_UNIFORM_SIZE: u64 = std::mem::size_of::<EnvironmentUniform>() as u64;
+pub const ENVIRONMENT_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<EnvironmentUniform>();
 
 /// One GPU attached light: the WGSL `DynamicLight`, 32 bytes.
 ///
@@ -699,7 +703,7 @@ impl DynamicLightsUniform {
 }
 
 /// Bytes one dynamic-lights uniform occupies.
-pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = std::mem::size_of::<DynamicLightsUniform>() as u64;
+pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<DynamicLightsUniform>();
 
 /// The group-4 bind group layout: the frame's attached-light uniform.
 ///
@@ -787,7 +791,10 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
 /// complete when a resource is absent; the shader's switches decide whether
 /// they are read at all.
 #[must_use]
-#[allow(clippy::too_many_arguments)] // one group-3 binding assembler; every view is a distinct slot
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one group-3 binding assembler; every view is a distinct slot"
+)] // one group-3 binding assembler; every view is a distinct slot
 pub fn environment_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
@@ -1055,7 +1062,7 @@ impl WgpuWorldGeometry {
     pub fn family_breakdown(&self) -> [usize; SurfaceKind::ALL.len()] {
         let mut breakdown = [0usize; SurfaceKind::ALL.len()];
         for draw in &self.draws {
-            if let Some(slot) = breakdown.get_mut(draw.kind as usize) {
+            if let Some(slot) = breakdown.get_mut(draw.kind.index()) {
                 *slot = slot.saturating_add(1);
             }
         }
@@ -1143,7 +1150,10 @@ impl WorldTextures {
     /// the entry order and every counter are identical to resolving one draw at
     /// a time.
     #[must_use]
-    #[allow(clippy::too_many_arguments)] // one resolution pass over the level's draws and materials
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one resolution pass over the level's draws and materials"
+    )] // one resolution pass over the level's draws and materials
     pub fn resolve(
         cache: &mut TextureCache,
         device: &wgpu::Device,
@@ -1200,7 +1210,7 @@ impl WorldTextures {
                 Entry::Occupied(entry) => *entry.get(),
                 Entry::Vacant(entry) => {
                     let index = requests.len();
-                    entry.insert(index);
+                    let _configured_insert = entry.insert(index);
                     requests.push(TextureUploadRequest {
                         key,
                         image: resolved.image.as_ref(),
@@ -1315,7 +1325,8 @@ fn upload_chunk(device: &wgpu::Device, queue: &wgpu::Queue, chunk: &MeshChunk) -
     let vertices: Vec<WorldVertex> = chunk.vertices.iter().map(WorldVertex::from).collect();
     let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("places-wgpu-world-vertices"),
-        size: (vertices.len() as u64)
+        size: u64::try_from(vertices.len())
+            .unwrap_or(u64::MAX)
             .saturating_mul(WORLD_VERTEX_STRIDE)
             .max(4),
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -1401,13 +1412,13 @@ pub fn translucent_order(draws: &[WorldDraw], eye: glam::Vec3) -> Vec<u32> {
     let distance_sq = |index: &u32| -> f32 {
         let Some(draw) = usize::try_from(*index)
             .ok()
-            .and_then(|index| draws.get(index))
+            .and_then(|draw_index| draws.get(draw_index))
         else {
             return 0.0;
         };
         let centre = draw.bounds.centre();
         // `glam`/plain float arithmetic with no overflow or panic path.
-        #[allow(clippy::arithmetic_side_effects)]
+
         let delta = glam::Vec3::new(centre[0] - eye.x, centre[1] - eye.y, centre[2] - eye.z);
         delta.length_squared()
     };
@@ -1433,7 +1444,10 @@ pub fn translucent_character_order(entries: &[(usize, glam::Vec3)], eye: glam::V
         .iter()
         .map(|(index, centre)| {
             // `glam` f32 arithmetic: a finite camera and finite bounds.
-            #[allow(clippy::arithmetic_side_effects)]
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "`glam` f32 arithmetic: a finite camera and finite bounds."
+            )]
             let distance_sq = (*centre - eye).length_squared();
             (*index, distance_sq)
         })
@@ -1688,7 +1702,10 @@ impl WorldPipeline {
     /// the planar capture is what keeps `gl_FrontFacing` (and therefore the
     /// shader's normal flip) meaning the same thing.
     #[must_use]
-    #[allow(clippy::too_many_arguments)] // one pipeline set's full raster state, all explicit
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one pipeline set's full raster state, all explicit"
+    )] // one pipeline set's full raster state, all explicit
     pub fn with_state(
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
@@ -2446,10 +2463,10 @@ impl WorldPipeline {
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
         for index in indices {
-            let Ok(index) = usize::try_from(*index) else {
+            let Ok(vertex_index) = usize::try_from(*index) else {
                 continue;
             };
-            let Some(draw) = geometry.draws.get(index) else {
+            let Some(draw) = geometry.draws.get(vertex_index) else {
                 continue;
             };
             if draw.index_count == 0 {
@@ -2458,7 +2475,7 @@ impl WorldPipeline {
             if inputs.cull && !frustum.intersects_aabb(&draw.bounds) {
                 continue;
             }
-            let Some(material_slot) = materials.slot_for_draw(index) else {
+            let Some(material_slot) = materials.slot_for_draw(vertex_index) else {
                 continue;
             };
             // The mirror's own surface is left out of its reflection image,
@@ -2482,7 +2499,7 @@ impl WorldPipeline {
                 totals.emissive_visible |= material.is_emissive();
                 bound_material = Some(material_slot);
             }
-            let Some(slot) = textures.slot_for_draw(index) else {
+            let Some(slot) = textures.slot_for_draw(vertex_index) else {
                 continue;
             };
             if bound_texture != Some(slot) {
@@ -2526,7 +2543,8 @@ mod tests {
         clippy::panic,
         clippy::print_stdout,
         clippy::suboptimal_flops,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
     )]
 
     use super::*;
@@ -2829,12 +2847,12 @@ mod tests {
         );
 
         let below = RenderCamera::new(glam::Vec3::new(0.5, -2.0, 2.0), 0.0, 0.5, 60.0);
-        let frame = prepare_world_frame(below, DrawableSize::new(1280, 720));
-        let [a, b, c] = floor.map(|point| ndc(&frame, point));
+        let below_frame = prepare_world_frame(below, DrawableSize::new(1280, 720));
+        let [below_a, below_b, below_c] = floor.map(|point| ndc(&below_frame, point));
         assert!(
-            signed_area(a, b, c) < 0.0,
+            signed_area(below_a, below_b, below_c) < 0.0,
             "the floor's back side must project clockwise: {:?}",
-            signed_area(a, b, c)
+            signed_area(below_a, below_b, below_c)
         );
     }
 
@@ -2859,14 +2877,14 @@ mod tests {
             0.0,
             60.0,
         );
-        let frame = prepare_world_frame(back, DrawableSize::new(1280, 720));
-        let [a, b, c] = face.map(|point| ndc(&frame, point));
+        let back_frame = prepare_world_frame(back, DrawableSize::new(1280, 720));
+        let [back_a, back_b, back_c] = face.map(|point| ndc(&back_frame, point));
         assert!(
-            a[2] > 0.0 && b[2] > 0.0 && c[2] > 0.0,
+            back_a[2] > 0.0 && back_b[2] > 0.0 && back_c[2] > 0.0,
             "in front of the eye"
         );
         assert!(
-            signed_area(a, b, c) < 0.0,
+            signed_area(back_a, back_b, back_c) < 0.0,
             "the reverse side must project clockwise"
         );
     }
@@ -2981,23 +2999,28 @@ mod tests {
         // Four selected ranges, one draw each, all in one chunk.
         assert_eq!(draws.len(), 4);
         assert_eq!(packer.chunks.len(), 1);
-        let covered: usize = draws.iter().map(|draw| draw.index_count as usize).sum();
+        let covered: usize = draws
+            .iter()
+            .map(|draw| usize::try_from(draw.index_count).expect("fixture integer fits usize"))
+            .sum();
         assert_eq!(covered, 4 * 6, "every selected index is drawn");
         let chunk = &packer.chunks[0];
         for draw in &draws {
-            let start = draw.index_start as usize;
-            let end = start + draw.index_count as usize;
+            let start = usize::try_from(draw.index_start).expect("fixture integer fits usize");
+            let end =
+                start + usize::try_from(draw.index_count).expect("fixture integer fits usize");
             let indices = &chunk.indices[start..end];
             assert_eq!(indices.len() % 3, 0);
             for index in indices {
-                assert!((*index as usize) < chunk.vertices.len());
+                assert!(usize::from(*index) < chunk.vertices.len());
             }
         }
         // Every draw sits inside its chunk's index buffer.
         assert!(draws.iter().all(|draw| draw.chunk == 0));
         let last = draws.last().unwrap();
         assert_eq!(
-            (last.index_start + last.index_count) as usize,
+            usize::try_from(last.index_start + last.index_count)
+                .expect("fixture integer fits usize"),
             chunk.indices.len()
         );
         // The upload counts would be exactly the selected ranges' counts.
@@ -3017,14 +3040,14 @@ mod tests {
         let empty = mesh(Vec::new());
         let (packer, draws) = pack_world_ranges(&empty, &materials);
         assert!(packer.chunks.is_empty());
-        assert_eq!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
+        assert!(draws.is_empty(), "draws must be empty");
 
         // A level whose static mesh holds only decal ranges produces no world
         // resources at all: clear/present stays valid.
         let only_decals = mesh(vec![range(SurfaceKind::Decal, MATERIAL_NONE)]);
-        let (packer, draws) = pack_world_ranges(&only_decals, &materials);
-        assert!(packer.chunks.is_empty());
-        assert_eq!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
+        let (decal_packer, decal_draws) = pack_world_ranges(&only_decals, &materials);
+        assert!(decal_packer.chunks.is_empty());
+        assert!(decal_draws.is_empty(), "decal_draws must be empty");
     }
 
     #[test]
@@ -3218,11 +3241,11 @@ mod tests {
         for light in &mut unlit.ceiling_lights {
             light.brightness = Some(0.0);
         }
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
+        let mut direct_assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let flat = build_level_geometry_timed_with_lightmaps(
             &unlit,
             &catalog,
-            &mut assets,
+            &mut direct_assets,
             &materials,
             LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
             None,
@@ -3302,7 +3325,7 @@ mod tests {
             static_world,
             "every static world index must be uploaded"
         );
-        assert_ne!(draws, [] as [crate::render::wgpu::world::WorldDraw; 0]);
+        assert!(!draws.is_empty(), "draws must contain entries");
         assert!(
             draws.iter().all(|draw| matches!(
                 draw.kind,
@@ -3317,7 +3340,9 @@ mod tests {
         for draw in &draws {
             let chunk = &packer.chunks[draw.chunk];
             assert!(
-                (draw.index_start + draw.index_count) as usize <= chunk.indices.len(),
+                usize::try_from(draw.index_start + draw.index_count)
+                    .expect("fixture integer fits usize")
+                    <= chunk.indices.len(),
                 "draw must stay inside its chunk"
             );
         }
@@ -4144,7 +4169,7 @@ mod tests {
         .with_lightmaps(3, 2, 0b01);
         assert_eq!(environment.lightmap_page_count, 3);
         assert_eq!(environment.lightmap_switchable & 0xF, 2);
-        assert_eq!((environment.lightmap_switchable >> 8) & 0xF, 0b01);
+        assert_eq!((environment.lightmap_switchable >> 8_i32) & 0xF, 0b01);
         let clamped = EnvironmentUniform::new(
             [1.0; 3],
             true,
@@ -4162,10 +4187,10 @@ mod tests {
         .with_lightmaps(3, 2, 0b01)
         .with_probe_mips(6);
         assert_eq!(with_probes.lightmap_switchable & 0xF, 2);
-        assert_eq!((with_probes.lightmap_switchable >> 8) & 0xF, 0b01);
-        assert_eq!((with_probes.lightmap_switchable >> 16) & 0xF, 6);
+        assert_eq!((with_probes.lightmap_switchable >> 8_i32) & 0xF, 0b01);
+        assert_eq!((with_probes.lightmap_switchable >> 16_i32) & 0xF, 6);
         let clamped_probes = with_probes.with_probe_mips(0xFFFF_FFFF);
-        assert_eq!((clamped_probes.lightmap_switchable >> 16) & 0xF, 0xF);
+        assert_eq!((clamped_probes.lightmap_switchable >> 16_i32) & 0xF, 0xF);
         assert_eq!(
             clamped_probes.lightmap_switchable & 0x0000_FFFF,
             0x0000_0102
@@ -4234,15 +4259,15 @@ mod tests {
         use crate::render::common::atmosphere::{FogRegion, LevelFog, fog_region_cap};
         let regions: Vec<FogRegion> = (0..crate::level::MAX_FOG_REGIONS)
             .map(|index| {
-                let index = f32::from(u8::try_from(index).unwrap_or(u8::MAX));
+                let sample_index = f32::from(u8::try_from(index).unwrap_or(u8::MAX));
                 FogRegion {
-                    min: [index, index + 1.0, index + 2.0],
-                    max: [index + 10.0, index + 4.0, index + 8.0],
-                    density: 0.01 * (index + 1.0),
-                    color: [0.1 * index, 0.2, 0.3],
+                    min: [sample_index, sample_index + 1.0, sample_index + 2.0],
+                    max: [sample_index + 10.0, sample_index + 4.0, sample_index + 8.0],
+                    density: 0.01 * (sample_index + 1.0),
+                    color: [0.1 * sample_index, 0.2, 0.3],
                     falloff_m: 2.0,
-                    ground_y: index,
-                    top_y: index + 1.0,
+                    ground_y: sample_index,
+                    top_y: sample_index + 1.0,
                 }
             })
             .collect();
@@ -4302,9 +4327,11 @@ mod tests {
         use wgpu::naga::valid::{Capabilities, ValidationFlags, Validator};
         let module = wgpu::naga::front::wgsl::parse_str(WORLD_SHADER_SRC)
             .expect("the world shader parses as WGSL");
-        Validator::new(ValidationFlags::all(), Capabilities::all())
-            .validate(&module)
-            .expect("the world shader validates");
+        drop(
+            Validator::new(ValidationFlags::all(), Capabilities::all())
+                .validate(&module)
+                .expect("the world shader validates"),
+        );
         assert!(
             module
                 .entry_points
@@ -4428,7 +4455,7 @@ mod tests {
         );
         assert_eq!(
             translucent_character_order(&[], glam::Vec3::ZERO),
-            [] as [usize; 0]
+            [0_usize; 0]
         );
     }
 
@@ -4474,13 +4501,17 @@ mod tests {
                 label: Some("dynamic-lights-readback"),
             });
             encoder.copy_buffer_to_buffer(&buffer, 0, staging, 0, DYNAMIC_LIGHTS_UNIFORM_SIZE);
-            queue.submit([encoder.finish()]);
+            let _submission = queue.submit([encoder.finish()]);
             let slice = staging.slice(..);
             let (sender, receiver) = std::sync::mpsc::channel();
             slice.map_async(wgpu::MapMode::Read, move |result| {
-                let _ = sender.send(result);
+                sender
+                    .send(result)
+                    .expect("read-back receiver remains live until its callback");
             });
-            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+            let _poll_status = device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .expect("GPU work completes before test read-back");
             receiver.recv().expect("map callback").expect("buffer maps");
             let data = slice.get_mapped_range().expect("mapped range");
             let uniform = *bytemuck::from_bytes::<DynamicLightsUniform>(&data);
@@ -4606,7 +4637,9 @@ mod tests {
             })
         );
         pipeline.update_lights(&queue, &lights);
-        let _ = device.poll(wgpu::PollType::wait_indefinitely());
+        let _poll_status = device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("GPU work completes before test read-back");
     }
 
     /// The CPU mirror of the shader's `soft_clip` tone map, for the light-seam
@@ -4654,7 +4687,10 @@ mod tests {
     /// `layers` is the array's flat per-layer sample list in upload order; an
     /// index outside it is not producible by a successful plan, so the mirror
     /// decodes a black plane (never an undefined sample).
-    #[allow(clippy::too_many_arguments)] // one shader seam, every uniform explicit
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one shader seam, every uniform explicit"
+    )] // one shader seam, every uniform explicit
     fn surface_light_mirror(
         enabled: bool,
         page: f32,
@@ -4665,15 +4701,21 @@ mod tests {
         layers: &[[f32; 4]],
         scale: [f32; 3],
     ) -> [f32; 3] {
-        let on = if enabled { 1.0 } else { 0.0 } * if page >= 254.5 { 0.0 } else { 1.0 };
-        if on <= 0.5 {
+        let on =
+            if enabled { 1.0_f64 } else { 0.0_f64 } * if page >= 254.5 { 0.0_f64 } else { 1.0_f64 };
+        if on <= 0.5_f64 {
             return scale;
         }
         // Test mirror of the shader's `u32(in.lightmap_page + 0.5)`: the page
         // byte is finite and checked non-negative, and the test only feeds page
         // bytes in [0, 4), so the truncating cast is exact.
         let page_byte = page + 0.5;
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "This isolated shader mirror casts the finite nonnegative encoded page number; fixture indices reproduce the shader contract."
+        )]
         let page_index = if page_byte.is_finite() && page_byte >= 0.0 {
             page_byte as usize
         } else {
@@ -4892,9 +4934,9 @@ mod tests {
         let mut new_max = f32::MIN;
         let mut old_min = f32::MAX;
         let mut old_max = f32::MIN;
-        for step in 0..=64 {
-            #[allow(clippy::cast_precision_loss)] // 65 exact sample positions
-            let t = (step as f32) / 64.0;
+        for step in 0_i32..=64_i32 {
+            // 65 exact sample positions
+            let t = crate::test_support::exact_f32(step) / 64.0;
             // The blend the hardware performs: every stored value interpolates
             // linearly, so the sampled planes are the linear pair below.
             let planes = [
@@ -5006,15 +5048,15 @@ mod tests {
             glam::Vec3::new(1.0, 0.0, 0.0),
             1.0,
         );
-        let tilted = tilted.normalize();
+        let unit_tilted = tilted.normalize();
         assert!(
-            tilted.dot(view) > flat.dot(view),
+            unit_tilted.dot(view) > flat.dot(view),
             "the sample tilts to the view"
         );
 
         let glossy = 0.1;
         let flat_sheen = sheen([1.0; 3], glossy, flat, view, [1.0; 3]);
-        let tilted_sheen = sheen([1.0; 3], glossy, tilted, view, [1.0; 3]);
+        let tilted_sheen = sheen([1.0; 3], glossy, unit_tilted, view, [1.0; 3]);
         assert!(
             tilted_sheen[0] > flat_sheen[0],
             "a glossy head-on surface must brighten when the map tilts it to the view: \
@@ -5026,7 +5068,7 @@ mod tests {
         // A matte material barely changes: the tight lobe is scaled by gloss.
         let matte = 0.9;
         let flat_matte = sheen([1.0; 3], matte, flat, view, [1.0; 3]);
-        let tilted_matte = sheen([1.0; 3], matte, tilted, view, [1.0; 3]);
+        let tilted_matte = sheen([1.0; 3], matte, unit_tilted, view, [1.0; 3]);
         assert!(
             (tilted_matte[0] - flat_matte[0]).abs() < (tilted_sheen[0] - flat_sheen[0]).abs(),
             "the normal map must matter less on a matte surface"
@@ -5109,7 +5151,7 @@ mod tests {
     // ------------------------------------------------------------------- fog
 
     /// The CPU mirror of `WW::fogged`, pinned to the shader's numeric response.
-    #[allow(clippy::too_many_arguments)] // one formula, every uniform explicit
+    // one formula, every uniform explicit
     fn fogged(
         color: [f32; 3],
         world_position: [f32; 3],
@@ -5126,12 +5168,12 @@ mod tests {
         ];
         let distance = (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]).sqrt();
         let below = (reference_y - world_position[1]).max(0.0);
-        let density = density * (1.0 + height_gain * below.min(12.0));
-        let amount = density * distance;
-        let amount = 1.0 - (-amount * amount).exp();
-        let amount = amount.clamp(0.0, 1.0);
+        let effective_density = density * (1.0 + height_gain * below.min(12.0));
+        let amount = effective_density * distance;
+        let attenuation = 1.0 - (-amount * amount).exp();
+        let clamped_attenuation = attenuation.clamp(0.0, 1.0);
         std::array::from_fn(|channel| {
-            color[channel] + (fog_color[channel] - color[channel]) * amount
+            color[channel] + (fog_color[channel] - color[channel]) * clamped_attenuation
         })
     }
 
@@ -5203,11 +5245,16 @@ mod tests {
         // `fogged` reads the camera exactly once, for the distance. Regional
         // membership never consults the eye.
         let start = WORLD_SHADER_SRC.find("fn fogged").expect("fogged exists");
-        let end = WORLD_SHADER_SRC[start..]
+        let tail = WORLD_SHADER_SRC
+            .get(start..)
+            .expect("fogged starts on a UTF-8 boundary");
+        let end = tail
             .find("\n}\n")
             .expect("fogged closes")
             .saturating_add(start);
-        let body = &WORLD_SHADER_SRC[start..end];
+        let body = WORLD_SHADER_SRC
+            .get(start..end)
+            .expect("fogged bounds are valid UTF-8 boundaries");
         assert_eq!(
             body.matches("camera.position").count(),
             1,
@@ -5273,10 +5320,10 @@ mod tests {
             sample[2] * 2.0 - 1.0,
         );
         let scaled = glam::Vec3::new(decoded.x * strength, decoded.y * strength, decoded.z);
-        let normal = normal.normalize();
-        let tangent = (tangent - normal * normal.dot(tangent)).normalize();
-        let bitangent = normal.cross(tangent) * handedness;
-        (tangent * scaled.x + bitangent * scaled.y + normal * scaled.z).normalize()
+        let unit_normal = normal.normalize();
+        let orthogonal_tangent = (tangent - unit_normal * unit_normal.dot(tangent)).normalize();
+        let bitangent = unit_normal.cross(orthogonal_tangent) * handedness;
+        (orthogonal_tangent * scaled.x + bitangent * scaled.y + unit_normal * scaled.z).normalize()
     }
 
     #[test]

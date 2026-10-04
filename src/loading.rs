@@ -40,6 +40,18 @@ pub enum Phase {
     Ready = 6,
 }
 impl Phase {
+    const fn as_byte(self) -> u8 {
+        match self {
+            Self::Queued => 0,
+            Self::Reading => 1,
+            Self::Geometry => 2,
+            Self::Lightmaps => 3,
+            Self::Collision => 4,
+            Self::Characters => 5,
+            Self::Ready => 6,
+        }
+    }
+
     const fn from_byte(value: u8) -> Self {
         match value {
             1 => Self::Reading,
@@ -79,7 +91,9 @@ impl SourceIdentity {
 /// True when two captured identities are both known and equal.
 fn identities_match(left: &SourceIdentity, right: &SourceIdentity) -> bool {
     match (left, right) {
-        (SourceIdentity::Known(left), SourceIdentity::Known(right)) => left == right,
+        (SourceIdentity::Known(left_identity), SourceIdentity::Known(right_identity)) => {
+            left_identity == right_identity
+        }
         _ => false,
     }
 }
@@ -176,14 +190,14 @@ impl Control {
     fn new() -> Self {
         Self {
             cancelled: Arc::new(AtomicBool::new(false)),
-            phase: Arc::new(AtomicU8::new(Phase::Queued as u8)),
+            phase: Arc::new(AtomicU8::new(Phase::Queued.as_byte())),
         }
     }
     fn checkpoint(&self, phase: Phase) -> bool {
         if self.cancelled.load(Ordering::Relaxed) {
             return false;
         }
-        self.phase.store(phase as u8, Ordering::Relaxed);
+        self.phase.store(phase.as_byte(), Ordering::Relaxed);
         true
     }
     fn cancel(&self) {
@@ -300,7 +314,9 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
         };
         match sender.try_send(Message::Prepare(job)) {
             Ok(()) => self.running = Some(running),
-            Err(mpsc::TrySendError::Full(Message::Prepare(job))) => self.pending = Some(job),
+            Err(mpsc::TrySendError::Full(Message::Prepare(pending_job))) => {
+                self.pending = Some(pending_job);
+            }
             Err(mpsc::TrySendError::Full(Message::Retire(_))) => {
                 return Err("Unexpected retirement message during dispatch".to_string());
             }
@@ -327,7 +343,13 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
                     {
                         // No next preparation is dispatched before this result is
                         // consumed, so the bounded request slot is available.
-                        let _ = sender.try_send(Message::Retire(value));
+                        if let Err(error) = sender.try_send(Message::Retire(value)) {
+                            // Retiring a cancelled result is best effort during
+                            // shutdown; a failed send owns and drops the value.
+                            crate::logging::warn(format!(
+                                "[loading] could not retire cancelled preparation: {error}"
+                            ));
+                        }
                     }
                     if let Err(error) = self.dispatch() {
                         return Some((self.current, Err(error)));
@@ -387,9 +409,12 @@ impl<I, O> Worker<I, O> {
             return Ok(false);
         }
         if let Some(handle) = self.handle.take() {
-            handle
-                .join()
-                .map_err(|_| "Level preparation worker panicked".to_string())?;
+            handle.join().map_err(|payload| {
+                format!(
+                    "Level preparation worker panicked: {}",
+                    crate::logging::panic_message(payload.as_ref())
+                )
+            })?;
         }
         Ok(true)
     }
@@ -399,7 +424,9 @@ impl<I, O> Drop for Worker<I, O> {
         // Normal shutdown keeps pumping until is_finished and calls join_finished.
         // Unwinding still closes channels and cancels, never blocks the UI in Drop.
         self.shutdown();
-        let _ = self.join_finished();
+        if let Err(error) = self.join_finished() {
+            crate::logging::warn(format!("[loading] shutdown: {error}"));
+        }
     }
 }
 
@@ -447,10 +474,10 @@ impl PreparedRecords {
             .flatten()
             .map(|capture| {
                 capture.chains.iter().fold(0_usize, |sum, chain| {
-                    chain.iter().fold(sum, |sum, faces| {
-                        faces
-                            .iter()
-                            .fold(sum, |sum, face| sum.saturating_add(face.len()))
+                    chain.iter().fold(sum, |chain_bytes, faces| {
+                        faces.iter().fold(chain_bytes, |face_bytes, face| {
+                            face_bytes.saturating_add(face.len())
+                        })
                     })
                 })
             })
@@ -508,7 +535,7 @@ impl BuildCache {
                 .fold(bytes, |total, (_, _, size)| total.saturating_add(*size))
                 > max_bytes
         {
-            self.entries.pop_front();
+            drop(self.entries.pop_front());
         }
         self.entries.push_back((key, records, bytes));
     }
@@ -540,9 +567,11 @@ fn remember_build(
 ) {
     // Weak identities keep an oversized displayed world reusable after a
     // different preparation is cancelled, without retaining its geometry.
-    identities.retain(|(previous, records)| previous != &key && records.strong_count() != 0);
+    identities.retain(|(previous, cached_records)| {
+        previous != &key && cached_records.strong_count() != 0
+    });
     while identities.len() >= 8 {
-        identities.pop_front();
+        drop(identities.pop_front());
     }
     identities.push_back((key, Arc::downgrade(records)));
 }
@@ -568,11 +597,19 @@ fn reusable_records(
 fn joined_variant(
     joined: std::thread::Result<Result<crate::package::world::LoadedVariant, String>>,
 ) -> Result<crate::package::world::LoadedVariant, String> {
-    joined.map_err(|_| "level preparation worker panicked".to_string())?
+    joined.map_err(|payload| {
+        format!(
+            "level preparation worker panicked: {}",
+            crate::logging::panic_message(payload.as_ref())
+        )
+    })?
 }
 
 /// Decodes one request into an installable world, reusing the worker cache.
-#[allow(clippy::too_many_lines)] // one cohesive decode-to-world pipeline
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive decode-to-world pipeline"
+)] // one cohesive decode-to-world pipeline
 fn prepare_world(
     manager: &mut LevelManager,
     request: Request,
@@ -618,9 +655,9 @@ fn prepare_world(
                 });
                 // A failed level keeps its own error; the variant read reports
                 // only when the level itself was readable.
-                let loaded = loaded?;
+                let loaded_level = loaded?;
                 prefetched_variant = Some(joined_variant(variant)?);
-                loaded
+                loaded_level
             };
             planned = Some((key, reusable));
             loaded
@@ -640,15 +677,15 @@ fn prepare_world(
     if !control.checkpoint(Phase::Geometry) {
         return Ok(None);
     }
-    let delay_started = std::time::Instant::now();
-    while delay_started.elapsed() < std::time::Duration::from_millis(delay) {
+    let geometry_delay_started = std::time::Instant::now();
+    while geometry_delay_started.elapsed() < std::time::Duration::from_millis(delay) {
         if control.cancelled.load(Ordering::Relaxed) {
             return Ok(None);
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    let (key, reusable) = if let Some(planned) = planned {
-        planned
+    let (key, reusable) = if let Some(planned_build) = planned {
+        planned_build
     } else {
         let key = PackageKey::for_entry(&loaded.entry, request.lightmaps)?;
         let reusable = reusable_records(&key, builds, identities);
@@ -850,7 +887,7 @@ fn ensure_variant_supported(
         .iter()
         .map(|variant| variant.lightmap_quality.as_str())
         .collect();
-    let available = if available.is_empty() {
+    let available_variants = if available.is_empty() {
         "none".to_string()
     } else {
         available.join(", ")
@@ -862,14 +899,17 @@ fn ensure_variant_supported(
         manifest.id,
         entry.path.display(),
         quality.name(),
-        available
+        available_variants
     ))
 }
 
 #[cfg(test)]
 mod tests {
     // Tests use expect to report a broken synchronization contract.
-    #![allow(clippy::expect_used)]
+    #![allow(
+        clippy::expect_used,
+        reason = "Tests use expect to report a broken synchronization contract."
+    )]
     use super::*;
 
     /// Exact content identity prevents a replaced package with the same id from
@@ -1005,7 +1045,7 @@ mod tests {
         };
         let mut archive: Vec<(String, Vec<u8>)> = entries
             .iter()
-            .map(|entry| (entry.name.clone(), vec![0_u8]))
+            .map(|archive_entry| (archive_entry.name.clone(), vec![0_u8]))
             .collect();
         archive.push((
             "manifest.json".to_string(),
@@ -1021,7 +1061,7 @@ mod tests {
             writer.start_file(name, options).expect("start entry");
             writer.write_all(&bytes).expect("write entry");
         }
-        writer.finish().expect("finish test package");
+        drop(writer.finish().expect("finish test package"));
     }
 
     /// AUD-005: an in-place edit between the worker read and a re-request is a
@@ -1077,7 +1117,7 @@ mod tests {
             !before.same_preparation(&after),
             "changed package content must supersede the outstanding preparation"
         );
-        std::fs::remove_dir_all(&dir).ok();
+        crate::test_support::remove_dir_if_present(&dir);
     }
 
     // The gate deliberately ignores cancellation to emulate a completion racing a newer request.
@@ -1087,19 +1127,19 @@ mod tests {
         let (started, starts) = mpsc::sync_channel(1);
         let (release, releases) = mpsc::sync_channel(1);
         let mut worker = Worker::spawn(move |value: u32, _: &Control| {
-            let _ = started.send(value);
+            started.send(value).map_err(|error| error.to_string())?;
             releases.recv().map_err(|error| error.to_string())?;
             Ok(Some(value))
         })
         .expect("worker starts");
-        worker.request(1).expect("first request");
+        let _request_status = worker.request(1).expect("first request");
         assert_eq!(
             starts
                 .recv_timeout(std::time::Duration::from_secs(30))
                 .expect("started"),
             1
         );
-        worker.request(2).expect("supersede");
+        let _request_status_2 = worker.request(2).expect("supersede");
         let newest = worker.request(3).expect("replace pending");
         release.send(()).expect("release first");
         // Readiness synchronization, not a wall-clock performance assertion.
@@ -1144,7 +1184,7 @@ mod tests {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
         let mut worker =
             Worker::spawn(|value: u32, _: &Control| Ok(Some(value))).expect("worker starts");
-        worker.request(1).expect("request");
+        let _request_status = worker.request(1).expect("request");
         worker.cancel();
         let latest = worker.request(2).expect("retry");
         let (id, value) = loop {
@@ -1182,7 +1222,7 @@ mod tests {
             }
         })
         .expect("worker starts");
-        worker.request(0).expect("request");
+        let _request_status = worker.request(0).expect("request");
         let (_, outcome) = loop {
             if let Some(done) = worker.poll() {
                 break done;
@@ -1194,8 +1234,8 @@ mod tests {
             std::thread::yield_now();
         };
         assert_eq!(outcome, Err("invalid package".to_string()));
-        worker.request(1).expect("retry");
-        let (_, outcome) = loop {
+        let _request_status_2 = worker.request(1).expect("retry");
+        let (_, retry_outcome) = loop {
             if let Some(done) = worker.poll() {
                 break done;
             }
@@ -1205,7 +1245,7 @@ mod tests {
             );
             std::thread::yield_now();
         };
-        assert_eq!(outcome, Ok(1));
+        assert_eq!(retry_outcome, Ok(1));
         worker.shutdown();
         while !worker.is_finished() {
             assert!(
@@ -1223,13 +1263,13 @@ mod tests {
         let (started, starts) = mpsc::sync_channel(1);
         let (release, releases) = mpsc::sync_channel(1);
         let mut worker = Worker::spawn(move |(): (), control: &Control| {
-            let _ = started.send(());
+            started.send(()).map_err(|error| error.to_string())?;
             releases.recv().map_err(|error| error.to_string())?;
             assert!(control.cancelled.load(Ordering::Relaxed));
             Ok(Some(()))
         })
         .expect("worker starts");
-        worker.request(()).expect("request");
+        let _request_status = worker.request(()).expect("request");
         starts
             .recv_timeout(std::time::Duration::from_secs(30))
             .expect("running");

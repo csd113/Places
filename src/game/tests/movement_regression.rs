@@ -9,7 +9,7 @@ pub(super) fn export_fixture(source: &str, feet: Vec3, walls: &[WallAabb]) {
     };
     let mut definition: serde_json::Map<String, serde_json::Value> =
         serde_json::from_str(source).expect("fixture source");
-    definition.insert(
+    drop(definition.insert(
         "walls".to_owned(),
         serde_json::json!(
             walls
@@ -21,16 +21,16 @@ pub(super) fn export_fixture(source: &str, feet: Vec3, walls: &[WallAabb]) {
                 })
                 .collect::<Vec<_>>()
         ),
-    );
-    definition.insert(
+    ));
+    drop(definition.insert(
         "defaults".to_owned(),
         serde_json::json!({"wall":"core:wallpaper_yellow_01",
         "floor":"core:carpet_beige_01","ceiling":"core:ceiling_panel_01"}),
-    );
-    definition.insert(
+    ));
+    drop(definition.insert(
         "spawn".to_owned(),
-        serde_json::json!({"x":feet.x,"z":feet.z,"yaw_degrees":0.0}),
-    );
+        serde_json::json!({"x":feet.x,"z":feet.z,"yaw_degrees":0.0_f64}),
+    ));
     let identity = serde_json::to_vec(&serde_json::json!([definition, feet.to_array()]))
         .expect("fixture identity");
     let suffix: String = crate::package::hash::sha256_hex(&identity)
@@ -40,23 +40,23 @@ pub(super) fn export_fixture(source: &str, feet: Vec3, walls: &[WallAabb]) {
     let id = format!("movement_audit_{suffix}");
     let thread = std::thread::current();
     let scenario = thread.name().unwrap_or("movement_fixture");
-    definition.insert("id".to_owned(), serde_json::json!(id));
-    definition.insert(
+    drop(definition.insert("id".to_owned(), serde_json::json!(id)));
+    drop(definition.insert(
         "name".to_owned(),
         serde_json::json!(scenario.rsplit("::").next().unwrap_or(scenario)),
-    );
-    let destination = std::path::PathBuf::from(destination);
-    std::fs::create_dir_all(destination.join("sources")).expect("fixture source directory");
-    std::fs::create_dir_all(destination.join("metadata")).expect("fixture metadata directory");
+    ));
+    let destination_path = std::path::PathBuf::from(destination);
+    std::fs::create_dir_all(destination_path.join("sources")).expect("fixture source directory");
+    std::fs::create_dir_all(destination_path.join("metadata")).expect("fixture metadata directory");
     std::fs::write(
-        destination.join("sources").join(format!("{id}.json")),
+        destination_path.join("sources").join(format!("{id}.json")),
         serde_json::to_vec_pretty(&definition).expect("inspectable fixture"),
     )
     .expect("preserve fixture source");
     std::fs::write(
-        destination.join("metadata").join(format!("{id}.json")),
+        destination_path.join("metadata").join(format!("{id}.json")),
         serde_json::to_vec_pretty(&serde_json::json!({"id":id,"test":scenario,
-            "eye_spawn":[feet.x,feet.y+EYE_HEIGHT,feet.z],"yaw_degrees":0.0}))
+            "eye_spawn":[feet.x,feet.y+EYE_HEIGHT,feet.z],"yaw_degrees":0.0_f64}))
         .expect("fixture launch metadata"),
     )
     .expect("preserve fixture launch metadata");
@@ -138,10 +138,10 @@ fn pit_stacked_balcony_jump_never_produces_vertical_teleport() {
     game.set_app_state(AppState::Playing);
     let delta = 1.0 / 60.0;
     let mut previous = game.feet_y();
-    for index in 0..90 {
-        let controls = if index == 0 {
+    for index in 0_i32..90_i32 {
+        let controls = if index == 0_i32 {
             vec![Control::MoveForward, Control::Jump]
-        } else if index < 35 {
+        } else if index < 35_i32 {
             vec![Control::MoveForward]
         } else {
             vec![]
@@ -165,7 +165,7 @@ fn falling_body_edge_cannot_enter_a_prop_when_center_misses_top() {
         vec![WallAabb::with_y(0.0, 0.0, 0.0, 1.0, 0.9, 1.0)],
     );
     game.grounded = false;
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         frame(&mut game, &[], 1.0 / 60.0);
         assert_no_box_penetration(&game);
     }
@@ -179,10 +179,14 @@ fn low_ceiling_covers_the_body_disc_at_its_edge() {
         Vec3::new(-0.15, 0.0, 0.0),
         vec![],
     );
-    for index in 0..60 {
+    for index in 0_i32..60_i32 {
         frame(
             &mut game,
-            if index == 0 { &[Control::Jump] } else { &[] },
+            if index == 0_i32 {
+                &[Control::Jump]
+            } else {
+                &[]
+            },
             1.0 / 60.0,
         );
         assert!(
@@ -215,7 +219,7 @@ fn real_solid_step_at_maximum_height_is_traversable() {
         )],
     );
     game.player_yaw = std::f32::consts::FRAC_PI_2;
-    for _ in 0..35 {
+    for _ in 0_i32..35_i32 {
         frame(&mut game, &[Control::MoveForward], 1.0 / 60.0);
         assert_no_box_penetration(&game);
     }
@@ -335,14 +339,14 @@ fn floor_two_walls_and_ceiling_corner_remain_nonpenetrating() {
             ],
         );
         game.player_yaw = 135.0_f32.to_radians();
-        for _ in 0..5 {
-            run_for(
+        for _ in 0_i32..5_i32 {
+            let _run_for_status = run_for(
                 &mut game,
                 &[Control::Jump, Control::MoveForward],
                 1.2,
                 pattern,
             );
-            run_for(&mut game, &[], 0.1, pattern);
+            let _run_for_status_2 = run_for(&mut game, &[], 0.1, pattern);
         }
         assert!(game.grounded);
         assert!(game.player_position.x <= -PLAYER_RADIUS + CONTACT_EPS);
@@ -356,12 +360,12 @@ fn thin_floor_and_overhead_slab_cannot_be_tunnelled_through() {
         let slab = WallAabb::with_y(-2.0, 2.0, -2.0, 4.0, 0.0005, 4.0);
         let mut falling = flat_game(Vec3::new(0.0, 6.0, 0.0), vec![slab]);
         falling.vertical_velocity = -60.0;
-        run_for(&mut falling, &[], 0.2, pattern);
+        let _run_for_status = run_for(&mut falling, &[], 0.2, pattern);
         assert!(falling.grounded && (falling.feet_y() - slab.max_y).abs() <= CONTACT_EPS);
         let mut rising = flat_game(Vec3::ZERO, vec![slab]);
         rising.vertical_velocity = 60.0;
         rising.grounded = false;
-        run_for(&mut rising, &[], 0.1, pattern);
+        let _run_for_status_2 = run_for(&mut rising, &[], 0.1, pattern);
         assert!(rising.feet_y() + rising.body_height() < slab.min_y);
         assert!(rising.vertical_velocity < 0.0);
     }
@@ -396,7 +400,7 @@ fn steps_require_ground_and_full_head_clearance() {
                 ],
             );
             game.player_yaw = std::f32::consts::FRAC_PI_2;
-            run_for(&mut game, &[Control::MoveForward], 0.5, &[1.0 / 30.0]);
+            let _run_for_status = run_for(&mut game, &[Control::MoveForward], 0.5, &[1.0 / 30.0]);
             if height <= PLAYER_STEP_HEIGHT && ceiling >= PLAYER_HEIGHT + height {
                 assert!(game.player_position.x > 0.0);
             } else {
@@ -416,7 +420,7 @@ fn ledge_departure_and_fall_distance_are_equivalent_across_frame_rates() {
             Vec3::new(0.0, 8.0, 0.0),
             vec![],
         );
-        run_for(&mut fall, &[], 1.0, pattern);
+        let _run_for_status = run_for(&mut fall, &[], 1.0, pattern);
         assert!(!fall.grounded);
         results.push((label, fall.feet_y(), fall.vertical_velocity));
         let mut ledge = flat_game(
@@ -425,7 +429,7 @@ fn ledge_departure_and_fall_distance_are_equivalent_across_frame_rates() {
         );
         ledge.player_yaw = std::f32::consts::FRAC_PI_2;
         assert!(ledge.grounded);
-        run_for(
+        let _run_for_status_2 = run_for(
             &mut ledge,
             &[Control::MoveForward, Control::StrafeRight],
             1.5,
@@ -460,10 +464,10 @@ fn narrow_passage_crouch_and_stand_clearance_remain_physical() {
         ],
     );
     game.player_yaw = std::f32::consts::FRAC_PI_2;
-    run_for(&mut game, &[Control::MoveForward], 0.4, &[1.0 / 60.0]);
+    let _run_for_status = run_for(&mut game, &[Control::MoveForward], 0.4, &[1.0 / 60.0]);
     assert!(game.player_position.x < 0.0);
     frame(&mut game, &[Control::Crouch], 1.0 / 60.0);
-    run_for(&mut game, &[Control::MoveForward], 0.5, &[1.0 / 60.0]);
+    let _run_for_status_2 = run_for(&mut game, &[Control::MoveForward], 0.5, &[1.0 / 60.0]);
     assert!(game.player_position.x > 0.5);
     frame(&mut game, &[Control::Crouch], 1.0 / 60.0);
     assert_eq!(game.stance, Stance::Crouched);
@@ -501,7 +505,7 @@ fn grounded_floor_region_steps_never_embed_the_body_in_their_rims() {
     for (_, pattern) in FRAME_PATTERNS {
         let mut game = game_for(&level);
         play_at(&mut game, -1.0, 0.0, 0.0, 90.0, 0.0);
-        run_for(&mut game, &[Control::MoveForward], 1.3, pattern);
+        let _run_for_status = run_for(&mut game, &[Control::MoveForward], 1.3, pattern);
         assert!(game.player_position.x > 2.5 && game.grounded);
         assert!(game.feet_y().abs() < CONTACT_EPS);
     }
@@ -538,7 +542,7 @@ fn a_floating_room_floor_blocks_both_a_jump_from_below_and_side_entry() {
         let mut side = room_game(rooms, Vec3::new(-0.4, 0.5, 0.0), vec![]);
         side.player_yaw = std::f32::consts::FRAC_PI_2;
         side.vertical_velocity = 1.0;
-        run_for(&mut side, &[Control::MoveForward], 0.1, pattern);
+        let _run_for_status = run_for(&mut side, &[Control::MoveForward], 0.1, pattern);
         assert!(side.player_position.x <= -PLAYER_RADIUS + CONTACT_EPS);
         assert!(!side.grounded);
     }
@@ -550,10 +554,10 @@ fn repeated_jump_cycles_preserve_apex_and_land_at_every_frame_pattern() {
     for (label, pattern) in FRAME_PATTERNS {
         let mut game = flat_game(Vec3::ZERO, vec![]);
         let mut highest: f32 = 0.0;
-        for _ in 0..5 {
+        for _ in 0_i32..5_i32 {
             highest = highest.max(run_for(&mut game, &[Control::Jump], 1.2, pattern));
             assert!(game.grounded && game.feet_y().abs() <= CONTACT_EPS);
-            run_for(&mut game, &[], 0.1, pattern);
+            let _run_for_status = run_for(&mut game, &[], 0.1, pattern);
         }
         assert!(
             (highest - JUMP_APEX_M).abs() < 0.002,
@@ -587,7 +591,7 @@ fn landing_on_a_room_roof_edge_uses_the_whole_body_disc() {
         Vec3::new(-0.15, 3.0, 0.0),
         vec![],
     );
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         frame(&mut game, &[], 1.0 / 60.0);
         assert!(game.feet_y() >= 2.4 - CONTACT_EPS, "roof edge entered body");
     }
@@ -604,7 +608,7 @@ fn spawn_across_a_gabled_roof_uses_separate_bounded_recovery() {
     );
     assert!(game.feet_y() > 3.1 && game.feet_y() < 3.2);
     assert!(game.body_fits_at(Vec3::new(0.0, game.feet_y(), 3.5)));
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         frame(&mut game, &[], 1.0 / 60.0);
         assert!(game.feet_y() > 3.1);
     }

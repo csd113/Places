@@ -9,7 +9,8 @@
     clippy::map_unwrap_or,
     clippy::needless_raw_string_hashes,
     clippy::panic,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -184,11 +185,11 @@ fn duplicate_logical_ids_are_rejected() {
     assert!(error.contains("spooner-man"), "unexpected error: {error}");
 
     let duplicate_theme = r#"{ "themes": [{ "id": "pool" }, { "id": "pool" }], "assets": [] }"#;
-    let error =
+    let theme_error =
         AssetCatalog::from_json_str(duplicate_theme).expect_err("duplicate themes must fail");
     assert!(
-        error.contains("duplicate theme id"),
-        "unexpected error: {error}"
+        theme_error.contains("duplicate theme id"),
+        "unexpected error: {theme_error}"
     );
 
     // Duplicate texture ids and duplicate material ids are the same
@@ -201,10 +202,11 @@ fn duplicate_logical_ids_are_rejected() {
               "source": "file", "model": "environment/office/textures/walls/b.png" }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(duplicate_texture).expect_err("duplicate texture");
+    let texture_error =
+        AssetCatalog::from_json_str(duplicate_texture).expect_err("duplicate texture");
     assert!(
-        error.contains("duplicate asset id") && error.contains("core:tex_a"),
-        "unexpected error: {error}"
+        texture_error.contains("duplicate asset id") && texture_error.contains("core:tex_a"),
+        "unexpected error: {texture_error}"
     );
 
     let duplicate_material = r##"{
@@ -217,10 +219,11 @@ fn duplicate_logical_ids_are_rejected() {
               "source": "definition", "texture": "core:tex_a" }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(duplicate_material).expect_err("duplicate material");
+    let material_error =
+        AssetCatalog::from_json_str(duplicate_material).expect_err("duplicate material");
     assert!(
-        error.contains("duplicate asset id") && error.contains("core:mat_a"),
-        "unexpected error: {error}"
+        material_error.contains("duplicate asset id") && material_error.contains("core:mat_a"),
+        "unexpected error: {material_error}"
     );
 }
 
@@ -345,9 +348,9 @@ fn every_file_asset_exists_exactly_once() {
 #[test]
 fn levels_only_reference_catalog_ids() {
     let catalog = shipped_catalog();
-    let mut levels = 0;
-    let mut props = 0;
-    let mut spooner_levels = 0;
+    let mut levels = 0_i32;
+    let mut props = 0_i32;
+    let mut spooner_levels = 0_i32;
 
     for dir in ["assets/levels", "tests/fixtures/levels"] {
         let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir} must exist: {error}"));
@@ -362,7 +365,7 @@ fn levels_only_reference_catalog_ids() {
             let content = fs::read_to_string(&path).expect("level is readable");
             let level = LevelDef::from_json(&content)
                 .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-            levels += 1;
+            levels += 1_i32;
 
             let check = |id: &str, what: &str| {
                 assert!(
@@ -386,7 +389,9 @@ fn levels_only_reference_catalog_ids() {
                 if let Some(material) = &wall.material {
                     check(material, "wall material");
                 }
-                for material in wall.faces.values() {
+                let mut face_materials: Vec<_> = wall.faces.iter().collect();
+                face_materials.sort_unstable_by_key(|(face, _)| *face);
+                for (_, material) in face_materials {
                     check(material, "wall face material");
                 }
             }
@@ -400,7 +405,7 @@ fn levels_only_reference_catalog_ids() {
                 check(&decal.material, "decal sheet");
             }
             for prop in &level.props {
-                props += 1;
+                props += 1_i32;
                 assert!(
                     catalog.placeable(&prop.model).is_some(),
                     "{}: prop `{}` is not a placeable catalog asset",
@@ -408,18 +413,18 @@ fn levels_only_reference_catalog_ids() {
                     prop.model
                 );
                 if prop.model == "spooner-man" {
-                    spooner_levels += 1;
+                    spooner_levels += 1_i32;
                 }
             }
         }
     }
     assert!(
-        levels >= 5,
+        levels >= 5_i32,
         "expected the shipped level and the regression fixtures"
     );
-    assert!(props >= 1, "expected placed props");
+    assert!(props >= 1_i32, "expected placed props");
     assert!(
-        spooner_levels >= 1,
+        spooner_levels >= 1_i32,
         "at least one level must still reference `spooner-man`"
     );
 }
@@ -504,7 +509,7 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
         );
         assert!(
             resolve_asset_root()
-                .map(|root| root.join(model).is_file())
+                .map(|asset_root| asset_root.join(model).is_file())
                 .unwrap_or(false),
             "{}: decal sheet `{model}` is missing below assets/",
             entry.id
@@ -543,7 +548,7 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
         sheets.push(model);
         assert!(
             resolve_asset_root()
-                .map(|root| root.join(model).is_file())
+                .map(|asset_root| asset_root.join(model).is_file())
                 .unwrap_or(false),
             "{}: fixture sheet `{model}` is missing below assets/",
             entry.id
@@ -587,11 +592,11 @@ fn level_material_references_cover_floor_regions_too() {
                     ("region floor material", region.material.as_deref()),
                     ("region edge material", region.edge_material.as_deref()),
                 ] {
-                    if let Some(material) = material {
+                    if let Some(material_id) = material {
                         checked += 1;
                         assert!(
-                            catalog.contains(material),
-                            "{}: {what} `{material}` is not in the asset catalog",
+                            catalog.contains(material_id),
+                            "{}: {what} `{material_id}` is not in the asset catalog",
                             path.display()
                         );
                     }
@@ -633,31 +638,43 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
         ShippedTextureKind::DecalSheet,
         ShippedTextureKind::Sky,
     ] {
-        let error = kind
+        let empty_error = kind
             .check_dimensions(0, 128)
             .expect_err("a zero-sized sheet must be rejected");
-        assert!(error.contains("non-zero"), "unexpected error: {error}");
+        assert!(
+            empty_error.contains("non-zero"),
+            "unexpected error: {empty_error}"
+        );
     }
 
     // A sky sheet is exactly 2:1 with power-of-two edges.
     ShippedTextureKind::Sky
         .check_dimensions(1024, 512)
         .expect("the shipped 1024x512 sky sheet is the class contract");
-    let error = ShippedTextureKind::Sky
+    let aspect_error = ShippedTextureKind::Sky
         .check_dimensions(1024, 1024)
         .expect_err("a square sky sheet must be rejected");
-    assert!(error.contains("2:1"), "unexpected error: {error}");
-    let error = ShippedTextureKind::Sky
+    assert!(
+        aspect_error.contains("2:1"),
+        "unexpected error: {aspect_error}"
+    );
+    let resolution_error = ShippedTextureKind::Sky
         .check_dimensions(768, 384)
         .expect_err("an NPOT sky sheet must be rejected");
-    assert!(error.contains("power-of-two"), "unexpected error: {error}");
+    assert!(
+        resolution_error.contains("power-of-two"),
+        "unexpected error: {resolution_error}"
+    );
 
     // A surface sheet must be square: the renderer samples it as a square
     // tile_metres cell, so a 2:1 sheet would stretch.
-    let error = ShippedTextureKind::Surface
+    let surface_error = ShippedTextureKind::Surface
         .check_dimensions(256, 128)
         .expect_err("a non-square surface must be rejected");
-    assert!(error.contains("square"), "unexpected error: {error}");
+    assert!(
+        surface_error.contains("square"),
+        "unexpected error: {surface_error}"
+    );
 
     // Surfaces are not power-of-two constrained: a square NPOT sheet loads and
     // satisfies the surface contract.
@@ -670,10 +687,13 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
         ShippedTextureKind::FixtureFace,
         ShippedTextureKind::DecalSheet,
     ] {
-        let error = kind
+        let small_error = kind
             .check_dimensions(96, 96)
             .expect_err("a non-power-of-two fitted sheet must be rejected");
-        assert!(error.contains("power-of-two"), "unexpected error: {error}");
+        assert!(
+            small_error.contains("power-of-two"),
+            "unexpected error: {small_error}"
+        );
         // The shipped fixture faces and decal sheets satisfy the contract.
         kind.check_dimensions(256, 128)
             .expect("the office panel face is a valid fixture sheet");
@@ -882,16 +902,19 @@ fn emissive_materials_parse_and_are_exposed_only_through_material_accessors() {
 
     // An authored colour may stand alone: intensity and mask stay unauthored.
     let bare = emissive_catalog_json(r#", "emissive": [1.0, 0.0, 0.0]"#);
-    let catalog = AssetCatalog::from_json_str(&bare).expect("bare emissive catalog parses");
-    assert_eq!(catalog.material_emissive("core:mat"), Some([1.0, 0.0, 0.0]));
-    assert_eq!(catalog.material_emissive_intensity("core:mat"), None);
-    assert_eq!(catalog.material_emissive_mask("core:mat"), None);
+    let bare_catalog = AssetCatalog::from_json_str(&bare).expect("bare emissive catalog parses");
+    assert_eq!(
+        bare_catalog.material_emissive("core:mat"),
+        Some([1.0, 0.0, 0.0])
+    );
+    assert_eq!(bare_catalog.material_emissive_intensity("core:mat"), None);
+    assert_eq!(bare_catalog.material_emissive_mask("core:mat"), None);
 
     // Emission can never be read off a non-material, authored or not.
     for id in ["core:tex_albedo", "core:tex_mask", "core:absent"] {
-        assert_eq!(catalog.material_emissive(id), None, "{id}");
-        assert_eq!(catalog.material_emissive_intensity(id), None, "{id}");
-        assert_eq!(catalog.material_emissive_mask(id), None, "{id}");
+        assert_eq!(bare_catalog.material_emissive(id), None, "{id}");
+        assert_eq!(bare_catalog.material_emissive_intensity(id), None, "{id}");
+        assert_eq!(bare_catalog.material_emissive_mask(id), None, "{id}");
     }
 }
 
@@ -945,10 +968,12 @@ fn catalog_rejects_non_finite_emission_values() {
     let error = file.assets[2].convert().expect_err("NaN intensity");
     assert!(error.contains("emissive_intensity"), "error: {error}");
 
-    let mut file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
-    file.assets[2].emissive = Some(vec![f32::INFINITY, 0.0, 0.0]);
-    let error = file.assets[2].convert().expect_err("infinite channel");
-    assert!(error.contains("emissive"), "error: {error}");
+    let mut channel_file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
+    channel_file.assets[2].emissive = Some(vec![f32::INFINITY, 0.0, 0.0]);
+    let channel_error = channel_file.assets[2]
+        .convert()
+        .expect_err("infinite channel");
+    assert!(channel_error.contains("emissive"), "error: {channel_error}");
 }
 
 #[test]
@@ -973,10 +998,11 @@ fn catalog_rejects_emission_outside_material_definitions() {
               "emissive": [1.0, 1.0, 1.0] }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(generated).expect_err("emission on a generated asset");
+    let generated_error =
+        AssetCatalog::from_json_str(generated).expect_err("emission on a generated asset");
     assert!(
-        error.contains("only a `material` `definition`"),
-        "error: {error}"
+        generated_error.contains("only a `material` `definition`"),
+        "error: {generated_error}"
     );
 }
 
@@ -991,8 +1017,8 @@ fn catalog_rejects_emissive_masks_that_are_not_loadable_textures() {
     // A mask must name a texture, not another material.
     let wrong_type =
         emissive_catalog_json(r#", "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:mat""#);
-    let error = AssetCatalog::from_json_str(&wrong_type).expect_err("non-texture mask");
-    assert!(error.contains("not a texture"), "error: {error}");
+    let type_error = AssetCatalog::from_json_str(&wrong_type).expect_err("non-texture mask");
+    assert!(type_error.contains("not a texture"), "error: {type_error}");
 }
 
 #[test]

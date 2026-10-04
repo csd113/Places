@@ -1,7 +1,7 @@
 //! PNG decoding, encoding and the session texture cache.
 //!
 //! Everything here is about bytes: turning a PNG on disk into an 8-bit RGBA
-//! buffer, drawing the one diagnostic pattern every resolution failure shares,
+//! buffer, loading the diagnostic sheet every resolution failure shares,
 //! and sharing decoded content within a level and bounded session retention.
 
 use std::collections::{HashMap, HashSet};
@@ -20,21 +20,8 @@ use crate::assets::MAX_TEXTURE_DIMENSION;
 /// main thread is presenting the preparation screen at the same time.
 pub const MAX_LEVEL_DECODE_WORKERS: usize = 4;
 
-/// Edge length of the generated missing-texture pattern, in texels.
-const MISSING_TEXTURE_SIZE: u32 = 64;
-
 /// Bytes per RGBA texel.
 const RGBA_CHANNELS: usize = 4;
-
-/// Bytes in one row of the generated missing-texture pattern.
-const MISSING_TEXTURE_ROW_BYTES: usize = (MISSING_TEXTURE_SIZE as usize) * RGBA_CHANNELS;
-
-/// Bytes of the generated missing-texture pattern (`MISSING_TEXTURE_SIZE`
-/// squared, RGBA8).
-const MISSING_TEXTURE_BYTES: usize = {
-    let size = MISSING_TEXTURE_SIZE as usize;
-    size * size * RGBA_CHANNELS
-};
 
 /// Expected byte length of an RGBA8 buffer of these dimensions.
 ///
@@ -279,32 +266,7 @@ pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String
 /// in a capture instead of hidden behind a plausible-looking substitute.
 #[must_use]
 pub fn missing_texture() -> RawImage {
-    let size = MISSING_TEXTURE_SIZE;
-    let mut rgba = vec![0u8; MISSING_TEXTURE_BYTES];
-    for (row_index, row) in rgba
-        .as_chunks_mut::<MISSING_TEXTURE_ROW_BYTES>()
-        .0
-        .iter_mut()
-        .enumerate()
-    {
-        for (column_index, texel) in row
-            .as_chunks_mut::<RGBA_CHANNELS>()
-            .0
-            .iter_mut()
-            .enumerate()
-        {
-            // Two 8-texel checker cells; a cell is magenta when its row and
-            // column parities agree, matching the old `(x / 8 + y / 8) % 2`.
-            let checker = (column_index / 8) % 2 == (row_index / 8) % 2;
-            let colour: [u8; 4] = if checker {
-                [255, 0, 255, 255]
-            } else {
-                [24, 24, 24, 255]
-            };
-            texel.copy_from_slice(&colour);
-        }
-    }
-    RawImage::new(size, size, rgba)
+    super::BuiltinImage::MissingTexture.decode()
 }
 
 /// Session cache of decoded images, keyed by encoded content and source identity.
@@ -350,7 +312,7 @@ impl TextureCache {
             if self.images.len() <= max_entries && bytes <= max_bytes {
                 break;
             }
-            self.images.remove(&key);
+            drop(self.images.remove(&key));
             bytes = bytes.saturating_sub(size);
         }
         self.revisions
@@ -359,10 +321,10 @@ impl TextureCache {
 
     /// Inserts a freshly decoded image, returning the shared handle.
     pub fn insert(&mut self, key: impl Into<String>, image: RawImage) -> Arc<RawImage> {
-        let image = Arc::new(image);
-        self.images.insert(key.into(), Arc::clone(&image));
+        let shared_image = Arc::new(image);
+        drop(self.images.insert(key.into(), Arc::clone(&shared_image)));
         self.decodes = self.decodes.saturating_add(1);
-        image
+        shared_image
     }
 
     /// The cached image for a key, if it was decoded before.
@@ -411,14 +373,14 @@ impl TextureCache {
             .is_some_and(|previous| previous != &key)
             && let Some(previous) = self.revisions.remove(logical)
         {
-            self.images.remove(&previous);
+            drop(self.images.remove(&previous));
         }
         if let Some(image) = self.images.get(&key) {
             return Ok((Arc::clone(image), key));
         }
         let decoded = decode_png(bytes)?;
         let image = self.insert(key.clone(), decoded);
-        self.revisions.insert(logical.to_string(), key.clone());
+        drop(self.revisions.insert(logical.to_string(), key.clone()));
         Ok((image, key))
     }
 
@@ -505,13 +467,13 @@ impl TextureCache {
             .is_some_and(|previous| previous != &key)
             && let Some(previous) = self.revisions.remove(logical)
         {
-            self.images.remove(&previous);
+            drop(self.images.remove(&previous));
         }
         if self.images.contains_key(&key) {
             return;
         }
-        self.insert(key.clone(), image);
-        self.revisions.insert(logical.to_string(), key);
+        drop(self.insert(key.clone(), image));
+        drop(self.revisions.insert(logical.to_string(), key));
     }
 
     /// Number of successful decodes this session (tests and diagnostics).
@@ -672,7 +634,7 @@ mod content_revision_tests {
             assert_eq!(image.rgba, [7, 8, 9, 255]);
             Ok(())
         })();
-        let _ = std::fs::remove_dir_all(root);
+        crate::test_support::remove_dir_if_present(root);
         run
     }
 }

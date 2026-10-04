@@ -221,7 +221,7 @@ pub fn parse_proc_stat(stat_str: &str) -> Option<CpuSample> {
     for line in stat_str.lines() {
         if line.starts_with("cpu ") {
             let mut parts = line.split_whitespace();
-            parts.next(); // Skip "cpu" label
+            let _cpu_label = parts.next(); // Skip "cpu" label
             let mut total = 0u64;
             let mut idle = 0u64;
             for (i, val) in parts.enumerate() {
@@ -251,7 +251,11 @@ pub fn calculate_cpu_percentage(prev: &CpuSample, curr: &CpuSample) -> Option<f3
         // Only the ratio of the two 500 ms tick deltas matters, and the result
         // is a diagnostic percentage clamped to `0..=100`; `f32`'s 24-bit
         // mantissa is ample and `as` rounds rather than truncating.
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Only the ratio of the two 500 ms tick deltas matters, and the result is a diagnostic percentage clamped to `0..=100`; `f32`'s 24-bit mantissa is ample and `as` rounds rather than truncating."
+        )]
         let pct = (delta_busy as f32 / delta_total as f32) * 100.0;
         Some(pct.clamp(0.0, 100.0))
     } else {
@@ -315,7 +319,9 @@ fn sample_macos_cpu() -> Option<CpuSample> {
         cpu_ticks: [u32; 4],
     }
     unsafe extern "C" {
+        static mach_task_self_: u32;
         fn mach_host_self() -> u32;
+        fn mach_port_deallocate(task: u32, name: u32) -> i32;
         fn host_statistics64(
             host_priv: u32,
             flavor: i32,
@@ -325,29 +331,40 @@ fn sample_macos_cpu() -> Option<CpuSample> {
     }
     const HOST_CPU_LOAD_INFO: i32 = 3;
 
-    unsafe {
-        let mut info = HostCpuLoadInfo { cpu_ticks: [0; 4] };
-        let mut count = u32::try_from(
-            std::mem::size_of::<HostCpuLoadInfo>()
-                .checked_div(std::mem::size_of::<i32>())
-                .unwrap_or(0),
-        )
-        .unwrap_or(u32::MAX);
-        let host = mach_host_self();
-        if host_statistics64(host, HOST_CPU_LOAD_INFO, &raw mut info, &raw mut count) == 0 {
-            let user = u64::from(info.cpu_ticks[0]);
-            let system = u64::from(info.cpu_ticks[1]);
-            let idle = u64::from(info.cpu_ticks[2]);
-            let nice = u64::from(info.cpu_ticks[3]);
-            let total = user
-                .saturating_add(system)
-                .saturating_add(idle)
-                .saturating_add(nice);
-            Some(CpuSample { total, idle })
-        } else {
-            None
-        }
+    let mut info = HostCpuLoadInfo { cpu_ticks: [0; 4] };
+    // HOST_CPU_LOAD_INFO is four natural_t (u32) tick counters.
+    let mut count = 4_u32;
+    // SAFETY: mach_host_self takes no arguments and returns this task's host
+    // port; it does not borrow Rust memory.
+    let host = unsafe { mach_host_self() };
+    // SAFETY: the repr(C) output has space for the four u32 counters indicated
+    // by count. Both output pointers remain valid and exclusively borrowed for
+    // the synchronous call, and the flavor selects this exact output layout.
+    let status =
+        unsafe { host_statistics64(host, HOST_CPU_LOAD_INFO, &raw mut info, &raw mut count) };
+    // SAFETY: libSystem initializes the current task port before Rust starts.
+    // The library owns this stable value; it is borrowed, never deallocated.
+    let task = unsafe { mach_task_self_ };
+    // SAFETY: mach_host_self returned one owned send-right reference in this
+    // task. The statistics call has finished borrowing it, so release exactly
+    // that reference on both the successful and failed sampling paths.
+    let release_status = unsafe { mach_port_deallocate(task, host) };
+    if release_status != 0_i32 {
+        crate::logging::warn_once(
+            "cpu-host-port-release",
+            format!("[perf] could not release CPU sampler host port: Mach status {release_status}"),
+        );
     }
+    if status != 0_i32 || count != 4 {
+        return None;
+    }
+    let [user_ticks, system_ticks, idle_ticks, nice_ticks] = info.cpu_ticks;
+    let idle = u64::from(idle_ticks);
+    let total = u64::from(user_ticks)
+        .saturating_add(u64::from(system_ticks))
+        .saturating_add(idle)
+        .saturating_add(u64::from(nice_ticks));
+    Some(CpuSample { total, idle })
 }
 
 /// Parses devfreq load content from /sys/class/devfreq/*/load.
@@ -365,6 +382,7 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
     // Format: "45@500000000"
     if let Some((load_part, _)) = trimmed.split_once('@')
         && let Ok(pct) = load_part.trim().trim_end_matches('%').parse::<f32>()
+        && pct.is_finite()
     {
         return Some(pct.clamp(0.0, 100.0));
     }
@@ -376,17 +394,25 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
         .collect();
     if let [busy_text, total_text, ..] = parts.as_slice()
         && let (Ok(busy), Ok(total)) = (busy_text.parse::<f64>(), total_text.parse::<f64>())
-        && total > 0.0
+        && busy.is_finite()
+        && total.is_finite()
+        && total > 0.0_f64
     {
-        // The percentage is clamped to `0..=100` below, well inside `f32`'s
-        // range; only the diagnostic precision narrows, never the value.
-        #[allow(clippy::cast_possible_truncation)]
-        let pct = (busy / total * 100.0) as f32;
-        return Some(pct.clamp(0.0, 100.0));
+        // Clamp before narrowing so even an overflowing finite ratio produces
+        // a bounded diagnostic percentage.
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "Finite inputs produce a ratio clamped to 0..=1 before scaling; the stored percentage is finite in 0..=100"
+        )]
+        let pct = ((busy / total).clamp(0.0, 1.0) * 100.0_f64) as f32;
+        return Some(pct);
     }
 
     // Format: "45" or "45%" or "45.0"
-    if let Ok(pct) = trimmed.trim_end_matches('%').trim().parse::<f32>() {
+    if let Ok(pct) = trimmed.trim_end_matches('%').trim().parse::<f32>()
+        && pct.is_finite()
+    {
         return Some(pct.clamp(0.0, 100.0));
     }
 
@@ -402,10 +428,13 @@ pub fn parse_debugfs_utilization(content: &str) -> Option<f32> {
         if let Some((k, v)) = trimmed.split_once('=')
             && k.trim().eq_ignore_ascii_case("utilization")
             && let Ok(num) = v.trim().trim_end_matches('%').parse::<f32>()
+            && num.is_finite()
         {
             return Some(num.clamp(0.0, 100.0));
         }
-        if let Ok(num) = trimmed.trim_end_matches('%').parse::<f32>() {
+        if let Ok(num) = trimmed.trim_end_matches('%').parse::<f32>()
+            && num.is_finite()
+        {
             return Some(num.clamp(0.0, 100.0));
         }
     }
@@ -420,6 +449,7 @@ pub fn parse_drm_busy_percent(content: &str) -> Option<f32> {
         .trim_end_matches('%')
         .parse::<f32>()
         .ok()
+        .filter(|value| value.is_finite())
         .map(|p| p.clamp(0.0, 100.0))
 }
 
@@ -490,10 +520,12 @@ fn frames_per_second(frames: u32, seconds: f32) -> u32 {
     // refresh, so the widening cast is exact on any display (a few hundred
     // frames at most) and the narrowing `as` saturates exactly like the
     // historical cast did.
-    #[allow(
+    #[expect(
+        clippy::as_conversions,
         clippy::cast_precision_loss,
         clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
+        clippy::cast_sign_loss,
+        reason = "`frames` counts the `update` calls since the last half-second metrics refresh, so the widening cast is exact on any display (a few hundred frames at most) and the narrowing `as` saturates exactly like the historical cast did."
     )]
     let fps = (frames as f32 / seconds).round() as u32;
     fps

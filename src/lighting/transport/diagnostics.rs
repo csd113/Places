@@ -59,7 +59,7 @@ pub fn dump_scene(scene: &TransportScene, owners: &[CasterRange]) -> Result<(), 
     let Some(directory) = std::env::var_os(DUMP_ENV) else {
         return Ok(());
     };
-    let directory = Path::new(&directory);
+    let dump_path = Path::new(&directory);
     let rays = requested_rays()?;
     let hits = rays
         .iter()
@@ -80,12 +80,13 @@ pub fn dump_scene(scene: &TransportScene, owners: &[CasterRange]) -> Result<(), 
                         .find(|range| range.first <= index && index < range.end)
                         .map(|range| range.owner.as_str())
                 }),
-                corners: triangle.map(|triangle| [triangle.p0, triangle.p1, triangle.p2]),
-                geometric_normal: triangle.map(|triangle| triangle.normal),
+                corners: triangle
+                    .map(|hit_triangle| [hit_triangle.p0, hit_triangle.p1, hit_triangle.p2]),
+                geometric_normal: triangle.map(|hit_triangle| hit_triangle.normal),
             }
         })
         .collect::<Vec<_>>();
-    write_json(directory, "caster-ranges.json", &owners)?;
+    write_json(dump_path, "caster-ranges.json", &owners)?;
     let emitters = scene
         .emitters
         .iter()
@@ -100,8 +101,8 @@ pub fn dump_scene(scene: &TransportScene, owners: &[CasterRange]) -> Result<(), 
             )
         })
         .collect::<Vec<_>>();
-    write_json(directory, "emitters.json", &emitters)?;
-    write_json(directory, "caster-rays.json", &hits)
+    write_json(dump_path, "emitters.json", &emitters)?;
+    write_json(dump_path, "caster-rays.json", &hits)
 }
 
 pub(super) fn dump_components(
@@ -119,7 +120,7 @@ pub(super) fn dump_components(
         receivers,
         receivers.iter().map(|receiver| {
             let mut value = super::Accumulator::default();
-            scene.accumulate_global(
+            let _accumulate_global_status = scene.accumulate_global(
                 &mut value,
                 receiver.ray_origin,
                 Some(receiver.normal),
@@ -155,15 +156,15 @@ pub(super) fn dump_components(
         }),
     )?;
     if let Ok(index) = std::env::var("PLACES_LIGHTING_LOCAL") {
-        let index = index
+        let light_index = index
             .parse::<usize>()
             .map_err(|error| format!("local-light index: {error}"))?;
         let emitter = scene
             .emitters
-            .get(index)
+            .get(light_index)
             .ok_or_else(|| "local-light index outside scene".to_string())?;
         dump_stage(
-            &format!("local-{index}"),
+            &format!("local-{light_index}"),
             charts,
             receivers,
             receivers.iter().map(|receiver| {
@@ -265,7 +266,7 @@ pub(super) fn dump_stage(
     let Some(directory) = std::env::var_os(DUMP_ENV) else {
         return Ok(());
     };
-    let directory = Path::new(&directory);
+    let dump_path = Path::new(&directory);
     if charts.iter().any(|(_, chart)| {
         chart.width == 0
             || chart.height == 0
@@ -286,15 +287,15 @@ pub(super) fn dump_stage(
         .enumerate()
         .map(|(index, (patch, chart))| chart_record(index, patch, chart))
         .collect::<Vec<_>>();
-    write_json(directory, "charts.json", &records)?;
-    std::fs::create_dir_all(directory)
+    write_json(dump_path, "charts.json", &records)?;
+    std::fs::create_dir_all(dump_path)
         .map_err(|error| format!("lighting dump directory: {error}"))?;
     let linear = receivers
         .iter()
         .zip(values)
         .map(|(receiver, value)| value.light_at(receiver.normal))
         .collect::<Vec<_>>();
-    let path = directory.join(format!("{stage}.rgb-f32le"));
+    let path = dump_path.join(format!("{stage}.rgb-f32le"));
     let mut file = BufWriter::new(
         std::fs::File::create(&path).map_err(|error| format!("lighting dump: {error}"))?,
     );
@@ -349,7 +350,7 @@ pub(super) fn dump_stage(
         }
         write_page_png(
             &page,
-            &directory.join(format!("{stage}-page{page_index}.png")),
+            &dump_path.join(format!("{stage}-page{page_index}.png")),
         )?;
     }
     Ok(())

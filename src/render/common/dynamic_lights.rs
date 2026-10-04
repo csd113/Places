@@ -152,7 +152,7 @@ impl DynamicLightSet {
         let Some(index) = self.lights.iter().position(|light| light.key == key) else {
             return false;
         };
-        self.lights.remove(index);
+        drop(self.lights.remove(index));
         true
     }
 
@@ -171,7 +171,8 @@ mod tests {
         clippy::expect_used,
         clippy::float_cmp,
         clippy::indexing_slicing,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -222,12 +223,12 @@ mod tests {
         assert_eq!(set.get("b").expect("live").intensity, 2.0);
         assert!(set.remove("b"));
         assert!(!set.remove("b"));
-        let keys: Vec<&str> = set
+        let remaining_keys: Vec<&str> = set
             .lights()
             .iter()
             .map(|light| light.key.as_str())
             .collect();
-        assert_eq!(keys, vec!["a", "c"]);
+        assert_eq!(remaining_keys, vec!["a", "c"]);
         set.clear();
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);

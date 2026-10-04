@@ -134,11 +134,11 @@ impl LightColor {
         if !t.is_finite() {
             return self;
         }
-        let t = t.clamp(0.0, 1.0);
+        let fraction = t.clamp(0.0, 1.0);
         Self {
-            r: (other.r - self.r).mul_add(t, self.r),
-            g: (other.g - self.g).mul_add(t, self.g),
-            b: (other.b - self.b).mul_add(t, self.b),
+            r: (other.r - self.r).mul_add(fraction, self.r),
+            g: (other.g - self.g).mul_add(fraction, self.g),
+            b: (other.b - self.b).mul_add(fraction, self.b),
         }
     }
 

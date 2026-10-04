@@ -67,14 +67,17 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             {
                 return Err("Invalid lightmap quality".to_string());
             }
-            Action::Load { .. }
+            Action::Load { level: _ }
             | Action::Escape {}
-            | Action::Resize { .. }
+            | Action::Resize {
+                width: _,
+                height: _,
+            }
             | Action::Quit {}
-            | Action::Quality { .. }
-            | Action::Lightmaps { .. }
-            | Action::LowLighting { .. }
-            | Action::Focus { .. } => {}
+            | Action::Quality { level: _ }
+            | Action::Lightmaps { quality: _ }
+            | Action::LowLighting { enabled: _ }
+            | Action::Focus { focused: _ } => {}
         }
     }
     Ok(steps)
@@ -110,7 +113,8 @@ impl Actions {
         }
         let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
         let mut bytes = Vec::new();
-        file.take(MAX_SCRIPT_BYTES + 1)
+        let _take_status = file
+            .take(MAX_SCRIPT_BYTES + 1)
             .read_to_end(&mut bytes)
             .map_err(|error| error.to_string())?;
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_SCRIPT_BYTES {
@@ -161,7 +165,9 @@ impl Actions {
                             wait = wait.min(deadline.saturating_duration_since(now));
                             continue;
                         }
-                        let _ = slot.enqueued.set(now);
+                        slot.enqueued.set(now).map_err(|existing| {
+                            format!("Action {id} was already enqueued at {existing:?}")
+                        })?;
                         sender
                             .push_event(Event::User {
                                 timestamp: 0,
@@ -178,7 +184,7 @@ impl Actions {
                     }
                     match notifications.recv_timeout(wait) {
                         Ok((key, time)) => {
-                            times.entry(key).or_insert(time);
+                            let _configured_entry = times.entry(key).or_insert(time);
                         }
                         Err(mpsc::RecvTimeoutError::Timeout) => {}
                         Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
@@ -213,7 +219,15 @@ impl Actions {
 
     /// Call from `handle_event`, before ordinary gameplay/menu event handling.
     pub fn receive(&self, event: &Event) -> Option<Received> {
-        let Event::User { type_, code, .. } = event else {
+        let Event::User {
+            type_,
+            code,
+            timestamp: _,
+            window_id: _,
+            data1: _,
+            data2: _,
+        } = event
+        else {
             return None;
         };
         if *type_ != self.event_type {
@@ -250,9 +264,12 @@ impl Actions {
             return Ok(false);
         }
         if let Some(handle) = self.handle.take() {
-            handle
-                .join()
-                .map_err(|_| "Native action injector panicked".to_string())??;
+            handle.join().map_err(|payload| {
+                format!(
+                    "Native action injector panicked: {}",
+                    crate::logging::panic_message(payload.as_ref())
+                )
+            })??;
         }
         Ok(true)
     }
@@ -260,7 +277,9 @@ impl Actions {
 impl Drop for Actions {
     fn drop(&mut self) {
         self.shutdown();
-        let _ = self.join_finished();
+        if let Err(error) = self.join_finished() {
+            crate::logging::warn(format!("[actions] shutdown: {error}"));
+        }
     }
 }
 

@@ -22,18 +22,16 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::level::LevelDef;
 use crate::loader::PropCatalog;
@@ -148,7 +146,7 @@ fn coincident_overlaps(
     plane_tolerance: f32,
     area_tolerance: f32,
 ) -> Vec<Overlap> {
-    let mut buckets: HashMap<(i32, i32, i32, i32), Vec<usize>> = HashMap::new();
+    let mut buckets: BTreeMap<(i32, i32, i32, i32), Vec<usize>> = BTreeMap::new();
     for (index, triangle) in all.iter().enumerate() {
         buckets.entry(plane_key(triangle)).or_default().push(index);
     }
@@ -206,6 +204,11 @@ fn canonical_plane(triangle: &Triangle) -> ([f32; 3], f32) {
 /// The quantisation is far finer than any plane the builder emits (1/256 m)
 /// and only groups candidate pairs; the exact tolerance check happens on the
 /// canonical offsets afterwards.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "Native rounding deliberately quantizes canonical plane coordinates to signed buckets; saturation only groups candidates, and the separate exact overlap checks decide equivalence."
+)]
 fn plane_key(triangle: &Triangle) -> (i32, i32, i32, i32) {
     let ([nx, ny, nz], offset) = canonical_plane(triangle);
     let quantise = |value: f32| (value * 256.0).round() as i32;
@@ -464,7 +467,7 @@ fn adjacent_rooms_with_different_floor_materials_do_not_overlap() {
         .index_of("core:carpet_beige_01");
     let damp = MaterialTable::logical(&level, PropCatalog::load_default().assets(), None)
         .index_of("core:carpet_damp_01");
-    let (Some(beige), Some(damp)) = (beige, damp) else {
+    let (Some(beige_material), Some(damp_material)) = (beige, damp) else {
         panic!("the demo's floor materials must resolve");
     };
     for triangle in &all {
@@ -479,10 +482,10 @@ fn adjacent_rooms_with_different_floor_materials_do_not_overlap() {
                 .max(triangle.points[1][0])
                 .max(triangle.points[2][0]),
         );
-        if triangle.material == beige {
+        if triangle.material == beige_material {
             assert!(mid_x < 4.0 + 1e-3, "beige floor leaked past the divider");
         }
-        if triangle.material == damp {
+        if triangle.material == damp_material {
             assert!(mid_x > 4.0 - 1e-3, "damp floor leaked past the divider");
         }
     }
@@ -565,13 +568,13 @@ impl DoorwayCase {
 
     fn level(&self) -> LevelDef {
         let room = |x: f32, z: f32, (width, depth): (f32, f32), floor_y: f32, material: &str| {
-            let material = if material.is_empty() {
+            let material_field = if material.is_empty() {
                 String::new()
             } else {
                 format!(r#", "material": "{material}""#)
             };
             format!(
-                r#"{{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth}, "height": 3.0, "floor_y": {floor_y}{material} }}"#
+                r#"{{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth}, "height": 3.0, "floor_y": {floor_y}{material_field} }}"#
             )
         };
         let (room_a, room_b) = if self.along_z {

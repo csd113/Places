@@ -123,7 +123,10 @@ impl CeilingProfileDef {
     pub const fn ridge_axis(self) -> Option<WallAxis> {
         match self {
             Self::Flat | Self::Open => None,
-            Self::Gable { ridge, .. } => Some(ridge),
+            Self::Gable {
+                ridge,
+                ridge_rise: _,
+            } => Some(ridge),
         }
     }
 
@@ -132,7 +135,10 @@ impl CeilingProfileDef {
     pub fn ridge_rise_m(self) -> f32 {
         match self {
             Self::Flat | Self::Open => 0.0,
-            Self::Gable { ridge_rise, .. } => {
+            Self::Gable {
+                ridge_rise,
+                ridge: _,
+            } => {
                 if ridge_rise.is_finite() && ridge_rise > 0.0 {
                     ridge_rise
                 } else {
@@ -158,13 +164,13 @@ pub fn ceiling_y_for_volume(
     x: f32,
     z: f32,
 ) -> f32 {
-    let floor_y = if floor_y.is_finite() { floor_y } else { 0.0 };
-    let height = if height.is_finite() && height > 0.0 {
+    let finite_floor = if floor_y.is_finite() { floor_y } else { 0.0 };
+    let finite_height = if height.is_finite() && height > 0.0 {
         height
     } else {
         DEFAULT_CEILING_HEIGHT_M
     };
-    let eave = floor_y + height;
+    let eave = finite_floor + finite_height;
     let CeilingProfileDef::Gable { ridge, ridge_rise } = profile else {
         return eave;
     };
@@ -907,28 +913,61 @@ impl ActionDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::Open { .. } => "open",
-            Self::Close { .. } => "close",
-            Self::Toggle { .. } => "toggle",
-            Self::Enable { .. } => "enable",
-            Self::Disable { .. } => "disable",
-            Self::SetLight { .. } => "set_light",
-            Self::Lock { .. } => "lock",
-            Self::Unlock { .. } => "unlock",
-            Self::PlayAnimation { .. } => "play_animation",
-            Self::ToggleAnimation { .. } => "toggle_animation",
-            Self::PlaySound { .. } => "play_sound",
-            Self::StopSound { .. } => "stop_sound",
-            Self::ChangeMaterial { .. } => "change_material",
-            Self::MoveObject { .. } => "move_object",
-            Self::SetState { .. } => "set_state",
-            Self::ToggleLabel { .. } => "toggle_label",
-            Self::StartSequence { .. } => "start_sequence",
-            Self::StopSequence { .. } => "stop_sequence",
-            Self::StartTimer { .. } => "start_timer",
-            Self::StopTimer { .. } => "stop_timer",
-            Self::SpawnEntity { .. } => "spawn_entity",
-            Self::DespawnEntity { .. } => "despawn_entity",
+            Self::Open { target: _ } => "open",
+            Self::Close { target: _ } => "close",
+            Self::Toggle { target: _ } => "toggle",
+            Self::Enable { target: _ } => "enable",
+            Self::Disable { target: _ } => "disable",
+            Self::SetLight { target: _, on: _ } => "set_light",
+            Self::Lock { target: _ } => "lock",
+            Self::Unlock { target: _ } => "unlock",
+            Self::PlayAnimation {
+                target: _,
+                clip: _,
+                looped: _,
+            } => "play_animation",
+            Self::ToggleAnimation { target: _, clip: _ } => "toggle_animation",
+            Self::PlaySound {
+                target: _,
+                sound: _,
+                looped: _,
+            } => "play_sound",
+            Self::StopSound { target: _ } => "stop_sound",
+            Self::ChangeMaterial {
+                target: _,
+                variant: _,
+            } => "change_material",
+            Self::MoveObject {
+                target: _,
+                x: _,
+                y: _,
+                z: _,
+                speed: _,
+            } => "move_object",
+            Self::SetState {
+                target: _,
+                name: _,
+                value: _,
+            } => "set_state",
+            Self::ToggleLabel { target: _ } => "toggle_label",
+            Self::StartSequence {
+                sequence: _,
+                target: _,
+            } => "start_sequence",
+            Self::StopSequence { target: _ } => "stop_sequence",
+            Self::StartTimer {
+                target: _,
+                seconds: _,
+                repeat: _,
+            } => "start_timer",
+            Self::StopTimer { target: _ } => "stop_timer",
+            Self::SpawnEntity {
+                template: _,
+                point: _,
+                group: _,
+                name: _,
+            } => "spawn_entity",
+            Self::DespawnEntity { target: _ } => "despawn_entity",
             Self::ResetToStart => "reset_to_start",
         }
     }
@@ -945,22 +984,54 @@ impl ActionDef {
             | Self::Toggle { target }
             | Self::Enable { target }
             | Self::Disable { target }
-            | Self::SetLight { target, .. }
+            | Self::SetLight { target, on: _ }
             | Self::Lock { target }
             | Self::Unlock { target }
-            | Self::PlayAnimation { target, .. }
-            | Self::ToggleAnimation { target, .. }
-            | Self::PlaySound { target, .. }
+            | Self::PlayAnimation {
+                target,
+                clip: _,
+                looped: _,
+            }
+            | Self::ToggleAnimation { target, clip: _ }
+            | Self::PlaySound {
+                target,
+                sound: _,
+                looped: _,
+            }
             | Self::StopSound { target }
-            | Self::ChangeMaterial { target, .. }
-            | Self::MoveObject { target, .. }
-            | Self::SetState { target, .. }
+            | Self::ChangeMaterial { target, variant: _ }
+            | Self::MoveObject {
+                target,
+                x: _,
+                y: _,
+                z: _,
+                speed: _,
+            }
+            | Self::SetState {
+                target,
+                name: _,
+                value: _,
+            }
             | Self::ToggleLabel { target }
             | Self::StopSequence { target }
-            | Self::StartTimer { target, .. }
+            | Self::StartTimer {
+                target,
+                seconds: _,
+                repeat: _,
+            }
             | Self::StopTimer { target }
-            | Self::StartSequence { target, .. } => target.as_deref(),
-            Self::SpawnEntity { .. } | Self::DespawnEntity { .. } | Self::ResetToStart => None,
+            | Self::StartSequence {
+                target,
+                sequence: _,
+            } => target.as_deref(),
+            Self::SpawnEntity {
+                template: _,
+                point: _,
+                group: _,
+                name: _,
+            }
+            | Self::DespawnEntity { target: _ }
+            | Self::ResetToStart => None,
         }
     }
 }
@@ -1028,7 +1099,11 @@ impl ConditionDef {
     #[must_use]
     pub fn target(&self) -> &str {
         match self {
-            Self::State { target, .. }
+            Self::State {
+                target,
+                name: _,
+                equals: _,
+            }
             | Self::Enabled { target }
             | Self::Disabled { target }
             | Self::Locked { target }
@@ -1044,15 +1119,19 @@ impl ConditionDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::State { .. } => "state",
-            Self::Enabled { .. } => "enabled",
-            Self::Disabled { .. } => "disabled",
-            Self::Locked { .. } => "locked",
-            Self::Unlocked { .. } => "unlocked",
-            Self::DoorOpen { .. } => "door_open",
-            Self::DoorClosed { .. } => "door_closed",
-            Self::SequenceRunning { .. } => "sequence_running",
-            Self::SequenceIdle { .. } => "sequence_idle",
+            Self::State {
+                target: _,
+                name: _,
+                equals: _,
+            } => "state",
+            Self::Enabled { target: _ } => "enabled",
+            Self::Disabled { target: _ } => "disabled",
+            Self::Locked { target: _ } => "locked",
+            Self::Unlocked { target: _ } => "unlocked",
+            Self::DoorOpen { target: _ } => "door_open",
+            Self::DoorClosed { target: _ } => "door_closed",
+            Self::SequenceRunning { target: _ } => "sequence_running",
+            Self::SequenceIdle { target: _ } => "sequence_idle",
         }
     }
 }
@@ -1518,8 +1597,12 @@ pub fn default_fade_phase(instance_id: &str) -> f32 {
         hash ^= u32::from(*byte);
         hash = hash.wrapping_mul(FNV_PRIME);
     }
-    #[allow(clippy::cast_precision_loss)] // the top 24 bits are exact in f32
-    let numerator = (hash >> 8) as f32;
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "the top 24 bits are exact in f32"
+    )] // the top 24 bits are exact in f32
+    let numerator = (hash >> 8_i32) as f32;
     numerator / DENOMINATOR
 }
 
@@ -1619,17 +1702,49 @@ impl ComponentDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::Interactable { .. } => "interactable",
-            Self::Animation { .. } => "animation",
-            Self::Audio { .. } => "audio",
-            Self::Light { .. } => "light",
-            Self::Material { .. } => "material",
-            Self::State { .. } => "state",
-            Self::Lifetime { .. } => "lifetime",
-            Self::Steam { .. } => "steam",
-            Self::Water { .. } => "water",
-            Self::NavAgent { .. } => "nav_agent",
-            Self::NavObstacle { .. } => "nav_obstacle",
+            Self::Interactable {
+                prompt: _,
+                reach: _,
+                enabled: _,
+                label: _,
+            } => "interactable",
+            Self::Animation {
+                clip: _,
+                speed: _,
+                looped: _,
+                playing: _,
+            } => "animation",
+            Self::Audio {
+                sound: _,
+                gain: _,
+                looped: _,
+                enabled: _,
+                playing: _,
+            } => "audio",
+            Self::Light {
+                enabled: _,
+                switchable: _,
+                emission_scale: _,
+            } => "light",
+            Self::Material {
+                variants: _,
+                current: _,
+            } => "material",
+            Self::State { name: _, value: _ } => "state",
+            Self::Lifetime { seconds: _ } => "lifetime",
+            Self::Steam { enabled: _ } => "steam",
+            Self::Water { enabled: _ } => "water",
+            Self::NavAgent {
+                radius: _,
+                speed_mps: _,
+                height: _,
+                step_height: _,
+                max_slope: _,
+            } => "nav_agent",
+            Self::NavObstacle {
+                size: _,
+                affects_nav: _,
+            } => "nav_obstacle",
             Self::Ai(_) => "ai",
             Self::Fade(_) => "fade",
             Self::Glow(_) => "glow",
@@ -1752,11 +1867,11 @@ fn rotated_half_extents_local(
     rotation_degrees: f32,
 ) -> (f32, f32) {
     let (sin, cos) = rotation_degrees.to_radians().sin_cos();
-    let sin = sin.abs();
-    let cos = cos.abs();
+    let abs_sin = sin.abs();
+    let abs_cos = cos.abs();
     (
-        half_width.mul_add(cos, half_depth * sin),
-        half_width.mul_add(sin, half_depth * cos),
+        half_width.mul_add(abs_cos, half_depth * abs_sin),
+        half_width.mul_add(abs_sin, half_depth * abs_cos),
     )
 }
 
@@ -2509,15 +2624,15 @@ impl RampSurface {
     #[must_use]
     pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
         let (x0, x1, z0, z1) = self.bounds();
-        let fraction = fraction.clamp(0.0, 1.0);
+        let clamped_fraction = fraction.clamp(0.0, 1.0);
         match self.axis() {
             WallAxis::X => (
-                fraction.mul_add(x1 - x0, x0),
+                clamped_fraction.mul_add(x1 - x0, x0),
                 if side < 0.0 { z0 - probe } else { z1 + probe },
             ),
             WallAxis::Z => (
                 if side < 0.0 { x0 - probe } else { x1 + probe },
-                fraction.mul_add(z1 - z0, z0),
+                clamped_fraction.mul_add(z1 - z0, z0),
             ),
         }
     }
@@ -2783,10 +2898,12 @@ impl StairSurface {
         if self.steps == 0 {
             return 0;
         }
-        #[allow(
+        #[expect(
+            clippy::as_conversions,
             clippy::cast_precision_loss,
             clippy::cast_possible_truncation,
-            clippy::cast_sign_loss
+            clippy::cast_sign_loss,
+            reason = "A validated staircase has bounded steps; its clamped fraction produces an integral index within u32 range."
         )]
         // The clamped value is far inside u32's range and the count is bounded.
         let index = (fraction.clamp(0.0, 1.0) * self.steps as f32).floor() as u32;
@@ -2799,7 +2916,11 @@ impl StairSurface {
         if self.steps == 0 {
             return 0.0;
         }
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+        )] // step counts are bounded by validation
         let count = self.steps as f32;
         self.rise / count
     }
@@ -2810,7 +2931,11 @@ impl StairSurface {
         if self.steps == 0 {
             return 0.0;
         }
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+        )] // step counts are bounded by validation
         let count = self.steps as f32;
         self.length() / count
     }
@@ -2823,7 +2948,11 @@ impl StairSurface {
     #[must_use]
     pub fn offset_at(&self, x: f32, z: f32) -> f32 {
         let step = self.step_index(self.fraction_at(x, z));
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+        )] // step counts are bounded by validation
         let risers = (step.saturating_add(1)) as f32;
         self.riser_height().mul_add(risers, self.offset_y)
     }
@@ -2843,7 +2972,11 @@ impl StairSurface {
         if self.steps == 0 {
             return self.offset_y;
         }
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+        )] // step counts are bounded by validation
         let count = self.steps as f32;
         let climbed = (self.fraction_at(x, z) + 1.0 / count).min(1.0);
         self.rise.mul_add(climbed, self.offset_y)
@@ -2852,7 +2985,11 @@ impl StairSurface {
     /// Vertical offset of the top tread (level with the far floor).
     #[must_use]
     pub fn top_offset(&self) -> f32 {
-        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+        )] // step counts are bounded by validation
         let count = self.steps as f32;
         self.riser_height().mul_add(count, self.offset_y)
     }
@@ -2873,9 +3010,13 @@ impl StairSurface {
             if step >= self.steps {
                 end
             } else {
-                #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
-                let step = step as f32;
-                self.tread_depth().mul_add(step, origin)
+                #[expect(
+                    clippy::as_conversions,
+                    clippy::cast_precision_loss,
+                    reason = "Validated stair counts fit f32 exactly; an unvalidated larger u32 count retains the existing rounded geometry view without changing the stored count"
+                )] // step counts are bounded by validation
+                let step_number = step as f32;
+                self.tread_depth().mul_add(step_number, origin)
             }
         };
         (boundary(index), boundary(index.saturating_add(1)))
@@ -2886,15 +3027,15 @@ impl StairSurface {
     #[must_use]
     pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
         let (x0, x1, z0, z1) = self.bounds();
-        let fraction = fraction.clamp(0.0, 1.0);
+        let clamped_fraction = fraction.clamp(0.0, 1.0);
         match self.axis() {
             WallAxis::X => (
-                fraction.mul_add(x1 - x0, x0),
+                clamped_fraction.mul_add(x1 - x0, x0),
                 if side < 0.0 { z0 - probe } else { z1 + probe },
             ),
             WallAxis::Z => (
                 if side < 0.0 { x0 - probe } else { x1 + probe },
-                fraction.mul_add(z1 - z0, z0),
+                clamped_fraction.mul_add(z1 - z0, z0),
             ),
         }
     }
@@ -4402,8 +4543,8 @@ impl ArchwayDef {
                     ArchitectureBox::from_corners([x0, bottom, z0 + start], [x1, ceiling, z0 + end])
                 }
             };
-            if let Some(piece_box) = piece_box {
-                boxes.push(piece_box);
+            if let Some(solid_piece) = piece_box {
+                boxes.push(solid_piece);
             }
         }
         boxes
@@ -5203,7 +5344,10 @@ impl DecalAlign {
 /// Takes a reference because that is serde's `skip_serializing_if` contract;
 /// the type is a one-byte enum, and the signature is not ours to choose.
 #[must_use]
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Serde requires a reference for skip_serializing_if even though the enum is small and Copy."
+)]
 const fn decal_align_is_none(align: &DecalAlign) -> bool {
     align.is_none()
 }
@@ -5848,7 +5992,7 @@ impl GlobalIlluminatorDef {
                 .iter()
                 .map(|v| f64::from(*v).powi(2))
                 .sum::<f64>()
-                > 1.0e-20;
+                > 1.0e-20_f64;
         if !crate::assets::is_valid_asset_id(&self.id)
             || !valid_direction
             || self
@@ -6013,7 +6157,10 @@ impl VoidWallFaces {
 /// Takes a reference because that is serde's `skip_serializing_if` contract;
 /// the type is a one-byte enum, and the signature is not ours to choose.
 #[must_use]
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Serde requires a reference for skip_serializing_if even though the enum is small and Copy."
+)]
 const fn void_wall_faces_is_inward(faces: &VoidWallFaces) -> bool {
     faces.is_inward()
 }
@@ -6022,7 +6169,10 @@ const fn void_wall_faces_is_inward(faces: &VoidWallFaces) -> bool {
 ///
 /// Takes a reference because that is serde's `skip_serializing_if` contract.
 #[must_use]
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Serde requires a reference for skip_serializing_if even though bool is Copy."
+)]
 const fn bool_is_true(value: &bool) -> bool {
     *value
 }
@@ -6640,7 +6790,12 @@ const fn clamped_ceil_u64(value: f32, max: f32) -> u64 {
     // The clamp bounds the value to `[0, max]` and every call site passes a
     // `max` of 1_000_000, so the cast is in range; `ceil` has already removed
     // the fraction.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The clamp bounds the value to `[0, max]` and every call site passes a `max` of 1_000_000, so the cast is in range; `ceil` has already removed the fraction."
+    )]
     let result = clamped.ceil() as u64;
     result
 }
@@ -7309,15 +7464,12 @@ impl LevelDef {
             boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             boundaries.dedup_by(|a, b| (*a - *b).abs() <= 1e-3);
             for position in boundaries {
-                let ending = slices
-                    .iter()
-                    .filter(|slice| (slice.end - position).abs() <= 1e-3)
-                    .count() as u64;
-                let starting = slices
-                    .iter()
-                    .filter(|slice| (slice.start - position).abs() <= 1e-3)
-                    .count() as u64;
-                wall_quads = wall_quads.saturating_add(ending.saturating_add(starting));
+                let caps = slices.iter().fold(0_u64, |count, slice| {
+                    let ending = u64::from((slice.end - position).abs() <= 1e-3);
+                    let starting = u64::from((slice.start - position).abs() <= 1e-3);
+                    count.saturating_add(ending).saturating_add(starting)
+                });
+                wall_quads = wall_quads.saturating_add(caps);
             }
         }
         // Architectural pieces. Ramps and staircases are walking surfaces (their
@@ -7332,8 +7484,12 @@ impl LevelDef {
         let light_quads = self.ceiling_lights.iter().fold(0u64, |total, light| {
             total.saturating_add(crate::lighting::fixture_profile(&light.fixture).quads)
         });
-        let prop_quads = (self.props.len() as u64).saturating_mul(MAX_PROP_QUADS);
-        let decal_quads = (self.decals.len() as u64).saturating_mul(MAX_DECAL_QUADS);
+        let prop_quads = u64::try_from(self.props.len())
+            .unwrap_or(u64::MAX)
+            .saturating_mul(MAX_PROP_QUADS);
+        let decal_quads = u64::try_from(self.decals.len())
+            .unwrap_or(u64::MAX)
+            .saturating_mul(MAX_DECAL_QUADS);
         let total_quads = floor_quads
             .saturating_add(ceiling_quads)
             .saturating_add(wall_quads)
@@ -7747,7 +7903,12 @@ fn split_rim_span(low: f32, high: f32) -> Vec<(f32, f32)> {
         return vec![(low, high)];
     }
     let pieces = (span / RIM_SEGMENT_M).ceil().clamp(1.0, 4096.0);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The integral rim subdivision count is clamped to 1..=4096 before conversion."
+    )]
     // `pieces` is clamped to [1, 4096] before the cast.
     let count = pieces as u32;
     // Fits u16 by the clamp above, so the conversions below are exact.
@@ -8140,7 +8301,14 @@ pub fn wall_point(wall: &WallDef, offset: f32) -> (f32, f32) {
 /// far below `f32`'s exact-integer limit of 2^24.
 #[must_use]
 pub fn axis_positions(origin: f32, extent: f32, cells: u32) -> Vec<f32> {
-    #[allow(clippy::cast_precision_loss)]
+    if cells == 0 {
+        return vec![origin];
+    }
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "Lighting axis counts are capped at MAX_LIGHT_GRID_CELLS (12), so interpolation indices are exact in f32."
+    )]
     let position = |index: u32| origin + extent * (index as f32) / (cells as f32);
     (0..=cells).map(position).collect()
 }
@@ -8484,29 +8652,33 @@ impl WalkableFloor {
         // Edge tolerance belongs to room selection. Clamp surface samples to
         // that room so a region ending at the shared edge cannot disappear
         // in the epsilon strip and briefly expose the lower base floor.
-        let x = x.clamp(room.x0, room.x1);
-        let z = z.clamp(room.z0, room.z1);
+        let room_x = x.clamp(room.x0, room.x1);
+        let room_z = z.clamp(room.z0, room.z1);
         if let Some(ramp) = room
             .ramps
             .iter()
             .rev()
-            .find(|ramp| ramp.surface.contains(x, z))
+            .find(|ramp| ramp.surface.contains(room_x, room_z))
         {
-            return Some(ramp.height_at(x, z));
+            return Some(ramp.height_at(room_x, room_z));
         }
         if let Some(stair) = room
             .stairs
             .iter()
             .rev()
-            .find(|stair| stair.surface.contains(x, z))
+            .find(|stair| stair.surface.contains(room_x, room_z))
         {
             return Some(match stair_sampling {
-                StairSampling::Stepped => stair.height_at(x, z),
-                StairSampling::PitchLine => stair.pitch_height_at(x, z),
+                StairSampling::Stepped => stair.height_at(room_x, room_z),
+                StairSampling::PitchLine => stair.pitch_height_at(room_x, room_z),
             });
         }
         for region in room.regions.iter().rev() {
-            if x >= region.x0 && x <= region.x1 && z >= region.z0 && z <= region.z1 {
+            if room_x >= region.x0
+                && room_x <= region.x1
+                && room_z >= region.z0
+                && room_z <= region.z1
+            {
                 return Some(region.y);
             }
         }
@@ -8570,7 +8742,7 @@ fn write_collision_count(
     if u64::try_from(length).unwrap_or(u64::MAX) > limit {
         return Err(format!("{what} {length} exceeds the limit {limit}"));
     }
-    writer.u32(u32::try_from(length).map_err(|_| format!("{what} is too large"))?);
+    writer.u32(u32::try_from(length).map_err(|error| format!("{what} is too large: {error}"))?);
     Ok(())
 }
 
@@ -8976,13 +9148,18 @@ impl WalkableCeiling {
                         visit(&wall);
                     }
                 }
-                CeilingProfileDef::Flat | CeilingProfileDef::Gable { .. }
-                    if eave > low && eave < high =>
-                {
+                CeilingProfileDef::Flat
+                | CeilingProfileDef::Gable {
+                    ridge: _,
+                    ridge_rise: _,
+                } if eave > low && eave < high => {
                     visit(&WallAabb::with_y(x0, eave, z0, x1 - x0, 0.0, z1 - z0));
                 }
                 CeilingProfileDef::Flat
-                | CeilingProfileDef::Gable { .. }
+                | CeilingProfileDef::Gable {
+                    ridge: _,
+                    ridge_rise: _,
+                }
                 | CeilingProfileDef::Open => {}
             }
         }

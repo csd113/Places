@@ -4,7 +4,8 @@
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "These isolated native GPU tests assert exact shader reference values and fail immediately on invalid setup or fixture indices."
 )]
 
 use super::*;
@@ -92,7 +93,7 @@ fn install(
         CharacterScene::new(),
         preserve,
     );
-    for _ in 0..100 {
+    for _ in 0_i32..100_i32 {
         if renderer.advance_prepared_install() {
             return;
         }
@@ -132,7 +133,7 @@ fn actor(renderer: &mut WgpuRenderer) {
     renderer
         .spawn_runtime_character("neutral-rat", "rat", [1.0, 1.0, 0.0], 0.0, 1.0)
         .expect("character");
-    renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]);
+    drop(renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]));
 }
 
 fn capture(renderer: &mut WgpuRenderer) -> crate::loader::RawImage {
@@ -159,7 +160,7 @@ fn entity_resources_restore_after_quality_cycles_and_map_reloads() {
         .dynamic
         .spawn(&triangle(), [0.0; 3], 0.0, 1.0, 0.0)
         .expect("dynamic");
-    renderer.update_dynamic(0.0);
+    let _update_stats = renderer.update_dynamic(0.0);
     renderer.upload_dynamic();
     actor(&mut renderer);
     let initial = renderer
@@ -206,12 +207,15 @@ fn entity_resources_restore_after_quality_cycles_and_map_reloads() {
         } else {
             assert_eq!(gpu.entity_irradiance, initial);
         }
-        let image = capture(&mut renderer);
+        let quality_image = capture(&mut renderer);
         if quality == QualityLevel::High {
-            assert_eq!(image.rgba, baseline, "restored render matches direct High");
+            assert_eq!(
+                quality_image.rgba, baseline,
+                "restored render matches direct High"
+            );
         }
     }
-    for _ in 0..3 {
+    for _ in 0_i32..3_i32 {
         let mut other = loaded.clone();
         other.level.id = "empty-level".to_string();
         install(&mut renderer, &other, QualityLevel::Low, false);
@@ -235,11 +239,11 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
     let mut field = renderer.dynamic_field.as_ref().unwrap().as_ref().clone();
     field.probes[0].direction = [0.0, 0.3, 0.0];
     renderer.dynamic_field = Some(Arc::new(field));
-    renderer
+    let _spawn_status = renderer
         .dynamic
         .spawn(&asset, [0.0; 3], 0.0, 1.0, 0.0)
         .expect("triangle");
-    renderer.update_dynamic(0.0);
+    let _update_stats = renderer.update_dynamic(0.0);
     renderer.upload_dynamic();
     let bright = capture(&mut renderer);
     // The geometric normal is (0,1,1.4) normalized. Its +Y moment gives
@@ -248,21 +252,21 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
     let normal = Vec3::new(0.0, 1.0, 1.4).normalize().to_array();
     let expected = texel.light_at(normal)[0];
     assert!(expected > 0.21 && expected < 0.22);
-    let mut field = renderer.dynamic_field.as_ref().unwrap().as_ref().clone();
-    field.probes[0].direction = [0.0, -0.3, 0.0];
-    renderer.dynamic_field = Some(Arc::new(field));
-    renderer.update_dynamic(0.0);
+    let mut reversed_field = renderer.dynamic_field.as_ref().unwrap().as_ref().clone();
+    reversed_field.probes[0].direction = [0.0, -0.3, 0.0];
+    renderer.dynamic_field = Some(Arc::new(reversed_field));
+    let _update_stats_2 = renderer.update_dynamic(0.0);
     let dark = capture(&mut renderer);
     if let Ok(directory) = std::env::var("PLACES_ENTITY_TEST_CAPTURES") {
-        let directory = std::path::Path::new(&directory);
-        std::fs::create_dir_all(directory).expect("capture dir");
+        let capture_path = std::path::Path::new(&directory);
+        std::fs::create_dir_all(capture_path).expect("capture dir");
         std::fs::write(
-            directory.join("entity-facing-light.png"),
+            capture_path.join("entity-facing-light.png"),
             crate::materials::encode_png(&bright).expect("encode bright"),
         )
         .expect("bright PNG");
         std::fs::write(
-            directory.join("entity-away-from-light.png"),
+            capture_path.join("entity-away-from-light.png"),
             crate::materials::encode_png(&dark).expect("encode dark"),
         )
         .expect("dark PNG");
@@ -286,7 +290,7 @@ fn directional_entity_irradiance_reaches_real_rendered_pixels() {
 fn archive_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>, name: &str) -> Vec<u8> {
     use std::io::Read;
     let mut bytes = Vec::new();
-    archive
+    let _by_name_status = archive
         .by_name(name)
         .expect("entry")
         .read_to_end(&mut bytes)
@@ -298,7 +302,7 @@ fn movement_trace(renderer: &mut WgpuRenderer, position: [f32; 3]) -> serde_json
     let id = renderer.dynamic.objects()[0].id();
     let local = renderer.dynamic.objects()[0].mesh().centre;
     let mut jumps = [0.0_f32; 3];
-    let mut source_changes = [0; 3];
+    let mut source_changes = [0_i32; 3];
     for axis in 0..3 {
         let mut previous: Option<crate::render::common::light_transport::EntityLighting> = None;
         for step in 0..=100_u16 {
@@ -306,12 +310,12 @@ fn movement_trace(renderer: &mut WgpuRenderer, position: [f32; 3]) -> serde_json
             centre[axis] += f32::from(step).mul_add(0.01, -0.5);
             let offset = std::array::from_fn(|i| centre[i] - local[i]);
             assert!(renderer.dynamic.set_transform(id, offset, 0.0, 1.0));
-            renderer.update_dynamic(0.0);
+            let _update_stats = renderer.update_dynamic(0.0);
             let sample = renderer.dynamic.get(id).unwrap().entity_lighting().unwrap();
             assert!(sample.display.iter().all(|v| v.is_finite()));
             if let Some(last) = previous {
                 if last.source != sample.source {
-                    source_changes[axis] += 1;
+                    source_changes[axis] += 1_i32;
                 }
                 let jump = sample
                     .display
@@ -321,7 +325,7 @@ fn movement_trace(renderer: &mut WgpuRenderer, position: [f32; 3]) -> serde_json
                     .fold(0.0_f32, f32::max);
                 jumps[axis] = jumps[axis].max(jump);
             }
-            renderer.update_dynamic(0.0);
+            let _update_stats_2 = renderer.update_dynamic(0.0);
             assert_eq!(
                 renderer.dynamic.get(id).unwrap().entity_lighting(),
                 Some(sample)
@@ -332,7 +336,7 @@ fn movement_trace(renderer: &mut WgpuRenderer, position: [f32; 3]) -> serde_json
     // Restore the captured pose after tracing 1 cm movements on all axes.
     let offset = std::array::from_fn(|i| position[i] - local[i]);
     assert!(renderer.dynamic.set_transform(id, offset, 0.0, 1.0));
-    renderer.update_dynamic(0.0);
+    let _update_stats_3 = renderer.update_dynamic(0.0);
     serde_json::json!({"max_display_step_xyz":jumps,"source_changes_xyz":source_changes})
 }
 
@@ -347,11 +351,11 @@ fn location_trace(
         .centre;
     let offset = std::array::from_fn(|axis| position[axis] - local[axis]);
     renderer.dynamic.clear();
-    renderer
+    let _spawn_status = renderer
         .dynamic
         .spawn(&asset, offset, 0.0, 1.0, 0.0)
         .expect("neutral entity");
-    renderer.update_dynamic(0.0);
+    let _update_stats = renderer.update_dynamic(0.0);
     renderer.upload_dynamic();
     let lighting = renderer.dynamic_lighting.as_ref().unwrap();
     let field = renderer.dynamic_field.as_ref().unwrap();
@@ -528,7 +532,7 @@ fn install_compiled_scene(
     renderer.set_lightmap_quality(lightmaps);
     renderer.set_reflection_quality(ReflectionQuality::Off);
     renderer.install_prepared(&loaded, build, assets, CharacterScene::new(), preserve);
-    for _ in 0..100 {
+    for _ in 0_i32..100_i32 {
         if renderer.advance_prepared_install() {
             return;
         }
@@ -568,7 +572,7 @@ fn neutral_at(renderer: &mut WgpuRenderer, position: [f32; 3], shifted_pivot: bo
         .dynamic
         .spawn(&asset, offset, 0.0, 0.4, 0.0)
         .expect("neutral model");
-    renderer.update_dynamic(0.0);
+    let _update_stats = renderer.update_dynamic(0.0);
     renderer.upload_dynamic();
     assert!(
         (renderer.dynamic.get(id).unwrap().centre() - Vec3::from_array(position)).length() < 1.0e-5
@@ -730,7 +734,7 @@ fn real_models_at_same_anchor(
             .lighting_sample_position();
         let offset = (Vec3::from_array(position) - Vec3::from_array(local)).to_array();
         assert!(renderer.set_runtime_character_transform("same-anchor", offset, 0.0));
-        renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]);
+        drop(renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]));
         let actor = renderer
             .characters
             .runtime_character("same-anchor")
@@ -766,7 +770,7 @@ fn real_models_at_same_anchor(
         models.push(serde_json::json!({"model": model, "anchor":actual_position,
             "energy": energy, "moment":moment, "display":actual.display}));
         assert!(renderer.despawn_runtime_character("same-anchor"));
-        renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]);
+        drop(renderer.update_characters(0.0, LocomotionSnapshot::default(), &[]));
     }
     serde_json::json!({"location":name, "models":models})
 }
@@ -824,7 +828,7 @@ fn compiled_movement_path(
                 .dynamic
                 .set_transform(id, (*position - local).to_array(), 0.0, 0.4)
         );
-        renderer.update_dynamic(0.0);
+        let _update_stats = renderer.update_dynamic(0.0);
         let sample = renderer.dynamic.get(id).unwrap().entity_lighting().unwrap();
         assert_eq!(
             sample.source,
@@ -833,15 +837,15 @@ fn compiled_movement_path(
         );
         assert!(sample.display.iter().all(|value| value.is_finite()));
         if let Some(previous) = samples.last() {
-            let previous: &crate::render::EntityLightingSource = &previous.0;
-            assert_eq!(sample.source, *previous);
+            let previous_source: &crate::render::EntityLightingSource = &previous.0;
+            assert_eq!(sample.source, *previous_source);
         }
         if let Some((_, previous)) = samples.last() {
             for (value, old) in sample.display.into_iter().zip(*previous) {
                 maximum_step = maximum_step.max((value - old).abs());
             }
         }
-        renderer.update_dynamic(0.0);
+        let _update_stats_2 = renderer.update_dynamic(0.0);
         assert_eq!(
             renderer.dynamic.get(id).unwrap().entity_lighting(),
             Some(sample),
@@ -873,7 +877,7 @@ fn compiled_movement_path(
                 .dynamic
                 .set_transform(id, (*position - local).to_array(), 0.0, 0.4)
         );
-        renderer.update_dynamic(0.0);
+        let _update_stats_3 = renderer.update_dynamic(0.0);
         let sample = renderer.dynamic.get(id).unwrap().entity_lighting().unwrap();
         assert_eq!(
             (sample.source, sample.display),
@@ -889,9 +893,9 @@ fn probe_lookup_microseconds(renderer: &WgpuRenderer, positions: &[Vec3]) -> f64
     use crate::render::common::light_transport::entity_lighting;
     let started = std::time::Instant::now();
     let mut count = 0_u32;
-    for _ in 0..64 {
+    for _ in 0_i32..64_i32 {
         for position in positions {
-            std::hint::black_box(entity_lighting(
+            let _sample = std::hint::black_box(entity_lighting(
                 renderer.dynamic_lighting.as_ref().unwrap(),
                 renderer.dynamic_field.as_deref(),
                 position.to_array(),

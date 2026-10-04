@@ -334,16 +334,16 @@ pub fn build_level_geometry_timed(
 ) -> (LevelMesh, Vec<PropMeshBatch>, LevelLighting, BuildTimings) {
     let started = std::time::Instant::now();
     let lighting = LevelLighting::bake(level);
-    let lighting_millis = started.elapsed().as_secs_f64() * 1000.0;
+    let lighting_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
 
     let surfaces = LevelSurfaces::new(level);
-    let started = std::time::Instant::now();
+    let props_started = std::time::Instant::now();
     let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets, &lighting, &surfaces);
-    let props_millis = started.elapsed().as_secs_f64() * 1000.0;
+    let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
 
-    let started = std::time::Instant::now();
+    let surfaces_started = std::time::Instant::now();
     let mesh = build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials);
-    let surfaces_millis = started.elapsed().as_secs_f64() * 1000.0;
+    let surfaces_millis = surfaces_started.elapsed().as_secs_f64() * 1_000.0_f64;
 
     (
         mesh,
@@ -648,7 +648,10 @@ fn bake_request_with_workers(
 /// already activated in the returned build, so the caller never starts a
 /// worker for an atlas it already has.
 #[must_use]
-#[allow(clippy::too_many_lines)] // one cohesive prepare-and-decide pass
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive prepare-and-decide pass"
+)] // one cohesive prepare-and-decide pass
 pub fn prepare_level_geometry_with_lightmaps(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -670,16 +673,16 @@ pub fn prepare_level_geometry_with_lightmaps(
     let lighting_millis = elapsed_millis(started);
 
     let surfaces = LevelSurfaces::new(level);
-    let started = std::time::Instant::now();
+    let props_started = std::time::Instant::now();
     let (mut batches, fallbacks) = if options.mode == LightmapMode::On {
         resolve_prop_fallbacks(level, catalog, assets, &lighting, &surfaces)
     } else {
         resolve_prop_instances(level, catalog, assets, &lighting, &surfaces)
     };
-    let mut props_millis = elapsed_millis(started);
+    let mut props_millis = elapsed_millis(props_started);
 
     let mut plan = (options.mode == LightmapMode::On).then(|| LightmapPlan::new(options.config));
-    let started = std::time::Instant::now();
+    let surfaces_started = std::time::Instant::now();
     let mesh = build_mesh_for_options(
         level,
         catalog,
@@ -688,15 +691,21 @@ pub fn prepare_level_geometry_with_lightmaps(
         materials,
         plan.as_mut(),
     );
-    let surfaces_millis = elapsed_millis(started);
-    if let Some(plan) = plan.as_mut() {
-        let started = std::time::Instant::now();
-        let (receivers, _) =
-            resolve_prop_instances_lightmapped(level, catalog, assets, &lighting, &surfaces, plan);
-        if !plan.failed() {
+    let surfaces_millis = elapsed_millis(surfaces_started);
+    if let Some(active_plan) = plan.as_mut() {
+        let receivers_started = std::time::Instant::now();
+        let (receivers, _) = resolve_prop_instances_lightmapped(
+            level,
+            catalog,
+            assets,
+            &lighting,
+            &surfaces,
+            active_plan,
+        );
+        if !active_plan.failed() {
             batches = receivers;
         }
-        props_millis += elapsed_millis(started);
+        props_millis += elapsed_millis(receivers_started);
     }
 
     let mut build = LevelBuild {
@@ -714,10 +723,10 @@ pub fn prepare_level_geometry_with_lightmaps(
         lightmap_millis: 0.0,
     };
     let mut fill: Option<LightmapFillRequest> = None;
-    if let Some(plan) = plan.as_ref() {
+    if let Some(active_plan) = plan.as_ref() {
         // Report invisible slivers the plan skipped: the level kept its whole
         // lightmap, but the author should still know the geometry is there.
-        let slivers = plan.slivers_skipped();
+        let slivers = active_plan.slivers_skipped();
         if slivers > 0 {
             crate::logging::warn_once(
                 format!("lightmap-slivers:{}", level.id),
@@ -727,7 +736,7 @@ pub fn prepare_level_geometry_with_lightmaps(
                 ),
             );
         }
-        if let Some(plan_failure) = plan.failure() {
+        if let Some(plan_failure) = active_plan.failure() {
             build.lightmap_failure = Some(plan_failure);
         } else {
             // The key covers the level definition, the lightmap config, the
@@ -740,7 +749,7 @@ pub fn prepare_level_geometry_with_lightmaps(
             // key through its fingerprint, so a solver change invalidates every
             // cached atlas without invalidating an unchanged source.
             let key = lightmap_content_key(level, &build.lighting, options);
-            if let Some(cached) = cache.and_then(|cache| cache.get(&key)) {
+            if let Some(cached) = cache.and_then(|lightmap_cache| lightmap_cache.get(&key)) {
                 build.lightmaps = Some(cached);
             } else {
                 let scene_started = std::time::Instant::now();
@@ -750,7 +759,7 @@ pub fn prepare_level_geometry_with_lightmaps(
                     &build.batches,
                     materials,
                     &build.lighting,
-                    plan.charts(),
+                    active_plan.charts(),
                 ) {
                     Some((transport, scene_stats)) => {
                         crate::logging::info(format_args!(
@@ -762,8 +771,8 @@ pub fn prepare_level_geometry_with_lightmaps(
                         ));
                         fill = Some(LightmapFillRequest {
                             config: options.config,
-                            charts: plan.charts().to_vec(),
-                            page_count: plan.page_count(),
+                            charts: active_plan.charts().to_vec(),
+                            page_count: active_plan.page_count(),
                             content_key: key,
                             transport: Arc::new(transport),
                             options: options.solve,
@@ -787,11 +796,11 @@ pub fn prepare_level_geometry_with_lightmaps(
     // the exact fallback the inline entry point always ran, and it does not
     // re-bake the lighting (which would change every vertex colour).
     if build.lightmap_failure.is_some() && options.mode == LightmapMode::On {
-        let started = std::time::Instant::now();
-        let mesh =
+        let fallback_started = std::time::Instant::now();
+        let fallback_mesh =
             build_level_geometry_mesh(level, catalog, &fallbacks, &build.lighting, materials);
-        build.timings.surfaces_millis += elapsed_millis(started);
-        build.mesh = mesh;
+        build.timings.surfaces_millis += elapsed_millis(fallback_started);
+        build.mesh = fallback_mesh;
         (build.batches, _) =
             resolve_prop_instances(level, catalog, assets, &build.lighting, &surfaces);
     }
@@ -885,11 +894,11 @@ pub fn build_level_geometry_timed_with_lightmaps(
     match fill_lightmaps_full(&request) {
         Ok(product) => {
             let crate::render::common::api::LightmapFillProduct { lightmaps, probes } = product;
-            let lightmaps = Arc::new(lightmaps);
-            build.lightmap_millis = lightmaps.stats.bake_millis;
-            dump_lightmaps_for_level(level, &lightmaps);
-            if let Some(cache) = cache {
-                cache.insert(&request.content_key, Arc::clone(&lightmaps));
+            let shared_lightmaps = Arc::new(lightmaps);
+            build.lightmap_millis = shared_lightmaps.stats.bake_millis;
+            dump_lightmaps_for_level(level, &shared_lightmaps);
+            if let Some(lightmap_cache) = cache {
+                lightmap_cache.insert(&request.content_key, Arc::clone(&shared_lightmaps));
             }
             // The prepared solve lights the surfaces; blended feather decals
             // must read with it instead of the vertex-lit approximation (see
@@ -903,7 +912,7 @@ pub fn build_level_geometry_timed_with_lightmaps(
                     field,
                 );
             }
-            build.lightmaps = Some(lightmaps);
+            build.lightmaps = Some(shared_lightmaps);
         }
         Err(fill_failure) => {
             build.lightmap_failure = Some(fill_failure);
@@ -946,7 +955,6 @@ fn elapsed_millis(started: std::time::Instant) -> f64 {
 ///
 /// A developer dump, not a shipping path; the write failure is a one-line
 /// diagnostic because there is no logger here to route it through.
-#[allow(clippy::print_stderr)]
 fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
     if std::env::var("PLACES_DUMP_LIGHTMAPS").as_deref() != Ok("1") {
         return;
@@ -962,14 +970,14 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
             }
         })
         .collect();
-    let id = if id.is_empty() {
+    let level_id = if id.is_empty() {
         "level".to_string()
     } else {
         id
     };
     let dir = crate::assets::state_path("target/diagnostics/atlases");
     for (index, page) in lightmaps.pages.iter().enumerate() {
-        let path = dir.join(format!("{id}_page{index}.png"));
+        let path = dir.join(format!("{level_id}_page{index}.png"));
         if let Err(error) = write_page_png(page, &path) {
             crate::logging::warn_once(
                 format!("lightmap-page:{}", path.display()),
@@ -1089,7 +1097,8 @@ mod tests {
         clippy::expect_used,
         clippy::indexing_slicing,
         clippy::float_cmp,
-        clippy::panic
+        clippy::panic,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -1152,12 +1161,12 @@ mod tests {
         assert_eq!(prepared.build.mesh.ranges, mesh.ranges);
         assert_eq!(prepared.build.batches.len(), reference.len());
         assert!(!reference.is_empty());
-        for (actual, reference) in prepared.build.batches.iter().zip(&reference) {
-            assert_eq!(actual.model, reference.model);
-            assert_eq!(actual.vertices, reference.vertices);
-            assert_eq!(actual.indices, reference.indices);
-            assert_eq!(actual.submeshes, reference.submeshes);
-            assert_eq!(actual.bounds, reference.bounds);
+        for (actual, reference_batch) in prepared.build.batches.iter().zip(&reference) {
+            assert_eq!(actual.model, reference_batch.model);
+            assert_eq!(actual.vertices, reference_batch.vertices);
+            assert_eq!(actual.indices, reference_batch.indices);
+            assert_eq!(actual.submeshes, reference_batch.submeshes);
+            assert_eq!(actual.bounds, reference_batch.bounds);
         }
     }
 
@@ -1245,11 +1254,11 @@ mod tests {
         let cold_charts = filled.charts.clone();
         cache.insert(&fill.content_key, Arc::clone(&filled));
 
-        let mut assets = crate::props::PropAssets::default();
+        let mut cached_assets = crate::props::PropAssets::default();
         let cached = prepare_level_geometry_with_lightmaps(
             &level,
             &catalog,
-            &mut assets,
+            &mut cached_assets,
             &materials,
             options,
             Some(&mut cache),
@@ -1285,41 +1294,41 @@ mod tests {
         assert_eq!(fine.profile, coarse.profile);
 
         let mut assets = crate::props::PropAssets::default();
-        let mut cache = cache;
+        let mut updated_cache = cache;
         let fine_build = prepare_level_geometry_with_lightmaps(
             &level,
             &catalog,
             &mut assets,
             &materials,
             fine,
-            Some(&mut cache),
+            Some(&mut updated_cache),
         );
         let fine_fill = fine_build.fill.expect("the fine bake owes a fill");
         let fine_atlas = fill_lightmaps(&fine_fill).expect("the fine bake fills");
-        cache.insert(&fine_fill.content_key, Arc::new(fine_atlas));
+        updated_cache.insert(&fine_fill.content_key, Arc::new(fine_atlas));
 
         // The same configuration is a hit...
-        let mut assets = crate::props::PropAssets::default();
+        let mut uncached_assets = crate::props::PropAssets::default();
         let hit = prepare_level_geometry_with_lightmaps(
             &level,
             &catalog,
-            &mut assets,
+            &mut uncached_assets,
             &materials,
             fine,
-            Some(&mut cache),
+            Some(&mut updated_cache),
         );
         assert!(hit.fill.is_none(), "the fine configuration is warm");
 
         // ...but the coarse bake is a miss, even though the atlas config and
         // profile are identical: the bake settings are part of the key.
-        let mut assets = crate::props::PropAssets::default();
+        let mut quality_assets = crate::props::PropAssets::default();
         let coarse_build = prepare_level_geometry_with_lightmaps(
             &level,
             &catalog,
-            &mut assets,
+            &mut quality_assets,
             &materials,
             coarse,
-            Some(&mut cache),
+            Some(&mut updated_cache),
         );
         let coarse_fill = coarse_build
             .fill
@@ -1333,9 +1342,9 @@ mod tests {
         // visibility fractions and their texels may agree; the key difference
         // above is the contract. Only assert the coarse fill really produced
         // addressable pages.
-        assert_ne!(
-            coarse_atlas.pages,
-            [] as [crate::lighting::lightmap::LightmapPage; 0]
+        assert!(
+            !coarse_atlas.pages.is_empty(),
+            "coarse_atlas.pages must contain entries"
         );
     }
 
@@ -1366,11 +1375,11 @@ mod tests {
 
         for quality in QualityLevel::ALL {
             let options = LightmapBuildOptions::for_level(quality, LightmapMode::Off);
-            let mut assets = crate::props::PropAssets::default();
+            let mut fresh_assets = crate::props::PropAssets::default();
             let build = prepare_level_geometry_with_lightmaps(
                 &level,
                 &catalog,
-                &mut assets,
+                &mut fresh_assets,
                 &materials,
                 options,
                 None,

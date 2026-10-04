@@ -489,7 +489,12 @@ impl Doors {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::float_cmp)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::level::DoorSwing;
@@ -522,7 +527,7 @@ mod tests {
         assert_eq!(doors.len(), 1);
         assert_eq!(doors.index_of("test_door"), Some(0));
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Closed);
-        doors.get_mut(0).expect("door").request_open();
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
         let moved = doors.advance(1.0, |_, _| false);
         assert_eq!(moved, 1);
         let angle = doors.get(0).expect("door").angle();
@@ -536,8 +541,8 @@ mod tests {
     fn a_right_swing_opens_negative() {
         let level = level_with_doors(&door_json(r#", "open_direction": "right""#));
         let mut doors = Doors::from_level(&level);
-        doors.get_mut(0).expect("door").request_open();
-        doors.advance(1.0, |_, _| false);
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
+        let _advance_status = doors.advance(1.0, |_, _| false);
         assert!(doors.get(0).expect("door").angle() < 0.0);
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Open);
     }
@@ -559,14 +564,14 @@ mod tests {
             r#", "open_direction": "left", "obstruction": "stop""#,
         ));
         let mut doors = Doors::from_level(&level);
-        doors.get_mut(0).expect("door").request_open();
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
         // Block every step: the angle must not advance.
-        doors.advance(0.1, |_, _| true);
+        let _advance_status = doors.advance(0.1, |_, _| true);
         assert_eq!(doors.get(0).expect("door").angle(), 0.0);
         assert!(doors.get(0).expect("door").obstructed);
         assert!(doors.get(0).expect("door").is_moving());
         // Cleared: the same request resumes.
-        doors.advance(0.1, |_, _| false);
+        let _advance_status_2 = doors.advance(0.1, |_, _| false);
         assert!(doors.get(0).expect("door").angle() > 0.0);
         assert!(!doors.get(0).expect("door").obstructed);
     }
@@ -577,14 +582,14 @@ mod tests {
             r#", "open_direction": "left", "obstruction": "reverse""#,
         ));
         let mut doors = Doors::from_level(&level);
-        doors.get_mut(0).expect("door").request_open();
-        doors.advance(0.25, |_, _| true);
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
+        let _advance_status = doors.advance(0.25, |_, _| true);
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Closing);
         // The guard holds the flip during the next blocked step.
-        doors.advance(0.1, |_, _| true);
+        let _advance_status_2 = doors.advance(0.1, |_, _| true);
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Closing);
         // Past the guard, a still-blocked close flips back to opening.
-        doors.advance(0.5, |_, _| true);
+        let _advance_status_3 = doors.advance(0.5, |_, _| true);
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Opening);
     }
 
@@ -592,13 +597,13 @@ mod tests {
     fn a_toggle_from_mid_travel_reverses_without_snapping() {
         let level = level_with_doors(&door_json(r#", "open_direction": "left""#));
         let mut doors = Doors::from_level(&level);
-        doors.get_mut(0).expect("door").request_open();
-        doors.advance(0.25, |_, _| false);
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
+        let _advance_status = doors.advance(0.25, |_, _| false);
         let mid = doors.get(0).expect("door").angle();
         assert!(mid > 0.0 && mid < 90.0);
-        doors.get_mut(0).expect("door").toggle();
+        let _get_mut_status_2 = doors.get_mut(0).expect("door").toggle();
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Closing);
-        doors.advance(0.1, |_, _| false);
+        let _advance_status_2 = doors.advance(0.1, |_, _| false);
         let closer = doors.get(0).expect("door").angle();
         assert!(closer < mid, "closing from {mid} to {closer}");
     }
@@ -609,8 +614,8 @@ mod tests {
         let mut doors = Doors::from_level(&level);
         let closed = doors.get(0).expect("door").collider();
         assert!(closed.contains_point(1.5, 1.0, 3.0));
-        doors.get_mut(0).expect("door").request_open();
-        doors.advance(1.0, |_, _| false);
+        let _get_mut_status = doors.get_mut(0).expect("door").request_open();
+        let _advance_status = doors.advance(1.0, |_, _| false);
         let open = doors.get(0).expect("door").collider();
         // Open 90 degrees: the slab now runs along -Z from the hinge at (1, 3).
         assert!(open.contains_point(1.0, 1.0, 2.0), "{open:?}");

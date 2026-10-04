@@ -4,11 +4,11 @@ use super::*;
 #[test]
 fn parallel_receiver_work_is_bounded_exactly_once_and_ordered() {
     for workers in [2, 12, 64] {
-        let executions: Vec<_> = (0..144)
+        let executions: Vec<_> = (0_i32..144_i32)
             .map(|_| std::sync::atomic::AtomicUsize::new(0))
             .collect();
         let assignments = parallel_map(executions.len(), workers, None, |index| {
-            executions[index].fetch_add(1, Ordering::Relaxed);
+            let _fetch_add_status = executions[index].fetch_add(1, Ordering::Relaxed);
             let name = std::thread::current().name().map(str::to_owned);
             (index, name)
         })
@@ -19,7 +19,7 @@ fn parallel_receiver_work_is_bounded_exactly_once_and_ordered() {
             assert_eq!(executions[index].load(Ordering::Relaxed), 1);
             let worker = name
                 .as_deref()
-                .and_then(|name| name.strip_prefix("transport-solve-"))
+                .and_then(|thread_name| thread_name.strip_prefix("transport-solve-"))
                 .and_then(|suffix| suffix.parse::<usize>().ok())
                 .expect("named transport worker");
             assert!(worker < workers.min(MAX_TRANSPORT_WORKERS));
@@ -172,7 +172,7 @@ fn enclosed_dark_room_and_wall_separation_preserve_darkness() {
     let field = solved.probes.expect("field");
     for (index, probe) in field.probes.iter().enumerate() {
         let (x, _, _) = lattice_from_index(index, field.dims_usize());
-        let px = field.min[0] + (x as f32 + 0.5) * field.cell_m;
+        let px = field.min[0] + (crate::test_support::exact_f32(x) + 0.5) * field.cell_m;
         if px > 3.0 {
             assert_eq!(
                 probe.irradiance, [0.0; 3],
@@ -209,10 +209,10 @@ fn neighboring_probes_share_a_smooth_diffuse_estimator() {
     }
     let room = TransportScene::new(room_shell(), vec![point([3.0, 2.5, 3.0], 2.0)])
         .expect("uniformly lit room");
-    let mut field = bake(&room, 2, 12).probes.expect("room field");
-    field.assign_rooms(|_| Some(0));
-    let dims = field.dims_usize();
-    for (index, probe) in field.probes.iter().enumerate() {
+    let mut room_field = bake(&room, 2, 12).probes.expect("room field");
+    room_field.assign_rooms(|_| Some(0));
+    let dims = room_field.dims_usize();
+    for (index, probe) in room_field.probes.iter().enumerate() {
         let (x, y, z) = lattice_from_index(index, dims);
         for neighbor in [
             (x + 1 < dims[0]).then_some(index + 1),
@@ -223,7 +223,7 @@ fn neighboring_probes_share_a_smooth_diffuse_estimator() {
         .flatten()
         {
             let a = channel_luminance(probe.irradiance);
-            let b = channel_luminance(field.probes[neighbor].irradiance);
+            let b = channel_luminance(room_field.probes[neighbor].irradiance);
             assert!(a.min(b) > 0.01);
             assert!(
                 a.max(b) / a.min(b) < 10.0,
@@ -250,7 +250,7 @@ fn a_capped_lattice_covers_low_air_spaces_and_uses_world_coordinates() {
         (first_y - 11.5).abs() < 1.0e-4,
         "one vertical probe is centered in air: {first_y}"
     );
-    let center_x = min[0] + 0.5 * dims[0] as f32 * cell;
+    let center_x = min[0] + 0.5 * crate::test_support::exact_f32(dims[0]) * cell;
     assert!(
         (center_x - 300.0).abs() < 1.0e-4,
         "world origin offset must survive"
@@ -278,9 +278,9 @@ fn recovery_fill_is_visibility_gated_across_a_sealed_wall() {
             let (x, y, z) = lattice_from_index(index, dims);
             ProbeTarget {
                 position: [
-                    min[0] + (x as f32 + 0.5) * cell,
-                    min[1] + (y as f32 + 0.5) * cell,
-                    min[2] + (z as f32 + 0.5) * cell,
+                    min[0] + (crate::test_support::exact_f32(x) + 0.5) * cell,
+                    min[1] + (crate::test_support::exact_f32(y) + 0.5) * cell,
+                    min[2] + (crate::test_support::exact_f32(z) + 0.5) * cell,
                 ],
                 target: [0.5; 3],
                 room: 0,
@@ -297,7 +297,7 @@ fn recovery_fill_is_visibility_gated_across_a_sealed_wall() {
     let field = solved.probes.expect("field");
     for (index, probe) in field.probes.iter().enumerate() {
         let (x, _, _) = lattice_from_index(index, field.dims_usize());
-        if min[0] + (x as f32 + 0.5) * cell > 3.0 {
+        if min[0] + (crate::test_support::exact_f32(x) + 0.5) * cell > 3.0 {
             assert_eq!(probe.irradiance, [0.0; 3]);
         }
     }

@@ -234,7 +234,7 @@ impl ChartAllocator {
                 let short = remainder_w.min(remainder_h);
                 let long = remainder_w.max(remainder_h);
                 let key = (short, long, free.y, free.x, page_index);
-                if best.is_none_or(|best| key < best) {
+                if best.is_none_or(|best_key| key < best_key) {
                     best = Some(key);
                 }
             }
@@ -402,7 +402,7 @@ impl LightmapAtlas {
         page_count: usize,
         charts: &[(LightmapPatch, Chart)],
     ) -> Result<(), LightmapFailure> {
-        validated_page_buffer_len(config, page_count)?;
+        let _validated_page_buffer_len_status = validated_page_buffer_len(config, page_count)?;
         let page = LightmapPage {
             width: config.page_edge,
             height: config.page_edge,
@@ -441,7 +441,7 @@ impl LightmapAtlas {
         if charts.len() != texels.len() {
             return Err(LightmapFailure::FillSize);
         }
-        validated_page_buffer_len(config, page_count)?;
+        let _validated_page_buffer_len_status = validated_page_buffer_len(config, page_count)?;
         let mut pages: Vec<LightmapPage> = Vec::with_capacity(page_count);
         for _ in 0..page_count {
             pages.push(LightmapPage::empty(config.page_edge)?);
@@ -511,7 +511,7 @@ fn validated_page_buffer_len(
     // before any page is allocated; a malicious or mistaken config can never
     // ask for an unrepresentable allocation.
     let texels = texel_count_for_edge(config.page_edge)?;
-    texels
+    let _checked_mul_status = texels
         .checked_mul(usize::try_from(config.bytes_per_texel.max(1)).unwrap_or(usize::MAX))
         .ok_or(LightmapFailure::InvalidConfig)?;
     Ok(page_count)
@@ -519,8 +519,11 @@ fn validated_page_buffer_len(
 
 /// Texels one square page of `edge` texels holds, when addressable.
 fn texel_count_for_edge(edge: u32) -> Result<usize, LightmapFailure> {
-    let edge = usize::try_from(edge).map_err(|_| LightmapFailure::InvalidConfig)?;
-    edge.checked_mul(edge).ok_or(LightmapFailure::InvalidConfig)
+    let edge_texels =
+        usize::try_from(edge).map_err(|_unrepresentable_edge| LightmapFailure::InvalidConfig)?;
+    edge_texels
+        .checked_mul(edge_texels)
+        .ok_or(LightmapFailure::InvalidConfig)
 }
 
 /// Texels one chart holds, or `None` for a zero-sized chart.
@@ -561,7 +564,7 @@ fn write_chart(
                     .and_then(|v| v.checked_add(u64::from(column)))
                     .ok_or(LightmapFailure::Layout)?,
             )
-            .map_err(|_| LightmapFailure::Layout)?;
+            .map_err(|_unrepresentable_index| LightmapFailure::Layout)?;
             let value = texels
                 .get(index)
                 .copied()
@@ -667,7 +670,12 @@ const fn encode_display(value: f32) -> u8 {
     }
     let clamped = value.clamp(0.0, 1.0);
     // `clamped * 255 + 0.5` is in [0.5, 255.5], so the cast cannot leave u8.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`clamped * 255 + 0.5` is in [0.5, 255.5], so the cast cannot leave u8."
+    )]
     let byte = clamped.mul_add(255.0, 0.5) as u8;
     byte
 }

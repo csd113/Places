@@ -34,7 +34,8 @@ impl Bounds {
 #[derive(Clone, Copy)]
 struct Bin {
     bounds: Bounds,
-    count: usize,
+    /// The validated scene contains fewer than u32::MAX triangles.
+    count: u32,
 }
 
 impl Bin {
@@ -73,7 +74,7 @@ pub(super) fn build(
         .collect();
     let mut nodes = Vec::with_capacity(triangles.len().saturating_mul(2));
     if !order.is_empty() {
-        build_node(
+        let _len_status = build_node(
             &bounds,
             centroids,
             &mut order,
@@ -86,6 +87,13 @@ pub(super) fn build(
     (nodes, order)
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The fixed bin count is 16; normalization is clamped to 0..=15 before truncation, with native NaN-to-zero saturation retaining a valid bin."
+)]
 fn bin(value: f32, minimum: f32, extent: f32) -> usize {
     ((value - minimum) / extent * BINS as f32).clamp(0.0, (BINS - 1) as f32) as usize
 }
@@ -105,10 +113,10 @@ fn split(
         }
         let mut bins = [Bin::EMPTY; BINS];
         for index in order {
-            let index = usize::try_from(*index).unwrap_or(usize::MAX);
-            let slot = bin(centroids[index][axis], range.min[axis], extent);
+            let triangle_index = usize::try_from(*index).unwrap_or(usize::MAX);
+            let slot = bin(centroids[triangle_index][axis], range.min[axis], extent);
             bins[slot] = bins[slot].include(Bin {
-                bounds: bounds[index],
+                bounds: bounds[triangle_index],
                 count: 1,
             });
         }
@@ -119,14 +127,13 @@ fn split(
             suffix[slot] = right;
         }
         let mut left = Bin::EMPTY;
-        for slot in 0..BINS - 1 {
-            left = left.include(bins[slot]);
-            let right = suffix[slot + 1];
-            if left.count == 0 || right.count == 0 {
+        for (slot, (left_bin, right_bin)) in bins.iter().zip(suffix.iter().skip(1)).enumerate() {
+            left = left.include(*left_bin);
+            if left.count == 0 || right_bin.count == 0 {
                 continue;
             }
-            let cost =
-                left.bounds.area() * left.count as f64 + right.bounds.area() * right.count as f64;
+            let cost = left.bounds.area() * f64::from(left.count)
+                + right_bin.bounds.area() * f64::from(right_bin.count);
             if cost < best_cost {
                 best = Some((axis, slot));
                 best_cost = cost;
@@ -171,11 +178,11 @@ fn build_node(
     let mut geometry = Bounds::EMPTY;
     let mut centres = Bounds::EMPTY;
     for entry in &order[start..end] {
-        let entry = usize::try_from(*entry).unwrap_or(usize::MAX);
-        geometry = geometry.include(bounds[entry]);
+        let triangle_index = usize::try_from(*entry).unwrap_or(usize::MAX);
+        geometry = geometry.include(bounds[triangle_index]);
         centres = centres.include(Bounds {
-            min: centroids[entry],
-            max: centroids[entry],
+            min: centroids[triangle_index],
+            max: centroids[triangle_index],
         });
     }
     let count = end.saturating_sub(start);

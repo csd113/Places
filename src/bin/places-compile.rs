@@ -8,7 +8,11 @@
 //! Exit codes: `0` success, `1` operation failure, `2` usage error.
 
 // A command-line tool's contract is its stdout/stderr output.
-#![allow(clippy::print_stdout, clippy::print_stderr)]
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "the compiler CLI reports results and errors through standard output streams"
+)]
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -47,8 +51,18 @@ OPTIONS:
 ";
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    match run(&args) {
+    let parsed_arguments: Result<Vec<String>, CliError> = std::env::args_os()
+        .skip(1)
+        .map(|argument| {
+            argument.into_string().map_err(|invalid_argument| {
+                CliError::Usage(format!(
+                    "a command-line argument is not valid UTF-8 ({} encoded bytes)",
+                    invalid_argument.len()
+                ))
+            })
+        })
+        .collect();
+    match parsed_arguments.and_then(|arguments| run(&arguments)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(CliError::Usage(message)) => {
             eprintln!("places-compile: {message}");
@@ -109,9 +123,9 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
                 let value = args
                     .get(index.saturating_add(1))
                     .ok_or_else(|| CliError::Usage("--workers needs a count".to_string()))?;
-                options.workers = value
-                    .parse::<usize>()
-                    .map_err(|_| CliError::Usage(format!("invalid --workers value '{value}'")))?;
+                options.workers = value.parse::<usize>().map_err(|error| {
+                    CliError::Usage(format!("invalid --workers value '{value}': {error}"))
+                })?;
                 if options.workers == 0 {
                     return Err(CliError::Usage("--workers must be at least 1".to_string()));
                 }
@@ -163,8 +177,8 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
 
 fn parse_variants(value: &str) -> Result<Vec<LightmapQuality>, CliError> {
     let mut variants = Vec::new();
-    for name in value.split(',') {
-        let name = name.trim();
+    for raw_name in value.split(',') {
+        let name = raw_name.trim();
         let quality = match name {
             "off" => LightmapQuality::Off,
             "medium" => LightmapQuality::Medium,
@@ -185,7 +199,7 @@ fn parse_variants(value: &str) -> Result<Vec<LightmapQuality>, CliError> {
     Ok(variants)
 }
 
-#[allow(clippy::too_many_lines)] // one cohesive command dispatcher
+#[expect(clippy::too_many_lines, reason = "one cohesive command dispatcher")] // one cohesive command dispatcher
 fn run(args: &[String]) -> Result<(), CliError> {
     let Some(command) = args.first().map(String::as_str) else {
         return Err(CliError::Usage("no command given".to_string()));
@@ -418,6 +432,8 @@ fn run(args: &[String]) -> Result<(), CliError> {
 /// Called once at the start of a single-threaded command-line process, before
 /// any engine code has spawned a thread or read the environment.
 fn pin_asset_root(root: &std::path::Path) {
+    // SAFETY: command dispatch calls this before starting workers or engine
+    // code, while the compiler process still has only its main thread.
     unsafe {
         std::env::set_var("PLACES_ASSET_ROOT", root);
     }
@@ -445,7 +461,14 @@ mod tests {
             parse_options(&["--workers".into(), "0".into()]),
             Err(CliError::Usage(_))
         ));
-        for (requested, expected) in [(1, 1), (2, 2), (4, 4), (8, 8), (12, 12), (64, 12)] {
+        for (requested, expected) in [
+            (1_usize, 1),
+            (2_usize, 2),
+            (4_usize, 4),
+            (8_usize, 8),
+            (12_usize, 12),
+            (64_usize, 12),
+        ] {
             assert!(
                 parse_options(&["--workers".into(), requested.to_string()])
                     .is_ok_and(|options| options.workers == expected)

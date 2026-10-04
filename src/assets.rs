@@ -253,12 +253,12 @@ fn asset_root_search() -> Option<PathBuf> {
 #[must_use]
 pub fn asset_root_search_report() -> Vec<(PathBuf, bool)> {
     let mut report: Vec<(PathBuf, bool)> = Vec::new();
-    let push = |path: PathBuf, report: &mut Vec<(PathBuf, bool)>| {
-        if report.iter().any(|(seen, _)| *seen == path) {
+    let push = |path: PathBuf, candidate_report: &mut Vec<(PathBuf, bool)>| {
+        if candidate_report.iter().any(|(seen, _)| *seen == path) {
             return;
         }
         let ok = path.is_dir();
-        report.push((path, ok));
+        candidate_report.push((path, ok));
     };
     for root in resolved_package_roots() {
         push(root.join("assets"), &mut report);
@@ -315,10 +315,20 @@ pub const MAX_SURFACE_TEXTURE_BYTES: usize = 4 * 1024 * 1024;
 /// Saturates instead of overflowing, so a malformed dimension can never wrap
 /// into a small byte count that passes a budget check.
 #[must_use]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "Const evaluation cannot use TryFrom on Rust 1.99: u32 dimensions and desktop usize limits widen exactly to u64, and the final narrowing is checked against usize::MAX"
+)]
 pub const fn decoded_rgba_bytes(width: u32, height: u32) -> usize {
-    (width as usize)
-        .saturating_mul(height as usize)
-        .saturating_mul(4)
+    let bytes = (width as u64)
+        .saturating_mul(height as u64)
+        .saturating_mul(4);
+    if bytes > usize::MAX as u64 {
+        usize::MAX
+    } else {
+        bytes as usize
+    }
 }
 
 /// The dimension contract one shipped PNG is held to.
@@ -442,8 +452,10 @@ pub fn catalog_path_candidates() -> Vec<PathBuf> {
         .map(|root| root.join("assets"))
         .chain(ASSET_ROOT_CANDIDATES.iter().map(PathBuf::from));
     #[cfg(debug_assertions)]
-    let roots = roots.chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets")]);
-    roots
+    let candidate_roots = roots.chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets")]);
+    #[cfg(not(debug_assertions))]
+    let candidate_roots = roots;
+    candidate_roots
         .map(|root| Path::new(&root).join(CATALOG_FILE_NAME))
         .collect()
 }
@@ -479,12 +491,12 @@ fn parse_optional_slug<T>(
     namespace: &str,
     from_str: fn(&str) -> Result<T, String>,
 ) -> Result<Option<T>, String> {
-    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(trimmed_path) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(None);
     };
-    from_str(raw)
+    from_str(trimmed_path)
         .map(Some)
-        .map_err(|error| format!("{namespace}: invalid {what} '{raw}': {error}"))
+        .map_err(|error| format!("{namespace}: invalid {what} '{trimmed_path}': {error}"))
 }
 
 /// Broad semantic classification of an asset.
@@ -871,30 +883,30 @@ fn validate_reflection(
 /// Validates one unit-interval number, naming the field when it is out of range.
 fn unit_number(value: Option<f32>, field: &str) -> Result<Option<f32>, String> {
     match value {
-        Some(value) if !value.is_finite() || !(0.0..=1.0).contains(&value) => Err(format!(
-            "{field} must be between 0.0 and 1.0, found {value:?}"
+        Some(number) if !number.is_finite() || !(0.0..=1.0).contains(&number) => Err(format!(
+            "{field} must be between 0.0 and 1.0, found {number:?}"
         )),
-        Some(value) => Ok(Some(value)),
+        Some(number) => Ok(Some(number)),
         None => Ok(None),
     }
 }
 
 /// Validates an authored specular colour, defaulting to nothing.
 fn specular_color(id: &str, raw: Option<&[f32]>) -> Result<Option<[f32; 3]>, String> {
-    let Some(raw) = raw else {
+    let Some(channels) = raw else {
         return Ok(None);
     };
-    if raw.len() != 3 {
+    if channels.len() != 3 {
         return Err(format!(
-            "{id}: specular_color must be exactly three channels, found {} in {raw:?}",
-            raw.len()
+            "{id}: specular_color must be exactly three channels, found {} in {channels:?}",
+            channels.len()
         ));
     }
     let mut color = [0.0_f32; 3];
-    for (slot, channel) in color.iter_mut().zip(raw) {
+    for (slot, channel) in color.iter_mut().zip(channels) {
         if !channel.is_finite() || !(0.0..=MAX_SPECULAR).contains(channel) {
             return Err(format!(
-                "{id}: specular_color channels must be between 0.0 and {MAX_SPECULAR:?}, found {raw:?}"
+                "{id}: specular_color channels must be between 0.0 and {MAX_SPECULAR:?}, found {channels:?}"
             ));
         }
         *slot = *channel;
@@ -904,15 +916,15 @@ fn specular_color(id: &str, raw: Option<&[f32]>) -> Result<Option<[f32; 3]>, Str
 
 /// Validates an authored alpha mode, normalising its spelling.
 fn validated_alpha_mode(id: &str, mode: Option<String>) -> Result<Option<String>, String> {
-    let Some(mode) = mode else {
+    let Some(authored_mode) = mode else {
         return Ok(None);
     };
-    if crate::materials::AlphaMode::parse(&mode).is_none() {
+    if crate::materials::AlphaMode::parse(&authored_mode).is_none() {
         return Err(format!(
-            "{id}: alpha_mode `{mode}` is not one of `opaque`, `cutout` or `blend`"
+            "{id}: alpha_mode `{authored_mode}` is not one of `opaque`, `cutout` or `blend`"
         ));
     }
-    Ok(Some(mode.to_lowercase()))
+    Ok(Some(authored_mode.to_lowercase()))
 }
 
 /// Surface-response, alpha and reflection fields of one catalog entry, validated.
@@ -1128,11 +1140,11 @@ impl CatalogEntryFile {
             .map(str::trim)
             .filter(|model| !model.is_empty())
             .map(str::to_string);
-        if let Some(model) = &model
-            && (!is_relative_resource_path(model))
+        if let Some(model_path) = &model
+            && (!is_relative_resource_path(model_path))
         {
             return Err(format!(
-                "{id}: model path `{model}` must be a relative path below the asset root"
+                "{id}: model path `{model_path}` must be a relative path below the asset root"
             ));
         }
         Ok(model)
@@ -1146,10 +1158,10 @@ impl CatalogEntryFile {
             .map(str::trim)
             .filter(|texture| !texture.is_empty())
             .map(str::to_string);
-        if let Some(texture) = &texture {
-            if !is_valid_asset_id(texture) {
+        if let Some(texture_path) = &texture {
+            if !is_valid_asset_id(texture_path) {
                 return Err(format!(
-                    "{id}: texture `{texture}` is not a well-formed logical asset id"
+                    "{id}: texture `{texture_path}` is not a well-formed logical asset id"
                 ));
             }
             if asset_type.as_str() != AssetType::MATERIAL {
@@ -1317,11 +1329,11 @@ impl CatalogEntryFile {
                 "{id}: emissive_intensity must be between 0.0 and {MAX_EMISSION_INTENSITY:?}, found {intensity:?}"
             ));
         }
-        if let Some(mask) = &mask
-            && !is_valid_asset_id(mask)
+        if let Some(mask_path) = &mask
+            && !is_valid_asset_id(mask_path)
         {
             return Err(format!(
-                "{id}: emissive_mask `{mask}` is not a well-formed logical asset id"
+                "{id}: emissive_mask `{mask_path}` is not a well-formed logical asset id"
             ));
         }
         Ok(ValidatedEmission {
@@ -1426,9 +1438,9 @@ impl CatalogEntryFile {
             ));
         }
         let specular_color = specular_color(id, self.specular_color.as_deref())?;
-        let alpha_mode = validated_alpha_mode(id, alpha_mode)?;
+        let alpha_policy = validated_alpha_mode(id, alpha_mode)?;
         let (reflection_mode, reflection_strength) = validate_reflection(id, self)?;
-        if (self.opacity.is_some() || self.alpha_cutoff.is_some()) && alpha_mode.is_none() {
+        if (self.opacity.is_some() || self.alpha_cutoff.is_some()) && alpha_policy.is_none() {
             return Err(format!(
                 "{id}: `opacity` and `alpha_cutoff` require an explicit `alpha_mode`"
             ));
@@ -1440,7 +1452,7 @@ impl CatalogEntryFile {
                 .map_err(|field| format!("{id}: {field}"))?,
             specular_color,
             shine: unit_number(self.shine, "shine").map_err(|field| format!("{id}: {field}"))?,
-            alpha_mode,
+            alpha_mode: alpha_policy,
             opacity: unit_number(self.opacity, "opacity")
                 .map_err(|field| format!("{id}: {field}"))?,
             alpha_cutoff: unit_number(self.alpha_cutoff, "alpha_cutoff")
@@ -1564,8 +1576,8 @@ fn check_emissive_mask(entry: &AssetEntry, catalog: &AssetCatalog) -> Result<(),
 /// True when a resource path names a PNG (case-insensitive extension).
 #[must_use]
 pub fn has_png_extension(path: Option<&str>) -> bool {
-    path.is_some_and(|path| {
-        Path::new(path)
+    path.is_some_and(|asset_path| {
+        Path::new(asset_path)
             .extension()
             .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
     })
@@ -1599,34 +1611,36 @@ impl AssetCatalog {
             if id.is_empty() {
                 return Err("theme entry with an empty id".to_string());
             }
-            let id = AssetTheme::parse(id)?;
-            if !theme_ids.insert(id.clone()) {
-                return Err(format!("duplicate theme id `{id}` in the asset catalog"));
+            let theme_id = AssetTheme::parse(id)?;
+            if !theme_ids.insert(theme_id.clone()) {
+                return Err(format!(
+                    "duplicate theme id `{theme_id}` in the asset catalog"
+                ));
             }
             let display_name = {
                 let display = theme.display_name.trim();
                 if display.is_empty() {
-                    id.to_string()
+                    theme_id.to_string()
                 } else {
                     display.to_string()
                 }
             };
             catalog.themes.push(AssetThemeDef {
-                id,
+                id: theme_id,
                 display_name,
                 description: theme.description.trim().to_string(),
             });
         }
 
         for entry in &file.assets {
-            let entry = entry.convert()?;
-            if catalog.entries.contains_key(&entry.id) {
+            let asset_entry = entry.convert()?;
+            if catalog.entries.contains_key(&asset_entry.id) {
                 return Err(format!(
                     "duplicate asset id `{}` in the asset catalog",
-                    entry.id
+                    asset_entry.id
                 ));
             }
-            catalog.entries.insert(entry.id.clone(), entry);
+            drop(catalog.entries.insert(asset_entry.id.clone(), asset_entry));
         }
 
         // Second pass: every material must reference a texture this catalog
@@ -1741,7 +1755,7 @@ impl AssetCatalog {
         }
         let mut message = String::from(NO_ASSET_ROOT_MESSAGE);
         for (path, exists) in asset_root_search_report() {
-            let _ = std::fmt::Write::write_fmt(
+            let _formatted_n = std::fmt::Write::write_fmt(
                 &mut message,
                 format_args!(
                     "\n  {} {}",
@@ -1750,7 +1764,7 @@ impl AssetCatalog {
                 ),
             );
         }
-        let _ = std::fmt::Write::write_fmt(
+        let _formatted_text = std::fmt::Write::write_fmt(
             &mut message,
             format_args!(
                 "\n  set {ASSET_ROOT_ENV}=<directory containing assets/> to override, \

@@ -132,8 +132,8 @@ impl MaterialTable {
             // `u32` holds any table a level can build: `MAX_LEVEL_MATERIALS`
             // (131 072) is enforced by `validate_level`, so this conversion is
             // in range for every validated level and can never saturate.
-            let index = u32::try_from(index).unwrap_or(u32::MAX);
-            by_id.insert(entry.id.clone(), index);
+            let texture_index = u32::try_from(index).unwrap_or(u32::MAX);
+            let _previous_value = by_id.insert(entry.id.clone(), texture_index);
         }
         Self {
             entries,
@@ -303,9 +303,9 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let mut push = |id: &str| {
-        let id = id.trim();
-        if !id.is_empty() && seen.insert(id.to_string()) {
-            ids.push(id.to_string());
+        let trimmed_id = id.trim();
+        if !trimmed_id.is_empty() && seen.insert(trimmed_id.to_string()) {
+            ids.push(trimmed_id.to_string());
         }
     };
     push(&level.defaults.wall);
@@ -637,7 +637,7 @@ fn describe_catalog_material(
         .with_grid_metres(grid_metres);
     }
     let tile_metres = entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES);
-    let grid_metres = entry.grid_metres.unwrap_or(tile_metres);
+    let grid_scale = entry.grid_metres.unwrap_or(tile_metres);
     let tint = entry.tint.unwrap_or(DEFAULT_TINT);
     if catalog.texture_path(&texture_id).is_none() {
         return material_base(
@@ -651,7 +651,7 @@ fn describe_catalog_material(
                 "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
             )),
         )
-        .with_grid_metres(grid_metres);
+        .with_grid_metres(grid_scale);
     }
     material_base(
         id,
@@ -662,7 +662,7 @@ fn describe_catalog_material(
         emission,
         None,
     )
-    .with_grid_metres(grid_metres)
+    .with_grid_metres(grid_scale)
     .with_surface(catalog_response(entry), catalog_alpha(entry))
     .with_reflection(catalog_reflection(entry))
 }
@@ -673,36 +673,39 @@ fn describe_pack_material(
     catalog: &AssetCatalog,
     pack: Option<&PackMaterials>,
 ) -> ResolvedMaterial {
-    let definition = pack.and_then(|pack| pack.definition(id));
+    let definition = pack.and_then(|material_pack| material_pack.definition(id));
     let (response, alpha) = definition.map_or(
         (MaterialResponse::NONE, MaterialAlpha::OPAQUE),
-        |definition| (definition.response(), definition.alpha()),
+        |pack_material| (pack_material.response(), pack_material.alpha()),
     );
-    if let Some(definition) = definition {
+    if let Some(pack_material) = definition {
         // A pack may reuse a catalog texture by logical id, or ship its own
         // PNG. A declared-but-missing pack file is a named error, not a
         // silent fall-through to a same-named file.
-        let emission = definition.emission();
-        if definition.texture.contains(':') && catalog.texture_path(&definition.texture).is_some() {
+        let emission = pack_material.emission();
+        if pack_material.texture.contains(':')
+            && catalog.texture_path(&pack_material.texture).is_some()
+        {
             return material_base(
                 id,
-                definition.texture.clone(),
+                pack_material.texture.clone(),
                 TextureOrigin::Catalog,
-                definition.tile_metres(),
-                definition.tint(),
+                pack_material.tile_metres(),
+                pack_material.tint(),
                 emission,
                 None,
             )
             .with_surface(response, alpha)
-            .with_reflection(definition.reflection());
+            .with_reflection(pack_material.reflection());
         }
-        if pack.is_some_and(|pack| pack.lookup(&definition.texture).is_some()) {
+        if pack.is_some_and(|material_pack| material_pack.lookup(&pack_material.texture).is_some())
+        {
             return material_base(
                 id,
-                definition.texture.clone(),
+                pack_material.texture.clone(),
                 TextureOrigin::Pack,
-                definition.tile_metres(),
-                definition.tint(),
+                pack_material.tile_metres(),
+                pack_material.tint(),
                 emission,
                 None,
             )
@@ -712,16 +715,16 @@ fn describe_pack_material(
             id,
             format!("pack:unresolved:{id}"),
             TextureOrigin::Pack,
-            definition.tile_metres(),
-            definition.tint(),
+            pack_material.tile_metres(),
+            pack_material.tint(),
             MaterialEmission::NONE,
             Some(format!(
                 "pack material `{id}`: `materials.json` names `{}`, which is not present in the pack",
-                definition.texture
+                pack_material.texture
             )),
         );
     }
-    if let Some(path) = pack.and_then(|pack| pack.texture_for(id)) {
+    if let Some(path) = pack.and_then(|material_pack| material_pack.texture_for(id)) {
         return material_base(
             id,
             path,
@@ -794,7 +797,7 @@ fn authored_texture(
             path: path.to_string(),
         });
     }
-    if pack.is_some_and(|pack| pack.lookup(authored).is_some()) {
+    if pack.is_some_and(|material_pack| material_pack.lookup(authored).is_some()) {
         return Some(AuthoredTexture::Pack {
             path: authored.to_string(),
         });
@@ -837,8 +840,9 @@ fn resolve_authored_image(
                     "material `{material_id}` {field} `{path}`: the pack is not loaded"
                 ))
             },
-            |pack| {
-                pack.decode_cached(cache, &path)
+            |material_pack| {
+                material_pack
+                    .decode_cached(cache, &path)
                     .map(|(image, key)| (key, TextureOrigin::Pack, image))
                     .map_err(|error| format!("material `{material_id}` {field}: {error}"))
             },
@@ -901,19 +905,21 @@ fn catalog_image_references(
         if entry.origin == TextureOrigin::Catalog {
             push_catalog(&entry.texture_key);
         }
-        let definition = pack.and_then(|pack| pack.definition(&entry.id));
+        let definition = pack.and_then(|material_pack| material_pack.definition(&entry.id));
         for (field, authored) in [
             (
                 "emissive_mask",
-                definition.and_then(|definition| definition.emissive_mask.as_deref()),
+                definition.and_then(|pack_material| pack_material.emissive_mask.as_deref()),
             ),
             (
                 "normal_texture",
-                definition.and_then(|definition| definition.normal_texture.as_deref()),
+                definition.and_then(|pack_material| pack_material.normal_texture.as_deref()),
             ),
         ] {
-            if let Some(AuthoredTexture::Catalog { texture_id, .. }) =
-                authored_texture(&entry.id, field, authored, catalog, pack)
+            if let Some(AuthoredTexture::Catalog {
+                texture_id,
+                path: _,
+            }) = authored_texture(&entry.id, field, authored, catalog, pack)
             {
                 push_catalog(&texture_id);
             }
@@ -952,7 +958,9 @@ pub fn resolve_materials(
     // Split the borrow so an entry can be updated while the shared texture list
     // is interned into.
     let MaterialTable {
-        entries, textures, ..
+        entries,
+        textures,
+        by_id: _,
     } = &mut table;
     let context = ResolveContext {
         catalog,
@@ -1004,7 +1012,7 @@ fn resolve_entry(
     // The mask is part of the material: a mask that cannot resolve
     // degrades the whole material exactly like a broken albedo, rather
     // than emitting through a texture nobody authored.
-    let pack_definition = pack.and_then(|pack| pack.definition(&entry.id));
+    let pack_definition = pack.and_then(|material_pack| material_pack.definition(&entry.id));
     let mask_image = authored_texture(
         &entry.id,
         "emissive_mask",
@@ -1042,23 +1050,23 @@ fn resolve_entry(
     );
     entry.image = Some(image);
     entry.texture_index = texture_index;
-    if let Some(Ok((mask_key, mask_origin, mask_image))) = mask_image {
+    if let Some(Ok((mask_key, mask_origin, decoded_mask))) = mask_image {
         let mask_index = intern_texture(
             textures,
             mask_key,
             mask_origin,
             crate::quality::TextureClass::EmissionMask,
-            mask_image,
+            decoded_mask,
         );
         entry.emission.mask = Some(mask_index);
     }
-    if let Some(Ok((normal_key, normal_origin, normal_image))) = normal_image {
+    if let Some(Ok((normal_key, normal_origin, decoded_normal))) = normal_image {
         let normal_index = intern_texture(
             textures,
             normal_key,
             normal_origin,
             crate::quality::TextureClass::Surface,
-            normal_image,
+            decoded_normal,
         );
         entry.response.normal = Some(normal_index);
     }
@@ -1098,7 +1106,7 @@ fn decode_albedo(
         TextureOrigin::Pack => {
             let unresolved = key.starts_with("pack:unresolved:");
             match pack {
-                Some(pack) if !unresolved => pack
+                Some(material_pack) if !unresolved => material_pack
                     .decode_cached(cache, key)
                     .map_err(|error| format!("material `{}`: {error}", entry.id)),
                 _ => Err(entry.error.clone().unwrap_or_else(|| {

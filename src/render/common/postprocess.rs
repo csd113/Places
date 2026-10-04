@@ -102,7 +102,10 @@ impl PostSettings {
     /// renderer presents the scene with the plain copy quad instead, which is
     /// both cheaper and exactly what that resolve would have produced.
     #[must_use]
-    #[allow(clippy::float_cmp)] // these are authored constants, not measurements
+    #[expect(
+        clippy::float_cmp,
+        reason = "these are authored constants, not measurements"
+    )] // these are authored constants, not measurements
     pub fn is_identity(self) -> bool {
         self.bloom_strength == 0.0
             && self.exposure == 1.0
@@ -113,7 +116,7 @@ impl PostSettings {
 
     /// Whether this frame draws the extra bloom passes.
     #[must_use]
-    #[allow(clippy::float_cmp)] // an exact zero is how "no bloom" is spelled
+    // an exact zero is how "no bloom" is spelled
     pub fn blooms(self) -> bool {
         self.bloom_strength > 0.0
     }
@@ -133,7 +136,7 @@ pub fn bloom_target_size(scene_size: DrawableSize) -> DrawableSize {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // the profile contract is exact
+    #![allow(clippy::float_cmp, reason = "the profile contract is exact")] // the profile contract is exact
 
     use super::*;
 

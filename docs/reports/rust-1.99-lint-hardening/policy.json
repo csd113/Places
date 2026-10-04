@@ -1,0 +1,143 @@
+{
+  "rust": {
+    "warnings": "deny",
+    "future_incompatible": {
+      "level": "deny",
+      "priority": -1
+    },
+    "unused_results": "deny",
+    "unsafe_op_in_unsafe_fn": "deny"
+  },
+  "clippy": {
+    "all": {
+      "level": "deny",
+      "priority": -1
+    },
+    "pedantic": {
+      "level": "deny",
+      "priority": -1
+    },
+    "nursery": {
+      "level": "deny",
+      "priority": -1
+    },
+    "cargo": {
+      "level": "deny",
+      "priority": -1
+    },
+    "unwrap_used": "deny",
+    "expect_used": "deny",
+    "panic": "deny",
+    "todo": "deny",
+    "unimplemented": "deny",
+    "unreachable": "warn",
+    "indexing_slicing": "deny",
+    "string_slice": "deny",
+    "unwrap_in_result": "warn",
+    "exit": "deny",
+    "mem_forget": "deny",
+    "arithmetic_side_effects": "deny",
+    "default_numeric_fallback": "deny",
+    "lossy_float_literal": "deny",
+    "as_conversions": "deny",
+    "cast_possible_truncation": "warn",
+    "cast_sign_loss": "warn",
+    "cast_precision_loss": "warn",
+    "cast_possible_wrap": "warn",
+    "float_cmp": "warn",
+    "dbg_macro": "deny",
+    "print_stdout": "warn",
+    "print_stderr": "warn",
+    "large_enum_variant": "deny",
+    "large_stack_arrays": "deny",
+    "large_stack_frames": "deny",
+    "redundant_clone": "warn",
+    "needless_pass_by_value": "warn",
+    "trivially_copy_pass_by_ref": "warn",
+    "missing_panics_doc": "warn",
+    "missing_errors_doc": "warn",
+    "wildcard_enum_match_arm": "deny",
+    "match_wildcard_for_single_variants": "warn",
+    "undocumented_unsafe_blocks": "deny",
+    "multiple_unsafe_ops_per_block": "deny",
+    "allow_attributes_without_reason": "deny",
+    "iter_over_hash_type": "deny",
+    "let_underscore_must_use": "deny",
+    "map_err_ignore": "deny",
+    "rest_pattern_accessible_field": "deny",
+    "shadow_unrelated": "deny",
+    "shadow_reuse": "deny",
+    "shadow_same": "deny",
+    "missing_assert_message": "deny"
+  },
+  "preserved_original_clippy": [
+    "pedantic",
+    "nursery",
+    "unwrap_used",
+    "expect_used",
+    "panic",
+    "todo",
+    "unimplemented",
+    "unreachable",
+    "indexing_slicing",
+    "unwrap_in_result",
+    "exit",
+    "mem_forget",
+    "arithmetic_side_effects",
+    "cast_possible_truncation",
+    "cast_sign_loss",
+    "cast_precision_loss",
+    "cast_possible_wrap",
+    "float_cmp",
+    "dbg_macro",
+    "print_stdout",
+    "print_stderr",
+    "large_enum_variant",
+    "large_stack_arrays",
+    "redundant_clone",
+    "needless_pass_by_value",
+    "trivially_copy_pass_by_ref",
+    "missing_panics_doc",
+    "missing_errors_doc",
+    "wildcard_enum_match_arm",
+    "match_wildcard_for_single_variants"
+  ],
+  "changes": {
+    "all": {
+      "level": "deny",
+      "priority": -1
+    },
+    "pedantic": {
+      "level": "deny",
+      "priority": -1
+    },
+    "nursery": {
+      "level": "deny",
+      "priority": -1
+    },
+    "cargo": {
+      "level": "deny",
+      "priority": -1
+    },
+    "string_slice": "deny",
+    "arithmetic_side_effects": "deny",
+    "default_numeric_fallback": "deny",
+    "lossy_float_literal": "deny",
+    "as_conversions": "deny",
+    "large_enum_variant": "deny",
+    "large_stack_arrays": "deny",
+    "large_stack_frames": "deny",
+    "wildcard_enum_match_arm": "deny",
+    "undocumented_unsafe_blocks": "deny",
+    "multiple_unsafe_ops_per_block": "deny",
+    "allow_attributes_without_reason": "deny",
+    "iter_over_hash_type": "deny",
+    "let_underscore_must_use": "deny",
+    "map_err_ignore": "deny",
+    "rest_pattern_accessible_field": "deny",
+    "shadow_unrelated": "deny",
+    "shadow_reuse": "deny",
+    "shadow_same": "deny",
+    "missing_assert_message": "deny"
+  }
+}

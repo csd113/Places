@@ -5,8 +5,8 @@ use super::*;
 fn baseline_response_is_continuous_and_preserves_half_the_gradient() {
     let target = 0.4;
     let mut previous = target;
-    for step in 1..=1000 {
-        let current = step as f32 * 0.002;
+    for step in 1_i32..=1_000_i32 {
+        let current = crate::test_support::exact_f32(step) * 0.002;
         let lifted = current + baseline_fill(current, target);
         assert!(lifted.is_finite());
         assert!(lifted >= target);
@@ -28,10 +28,10 @@ fn splitting_a_chart_cannot_change_its_baseline_correction() {
         .expect("scene")
         .with_receiver_target(vec![[0.4; 3]; 4]);
     // Same world samples and physical field, different chart partitioning.
-    let receivers: Vec<_> = (0..4)
+    let receivers: Vec<_> = (0_i32..4_i32)
         .map(|i| TransportReceiver {
-            position: [i as f32, 0.0, 0.0],
-            ray_origin: [i as f32, 0.0, 0.0],
+            position: [crate::test_support::exact_f32(i), 0.0, 0.0],
+            ray_origin: [crate::test_support::exact_f32(i), 0.0, 0.0],
             normal: [0.0, 1.0, 0.0],
             albedo: [0.7; 3],
             area: 1.0,

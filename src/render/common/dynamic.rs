@@ -796,15 +796,15 @@ impl DynamicScene {
         if self.water.is_empty() {
             return 0;
         }
-        let seconds = if seconds.is_finite() { seconds } else { 0.0 };
+        let animation_seconds = if seconds.is_finite() { seconds } else { 0.0 };
         let water = self.water.clone();
         let mut moved = 0usize;
         for object in &mut self.objects {
             let Some(float) = object.float else {
                 continue;
             };
-            let translation = float.translation_at(seconds, &water);
-            let heel = float.heel_at(seconds);
+            let translation = float.translation_at(animation_seconds, &water);
+            let heel = float.heel_at(animation_seconds);
             let changed = (object.translation.x - translation.x).abs() > f32::EPSILON
                 || (object.translation.y - translation.y).abs() > f32::EPSILON
                 || (object.translation.z - translation.z).abs() > f32::EPSILON
@@ -835,7 +835,8 @@ impl DynamicScene {
             return None;
         }
         let mesh = Arc::new(DynamicMesh::from_asset(asset)?);
-        self.mesh_index_by_path
+        let _previous_value = self
+            .mesh_index_by_path
             .insert(mesh.model_path.clone(), self.meshes.len());
         self.meshes.push(mesh);
         self.bump();
@@ -867,7 +868,8 @@ impl DynamicScene {
             textures,
             alphas,
         )?);
-        self.mesh_index_by_path
+        let _previous_value = self
+            .mesh_index_by_path
             .insert(mesh.model_path.clone(), self.meshes.len());
         self.meshes.push(mesh);
         self.bump();
@@ -1057,7 +1059,7 @@ impl DynamicScene {
         let Some(index) = self.objects.iter().position(|object| object.id == id) else {
             return false;
         };
-        self.objects.remove(index);
+        drop(self.objects.remove(index));
         self.bump();
         true
     }
@@ -1148,7 +1150,7 @@ impl DynamicScene {
                 object.spin_degrees = (object.spin_degrees + advanced).rem_euclid(360.0);
                 update.moved = update.moved.saturating_add(1);
             }
-            let Some(lighting) = lighting else {
+            let Some(level_lighting) = lighting else {
                 continue;
             };
             let centre = object.centre();
@@ -1159,7 +1161,7 @@ impl DynamicScene {
             // Re-evaluate every frame: movement, resource replacement and
             // light switches all affect this value. GPU writes still compare
             // uniforms, so stationary unchanged objects upload nothing.
-            let sample = super::light_transport::entity_lighting(lighting, irradiance, probe);
+            let sample = super::light_transport::entity_lighting(level_lighting, irradiance, probe);
             let changed = object.entity_lighting != Some(sample)
                 || object.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
             object.light_scale = sample.display;
@@ -1198,13 +1200,14 @@ impl DynamicScene {
             .get(DEMO_DRUM_ID)
             .model
             .filter(|path| !path.is_empty());
-        let (Some(machine_path), Some(drum_path)) = (machine_path, drum_path) else {
+        let (Some(resolved_machine_path), Some(resolved_drum_path)) = (machine_path, drum_path)
+        else {
             return 0;
         };
-        let drum_asset = match assets.resolve(&drum_path) {
+        let drum_asset = match assets.resolve(&resolved_drum_path) {
             Ok(asset) => asset,
             Err(error) => {
-                assets.report_failure(&drum_path, &error);
+                assets.report_failure(&resolved_drum_path, &error);
                 return 0;
             }
         };
@@ -1232,7 +1235,7 @@ impl DynamicScene {
             // drum: a level whose catalog maps the id elsewhere must not spawn
             // one against an unrelated model.
             match catalog.get(&prop.model).model {
-                Some(path) if path == machine_path => {}
+                Some(path) if path == resolved_machine_path => {}
                 _ => continue,
             }
             if !prop.x.is_finite()
@@ -1292,15 +1295,13 @@ mod tests {
     // else in the crate.
     #![allow(
         clippy::arithmetic_side_effects,
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
         clippy::expect_used,
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
         clippy::too_many_lines,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -1559,12 +1560,12 @@ mod tests {
         let update = scene.update(1.0, None);
         assert_eq!(update.moved, 1);
         assert_eq!(scene.get(id).unwrap().spin_degrees(), 2.0);
-        let update = scene.update(0.5, None);
-        assert_eq!(update.moved, 1);
+        let repeated_update = scene.update(0.5, None);
+        assert_eq!(repeated_update.moved, 1);
         assert_eq!(scene.get(id).unwrap().spin_degrees(), 8.0);
         // A non-finite delta is inert.
-        let update = scene.update(f32::NAN, None);
-        assert_eq!(update.moved, 0);
+        let non_finite_update = scene.update(f32::NAN, None);
+        assert_eq!(non_finite_update.moved, 0);
         assert_eq!(scene.get(id).unwrap().spin_degrees(), 8.0);
     }
 
@@ -1586,23 +1587,23 @@ mod tests {
         let first_probe = scene.get(id).unwrap().light_scale();
         assert!(first_probe.iter().all(|value| *value > 0.0));
         // Stationary unchanged lighting requires no new GPU payload.
-        for _ in 0..10 {
-            let update = scene.update(0.016, Some(&lighting));
-            assert_eq!(update.moved, 0);
-            assert_eq!(update.probes_refreshed, 0);
+        for _ in 0_i32..10_i32 {
+            let idle_update = scene.update(0.016, Some(&lighting));
+            assert_eq!(idle_update.moved, 0);
+            assert_eq!(idle_update.probes_refreshed, 0);
         }
         assert_eq!(scene.get(id).unwrap().light_scale(), first_probe);
         // Small movements are sampled too, without a 5 cm lighting dead zone.
-        scene.set_transform(id, [2.0, 1.5, 0.0125 + 2.0], 0.0, 1.0);
+        let _transform_changed = scene.set_transform(id, [2.0, 1.5, 0.0125 + 2.0], 0.0, 1.0);
         assert_eq!(scene.update(0.016, Some(&lighting)).probes_refreshed, 1);
         // A real move re-samples the probe at the new position.
-        scene.set_transform(id, [4.5, 1.5, 4.5], 0.0, 1.0);
-        let update = scene.update(0.016, Some(&lighting));
-        assert_eq!(update.probes_refreshed, 1);
+        let _transform_changed_2 = scene.set_transform(id, [4.5, 1.5, 4.5], 0.0, 1.0);
+        let moved_update = scene.update(0.016, Some(&lighting));
+        assert_eq!(moved_update.probes_refreshed, 1);
         assert_eq!(scene.get(id).unwrap().light_scale().len(), 3);
         // Without lighting the probe keeps its last value and never samples.
         let before = scene.get(id).unwrap().light_scale();
-        scene.set_transform(id, [0.5, 1.5, 0.5], 0.0, 1.0);
+        let _transform_changed_3 = scene.set_transform(id, [0.5, 1.5, 0.5], 0.0, 1.0);
         assert_eq!(scene.update(0.016, None).probes_refreshed, 0);
         assert_eq!(scene.get(id).unwrap().light_scale(), before);
     }
@@ -1628,8 +1629,8 @@ mod tests {
                 ..ProbeSample::default()
             }],
         };
-        for _ in 0..3 {
-            scene.update_with_field(0.0, Some(&lighting), None);
+        for _ in 0_i32..3_i32 {
+            let _update_stats = scene.update_with_field(0.0, Some(&lighting), None);
             assert!(
                 scene
                     .get(id)
@@ -1641,7 +1642,7 @@ mod tests {
             );
             for value in [0.2, 0.6] {
                 field.probes[0].irradiance = [value; 3];
-                scene.update_with_field(0.0, Some(&lighting), Some(&field));
+                let _update_stats_2 = scene.update_with_field(0.0, Some(&lighting), Some(&field));
                 assert!((scene.get(id).expect("object").light_scale()[0] - value).abs() < 1.0e-6);
                 assert_eq!(
                     scene
@@ -1653,10 +1654,10 @@ mod tests {
         }
         scene.clear_all();
         assert!(scene.objects().is_empty());
-        let id = scene
+        let runtime_id = scene
             .spawn(&asset, [2.0, 1.0, 2.0], 0.0, 1.0, 0.0)
             .expect("reload");
-        assert!(!scene.get(id).expect("fresh object").probe_valid());
+        assert!(!scene.get(runtime_id).expect("fresh object").probe_valid());
     }
 
     #[test]
@@ -1672,7 +1673,7 @@ mod tests {
             .into_iter()
             .map(|position| scene.spawn(&asset, position, 0.0, 1.0, 0.0).expect("spawn"))
             .collect();
-        scene.update(0.016, Some(&lighting));
+        let _update_stats = scene.update(0.016, Some(&lighting));
         for id in ids {
             let probe = scene.get(id).unwrap().light_scale();
             for channel in probe {
@@ -1690,7 +1691,7 @@ mod tests {
         let mut scene = DynamicScene::new();
         let mut ids = Vec::new();
         for index in 0..MAX_DYNAMIC_OBJECTS {
-            let position = [index as f32, 0.0, 0.0];
+            let position = [crate::test_support::exact_f32(index), 0.0, 0.0];
             ids.push(
                 scene
                     .spawn(&asset, position, 0.0, 1.0, 0.0)
@@ -1788,8 +1789,8 @@ mod tests {
         );
         // ... and an override replaces it, sanitised.
         assert!(scene.set_emission(id, Some(MaterialEmission::new([1.0, 1.0, 1.0], 99.0))));
-        let object = scene.get(id).unwrap();
-        let overridden = object.submesh_emission(&submesh);
+        let live_object = scene.get(id).unwrap();
+        let overridden = live_object.submesh_emission(&submesh);
         assert_eq!(
             overridden.intensity,
             crate::materials::MAX_EMISSION_INTENSITY
@@ -1797,7 +1798,7 @@ mod tests {
         // Emission is not a light: the probe is the baked room light and the
         // albedo is untouched, which is what the shader adds the emission on
         // top of.
-        let albedo = object.mesh().vertices[0].color;
+        let albedo = live_object.mesh().vertices[0].color;
         assert_eq!(albedo, [1.0, 1.0, 1.0, 1.0]);
         assert!(scene.set_emission(id, None));
         assert_eq!(scene.get(id).unwrap().emission(), None);
@@ -1956,7 +1957,7 @@ mod tests {
         let first = scene.get(id).unwrap().transform();
         let centre = scene.get(id).unwrap().centre();
         let mut previous = first;
-        for _ in 0..120 {
+        for _ in 0_i32..120_i32 {
             assert_eq!(scene.update(1.0 / 60.0, None).moved, 1);
             let current = scene.get(id).unwrap().transform();
             // The body of the transform is different every frame: it spins.
@@ -2030,9 +2031,14 @@ mod tests {
             1
         );
         let id = scene.objects()[0].id();
-        for step in 0..120 {
-            scene.update(1.0 / 60.0, Some(&lighting));
-            assert!(scene.set_transform(id, [step as f32 * 0.01, 0.0, 0.0], 0.0, 1.0));
+        for step in 0_i32..120_i32 {
+            let _update_stats = scene.update(1.0 / 60.0, Some(&lighting));
+            assert!(scene.set_transform(
+                id,
+                [crate::test_support::exact_f32(step) * 0.01, 0.0, 0.0],
+                0.0,
+                1.0
+            ));
         }
         // Moving the drum rebuilt nothing: the static mesh is bit-for-bit what
         // the bake produced, the drum is not in the occlusion set, and no
@@ -2119,9 +2125,9 @@ mod tests {
         let mut max_bob = 0.0_f32;
         let mut max_heel = 0.0_f32;
         // Ten samples per bob period across both periods (2.4 s and 3.1 s).
-        for step in 0..=620 {
-            let seconds = step as f32 * 0.01;
-            scene.update_floats(seconds);
+        for step in 0_i32..=620_i32 {
+            let seconds = crate::test_support::exact_f32(step) * 0.01;
+            let _update_stats = scene.update_floats(seconds);
             let duck = scene.get(id).expect("the duck stays live");
             let [x, y, z] = duck.translation();
             assert_eq!(x, 10.5, "a float never drifts in x");
@@ -2181,7 +2187,7 @@ mod tests {
 
         // A quarter of the bob period in: phase 0 is at its peak while phase 0.5 is
         // at its trough, so the two can never report the same height.
-        scene.update_floats(0.6);
+        let _update_stats = scene.update_floats(0.6);
         let first = scene
             .objects()
             .first()
@@ -2259,11 +2265,11 @@ mod tests {
         assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
         let id = scene.objects().first().expect("the duck spawned").id();
 
-        scene.update_floats(0.0);
+        let _update_stats = scene.update_floats(0.0);
         let rest = scene.get(id).expect("the duck is live").translation();
         let rest_heel = scene.get(id).expect("the duck is live").spin_degrees();
 
-        scene.update_floats(1.0);
+        let _update_stats_2 = scene.update_floats(1.0);
         assert_ne!(scene.get(id).expect("the duck is live").translation(), rest);
 
         assert_eq!(scene.update_floats(f32::NAN), 1, "NaN reads as t = 0");
@@ -2272,7 +2278,7 @@ mod tests {
         assert_eq!(duck.spin_degrees(), rest_heel);
         assert!(duck.translation().iter().all(|value| value.is_finite()));
 
-        scene.update_floats(1.0);
+        let _update_stats_3 = scene.update_floats(1.0);
         assert_eq!(
             scene.update_floats(f32::INFINITY),
             1,

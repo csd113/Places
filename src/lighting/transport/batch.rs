@@ -21,18 +21,18 @@ impl TransportScene {
     ) -> Result<TransportSolve, LightmapFailure> {
         let started = std::time::Instant::now();
         let receivers = self.receivers(charts)?;
-        let receiver_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
         if !self.receiver_target.is_empty() && self.receiver_target.len() != receivers.len() {
             return Err(LightmapFailure::FillSize);
         }
         let mut direct_rays = 0usize;
-        let mut direct_ms = [0.0; 2];
+        let mut direct_ms = [0.0_f64; 2];
         let mut layers = Vec::with_capacity(2);
         for (channel, emitters) in [base_emitters, std::slice::from_ref(&emitter)]
             .into_iter()
             .enumerate()
         {
-            let started = std::time::Instant::now();
+            let direct_started = std::time::Instant::now();
             let (direct, rays) = coverage::direct_pass(
                 self,
                 charts,
@@ -43,7 +43,7 @@ impl TransportScene {
                 options.workers,
                 cancel,
             )?;
-            direct_ms[channel] = started.elapsed().as_secs_f64() * 1000.0;
+            direct_ms[channel] = direct_started.elapsed().as_secs_f64() * 1_000.0_f64;
             if direct.iter().any(|value| !value.is_finite()) {
                 return Err(LightmapFailure::FillNonFinite);
             }
@@ -56,8 +56,9 @@ impl TransportScene {
             direct_rays = direct_rays.saturating_add(rays);
             layers.push(direct);
         }
-        let [direct_base, direct_switch]: [Vec<Accumulator>; 2] =
-            layers.try_into().map_err(|_| LightmapFailure::FillSize)?;
+        let [direct_base, direct_switch] = layers
+            .try_into()
+            .map_err(|_incomplete_layers: Vec<Vec<Accumulator>>| LightmapFailure::FillSize)?;
         let active = [
             options.bounces > 0
                 && (!base_emitters.is_empty()
@@ -65,7 +66,7 @@ impl TransportScene {
                     || self.sky_radiance.iter().any(|channel| *channel > 0.0)),
             options.bounces > 0,
         ];
-        let started = std::time::Instant::now();
+        let bounce_started = std::time::Instant::now();
         let (combined, bounce_rays, cache_cells) = self.bounce_pair_orders(
             &receivers,
             [direct_base.clone(), direct_switch.clone()],
@@ -73,7 +74,7 @@ impl TransportScene {
             active,
             cancel,
         )?;
-        let bounce_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let [base_values, switch_values] = combined;
         if active[0] {
             StageAudit {
@@ -104,7 +105,7 @@ impl TransportScene {
             options,
             cancel,
             None,
-            [0.0, direct_ms[1], 0.0],
+            [0.0_f64, direct_ms[1], 0.0_f64],
         )?;
         Ok(TransportSolve {
             solution: TransportSolution {
@@ -153,13 +154,13 @@ impl TransportScene {
                 if !active[channel] {
                     continue;
                 }
-                for ((total, previous), gain) in combined[channel]
+                for ((total, prior_gain), gain) in combined[channel]
                     .iter_mut()
                     .zip(&mut previous[channel])
                     .zip(&gained)
                 {
                     add_scaled(total, &gain[channel], 1.0);
-                    *previous = gain[channel];
+                    *prior_gain = gain[channel];
                 }
                 if combined[channel]
                     .iter()
@@ -174,8 +175,12 @@ impl TransportScene {
             .len()
             .saturating_mul(options.gather_samples)
             .saturating_mul(usize::from(options.bounces));
-        let logical_samples =
-            geometric_samples.saturating_mul(active.into_iter().filter(|active| *active).count());
+        let logical_samples = geometric_samples.saturating_mul(
+            active
+                .into_iter()
+                .filter(|channel_active| *channel_active)
+                .count(),
+        );
         crate::logging::info(format_args!(
             "[transport-work] shared_layers=2 logical_gather_samples={logical_samples} geometric_gather_samples={geometric_samples}"
         ));
@@ -309,20 +314,20 @@ impl RadianceCache {
         let frac =
             std::array::from_fn::<_, 3, _>(|axis| (coords[axis] - base[axis]).clamp(0.0, 1.0));
         let mut weight_sum = 0.0;
-        for dz in 0..2 {
-            for dy in 0..2 {
-                for dx in 0..2 {
-                    let weight = (if dx == 0 { 1.0 - frac[0] } else { frac[0] })
-                        * (if dy == 0 { 1.0 - frac[1] } else { frac[1] })
-                        * (if dz == 0 { 1.0 - frac[2] } else { frac[2] });
+        for dz in 0_i16..2_i16 {
+            for dy in 0_i16..2_i16 {
+                for dx in 0_i16..2_i16 {
+                    let weight = (if dx == 0_i16 { 1.0 - frac[0] } else { frac[0] })
+                        * (if dy == 0_i16 { 1.0 - frac[1] } else { frac[1] })
+                        * (if dz == 0_i16 { 1.0 - frac[2] } else { frac[2] });
                     if weight <= 0.0 {
                         continue;
                     }
                     let Some(cell) = lattice_cell(
                         [
-                            base[0] + dx as f32,
-                            base[1] + dy as f32,
-                            base[2] + dz as f32,
+                            base[0] + f32::from(dx),
+                            base[1] + f32::from(dy),
+                            base[2] + f32::from(dz),
                         ],
                         self.dims,
                     ) else {
@@ -333,8 +338,10 @@ impl RadianceCache {
                         continue;
                     };
                     weight_sum += weight;
+                    // The 2x2x2 loop inserts at most eight entries; len is
+                    // therefore 0..7 before each write to this eight-slot array.
                     stencil.entries[stencil.len] = (receiver, weight);
-                    stencil.len += 1;
+                    stencil.len = stencil.len.saturating_add(1);
                 }
             }
         }
@@ -357,19 +364,19 @@ impl RadianceCache {
         base: [f32; 3],
         receivers: &[TransportReceiver],
     ) -> Option<usize> {
-        let mut best: Option<(isize, usize)> = None;
-        for dz in -2_isize..=2 {
-            for dy in -2_isize..=2 {
-                for dx in -2_isize..=2 {
-                    let distance = dx.abs() + dy.abs() + dz.abs();
+        let mut best: Option<(i16, usize)> = None;
+        for dz in -2_i16..=2 {
+            for dy in -2_i16..=2 {
+                for dx in -2_i16..=2 {
+                    let distance = dx.abs().saturating_add(dy.abs()).saturating_add(dz.abs());
                     if best.is_some_and(|(current, _)| distance >= current) {
                         continue;
                     }
                     let Some(cell) = lattice_cell(
                         [
-                            base[0] + dx as f32,
-                            base[1] + dy as f32,
-                            base[2] + dz as f32,
+                            base[0] + f32::from(dx),
+                            base[1] + f32::from(dy),
+                            base[2] + f32::from(dz),
                         ],
                         self.dims,
                     ) else {

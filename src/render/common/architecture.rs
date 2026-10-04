@@ -297,8 +297,11 @@ fn emit_face_inner(
     } else {
         std::array::from_fn(|index| {
             let point = face.points.get(index).copied().unwrap_or_default();
-            let base = base.get(index).copied().unwrap_or_default();
-            shade(base, context.lighting.sample(point[0], point[1], point[2]))
+            let corner_base = base.get(index).copied().unwrap_or_default();
+            shade(
+                corner_base,
+                context.lighting.sample(point[0], point[1], point[2]),
+            )
         })
     };
     scratch.clear();
@@ -308,10 +311,21 @@ fn emit_face_inner(
     // repeated corner last: the index pass then drops the zero-area second
     // triangle instead of storing it, and the lightmap chart stays a valid
     // frame over the triangle's own corners.
-    let (points, colors, uv) = fold_triangle_to_quad(face.points, colors, face.uv);
+    let (points, quad_colors, uv) = fold_triangle_to_quad(face.points, colors, face.uv);
     add_quad(
-        scratch, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
-        uv[2], points[3], colors[3], uv[3],
+        scratch,
+        points[0],
+        quad_colors[0],
+        uv[0],
+        points[1],
+        quad_colors[1],
+        uv[1],
+        points[2],
+        quad_colors[2],
+        uv[2],
+        points[3],
+        quad_colors[3],
+        uv[3],
     );
     if smooth {
         // `scratch` was cleared above, so these are exactly this quad's six
@@ -363,8 +377,8 @@ fn fold_triangle_to_quad<T: Copy + Default>(
         // the triangle's corners in winding order, and the last repeats. The
         // order is built with `from_fn` so no index ever needs checking.
         let source = |slot: usize| {
-            let slot = if slot >= 3 { 2 } else { slot };
-            let sum = second.saturating_add(slot);
+            let triangle_slot = if slot >= 3 { 2 } else { slot };
+            let sum = second.saturating_add(triangle_slot);
             if sum >= 4 { sum.saturating_sub(4) } else { sum }
         };
         return (
@@ -396,7 +410,10 @@ fn horizontal_quad(
 }
 
 /// Emits one horizontal quad (a cap or a tread) facing up.
-#[allow(clippy::too_many_arguments)] // matches the other quad emitters in this module
+#[expect(
+    clippy::too_many_arguments,
+    reason = "matches the other quad emitters in this module"
+)] // matches the other quad emitters in this module
 fn emit_horizontal(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -496,7 +513,10 @@ fn emit_ramp(
 
 /// The ramp's sloped top surface, sampled on the same height function the
 /// walkable model answers with.
-#[allow(clippy::too_many_arguments)] // one surface's frame and material
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one surface's frame and material"
+)] // one surface's frame and material
 fn emit_ramp_surface(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -569,7 +589,7 @@ fn emit_ramp_sides(
         // (or below) whatever it meets.
         let mut bottom = f32::INFINITY;
         for sample in 0..=4u8 {
-            #[allow(clippy::cast_precision_loss)] // four samples, far below 2^24
+            // four samples, far below 2^24
             let fraction = f32::from(sample) / 4.0;
             let (px, pz) = ramp.side_probe(side, fraction, ADJACENT_PROBE_M);
             bottom = bottom.min(
@@ -581,8 +601,8 @@ fn emit_ramp_sides(
         }
         let top_low = surface_at(0.0);
         let top_high = surface_at(1.0);
-        let bottom = bottom.min(top_low).min(top_high);
-        if top_low - bottom <= 1e-4 && top_high - bottom <= 1e-4 {
+        let clamped_bottom = bottom.min(top_low).min(top_high);
+        if top_low - clamped_bottom <= 1e-4 && top_high - clamped_bottom <= 1e-4 {
             continue;
         }
         let at = if side < 0.0 { across_low } else { across_high };
@@ -596,14 +616,14 @@ fn emit_ramp_sides(
         };
         let mut points: [[f32; 3]; 4] = match axis {
             WallAxis::X => [
-                [span.0, bottom, at],
-                [span.1, bottom, at],
+                [span.0, clamped_bottom, at],
+                [span.1, clamped_bottom, at],
                 [span.1, top_high, at],
                 [span.0, top_low, at],
             ],
             WallAxis::Z => [
-                [at, bottom, span.0],
-                [at, bottom, span.1],
+                [at, clamped_bottom, span.0],
+                [at, clamped_bottom, span.1],
                 [at, top_high, span.1],
                 [at, top_low, span.0],
             ],
@@ -626,7 +646,7 @@ fn emit_ramp_sides(
             let along = along_of(point);
             let fraction = ((along - span.0) / (span.1 - span.0)).clamp(0.0, 1.0);
             let edge = (top_high - top_low).mul_add(fraction, top_low);
-            edge - bottom > 1e-4 && (point[1] - edge).abs() <= 1e-4
+            edge - clamped_bottom > 1e-4 && (point[1] - edge).abs() <= 1e-4
         });
         let mut uv: [[f32; 2]; 4] = map_corners(points, |point| {
             tiled_uv(along_of(point), top_low.max(top_high) - point[1], edge_tile)
@@ -846,16 +866,16 @@ fn emit_stair(
         side_key: wall_key(context, stair.side_ref()),
         side_tile: 0.0,
     };
-    let frame = StairFrame {
+    let tiled_frame = StairFrame {
         tread_tile: context.materials.tile_metres(frame.tread_key),
         riser_tile: context.materials.tile_metres(frame.riser_key),
         side_tile: context.materials.tile_metres(frame.side_key),
         ..frame
     };
     for step in 0..steps {
-        emit_stair_step(context, buckets, scratch, stair, &frame, step);
+        emit_stair_step(context, buckets, scratch, stair, &tiled_frame, step);
     }
-    emit_stair_landing(context, buckets, scratch, &frame, head_x, head_z);
+    emit_stair_landing(context, buckets, scratch, &tiled_frame, head_x, head_z);
 }
 
 /// One tread of a staircase: its two closed side panels, its riser and its top.
@@ -955,7 +975,10 @@ fn emit_stair_step(
 /// ends of the flight: adjacent panels then share their bottom edge, the profile
 /// reads as a closed stringer, and no panel can collapse into a zero-area quad
 /// where the floor beside the flight rises to meet the treads.
-#[allow(clippy::too_many_arguments)] // one step's frame, side and material
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one step's frame, side and material"
+)] // one step's frame, side and material
 fn emit_stair_side(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1093,7 +1116,11 @@ fn emit_stair_landing(
 }
 
 /// `u32` to `f32` for the small counts (steps, segments) the level bounds.
-#[allow(clippy::cast_precision_loss)] // bounded by level validation, far below 2^24
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "bounded by level validation, far below 2^24"
+)] // bounded by level validation, far below 2^24
 const fn u32_to_f32(value: u32) -> f32 {
     value as f32
 }
@@ -1402,7 +1429,10 @@ struct RoundKeys {
 /// flat-shaded. UVs are world-scale: `u` is the arc length travelled along each
 /// face's own circumference and `v` is height, so a texture never stretches
 /// around the sweep.
-#[allow(clippy::too_many_lines)] // one curved solid's full face set, kept in one place
+#[expect(
+    clippy::too_many_lines,
+    reason = "one curved solid's full face set, kept in one place"
+)] // one curved solid's full face set, kept in one place
 fn emit_arc_wall(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1544,30 +1574,35 @@ fn emit_arc_wall(
         // The concave inner face.
         let p_in0 = inner_ring.get(here).copied().unwrap_or((piece.x, piece.z));
         let p_in1 = inner_ring.get(next).copied().unwrap_or(p_in0);
-        let mut points = [
+        let mut inner_points = [
             [p_in0.0, base, p_in0.1],
             [p_in1.0, base, p_in1.1],
             [p_in1.0, top1, p_in1.1],
             [p_in0.0, top0, p_in0.1],
         ];
-        let mut uv = [
+        let mut inner_uv = [
             tiled_uv(inner_radius * arc0, top0 - base, tile_inner),
             tiled_uv(inner_radius * arc1, top0 - base, tile_inner),
             tiled_uv(inner_radius * arc1, top0 - top1, tile_inner),
             tiled_uv(inner_radius * arc0, 0.0, tile_inner),
         ];
-        let mut top = [false, false, true, true];
-        let normal = inner_normal(a0, a1);
-        orient(&mut points, &mut uv, &mut top, normal);
+        let mut inner_top = [false, false, true, true];
+        let inner_face_normal = inner_normal(a0, a1);
+        orient(
+            &mut inner_points,
+            &mut inner_uv,
+            &mut inner_top,
+            inner_face_normal,
+        );
         emit_smooth_face(
             context,
             buckets,
             scratch,
             ArchitectureFace {
-                points,
-                uv,
-                top,
-                normal,
+                points: inner_points,
+                uv: inner_uv,
+                top: inner_top,
+                normal: inner_face_normal,
                 vertical: true,
                 up: false,
                 key: keys.inner,
@@ -1581,23 +1616,28 @@ fn emit_arc_wall(
         // above or clearly below the ceiling keeps its cap.
         let cap_tile = context.materials.tile_metres(keys.cap);
         if (top_mid - ceiling_mid).abs() > FLUSH_EPS_M {
-            let mut points = [
+            let mut top_cap_points = [
                 [p_in0.0, top0, p_in0.1],
                 [p_in1.0, top1, p_in1.1],
                 [p_out1.0, top1, p_out1.1],
                 [p_out0.0, top0, p_out0.1],
             ];
-            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
-            let mut top = [false; 4];
-            orient(&mut points, &mut uv, &mut top, [0.0, 1.0, 0.0]);
+            let mut top_cap_uv = top_cap_points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut top_cap_flags = [false; 4];
+            orient(
+                &mut top_cap_points,
+                &mut top_cap_uv,
+                &mut top_cap_flags,
+                [0.0, 1.0, 0.0],
+            );
             emit_face(
                 context,
                 buckets,
                 scratch,
                 ArchitectureFace {
-                    points,
-                    uv,
-                    top,
+                    points: top_cap_points,
+                    uv: top_cap_uv,
+                    top: top_cap_flags,
                     normal: [0.0, 1.0, 0.0],
                     vertical: false,
                     up: true,
@@ -1613,23 +1653,29 @@ fn emit_arc_wall(
             .floor_y_at(probe_floor_x, probe_floor_z)
             .unwrap_or(base);
         if base > floor + 0.02 {
-            let mut points = [
+            let mut bottom_cap_points = [
                 [p_in0.0, base, p_in0.1],
                 [p_out0.0, base, p_out0.1],
                 [p_out1.0, base, p_out1.1],
                 [p_in1.0, base, p_in1.1],
             ];
-            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
-            let mut top = [false; 4];
-            orient(&mut points, &mut uv, &mut top, [0.0, -1.0, 0.0]);
+            let mut bottom_cap_uv =
+                bottom_cap_points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut bottom_cap_flags = [false; 4];
+            orient(
+                &mut bottom_cap_points,
+                &mut bottom_cap_uv,
+                &mut bottom_cap_flags,
+                [0.0, -1.0, 0.0],
+            );
             emit_face(
                 context,
                 buckets,
                 scratch,
                 ArchitectureFace {
-                    points,
-                    uv,
-                    top,
+                    points: bottom_cap_points,
+                    uv: bottom_cap_uv,
+                    top: bottom_cap_flags,
                     normal: [0.0, -1.0, 0.0],
                     vertical: false,
                     up: false,
@@ -1736,7 +1782,10 @@ fn inner_normal(a0: f32, a1: f32) -> [f32; 3] {
 /// the two segments that meet there, and its faces are emitted as smooth faces,
 /// so the frame pass resolves one continuous radial normal around the
 /// circumference instead of a flat normal per facet. The caps stay flat-shaded.
-#[allow(clippy::too_many_lines)] // one solid's body and its two caps, kept in one place
+#[expect(
+    clippy::too_many_lines,
+    reason = "one solid's body and its two caps, kept in one place"
+)] // one solid's body and its two caps, kept in one place
 fn emit_pillar(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -2331,7 +2380,7 @@ impl RunFrame {
 
 /// Emits one face of a rotated trim piece from local `(along, across, y)`
 /// corners, with UVs supplied in the same corner order.
-#[allow(clippy::too_many_arguments)] // one face's frame and material
+#[expect(clippy::too_many_arguments, reason = "one face's frame and material")] // one face's frame and material
 fn emit_local_face(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -2340,14 +2389,13 @@ fn emit_local_face(
     kind: PatchKind,
     frame: &RunFrame,
     locals: [[f32; 3]; 4],
-    uv: [[f32; 2]; 4],
+    mut uv: [[f32; 2]; 4],
     expected_normal: [f32; 3],
     vertical: bool,
     up: bool,
 ) {
     let mut points: [[f32; 3]; 4] = locals.map(|[along, across, y]| frame.point(along, across, y));
     let mut top_flags = [false, false, true, true];
-    let mut uv = uv;
     orient(&mut points, &mut uv, &mut top_flags, expected_normal);
     emit_face(
         context,
@@ -2472,7 +2520,7 @@ fn guardrail_post_positions(run: f32, spacing: f32, post_half: f32) -> Vec<f32> 
 }
 
 /// Emits one rail of a guardrail run: its top, its two sides and its two ends.
-#[allow(clippy::too_many_arguments)] // one rail's full frame
+#[expect(clippy::too_many_arguments, reason = "one rail's full frame")] // one rail's full frame
 fn emit_rail_run(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -2580,7 +2628,7 @@ fn emit_rail_run(
 }
 
 /// Emits one square guardrail post between two heights.
-#[allow(clippy::too_many_arguments)] // one post's frame and material
+#[expect(clippy::too_many_arguments, reason = "one post's frame and material")] // one post's frame and material
 fn emit_post(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -2998,17 +3046,17 @@ fn clip_polygon_keep(polygon: &[[f32; 2]], plane: BaseboardPlane) -> Vec<[f32; 2
     for [x, y] in polygon.iter().copied() {
         let value = plane.value(x, y);
         if value >= 0.0 {
-            if let (Some([px, py]), Some(previous_value)) = (previous, previous_value)
-                && previous_value < 0.0
+            if let (Some([px, py]), Some(previous_distance)) = (previous, previous_value)
+                && previous_distance < 0.0
             {
-                let t = previous_value / (previous_value - value);
+                let t = previous_distance / (previous_distance - value);
                 out.push([(x - px).mul_add(t, px), (y - py).mul_add(t, py)]);
             }
             out.push([x, y]);
-        } else if let (Some([px, py]), Some(previous_value)) = (previous, previous_value)
-            && previous_value >= 0.0
+        } else if let (Some([px, py]), Some(previous_distance)) = (previous, previous_value)
+            && previous_distance >= 0.0
         {
-            let t = previous_value / (previous_value - value);
+            let t = previous_distance / (previous_distance - value);
             out.push([(x - px).mul_add(t, px), (y - py).mul_add(t, py)]);
         }
         previous = Some([x, y]);
@@ -3094,7 +3142,10 @@ fn cap_front_gap(planes: &[BaseboardPlane; 4], thickness: f32) -> Option<(f32, f
 /// loses the covered length, and the end face hidden inside the earlier run is
 /// skipped. The earlier run keeps its own boards whole, so the corner stays
 /// closed with no gap and no coincident surface pair.
-#[allow(clippy::too_many_lines)] // one trim-aware emitter with its three faces
+#[expect(
+    clippy::too_many_lines,
+    reason = "one trim-aware emitter with its three faces"
+)] // one trim-aware emitter with its three faces
 fn emit_baseboard(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -3323,7 +3374,10 @@ fn triangle_area_2d(a: [f32; 2], b: [f32; 2], c: [f32; 2]) -> f32 {
 mod tests {
     // Test code: exact float compares are idiomatic here (the crate's
     // production lints stay enforced above).
-    #![allow(clippy::float_cmp)]
+    #![allow(
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::guardrail_post_positions;
 

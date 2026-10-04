@@ -28,7 +28,8 @@
     clippy::cast_sign_loss,
     clippy::indexing_slicing,
     clippy::missing_const_for_fn,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
     use crate::level::LevelDef;

@@ -325,7 +325,7 @@ impl DoorCollider {
         height: f32,
     ) -> Self {
         let [dir_x, dir_z] = direction;
-        let (dir_x, dir_z) = if dir_x.is_finite() && dir_z.is_finite() {
+        let (unit_dir_x, unit_dir_z) = if dir_x.is_finite() && dir_z.is_finite() {
             let length = dir_x.hypot(dir_z);
             if length > 1e-6 {
                 (dir_x / length, dir_z / length)
@@ -339,8 +339,8 @@ impl DoorCollider {
             hinge_x: hinge[0],
             hinge_y: hinge[1],
             hinge_z: hinge[2],
-            dir_x,
-            dir_z,
+            dir_x: unit_dir_x,
+            dir_z: unit_dir_z,
             width,
             thickness,
             height,
@@ -468,11 +468,11 @@ impl DoorCollider {
         );
         let mut t_enter = 0.0_f32;
         let mut t_exit = f32::INFINITY;
-        for (o, d, lo, hi) in [
+        for (axis_origin, axis_direction, lo, hi) in [
             (o.0, d.0, 0.0, self.width),
             (o.1, d.1, -half_thickness, half_thickness),
         ] {
-            let (near, far) = slab_axis(o, d, lo, hi)?;
+            let (near, far) = slab_axis(axis_origin, axis_direction, lo, hi)?;
             t_enter = t_enter.max(near);
             t_exit = t_exit.min(far);
             if t_enter > t_exit {
@@ -568,7 +568,7 @@ pub(crate) fn resolve_airborne_player_collision_with_doors(
 
 fn resolve_collision_with_doors(
     index: &crate::collision_index::CollisionIndex,
-    pos: Vec2,
+    mut pos: Vec2,
     radius: f32,
     body_band: (f32, f32),
     walls: &[WallAabb],
@@ -576,8 +576,7 @@ fn resolve_collision_with_doors(
     airborne_from: Option<Vec2>,
 ) -> Vec2 {
     let (foot_y, body_height) = body_band;
-    let mut pos = pos;
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         let mut collided = false;
         index.for_each_disc(pos.x, pos.y, radius, walls, |wall| {
             let blocks = airborne_from.map_or_else(
@@ -701,7 +700,10 @@ pub fn ray_aabb_entry(origin: Vec3, direction: Vec3, min: [f32; 3], max: [f32; 3
 pub fn segment_overlaps_aabb(from: Vec3, to: Vec3, min: [f32; 3], max: [f32; 3]) -> bool {
     // Vec3 subtraction is component-wise bounded float arithmetic; the lint
     // cannot see that through the operator impl.
-    #[allow(clippy::arithmetic_side_effects)]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 subtraction is component-wise bounded float arithmetic; the lint cannot see that through the operator impl."
+    )]
     let delta = to - from;
     if !delta.is_finite() {
         return false;
@@ -735,14 +737,13 @@ pub fn resolve_player_collision_for_body(
 #[must_use]
 pub fn resolve_player_collision_for_body_indexed(
     index: &crate::collision_index::CollisionIndex,
-    pos: Vec2,
+    mut pos: Vec2,
     radius: f32,
     foot_y: f32,
     body_height: f32,
     walls: &[WallAabb],
 ) -> Vec2 {
-    let mut pos = pos;
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         let mut collided = false;
         index.for_each_disc(pos.x, pos.y, radius, walls, |wall| {
             if !wall.blocks_body(foot_y, body_height) {
@@ -780,7 +781,7 @@ fn resolve_with_band(
     walls: &[WallAabb],
     blocks: impl Fn(&WallAabb) -> bool,
 ) -> Vec2 {
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         let mut collided = false;
         for wall in walls {
             if !blocks(wall) {

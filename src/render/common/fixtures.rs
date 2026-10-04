@@ -93,7 +93,10 @@ fn panel_down_quad(housing: &mut Vec<Vertex>, x0: f32, x1: f32, z0: f32, z1: f32
 /// the housing is always its fixed mid grey.
 // The emitter takes the panel's two world extents, the housing sinks and the
 // emission separately; bundling them would add a type used by one call site.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The emitter takes the panel's two world extents, the housing sinks and the emission separately; bundling them would add a type used by one call site."
+)]
 pub fn add_panel_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
@@ -188,7 +191,10 @@ pub fn add_panel_fixture(
 }
 
 /// One flat ring quad of a round fixture, facing down.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One fixture quad keeps its coordinates, angular endpoints, color and UV inputs explicit without allocating an intermediate object."
+)]
 pub fn add_ring_quad(
     scratch: &mut Vec<Vertex>,
     cx: f32,
@@ -213,7 +219,10 @@ pub fn add_ring_quad(
 }
 
 /// One outward-facing side quad of a round fixture's shallow can.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One fixture quad keeps its coordinates, angular endpoints, color and UV inputs explicit without allocating an intermediate object."
+)]
 pub fn add_can_quad(
     scratch: &mut Vec<Vertex>,
     cx: f32,
@@ -280,9 +289,10 @@ pub fn add_round_fixture(
     // exactly.
     let segments = u8::try_from(SEGMENTS).unwrap_or(0);
     for segment in 0..SEGMENTS {
-        let segment = u8::try_from(segment).unwrap_or(0);
-        let a0 = f32::from(segment) / f32::from(segments) * std::f32::consts::TAU;
-        let a1 = f32::from(segment.saturating_add(1)) / f32::from(segments) * std::f32::consts::TAU;
+        let segment_index = u8::try_from(segment).unwrap_or(0);
+        let a0 = f32::from(segment_index) / f32::from(segments) * std::f32::consts::TAU;
+        let a1 = f32::from(segment_index.saturating_add(1)) / f32::from(segments)
+            * std::f32::consts::TAU;
         let (sin0, cos0) = a0.sin_cos();
         let (sin1, cos1) = a1.sin_cos();
         add_ring_quad(
@@ -379,9 +389,10 @@ pub fn add_flush_mount_fixture(
     // exactly.
     let segments = u8::try_from(SEGMENTS).unwrap_or(0);
     for segment in 0..SEGMENTS {
-        let segment = u8::try_from(segment).unwrap_or(0);
-        let a0 = f32::from(segment) / f32::from(segments) * std::f32::consts::TAU;
-        let a1 = f32::from(segment.saturating_add(1)) / f32::from(segments) * std::f32::consts::TAU;
+        let segment_index = u8::try_from(segment).unwrap_or(0);
+        let a0 = f32::from(segment_index) / f32::from(segments) * std::f32::consts::TAU;
+        let a1 = f32::from(segment_index.saturating_add(1)) / f32::from(segments)
+            * std::f32::consts::TAU;
         let (sin0, cos0) = a0.sin_cos();
         let (sin1, cos1) = a1.sin_cos();
         // The drum's outer wall, from the ceiling down to the diffuser plane.
@@ -543,12 +554,12 @@ mod tests {
     // arithmetic are idiomatic in tests; the production lints stay enforced
     // everywhere else in the crate.
     #![allow(
-        clippy::cast_precision_loss,
         clippy::expect_used,
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::suboptimal_flops
+        clippy::suboptimal_flops,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -595,7 +606,7 @@ mod tests {
 
     /// Centre of a vertex run.
     fn quad_centre(vertices: &[Vertex]) -> [f32; 3] {
-        let count = vertices.len() as f32;
+        let count = crate::test_support::exact_f32(vertices.len());
         let sum = vertices.iter().fold([0.0_f32; 3], |sum, vertex| {
             [
                 sum[0] + vertex.pos[0],
@@ -617,10 +628,18 @@ mod tests {
         add_panel_fixture(&mut lit, &mut housing, 0.0, 1.2, 0.0, 0.6, 2.0, EMISSION);
         assert_eq!(quad_normal(&lit), [0.0, -1.0, 0.0], "the panel faces down");
 
-        let mut lit = Vec::new();
-        let mut housing = Vec::new();
-        add_round_fixture(&mut lit, &mut housing, 0.0, 0.0, 2.0, 0.22, EMISSION);
-        for quad in lit.as_chunks::<6>().0 {
+        let mut wall_lit = Vec::new();
+        let mut wall_housing = Vec::new();
+        add_round_fixture(
+            &mut wall_lit,
+            &mut wall_housing,
+            0.0,
+            0.0,
+            2.0,
+            0.22,
+            EMISSION,
+        );
+        for quad in wall_lit.as_chunks::<6>().0 {
             assert_eq!(
                 quad_normal(quad),
                 [0.0, -1.0, 0.0],
@@ -628,10 +647,18 @@ mod tests {
             );
         }
 
-        let mut lit = Vec::new();
-        let mut housing = Vec::new();
-        add_flush_mount_fixture(&mut lit, &mut housing, 0.0, 0.0, 2.9, 0.16, EMISSION);
-        for quad in lit.as_chunks::<6>().0 {
+        let mut rotated_lit = Vec::new();
+        let mut rotated_housing = Vec::new();
+        add_flush_mount_fixture(
+            &mut rotated_lit,
+            &mut rotated_housing,
+            0.0,
+            0.0,
+            2.9,
+            0.16,
+            EMISSION,
+        );
+        for quad in rotated_lit.as_chunks::<6>().0 {
             assert_eq!(
                 quad_normal(quad),
                 [0.0, -1.0, 0.0],
@@ -640,12 +667,20 @@ mod tests {
         }
 
         for yaw in [0.0_f32, 90.0, 180.0, 270.0] {
-            let mut lit = Vec::new();
-            let mut housing = Vec::new();
-            add_wall_fixture(&mut lit, &mut housing, 10.0, 1.7, 3.0, yaw, EMISSION);
+            let mut elevated_lit = Vec::new();
+            let mut elevated_housing = Vec::new();
+            add_wall_fixture(
+                &mut elevated_lit,
+                &mut elevated_housing,
+                10.0,
+                1.7,
+                3.0,
+                yaw,
+                EMISSION,
+            );
             let radians = yaw.to_radians();
             let expected = [radians.sin(), 0.0, radians.cos()];
-            let normal = quad_normal(&lit);
+            let normal = quad_normal(&elevated_lit);
             assert!(
                 (normal[0] - expected[0]).abs() < 1e-5
                     && normal[1].abs() < 1e-5
@@ -749,11 +784,11 @@ mod tests {
 
         // Round downlight: the diffuser is the emitter plane exactly.
         let round = &lighting.lights()[1];
-        let mut lit = Vec::new();
-        let mut housing = Vec::new();
+        let mut wall_lit = Vec::new();
+        let mut wall_housing = Vec::new();
         add_round_fixture(
-            &mut lit,
-            &mut housing,
+            &mut wall_lit,
+            &mut wall_housing,
             round.x(),
             round.z(),
             round.y(),
@@ -761,24 +796,24 @@ mod tests {
             [0.8; 3],
         );
         assert_eq!(round.half_w(), round.half_d());
-        let centre = quad_centre(&lit);
-        assert!((centre[1] - round.y()).abs() < 1e-5);
+        let wall_centre = quad_centre(&wall_lit);
+        assert!((wall_centre[1] - round.y()).abs() < 1e-5);
 
         // Flush mount: the drum hangs below the emitter plane by its body drop.
         let flush = &lighting.lights()[3];
-        let mut lit = Vec::new();
-        let mut housing = Vec::new();
+        let mut upper_lit = Vec::new();
+        let mut upper_housing = Vec::new();
         add_flush_mount_fixture(
-            &mut lit,
-            &mut housing,
+            &mut upper_lit,
+            &mut upper_housing,
             flush.x(),
             flush.z(),
             flush.y(),
             flush.half_w(),
             [0.8; 3],
         );
-        let centre = quad_centre(&lit);
-        let drop = flush.y() - centre[1];
+        let upper_centre = quad_centre(&upper_lit);
+        let drop = flush.y() - upper_centre[1];
         assert!(
             (0.05..=0.08).contains(&drop),
             "the flush-mount diffuser hangs its drum depth below the emitter plane: {drop}"

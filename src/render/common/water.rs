@@ -187,7 +187,10 @@ fn add_water_quad(
 /// degenerate second triangle is dropped and the first is indexed normally, so
 /// a fan segment costs three distinct vertices like every other triangle in
 /// the mesh.
-#[allow(clippy::too_many_arguments)] // one triangle's three points, colours and uvs
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one triangle's three points, colours and uvs"
+)] // one triangle's three points, colours and uvs
 fn add_water_triangle(
     vertices: &mut Vec<Vertex>,
     p0: [f32; 3],
@@ -219,7 +222,11 @@ fn add_water_triangle(
 mod tests {
     // Test code: exact float comparisons and indexing are idiomatic here; the
     // production lints stay enforced everywhere else.
-    #![allow(clippy::float_cmp, clippy::indexing_slicing)]
+    #![allow(
+        clippy::float_cmp,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 

@@ -109,7 +109,10 @@ pub const CUBE_FACE_UPS: [[f32; 3]; 6] = [
 /// compensate for the winding this flip reverses, exactly like the planar
 /// mirror's `glFrontFace(GL_CW)`.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // glam matrix products are per-element f32 arithmetic with no overflow or panic path
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam matrix products are per-element f32 arithmetic with no integer overflow or panic path"
+)] // glam matrix products are per-element f32 arithmetic with no overflow or panic path
 pub fn probe_projection() -> glam::Mat4 {
     let projection = glam::Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1, 100.0);
     projection * glam::Mat4::from_scale(glam::Vec3::new(1.0, -1.0, 1.0))
@@ -117,7 +120,10 @@ pub fn probe_projection() -> glam::Mat4 {
 
 /// The wgpu-clip view-projection of one probe face.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // glam vector/matrix arithmetic is per-element f32 with no overflow or panic path
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam vector/matrix arithmetic is per-element f32 with no integer overflow or panic path"
+)] // glam vector/matrix arithmetic is per-element f32 with no overflow or panic path
 pub fn probe_face_view_projection(eye: [f32; 3], face: usize) -> glam::Mat4 {
     let Some(direction) = CUBE_FACE_DIRECTIONS.get(face) else {
         return glam::Mat4::IDENTITY;
@@ -125,10 +131,10 @@ pub fn probe_face_view_projection(eye: [f32; 3], face: usize) -> glam::Mat4 {
     let Some(up) = CUBE_FACE_UPS.get(face) else {
         return glam::Mat4::IDENTITY;
     };
-    let eye = glam::Vec3::from_array(eye);
+    let eye_point = glam::Vec3::from_array(eye);
     let dir = glam::Vec3::from_array(*direction);
-    let up = glam::Vec3::from_array(*up);
-    let view = glam::Mat4::look_at_rh(eye, eye + dir, up);
+    let up_vector = glam::Vec3::from_array(*up);
+    let view = glam::Mat4::look_at_rh(eye_point, eye_point + dir, up_vector);
     probe_projection() * view
 }
 
@@ -140,7 +146,10 @@ pub fn probe_face_view_projection(eye: [f32; 3], face: usize) -> glam::Mat4 {
 /// touches `z` and `w`), so multiplying the corrected matrix by the mirror is
 /// the corrected mirrored matrix.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // one glam matrix product: per-element f32 with no overflow or panic path
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "one glam matrix product: per-element f32 with no integer overflow or panic path"
+)] // one glam matrix product: per-element f32 with no overflow or panic path
 pub fn planar_view_projection(view_projection: glam::Mat4, plane: &ReflectionPlane) -> glam::Mat4 {
     view_projection * mirror_matrix(plane.normal, plane.offset)
 }
@@ -246,17 +255,17 @@ impl ProbeCube {
         face_size: u32,
         mip_levels: u32,
     ) -> Self {
-        let face_size = face_size.max(1);
-        let max_levels = face_size.ilog2().saturating_add(1);
-        let mip_levels = mip_levels.clamp(1, max_levels);
+        let resident_face_size = face_size.max(1);
+        let max_levels = resident_face_size.ilog2().saturating_add(1);
+        let resident_mip_levels = mip_levels.clamp(1, max_levels);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("places-wgpu-probe"),
             size: wgpu::Extent3d {
-                width: face_size,
-                height: face_size,
+                width: resident_face_size,
+                height: resident_face_size,
                 depth_or_array_layers: 6,
             },
-            mip_level_count: mip_levels,
+            mip_level_count: resident_mip_levels,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: REFLECTION_FORMAT,
@@ -287,8 +296,8 @@ impl ProbeCube {
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("places-wgpu-probe-depth"),
             size: wgpu::Extent3d {
-                width: face_size,
-                height: face_size,
+                width: resident_face_size,
+                height: resident_face_size,
                 depth_or_array_layers: 6,
             },
             mip_level_count: 1,
@@ -316,8 +325,8 @@ impl ProbeCube {
             _depth_texture: depth_texture,
             depth_face_views,
             position,
-            face_size,
-            mip_levels,
+            face_size: resident_face_size,
+            mip_levels: resident_mip_levels,
         }
     }
 
@@ -607,7 +616,8 @@ mod tests {
         clippy::indexing_slicing,
         clippy::unwrap_used,
         clippy::arithmetic_side_effects,
-        clippy::expect_used
+        clippy::expect_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -678,8 +688,8 @@ mod tests {
         );
         assert_eq!(chain[0], readback.faces, "level 0 is the capture");
         let mut expected = edge;
-        for faces in &chain {
-            for face in faces {
+        for mip_faces in &chain {
+            for face in mip_faces {
                 let expected_bytes =
                     usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 4;
                 assert_eq!(face.len(), expected_bytes);
@@ -709,9 +719,9 @@ mod tests {
             // bottom-up row order (verified by the GPU round-trip test).
             let up = glam::Vec3::from_array(CUBE_FACE_UPS[face]);
             let above = glam::Vec3::from_array(eye) + direction + up;
-            let clip = vp * above.extend(1.0);
+            let above_clip = vp * above.extend(1.0);
             assert!(
-                clip.y / clip.w < 0.0,
+                above_clip.y / above_clip.w < 0.0,
                 "face {face}: the capture projection must store up in a lower row"
             );
         }
@@ -840,7 +850,10 @@ mod tests {
     /// ```
     #[test]
     #[ignore = "requires a GPU adapter"]
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One native GPU cube fixture keeps upload, capture, read-back and orientation assertions together."
+    )]
     fn the_cube_round_trip_matches_the_reference_face_convention() {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -997,7 +1010,7 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
             let start = u32::try_from(face).unwrap_or(0) * 6;
             pass.draw(start..start + 6, 0..1);
         }
-        queue.submit([encoder.finish()]);
+        let _submission = queue.submit([encoder.finish()]);
 
         // Sample 18 directions: each face centre, +up * 0.5 and +right * 0.5.
         let mut directions = [[0.0_f32; 4]; 18];
@@ -1138,11 +1151,11 @@ fn sample_all() {
                 },
             ],
         });
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let mut readback_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("cube-sample"),
         });
         {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            let mut pass = readback_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("cube-sample"),
                 timestamp_writes: None,
             });
@@ -1150,15 +1163,19 @@ fn sample_all() {
             pass.set_bind_group(0, &bind_group, &[]);
             pass.dispatch_workgroups(1, 1, 1);
         }
-        encoder.copy_buffer_to_buffer(&result_buffer, 0, &readback, 0, 18 * 16);
-        queue.submit([encoder.finish()]);
+        readback_encoder.copy_buffer_to_buffer(&result_buffer, 0, &readback, 0, 18 * 16);
+        let _readback_submission = queue.submit([readback_encoder.finish()]);
 
         let slice = readback.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = sender.send(result);
+            sender
+                .send(result)
+                .expect("read-back receiver remains live until its callback");
         });
-        let _ = device.poll(wgpu::PollType::wait_indefinitely());
+        let _poll_status = device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("GPU work completes before test read-back");
         receiver.recv().expect("map callback").expect("buffer maps");
         let data = slice.get_mapped_range().expect("mapped range");
         let mut readings = [[0.0_f32; 4]; 18];

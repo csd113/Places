@@ -118,16 +118,16 @@ pub fn parse_move_script(value: &str) -> (Vec<ScriptedHold>, Vec<String>) {
     let mut holds = Vec::new();
     let mut rejected = Vec::new();
     for entry in value.split(',') {
-        let entry = entry.trim();
-        if entry.is_empty() {
+        let trimmed_entry = entry.trim();
+        if trimmed_entry.is_empty() {
             continue;
         }
-        let Some((name, range)) = entry.split_once('@') else {
-            rejected.push(entry.to_string());
+        let Some((name, range)) = trimmed_entry.split_once('@') else {
+            rejected.push(trimmed_entry.to_string());
             continue;
         };
         let Some((first, last)) = range.split_once('-') else {
-            rejected.push(entry.to_string());
+            rejected.push(trimmed_entry.to_string());
             continue;
         };
         let (Some(control), Ok(first_seconds), Ok(last_seconds)) = (
@@ -135,7 +135,7 @@ pub fn parse_move_script(value: &str) -> (Vec<ScriptedHold>, Vec<String>) {
             first.trim().parse::<f32>(),
             last.trim().parse::<f32>(),
         ) else {
-            rejected.push(entry.to_string());
+            rejected.push(trimmed_entry.to_string());
             continue;
         };
         if !first_seconds.is_finite()
@@ -143,7 +143,7 @@ pub fn parse_move_script(value: &str) -> (Vec<ScriptedHold>, Vec<String>) {
             || first_seconds < 0.0
             || last_seconds < first_seconds
         {
-            rejected.push(entry.to_string());
+            rejected.push(trimmed_entry.to_string());
             continue;
         }
         holds.push(ScriptedHold {
@@ -420,18 +420,33 @@ impl InputHandler {
 
     /// Handles gameplay events using active `KeyBindings`.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
-        if let Event::MouseMotion { xrel, yrel, .. } = event {
+        if let Event::MouseMotion {
+            xrel,
+            yrel,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            mousestate: _,
+            x: _,
+            y: _,
+        } = event
+        {
             self.state.accumulate_mouse_motion(*xrel, *yrel);
             return;
         }
-        if let Event::Quit { .. } = event {
+        if let Event::Quit { timestamp: _ } = event {
             self.state.quit_requested = true;
             return;
         }
         if let Event::KeyDown {
             keycode: Some(key),
             repeat: false,
-            ..
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
         } = event
         {
             let name = keycode_to_str(*key);
@@ -441,7 +456,14 @@ impl InputHandler {
             return;
         }
         if let Event::KeyUp {
-            keycode: Some(key), ..
+            keycode: Some(key),
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            repeat: _,
+            which: _,
+            raw: _,
         } = event
         {
             let name = keycode_to_str(*key);
@@ -460,7 +482,12 @@ impl InputHandler {
         if let Event::KeyDown {
             keycode: Some(key),
             repeat: false,
-            ..
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
         } = event
         {
             return MENU_NAV_KEYS

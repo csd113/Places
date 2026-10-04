@@ -29,16 +29,14 @@
 //! idiomatic in tests; the production lints stay enforced everywhere else.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::print_stdout,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use std::collections::HashMap;
@@ -204,8 +202,10 @@ fn atlas_samples_in_box(
         let normal = patch_normal(patch);
         for row in 0..chart.height {
             for column in 0..chart.width {
-                let u = (column as f32 + 0.5) / chart.width as f32;
-                let v = (row as f32 + 0.5) / chart.height as f32;
+                let u = (crate::test_support::exact_f32(column) + 0.5)
+                    / crate::test_support::exact_f32(chart.width);
+                let v = (crate::test_support::exact_f32(row) + 0.5)
+                    / crate::test_support::exact_f32(chart.height);
                 let point = patch.point_at(u, v);
                 if point[0] < min[0]
                     || point[0] > max[0]
@@ -245,6 +245,11 @@ struct BoxStats {
 }
 
 /// Mean, min and max of the soft-clipped texels inside one world box.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::as_conversions,
+    reason = "The independent atlas report accumulates in f64, then intentionally rounds finite display-channel means to the f32 comparison domain."
+)]
 fn box_stats(
     lightmaps: &LevelLightmaps,
     kind: PatchKind,
@@ -272,7 +277,7 @@ fn box_stats(
             max_luma: 0.0,
         };
     }
-    let divisor = count as f64;
+    let divisor = crate::test_support::exact_f64(count);
     BoxStats {
         count,
         mean_rgb: [
@@ -338,7 +343,7 @@ fn measure(
 fn isolated_dips(samples: &[TexelSample], floor_fraction: f32) -> Vec<(u32, u32, f32, f32)> {
     let mut by_coord: HashMap<(u16, u32, u32), f32> = HashMap::new();
     for sample in samples {
-        by_coord.insert((sample.page, sample.x, sample.y), sample.luma());
+        let _previous_value = by_coord.insert((sample.page, sample.x, sample.y), sample.luma());
     }
     let mut dips = Vec::new();
     for sample in samples {

@@ -10,7 +10,8 @@
     clippy::needless_raw_string_hashes,
     clippy::panic,
     clippy::redundant_clone,
-    clippy::float_cmp
+    clippy::float_cmp,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::collections::HashMap;
@@ -57,8 +58,8 @@ fn encode_as(
         let mut encoder = png::Encoder::new(&mut out, width, height);
         encoder.set_color(color);
         encoder.set_depth(depth);
-        if let Some(palette) = palette {
-            encoder.set_palette(palette);
+        if let Some(palette_bytes) = palette {
+            encoder.set_palette(palette_bytes);
         }
         let mut writer = encoder.write_header().expect("header");
         writer.write_image_data(data).expect("data");
@@ -169,7 +170,10 @@ fn oversized_pngs_are_rejected_with_a_clear_message() {
     let wide = RawImage::new(
         MAX_TEXTURE_DIMENSION + 1,
         1,
-        vec![0; 4 * (MAX_TEXTURE_DIMENSION as usize + 1)],
+        vec![
+            0;
+            4 * (usize::try_from(MAX_TEXTURE_DIMENSION).expect("fixture integer fits usize") + 1)
+        ],
     );
     let bytes = encode_png(&wide).expect("encode");
     let error = decode_png(&bytes).expect_err("oversized must fail");
@@ -300,7 +304,7 @@ fn missing_png_falls_back_to_the_diagnostic_and_names_both_ids() {
     let mut cache = TextureCache::new();
     let empty =
         std::env::temp_dir().join(format!("places_materials_missing_{}", std::process::id()));
-    let _ = fs::remove_dir_all(&empty);
+    crate::test_support::remove_dir_if_present(&empty);
     fs::create_dir_all(&empty).expect("temp dir");
     let table = resolve_materials(&level, &catalog, None, Some(&empty), &mut cache);
 
@@ -312,7 +316,7 @@ fn missing_png_falls_back_to_the_diagnostic_and_names_both_ids() {
         "error: {error}"
     );
     assert_eq!(wall.origin, TextureOrigin::Missing);
-    let _ = fs::remove_dir_all(&empty);
+    crate::test_support::remove_dir_if_present(&empty);
 }
 
 #[test]
@@ -408,8 +412,8 @@ fn pack_materials_parse_both_shapes_and_decode_from_pack_bytes() {
     ))
     .expect("encode");
     let mut textures = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Arc::from(png.clone()));
-    textures.insert("wall.png".to_string(), Arc::<[u8]>::from(png.clone()));
+    drop(textures.insert("textures/wall.png".to_string(), Arc::from(png.clone())));
+    drop(textures.insert("wall.png".to_string(), Arc::<[u8]>::from(png.clone())));
     let json = r#"{
         "materials": {
             "pack:wall": { "texture": "textures/wall.png", "tile_metres": 3.0,
@@ -503,8 +507,8 @@ fn catalog_rejects_materials_with_dangling_or_non_png_textures() {
               "source": "file", "model": "core/props/models/couch.glb" }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(not_a_texture).expect_err("wrong type");
-    assert!(error.contains("not a texture"), "error: {error}");
+    let type_error = AssetCatalog::from_json_str(not_a_texture).expect_err("wrong type");
+    assert!(type_error.contains("not a texture"), "error: {type_error}");
 
     let not_png = r##"{
         "assets": [
@@ -512,8 +516,8 @@ fn catalog_rejects_materials_with_dangling_or_non_png_textures() {
               "source": "file", "model": "core/textures/bad.jpg" }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(not_png).expect_err("not a png");
-    assert!(error.contains(".png"), "error: {error}");
+    let format_error = AssetCatalog::from_json_str(not_png).expect_err("not a png");
+    assert!(format_error.contains(".png"), "error: {format_error}");
 }
 
 #[test]
@@ -535,8 +539,8 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
               "source": "definition", "texture": "core:tex_a", "tile_metres": 0.0 }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(bad_tile).expect_err("bad tile");
-    assert!(error.contains("tile_metres"), "error: {error}");
+    let tile_error = AssetCatalog::from_json_str(bad_tile).expect_err("bad tile");
+    assert!(tile_error.contains("tile_metres"), "error: {tile_error}");
 
     let bad_tint = r##"{
         "assets": [
@@ -546,8 +550,8 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
               "source": "definition", "texture": "core:tex_a", "tint": [1.5, 0.0, 0.0] }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(bad_tint).expect_err("bad tint");
-    assert!(error.contains("tint"), "error: {error}");
+    let tint_error = AssetCatalog::from_json_str(bad_tint).expect_err("bad tint");
+    assert!(tint_error.contains("tint"), "error: {tint_error}");
 
     let texture_on_prop = r##"{
         "assets": [
@@ -556,8 +560,8 @@ fn catalog_rejects_materials_without_a_texture_and_bad_material_metadata() {
               "texture": "core:tex_a" }
         ]
     }"##;
-    let error = AssetCatalog::from_json_str(texture_on_prop).expect_err("texture on prop");
-    assert!(error.contains("material"), "error: {error}");
+    let prop_error = AssetCatalog::from_json_str(texture_on_prop).expect_err("texture on prop");
+    assert!(prop_error.contains("material"), "error: {prop_error}");
 }
 
 #[test]
@@ -671,7 +675,7 @@ fn emissive_catalog_material_resolves_colour_intensity_and_shared_mask() {
         mask_index, a.texture_index,
         "the mask is a separate texture"
     );
-    let mask = &table.textures()[mask_index as usize];
+    let mask = &table.textures()[usize::try_from(mask_index).expect("fixture integer fits usize")];
     assert_eq!(
         mask.key.split_once("#png-v1-").map(|(source, _)| source),
         Some("core:tex_mask")
@@ -713,9 +717,9 @@ fn emissive_material_without_a_mask_has_no_mask_index() {
     let mut cache = TextureCache::new();
     let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
     let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
-    let entry = table.entry_of("core:mat_glow").expect("resolved entry");
-    assert_eq!(entry.emission.mask, None);
-    assert_eq!(entry.emission.effective_color(), [0.5, 0.5, 0.5]);
+    let resolved_entry = table.entry_of("core:mat_glow").expect("resolved entry");
+    assert_eq!(resolved_entry.emission.mask, None);
+    assert_eq!(resolved_entry.emission.effective_color(), [0.5, 0.5, 0.5]);
     assert_eq!(table.textures().len(), 1, "only the albedo uploads");
 }
 
@@ -761,8 +765,8 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     let albedo = encode_png(&RawImage::new(2, 2, vec![1; 16])).expect("encode albedo");
     let mask = encode_png(&RawImage::new(1, 1, vec![10, 20, 30, 255])).expect("encode mask");
     let mut textures: HashMap<String, Arc<[u8]>> = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Arc::from(albedo));
-    textures.insert("textures/glow_mask.png".to_string(), Arc::from(mask));
+    drop(textures.insert("textures/wall.png".to_string(), Arc::from(albedo)));
+    drop(textures.insert("textures/glow_mask.png".to_string(), Arc::from(mask)));
     let json = r#"{
         "materials": {
             "pack:glow": { "texture": "textures/wall.png", "emissive": [0.5, 0.25, 0.0],
@@ -787,14 +791,14 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     assert_eq!(glow.emission.effective_color(), [1.5, 0.75, 0.0]);
     let local_mask = glow.emission.mask.expect("pack-local mask");
     assert_eq!(
-        table.textures()[local_mask as usize]
+        table.textures()[usize::try_from(local_mask).expect("fixture integer fits usize")]
             .key
             .split_once("#png-v1-")
             .map(|(source, _)| source),
         Some("pack:unit_pack:textures/glow_mask.png")
     );
     assert_eq!(
-        table.textures()[local_mask as usize].origin,
+        table.textures()[usize::try_from(local_mask).expect("fixture integer fits usize")].origin,
         TextureOrigin::Pack
     );
 
@@ -802,14 +806,14 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     assert_eq!(builtin.emission.intensity, DEFAULT_EMISSION_INTENSITY);
     let catalog_mask = builtin.emission.mask.expect("catalog mask");
     assert_eq!(
-        table.textures()[catalog_mask as usize]
+        table.textures()[usize::try_from(catalog_mask).expect("fixture integer fits usize")]
             .key
             .split_once("#png-v1-")
             .map(|(source, _)| source),
         Some("core:tex_ceiling_panel_01")
     );
     assert_eq!(
-        table.textures()[catalog_mask as usize].origin,
+        table.textures()[usize::try_from(catalog_mask).expect("fixture integer fits usize")].origin,
         TextureOrigin::Catalog
     );
     assert_ne!(local_mask, catalog_mask);
@@ -914,7 +918,7 @@ fn a_normal_map_resolves_into_the_texture_table_at_its_authored_strength() {
     assert!((gloss.response.normal_strength - 0.75).abs() < f32::EPSILON);
     let normal = gloss.response.normal.expect("a normal texture index");
     assert_ne!(normal, gloss.texture_index, "the map is its own texture");
-    let texture = &table.textures()[normal as usize];
+    let texture = &table.textures()[usize::try_from(normal).expect("fixture integer fits usize")];
     assert_eq!(
         texture.key.split_once("#png-v1-").map(|(source, _)| source),
         Some("core:tex_normal")
@@ -1100,11 +1104,14 @@ fn pack_materials_accept_shine() {
 
     // An out-of-range pack value is discarded, exactly like every other
     // malformed pack field: the documented default stays in place.
-    let json = r#"{ "materials": {
+    let invalid_json = r#"{ "materials": {
         "pack:bad": { "texture": "textures/wall.png", "specular": 0.4, "shine": 4.0 }
     } }"#;
-    let definitions = parse_materials_json(Some(json));
-    let bad = definitions.get("pack:bad").expect("pack:bad").response();
+    let invalid_definitions = parse_materials_json(Some(invalid_json));
+    let bad = invalid_definitions
+        .get("pack:bad")
+        .expect("pack:bad")
+        .response();
     assert!((bad.roughness - DEFAULT_ROUGHNESS).abs() < f32::EPSILON);
 }
 
@@ -1205,8 +1212,8 @@ fn pack_materials_may_author_response_and_alpha_fields() {
     let albedo = encode_png(&RawImage::new(2, 2, vec![9; 16])).expect("encode albedo");
     let normal = encode_png(&RawImage::new(1, 1, vec![128, 128, 255, 255])).expect("encode normal");
     let mut textures: HashMap<String, Arc<[u8]>> = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Arc::from(albedo));
-    textures.insert("textures/bump.png".to_string(), Arc::from(normal));
+    drop(textures.insert("textures/wall.png".to_string(), Arc::from(albedo)));
+    drop(textures.insert("textures/bump.png".to_string(), Arc::from(normal)));
     let json = r#"{
         "materials": {
             "pack:glass": { "texture": "textures/wall.png", "alpha_mode": "blend",
@@ -1226,16 +1233,17 @@ fn pack_materials_may_author_response_and_alpha_fields() {
     assert!(glass.alpha.is_translucent());
     assert!((glass.alpha.opacity - 0.35).abs() < f32::EPSILON);
     assert!(glass.response.has_sheen());
-    let normal = glass.response.normal.expect("pack normal index");
+    let resolved_normal = glass.response.normal.expect("pack normal index");
     assert_eq!(
-        table.textures()[normal as usize]
+        table.textures()[usize::try_from(resolved_normal).expect("fixture integer fits usize")]
             .key
             .split_once("#png-v1-")
             .map(|(source, _)| source),
         Some("pack:response_pack:textures/bump.png")
     );
     assert_eq!(
-        table.textures()[normal as usize].origin,
+        table.textures()[usize::try_from(resolved_normal).expect("fixture integer fits usize")]
+            .origin,
         TextureOrigin::Pack
     );
 }
@@ -1494,4 +1502,45 @@ fn one_over_the_material_budget_is_rejected_by_name() {
         )),
         "{error}"
     );
+}
+
+#[test]
+fn pack_material_ranges_are_checked_before_float_rounding() {
+    let excessive_intensity = f64::from(MAX_EMISSION_INTENSITY) + 1.0e-8_f64;
+    let json = format!(
+        r#"{{"materials": {{
+            "pack:high": {{"texture": "textures/wall.png", "specular": 1.000000001,
+                "tint": [1.000000001, 0.0, 0.0], "emissive_intensity": {excessive_intensity}}},
+            "pack:low": {{"texture": "textures/wall.png", "opacity": -1e-300,
+                "tint": [-1e-300, 0.0, 0.0]}},
+            "pack:valid": {{"texture": "textures/wall.png", "specular": 1.0,
+                "tint": [0.0, 0.5, 1.0]}}
+        }}}}"#
+    );
+    let pack = PackMaterials::new("float_ranges", Some(&json), HashMap::new());
+    let high = pack.definition("pack:high").expect("high material");
+    assert_eq!(
+        high.specular, None,
+        "rounding must not admit a value above one"
+    );
+    assert_eq!(
+        high.tint, None,
+        "RGB source channels have the same unit contract"
+    );
+    assert_eq!(
+        high.emissive_intensity, None,
+        "the authored intensity exceeds its cap"
+    );
+    let low = pack.definition("pack:low").expect("low material");
+    assert_eq!(
+        low.opacity, None,
+        "rounding to negative zero must not admit a negative value"
+    );
+    assert_eq!(
+        low.tint, None,
+        "negative RGB channels must be rejected before rounding"
+    );
+    let valid = pack.definition("pack:valid").expect("valid material");
+    crate::test_support::assert_exact(valid.specular.expect("unit endpoint"), 1.0);
+    crate::test_support::assert_exact_array(valid.tint.expect("unit RGB"), [0.0, 0.5, 1.0]);
 }

@@ -135,7 +135,10 @@ impl<R: Read + Seek> PackageReader<R> {
 /// into one before any later lookup. The scan also enforces the entry-count,
 /// name-safety, directory-entry, symlink, ZIP64 and aggregate-size bounds
 /// before the index is built.
-#[allow(clippy::too_many_lines)] // one cohesive structural scan of the archive directory
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive structural scan of the archive directory"
+)] // one cohesive structural scan of the archive directory
 fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>, OpenError> {
     /// End-of-central-directory record size without a comment.
     const EOCD_SIZE: u64 = 22;
@@ -156,7 +159,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
     }
     let window = file_len.min(EOCD_SEARCH);
     let start = file_len.saturating_sub(window);
-    reader
+    let _seek_status = reader
         .seek(std::io::SeekFrom::Start(start))
         .map_err(|error| OpenError::NotArchive(error.to_string()))?;
     let mut tail = vec![0_u8; usize::try_from(window).unwrap_or(0)];
@@ -170,20 +173,26 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             break;
         }
     }
-    let Some(eocd) = eocd else {
+    let Some(directory_end) = eocd else {
         return Err(OpenError::NotArchive(
             "file has no end-of-central-directory record".to_string(),
         ));
     };
     let field = |offset: usize| -> u32 {
-        tail.get(eocd.saturating_add(offset)..eocd.saturating_add(offset).saturating_add(4))
-            .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
-            .map_or(0, u32::from_le_bytes)
+        tail.get(
+            directory_end.saturating_add(offset)
+                ..directory_end.saturating_add(offset).saturating_add(4),
+        )
+        .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+        .map_or(0, u32::from_le_bytes)
     };
     let field16 = |offset: usize| -> u16 {
-        tail.get(eocd.saturating_add(offset)..eocd.saturating_add(offset).saturating_add(2))
-            .and_then(|bytes| <[u8; 2]>::try_from(bytes).ok())
-            .map_or(0, u16::from_le_bytes)
+        tail.get(
+            directory_end.saturating_add(offset)
+                ..directory_end.saturating_add(offset).saturating_add(2),
+        )
+        .and_then(|bytes| <[u8; 2]>::try_from(bytes).ok())
+        .map_or(0, u16::from_le_bytes)
     };
     if field16(4) != 0 || field16(6) != 0 {
         return Err(OpenError::NotArchive(
@@ -208,7 +217,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             "central directory bounds are invalid".to_string(),
         ));
     }
-    reader
+    let _seek_status_2 = reader
         .seek(std::io::SeekFrom::Start(cd_offset))
         .map_err(|error| OpenError::NotArchive(error.to_string()))?;
     let mut directory = vec![0_u8; usize::try_from(cd_size).unwrap_or(0)];
@@ -223,20 +232,36 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
         let header = directory
             .get(cursor..cursor.saturating_add(46))
             .ok_or_else(|| OpenError::NotArchive("central directory is truncated".to_string()))?;
-        let header: [u8; 46] = header
-            .try_into()
-            .map_err(|_| OpenError::NotArchive("central directory is malformed".to_string()))?;
-        if u32::from_le_bytes([header[0], header[1], header[2], header[3]]) != CD_SIGNATURE {
+        let header_bytes: [u8; 46] = header.try_into().map_err(|error| {
+            OpenError::NotArchive(format!("central directory is malformed: {error}"))
+        })?;
+        if u32::from_le_bytes([
+            header_bytes[0],
+            header_bytes[1],
+            header_bytes[2],
+            header_bytes[3],
+        ]) != CD_SIGNATURE
+        {
             return Err(OpenError::NotArchive(
                 "central directory entry has a bad signature".to_string(),
             ));
         }
-        let flags = u16::from_le_bytes([header[8], header[9]]);
-        let compressed = u32::from_le_bytes([header[20], header[21], header[22], header[23]]);
-        let uncompressed = u32::from_le_bytes([header[24], header[25], header[26], header[27]]);
-        let name_len = usize::from(u16::from_le_bytes([header[28], header[29]]));
-        let extra_len = usize::from(u16::from_le_bytes([header[30], header[31]]));
-        let comment_len = usize::from(u16::from_le_bytes([header[32], header[33]]));
+        let flags = u16::from_le_bytes([header_bytes[8], header_bytes[9]]);
+        let compressed = u32::from_le_bytes([
+            header_bytes[20],
+            header_bytes[21],
+            header_bytes[22],
+            header_bytes[23],
+        ]);
+        let uncompressed = u32::from_le_bytes([
+            header_bytes[24],
+            header_bytes[25],
+            header_bytes[26],
+            header_bytes[27],
+        ]);
+        let name_len = usize::from(u16::from_le_bytes([header_bytes[28], header_bytes[29]]));
+        let extra_len = usize::from(u16::from_le_bytes([header_bytes[30], header_bytes[31]]));
+        let comment_len = usize::from(u16::from_le_bytes([header_bytes[32], header_bytes[33]]));
         if compressed == u32::MAX || uncompressed == u32::MAX {
             return Err(OpenError::NotArchive(
                 "ZIP64 entries are not supported by this format".to_string(),
@@ -255,22 +280,28 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
         // Names are UTF-8 by contract. The flag is informational (the writer
         // omits it for plain ASCII), so validity of the bytes is what counts.
         let _ = flags;
-        let raw_name = std::str::from_utf8(raw_name)
-            .map_err(|_| OpenError::NotArchive("entry name is not valid UTF-8".to_string()))?;
-        if raw_name.ends_with('/') {
+        let entry_name = std::str::from_utf8(raw_name).map_err(|error| {
+            OpenError::NotArchive(format!("entry name is not valid UTF-8: {error}"))
+        })?;
+        if entry_name.ends_with('/') {
             return Err(OpenError::NotArchive(format!(
-                "archive contains a directory entry '{raw_name}'"
+                "archive contains a directory entry '{entry_name}'"
             )));
         }
-        let external = u32::from_le_bytes([header[38], header[39], header[40], header[41]]);
-        let unix_mode = external >> 16;
+        let external = u32::from_le_bytes([
+            header_bytes[38],
+            header_bytes[39],
+            header_bytes[40],
+            header_bytes[41],
+        ]);
+        let unix_mode = external >> 16_i32;
         if unix_mode & 0o170_000 == 0o120_000 {
             return Err(OpenError::NotArchive(format!(
-                "archive contains a symbolic link '{raw_name}'"
+                "archive contains a symbolic link '{entry_name}'"
             )));
         }
-        let name = normalize_entry_name(raw_name)
-            .ok_or_else(|| OpenError::NotArchive(format!("unsafe entry name '{raw_name}'")))?;
+        let name = normalize_entry_name(entry_name)
+            .ok_or_else(|| OpenError::NotArchive(format!("unsafe entry name '{entry_name}'")))?;
         total = total.saturating_add(u64::from(uncompressed));
         names.push(name);
         cursor = name_end
@@ -349,22 +380,38 @@ pub fn write_archive(path: &Path, mut entries: Vec<PendingEntry>) -> Result<(), 
             "package would hold {total} uncompressed bytes (limit {MAX_TOTAL_BYTES})"
         ));
     }
-    let temporary = temporary_path(path);
-    let result = write_archive_to(&temporary, &entries);
+    // Own the temporary before writing or cleaning it up. Exclusive creation
+    // never truncates a pre-existing file or follows a pre-existing symlink.
+    let (temporary, file) = create_temporary(path)?;
+    let result = write_archive_to(file, &entries);
     if let Err(error) = result {
-        let _ = std::fs::remove_file(&temporary);
-        return Err(error);
+        return Err(cleanup_failed_write(&temporary, error));
     }
     std::fs::rename(&temporary, path).map_err(|error| {
-        let _ = std::fs::remove_file(&temporary);
-        format!("could not publish {}: {error}", path.display())
+        cleanup_failed_write(
+            &temporary,
+            format!("could not publish {}: {error}", path.display()),
+        )
     })
 }
 
-/// Writes a sorted entry list to `path` without atomic publication.
-fn write_archive_to(path: &Path, entries: &[PendingEntry]) -> Result<(), String> {
-    let file = std::fs::File::create(path)
-        .map_err(|error| format!("could not create {}: {error}", path.display()))?;
+/// Retains the original failure and reports an owned temporary that could not
+/// be removed. Missing temporaries require no cleanup.
+fn cleanup_failed_write(path: &Path, error: String) -> String {
+    if let Err(cleanup_error) = std::fs::remove_file(path)
+        && cleanup_error.kind() != std::io::ErrorKind::NotFound
+    {
+        format!(
+            "{error}; could not remove partial package {}: {cleanup_error}",
+            path.display()
+        )
+    } else {
+        error
+    }
+}
+
+/// Writes a sorted entry list to an exclusively owned file before publication.
+fn write_archive_to(file: std::fs::File, entries: &[PendingEntry]) -> Result<(), String> {
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
         let options = zip::write::SimpleFileOptions::default()
@@ -379,22 +426,49 @@ fn write_archive_to(path: &Path, entries: &[PendingEntry]) -> Result<(), String>
             .write_all(&entry.bytes)
             .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
     }
-    let mut file = writer
+    let mut finished_file = writer
         .finish()
         .map_err(|error| format!("could not finish package: {error}"))?;
-    file.flush()
+    finished_file
+        .flush()
         .map_err(|error| format!("could not flush package: {error}"))?;
-    file.sync_all()
+    finished_file
+        .sync_all()
         .map_err(|error| format!("could not sync package: {error}"))?;
     Ok(())
 }
 
 /// A same-directory temporary path for atomic publication.
-fn temporary_path(path: &Path) -> PathBuf {
+fn temporary_path(path: &Path, attempt: u8) -> PathBuf {
     let mut name = path.file_name().map_or_else(
-        || "package".to_string(),
-        |name| name.to_string_lossy().into_owned(),
+        || std::ffi::OsString::from("package"),
+        std::ffi::OsStr::to_os_string,
     );
-    name.push_str(".partial");
+    name.push(".partial");
+    if attempt != 0 {
+        name.push(format!("-{attempt}"));
+    }
     path.with_file_name(name)
+}
+
+/// Skips existing interrupted artifacts without modifying files we do not own.
+fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), String> {
+    for attempt in 0_u8..16 {
+        let temporary = temporary_path(path, attempt);
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+        {
+            Ok(file) => return Ok((temporary, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => {
+                return Err(format!("could not create {}: {error}", temporary.display()));
+            }
+        }
+    }
+    Err(format!(
+        "could not create a temporary for {}: all 16 sibling names exist",
+        path.display()
+    ))
 }

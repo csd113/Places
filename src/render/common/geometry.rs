@@ -308,20 +308,20 @@ fn covered_ceiling_rectangle(
         WallAxis::X => (start, end, coverage.thickness.0, coverage.thickness.1),
         WallAxis::Z => (coverage.thickness.0, coverage.thickness.1, start, end),
     };
-    let (x0, x1, z0, z1) = (
+    let (left_bound, right_bound, near_bound, far_bound) = (
         x0.max(bounds.0),
         x1.min(bounds.1),
         z0.max(bounds.2),
         z1.min(bounds.3),
     );
-    if x0 >= x1 || z0 >= z1 {
+    if left_bound >= right_bound || near_bound >= far_bound {
         return None;
     }
     let heights = [
-        room.ceiling_y_at(x0, z0),
-        room.ceiling_y_at(x1, z0),
-        room.ceiling_y_at(x0, z1),
-        room.ceiling_y_at(x1, z1),
+        room.ceiling_y_at(left_bound, near_bound),
+        room.ceiling_y_at(right_bound, near_bound),
+        room.ceiling_y_at(left_bound, far_bound),
+        room.ceiling_y_at(right_bound, far_bound),
     ];
     let low = heights.into_iter().fold(f32::INFINITY, f32::min);
     let high = heights.into_iter().fold(f32::NEG_INFINITY, f32::max);
@@ -330,7 +330,7 @@ fn covered_ceiling_rectangle(
     }
     if high - low <= WALL_COINCIDENCE_EPS && top >= high - WALL_COINCIDENCE_EPS {
         // A flat ceiling the wall reaches: the historical whole rectangle.
-        return Some((x0, x1, z0, z1));
+        return Some((left_bound, right_bound, near_bound, far_bound));
     }
     let wall = context.level.walls.get(wall_index)?;
     if wall.height.is_some() {
@@ -338,8 +338,8 @@ fn covered_ceiling_rectangle(
     }
     let across = f32::midpoint(coverage.thickness.0, coverage.thickness.1);
     let (along0, along1) = match coverage.axis {
-        WallAxis::X => (x0, x1),
-        WallAxis::Z => (z0, z1),
+        WallAxis::X => (left_bound, right_bound),
+        WallAxis::Z => (near_bound, far_bound),
     };
     let centre = |along| match coverage.axis {
         WallAxis::X => (along, across),
@@ -365,9 +365,9 @@ fn covered_ceiling_rectangle(
     // thickness, or the sloped ceiling ends at the wall's inner face above its
     // top and leaves the classic gable eave slot open to the void.
     let (across0, across1) = coverage.thickness;
-    let sample = |across: f32| match coverage.axis {
-        WallAxis::X => room.ceiling_y_at(cx, across),
-        WallAxis::Z => room.ceiling_y_at(across, cz),
+    let sample = |sample_across: f32| match coverage.axis {
+        WallAxis::X => room.ceiling_y_at(cx, sample_across),
+        WallAxis::Z => room.ceiling_y_at(sample_across, cz),
     };
     let limit = top + WALL_COINCIDENCE_EPS;
     let (c0, c1) = (sample(across0), sample(across1));
@@ -387,19 +387,19 @@ fn covered_ceiling_rectangle(
         }
     };
     let (cx0, cx1, cz0, cz1) = match coverage.axis {
-        WallAxis::X => (x0, x1, kept0, kept1),
-        WallAxis::Z => (kept0, kept1, z0, z1),
+        WallAxis::X => (left_bound, right_bound, kept0, kept1),
+        WallAxis::Z => (kept0, kept1, near_bound, far_bound),
     };
-    let (cx0, cx1, cz0, cz1) = (
+    let (ceiling_left, ceiling_right, ceiling_near, ceiling_far) = (
         cx0.max(bounds.0),
         cx1.min(bounds.1),
         cz0.max(bounds.2),
         cz1.min(bounds.3),
     );
-    if cx0 >= cx1 || cz0 >= cz1 {
+    if ceiling_left >= ceiling_right || ceiling_near >= ceiling_far {
         return None;
     }
-    Some((cx0, cx1, cz0, cz1))
+    Some((ceiling_left, ceiling_right, ceiling_near, ceiling_far))
 }
 
 /// One ceiling lattice with a shared exposed-region label. Wall cuts remain
@@ -865,7 +865,7 @@ fn emit_wall_length_face(
             strip.normal,
             strip.bottom,
             &top_at,
-            |at, y| wall_material_shade(context, state, strip, at, y),
+            |at, sample_y| wall_material_shade(context, state, strip, at, sample_y),
             strip.reversed,
             strip.flip_u,
             context.lighting,
@@ -1086,7 +1086,10 @@ fn emit_wall_caps(
 /// cap looks up or down, so the two directions use opposite winding; the
 /// Z-axis world mapping is the transpose of the X-axis one, so its corners
 /// run the other way round to keep the same facing.
-#[allow(clippy::too_many_arguments)] // matches the other quad emitters in this module
+#[expect(
+    clippy::too_many_arguments,
+    reason = "matches the other quad emitters in this module"
+)] // matches the other quad emitters in this module
 fn emit_wall_slice_cap(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1121,15 +1124,35 @@ fn emit_wall_slice_cap(
         // shifted by the wall's origin, which leaves a gap at one jamb and a
         // buried overhang at the other on every wall whose min corner is not
         // zero.
-        let (a0, a1) = match state.axis {
+        let (along0, along1) = match state.axis {
             WallAxis::X => (state.origin_x + a0, state.origin_x + a1),
             WallAxis::Z => (state.origin_z + a0, state.origin_z + a1),
         };
         let points = match (state.axis, up) {
-            (WallAxis::X, true) => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
-            (WallAxis::X, false) => [[a0, y, b0], [a1, y, b0], [a1, y, b1], [a0, y, b1]],
-            (WallAxis::Z, true) => [[b0, y, a0], [b0, y, a1], [b1, y, a1], [b1, y, a0]],
-            (WallAxis::Z, false) => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
+            (WallAxis::X, true) => [
+                [along0, y, b1],
+                [along1, y, b1],
+                [along1, y, b0],
+                [along0, y, b0],
+            ],
+            (WallAxis::X, false) => [
+                [along0, y, b0],
+                [along1, y, b0],
+                [along1, y, b1],
+                [along0, y, b1],
+            ],
+            (WallAxis::Z, true) => [
+                [b0, y, along0],
+                [b0, y, along1],
+                [b1, y, along1],
+                [b1, y, along0],
+            ],
+            (WallAxis::Z, false) => [
+                [b1, y, along0],
+                [b1, y, along1],
+                [b0, y, along1],
+                [b0, y, along0],
+            ],
         };
         let base_color = scaled_wall_color(context.materials, key, mult, grad);
         let lightmapped = context.vertex_colors_are_material_only();
@@ -1140,8 +1163,8 @@ fn emit_wall_slice_cap(
         };
         let room = if context.lightmapped() {
             let (center_x, center_z) = match state.axis {
-                WallAxis::X => (f32::midpoint(a0, a1), f32::midpoint(b0, b1)),
-                WallAxis::Z => (f32::midpoint(b0, b1), f32::midpoint(a0, a1)),
+                WallAxis::X => (f32::midpoint(along0, along1), f32::midpoint(b0, b1)),
+                WallAxis::Z => (f32::midpoint(b0, b1), f32::midpoint(along0, along1)),
             };
             context.lighting.room_index_at_height(center_x, y, center_z)
         } else {
@@ -1292,7 +1315,7 @@ fn emit_wall_cross_sections(
         for (bottom, top) in interval_symmetric_difference(&left, &right) {
             // A wall end under a gable stops at the ceiling, so its end cap
             // follows the triangle instead of rising to the ridge.
-            let top = top.min(ceiling_along(position));
+            let ceiling_top = top.min(ceiling_along(position));
             emit_wall_cross_quad(
                 context,
                 buckets,
@@ -1300,7 +1323,7 @@ fn emit_wall_cross_sections(
                 state,
                 cursor,
                 boundary,
-                (bottom, top),
+                (bottom, ceiling_top),
             );
         }
     }
@@ -1437,11 +1460,11 @@ fn emit_wall_cross_quad(
         };
         // A lightmapped reveal larger than one chart is tiled; the vertex-lit
         // fallback gets the original rectangle back unchanged.
-        for (across0, across1, bottom, top) in
+        for (across0, across1, face_bottom, face_top) in
             split_rect((across_low, across_high, rect_bottom, rect_top), max_span_m)
         {
-            let top_low_y = wall_cross_top(context, state, at, across0, top);
-            let top_high_y = wall_cross_top(context, state, at, across1, top);
+            let top_low_y = wall_cross_top(context, state, at, across0, face_top);
+            let top_high_y = wall_cross_top(context, state, at, across1, face_top);
             // Wall ends keep the directional face shading; internal reveals use
             // the darker jamb/head colours.
             let mult = if at_start {
@@ -1454,7 +1477,7 @@ fn emit_wall_cross_quad(
                     WallAxis::X => WALL_FACE_EAST_MULT,
                     WallAxis::Z => WALL_FACE_SOUTH_MULT,
                 }
-            } else if bottom <= state.wall_base + 1e-3 {
+            } else if face_bottom <= state.wall_base + 1e-3 {
                 WALL_JAMB_MULT
             } else {
                 WALL_HEAD_MULT
@@ -1468,8 +1491,8 @@ fn emit_wall_cross_quad(
                 [bottom_shade, bottom_shade, top_shade, top_shade]
             } else {
                 let (bottom_low, bottom_high, top_low, top_high) = (
-                    sample_cross_edge(context, state, inboard, low_side, low_normal, bottom),
-                    sample_cross_edge(context, state, inboard, high_side, high_normal, bottom),
+                    sample_cross_edge(context, state, inboard, low_side, low_normal, face_bottom),
+                    sample_cross_edge(context, state, inboard, high_side, high_normal, face_bottom),
                     sample_cross_edge(context, state, inboard, low_side, low_normal, top_low_y),
                     sample_cross_edge(context, state, inboard, high_side, high_normal, top_high_y),
                 );
@@ -1486,7 +1509,7 @@ fn emit_wall_cross_quad(
                 state.axis,
                 at,
                 (across0, across1),
-                bottom,
+                face_bottom,
                 [top_low_y, top_high_y],
                 covers(boundary.left),
                 corners,

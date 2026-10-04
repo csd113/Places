@@ -291,9 +291,14 @@ fn grid_cells(span: f32, cell: f32) -> usize {
     // The cell size is chosen so the count is at most
     // `PROP_OCCLUSION_MAX_CELLS_PER_AXIS`; the clamp is a defensive bound and
     // keeps the cast exact.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let count = count.min(usize_to_f32(PROP_OCCLUSION_MAX_CELLS_PER_AXIS)) as usize;
-    count.max(1)
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The cell size is chosen so the count is at most `PROP_OCCLUSION_MAX_CELLS_PER_AXIS`; the clamp is a defensive bound and keeps the cast exact."
+    )]
+    let cell_count = count.min(usize_to_f32(PROP_OCCLUSION_MAX_CELLS_PER_AXIS)) as usize;
+    cell_count.max(1)
 }
 
 /// A grid index as `f32`.
@@ -321,9 +326,14 @@ fn cell_span(low: f32, high: f32, origin: f32, cell: f32, cells: usize) -> (usiz
         }
         let clamped = raw.clamp(0.0, last_f);
         // The clamp bounds the value to `0.0..=last`, so the cast is exact.
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let cell = clamped as usize;
-        cell
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "The clamp bounds the value to `0.0..=last`, so the cast is exact."
+        )]
+        let cell_index = clamped as usize;
+        cell_index
     };
     let a = to_cell(low);
     let b = to_cell(high);
@@ -544,12 +554,12 @@ fn push_run_box(boxes: &mut Vec<LocalBox>, run: Run, min: [f32; 3], max: [f32; 3
     // A model that is flat on an axis (a single-quad curtain, a zero-thickness
     // rail) would otherwise emit a zero-thickness box and silently stop
     // occluding; the same minimum applies to its Y span.
-    let (x0, x1) = thickened(x0, x1);
-    let (z0, z1) = thickened(z0, z1);
+    let (left_edge, right_edge) = thickened(x0, x1);
+    let (near_edge, far_edge) = thickened(z0, z1);
     let (y0, y1) = thickened(run.y0, run.y1);
     let bounds = LocalBox {
-        min: [x0, y0, z0],
-        max: [x1, y1, z1],
+        min: [left_edge, y0, near_edge],
+        max: [right_edge, y1, far_edge],
     };
     if bounds
         .min
@@ -628,7 +638,7 @@ impl PropOcclusionCache {
         if level.props.is_empty() {
             return out;
         }
-        let cell_m = sanitized_cell(cell_m);
+        let grid_cell_m = sanitized_cell(cell_m);
         let mut seen_models: Vec<String> = Vec::new();
         let mut busy_vertices = 0usize;
         for prop in &level.props {
@@ -663,7 +673,7 @@ impl PropOcclusionCache {
                 push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
                 continue;
             }
-            let model = self.model_occlusion(&model_path, cell_m);
+            let model = self.model_occlusion(&model_path, grid_cell_m);
             if !model.loaded {
                 // The asset failed to load; the renderer draws (and therefore
                 // the bake occludes) the catalogue placeholder box.
@@ -703,9 +713,9 @@ impl PropOcclusionCache {
                 ModelOcclusion::default()
             }
         };
-        let occlusion = Arc::new(occlusion);
-        self.models.insert(key, Arc::clone(&occlusion));
-        occlusion
+        let shared_occlusion = Arc::new(occlusion);
+        drop(self.models.insert(key, Arc::clone(&shared_occlusion)));
+        shared_occlusion
     }
 }
 
@@ -892,7 +902,8 @@ fn push_instance_occluders(
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
     use super::*;
@@ -1128,10 +1139,10 @@ mod tests {
         let mut positions = Vec::new();
         for vertex in &model.vertices {
             let p = transform.transform_point3(glam::Vec3::from_array(vertex.pos));
-            let p = [p.x, p.y, p.z];
-            shaded.push(lit.sample(p[0], p[1], p[2]));
-            unshaded.push(open.sample(p[0], p[1], p[2]));
-            positions.push(p);
+            let world_position = [p.x, p.y, p.z];
+            shaded.push(lit.sample(world_position[0], world_position[1], world_position[2]));
+            unshaded.push(open.sample(world_position[0], world_position[1], world_position[2]));
+            positions.push(world_position);
         }
         (shaded, unshaded, positions)
     }
@@ -1153,7 +1164,11 @@ mod tests {
             sum += value.luminance();
             count = count.saturating_add(1);
         }
-        if count == 0 { 0.0 } else { sum / count as f32 }
+        if count == 0 {
+            0.0
+        } else {
+            sum / crate::test_support::exact_f32(count)
+        }
     }
 
     #[test]
@@ -1314,7 +1329,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::print_stdout)] // developer measurement output, like the audit report
+    #[expect(
+        clippy::print_stdout,
+        reason = "developer measurement output, like the audit report"
+    )] // developer measurement output, like the audit report
     fn measure_receiver_self_shadowing() {
         // One fixture at the room centre (5, 5), one prop 2 m to its +Z side
         // (5, 7). Each model's own vertices are sampled with and without the
@@ -1457,7 +1475,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::print_stdout)] // developer measurement output, like the audit report
+    #[expect(
+        clippy::print_stdout,
+        reason = "developer measurement output, like the audit report"
+    )] // developer measurement output, like the audit report
     fn shipped_models_stay_within_the_box_cap_on_a_finer_grid() {
         // The profile grid must not silently truncate shipped art: a model at
         // the cap loses its high-Z/high-X shadow. Every distinct model the
@@ -1485,7 +1506,7 @@ mod tests {
                         "{path}: {cell} m must stay exact below the cap"
                     );
                 }
-                let _ = write!(line, "  {cell:.3}:{:3}", boxes.len());
+                let _formatted_cell = write!(line, "  {cell:.3}:{:3}", boxes.len());
             }
             println!("{line}");
         }
@@ -1500,8 +1521,10 @@ mod tests {
         let mut triangles: Vec<[[f32; 3]; 3]> = Vec::new();
         let steps = 56usize;
         for step in 0..steps {
-            let t0 = step as f32 / (steps - 1) as f32;
-            let t1 = (step + 1) as f32 / (steps - 1) as f32;
+            let t0 =
+                crate::test_support::exact_f32(step) / crate::test_support::exact_f32(steps - 1);
+            let t1 = crate::test_support::exact_f32(step + 1)
+                / crate::test_support::exact_f32(steps - 1);
             let p0 = [8.0_f32.mul_add(t0, -4.0), 0.2 + t0, 0.0];
             let p1 = [8.0_f32.mul_add(t1, -4.0), 0.2 + t1, 0.0];
             triangles.push([p0, p1, [p1[0], p1[1] + 0.4, p1[2]]]);
@@ -1529,7 +1552,10 @@ mod tests {
 
     #[test]
     #[ignore = "developer measurement: prints per-level occlusion box counts"]
-    #[allow(clippy::print_stdout)] // developer measurement output, like the audit report
+    #[expect(
+        clippy::print_stdout,
+        reason = "developer measurement output, like the audit report"
+    )] // developer measurement output, like the audit report
     fn measure_demo_level_box_totals() {
         for (path, label) in [
             ("assets/levels/places_demo.json", "places_demo"),
@@ -1546,11 +1572,11 @@ mod tests {
             for cell in [0.15_f32, 0.10, 0.075, 0.05] {
                 let started = std::time::Instant::now();
                 let boxes = cache.level_occluders_with_cell(&level, &surfaces, cell);
-                let _ = write!(
+                let _formatted_cell_ms = write!(
                     line,
                     "  {cell:.3}:{:5} ({:.1} ms)",
                     boxes.len(),
-                    started.elapsed().as_secs_f64() * 1e3
+                    started.elapsed().as_secs_f64() * 1e3_f64
                 );
             }
             println!("{line}");
@@ -1853,9 +1879,9 @@ mod tests {
             [[-0.5, 0.0, 0.0], [0.5, 1.0, 0.0], [0.5, 0.0, 0.0]],
             [[-0.5, 0.0, 0.0], [-0.5, 1.0, 0.0], [0.5, 1.0, 0.0]],
         ]);
-        assert_ne!(
-            default_boxes(&front),
-            [] as [crate::lighting::occlusion::LocalBox; 0]
+        assert!(
+            !default_boxes(&front).is_empty(),
+            "default_boxes(&front) must contain entries"
         );
         assert_eq!(
             default_boxes(&front),
@@ -1875,13 +1901,13 @@ mod tests {
             materials: 0,
             ..PropModel::default()
         };
-        assert_eq!(
-            default_boxes(&empty),
-            [] as [crate::lighting::occlusion::LocalBox; 0]
+        assert!(
+            default_boxes(&empty).is_empty(),
+            "default_boxes(&empty) must be empty"
         );
-        assert_eq!(
-            default_boxes(&model(&[])),
-            [] as [crate::lighting::occlusion::LocalBox; 0]
+        assert!(
+            default_boxes(&model(&[])).is_empty(),
+            "default_boxes(&model(&[])) must be empty"
         );
     }
 
@@ -1911,13 +1937,13 @@ mod tests {
                 max: [0.3, 0.9, 0.3],
             }]
         );
-        assert_eq!(
-            placeholder_boxes([0.0, 1.0, 1.0]),
-            [] as [crate::lighting::occlusion::LocalBox; 0]
+        assert!(
+            placeholder_boxes([0.0, 1.0, 1.0]).is_empty(),
+            "placeholder_boxes([0.0, 1.0, 1.0]) must be empty"
         );
-        assert_eq!(
-            placeholder_boxes([f32::NAN, 1.0, 1.0]),
-            [] as [crate::lighting::occlusion::LocalBox; 0]
+        assert!(
+            placeholder_boxes([f32::NAN, 1.0, 1.0]).is_empty(),
+            "placeholder_boxes([f32::NAN, 1.0, 1.0]) must be empty"
         );
     }
 
@@ -2030,9 +2056,9 @@ mod tests {
         )
         .expect("test level parses");
         let surfaces = crate::level::LevelSurfaces::new(&level);
-        assert_eq!(
-            level_occluders(&level, &surfaces),
-            [] as [crate::lighting::visibility::OrientedBox; 0]
+        assert!(
+            level_occluders(&level, &surfaces).is_empty(),
+            "level_occluders(&level, &surfaces) must be empty"
         );
     }
 }

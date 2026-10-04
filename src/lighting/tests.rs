@@ -6,11 +6,11 @@
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::suboptimal_flops
+    clippy::suboptimal_flops,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -23,8 +23,8 @@ fn level_with_room(width: f32, depth: f32, height: f32, intensities: &[f32]) -> 
         .iter()
         .enumerate()
         .map(|(index, intensity)| {
-            let x = width * (index as f32 + 1.0) / (intensities.len() as f32 + 1.0);
-            let z = depth * (index as f32 + 1.0) / (intensities.len() as f32 + 1.0);
+            let x = width * (crate::test_support::exact_f32(index) + 1.0) / (crate::test_support::exact_f32(intensities.len()) + 1.0);
+            let z = depth * (crate::test_support::exact_f32(index) + 1.0) / (crate::test_support::exact_f32(intensities.len()) + 1.0);
             format!(
                 r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "brightness": {intensity} }}"#
             )
@@ -56,8 +56,8 @@ fn level_with_colored_room(
         .iter()
         .enumerate()
         .map(|(index, (intensity, color))| {
-            let x = width * (index as f32 + 1.0) / (lights.len() as f32 + 1.0);
-            let z = depth * (index as f32 + 1.0) / (lights.len() as f32 + 1.0);
+            let x = width * (crate::test_support::exact_f32(index) + 1.0) / (crate::test_support::exact_f32(lights.len()) + 1.0);
+            let z = depth * (crate::test_support::exact_f32(index) + 1.0) / (crate::test_support::exact_f32(lights.len()) + 1.0);
             format!(
                 r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "brightness": {intensity}, "color": [{}, {}, {}] }}"#,
                 color[0], color[1], color[2]
@@ -319,11 +319,11 @@ fn brightness_saturates_instead_of_growing_without_bound() {
 
     // Even overflow-sized inputs stay inside the allowed range.
     let extreme = vec![f32::MAX; 4];
-    let lighting = LevelLighting::bake(&level_with_room(2.0, 2.0, 3.5, &extreme));
-    let baseline = lighting.rooms()[0].baseline;
-    assert!(baseline.is_finite());
-    assert!(baseline.max_channel() <= MAX_BRIGHTNESS);
-    assert!(baseline.luminance() >= AMBIENT_LEVEL);
+    let extreme_lighting = LevelLighting::bake(&level_with_room(2.0, 2.0, 3.5, &extreme));
+    let extreme_baseline = extreme_lighting.rooms()[0].baseline;
+    assert!(extreme_baseline.is_finite());
+    assert!(extreme_baseline.max_channel() <= MAX_BRIGHTNESS);
+    assert!(extreme_baseline.luminance() >= AMBIENT_LEVEL);
 }
 
 #[test]
@@ -645,10 +645,10 @@ fn malformed_inputs_stay_finite_and_never_panic() {
     extreme.ceiling_lights[1].brightness = Some(f32::INFINITY);
     extreme.ceiling_lights[0].color = Some(LightColor::rgb(f32::MAX, f32::NAN, -0.5));
     extreme.ceiling_lights[1].x = f32::NAN; // dropped entirely
-    let lighting = LevelLighting::bake(&extreme);
-    let baseline = lighting.rooms()[0].baseline;
+    let extreme_lighting = LevelLighting::bake(&extreme);
+    let baseline = extreme_lighting.rooms()[0].baseline;
     assert!(baseline.is_finite() && baseline.max_channel() <= MAX_BRIGHTNESS);
-    assert!(lighting.sample(1.0, 0.0, 1.0).is_finite());
+    assert!(extreme_lighting.sample(1.0, 0.0, 1.0).is_finite());
 }
 
 #[test]
@@ -659,9 +659,9 @@ fn helper_curves_are_monotonic_and_numerically_safe() {
     assert_exact(saturating_brightness(f32::INFINITY), 1.0);
     assert_exact(saturating_brightness(f32::NEG_INFINITY), 0.0);
     let mut previous = 0.0;
-    for step in 0..40 {
-        let value = saturating_brightness(step as f32 * 0.25);
-        assert!(value > previous || step == 0 || previous > 0.99);
+    for step in 0_i32..40_i32 {
+        let value = saturating_brightness(crate::test_support::exact_f32(step) * 0.25);
+        assert!(value > previous || step == 0_i32 || previous > 0.99);
         assert!((0.0..=1.0).contains(&value));
         previous = value;
     }
@@ -699,12 +699,12 @@ fn helper_curves_are_monotonic_and_numerically_safe() {
     assert_exact(compressed_density(-1.0), 0.0);
     assert_exact(compressed_density(f32::NAN), 0.0);
     assert_exact(compressed_density(f32::INFINITY), f32::INFINITY);
-    let mut previous = 0.0;
-    for step in 1..40 {
-        let value = compressed_density(step as f32 * 0.5);
-        assert!(value > previous, "compression must be monotonic");
-        assert!(value < step as f32 * 0.5 || step == 1);
-        previous = value;
+    let mut previous_density = 0.0;
+    for step in 1_i32..40_i32 {
+        let value = compressed_density(crate::test_support::exact_f32(step) * 0.5);
+        assert!(value > previous_density, "compression must be monotonic");
+        assert!(value < crate::test_support::exact_f32(step) * 0.5 || step == 1_i32);
+        previous_density = value;
     }
 
     // Colour helpers stay finite and bounded.
@@ -995,11 +995,11 @@ fn three_arbitrary_colours_accumulate_independently() {
 fn coloured_accumulation_stays_finite_and_bounded() {
     // A dense grid of saturated colours: every channel must stay finite and
     // inside the render range even where pools overlap.
-    let lights: Vec<(f32, [f32; 3])> = (0..36)
+    let lights: Vec<(f32, [f32; 3])> = (0_i32..36_i32)
         .map(|index| {
-            let color = match index % 3 {
-                0 => [1.0, 0.0, 0.0],
-                1 => [0.0, 1.0, 0.0],
+            let color = match index % 3_i32 {
+                0_i32 => [1.0, 0.0, 0.0],
+                1_i32 => [0.0, 1.0, 0.0],
                 _ => [0.0, 0.0, 1.0],
             };
             (2.0, color)
@@ -1158,22 +1158,22 @@ fn fixture_families_own_their_footprint_and_mount() {
 
     // A ceiling fixture hangs just below the room ceiling; a wall fixture
     // stays at its authored height.
-    let round = lighting.lights()[0];
+    let round_light = lighting.lights()[0];
     assert!(
-        (round.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
-        "{round:?}"
+        (round_light.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
+        "{round_light:?}"
     );
-    let wall = lighting.lights()[1];
-    assert!((wall.y() - 2.2).abs() < 1e-4, "{wall:?}");
-    assert!((wall.half_w() - 0.20).abs() < 1e-4);
+    let wall_light = lighting.lights()[1];
+    assert!((wall_light.y() - 2.2).abs() < 1e-4, "{wall_light:?}");
+    assert!((wall_light.half_w() - 0.20).abs() < 1e-4);
     // The residential flush mount hangs just below the ceiling like the round
     // pool downlight, with its own disc footprint.
-    let flush = lighting.lights()[3];
+    let flush_light = lighting.lights()[3];
     assert!(
-        (flush.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
-        "{flush:?}"
+        (flush_light.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
+        "{flush_light:?}"
     );
-    assert!((flush.half_w() - crate::lighting::FLUSH_MOUNT_RADIUS_M).abs() < 1e-4);
+    assert!((flush_light.half_w() - crate::lighting::FLUSH_MOUNT_RADIUS_M).abs() < 1e-4);
     // The unknown id is baked with the panel footprint, not skipped.
     let unknown = lighting.lights()[2];
     assert!((unknown.half_w() - 0.6).abs() < 1e-4);
@@ -1190,9 +1190,9 @@ fn fixture_families_own_their_footprint_and_mount() {
             { "fixture": "core:pool_light_wall", "x": 3.0, "z": 0.2, "mount": "wall" }
         ]
     }"#;
-    let level = LevelDef::from_json(json).expect("wall fixture parses");
-    let lighting = LevelLighting::bake(&level);
-    let y = lighting.lights()[0].y();
+    let wall_level = LevelDef::from_json(json).expect("wall fixture parses");
+    let wall_lighting = LevelLighting::bake(&wall_level);
+    let y = wall_lighting.lights()[0].y();
     assert!(y.is_finite());
     assert!((y - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4, "{y}");
 
@@ -1209,12 +1209,12 @@ fn fixture_families_own_their_footprint_and_mount() {
               "color": [0.7, 0.85, 1.0], "brightness": 1.0 }
         ]
     }"#;
-    let level = LevelDef::from_json(cool_only).expect("cool level parses");
-    let lighting = LevelLighting::bake(&level);
-    let sample = lighting.sample(4.0, 0.0, 4.0);
+    let cool_level = LevelDef::from_json(cool_only).expect("cool level parses");
+    let cool_lighting = LevelLighting::bake(&cool_level);
+    let sample = cool_lighting.sample(4.0, 0.0, 4.0);
     assert!(sample.b > sample.r, "cool light must stay cool: {sample:?}");
     assert!(sample.b >= AMBIENT_LEVEL && sample.b <= MAX_BRIGHTNESS);
-    for light in lighting.lights() {
+    for light in cool_lighting.lights() {
         assert!(light.intensity().is_finite() && light.intensity() >= 0.0);
     }
 }
@@ -1270,7 +1270,7 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     ))
     .expect("parses");
     // 1e40 overflows f32 to infinity, which must be rejected, not blessed.
-    crate::loader::validate_level(&non_finite).expect_err("non-finite heights are rejected");
+    drop(crate::loader::validate_level(&non_finite).expect_err("non-finite heights are rejected"));
 }
 
 // ----------------------------------------------- opening seams and corners
@@ -1521,16 +1521,19 @@ fn the_occlusion_fingerprint_tracks_the_solids_the_bake_uses() {
     if let Some(prop) = moved.props.first_mut() {
         prop.x += 1.0;
     }
-    let moved = LevelLighting::bake(&moved);
-    assert_ne!(first.occlusion_fingerprint(), moved.occlusion_fingerprint());
+    let moved_lighting = LevelLighting::bake(&moved);
+    assert_ne!(
+        first.occlusion_fingerprint(),
+        moved_lighting.occlusion_fingerprint()
+    );
 
     // Removing it removes them.
     let mut removed = level.clone();
     removed.props.clear();
-    let removed = LevelLighting::bake(&removed);
+    let removed_lighting = LevelLighting::bake(&removed);
     assert_ne!(
         first.occlusion_fingerprint(),
-        removed.occlusion_fingerprint()
+        removed_lighting.occlusion_fingerprint()
     );
 
     // Turning it changes the oriented boxes' sin/cos, not just their centre.
@@ -1539,10 +1542,10 @@ fn the_occlusion_fingerprint_tracks_the_solids_the_bake_uses() {
     if let Some(prop) = turned.props.first_mut() {
         prop.rotation_degrees += 45.0;
     }
-    let turned = LevelLighting::bake(&turned);
+    let turned_lighting = LevelLighting::bake(&turned);
     assert_ne!(
         first.occlusion_fingerprint(),
-        turned.occlusion_fingerprint()
+        turned_lighting.occlusion_fingerprint()
     );
 }
 
@@ -1555,10 +1558,10 @@ fn the_lightmap_content_key_covers_the_occluder_set() {
 
     let config = LightmapConfig::for_profile(QualityProfile::Full);
     let level = level_with_prop_light(r#"{ "model": "core:desk", "x": 6.0, "z": 6.0 }"#);
-    let key_of = |level: &LevelDef| {
-        let lighting = LevelLighting::bake(level);
+    let key_of = |source_level: &LevelDef| {
+        let lighting = LevelLighting::bake(source_level);
         content_key_with_extra(
-            level,
+            source_level,
             &config,
             QualityProfile::Full,
             &lighting.occlusion_fingerprint().to_le_bytes(),
@@ -1619,22 +1622,24 @@ fn a_prop_light_lights_its_room_and_a_disabled_one_does_not() {
                            "enabled": false } ] }"#,
     );
     let no_lights = level_with_prop_light(r#"{ "model": "core:desk", "x": 6.0, "z": 6.0 }"#);
-    let lit = LevelLighting::bake(&lit);
-    let off = LevelLighting::bake(&off);
+    let on_lighting = LevelLighting::bake(&lit);
+    let off_lighting = LevelLighting::bake(&off);
     let none = LevelLighting::bake(&no_lights);
 
     // A prop light raises the room baseline and its local pool.
-    assert!(lit.rooms()[0].baseline.luminance() > none.rooms()[0].baseline.luminance());
-    assert!(lit.sample(6.0, 0.5, 6.0).luminance() > none.sample(6.0, 0.5, 6.0).luminance());
+    assert!(on_lighting.rooms()[0].baseline.luminance() > none.rooms()[0].baseline.luminance());
+    assert!(on_lighting.sample(6.0, 0.5, 6.0).luminance() > none.sample(6.0, 0.5, 6.0).luminance());
     // Disabled, it changes nothing at all.
     assert!(
-        (off.rooms()[0].baseline.luminance() - none.rooms()[0].baseline.luminance()).abs() < 1e-6
-    );
-    assert!(
-        (off.sample(6.0, 0.5, 6.0).luminance() - none.sample(6.0, 0.5, 6.0).luminance()).abs()
+        (off_lighting.rooms()[0].baseline.luminance() - none.rooms()[0].baseline.luminance()).abs()
             < 1e-6
     );
-    assert!(!off.lights()[0].enabled());
+    assert!(
+        (off_lighting.sample(6.0, 0.5, 6.0).luminance() - none.sample(6.0, 0.5, 6.0).luminance())
+            .abs()
+            < 1e-6
+    );
+    assert!(!off_lighting.lights()[0].enabled());
     assert_eq!(none.lights().len(), 0);
 }
 
@@ -1732,13 +1737,13 @@ fn lightmap_texels_match_the_vertex_path_exactly() {
     let level = LevelDef::from_json(&json).expect("scene parses");
     let lighting = LevelLighting::bake(&level);
     let mut checked = 0usize;
-    for ix in 0..13 {
-        let x = 0.25 + ix as f32 * 0.95;
+    for ix in 0_i32..13_i32 {
+        let x = 0.25 + crate::test_support::exact_f32(ix) * 0.95;
         if (x - 6.0).abs() < 0.5 {
             continue;
         }
-        for iz in 0..13 {
-            let z = 0.25 + iz as f32 * 0.95;
+        for iz in 0_i32..13_i32 {
+            let z = 0.25 + crate::test_support::exact_f32(iz) * 0.95;
             for y in [0.0_f32, 0.6, 1.5, 2.5] {
                 let fast = lighting.lightmap_texel(Some(0), x, y, z);
                 let slow = lighting.sample_in_room(0, x, y, z);
@@ -2304,7 +2309,10 @@ fn prop_occluders_do_not_create_a_dark_hole_outside_their_footprint() {
 }
 
 #[test]
-#[allow(clippy::print_stdout)] // developer measurement output, like the audit report
+#[expect(
+    clippy::print_stdout,
+    reason = "developer measurement output, like the audit report"
+)] // developer measurement output, like the audit report
 fn the_shipped_levels_bake_bounded_prop_occlusion() {
     for (path, label) in [
         ("assets/levels/places_demo.json", "places_demo"),
@@ -2322,8 +2330,8 @@ fn the_shipped_levels_bake_bounded_prop_occlusion() {
             props > 0 || level.props.is_empty(),
             "{label}: a level with props must derive occluders"
         );
-        for x in (0..14).map(|step| step as f32 * 2.5) {
-            for z in (0..14).map(|step| step as f32 * 2.5) {
+        for x in (0_i32..14_i32).map(|step| crate::test_support::exact_f32(step) * 2.5) {
+            for z in (0_i32..14_i32).map(|step| crate::test_support::exact_f32(step) * 2.5) {
                 let value = lighting.sample(x, 0.5, z);
                 assert!(
                     value.is_finite(),
@@ -2341,8 +2349,8 @@ fn the_shipped_levels_bake_bounded_prop_occlusion() {
         // bakes of the same level must agree bit for bit.
         let again = LevelLighting::bake(&level);
         assert_eq!(again.summary(), lighting.summary(), "{label}: second bake");
-        for x in (0..14).map(|step| step as f32 * 2.5) {
-            for z in (0..14).map(|step| step as f32 * 2.5) {
+        for x in (0_i32..14_i32).map(|step| crate::test_support::exact_f32(step) * 2.5) {
+            for z in (0_i32..14_i32).map(|step| crate::test_support::exact_f32(step) * 2.5) {
                 assert_eq!(again.sample(x, 0.5, z), lighting.sample(x, 0.5, z));
             }
         }
@@ -2390,14 +2398,20 @@ fn color_text(color: LightColor) -> String {
 // The index is clamped to a non-negative integer no larger than `len - 1`
 // before the cast, so the truncation and sign-loss lints cannot describe a
 // possible value here.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "The index is clamped to a non-negative integer no larger than `len - 1` before the cast, so the truncation and sign-loss lints cannot describe a possible value here."
+)]
 fn percentile(values: &mut [f32], p: f32) -> f32 {
     if values.is_empty() {
         return 0.0;
     }
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let last = values.len().saturating_sub(1);
-    let index = (p.clamp(0.0, 1.0) * last as f32).round().min(last as f32);
+    let last_sample = crate::test_support::exact_f32(last);
+    let index = (p.clamp(0.0, 1.0) * last_sample).round().min(last_sample);
     values[index as usize]
 }
 
@@ -2441,21 +2455,23 @@ impl FloorGridStats {
         if self.samples == 0 {
             return 0.0;
         }
-        self.clamped as f32 * 100.0 / self.samples as f32
+        crate::test_support::exact_f32(self.clamped) * 100.0
+            / crate::test_support::exact_f32(self.samples)
     }
 
     fn pool_cover_percent(&self) -> f32 {
         if self.samples == 0 {
             return 0.0;
         }
-        self.pool_hits as f32 * 100.0 / self.samples as f32
+        crate::test_support::exact_f32(self.pool_hits) * 100.0
+            / crate::test_support::exact_f32(self.samples)
     }
 
     fn mean_pool(&self) -> f32 {
         if self.pool_hits == 0 {
             0.0
         } else {
-            self.pool_mean_sum / self.pool_hits as f32
+            self.pool_mean_sum / crate::test_support::exact_f32(self.pool_hits)
         }
     }
 }
@@ -2464,7 +2480,10 @@ impl FloorGridStats {
 /// three model terms at each labelled world sample.
 ///
 /// Deterministic: the same level and sample list always produce the same text.
-#[allow(clippy::too_many_lines)] // one linear report writer, not a structure
+#[expect(
+    clippy::too_many_lines,
+    reason = "one linear report writer, not a structure"
+)] // one linear report writer, not a structure
 fn lighting_developer_report(
     level: &LevelDef,
     label: &str,
@@ -2474,8 +2493,8 @@ fn lighting_developer_report(
     let lighting = LevelLighting::bake_with(level, QualityProfile::Full.bake_config());
     let summary = lighting.summary();
     let mut out = String::new();
-    let _ = writeln!(out, "=== {label} ===");
-    let _ = writeln!(
+    let _formatted_label = writeln!(out, "=== {label} ===");
+    let _formatted_rooms_zones = writeln!(
         out,
         "rooms={} zones={} lights={} blockers={} (walls={} props={})",
         summary.rooms,
@@ -2485,13 +2504,13 @@ fn lighting_developer_report(
         summary.walls,
         summary.props
     );
-    let _ = writeln!(
+    let _formatted_baseline_lum = writeln!(
         out,
         "baseline lum: min={:.4} max={:.4} mean={:.4}",
         summary.min_baseline, summary.max_baseline, summary.average_baseline
     );
     for (index, room) in lighting.rooms().iter().enumerate() {
-        let _ = writeln!(
+        let _formatted_room_r = writeln!(
             out,
             "room r{index} footprint=({:.2},{:.2})..({:.2},{:.2}) area={:.2} h={:.2} floor={:.2} fixtures={} power={} baseline={} lum={:.4}",
             room.x0,
@@ -2508,7 +2527,7 @@ fn lighting_developer_report(
         );
         let zones = lighting.zones_in_room(index);
         for (zone_index, zone) in zones.iter().enumerate() {
-            let _ = writeln!(
+            let _formatted_area_zone = writeln!(
                 out,
                 "  area[{zone_index}] floor_area={:.2} fixtures={} power={} baseline={} lum={:.4}",
                 zone.area_m2,
@@ -2519,10 +2538,11 @@ fn lighting_developer_report(
             );
         }
     }
-    let _ = writeln!(out, "samples (baseline / direct / fill / blend / final):");
+    let _formatted_samples_baseline =
+        writeln!(out, "samples (baseline / direct / fill / blend / final):");
     for (name, x, y, z) in samples {
         let terms = lighting.bake_terms(*x, *y, *z);
-        let _ = writeln!(
+        let _formatted_name_x = writeln!(
             out,
             "  {name}: ({x:.2},{y:.2},{z:.2}) room={:?} baseline={} direct={} fill={} blend={} final={} lum={:.4}",
             terms.room,
@@ -2534,7 +2554,7 @@ fn lighting_developer_report(
             terms.value.luminance()
         );
         for term in lighting.pool_terms_in_room(terms.room, *x, *y, *z) {
-            let _ = writeln!(
+            let _formatted_light_d = writeln!(
                 out,
                 "      light[{}] d={:.3} dh={:.3} dv={:.3} dir={} direct={:.4} fill={:.4} vis={:.3} i={:.3} hf={:.4} color={}",
                 term.light,
@@ -2554,7 +2574,7 @@ fn lighting_developer_report(
         // report would be describing a model that is not the one rendered.
         let direct = lighting.sample(*x, *y, *z);
         if direct != terms.value {
-            let _ = writeln!(
+            let _formatted_decomposition_mismatch = writeln!(
                 out,
                 "    !! decomposition mismatch: sample()={} terms={}",
                 color_text(direct),
@@ -2565,7 +2585,7 @@ fn lighting_developer_report(
     let mut grid = FloorGridStats::default();
     grid.collect(&lighting, 1.0);
     let mut values = grid.values.clone();
-    let _ = writeln!(
+    let _formatted_floor_grid = writeln!(
         out,
         "floor-grid(1m): samples={} clamped={:.2}% pool>=0.05={:.1}% mean_pool={:.4} lum p05={:.4} p50={:.4} p90={:.4} max={:.4}",
         grid.samples,
@@ -2698,7 +2718,7 @@ struct CandidateStats {
 
 /// Evaluates one candidate over every room floor and prints one line with the
 /// candidate's value at each labelled probe point.
-#[allow(clippy::too_many_lines)] // one candidate's sweep + probe line
+#[expect(clippy::too_many_lines, reason = "one candidate's sweep + probe line")] // one candidate's sweep + probe line
 fn candidate_line(
     lighting: &LevelLighting,
     candidate: ModelCandidate,
@@ -2752,7 +2772,7 @@ fn candidate_line(
     let p90 = percentile(&mut values, 0.90);
     let mut baselines = stats.baselines.clone();
     let mut out = String::new();
-    let _ = writeln!(
+    let _formatted_sweep_base = writeln!(
         out,
         "[sweep {:<24}] base_max={:<4} dir={:<5}/{:<4} fill={:<5}/{:<4} | clamp={:.2}% p05={:.3} p50={:.3} p90={:.3} contrast={:.2} pool_cover={:.1}% mean_local={:.3} shadow_show={:.1}% mean_loss={:.3} max_loss={:.3} base p05..p95={:.3}..{:.3}",
         candidate.label,
@@ -2764,7 +2784,8 @@ fn candidate_line(
         if stats.samples == 0 {
             0.0
         } else {
-            stats.clamped as f32 * 100.0 / stats.samples as f32
+            crate::test_support::exact_f32(stats.clamped) * 100.0
+                / crate::test_support::exact_f32(stats.samples)
         },
         p05,
         p50,
@@ -2773,22 +2794,24 @@ fn candidate_line(
         if stats.samples == 0 {
             0.0
         } else {
-            stats.pool_hits as f32 * 100.0 / stats.samples as f32
+            crate::test_support::exact_f32(stats.pool_hits) * 100.0
+                / crate::test_support::exact_f32(stats.samples)
         },
         if stats.pool_hits == 0 {
             0.0
         } else {
-            stats.pool_sum / stats.pool_hits as f32
+            stats.pool_sum / crate::test_support::exact_f32(stats.pool_hits)
         },
         if stats.samples == 0 {
             0.0
         } else {
-            stats.shadowed as f32 * 100.0 / stats.samples as f32
+            crate::test_support::exact_f32(stats.shadowed) * 100.0
+                / crate::test_support::exact_f32(stats.samples)
         },
         if stats.shadowed == 0 {
             0.0
         } else {
-            stats.shadow_loss_sum / stats.shadowed as f32
+            stats.shadow_loss_sum / crate::test_support::exact_f32(stats.shadowed)
         },
         stats.shadow_loss_max,
         percentile(&mut baselines, 0.05),
@@ -2814,9 +2837,9 @@ fn candidate_line(
             .plus(fill)
             .plus(current.blend)
             .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
-        let _ = write!(probes_text, " {name}={:.3}", value.luminance());
+        let _formatted_name = write!(probes_text, " {name}={:.3}", value.luminance());
     }
-    let _ = writeln!(out, "{probes_text}");
+    let _formatted_probes_text = writeln!(out, "{probes_text}");
     out
 }
 
@@ -3013,9 +3036,9 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     assert!((zones[0].area_m2 - 100.0).abs() < 1e-3);
     assert_eq!(zones[0].fixture_count, 1);
     assert_eq!(zones[0].baseline, uniform.rooms()[0].baseline);
-    assert_eq!(
-        uniform.zones_in_room(7),
-        [] as [crate::lighting::bake::ZoneLighting; 0]
+    assert!(
+        uniform.zones_in_room(7).is_empty(),
+        "uniform.zones_in_room(7) must be empty"
     );
 
     // One 10 x 10 room split by a full-height wall at x = 4.9, lit only on
@@ -3039,18 +3062,18 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     assert!(!lighting.same_probe_region(0, [2.0, 1.5, 5.0], [2.0, -1.0, 5.0]));
     assert!(!lighting.same_probe_region(0, [2.0, 1.5, 5.0], [2.0, 10.0, 5.0]));
     assert!(!lighting.same_probe_region(0, [4.5, 1.5, 5.0], [5.5, 1.5, 5.0]));
-    let zones = lighting.zones_in_room(0);
-    assert_eq!(zones.len(), 2, "the wall must split the room");
-    let total: f32 = zones.iter().map(|zone| zone.area_m2).sum();
+    let split_zones = lighting.zones_in_room(0);
+    assert_eq!(split_zones.len(), 2, "the wall must split the room");
+    let total: f32 = split_zones.iter().map(|zone| zone.area_m2).sum();
     assert!(
         (total - 100.0).abs() < 1.0,
         "areas must tile the room: {total}"
     );
-    let lit = zones
+    let lit = split_zones
         .iter()
         .find(|zone| zone.fixture_count == 1)
         .expect("one side owns the fixture");
-    let dark = zones
+    let dark = split_zones
         .iter()
         .find(|zone| zone.fixture_count == 0)
         .expect("the other side owns none");
@@ -3073,7 +3096,10 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
 /// Writes the developer report for the shipped levels.
 #[test]
 #[ignore = "developer report; writes target/diagnostics/lighting"]
-#[allow(clippy::print_stdout)] // the report path is the tool's only output
+#[expect(
+    clippy::print_stdout,
+    reason = "the report path is the tool's only output"
+)] // the report path is the tool's only output
 fn write_lighting_developer_report() {
     let mut report = String::new();
     for (path, label, samples) in [
@@ -3107,7 +3133,10 @@ fn write_lighting_developer_report() {
 /// Sweeps candidate model constants over the shipped levels.
 #[test]
 #[ignore = "developer report; writes target/diagnostics/lighting"]
-#[allow(clippy::print_stdout)] // the sweep path is the tool's only output
+#[expect(
+    clippy::print_stdout,
+    reason = "the sweep path is the tool's only output"
+)] // the sweep path is the tool's only output
 fn write_lighting_candidate_sweep() {
     let mut report = String::new();
     for (path, label, probes) in [

@@ -8,7 +8,8 @@
     clippy::panic,
     clippy::print_stdout,
     clippy::too_many_lines,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests and developer measurement output"
 )]
 
 use super::*;
@@ -111,7 +112,9 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
                 texture.height
             );
             assert!(
-                texture.rgba.len() == (texture.width * texture.height * 4) as usize,
+                texture.rgba.len()
+                    == usize::try_from(texture.width * texture.height * 4)
+                        .expect("fixture integer fits usize"),
                 "{}: decoded texture buffer does not match its dimensions",
                 entry.id
             );
@@ -401,9 +404,10 @@ fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
         .expect("over-budget triangles warn");
     assert!(warning.contains("triangles"), "{warning}");
 
-    let warning = art_budget_warning(&synthetic_model(100, &[(PROP_TEXTURE_NATIVE_SIZE + 1, 8)]))
-        .expect("textures above the native size warn");
-    assert!(warning.contains("texture"), "{warning}");
+    let texture_warning =
+        art_budget_warning(&synthetic_model(100, &[(PROP_TEXTURE_NATIVE_SIZE + 1, 8)]))
+            .expect("textures above the native size warn");
+    assert!(texture_warning.contains("texture"), "{texture_warning}");
 
     let mut assets = PropAssets::default();
     assets.report_budget_warning("models/many_tris.glb", "warning");

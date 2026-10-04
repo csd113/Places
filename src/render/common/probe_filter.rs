@@ -160,7 +160,12 @@ fn level_roughness(level: u32, levels: u32) -> f32 {
 const fn tap_count(roughness: f32) -> u32 {
     let scaled = roughness.mul_add(56.0, 8.0).round().clamp(8.0, 64.0);
     // `scaled` is finite and clamped to [8, 64] before the cast.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`scaled` is finite and clamped to [8, 64] before the cast."
+    )]
     let count = scaled as u32;
     count
 }
@@ -192,7 +197,10 @@ fn cone_average(source: &[Vec<u8>; 6], edge: u32, direction: Vec3, roughness: f3
         let cos_theta = (-u).mul_add(1.0 - cap_cos, 1.0);
         let sin_theta = cos_theta.mul_add(-cos_theta, 1.0).max(0.0).sqrt();
         let phi = GOLDEN_ANGLE * tap_f;
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "glam vector operators use floating point components without integer overflow or a panic path."
+        )]
         // glam vector products are per-element f32 arithmetic with no overflow or panic path
         let tangent = right * (sin_theta * phi.cos()) + up * (sin_theta * phi.sin());
         let tap_direction = direction.mul_add(Vec3::splat(cos_theta), tangent);
@@ -242,12 +250,15 @@ fn direction_for_texel(face: usize, s: f32, t: f32) -> Vec3 {
     else {
         return Vec3::X;
     };
-    let face_dir = Vec3::from_array(*face_dir);
-    let face_up = Vec3::from_array(*face_up);
-    let right = face_dir.cross(face_up);
-    #[allow(clippy::arithmetic_side_effects)]
+    let direction_vector = Vec3::from_array(*face_dir);
+    let up_vector = Vec3::from_array(*face_up);
+    let right = direction_vector.cross(up_vector);
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "glam vector operators use floating point components without integer overflow or a panic path."
+    )]
     // per-element f32 arithmetic with no overflow or panic path
-    let direction = face_dir + right * s + face_up * t;
+    let direction = direction_vector + right * s + up_vector * t;
     normalized(direction)
 }
 
@@ -274,11 +285,11 @@ fn face_uv(direction: Vec3) -> (usize, f32, f32) {
     ) else {
         return (0, 0.0, 0.0);
     };
-    let face_dir = Vec3::from_array(*face_dir);
-    let face_up = Vec3::from_array(*face_up);
-    let right = face_dir.cross(face_up);
+    let direction_vector = Vec3::from_array(*face_dir);
+    let up_vector = Vec3::from_array(*face_up);
+    let right = direction_vector.cross(up_vector);
     let s = direction.dot(right) / best_dot;
-    let t = direction.dot(face_up) / best_dot;
+    let t = direction.dot(up_vector) / best_dot;
     (best_face, s, t)
 }
 
@@ -375,7 +386,12 @@ fn texel_centre(index: u32, edge: u32) -> f32 {
 }
 
 /// A clamped texel coordinate as an unsigned index.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "The finite floored texel coordinate is clamped to the small image edge before its u32 conversion."
+)]
 // `value` is clamped to [0, edge - 1] with edge a small texel count before
 // the cast, so it is finite, non-negative and well inside u32.
 const fn texel_index(value: f32) -> u32 {
@@ -389,15 +405,22 @@ const fn to_u8(value: f32) -> u8 {
     }
     let scaled = value.mul_add(255.0, 0.5).clamp(0.0, 255.0);
     // `scaled` is finite and clamped to [0, 255] before the cast.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`scaled` is finite and clamped to [0, 255] before the cast."
+    )]
     let byte = scaled as u8;
     byte
 }
 
 /// Bytes one `edge` x `edge` RGBA8 face occupies.
 fn face_bytes(edge: u32) -> Result<usize, String> {
-    let edge = usize::try_from(edge).map_err(|_| "probe face edge is too large".to_string())?;
-    edge.checked_mul(edge)
+    let edge_pixels =
+        usize::try_from(edge).map_err(|error| format!("probe face edge is too large: {error}"))?;
+    edge_pixels
+        .checked_mul(edge_pixels)
         .and_then(|value| value.checked_mul(4))
         .ok_or_else(|| "probe face size overflows".to_string())
 }
@@ -406,7 +429,10 @@ fn face_bytes(edge: u32) -> Result<usize, String> {
 fn normalized(value: Vec3) -> Vec3 {
     let length = value.length();
     if length > 0.0 && length.is_finite() {
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "glam vector division uses floating point components without integer overflow or a panic path."
+        )]
         // per-element f32 division with no overflow or panic path
         let unit = value / length;
         unit
@@ -416,13 +442,21 @@ fn normalized(value: Vec3) -> Vec3 {
 }
 
 /// A small count as `f32`.
-#[allow(clippy::cast_precision_loss)] // counts are probe texel dimensions, far below 2^24
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "counts are probe texel dimensions, far below 2^24"
+)] // counts are probe texel dimensions, far below 2^24
 const fn count_to_f32(value: u32) -> f32 {
     value as f32
 }
 
 /// An edge as `f32`.
-#[allow(clippy::cast_precision_loss)] // probe face edges are texel counts, far below 2^24
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "probe face edges are texel counts, far below 2^24"
+)] // probe face edges are texel counts, far below 2^24
 const fn u32_to_f32(value: u32) -> f32 {
     value as f32
 }
@@ -434,7 +468,8 @@ mod tests {
         clippy::indexing_slicing,
         clippy::unwrap_used,
         clippy::expect_used,
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -492,8 +527,8 @@ mod tests {
         let faces = solid_faces(8, colour);
         let chain = prefilter_cube(8, &faces, mip_levels_for(8)).expect("chain");
         assert_eq!(chain.len(), 4);
-        for (level, faces) in chain.iter().enumerate() {
-            for face in faces {
+        for (level, mip_faces) in chain.iter().enumerate() {
+            for face in mip_faces {
                 assert!(
                     face.as_chunks::<4>().0.iter().all(|px| px == &colour),
                     "level {level} must preserve the constant colour"
@@ -525,9 +560,9 @@ mod tests {
         let faces = solid_faces(edge, [10, 20, 30, 255]);
         let chain = prefilter_cube(edge, &faces, mip_levels_for(edge)).expect("chain");
         let mut expected = edge;
-        for (level, faces) in chain.iter().enumerate() {
+        for (level, mip_faces) in chain.iter().enumerate() {
             let bytes = usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 4;
-            for face in faces {
+            for face in mip_faces {
                 assert_eq!(face.len(), bytes, "level {level} edge {expected}");
             }
             expected /= 2;
@@ -567,7 +602,7 @@ mod tests {
             "more levels than the edge supports"
         );
         let mut short = faces;
-        short[3].pop();
+        let _removed_value = short[3].pop();
         assert!(prefilter_cube(8, &short, 1).is_err(), "short face");
     }
 

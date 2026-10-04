@@ -167,8 +167,8 @@ fn open_reader<R: std::io::Read + std::io::Seek>(
         "semantics.json",
         MAX_SEMANTICS_BYTES,
     )?;
-    let text =
-        std::str::from_utf8(&semantics).map_err(|_| "semantics.json is not UTF-8".to_string())?;
+    let text = std::str::from_utf8(&semantics)
+        .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
@@ -389,7 +389,7 @@ fn validate_probe_rooms(
     rooms: usize,
 ) -> Result<(), String> {
     for probe in &field.probes {
-        if probe.room >= 0 && usize::try_from(probe.room).map_or(true, |room| room >= rooms) {
+        if probe.room >= 0_i32 && usize::try_from(probe.room).map_or(true, |room| room >= rooms) {
             return Err(format!(
                 "irradiance probe references missing room {}",
                 probe.room
@@ -487,17 +487,17 @@ fn split_cube_levels(
     }
     let mut chain = Vec::with_capacity(image.levels.len());
     for (level, data) in image.levels.iter().enumerate() {
-        let level_index =
-            u32::try_from(level).map_err(|_| "probe mip level is too large".to_string())?;
+        let level_index = u32::try_from(level)
+            .map_err(|error| format!("probe mip level is too large: {error}"))?;
         let level_edge = face_edge
             .checked_shr(level_index)
             .filter(|edge| *edge > 0)
             .ok_or_else(|| format!("probe cubemap has no mip level {level}"))?;
         let face_bytes = usize::try_from(level_edge)
-            .map_err(|_| "probe face edge is too large".to_string())?
+            .map_err(|error| format!("probe face edge is too large: {error}"))?
             .checked_mul(
                 usize::try_from(level_edge)
-                    .map_err(|_| "probe face edge is too large".to_string())?,
+                    .map_err(|error| format!("probe face edge is too large: {error}"))?,
             )
             .and_then(|value| value.checked_mul(4))
             .ok_or_else(|| "probe face size overflows".to_string())?;
@@ -512,11 +512,12 @@ fn split_cube_levels(
         for face in data.chunks_exact(face_bytes) {
             faces.push(face.to_vec());
         }
-        chain.push(
-            faces
-                .try_into()
-                .map_err(|_| "probe cubemap does not hold six faces".to_string())?,
-        );
+        chain.push(faces.try_into().map_err(|incomplete_faces: Vec<Vec<u8>>| {
+            format!(
+                "probe cubemap holds {} faces instead of six",
+                incomplete_faces.len()
+            )
+        })?);
     }
     Ok(chain)
 }
@@ -556,13 +557,15 @@ pub fn validate_probe_captures(
         ),
         (crate::render::PROBE_FACE_SIZE_FULL, probes.full.as_ref()),
     ] {
-        let Some(capture) = capture else {
+        let Some(resident_capture) = capture else {
             return Err("package is missing a reflection capture face size".to_string());
         };
-        if capture.face_edge != face_edge || capture.points.len() != routing.probe_points.len() {
+        if resident_capture.face_edge != face_edge
+            || resident_capture.points.len() != routing.probe_points.len()
+        {
             return Err("reflection capture shape does not match the emitted geometry".to_string());
         }
-        for (captured, expected) in capture.points.iter().zip(&routing.probe_points) {
+        for (captured, expected) in resident_capture.points.iter().zip(&routing.probe_points) {
             let close = captured
                 .iter()
                 .zip(expected.iter())
@@ -622,7 +625,8 @@ mod tests {
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::indexing_slicing,
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -640,10 +644,10 @@ mod tests {
             }],
         };
         assert!(validate_probe_rooms(&field, 0).is_ok());
-        field.probes[0].room = 0;
+        field.probes[0].room = 0_i32;
         assert!(validate_probe_rooms(&field, 1).is_ok());
         assert!(validate_probe_rooms(&field, 0).is_err());
-        field.probes[0].room = 1;
+        field.probes[0].room = 1_i32;
         assert!(validate_probe_rooms(&field, 1).is_err());
     }
 

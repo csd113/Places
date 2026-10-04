@@ -59,7 +59,11 @@ impl StateValue {
     /// An integer loses precision only beyond 2^24, where a state value is
     /// already outside any gameplay use.
     #[must_use]
-    #[allow(clippy::cast_precision_loss)] // documented integer-to-float view
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "The state API intentionally provides a rounded f32 view of an i64 number; the stored integer remains unchanged and every i64 value is finite in f32"
+    )] // documented integer-to-float view
     pub const fn as_float(&self) -> Option<f32> {
         match self {
             Self::Float(value) => Some(*value),
@@ -117,7 +121,7 @@ impl<T> ComponentTable<T> {
 
     /// Writes `value` for `handle`, returning the previous value.
     pub fn insert(&mut self, handle: EntityHandle, value: T) -> Option<T> {
-        let index = handle.index() as usize;
+        let index = usize::try_from(handle.index()).ok()?;
         while self.slots.len() <= index {
             self.slots.push(None);
         }
@@ -139,8 +143,9 @@ impl<T> ComponentTable<T> {
     /// The value for `handle`, when it is live at that generation.
     #[must_use]
     pub fn get(&self, handle: EntityHandle) -> Option<&T> {
-        self.slots
-            .get(handle.index() as usize)
+        usize::try_from(handle.index())
+            .ok()
+            .and_then(|index| self.slots.get(index))
             .and_then(Option::as_ref)
             .filter(|entry| entry.generation == handle.generation())
             .map(|entry| &entry.value)
@@ -148,8 +153,9 @@ impl<T> ComponentTable<T> {
 
     /// The value for `handle`, mutably, when it is live at that generation.
     pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut T> {
-        self.slots
-            .get_mut(handle.index() as usize)
+        usize::try_from(handle.index())
+            .ok()
+            .and_then(|index| self.slots.get_mut(index))
             .and_then(Option::as_mut)
             .filter(|entry| entry.generation == handle.generation())
             .map(|entry| &mut entry.value)
@@ -157,7 +163,7 @@ impl<T> ComponentTable<T> {
 
     /// Removes the value for `handle`, returning it when it was live.
     pub fn remove(&mut self, handle: EntityHandle) -> Option<T> {
-        let slot = self.slots.get_mut(handle.index() as usize)?;
+        let slot = self.slots.get_mut(usize::try_from(handle.index()).ok()?)?;
         let matches = slot
             .as_ref()
             .is_some_and(|entry| entry.generation == handle.generation());
@@ -177,9 +183,9 @@ impl<T> ComponentTable<T> {
     pub fn iter(&self) -> impl Iterator<Item = (EntityHandle, &T)> {
         self.slots.iter().enumerate().filter_map(|(index, slot)| {
             slot.as_ref().and_then(|entry| {
-                u32::try_from(index).ok().map(|index| {
+                u32::try_from(index).ok().map(|slot_index| {
                     (
-                        EntityHandle::from_parts(index, entry.generation),
+                        EntityHandle::from_parts(slot_index, entry.generation),
                         &entry.value,
                     )
                 })
@@ -567,8 +573,8 @@ impl Fade {
         } else {
             1.0
         };
-        let seconds = if seconds.is_finite() { seconds } else { 0.0 };
-        let angle = std::f32::consts::TAU * (self.phase + seconds / period);
+        let finite_seconds = if seconds.is_finite() { seconds } else { 0.0 };
+        let angle = std::f32::consts::TAU * (self.phase + finite_seconds / period);
         let swing = 0.5 * (1.0 - angle.cos());
         (self.max_opacity - self.min_opacity).mul_add(swing, self.min_opacity)
     }
@@ -756,28 +762,31 @@ impl ComponentTables {
 
     /// Total entries across every table, for the diagnostics summary.
     #[must_use]
-    #[allow(clippy::arithmetic_side_effects)] // bounded per-table entry counts
     pub fn len(&self) -> usize {
-        self.transforms.len()
-            + self.renderables.len()
-            + self.colliders.len()
-            + self.animations.len()
-            + self.interactables.len()
-            + self.audio.len()
-            + self.lights.len()
-            + self.materials.len()
-            + self.states.len()
-            + self.volumes.len()
-            + self.sequences.len()
-            + self.lifetimes.len()
-            + self.spawn_points.len()
-            + self.steam.len()
-            + self.water.len()
-            + self.nav_agents.len()
-            + self.nav_obstacles.len()
-            + self.ais.len()
-            + self.fades.len()
-            + self.glows.len()
+        [
+            self.transforms.len(),
+            self.renderables.len(),
+            self.colliders.len(),
+            self.animations.len(),
+            self.interactables.len(),
+            self.audio.len(),
+            self.lights.len(),
+            self.materials.len(),
+            self.states.len(),
+            self.volumes.len(),
+            self.sequences.len(),
+            self.lifetimes.len(),
+            self.spawn_points.len(),
+            self.steam.len(),
+            self.water.len(),
+            self.nav_agents.len(),
+            self.nav_obstacles.len(),
+            self.ais.len(),
+            self.fades.len(),
+            self.glows.len(),
+        ]
+        .into_iter()
+        .fold(0, usize::saturating_add)
     }
 
     /// True when no table holds an entry.
@@ -788,32 +797,37 @@ impl ComponentTables {
 
     /// Removes every component of `handle`.
     pub fn remove_all(&mut self, handle: EntityHandle) {
-        self.transforms.remove(handle);
-        self.renderables.remove(handle);
-        self.colliders.remove(handle);
-        self.animations.remove(handle);
-        self.interactables.remove(handle);
-        self.audio.remove(handle);
-        self.lights.remove(handle);
-        self.materials.remove(handle);
-        self.states.remove(handle);
-        self.volumes.remove(handle);
-        self.sequences.remove(handle);
-        self.lifetimes.remove(handle);
-        self.spawn_points.remove(handle);
-        self.steam.remove(handle);
-        self.water.remove(handle);
-        self.nav_agents.remove(handle);
-        self.nav_obstacles.remove(handle);
-        self.ais.remove(handle);
-        self.fades.remove(handle);
-        self.glows.remove(handle);
+        let _removed_value = self.transforms.remove(handle);
+        drop(self.renderables.remove(handle));
+        let _removed_value_2 = self.colliders.remove(handle);
+        drop(self.animations.remove(handle));
+        drop(self.interactables.remove(handle));
+        drop(self.audio.remove(handle));
+        let _removed_value_3 = self.lights.remove(handle);
+        drop(self.materials.remove(handle));
+        drop(self.states.remove(handle));
+        let _removed_value_4 = self.volumes.remove(handle);
+        drop(self.sequences.remove(handle));
+        let _removed_value_5 = self.lifetimes.remove(handle);
+        drop(self.spawn_points.remove(handle));
+        let _removed_value_6 = self.steam.remove(handle);
+        let _removed_value_7 = self.water.remove(handle);
+        let _removed_value_8 = self.nav_agents.remove(handle);
+        let _removed_value_9 = self.nav_obstacles.remove(handle);
+        drop(self.ais.remove(handle));
+        let _removed_value_10 = self.fades.remove(handle);
+        drop(self.glows.remove(handle));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::float_cmp)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
     use crate::entities::id::EntityStore;
@@ -823,7 +837,7 @@ mod tests {
         let mut store = EntityStore::new();
         let handle = store.insert();
         let mut tables = ComponentTables::new();
-        tables.transforms.insert(
+        let _previous_value = tables.transforms.insert(
             handle,
             Transform {
                 position: Vec3::new(1.0, 2.0, 3.0),
@@ -843,7 +857,7 @@ mod tests {
         assert!(tables.transforms.get(reused).is_none());
         // Writing through the reused handle is what attaches a component to
         // the new occupant; the old handle still reads nothing.
-        tables.transforms.insert(
+        let _previous_value_2 = tables.transforms.insert(
             reused,
             Transform {
                 position: Vec3::new(1.0, 2.0, 3.0),
@@ -862,10 +876,10 @@ mod tests {
         let mut store = EntityStore::new();
         let a = store.insert();
         let b = store.insert();
-        store.remove(a);
+        let _removed_value = store.remove(a);
         let c = store.insert();
         let mut tables = ComponentTables::new();
-        tables.interactables.insert(
+        drop(tables.interactables.insert(
             b,
             Interactable {
                 prompt: "B".into(),
@@ -874,8 +888,8 @@ mod tests {
                 label: None,
                 label_visible: false,
             },
-        );
-        tables.interactables.insert(
+        ));
+        drop(tables.interactables.insert(
             c,
             Interactable {
                 prompt: "C".into(),
@@ -884,7 +898,7 @@ mod tests {
                 label: None,
                 label_visible: false,
             },
-        );
+        ));
         let prompts: Vec<&str> = tables
             .interactables
             .iter()
@@ -1164,14 +1178,14 @@ mod tests {
         let mut store = EntityStore::new();
         let handle = store.insert();
         let mut tables = ComponentTables::new();
-        tables.steam.insert(
+        let _previous_value = tables.steam.insert(
             handle,
             Steam {
                 enabled: true,
                 effect: None,
             },
         );
-        tables.lights.insert(
+        let _previous_value_2 = tables.lights.insert(
             handle,
             Light {
                 enabled: false,

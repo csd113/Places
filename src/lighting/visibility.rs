@@ -111,16 +111,16 @@ fn directional_box_hit(
 ) -> bool {
     let mut enter = 0.0_f64;
     let mut exit = f64::INFINITY;
-    for (((p, d), min), max) in origin.into_iter().zip(direction).zip(min).zip(max) {
-        let p = f64::from(p);
-        let d = f64::from(d);
-        if d == 0.0 {
-            if p < f64::from(min) || p > f64::from(max) {
+    for (((p, d), axis_min), axis_max) in origin.into_iter().zip(direction).zip(min).zip(max) {
+        let coordinate = f64::from(p);
+        let direction_component = f64::from(d);
+        if direction_component == 0.0_f64 {
+            if coordinate < f64::from(axis_min) || coordinate > f64::from(axis_max) {
                 return false;
             }
         } else {
-            let a = (f64::from(min) - p) / d;
-            let b = (f64::from(max) - p) / d;
+            let a = (f64::from(axis_min) - coordinate) / direction_component;
+            let b = (f64::from(axis_max) - coordinate) / direction_component;
             enter = enter.max(a.min(b));
             exit = exit.min(a.max(b));
         }
@@ -518,17 +518,17 @@ impl QuerySite {
     /// pool prefilted to `max(range, half)` would never test it.
     #[must_use]
     pub fn for_emitter(x: f32, z: f32, range: f32, half_w: f32, half_d: f32) -> Self {
-        let range = if range.is_finite() {
+        let radius = if range.is_finite() {
             range.max(0.0)
         } else {
             0.0
         };
-        let half_w = if half_w.is_finite() {
+        let emitter_half_width = if half_w.is_finite() {
             half_w.max(0.0)
         } else {
             0.0
         };
-        let half_d = if half_d.is_finite() {
+        let emitter_half_depth = if half_d.is_finite() {
             half_d.max(0.0)
         } else {
             0.0
@@ -536,7 +536,7 @@ impl QuerySite {
         Self {
             x,
             z,
-            radius: range + half_w.hypot(half_d),
+            radius: radius + emitter_half_width.hypot(emitter_half_depth),
             owner_prop: None,
         }
     }
@@ -756,7 +756,11 @@ impl PointGrid {
         // `cells x solids`.
         // `MAX_GRID_CELLS_PER_AXIS` is a small constant, so the conversion is
         // exact.
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "The cell size grows with the level so the grid stays bounded in memory no matter how large a level is, and the build cost stays proportional to what the solids actually cover rather than to `cells x solids`. `MAX_GRID_CELLS_PER_AXIS` is a small constant, so the conversion is exact."
+        )]
         let cell_m = (span_x.max(span_z) / MAX_GRID_CELLS_PER_AXIS as f32).max(POINT_GRID_CELL_M);
         if !cell_m.is_finite() || cell_m <= 0.0 {
             return Some(Self::default());
@@ -769,7 +773,9 @@ impl PointGrid {
             cells_z: grid_axis_cells(span_z, cell_m),
         };
         let (cells_x, cells_z) = (spec.cells_x, spec.cells_z);
-        let cell_count = (cells_x as usize).saturating_mul(cells_z as usize);
+        let cell_count = usize::try_from(cells_x)
+            .ok()?
+            .checked_mul(usize::try_from(cells_z).ok()?)?;
 
         // Counting sort of the solids into the cells they cover: one pass to
         // count, a prefix sum, then one pass to place each solid in index
@@ -791,7 +797,7 @@ impl PointGrid {
             }
             for iz in iz0..=iz1 {
                 for ix in ix0..=ix1 {
-                    let index = iz.saturating_mul(cells_x).saturating_add(ix) as usize;
+                    let index = spec.index(ix, iz)?;
                     if let Some(count) = counts.get_mut(index) {
                         *count = count.saturating_add(1);
                     }
@@ -804,7 +810,7 @@ impl PointGrid {
             total = total.saturating_add(counts.get(index).copied().unwrap_or(0));
             ranges.push((start, total));
         }
-        let mut items: Vec<u32> = vec![0; total as usize];
+        let mut items: Vec<u32> = vec![0; usize::try_from(total).ok()?];
         let mut cursor: Vec<u32> = ranges.iter().map(|(start, _)| *start).collect();
         for (solid_index, solid) in solids.iter().enumerate() {
             let (x0, x1, z0, z1) = solid.footprint();
@@ -814,11 +820,11 @@ impl PointGrid {
             let slot = u32::try_from(solid_index).unwrap_or(u32::MAX);
             for iz in iz0..=iz1 {
                 for ix in ix0..=ix1 {
-                    let index = iz.saturating_mul(cells_x).saturating_add(ix) as usize;
+                    let index = spec.index(ix, iz)?;
                     let Some(place) = cursor.get_mut(index) else {
                         continue;
                     };
-                    if let Some(item) = items.get_mut(*place as usize) {
+                    if let Some(item) = items.get_mut(usize::try_from(*place).ok()?) {
                         *item = slot;
                     }
                     *place = place.saturating_add(1);
@@ -861,7 +867,11 @@ impl PointGrid {
         let (rect_min_z, rect_max_z) = ordered_pair(z0, z1);
         // The cell counts are bounded to `1..=MAX_GRID_CELLS_PER_AXIS`, so the
         // conversion is exact.
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "The cell counts are bounded to `1..=MAX_GRID_CELLS_PER_AXIS`, so the conversion is exact."
+        )]
         let (grid_width, grid_depth) = (
             self.cell_m * self.cells_x as f32,
             self.cell_m * self.cells_z as f32,
@@ -879,15 +889,24 @@ impl PointGrid {
         let iz1 = clamp_cell((rect_max_z - self.min_z) / self.cell_m, self.cells_z);
         for iz in iz0..=iz1 {
             for ix in ix0..=ix1 {
-                let index = iz.saturating_mul(self.cells_x).saturating_add(ix) as usize;
+                let Ok(index) = usize::try_from(iz.saturating_mul(self.cells_x).saturating_add(ix))
+                else {
+                    continue;
+                };
                 let Some(&(start, end)) = self.ranges.get(index) else {
                     continue;
                 };
-                let Some(items) = self.items.get(start as usize..end as usize) else {
+                let Some(items) = self.items.get(
+                    usize::try_from(start).unwrap_or(usize::MAX)
+                        ..usize::try_from(end).unwrap_or(usize::MAX),
+                ) else {
                     continue;
                 };
                 for item in items {
-                    if let Some(solid) = solids.get(self.base.saturating_add(*item as usize)) {
+                    if let Some(solid) = solids.get(
+                        self.base
+                            .saturating_add(usize::try_from(*item).unwrap_or(usize::MAX)),
+                    ) {
                         visit(solid);
                     }
                 }
@@ -988,12 +1007,17 @@ fn grid_cell(
     }
     // `floor` leaves non-negative integral values; the saturating cast and the
     // bounds check reject everything outside the grid.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let (ix, iz) = (ix as u32, iz as u32);
-    if ix >= cells_x || iz >= cells_z {
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`floor` leaves non-negative integral values; the saturating cast and the bounds check reject everything outside the grid."
+    )]
+    let (column_index, row_index) = (ix as u32, iz as u32);
+    if column_index >= cells_x || row_index >= cells_z {
         return None;
     }
-    Some((ix, iz))
+    Some((column_index, row_index))
 }
 
 /// Number of grid cells spanning `extent`, capped at
@@ -1007,9 +1031,16 @@ fn grid_axis_cells(extent: f32, cell_m: f32) -> u32 {
         return MAX_GRID_CELLS_PER_AXIS;
     }
     // `cells` is finite and non-negative; the cast saturates rather than wraps.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let cells = cells as u32;
-    cells.saturating_add(1).clamp(1, MAX_GRID_CELLS_PER_AXIS)
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`cells` is finite and non-negative; the cast saturates rather than wraps."
+    )]
+    let cell_count = cells as u32;
+    cell_count
+        .saturating_add(1)
+        .clamp(1, MAX_GRID_CELLS_PER_AXIS)
 }
 
 /// Geometry of one uniform grid: origin, cell size and cell counts.
@@ -1023,18 +1054,22 @@ struct GridSpec {
 }
 
 impl GridSpec {
+    fn index(self, column: u32, row: u32) -> Option<usize> {
+        usize::try_from(row.checked_mul(self.cells_x)?.checked_add(column)?).ok()
+    }
+
     /// The cell range a solid's footprint covers, clamped into the grid.
     fn covered(&self, x0: f32, x1: f32, z0: f32, z1: f32) -> Option<(u32, u32, u32, u32)> {
         if !x0.is_finite() || !x1.is_finite() || !z0.is_finite() || !z1.is_finite() {
             return None;
         }
-        let (x0, x1) = ordered_pair(x0, x1);
-        let (z0, z1) = ordered_pair(z0, z1);
+        let (low_x, high_x) = ordered_pair(x0, x1);
+        let (low_z, high_z) = ordered_pair(z0, z1);
         Some((
-            clamp_cell((x0 - self.min_x) / self.cell_m, self.cells_x),
-            clamp_cell((x1 - self.min_x) / self.cell_m, self.cells_x),
-            clamp_cell((z0 - self.min_z) / self.cell_m, self.cells_z),
-            clamp_cell((z1 - self.min_z) / self.cell_m, self.cells_z),
+            clamp_cell((low_x - self.min_x) / self.cell_m, self.cells_x),
+            clamp_cell((high_x - self.min_x) / self.cell_m, self.cells_x),
+            clamp_cell((low_z - self.min_z) / self.cell_m, self.cells_z),
+            clamp_cell((high_z - self.min_z) / self.cell_m, self.cells_z),
         ))
     }
 }
@@ -1047,7 +1082,12 @@ fn clamp_cell(value: f32, cells: u32) -> u32 {
     }
     let last = cells.saturating_sub(1);
     // `value` is finite and positive; the cast saturates rather than wraps.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`value` is finite and positive; the cast saturates rather than wraps."
+    )]
     let cell = value.floor() as u32;
     cell.min(last)
 }
@@ -1055,6 +1095,15 @@ fn clamp_cell(value: f32, cells: u32) -> u32 {
 /// `(min, max)` of two values.
 fn ordered_pair(a: f32, b: f32) -> (f32, f32) {
     if a <= b { (a, b) } else { (b, a) }
+}
+
+/// Emitter half extents must be finite and nonnegative before sampling taps.
+const fn finite_half_extent(value: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
 }
 
 /// The level's solid geometry, prepared for segment and point queries.
@@ -1187,20 +1236,26 @@ impl Occluders {
         ) else {
             return false;
         };
-        let index = cell
-            .1
-            .saturating_mul(self.wall_grid.cells_x)
-            .saturating_add(cell.0) as usize;
+        let Ok(index) = usize::try_from(
+            cell.1
+                .saturating_mul(self.wall_grid.cells_x)
+                .saturating_add(cell.0),
+        ) else {
+            return false;
+        };
         let Some(&(start, end)) = self.wall_grid.ranges.get(index) else {
             return false;
         };
         self.wall_grid
             .items
-            .get(start as usize..end as usize)
+            .get(
+                usize::try_from(start).unwrap_or(usize::MAX)
+                    ..usize::try_from(end).unwrap_or(usize::MAX),
+            )
             .is_some_and(|items| {
                 items.iter().any(|item| {
                     self.walls
-                        .get(*item as usize)
+                        .get(usize::try_from(*item).unwrap_or(usize::MAX))
                         .is_some_and(|wall| wall.contains_xz(x, z))
                 })
             })
@@ -1242,13 +1297,13 @@ impl Occluders {
         if !from.iter().chain(to.iter()).all(|value| value.is_finite()) {
             return true;
         }
-        let from = nudge_segment_start(from, to);
-        let (x0, x1) = ordered_pair(from[0], to[0]);
-        let (z0, z1) = ordered_pair(from[2], to[2]);
+        let segment_origin = nudge_segment_start(from, to);
+        let (x0, x1) = ordered_pair(segment_origin[0], to[0]);
+        let (z0, z1) = ordered_pair(segment_origin[2], to[2]);
         let mut hit = false;
         self.wall_grid
             .for_each_in_rect(&self.walls, x0, x1, z0, z1, |wall| {
-                if !hit && segment_hits_box(*wall, from, to) {
+                if !hit && segment_hits_box(*wall, segment_origin, to) {
                     hit = true;
                 }
             });
@@ -1269,13 +1324,13 @@ impl Occluders {
         if self.walls_block(from, to) {
             return true;
         }
-        let from = nudge_segment_start(from, to);
-        let (x0, x1) = ordered_pair(from[0], to[0]);
-        let (z0, z1) = ordered_pair(from[2], to[2]);
+        let segment_origin = nudge_segment_start(from, to);
+        let (x0, x1) = ordered_pair(segment_origin[0], to[0]);
+        let (z0, z1) = ordered_pair(segment_origin[2], to[2]);
         let mut hit = false;
         self.horizontal_grid
             .for_each_in_rect(&self.horizontals, x0, x1, z0, z1, |solid| {
-                if !hit && solid.hits(from, to) {
+                if !hit && solid.hits(segment_origin, to) {
                     hit = true;
                 }
             });
@@ -1284,7 +1339,7 @@ impl Occluders {
         }
         self.prop_grid
             .for_each_in_rect(&self.props, x0, x1, z0, z1, |prop| {
-                if !hit && prop.hits(from, to) {
+                if !hit && prop.hits(segment_origin, to) {
                     hit = true;
                 }
             });
@@ -1604,8 +1659,8 @@ fn append_wall_blockers(
                     [across_max, top, length_max],
                 ),
             };
-            if let Some(blocker) = blocker {
-                blockers.push(blocker);
+            if let Some(prop_blocker) = blocker {
+                blockers.push(prop_blocker);
             }
         }
     }
@@ -1797,7 +1852,8 @@ impl Visibility {
                 }
                 for (index, prop) in occluders.props.iter().enumerate() {
                     let slot = u32::try_from(index).unwrap_or(u32::MAX);
-                    if own_prop.is_some_and(|(start, end)| slot >= start && slot < end) {
+                    if own_prop.is_some_and(|(owner_start, end)| slot >= owner_start && slot < end)
+                    {
                         continue;
                     }
                     if prop.overlaps_footprint(x0, x1, z0, z1) {
@@ -1812,7 +1868,7 @@ impl Visibility {
                 // Nearest first, so a query can stop as soon as the next solid
                 // is further away than its own reach. Sorting by a partial
                 // order is safe: every distance is finite and non-negative.
-                if let Some(added) = pool.get_mut(start as usize..) {
+                if let Some(added) = pool.get_mut(usize::try_from(start).unwrap_or(usize::MAX)..) {
                     added.sort_by(|a, b| {
                         a.near
                             .partial_cmp(&b.near)
@@ -1893,10 +1949,12 @@ impl Visibility {
             // path.
             return true;
         }
-        let Some(&(start, end)) = self.ranges.get(site as usize) else {
+        let Some(&(start, end)) = self.ranges.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
             return false;
         };
-        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+        let Some(&(site_x, site_z)) = self.sites.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
             return false;
         };
         // The segment can only reach as far from the site centre as its own
@@ -1910,20 +1968,23 @@ impl Visibility {
             .hypot(to[2] - site_z)
             .max((from[0] - site_x).hypot(from[2] - site_z))
             + SEGMENT_START_EPS_M;
-        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+        let Some(entries) = self.pool.get(
+            usize::try_from(start).unwrap_or(usize::MAX)
+                ..usize::try_from(end).unwrap_or(usize::MAX),
+        ) else {
             return false;
         };
-        let from = nudge_segment_start(from, to);
+        let segment_origin = nudge_segment_start(from, to);
         // A solid can only be crossed where the segment's X/Z projection
         // overlaps its footprint; the start nudge moves one endpoint by up to
         // `SEGMENT_START_EPS_M`, so the box is grown by that much.
-        let (x_span_min, x_span_max) = ordered_pair(from[0], to[0]);
-        let (z_span_min, z_span_max) = ordered_pair(from[2], to[2]);
-        let (x_span_min, x_span_max) = (
+        let (x_span_min, x_span_max) = ordered_pair(segment_origin[0], to[0]);
+        let (z_span_min, z_span_max) = ordered_pair(segment_origin[2], to[2]);
+        let (expanded_min_x, expanded_max_x) = (
             x_span_min - SEGMENT_START_EPS_M,
             x_span_max + SEGMENT_START_EPS_M,
         );
-        let (z_span_min, z_span_max) = (
+        let (expanded_min_z, expanded_max_z) = (
             z_span_min - SEGMENT_START_EPS_M,
             z_span_max + SEGMENT_START_EPS_M,
         );
@@ -1931,10 +1992,15 @@ impl Visibility {
             if entry.near > reach {
                 break;
             }
-            if !entry.overlaps(x_span_min, x_span_max, z_span_min, z_span_max) {
+            if !entry.overlaps(
+                expanded_min_x,
+                expanded_max_x,
+                expanded_min_z,
+                expanded_max_z,
+            ) {
                 continue;
             }
-            if self.solid_hits(entry.solid, from, to) {
+            if self.solid_hits(entry.solid, segment_origin, to) {
                 return true;
             }
         }
@@ -1986,21 +2052,27 @@ impl Visibility {
             // must not answer "unlit" with a NaN, so it answers zero.
             return 0.0;
         }
-        let half_w = if half_w.is_finite() {
+        let emitter_half_width = if half_w.is_finite() {
             half_w.max(0.0)
         } else {
             0.0
         };
-        let half_d = if half_d.is_finite() {
+        let emitter_half_depth = if half_d.is_finite() {
             half_d.max(0.0)
         } else {
             0.0
         };
         if sampling.is_hard() {
             let from = [
-                point[0].clamp(centre[0] - half_w, centre[0] + half_w),
+                point[0].clamp(
+                    centre[0] - emitter_half_width,
+                    centre[0] + emitter_half_width,
+                ),
                 centre[1],
-                point[2].clamp(centre[2] - half_d, centre[2] + half_d),
+                point[2].clamp(
+                    centre[2] - emitter_half_depth,
+                    centre[2] + emitter_half_depth,
+                ),
             ];
             return if self.occludes(site, from, point) {
                 0.0
@@ -2008,7 +2080,14 @@ impl Visibility {
                 1.0
             };
         }
-        self.visible_fraction_soft(site, centre, half_w, half_d, point, sampling)
+        self.visible_fraction_soft(
+            site,
+            centre,
+            emitter_half_width,
+            emitter_half_depth,
+            point,
+            sampling,
+        )
     }
 
     /// The readable definition of the soft fraction: one `occludes` per tap.
@@ -2033,26 +2112,33 @@ impl Visibility {
         {
             return 0.0;
         }
-        let half_w = if half_w.is_finite() {
+        let emitter_half_width = if half_w.is_finite() {
             half_w.max(0.0)
         } else {
             0.0
         };
-        let half_d = if half_d.is_finite() {
+        let emitter_half_depth = if half_d.is_finite() {
             half_d.max(0.0)
         } else {
             0.0
         };
         if sampling.is_hard() {
-            return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
+            return self.visible_fraction(
+                site,
+                centre,
+                emitter_half_width,
+                emitter_half_depth,
+                point,
+                sampling,
+            );
         }
         let mut visible = 0.0_f32;
         let mut exposed = 0.0_f32;
         for tap in tap_table(sampling) {
             let from = [
-                tap.offset[0].mul_add(half_w, centre[0]),
+                tap.offset[0].mul_add(emitter_half_width, centre[0]),
                 centre[1],
-                tap.offset[1].mul_add(half_d, centre[2]),
+                tap.offset[1].mul_add(emitter_half_depth, centre[2]),
             ];
             if self.tap_is_buried(site, from) {
                 continue;
@@ -2090,26 +2176,24 @@ impl Visibility {
         if !centre.into_iter().chain(point).all(f32::is_finite) {
             return 0.0;
         }
-        let half_w = if half_w.is_finite() {
-            half_w.max(0.0)
-        } else {
-            0.0
-        };
-        let half_d = if half_d.is_finite() {
-            half_d.max(0.0)
-        } else {
-            0.0
-        };
+        let half_width = finite_half_extent(half_w);
+        let half_depth = finite_half_extent(half_d);
         if sampling.is_hard() {
-            return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
+            return self.visible_fraction(site, centre, half_width, half_depth, point, sampling);
         }
-        let Some(&(start, end)) = self.ranges.get(site as usize) else {
-            return self.unregistered_site_visibility(site, centre, half_w, half_d, sampling);
+        let Some(&(start, end)) = self.ranges.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
+            return self
+                .unregistered_site_visibility(site, centre, half_width, half_depth, sampling);
         };
-        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+        let Some(&(site_x, site_z)) = self.sites.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
             return 1.0;
         };
-        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+        let Some(entries) = self.pool.get(
+            usize::try_from(start).unwrap_or(usize::MAX)
+                ..usize::try_from(end).unwrap_or(usize::MAX),
+        ) else {
             return 1.0;
         };
         let table = tap_table(sampling);
@@ -2123,9 +2207,9 @@ impl Visibility {
         let (mut z_span_min, mut z_span_max) = (point[2], point[2]);
         for tap in table {
             let origin = [
-                tap.offset[0].mul_add(half_w, centre[0]),
+                tap.offset[0].mul_add(half_width, centre[0]),
                 centre[1],
-                tap.offset[1].mul_add(half_d, centre[2]),
+                tap.offset[1].mul_add(half_depth, centre[2]),
             ];
             if self.tap_is_buried(site, origin) {
                 continue;
@@ -2150,11 +2234,11 @@ impl Visibility {
         }
         // Every tap's start is within the emitter rectangle, so the union
         // prefilter is the rectangle's bounds around the sample point.
-        let (x_span_min, x_span_max) = (
+        let width_bounds = (
             x_span_min - SEGMENT_START_EPS_M,
             x_span_max + SEGMENT_START_EPS_M,
         );
-        let (z_span_min, z_span_max) = (
+        let depth_bounds = (
             z_span_min - SEGMENT_START_EPS_M,
             z_span_max + SEGMENT_START_EPS_M,
         );
@@ -2164,7 +2248,12 @@ impl Visibility {
             if entry.near > reach {
                 break;
             }
-            if !entry.overlaps(x_span_min, x_span_max, z_span_min, z_span_max) {
+            if !entry.overlaps(
+                width_bounds.0,
+                width_bounds.1,
+                depth_bounds.0,
+                depth_bounds.1,
+            ) {
                 continue;
             }
             for index in 0..count {
@@ -2217,17 +2306,17 @@ impl Visibility {
             SolidIndex::Wall(index) => self
                 .occluders
                 .walls
-                .get(index as usize)
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
                 .is_some_and(|wall| segment_hits_box(*wall, from, to)),
             SolidIndex::Horizontal(index) => self
                 .occluders
                 .horizontals
-                .get(index as usize)
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
                 .is_some_and(|horizontal| horizontal.hits(from, to)),
             SolidIndex::Prop(index) => self
                 .occluders
                 .props
-                .get(index as usize)
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
                 .is_some_and(|prop| prop.hits(from, to)),
         }
     }
@@ -2240,14 +2329,19 @@ impl Visibility {
     /// centre: a solid containing the tap necessarily lies within it, because
     /// the tap is inside that solid's footprint.
     fn tap_is_buried(&self, site: u32, point: [f32; 3]) -> bool {
-        let Some(&(start, end)) = self.ranges.get(site as usize) else {
+        let Some(&(start, end)) = self.ranges.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
             return false;
         };
-        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+        let Some(&(site_x, site_z)) = self.sites.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
             return false;
         };
         let reach = (point[0] - site_x).hypot(point[2] - site_z) + SEGMENT_START_EPS_M;
-        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+        let Some(entries) = self.pool.get(
+            usize::try_from(start).unwrap_or(usize::MAX)
+                ..usize::try_from(end).unwrap_or(usize::MAX),
+        ) else {
             return false;
         };
         for entry in entries {
@@ -2258,10 +2352,14 @@ impl Visibility {
                 SolidIndex::Wall(index) => self
                     .occluders
                     .walls
-                    .get(index as usize)
+                    .get(usize::try_from(index).unwrap_or(usize::MAX))
                     .is_some_and(|wall| wall.contains(point)),
                 SolidIndex::Horizontal(index) => {
-                    match self.occluders.horizontals.get(index as usize) {
+                    match self
+                        .occluders
+                        .horizontals
+                        .get(usize::try_from(index).unwrap_or(usize::MAX))
+                    {
                         // A floor interface has no body, so it can never contain a
                         // tap; only a ceiling slab is solid.
                         Some(Horizontal::Slab(slab)) => slab.contains(point),
@@ -2271,7 +2369,7 @@ impl Visibility {
                 SolidIndex::Prop(index) => self
                     .occluders
                     .props
-                    .get(index as usize)
+                    .get(usize::try_from(index).unwrap_or(usize::MAX))
                     .is_some_and(|prop| prop.contains(point)),
             };
             if buried {
@@ -2313,7 +2411,7 @@ impl Visibility {
                 let t = (f64::from(plane.y) - f64::from(origin[1])) / f64::from(direction[1]);
                 let x = f64::from(direction[0]).mul_add(t, f64::from(origin[0]));
                 let z = f64::from(direction[2]).mul_add(t, f64::from(origin[2]));
-                t > 0.0
+                t > 0.0_f64
                     && (f64::from(plane.x0)..=f64::from(plane.x1)).contains(&x)
                     && (f64::from(plane.z0)..=f64::from(plane.z1)).contains(&z)
             }
@@ -2321,13 +2419,18 @@ impl Visibility {
             return true;
         }
         self.occluders.props.iter().any(|box_| {
-            let origin = box_.local_point(origin);
-            let direction = [
+            let local_origin = box_.local_point(origin);
+            let local_direction = [
                 box_.cos.mul_add(direction[0], -box_.sin * direction[2]),
                 direction[1],
                 box_.sin.mul_add(direction[0], box_.cos * direction[2]),
             ];
-            directional_box_hit(origin, direction, box_.half.map(|v| -v), box_.half)
+            directional_box_hit(
+                local_origin,
+                local_direction,
+                box_.half.map(|v| -v),
+                box_.half,
+            )
         })
     }
 
@@ -2339,13 +2442,13 @@ impl Visibility {
     /// sample and switch refill tests the same solids the compiler did.
     pub(super) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
         let walls = u32::try_from(self.occluders.walls.len())
-            .map_err(|_| "visibility has too many walls".to_string())?;
+            .map_err(|error| format!("visibility has too many walls: {error}"))?;
         writer.u32(walls);
         for blocker in &self.occluders.walls {
             write_blocker(writer, blocker);
         }
         let horizontals = u32::try_from(self.occluders.horizontals.len())
-            .map_err(|_| "visibility has too many horizontals".to_string())?;
+            .map_err(|error| format!("visibility has too many horizontals: {error}"))?;
         writer.u32(horizontals);
         for horizontal in &self.occluders.horizontals {
             match horizontal {
@@ -2364,7 +2467,7 @@ impl Visibility {
             }
         }
         let props = u32::try_from(self.occluders.props.len())
-            .map_err(|_| "visibility has too many prop boxes".to_string())?;
+            .map_err(|error| format!("visibility has too many prop boxes: {error}"))?;
         writer.u32(props);
         for prop in &self.occluders.props {
             writer.f32_3(prop.center);
@@ -2375,7 +2478,7 @@ impl Visibility {
         write_point_grid(writer, &self.occluders.wall_grid)?;
         write_u32_pairs(writer, &self.occluders.prop_ranges, "prop ranges")?;
         let pool = u32::try_from(self.pool.len())
-            .map_err(|_| "visibility pool is too large".to_string())?;
+            .map_err(|error| format!("visibility pool is too large: {error}"))?;
         writer.u32(pool);
         for solid in &self.pool {
             match solid.solid {
@@ -2397,7 +2500,7 @@ impl Visibility {
         }
         write_u32_pairs(writer, &self.ranges, "site ranges")?;
         let sites = u32::try_from(self.sites.len())
-            .map_err(|_| "visibility has too many sites".to_string())?;
+            .map_err(|error| format!("visibility has too many sites: {error}"))?;
         writer.u32(sites);
         for (x, z) in &self.sites {
             writer.f32(*x);
@@ -2407,7 +2510,10 @@ impl Visibility {
     }
 
     /// Decodes and validates a compiled visibility set.
-    #[allow(clippy::too_many_lines)] // one cohesive codec for the built occluder set
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive codec for the built occluder set"
+    )] // one cohesive codec for the built occluder set
     pub(super) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
         let wall_count = reader.count(
             u64::try_from(crate::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
@@ -2551,7 +2657,8 @@ fn read_blocker(reader: &mut Reader<'_>) -> Result<Blocker, String> {
 }
 
 fn write_point_grid(writer: &mut Writer, grid: &PointGrid) -> Result<(), String> {
-    let base = u32::try_from(grid.base).map_err(|_| "grid base is too large".to_string())?;
+    let base =
+        u32::try_from(grid.base).map_err(|error| format!("grid base is too large: {error}"))?;
     writer.u32(base);
     writer.f32(grid.min_x);
     writer.f32(grid.min_z);
@@ -2559,8 +2666,8 @@ fn write_point_grid(writer: &mut Writer, grid: &PointGrid) -> Result<(), String>
     writer.u32(grid.cells_z);
     writer.f32(grid.cell_m);
     write_u32_pairs(writer, &grid.ranges, "grid ranges")?;
-    let items =
-        u32::try_from(grid.items.len()).map_err(|_| "grid has too many items".to_string())?;
+    let items = u32::try_from(grid.items.len())
+        .map_err(|error| format!("grid has too many items: {error}"))?;
     writer.u32(items);
     for item in &grid.items {
         writer.u32(*item);
@@ -2569,7 +2676,8 @@ fn write_point_grid(writer: &mut Writer, grid: &PointGrid) -> Result<(), String>
 }
 
 fn read_point_grid(reader: &mut Reader<'_>) -> Result<PointGrid, String> {
-    let base = usize::try_from(reader.u32()?).map_err(|_| "grid base is too large".to_string())?;
+    let base = usize::try_from(reader.u32()?)
+        .map_err(|error| format!("grid base is too large: {error}"))?;
     let min_x = read_finite(reader, "grid min x")?;
     let min_z = read_finite(reader, "grid min z")?;
     let cells_x = reader.u32()?;
@@ -2609,7 +2717,8 @@ fn read_point_grid(reader: &mut Reader<'_>) -> Result<PointGrid, String> {
 }
 
 fn write_u32_pairs(writer: &mut Writer, pairs: &[(u32, u32)], what: &str) -> Result<(), String> {
-    let count = u32::try_from(pairs.len()).map_err(|_| format!("{what} list is too long"))?;
+    let count =
+        u32::try_from(pairs.len()).map_err(|error| format!("{what} list is too long: {error}"))?;
     writer.u32(count);
     for (start, end) in pairs {
         writer.u32(*start);
@@ -2674,7 +2783,8 @@ const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
     clippy::missing_const_for_fn,
     clippy::panic,
     clippy::suboptimal_flops,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
     use super::*;
@@ -3706,7 +3816,11 @@ mod tests {
     /// the per-fixture visible fraction along representative lines.
     #[test]
     #[ignore = "developer measurement, run with --ignored --nocapture"]
-    #[allow(clippy::print_stdout, clippy::too_many_lines)] // one developer report table
+    #[expect(
+        clippy::print_stdout,
+        clippy::too_many_lines,
+        reason = "one developer report table"
+    )] // one developer report table
     fn measure_home_corridor_bake() {
         let json = std::fs::read_to_string("assets/levels/places_demo.json")
             .expect("places_demo is readable");

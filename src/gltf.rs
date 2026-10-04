@@ -99,6 +99,12 @@ impl GltfError {
     }
 }
 
+/// Converts a validated model index/count to its compact record slot.
+fn model_slot(value: usize, description: &str) -> Result<u16, GltfError> {
+    u16::try_from(value)
+        .map_err(|error| GltfError::new(format!("{description} does not fit in 16 bits: {error}")))
+}
+
 /// One vertex of a loaded prop model: position, diffuse tint, UV and optional authored normal.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PropVertex {
@@ -383,9 +389,10 @@ impl PropModel {
         let mut min = first.pos;
         let mut max = first.pos;
         for vertex in &self.vertices {
-            for ((min, max), value) in min.iter_mut().zip(max.iter_mut()).zip(&vertex.pos) {
-                *min = min.min(*value);
-                *max = max.max(*value);
+            for ((axis_min, axis_max), value) in min.iter_mut().zip(max.iter_mut()).zip(&vertex.pos)
+            {
+                *axis_min = axis_min.min(*value);
+                *axis_max = axis_max.max(*value);
             }
         }
         Some((min, max))
@@ -638,7 +645,7 @@ fn scene_roots(json: &serde_json::Value) -> Result<Vec<usize>, GltfError> {
                     "node references child {index}, which does not exist"
                 )));
             }
-            has_parent.insert(index);
+            let _new_entry = has_parent.insert(index);
         }
     }
     let roots: Vec<usize> = (0..nodes.len())
@@ -884,11 +891,14 @@ impl<'a> Doc<'a> {
         }
         // `glam` matrix multiplication is per-element `f32` arithmetic with no
         // overflow or panic path; clippy cannot see that through the operator.
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "`glam` matrix multiplication is per-element `f32` arithmetic with no integer overflow or panic path; clippy cannot see that through the operator."
+        )]
         let world = parent * node_transform(node, index)?;
         path.push(index);
         let result = self.visit_node_contents(node, index, &world, path);
-        path.pop();
+        let _removed_value = path.pop();
         result
     }
 
@@ -915,10 +925,10 @@ impl<'a> Doc<'a> {
             self.read_mesh(mesh_index, index, node_skin, transform)?;
         }
         if let Some(children) = node.get("children") {
-            let children = children
+            let child_nodes = children
                 .as_array()
                 .ok_or_else(|| GltfError::new(format!("node {index} children is not an array")))?;
-            for child in children {
+            for child in child_nodes {
                 let child_index = json_usize(child).ok_or_else(|| {
                     GltfError::new(format!("node {index} has a non-numeric child index"))
                 })?;
@@ -1026,12 +1036,9 @@ impl<'a> Doc<'a> {
             )));
         }
         self.mesh_morph_ranges.push((
-            u16::try_from(node_index)
-                .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?,
-            u16::try_from(target_base)
-                .map_err(|_| GltfError::new("morph target index does not fit in 16 bits"))?,
-            u16::try_from(count)
-                .map_err(|_| GltfError::new("morph target count does not fit in 16 bits"))?,
+            model_slot(node_index, "node index")?,
+            model_slot(target_base, "morph target index")?,
+            model_slot(count, "morph target count")?,
         ));
         Ok(())
     }
@@ -1089,8 +1096,11 @@ impl<'a> Doc<'a> {
                 triangle.swap(1, 2);
             }
         }
-        let index_count = u32::try_from(local_indices.len())
-            .map_err(|_| GltfError::new("primitive index count does not fit in 32 bits"))?;
+        let index_count = u32::try_from(local_indices.len()).map_err(|error| {
+            GltfError::new(format!(
+                "primitive index count does not fit in 32 bits: {error}"
+            ))
+        })?;
         let reused = if target_count == 0 {
             self.reusable_vertex_block(primitive, request)
         } else {
@@ -1120,12 +1130,16 @@ impl<'a> Doc<'a> {
             }
             (base, vertex_count)
         };
-        let first_index = u32::try_from(self.indices.len())
-            .map_err(|_| GltfError::new("prop model index buffer does not fit in 32 bits"))?;
+        let first_index = u32::try_from(self.indices.len()).map_err(|error| {
+            GltfError::new(format!(
+                "prop model index buffer does not fit in 32 bits: {error}"
+            ))
+        })?;
         append_indices(&mut self.indices, &local_indices, base, block_vertices)?;
         self.submeshes.push(PropSubmesh {
-            material: u16::try_from(material)
-                .map_err(|_| GltfError::new("material index does not fit in 16 bits"))?,
+            material: u16::try_from(material).map_err(|error| {
+                GltfError::new(format!("material index does not fit in 16 bits: {error}"))
+            })?,
             texture: resolved.texture,
             emission: resolved.emission,
             alpha: resolved.alpha,
@@ -1225,8 +1239,9 @@ impl<'a> Doc<'a> {
                 // carries it: joint slot = node index, weight one. The
                 // character path's delta `nodeGlobal * nodeRestInverse` then
                 // moves exactly that node's vertices.
-                let node = u16::try_from(request.node_index)
-                    .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?;
+                let node = u16::try_from(request.node_index).map_err(|error| {
+                    GltfError::new(format!("node index does not fit in 16 bits: {error}"))
+                })?;
                 self.joints.resize(self.vertices.len(), [0; 4]);
                 self.weights.resize(self.vertices.len(), [0.0; 4]);
                 for index in base..self.vertices.len() {
@@ -1293,10 +1308,9 @@ impl<'a> Doc<'a> {
             )));
         }
         rig.used_skin = Some(skin_index);
-        rig.mesh_node = Some(
-            u16::try_from(node_index)
-                .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?,
-        );
+        rig.mesh_node = Some(u16::try_from(node_index).map_err(|error| {
+            GltfError::new(format!("node index does not fit in 16 bits: {error}"))
+        })?);
         let resolved = rig.resolve_skin(skin_index, json, binary)?;
         let matrices = resolved.skin_matrices();
         if self.skin.is_none() {
@@ -1323,7 +1337,7 @@ impl<'a> Doc<'a> {
             .and_then(|list| list.get(index))
             .ok_or_else(|| GltfError::new(format!("material {index} does not exist")))?;
         let pbr = material.get("pbrMetallicRoughness");
-        let color = match pbr.and_then(|pbr| pbr.get("baseColorFactor")) {
+        let color = match pbr.and_then(|properties| properties.get("baseColorFactor")) {
             Some(value) => numeric_array::<4>(value, &format!("material {index} baseColorFactor"))?,
             None => DEFAULT_BASE_COLOR,
         };
@@ -1332,7 +1346,7 @@ impl<'a> Doc<'a> {
                 "material {index} has a non-finite baseColorFactor"
             )));
         }
-        let texture = match pbr.and_then(|pbr| pbr.get("baseColorTexture")) {
+        let texture = match pbr.and_then(|properties| properties.get("baseColorTexture")) {
             Some(reference) => Some(self.resolve_texture_reference(
                 reference,
                 &format!("material {index} baseColorTexture"),
@@ -1440,11 +1454,11 @@ impl<'a> Doc<'a> {
             .and_then(json_usize)
             .ok_or_else(|| GltfError::new(format!("{label} has no texture index")))?;
         if let Some(tex_coord) = reference.get("texCoord") {
-            let tex_coord = json_usize(tex_coord)
+            let coord_index = json_usize(tex_coord)
                 .ok_or_else(|| GltfError::new(format!("{label} texCoord is not a number")))?;
-            if tex_coord != 0 {
+            if coord_index != 0 {
                 return Err(GltfError::new(format!(
-                    "{label} uses texCoord {tex_coord}; only TEXCOORD_0 is supported"
+                    "{label} uses texCoord {coord_index}; only TEXCOORD_0 is supported"
                 )));
             }
         }
@@ -1506,10 +1520,11 @@ impl<'a> Doc<'a> {
         let decoded = crate::loader::decode_png(png).map_err(|error| {
             GltfError::new(format!("embedded texture is not a valid PNG: {error}"))
         })?;
-        let index = u16::try_from(self.textures.len())
-            .map_err(|_| GltfError::new("prop model has too many textures"))?;
+        let index = u16::try_from(self.textures.len()).map_err(|error| {
+            GltfError::new(format!("prop model has too many textures: {error}"))
+        })?;
         self.textures.push(decoded);
-        self.texture_of_image.insert(image_index, index);
+        let _previous_value = self.texture_of_image.insert(image_index, index);
         Ok(index)
     }
 }
@@ -1695,10 +1710,9 @@ fn build_nodes(json: &serde_json::Value) -> Result<(Vec<PropNode>, Vec<Mat4>), G
                             "node references child {child_index}, which does not exist"
                         )));
                     }
-                    children.push(
-                        u16::try_from(child_index)
-                            .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?,
-                    );
+                    children.push(u16::try_from(child_index).map_err(|error| {
+                        GltfError::new(format!("node index does not fit in 16 bits: {error}"))
+                    })?);
                 }
                 children
             }
@@ -1722,10 +1736,13 @@ fn build_nodes(json: &serde_json::Value) -> Result<(Vec<PropNode>, Vec<Mat4>), G
     // A node's parent is the first node that lists it as a child.
     for parent in 0..count {
         let children = out.get(parent).map(|node| node.children.clone());
-        let Some(children) = children else { continue };
-        let parent_index = u16::try_from(parent)
-            .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?;
-        for child in children {
+        let Some(child_indices) = children else {
+            continue;
+        };
+        let parent_index = u16::try_from(parent).map_err(|error| {
+            GltfError::new(format!("node index does not fit in 16 bits: {error}"))
+        })?;
+        for child in child_indices {
             if let Some(slot) = out.get_mut(usize::from(child))
                 && slot.parent.is_none()
             {
@@ -1774,10 +1791,9 @@ fn parse_skin(
                 "skin {index} references joint node {node}, which does not exist"
             )));
         }
-        joints.push(
-            u16::try_from(node)
-                .map_err(|_| GltfError::new("joint node index does not fit in 16 bits"))?,
-        );
+        joints.push(u16::try_from(node).map_err(|error| {
+            GltfError::new(format!("joint node index does not fit in 16 bits: {error}"))
+        })?);
     }
     let inverse_bind = parse_inverse_bind(json, binary, skin_json, index, joints.len())?;
     let root = match skin_json.get("skeleton") {
@@ -1790,10 +1806,9 @@ fn parse_skin(
                     "skin {index} skeleton references node {node}, which does not exist"
                 )));
             }
-            Some(
-                u16::try_from(node)
-                    .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?,
-            )
+            Some(u16::try_from(node).map_err(|error| {
+                GltfError::new(format!("node index does not fit in 16 bits: {error}"))
+            })?)
         }
         None => joints
             .first()
@@ -2101,8 +2116,11 @@ fn parse_animation_channel(
     }
     let values = flatten_animation_values(&raw_values, values_per_key)?;
     Ok(PropAnimationChannel {
-        node: u16::try_from(node)
-            .map_err(|_| GltfError::new("animation node index does not fit in 16 bits"))?,
+        node: u16::try_from(node).map_err(|error| {
+            GltfError::new(format!(
+                "animation node index does not fit in 16 bits: {error}"
+            ))
+        })?,
         path,
         interpolation,
         times,
@@ -2148,10 +2166,10 @@ fn morph_target_count(json: &serde_json::Value, node: usize) -> Result<usize, Gl
         .get("nodes")
         .and_then(|value| value.as_array())
         .ok_or_else(|| GltfError::new("file has no nodes"))?;
-    let node = nodes
+    let target_node = nodes
         .get(node)
         .ok_or_else(|| GltfError::new("animation weight channel targets a missing node"))?;
-    let mesh_index = node
+    let mesh_index = target_node
         .get("mesh")
         .and_then(json_usize)
         .ok_or_else(|| GltfError::new("animation weight channel targets a node with no mesh"))?;
@@ -2334,10 +2352,10 @@ fn read_attributes(
     }
     if joints
         .as_ref()
-        .is_some_and(|joints| joints.len() != positions.len())
+        .is_some_and(|joint_values| joint_values.len() != positions.len())
         || weights
             .as_ref()
-            .is_some_and(|weights| weights.len() != positions.len())
+            .is_some_and(|weight_values| weight_values.len() != positions.len())
     {
         return Err(GltfError::new(
             "POSITION, JOINTS_0 and WEIGHTS_0 attribute counts differ",
@@ -2498,19 +2516,23 @@ fn read_morph_targets(
                 .map(|row| components::<3>(row).map(|[x, y, z]| [x, y, z, 0.0]))
                 .collect()
         };
-        let position = convert3(position)?;
-        for delta in &position {
+        let position_deltas = convert3(position)?;
+        for delta in &position_deltas {
             if !delta.iter().all(|value| value.is_finite()) {
                 return Err(GltfError::new("morph POSITION contains a non-finite delta"));
             }
         }
-        let normal = convert3(normal)?;
-        if normal.iter().flatten().any(|value| !value.is_finite()) {
+        let normal_deltas = convert3(normal)?;
+        if normal_deltas
+            .iter()
+            .flatten()
+            .any(|value| !value.is_finite())
+        {
             return Err(GltfError::new("morph NORMAL contains a non-finite delta"));
         }
         targets.push(PropMorphTarget {
-            position,
-            normal,
+            position: position_deltas,
+            normal: normal_deltas,
             tangent: convert_tangent(tangent)?,
         });
     }
@@ -2640,8 +2662,9 @@ fn primitive_indices(
         Some(value) => read_indices(json, binary, accessor_index(value, "indices")?),
         None => (0..vertex_count)
             .map(|value| {
-                u32::try_from(value)
-                    .map_err(|_| GltfError::new("mesh index does not fit in 32 bits"))
+                u32::try_from(value).map_err(|error| {
+                    GltfError::new(format!("mesh index does not fit in 32 bits: {error}"))
+                })
             })
             .collect::<Result<Vec<u32>, _>>(),
     }
@@ -2653,7 +2676,7 @@ fn normalized_normal(normal: Vec3) -> Result<[f32; 3], GltfError> {
         .is_finite()
         .then(|| normal.try_normalize())
         .flatten()
-        .map(|normal| normal.to_array())
+        .map(|unit_normal| unit_normal.to_array())
         .ok_or_else(|| GltfError::new("NORMAL must be finite and nonzero after transformation"))
 }
 
@@ -2691,17 +2714,17 @@ fn default_normal(
     else {
         return Ok(None);
     };
-    let mut normal = Vec3::from(*normal);
+    let mut morphed_normal = Vec3::from(*normal);
     for (weight, target) in attributes.morph_defaults.iter().zip(&attributes.targets) {
         if *weight != 0.0
             && let Some(delta) = target.normal.get(index)
         {
-            normal = Vec3::from(*delta).mul_add(Vec3::splat(*weight), normal);
+            morphed_normal = Vec3::from(*delta).mul_add(Vec3::splat(*weight), morphed_normal);
         }
     }
     // Keep the unnormalized morphed direction until after inverse-transpose or skin blending.
-    normalized_normal(normal)?;
-    Ok(Some(normal))
+    let _normalized_normal_status = normalized_normal(morphed_normal)?;
+    Ok(Some(morphed_normal))
 }
 
 /// Appends one primitive's transformed vertices, with the material colour
@@ -2730,10 +2753,10 @@ fn append_vertices(
                 point = Vec3::from(*delta).mul_add(Vec3::splat(*weight), point);
             }
         }
-        let point = transform.transform_point3(point);
+        let world_point = transform.transform_point3(point);
         let [red, green, blue, alpha]: [f32; 4] = components(vertex_color)?;
         vertices.push(PropVertex {
-            pos: [point.x, point.y, point.z],
+            pos: [world_point.x, world_point.y, world_point.z],
             normal: default_normal(attributes, index)?
                 .map(|normal| {
                     normal_transform.map_or_else(
@@ -2807,7 +2830,10 @@ fn transform_morphs_static(
 /// from. Joint slots are validated against the primitive's skin and weights
 /// are validated (finite, non-negative, positive sum) and renormalised, so the
 /// stored weights always sum to one.
-#[allow(clippy::arithmetic_side_effects)] // f32 blend of finite, validated values
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "f32 blend of finite, validated values"
+)] // f32 blend of finite, validated values
 fn append_skinned_vertices(
     vertices: &mut Vec<PropVertex>,
     joints: &mut Vec<[u16; 4]>,
@@ -3065,17 +3091,17 @@ fn append_indices(
     for value in local_indices {
         let absolute = usize::try_from(*value)
             .ok()
-            .and_then(|value| base.checked_add(value))
+            .and_then(|local_index| base.checked_add(local_index))
             .ok_or_else(|| GltfError::new(format!("index {value} points outside the mesh")))?;
         if absolute >= limit {
             return Err(GltfError::new(format!(
                 "index {value} points outside the primitive's vertices"
             )));
         }
-        let index = u16::try_from(absolute).map_err(|_| {
+        let index = u16::try_from(absolute).map_err(|error| {
             GltfError::new(format!(
                 "prop model needs more than {MAX_PROP_VERTICES} vertices; \
-                 lower the prop's detail"
+                 lower the prop's detail: {error}"
             ))
         })?;
         indices.push(index);
@@ -3097,8 +3123,8 @@ fn node_transform(node: &serde_json::Value, index: usize) -> Result<Mat4, GltfEr
             "node {index} declares both matrix and TRS; use one or the other"
         )));
     }
-    let transform = if let Some(matrix) = matrix {
-        let values = numeric_array::<16>(matrix, &format!("node {index} matrix"))?;
+    let transform = if let Some(matrix_json) = matrix {
+        let values = numeric_array::<16>(matrix_json, &format!("node {index} matrix"))?;
         Mat4::from_cols_array(&values)
     } else {
         let translation = match node.get("translation") {
@@ -3113,16 +3139,20 @@ fn node_transform(node: &serde_json::Value, index: usize) -> Result<Mat4, GltfEr
             Some(value) => numeric_array::<3>(value, &format!("node {index} scale"))?,
             None => [1.0; 3],
         };
-        let rotation = Quat::from_xyzw(rotation[0], rotation[1], rotation[2], rotation[3]);
+        let quaternion = Quat::from_xyzw(rotation[0], rotation[1], rotation[2], rotation[3]);
         // glTF rotations must be unit quaternions; a malformed export can ship
         // a near-zero quaternion, which would collapse the node's geometry.
-        if rotation.length_squared() <= f32::EPSILON {
+        if quaternion.length_squared() <= f32::EPSILON {
             return Err(GltfError::new(format!(
                 "node {index} rotation is not a unit quaternion"
             )));
         }
-        let rotation = rotation.normalize();
-        Mat4::from_scale_rotation_translation(Vec3::from(scale), rotation, Vec3::from(translation))
+        let unit_rotation = quaternion.normalize();
+        Mat4::from_scale_rotation_translation(
+            Vec3::from(scale),
+            unit_rotation,
+            Vec3::from(translation),
+        )
     };
     for value in transform.to_cols_array() {
         if !value.is_finite() {
@@ -3165,9 +3195,13 @@ fn numeric_array<const N: usize>(
 /// beyond `f32`'s range become infinite and are rejected by the finiteness
 /// checks at the call sites.
 fn json_f32(value: &serde_json::Value) -> Option<f32> {
-    #[allow(clippy::cast_possible_truncation)] // glTF scalars are f32 by definition
-    let value = value.as_f64()? as f32;
-    Some(value)
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "glTF scalars are f32 by definition"
+    )] // glTF scalars are f32 by definition
+    let scalar = value.as_f64()? as f32;
+    Some(scalar)
 }
 
 /// Width and height read straight out of a PNG's `IHDR` header.
@@ -3287,8 +3321,11 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
     }
     let magic = read_u32_le(bytes, 0)?;
     let version = read_u32_le(bytes, 4)?;
-    let declared_length = usize::try_from(read_u32_le(bytes, 8)?)
-        .map_err(|_| GltfError::new("GLB declared length does not fit this target"))?;
+    let declared_length = usize::try_from(read_u32_le(bytes, 8)?).map_err(|error| {
+        GltfError::new(format!(
+            "GLB declared length does not fit this target: {error}"
+        ))
+    })?;
     if magic != GLB_MAGIC {
         return Err(GltfError::new(
             "not a GLB file; prop models must be self-contained .glb assets",
@@ -3310,8 +3347,11 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
         .checked_add(8)
         .is_some_and(|header_end| header_end <= declared_length)
     {
-        let length = usize::try_from(read_u32_le(bytes, offset)?)
-            .map_err(|_| GltfError::new("GLB chunk length does not fit this target"))?;
+        let length = usize::try_from(read_u32_le(bytes, offset)?).map_err(|error| {
+            GltfError::new(format!(
+                "GLB chunk length does not fit this target: {error}"
+            ))
+        })?;
         let kind_offset = offset
             .checked_add(4)
             .ok_or_else(|| GltfError::new("GLB chunk offset overflows"))?;
@@ -3332,7 +3372,9 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
                         .get(start..end)
                         .ok_or_else(|| GltfError::new("GLB chunk is truncated"))?,
                 )
-                .map_err(|_| GltfError::new("GLB JSON chunk is not valid UTF-8"))?;
+                .map_err(|error| {
+                    GltfError::new(format!("GLB JSON chunk is not valid UTF-8: {error}"))
+                })?;
                 let value: serde_json::Value =
                     serde_json::from_str(text.trim_end_matches(['\0', ' ']))
                         .map_err(|error| GltfError::new(format!("Invalid glTF JSON: {error}")))?;
@@ -3349,8 +3391,8 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
         offset = end;
     }
 
-    let json = json.ok_or_else(|| GltfError::new("GLB has no JSON chunk"))?;
-    Ok((json, binary))
+    let json_chunk = json.ok_or_else(|| GltfError::new("GLB has no JSON chunk"))?;
+    Ok((json_chunk, binary))
 }
 
 /// Reads `N` bytes at `offset` as a fixed-size array.
@@ -3364,7 +3406,8 @@ fn read_le_bytes<const N: usize>(data: &[u8], offset: usize) -> Result<[u8; N], 
     let slice = data
         .get(offset..end)
         .ok_or_else(|| GltfError::new("accessor data is truncated"))?;
-    <[u8; N]>::try_from(slice).map_err(|_| GltfError::new("accessor data is truncated"))
+    <[u8; N]>::try_from(slice)
+        .map_err(|error| GltfError::new(format!("accessor data is truncated: {error}")))
 }
 
 /// Little-endian `u32` at `offset`, or an error when the data is truncated.
@@ -3513,10 +3556,10 @@ fn json_byte_field(
     value: Option<&serde_json::Value>,
     what: &str,
 ) -> Result<Option<usize>, GltfError> {
-    value.map_or(Ok(None), |value| {
-        json_usize(value).map(Some).ok_or_else(|| {
+    value.map_or(Ok(None), |json_value| {
+        json_usize(json_value).map(Some).ok_or_else(|| {
             GltfError::new(format!(
-                "{what} must be a non-negative integer, got {value}"
+                "{what} must be a non-negative integer, got {json_value}"
             ))
         })
     })

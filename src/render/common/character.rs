@@ -320,7 +320,7 @@ impl Channel {
     /// evaluates the spec's Hermite form with the key's out-tangent and the
     /// next key's in-tangent scaled by the key interval. Before the first and
     /// after the last timestamp the channel holds that key's value.
-    #[allow(clippy::arithmetic_side_effects)] // bounded keyframe arithmetic
+    // bounded keyframe arithmetic
     fn sample_component(&self, time: f32, component: usize) -> Option<f32> {
         let (index, blend) = self.key_at(time)?;
         let stride = self.values_per_key;
@@ -556,13 +556,13 @@ impl ClipPlayer {
             } else {
                 None
             };
-            if let Some(slot) = slot {
-                if state_clip.get(slot).is_some_and(Option::is_none)
-                    && let Some(entry) = state_clip.get_mut(slot)
+            if let Some(morph_slot) = slot {
+                if state_clip.get(morph_slot).is_some_and(Option::is_none)
+                    && let Some(entry) = state_clip.get_mut(morph_slot)
                 {
                     *entry = Some(index);
                 }
-                if slot == SWIMMING
+                if morph_slot == SWIMMING
                     && state_clip
                         .get(SURFACE_SWIMMING)
                         .is_some_and(Option::is_none)
@@ -643,12 +643,12 @@ impl Clip {
         for (slot, default) in out.morphs.iter_mut().zip(morph.defaults.iter()) {
             *slot = *default;
         }
-        let time = if time.is_finite() { time } else { 0.0 };
+        let sample_time = if time.is_finite() { time } else { 0.0 };
         let local_time = if self.duration > 0.0 {
             if looping {
-                time.rem_euclid(self.duration)
+                sample_time.rem_euclid(self.duration)
             } else {
-                time.clamp(0.0, self.duration)
+                sample_time.clamp(0.0, self.duration)
             }
         } else {
             0.0
@@ -657,11 +657,11 @@ impl Clip {
             let Some(slot) = out.pose.get_mut(node) else {
                 continue;
             };
-            let morph_range = u16::try_from(node).ok().and_then(|node| {
+            let morph_range = u16::try_from(node).ok().and_then(|node_index| {
                 morph
                     .ranges
                     .iter()
-                    .find(|(candidate, _, count)| *candidate == node && *count > 0)
+                    .find(|(candidate, _, count)| *candidate == node_index && *count > 0)
                     .map(|(_, start, count)| (usize::from(*start), usize::from(*count)))
             });
             for channel in node_channels {
@@ -723,9 +723,9 @@ impl Rig {
                 .get(index)
                 .copied()
                 .flatten()
-                .map_or(local, |parent| {
+                .map_or(local, |parent_index| {
                     rest_global
-                        .get(usize::from(parent))
+                        .get(usize::from(parent_index))
                         .copied()
                         .unwrap_or(Mat4::IDENTITY)
                         .mul_mat4(&local)
@@ -752,9 +752,9 @@ impl Rig {
                     .get(index)
                     .copied()
                     .flatten()
-                    .map_or(Quat::IDENTITY, |parent| {
+                    .map_or(Quat::IDENTITY, |parent_index| {
                         rest_global
-                            .get(usize::from(parent))
+                            .get(usize::from(parent_index))
                             .copied()
                             .map_or(Quat::IDENTITY, rest_rotation)
                     });
@@ -772,10 +772,10 @@ impl Rig {
                 axis_up: parent_rotation.inverse().mul_vec3(Vec3::Y),
                 up_in_parent: parent_rotation.inverse().mul_vec3(Vec3::Y),
             };
-            if let Some((pair, front, index)) = leg_facts(&node.name) {
+            if let Some((pair, front, leg_index)) = leg_facts(&node.name) {
                 node_pose.pair = pair;
                 node_pose.front = front;
-                node_pose.index = index;
+                node_pose.index = leg_index;
             } else if kind == JointKind::Tail {
                 node_pose.index = tail_index(&node.name);
             }
@@ -785,8 +785,8 @@ impl Rig {
         // rig's root, whose parent is by definition the outermost node, so the
         // character's up axis is its parent-space Y.
         if !pose.iter().any(|node| node.body)
-            && let Some(root) = root
-            && let Some(slot) = pose.get_mut(usize::from(root))
+            && let Some(leg_root) = root
+            && let Some(slot) = pose.get_mut(usize::from(leg_root))
         {
             slot.body = true;
             slot.up_in_parent = Vec3::Y;
@@ -822,13 +822,16 @@ fn topological_order(parent: &[Option<u16>]) -> Option<Vec<u16>> {
     // A node is ready when it has no parent or its parent is emitted.
     loop {
         let mut progressed = false;
-        for (index, parent) in parent.iter().enumerate() {
+        for (index, parent_index) in parent.iter().enumerate() {
             if emitted.get(index).copied().unwrap_or(true) {
                 continue;
             }
-            let ready = parent
-                .as_ref()
-                .is_none_or(|parent| emitted.get(usize::from(*parent)).copied().unwrap_or(false));
+            let ready = parent_index.as_ref().is_none_or(|parent_node| {
+                emitted
+                    .get(usize::from(*parent_node))
+                    .copied()
+                    .unwrap_or(false)
+            });
             if ready {
                 order.push(u16::try_from(index).ok()?);
                 if let Some(slot) = emitted.get_mut(index) {
@@ -1240,8 +1243,8 @@ impl CharacterScene {
                 scale: prop.scale,
                 opacity: 1.0,
             });
-            if let Some(counts) = placements.get_mut(&model_path) {
-                counts.1 = counts.1.saturating_add(1);
+            if let Some(placement_counts) = placements.get_mut(&model_path) {
+                placement_counts.1 = placement_counts.1.saturating_add(1);
             }
         }
         let claimed_models = order
@@ -1278,7 +1281,10 @@ impl CharacterScene {
     ///
     /// Returns the reason the spawn was refused. A refused spawn leaves the
     /// scene untouched.
-    #[allow(clippy::too_many_arguments)] // one frozen spawn seam: model, placement and lighting inputs
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one frozen spawn seam: model, placement and lighting inputs"
+    )] // one frozen spawn seam: model, placement and lighting inputs
     pub fn spawn_runtime_character(
         &mut self,
         level: &crate::level::LevelDef,
@@ -1292,24 +1298,24 @@ impl CharacterScene {
         yaw_degrees: f32,
         scale: f32,
     ) -> Result<(), String> {
-        let instance_id = instance_id.trim();
-        if instance_id.is_empty() {
+        let trimmed_id = instance_id.trim();
+        if trimmed_id.is_empty() {
             return Err("a runtime character needs a non-empty instance id".to_string());
         }
         if !position.is_finite() || !yaw_degrees.is_finite() || !scale.is_finite() || scale <= 0.0 {
             return Err(format!(
-                "the runtime character `{instance_id}` has a non-finite position or yaw, \
+                "the runtime character `{trimmed_id}` has a non-finite position or yaw, \
                  or a non-positive scale"
             ));
         }
         let replaced = self
             .runtime
             .iter()
-            .position(|character| character.instance_id.as_deref() == Some(instance_id));
+            .position(|character| character.instance_id.as_deref() == Some(trimmed_id));
         if replaced.is_none() && self.len() >= MAX_CHARACTERS {
             return Err(format!(
                 "the character budget ({MAX_CHARACTERS}) is full; the runtime character \
-                 `{instance_id}` was not spawned"
+                 `{trimmed_id}` was not spawned"
             ));
         }
         // The catalogue maps a registry id to its model path; a string the
@@ -1353,7 +1359,7 @@ impl CharacterScene {
             entity_lighting,
             lighting_local_centre,
             world_bounds,
-            instance_id: Some(instance_id.to_string()),
+            instance_id: Some(trimmed_id.to_string()),
             scale,
             opacity: 1.0,
         };
@@ -1378,7 +1384,7 @@ impl CharacterScene {
         else {
             return false;
         };
-        self.runtime.remove(index);
+        drop(self.runtime.remove(index));
         self.runtime_generation = self.runtime_generation.wrapping_add(1);
         true
     }
@@ -1485,17 +1491,17 @@ impl CharacterScene {
                 .iter()
                 .find(|frame| frame.instance_id == instance_id)
                 .and_then(|frame| frame.glow.as_ref());
-            let Some(glow) = glow else {
-                self.dynamic_lights.remove(&key);
+            let Some(glow_cue) = glow else {
+                let _removed_value = self.dynamic_lights.remove(&key);
                 continue;
             };
-            let fade = if glow.fade_with_opacity {
+            let fade = if glow_cue.fade_with_opacity {
                 character.opacity
             } else {
                 1.0
             };
-            let intensity = glow.intensity * fade;
-            let position = glow
+            let intensity = glow_cue.intensity * fade;
+            let position = glow_cue
                 .socket
                 .as_deref()
                 .and_then(|socket| character.animator.node_global(socket))
@@ -1503,7 +1509,7 @@ impl CharacterScene {
                     || {
                         character
                             .transform
-                            .transform_point3(Vec3::from(glow.offset))
+                            .transform_point3(Vec3::from(glow_cue.offset))
                     },
                     |node| {
                         character
@@ -1513,20 +1519,20 @@ impl CharacterScene {
                     },
                 );
             if !intensity.is_finite() || intensity <= 0.0 || !position.is_finite() {
-                self.dynamic_lights.remove(&key);
+                let _removed_value_2 = self.dynamic_lights.remove(&key);
                 continue;
             }
             let light = DynamicLight {
                 key: key.clone(),
                 position,
-                color: glow.color,
+                color: glow_cue.color,
                 intensity,
-                radius: glow.range,
+                radius: glow_cue.range,
             };
             if !self.dynamic_lights.insert(light) {
                 // The bounded set refused the value (a malformed cue or a full
                 // budget): never keep a stale light for the refused key.
-                self.dynamic_lights.remove(&key);
+                let _removed_value_3 = self.dynamic_lights.remove(&key);
             }
         }
     }
@@ -1556,16 +1562,18 @@ impl CharacterScene {
             .as_deref()
             .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
         match frame {
-            Some(frame) => {
+            Some(entity_frame) => {
                 // The frame's fade is applied every pass, before the pose: the
                 // opacity is independent of whether the pose changed.
-                character.set_opacity(frame.opacity);
-                if let Some((position, yaw)) = frame.transform
+                character.set_opacity(entity_frame.opacity);
+                if let Some((position, yaw)) = entity_frame.transform
                     && !transforms_agree(character.transform, position, character.scale, yaw)
                 {
                     character.set_pose(position, yaw);
                 }
-                character.animator.update_cued(delta_seconds, &frame.cue)
+                character
+                    .animator
+                    .update_cued(delta_seconds, &entity_frame.cue)
             }
             // A rigid prop has no locomotion state to drive: until an action
             // cues it, it holds the bind pose it was spawned in.
@@ -1584,10 +1592,10 @@ fn transforms_agree(transform: Mat4, position: Vec3, scale: f32, yaw: f32) -> bo
         position,
     );
     let current: [f32; 16] = transform.to_cols_array();
-    let expected: [f32; 16] = expected.to_cols_array();
+    let expected_columns: [f32; 16] = expected.to_cols_array();
     current
         .iter()
-        .zip(expected.iter())
+        .zip(expected_columns.iter())
         .all(|(a, b)| (a - b).abs() <= 1.0e-4)
 }
 
@@ -1610,7 +1618,7 @@ fn placement_is_finite(prop: &crate::level::PropDef) -> bool {
 /// scale uniformly), with the prop's floor offset already folded into
 /// `position.y`: a runtime actor resolves to the same matrix a placed prop at
 /// the same world point would, and never jumps when its first frame arrives.
-#[allow(clippy::arithmetic_side_effects)] // f32 placement arithmetic: finite inputs
+// f32 placement arithmetic: finite inputs
 fn runtime_instance_matrix(position: Vec3, base_y: f32, yaw_degrees: f32, scale: f32) -> Mat4 {
     let offset = position.y - base_y;
     let translation = Vec3::new(position.x, base_y + offset, position.z);
@@ -1750,7 +1758,7 @@ struct CueState {
 /// The clip-time a scrub cue eases toward, or `None` for a playing cue.
 fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
     match cue {
-        PoseCue::Scrub { target, .. } => {
+        PoseCue::Scrub { target, name: _ } => {
             let fraction = if target.is_finite() {
                 target.clamp(0.0, 1.0)
             } else {
@@ -1758,7 +1766,13 @@ fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
             };
             Some(duration * fraction)
         }
-        PoseCue::Idle | PoseCue::Walk { .. } | PoseCue::Clip { .. } => None,
+        PoseCue::Idle
+        | PoseCue::Walk { speed_mps: _ }
+        | PoseCue::Clip {
+            name: _,
+            once: _,
+            paused: _,
+        } => None,
     }
 }
 
@@ -1876,7 +1890,7 @@ impl CharacterAnimator {
     /// The animator allocates nothing here: every buffer is sized at
     /// construction and the weights approach their targets exponentially, so
     /// the same total time produces the same pose at any frame rate.
-    #[allow(clippy::arithmetic_side_effects)] // f32 pose arithmetic: finite inputs
+    // f32 pose arithmetic: finite inputs
     pub fn update(&mut self, delta_seconds: f32, snapshot: LocomotionSnapshot) -> bool {
         let step = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
@@ -1969,7 +1983,7 @@ impl CharacterAnimator {
                 morphs: &mut self.morph_a,
             },
         );
-        let fade = match previous_index.and_then(|index| clips.clips.get(index)) {
+        let blend_weight = match previous_index.and_then(|index| clips.clips.get(index)) {
             Some(previous) => {
                 previous.sample(
                     &self.rig,
@@ -1988,24 +2002,24 @@ impl CharacterAnimator {
             }
             None => 1.0,
         };
-        if fade < 0.999 {
-            for (node, (previous, active)) in self
+        if blend_weight < 0.999 {
+            for (node, (previous, active_pose)) in self
                 .pose
                 .iter_mut()
                 .zip(self.clip_b.iter().zip(self.clip_a.iter()))
             {
-                *node = previous.blend(*active, fade);
+                *node = previous.blend(*active_pose, blend_weight);
             }
-            for (slot, (previous, active)) in self
+            for (slot, (previous, active_morph)) in self
                 .morphs
                 .iter_mut()
                 .zip(self.morph_b.iter().zip(self.morph_a.iter()))
             {
-                *slot = (*active - *previous).mul_add(fade, *previous);
+                *slot = (*active_morph - *previous).mul_add(blend_weight, *previous);
             }
         } else {
-            for (node, active) in self.pose.iter_mut().zip(self.clip_a.iter()) {
-                *node = *active;
+            for (node, active_pose) in self.pose.iter_mut().zip(self.clip_a.iter()) {
+                *node = *active_pose;
             }
             self.morphs.copy_from_slice(&self.morph_a);
         }
@@ -2064,7 +2078,7 @@ impl CharacterAnimator {
     ///
     /// The weights are renormalised defensively; a vertex with no weight (a
     /// rigid primitive inside a rigged document) keeps its bind position.
-    #[allow(clippy::arithmetic_side_effects)] // f32 blend: finite inputs
+    #[expect(clippy::arithmetic_side_effects, reason = "f32 blend: finite inputs")] // f32 blend: finite inputs
     #[must_use]
     pub fn skin_position(
         &self,
@@ -2108,10 +2122,10 @@ impl CharacterAnimator {
     /// The clip index whose lower-cased name matches `name`, if any.
     #[must_use]
     pub fn clip_index(&self, name: &str) -> Option<usize> {
-        let name = name.to_ascii_lowercase();
+        let lowercase_name = name.to_ascii_lowercase();
         self.named
             .iter()
-            .find(|(candidate, _)| candidate == &name)
+            .find(|(candidate, _)| candidate == &lowercase_name)
             .map(|(_, index)| *index)
     }
 
@@ -2141,7 +2155,7 @@ impl CharacterAnimator {
     /// same time constant the locomotion states use, so a transition starts
     /// from the current pose. One-shot clips hold their last key and report
     /// completion through [`Self::take_cue_finished`].
-    #[allow(clippy::arithmetic_side_effects)] // bounded pose arithmetic
+    // bounded pose arithmetic
     pub fn update_cued(&mut self, delta_seconds: f32, cue: &PoseCue) -> bool {
         let Some(clips) = self.clips.as_ref() else {
             return false;
@@ -2273,13 +2287,13 @@ impl CharacterAnimator {
         const KIND_RANK: [&str; 7] = ["walk", "run", "hop", "float", "fly", "swim", "crawl"];
         let mut best: Option<(usize, usize)> = None;
         for (index, kind) in self.clip_kinds.iter().enumerate() {
-            let Some(kind) = kind.as_deref() else {
+            let Some(declared_kind) = kind.as_deref() else {
                 continue;
             };
             let Some((rank, _)) = KIND_RANK
                 .iter()
                 .enumerate()
-                .find(|(_, name)| **name == kind)
+                .find(|(_, name)| **name == declared_kind)
             else {
                 continue;
             };
@@ -2372,7 +2386,9 @@ impl CharacterAnimator {
             }
             // A scrub cue never advances on its own: `update_cued` eases its
             // time toward the authored fraction instead.
-            PoseCue::Scrub { name, .. } => (self.clip_index(name).unwrap_or(0), true, false, 1.0),
+            PoseCue::Scrub { name, target: _ } => {
+                (self.clip_index(name).unwrap_or(0), true, false, 1.0)
+            }
         }
     }
 
@@ -2397,7 +2413,7 @@ impl CharacterAnimator {
                 clips
                     .clips
                     .get(index)
-                    .map(|clip| (clip, previous_time, was_once))
+                    .map(|source_clip| (source_clip, previous_time, was_once))
             });
         let Some(active) = clips.clips.get(clip) else {
             return false;
@@ -2420,8 +2436,8 @@ impl CharacterAnimator {
                 morphs: &mut self.morph_a,
             },
         );
-        if let Some((previous, previous_time, was_once)) = previous {
-            previous.sample(
+        if let Some((source_clip, previous_time, was_once)) = previous {
+            source_clip.sample(
                 &self.rig,
                 &MorphRig {
                     defaults: &self.morph_defaults,
@@ -2435,23 +2451,23 @@ impl CharacterAnimator {
                     morphs: &mut self.morph_b,
                 },
             );
-            for (node, (previous, active)) in self
+            for (node, (previous_pose, active_pose)) in self
                 .pose
                 .iter_mut()
                 .zip(self.clip_b.iter().zip(self.clip_a.iter()))
             {
-                *node = previous.blend(*active, fade);
+                *node = previous_pose.blend(*active_pose, fade);
             }
-            for (slot, (previous, active)) in self
+            for (slot, (previous_morph, active_morph)) in self
                 .morphs
                 .iter_mut()
                 .zip(self.morph_b.iter().zip(self.morph_a.iter()))
             {
-                *slot = (*active - *previous).mul_add(fade, *previous);
+                *slot = (*active_morph - *previous_morph).mul_add(fade, *previous_morph);
             }
         } else {
-            for (node, active) in self.pose.iter_mut().zip(self.clip_a.iter()) {
-                *node = *active;
+            for (node, active_pose) in self.pose.iter_mut().zip(self.clip_a.iter()) {
+                *node = *active_pose;
             }
             self.morphs.copy_from_slice(&self.morph_a);
         }
@@ -2462,7 +2478,10 @@ impl CharacterAnimator {
     }
 
     /// Writes the procedural locomotion pose from the state weights.
-    #[allow(clippy::arithmetic_side_effects)] // f32 pose arithmetic: finite inputs
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "f32 pose arithmetic: finite inputs"
+    )] // f32 pose arithmetic: finite inputs
     fn apply_procedural_pose(&mut self) {
         let weights = self.weights;
         let phase = self.phase;
@@ -2503,7 +2522,7 @@ impl CharacterAnimator {
     fn compose_globals(&mut self) {
         // `glam` matrix multiplication is per-element f32 arithmetic with no
         // overflow or panic path; clippy cannot see that through the operator.
-        #[allow(clippy::arithmetic_side_effects)]
+
         for node in &self.rig.order {
             let index = usize::from(*node);
             let local = self
@@ -2575,8 +2594,8 @@ impl CharacterAnimator {
             } else {
                 Mat4::IDENTITY
             };
-            if let Some(slot) = self.deltas.get_mut(slot) {
-                *slot = delta;
+            if let Some(delta_slot) = self.deltas.get_mut(slot) {
+                *delta_slot = delta;
             }
         }
     }
@@ -2589,7 +2608,7 @@ impl CharacterAnimator {
 /// rather than a switch. `lateral` swings about the character's lateral axis
 /// (leg forward/back, tail up/down); `up` swings about its up axis (tail
 /// sway).
-#[allow(clippy::arithmetic_side_effects)] // f32 pose arithmetic: finite inputs
+// f32 pose arithmetic: finite inputs
 fn procedural_angles(
     pose: &NodePose,
     weights: &[f32; STATE_COUNT],
@@ -2734,7 +2753,8 @@ mod tests {
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -2826,15 +2846,16 @@ mod tests {
         let model = rigged_model(Vec::new());
         let mut animator = CharacterAnimator::new(&model).expect("rig animator");
         assert_eq!(animator.state_weight(LocomotionState::Idle), 1.0);
-        animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
+        let _update_stats = animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
         let mid = animator.state_weight(LocomotionState::Idle);
         assert!(
             mid < 1.0 && mid > 0.0,
             "the weight eases, it does not jump: {mid}"
         );
         // One second at 60 Hz: both weights are effectively settled.
-        for _ in 0..60 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
+        for _ in 0_i32..60_i32 {
+            let _update_stats_2 =
+                animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
         }
         assert!(animator.state_weight(LocomotionState::Walking) > 0.99);
         assert!(animator.state_weight(LocomotionState::Idle) < 0.01);
@@ -2844,17 +2865,18 @@ mod tests {
     fn phase_advances_only_with_speed() {
         let model = rigged_model(Vec::new());
         let mut animator = CharacterAnimator::new(&model).expect("rig animator");
-        for _ in 0..30 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 0.0));
+        for _ in 0_i32..30_i32 {
+            let _update_stats =
+                animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 0.0));
         }
         assert_eq!(animator.phase(), 0.0, "a stationary walker does not stride");
-        animator.update(0.5, snapshot(LocomotionState::Walking, 2.0));
+        let _update_stats_2 = animator.update(0.5, snapshot(LocomotionState::Walking, 2.0));
         let walked = animator.phase();
         assert!(walked > 0.0);
         // Half a second at 2 m/s is one metre, 0.9 of a cycle.
         assert!((walked - 0.9).abs() < 1e-4, "phase {walked}");
         // Swimming advances at the fixed frequency, with no speed input.
-        animator.update(1.0, snapshot(LocomotionState::Swimming, 0.0));
+        let _update_stats_3 = animator.update(1.0, snapshot(LocomotionState::Swimming, 0.0));
         assert!((animator.phase() - (0.9 + SWIM_HZ).rem_euclid(1.0)).abs() < 1e-4);
     }
 
@@ -2865,14 +2887,15 @@ mod tests {
         let mut normal = CharacterAnimator::new(&model).expect("rig animator");
         let mut slow = CharacterAnimator::new(&model).expect("rig animator");
         // One second of walking at 30, 60 and 144 fps.
-        for _ in 0..30 {
-            fast.update(1.0 / 30.0, snapshot(LocomotionState::Walking, 1.4));
+        for _ in 0_i32..30_i32 {
+            let _update_stats = fast.update(1.0 / 30.0, snapshot(LocomotionState::Walking, 1.4));
         }
-        for _ in 0..60 {
-            normal.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
+        for _ in 0_i32..60_i32 {
+            let _update_stats_2 =
+                normal.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
         }
-        for _ in 0..144 {
-            slow.update(1.0 / 144.0, snapshot(LocomotionState::Walking, 1.4));
+        for _ in 0_i32..144_i32 {
+            let _update_stats_3 = slow.update(1.0 / 144.0, snapshot(LocomotionState::Walking, 1.4));
         }
         for slot in 0..fast.joint_count() {
             let a = fast.joint_delta(slot).expect("delta");
@@ -2898,8 +2921,8 @@ mod tests {
             LocomotionState::SurfaceSwimming,
             LocomotionState::Idle,
         ] {
-            for _ in 0..8 {
-                animator.update(1.0 / 60.0, snapshot(state, 1.0));
+            for _ in 0_i32..8_i32 {
+                let _update_stats = animator.update(1.0 / 60.0, snapshot(state, 1.0));
                 for slot in 0..animator.joint_count() {
                     let delta = animator.joint_delta(slot).expect("delta");
                     assert!(delta.to_cols_array().iter().all(|value| value.is_finite()));
@@ -2933,8 +2956,9 @@ mod tests {
         let before = animator.skin_position([1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], bind);
         assert_eq!(before, bind);
         // Drive the walking pose long enough for the leg to swing.
-        for _ in 0..20 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
+        for _ in 0_i32..20_i32 {
+            let _update_stats =
+                animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
         }
         let walked = animator.skin_position([1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], bind);
         assert!(
@@ -3081,8 +3105,8 @@ mod tests {
         // the walk clip moves it to (0, 9, 0), a 10 m skinning delta.
         let model = rigged_model(vec![constant("Idle", -1.0), constant("Walk", 9.0)]);
         let mut animator = CharacterAnimator::new(&model).expect("clip animator");
-        for _ in 0..60 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Idle, 0.0));
+        for _ in 0_i32..60_i32 {
+            let _update_stats = animator.update(1.0 / 60.0, snapshot(LocomotionState::Idle, 0.0));
         }
         let idle_delta = animator
             .joint_delta(1)
@@ -3091,7 +3115,7 @@ mod tests {
         assert!(idle_delta.y.abs() < 1e-4, "{idle_delta:?}");
         // The first walk frame blends only a fraction in: the pose moves
         // towards the walk clip instead of jumping to it.
-        animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
+        let _update_stats_2 = animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
         let mid_delta = animator
             .joint_delta(1)
             .expect("delta")
@@ -3100,8 +3124,9 @@ mod tests {
             mid_delta.y > 0.0 && mid_delta.y < 9.0,
             "a crossfade must interpolate: {mid_delta:?}"
         );
-        for _ in 0..120 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
+        for _ in 0_i32..120_i32 {
+            let _update_stats_3 =
+                animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 1.4));
         }
         let final_delta = animator
             .joint_delta(1)
@@ -3115,13 +3140,13 @@ mod tests {
         let model = rigged_model(Vec::new());
         let mut animator = CharacterAnimator::new(&model).expect("rig animator");
         let before = animator.allocation_probe();
-        for frame in 0..240 {
-            let state = if frame % 3 == 0 {
+        for frame in 0_i32..240_i32 {
+            let state = if frame % 3_i32 == 0_i32 {
                 LocomotionState::Walking
             } else {
                 LocomotionState::Idle
             };
-            animator.update(1.0 / 60.0, snapshot(state, 1.0));
+            let _update_stats = animator.update(1.0 / 60.0, snapshot(state, 1.0));
         }
         assert_eq!(animator.allocation_probe(), before);
     }
@@ -3160,8 +3185,8 @@ mod tests {
         // And the named global tracks the pose: after walking, the leg's
         // global differs from its rest transform and stays finite.
         let mut moving = animator;
-        for _ in 0..20 {
-            moving.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
+        for _ in 0_i32..20_i32 {
+            let _update_stats = moving.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 2.0));
         }
         let posed = moving.node_global("leg_fl_upper").expect("named node");
         assert!(posed.to_cols_array().iter().all(|value| value.is_finite()));
@@ -3181,8 +3206,9 @@ mod tests {
             }
         }
         let mut animator = CharacterAnimator::new(&model).expect("rig animator");
-        for _ in 0..120 {
-            animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 3.0));
+        for _ in 0_i32..120_i32 {
+            let _update_stats =
+                animator.update(1.0 / 60.0, snapshot(LocomotionState::Walking, 3.0));
         }
         for slot in 0..animator.joint_count() {
             let delta = animator.joint_delta(slot).expect("delta");
@@ -3246,9 +3272,9 @@ mod tests {
             once: true,
             paused: false,
         };
-        animator.update_cued(0.5, &cue);
+        let _update_stats = animator.update_cued(0.5, &cue);
         assert!(!animator.take_cue_finished(), "not finished mid-clip");
-        animator.update_cued(0.6, &cue);
+        let _update_stats_2 = animator.update_cued(0.6, &cue);
         assert!(animator.take_cue_finished(), "finished at the last key");
         assert!(!animator.take_cue_finished(), "completion is consumed once");
         // The held pose is the clip's final translation.
@@ -3265,14 +3291,14 @@ mod tests {
             once: false,
             paused: true,
         };
-        for _ in 0..60 {
-            animator.update_cued(1.0 / 30.0, &paused);
+        for _ in 0_i32..60_i32 {
+            let _update_stats_3 = animator.update_cued(1.0 / 30.0, &paused);
         }
         let first = animator
             .joint_delta(1)
             .expect("delta")
             .transform_point3(Vec3::ZERO);
-        animator.update_cued(2.0, &paused);
+        let _update_stats_4 = animator.update_cued(2.0, &paused);
         let second = animator
             .joint_delta(1)
             .expect("delta")
@@ -3406,7 +3432,7 @@ mod tests {
             once: true,
             paused: false,
         };
-        animator.update_cued(2.0, &once);
+        let _update_stats = animator.update_cued(2.0, &once);
         assert!(animator.take_cue_finished());
         let held = animator
             .joint_delta(1)
@@ -3415,7 +3441,7 @@ mod tests {
         assert!((held.y - 5.0).abs() < 1e-3, "held pose: {held:?}");
         // The first frame of the loop cue keeps the held pose (fade from the
         // current pose, no frame-0 snap).
-        animator.update_cued(0.0, &PoseCue::Idle);
+        let _update_stats_2 = animator.update_cued(0.0, &PoseCue::Idle);
         let frozen = animator
             .joint_delta(1)
             .expect("delta")
@@ -3425,8 +3451,8 @@ mod tests {
             "no frame-0 jump: {frozen:?} vs {held:?}"
         );
         // After the fade the idle pose is reached.
-        for _ in 0..120 {
-            animator.update_cued(1.0 / 60.0, &PoseCue::Idle);
+        for _ in 0_i32..120_i32 {
+            let _update_stats_3 = animator.update_cued(1.0 / 60.0, &PoseCue::Idle);
         }
         let settled = animator
             .joint_delta(1)
@@ -3469,16 +3495,16 @@ mod tests {
             once: true,
             paused: false,
         };
-        animator.update_cued(2.0, &once);
+        let _update_stats = animator.update_cued(2.0, &once);
         // Finish without consuming, then change cues: the stale flag is gone.
-        animator.update_cued(0.0, &PoseCue::Idle);
+        let _update_stats_2 = animator.update_cued(0.0, &PoseCue::Idle);
         assert!(!animator.take_cue_finished(), "completion must not leak");
         // Replay the same one-shot through the explicit restart hook.
-        animator.update_cued(0.0, &once);
+        let _update_stats_3 = animator.update_cued(0.0, &once);
         animator.restart_cue();
-        animator.update_cued(0.5, &once);
+        let _update_stats_4 = animator.update_cued(0.5, &once);
         assert!(!animator.take_cue_finished(), "restarted clip is mid-way");
-        animator.update_cued(1.0, &once);
+        let _update_stats_5 = animator.update_cued(1.0, &once);
         assert!(
             animator.take_cue_finished(),
             "restarted clip completes again"
@@ -3554,34 +3580,45 @@ mod tests {
         assert_eq!((clip, once, paused), (walk, false, false));
         assert!((rate - 1.0).abs() < 1e-5, "walk at its reference: {rate}");
 
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.6 });
+        let (fast_walk_clip, _, _, fast_walk_rate) =
+            animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.6 });
         assert_eq!(
-            clip, run,
+            fast_walk_clip, run,
             "above 1.5x the walk reference, the run gait plays"
         );
         assert!(
-            (rate - 0.5).abs() < 1e-5,
-            "run at half its reference: {rate}"
+            (fast_walk_rate - 0.5).abs() < 1e-5,
+            "run at half its reference: {fast_walk_rate}"
         );
 
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.2 });
-        assert_eq!(clip, run);
-        assert!((rate - 1.0).abs() < 1e-5, "run at its reference: {rate}");
+        let (run_clip, _, _, run_rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.2 });
+        assert_eq!(run_clip, run);
+        assert!(
+            (run_rate - 1.0).abs() < 1e-5,
+            "run at its reference: {run_rate}"
+        );
 
         // A rig with no run clip keeps the walk clip at any speed.
         let walk_only = rigged_model(vec![named_clip("walk", Some(0.35))]);
-        let animator = CharacterAnimator::new(&walk_only).expect("rig animator");
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.4 });
-        assert_eq!(clip, 0);
-        assert!((rate - 4.0).abs() < 1e-5, "the rate clamps at 4x: {rate}");
+        let walk_animator = CharacterAnimator::new(&walk_only).expect("rig animator");
+        let (clamped_walk_clip, _, _, clamped_walk_rate) =
+            walk_animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.4 });
+        assert_eq!(clamped_walk_clip, 0);
+        assert!(
+            (clamped_walk_rate - 4.0).abs() < 1e-5,
+            "the rate clamps at 4x: {clamped_walk_rate}"
+        );
 
         // A clip with no declared reference keeps the historical constant.
         let single_clip = rigged_model(vec![named_clip("walk", None)]);
-        let animator = CharacterAnimator::new(&single_clip).expect("rig animator");
-        let (_, _, _, rate) = animator.resolve_cue(&PoseCue::Walk {
+        let legacy_animator = CharacterAnimator::new(&single_clip).expect("rig animator");
+        let (_, _, _, legacy_rate) = legacy_animator.resolve_cue(&PoseCue::Walk {
             speed_mps: WALK_REFERENCE_SPEED_MPS,
         });
-        assert!((rate - 1.0).abs() < 1e-5, "walk reference: {rate}");
+        assert!(
+            (legacy_rate - 1.0).abs() < 1e-5,
+            "walk reference: {legacy_rate}"
+        );
     }
 
     /// One clip that keys a single node and declares an asset kind, for
@@ -3608,9 +3645,13 @@ mod tests {
         let (clip, once, paused, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.5 });
         assert_eq!((clip, once, paused), (hop, false, false));
         assert!((rate - 1.0).abs() < 1e-5, "hop at its reference: {rate}");
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.25 });
-        assert_eq!(clip, hop);
-        assert!((rate - 0.5).abs() < 1e-5, "half speed: {rate}");
+        let (slow_hop_clip, _, _, slow_hop_rate) =
+            animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.25 });
+        assert_eq!(slow_hop_clip, hop);
+        assert!(
+            (slow_hop_rate - 0.5).abs() < 1e-5,
+            "half speed: {slow_hop_rate}"
+        );
 
         // The sheet ghost declares a float kind; an idle kind is never chosen
         // for a walk cue.
@@ -3618,22 +3659,29 @@ mod tests {
             declared_clip("idle", None, "idle"),
             declared_clip("float_forward", Some(0.3), "float"),
         ]);
-        let animator = CharacterAnimator::new(&ghost).expect("rig animator");
-        let float = animator.clip_index("float_forward").expect("float clip");
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
-        assert_eq!(clip, float);
-        assert!((rate - 1.0).abs() < 1e-5, "float at its reference: {rate}");
+        let ghost_animator = CharacterAnimator::new(&ghost).expect("rig animator");
+        let float = ghost_animator
+            .clip_index("float_forward")
+            .expect("float clip");
+        let (float_clip, _, _, float_rate) =
+            ghost_animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
+        assert_eq!(float_clip, float);
+        assert!(
+            (float_rate - 1.0).abs() < 1e-5,
+            "float at its reference: {float_rate}"
+        );
 
         // Rank order: walk beats float regardless of declaration order.
         let ranked = rigged_model(vec![
             declared_clip("glide", Some(0.4), "float"),
             declared_clip("march", Some(0.8), "walk"),
         ]);
-        let animator = CharacterAnimator::new(&ranked).expect("rig animator");
-        let march = animator.clip_index("march").expect("march clip");
-        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.8 });
-        assert_eq!(clip, march, "walk ranks above float");
-        assert!((rate - 1.0).abs() < 1e-5);
+        let ranked_animator = CharacterAnimator::new(&ranked).expect("rig animator");
+        let march = ranked_animator.clip_index("march").expect("march clip");
+        let (march_clip, _, _, march_rate) =
+            ranked_animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.8 });
+        assert_eq!(march_clip, march, "walk ranks above float");
+        assert!((march_rate - 1.0).abs() < 1e-5);
 
         // No walk clip and no declared locomotion kind keeps the historical
         // first-clip fallback so existing pose-only props are unchanged.
@@ -3641,9 +3689,12 @@ mod tests {
             named_clip("pose_stand", None),
             named_clip("pose_sit", None),
         ]);
-        let animator = CharacterAnimator::new(&pose_only).expect("rig animator");
-        let (clip, _, _, _) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
-        assert_eq!(clip, 0, "the first clip is the historical fallback");
+        let pose_animator = CharacterAnimator::new(&pose_only).expect("rig animator");
+        let (fallback_clip, _, _, _) = pose_animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.3 });
+        assert_eq!(
+            fallback_clip, 0,
+            "the first clip is the historical fallback"
+        );
     }
 
     // ------------------------------------------------- runtime characters
@@ -3755,17 +3806,17 @@ mod tests {
             std::slice::from_ref(&frame),
         );
         assert_eq!(update.moved, 1, "the runtime actor moved");
-        let character = scene.runtime_character("rat#1").expect("live");
-        let followed = character.transform().transform_point3(Vec3::ZERO);
+        let moved_character = scene.runtime_character("rat#1").expect("live");
+        let followed = moved_character.transform().transform_point3(Vec3::ZERO);
         assert!(
             (followed - Vec3::new(2.0, 0.5, -1.0)).length() < 1e-4,
             "the frame's live transform drives the runtime actor: {followed:?}"
         );
         assert!(
-            character.animator().has_pose_cue(),
+            moved_character.animator().has_pose_cue(),
             "the frame's cue is playing"
         );
-        let revision = character.animator().revision();
+        let revision = moved_character.animator().revision();
 
         // With no frame it holds its pose: the player's locomotion snapshot
         // must not drag a runtime actor into walking.
@@ -3786,7 +3837,10 @@ mod tests {
     /// the intensity scales by the clamped opacity, the offset is entity-local
     /// metres, and a zero opacity or a missing glow removes the light.
     #[test]
-    #[allow(clippy::too_many_lines)] // one cohesive fade/glow lifecycle with its fixtures
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one cohesive fade/glow lifecycle with its fixtures"
+    )] // one cohesive fade/glow lifecycle with its fixtures
     fn a_frame_opacity_and_glow_drive_the_attached_light_set() {
         use crate::entity::GlowCue;
 
@@ -3814,20 +3868,20 @@ mod tests {
             range: 4.0,
             fade_with_opacity: true,
         };
-        let frame = |opacity: f32, glow: Option<GlowCue>| EntityFrame {
+        let frame = |opacity: f32, frame_glow: Option<GlowCue>| EntityFrame {
             instance_id: "rat#1".to_string(),
             transform: None,
             cue: PoseCue::Idle,
             opacity,
-            glow,
+            glow: frame_glow,
         };
 
         // A fading, glowing frame: intensity 2.0 * 0.25, at the local offset.
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(0.25, Some(glow.clone()))],
-        );
+        ));
         let character = scene.runtime_character("rat#1").expect("live");
         assert_exact(character.opacity(), 0.25);
         let lights = scene.dynamic_lights();
@@ -3847,7 +3901,7 @@ mod tests {
 
         // `fade_with_opacity: false` keeps the full intensity, and an
         // out-of-range opacity clamps to one.
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(
@@ -3857,7 +3911,7 @@ mod tests {
                     ..glow.clone()
                 }),
             )],
-        );
+        ));
         assert_exact(
             scene.runtime_character("rat#1").expect("live").opacity(),
             1.0,
@@ -3872,11 +3926,11 @@ mod tests {
         );
 
         // Opacity zero removes the light; the character stays at zero.
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(0.0, Some(glow.clone()))],
-        );
+        ));
         assert_exact(
             scene.runtime_character("rat#1").expect("live").opacity(),
             0.0,
@@ -3884,37 +3938,37 @@ mod tests {
         assert!(scene.dynamic_lights().is_empty());
 
         // A vanished glow removes the light even at full opacity.
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(1.0, Some(glow.clone()))],
-        );
+        ));
         assert_eq!(scene.dynamic_lights().len(), 1);
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(1.0, None)],
-        );
+        ));
         assert!(scene.dynamic_lights().is_empty());
 
         // A non-finite opacity falls back to fully opaque instead of poisoning
         // the uniform, and a frame-less pass removes a stale light.
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(f32::NAN, Some(glow.clone()))],
-        );
+        ));
         assert_exact(
             scene.runtime_character("rat#1").expect("live").opacity(),
             1.0,
         );
-        scene.update(
+        drop(scene.update(
             1.0 / 60.0,
             snapshot(LocomotionState::Idle, 0.0),
             &[frame(1.0, Some(glow))],
-        );
+        ));
         assert_eq!(scene.dynamic_lights().len(), 1);
-        scene.update(1.0 / 60.0, snapshot(LocomotionState::Idle, 0.0), &[]);
+        drop(scene.update(1.0 / 60.0, snapshot(LocomotionState::Idle, 0.0), &[]));
         assert!(
             scene.dynamic_lights().is_empty(),
             "a frame-less pass must not leave a stale light"
@@ -4046,26 +4100,27 @@ mod tests {
         let id = rigid
             .spawn(&asset, [0.0, 1.0, 0.0], 0.0, 0.5, 0.0)
             .expect("rigid");
-        rigid.update_with_field(0.0, Some(&lighting), Some(&field));
+        let _update_stats = rigid.update_with_field(0.0, Some(&lighting), Some(&field));
         scene.refresh_lighting(&lighting, Some(&field));
         assert_eq!(rigid.get(id).expect("object").centre().to_array(), centre);
         assert_eq!(
             Some(actor_light(&scene)),
             rigid.get(id).expect("rigid").entity_lighting()
         );
-        let actor = scene.runtime_character("neutral").expect("actor");
+        let spawned_actor = scene.runtime_character("neutral").expect("actor");
         assert_eq!(
-            actor.albedo()[0],
+            spawned_actor.albedo()[0],
             asset.model.vertices[0].color,
             "lighting is never baked into albedo"
         );
-        let initial = actor.entity_lighting();
-        scene.set_runtime_character_transform("neutral", Vec3::new(1.0, 1.0, 0.0), 0.0);
+        let initial = spawned_actor.entity_lighting();
+        let _runtime_character_transform_changed =
+            scene.set_runtime_character_transform("neutral", Vec3::new(1.0, 1.0, 0.0), 0.0);
         scene.refresh_lighting(&lighting, Some(&field));
         assert!(actor_light(&scene).display[0] > initial.display[0]);
         // Low disables the field; Medium/High replacements restore it at the
         // actor's current transform, independently of pose revision.
-        for _ in 0..3 {
+        for _ in 0_i32..3_i32 {
             scene.refresh_lighting(&lighting, None);
             assert!(actor_light(&scene).prepared.is_none());
             for value in [0.2, 0.6] {

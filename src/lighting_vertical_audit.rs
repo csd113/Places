@@ -28,7 +28,8 @@
     clippy::cast_sign_loss,
     clippy::indexing_slicing,
     clippy::missing_const_for_fn,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 mod tests {
     use crate::level::LevelDef;
@@ -49,11 +50,11 @@ mod tests {
     /// A stacked building authors `y` on a ceiling fixture so the bake can tell
     /// which storey it belongs to, exactly like a wall fixture.
     pub(super) fn fixture_at(x: f32, y: f32, z: f32, color: Option<[f32; 3]>) -> String {
-        let color = color.map_or_else(String::new, |color| {
-            format!(r#", "color": [{}, {}, {}]"#, color[0], color[1], color[2])
+        let color_field = color.map_or_else(String::new, |rgb| {
+            format!(r#", "color": [{}, {}, {}]"#, rgb[0], rgb[1], rgb[2])
         });
         format!(
-            r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "y": {y}{color} }}"#
+            r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "y": {y}{color_field} }}"#
         )
     }
 

@@ -7,12 +7,11 @@
 // Test code: panic/expect, indexing and permissive arithmetic are idiomatic.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::wildcard_enum_match_arm
+    clippy::wildcard_enum_match_arm,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::io::Write as _;
@@ -98,7 +97,7 @@ fn binary_primitives_round_trip_and_reject_truncation() {
     assert_eq!(reader.u16().expect("u16"), 0x1234);
     assert_eq!(reader.u32().expect("u32"), 0xDEAD_BEEF);
     assert_eq!(reader.u64().expect("u64"), u64::MAX);
-    assert_eq!(reader.i32().expect("i32"), -7);
+    assert_eq!(reader.i32().expect("i32"), -7_i32);
     assert_eq!(reader.f32().expect("f32").to_bits(), 1.5_f32.to_bits());
     assert!(reader.bool().expect("bool"));
     assert_eq!(reader.str(16).expect("string"), "hello");
@@ -108,31 +107,39 @@ fn binary_primitives_round_trip_and_reject_truncation() {
     // Truncation is an error, never a panic or a silent short read.
     for cut in 0..bytes.len() {
         let result = (|| -> Result<(), String> {
-            let mut reader = Reader::new(&bytes[..cut]);
-            reader.u8()?;
-            reader.u16()?;
-            reader.u32()?;
-            reader.u64()?;
-            reader.i32()?;
-            reader.f32()?;
-            reader.bool()?;
-            reader.str(16)?;
-            reader.blob(16)?;
-            reader.u16s(16)?;
+            let mut truncated_reader = Reader::new(&bytes[..cut]);
+            let _u8_status = truncated_reader.u8()?;
+            let _u16_status = truncated_reader.u16()?;
+            let _u32_status = truncated_reader.u32()?;
+            let _u64_status = truncated_reader.u64()?;
+            let _i32_status = truncated_reader.i32()?;
+            let _f32_status = truncated_reader.f32()?;
+            let _bool_status = truncated_reader.bool()?;
+            drop(truncated_reader.str(16)?);
+            drop(truncated_reader.blob(16)?);
+            drop(truncated_reader.u16s(16)?);
             Ok(())
         })();
         assert!(result.is_err(), "a record cut at {cut} must error");
     }
     // Length-prefixed reads are bounded before allocation.
-    let mut reader = Reader::new(&bytes);
-    assert!(reader.str(4).is_err(), "an oversized string is rejected");
+    let mut bounded_reader = Reader::new(&bytes);
+    assert!(
+        bounded_reader.str(4).is_err(),
+        "an oversized string is rejected"
+    );
 }
 
 #[test]
 fn ktx2_round_trips_a_2d_array_and_a_cube() {
     let edge = 4_u32;
-    let layers: Vec<Vec<u8>> = (0..2)
-        .map(|layer| vec![layer as u8; (edge * edge * 4) as usize])
+    let layers: Vec<Vec<u8>> = (0_i32..2_i32)
+        .map(|layer| {
+            vec![
+                u8::try_from(layer).expect("fixture integer fits u8");
+                usize::try_from(edge * edge * 4).expect("fixture integer fits usize")
+            ]
+        })
         .collect();
     let encoded = ktx2::write_rgba8_2d_array(edge, &layers).expect("2D array encodes");
     let decoded = ktx2::read_rgba8(&encoded).expect("2D array decodes");
@@ -143,22 +150,34 @@ fn ktx2_round_trips_a_2d_array_and_a_cube() {
     assert_eq!(decoded.levels.len(), 1, "one mip level");
     assert_eq!(decoded.levels[0], flattened, "level data is layer-major");
 
-    let faces: Vec<Vec<u8>> = (0..6)
-        .map(|face| vec![face as u8; (edge * edge * 4) as usize])
+    let faces: Vec<Vec<u8>> = (0_i32..6_i32)
+        .map(|face| {
+            vec![
+                u8::try_from(face).expect("fixture integer fits u8");
+                usize::try_from(edge * edge * 4).expect("fixture integer fits usize")
+            ]
+        })
         .collect();
-    let encoded = ktx2::write_rgba8_cube(edge, &faces).expect("cube encodes");
-    let decoded = ktx2::read_rgba8(&encoded).expect("cube decodes");
-    assert_eq!(decoded.faces, 6);
-    assert_eq!(decoded.layers, 0);
-    let flattened: Vec<u8> = faces.iter().flatten().copied().collect();
-    assert_eq!(decoded.levels.len(), 1);
-    assert_eq!(decoded.levels[0], flattened, "level data is face-major");
+    let encoded_cube = ktx2::write_rgba8_cube(edge, &faces).expect("cube encodes");
+    let decoded_cube = ktx2::read_rgba8(&encoded_cube).expect("cube decodes");
+    assert_eq!(decoded_cube.faces, 6);
+    assert_eq!(decoded_cube.layers, 0);
+    let flattened_faces: Vec<u8> = faces.iter().flatten().copied().collect();
+    assert_eq!(decoded_cube.levels.len(), 1);
+    assert_eq!(
+        decoded_cube.levels[0], flattened_faces,
+        "level data is face-major"
+    );
 }
 
 #[test]
 fn ktx2_rejects_unsupported_subset_violations() {
     let edge = 2_u32;
-    let layers = vec![vec![9_u8; (edge * edge * 4) as usize]];
+    let layers = vec![vec![
+        9_u8;
+        usize::try_from(edge * edge * 4)
+            .expect("fixture integer fits usize")
+    ]];
     let encoded = ktx2::write_rgba8_2d_array(edge, &layers).expect("payload encodes");
 
     let mut wrong_magic = encoded.clone();
@@ -196,9 +215,14 @@ fn ktx2_rejects_unsupported_subset_violations() {
 /// deterministic pattern, so a round trip can be compared for exactness.
 fn f16_image(edge: u32, seed: u16) -> Vec<u8> {
     let texels = edge * edge;
-    let mut out = Vec::with_capacity((texels * 8) as usize);
+    let mut out =
+        Vec::with_capacity(usize::try_from(texels * 8).expect("fixture integer fits usize"));
     for index in 0..texels {
-        let value = f32::from((index as u16).wrapping_add(seed));
+        let value = f32::from(
+            u16::try_from(index)
+                .expect("fixture integer fits u16")
+                .wrapping_add(seed),
+        );
         for channel in 0..4_u16 {
             let bits = ktx2::f32_to_f16_bits((value + f32::from(channel)) * 0.25);
             out.extend_from_slice(&bits.to_le_bytes());
@@ -350,38 +374,45 @@ fn ktx2_round_trips_rgba16f_arrays() {
 
     // A single layer is the common prefiltered shape.
     let single = vec![f16_image(edge, 7)];
-    let encoded = ktx2::write_rgba16f_2d_array(edge, &single).expect("single layer encodes");
-    let decoded = ktx2::read_rgba16f(&encoded).expect("single layer decodes");
-    assert_eq!(decoded.layers, 1);
-    assert_eq!(decoded.levels[0], single[0]);
+    let encoded_single = ktx2::write_rgba16f_2d_array(edge, &single).expect("single layer encodes");
+    let decoded_single = ktx2::read_rgba16f(&encoded_single).expect("single layer decodes");
+    assert_eq!(decoded_single.layers, 1);
+    assert_eq!(decoded_single.levels[0], single[0]);
 
     // The two readers never cross-accept formats.
     let rgba8 = {
-        let layers = vec![vec![3_u8; (edge * edge * 4) as usize]];
-        ktx2::write_rgba8_2d_array(edge, &layers).expect("RGBA8 encodes")
+        let rgba8_layers = vec![vec![
+            3_u8;
+            usize::try_from(edge * edge * 4)
+                .expect("fixture integer fits usize")
+        ]];
+        ktx2::write_rgba8_2d_array(edge, &rgba8_layers).expect("RGBA8 encodes")
     };
     assert!(ktx2::read_rgba16f(&rgba8).is_err(), "RGBA8 is not RGBA16F");
-    assert!(ktx2::read_rgba8(&encoded).is_err(), "RGBA16F is not RGBA8");
+    assert!(
+        ktx2::read_rgba8(&encoded_single).is_err(),
+        "RGBA16F is not RGBA8"
+    );
 
     // Header and descriptor tampering is rejected by name.
-    let mut wrong_magic = encoded.clone();
+    let mut wrong_magic = encoded_single.clone();
     wrong_magic[0] = 0;
     assert!(ktx2::read_rgba16f(&wrong_magic).is_err());
-    let mut wrong_type = encoded.clone();
+    let mut wrong_type = encoded_single.clone();
     wrong_type[16..20].copy_from_slice(&4_u32.to_le_bytes());
     assert!(ktx2::read_rgba16f(&wrong_type).is_err());
-    let mut wrong_dfd = encoded.clone();
+    let mut wrong_dfd = encoded_single.clone();
     wrong_dfd[104 + 20] ^= 0xFF; // bytesPlane[0], the RGBA16F marker
     assert!(ktx2::read_rgba16f(&wrong_dfd).is_err());
 
     // A level whose declared length disagrees with the dimensions is rejected
     // before allocation: the single level index sits at bytes 80..104.
-    let mut bad_length = encoded.clone();
+    let mut bad_length = encoded_single.clone();
     bad_length[88..96].copy_from_slice(&8_u64.to_le_bytes());
     bad_length[96..104].copy_from_slice(&8_u64.to_le_bytes());
     assert!(ktx2::read_rgba16f(&bad_length).is_err());
-    assert!(ktx2::read_rgba16f(&encoded[..encoded.len() - 1]).is_err());
-    let mut trailing = encoded;
+    assert!(ktx2::read_rgba16f(&encoded_single[..encoded_single.len() - 1]).is_err());
+    let mut trailing = encoded_single;
     trailing.push(0);
     assert!(
         ktx2::read_rgba16f(&trailing).is_err(),
@@ -401,7 +432,12 @@ fn ktx2_round_trips_an_rgba8_cube_with_mip_chain() {
         .map(|level| {
             let level_edge = edge >> level;
             std::array::from_fn(|face| {
-                vec![(level * 6 + face as u32) as u8; (level_edge * level_edge * 4) as usize]
+                vec![
+                    u8::try_from(level * 6 + u32::try_from(face).expect("fixture integer fits u32"))
+                        .expect("fixture integer fits u8");
+                    usize::try_from(level_edge * level_edge * 4)
+                        .expect("fixture integer fits usize")
+                ]
             })
         })
         .collect();
@@ -411,9 +447,9 @@ fn ktx2_round_trips_an_rgba8_cube_with_mip_chain() {
     assert_eq!(decoded.faces, 6);
     assert_eq!(decoded.layers, 0);
     assert_eq!(decoded.levels.len(), 3, "every mip level survives");
-    for (level, (original, decoded)) in levels.iter().zip(&decoded.levels).enumerate() {
+    for (level, (original, decoded_mip)) in levels.iter().zip(&decoded.levels).enumerate() {
         let expected: Vec<u8> = original.iter().flatten().copied().collect();
-        assert_eq!(*decoded, expected, "level {level} is face-major");
+        assert_eq!(*decoded_mip, expected, "level {level} is face-major");
     }
 
     // A level whose declared length does not match `edge >> level` is
@@ -434,7 +470,13 @@ fn ktx2_round_trips_an_rgba8_cube_with_mip_chain() {
     let too_deep: Vec<[Vec<u8>; 6]> = (0..5_u32)
         .map(|level| {
             let level_edge = edge >> level;
-            std::array::from_fn(|_| vec![0_u8; (level_edge * level_edge * 4) as usize])
+            std::array::from_fn(|_| {
+                vec![
+                    0_u8;
+                    usize::try_from(level_edge * level_edge * 4)
+                        .expect("fixture integer fits usize")
+                ]
+            })
         })
         .collect();
     assert!(ktx2::write_rgba8_cube_with_mips(edge, &too_deep).is_err());
@@ -508,9 +550,9 @@ fn archives_round_trip_deterministically_and_reject_traversal() {
     ] {
         let path = dir.join(format!("{tag}.placesmap"));
         write_adversarial_zip(&path, &names);
-        let file = std::fs::File::open(&path).expect("open adversarial");
+        let adversarial_file = std::fs::File::open(&path).expect("open adversarial");
         assert!(
-            PackageReader::new(file).is_err(),
+            PackageReader::new(adversarial_file).is_err(),
             "{tag} archive must be rejected"
         );
     }
@@ -530,10 +572,10 @@ fn archives_round_trip_deterministically_and_reject_traversal() {
     let names: Vec<String> = (0..=MAX_ENTRIES).map(|index| format!("e{index}")).collect();
     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
     write_adversarial_zip(&path, &refs);
-    let file = std::fs::File::open(&path).expect("open many");
-    assert!(PackageReader::new(file).is_err());
+    let many_file = std::fs::File::open(&path).expect("open many");
+    assert!(PackageReader::new(many_file).is_err());
 
-    let _ = std::fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
 }
 
 /// Builds a bare ZIP end-of-central-directory plus central directory carrying
@@ -590,7 +632,7 @@ fn write_adversarial_zip(path: &std::path::Path, names: &[&str]) {
         writer.start_file(*name, options).expect("start entry");
         writer.write_all(b"x").expect("write entry");
     }
-    writer.finish().expect("finish zip");
+    drop(writer.finish().expect("finish zip"));
 }
 
 fn role_entry(name: &str, role: &str) -> super::PackageEntry {
@@ -708,11 +750,11 @@ fn mesh_records_round_trip_and_reject_malformed_input() {
     assert_eq!(decoded.vertex_count, build.mesh.vertex_count);
     assert_eq!(decoded.index_count, build.mesh.index_count);
     assert_eq!(decoded.batches.floor_batch, build.mesh.batches.floor_batch);
-    for (original, decoded) in build.mesh.ranges.iter().zip(&decoded.ranges) {
-        assert_eq!(original.key, decoded.key);
-        assert_eq!(original.vertices, decoded.vertices);
-        assert_eq!(original.indices, decoded.indices);
-        assert_eq!(original.bounds, decoded.bounds);
+    for (original, decoded_range) in build.mesh.ranges.iter().zip(&decoded.ranges) {
+        assert_eq!(original.key, decoded_range.key);
+        assert_eq!(original.vertices, decoded_range.vertices);
+        assert_eq!(original.indices, decoded_range.indices);
+        assert_eq!(original.bounds, decoded_range.bounds);
     }
     assert!(super::mesh::read_mesh(&bytes[..bytes.len() - 3]).is_err());
     assert!(super::mesh::read_mesh(&[0, 1, 2, 3]).is_err());
@@ -754,18 +796,21 @@ fn a_mesh_material_past_the_former_u16_boundary_round_trips() {
     let bytes = super::mesh::write_mesh(&mesh).expect("mesh encodes");
     let decoded = super::mesh::read_mesh(&bytes).expect("mesh decodes");
     assert_eq!(
-        decoded.ranges.first().map(|range| range.key.material),
+        decoded
+            .ranges
+            .first()
+            .map(|decoded_range| decoded_range.key.material),
         Some(70_000),
         "the widened material index survives the record"
     );
 
     // One past the explicit level material budget is refused by name.
     let mut too_wide = mesh;
-    if let Some(range) = too_wide.ranges.first_mut() {
-        range.key.material = super::MAX_MESH_MATERIALS.saturating_add(1);
+    if let Some(wide_range) = too_wide.ranges.first_mut() {
+        wide_range.key.material = super::MAX_MESH_MATERIALS.saturating_add(1);
     }
-    let bytes = super::mesh::write_mesh(&too_wide).expect("mesh encodes");
-    let error = super::mesh::read_mesh(&bytes)
+    let wide_bytes = super::mesh::write_mesh(&too_wide).expect("mesh encodes");
+    let error = super::mesh::read_mesh(&wide_bytes)
         .err()
         .expect("an over-budget material is rejected");
     assert!(
@@ -793,12 +838,12 @@ fn prop_records_round_trip_with_textures_reattached_at_load() {
     let bytes = super::props::write_props(&build.batches).expect("props encode");
     let decoded = super::props::read_props(&bytes).expect("props decode");
     assert_eq!(decoded.len(), build.batches.len());
-    for (original, decoded) in build.batches.iter().zip(&decoded) {
-        assert_eq!(original.model, decoded.model);
-        assert_eq!(original.vertices, decoded.vertices);
-        assert_eq!(original.indices, decoded.indices);
+    for (original, decoded_batch) in build.batches.iter().zip(&decoded) {
+        assert_eq!(original.model, decoded_batch.model);
+        assert_eq!(original.vertices, decoded_batch.vertices);
+        assert_eq!(original.indices, decoded_batch.indices);
         assert!(
-            decoded.textures.is_empty(),
+            decoded_batch.textures.is_empty(),
             "pixels travel by model reference"
         );
     }
@@ -901,16 +946,16 @@ fn lightmap_records_round_trip_charts_and_pages() {
     assert_eq!(decoded.charts.len(), atlas.charts.len());
     assert_eq!(decoded.cache_key, atlas.cache_key);
     assert_eq!(decoded.padding, atlas.padding);
-    for (original, decoded) in atlas.pages.iter().zip(&decoded.pages) {
-        assert_eq!(original.width, decoded.width);
+    for (original, decoded_page) in atlas.pages.iter().zip(&decoded.pages) {
+        assert_eq!(original.width, decoded_page.width);
         assert_eq!(
             original.texels.len(),
-            decoded.texels.len(),
+            decoded_page.texels.len(),
             "page texel count is exact"
         );
         // The container stores half floats, so every channel is compared at
         // f16 precision: the test cannot ask for more than the format keeps.
-        for (expected, actual) in original.texels.iter().zip(&decoded.texels) {
+        for (expected, actual) in original.texels.iter().zip(&decoded_page.texels) {
             for channel in 0..3 {
                 let wanted = crate::package::ktx2::f16_bits_to_f32(
                     crate::package::ktx2::f32_to_f16_bits(expected.irradiance[channel]),
@@ -920,20 +965,20 @@ fn lightmap_records_round_trip_charts_and_pages() {
                     "irradiance channel {channel}: {} vs {wanted}",
                     actual.irradiance[channel]
                 );
-                let wanted = crate::package::ktx2::f16_bits_to_f32(
+                let wanted_direction = crate::package::ktx2::f16_bits_to_f32(
                     crate::package::ktx2::f32_to_f16_bits(expected.direction[channel]),
                 );
                 assert!(
-                    (actual.direction[channel] - wanted).abs() <= 1.0e-3,
-                    "direction channel {channel}: {} vs {wanted}",
+                    (actual.direction[channel] - wanted_direction).abs() <= 1.0e-3,
+                    "direction channel {channel}: {} vs {wanted_direction}",
                     actual.direction[channel]
                 );
-                let wanted = crate::package::ktx2::f16_bits_to_f32(
+                let wanted_axis = crate::package::ktx2::f16_bits_to_f32(
                     crate::package::ktx2::f32_to_f16_bits(expected.axis[channel.min(1)]),
                 );
                 assert!(
-                    (actual.axis[channel.min(1)] - wanted).abs() <= 1.0e-3,
-                    "axis channel {channel}: {} vs {wanted}",
+                    (actual.axis[channel.min(1)] - wanted_axis).abs() <= 1.0e-3,
+                    "axis channel {channel}: {} vs {wanted_axis}",
                     actual.axis[channel.min(1)]
                 );
             }
@@ -1088,7 +1133,7 @@ fn compiler_builds_validates_reuses_and_keeps_failed_outputs() {
         "a failed build leaves the previous package untouched"
     );
 
-    let _ = std::fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
 }
 
 #[test]
@@ -1107,14 +1152,14 @@ fn compiler_rebuilds_a_corrupted_package_and_keeps_inputs_read_only() {
         force: false,
         capture_probes: false,
     };
-    crate::compiler::build(&request).expect("initial build");
+    drop(crate::compiler::build(&request).expect("initial build"));
     let good = std::fs::read(&out).expect("package exists");
 
     // A stale interrupted artifact beside the output must not block a build and
     // must be replaced by the published archive.
     let partial = dir.join("fixture.placesmap.partial");
     std::fs::write(&partial, b"half-written").expect("stale partial");
-    crate::compiler::build(&request).expect("rebuild over a stale partial");
+    drop(crate::compiler::build(&request).expect("rebuild over a stale partial"));
 
     // Rewrite the package with one blob's bytes changed and the manifest left
     // alone: the fingerprint still matches, so only the integrity check can
@@ -1150,7 +1195,7 @@ fn compiler_rebuilds_a_corrupted_package_and_keeps_inputs_read_only() {
     );
     let report = crate::compiler::build(&request).expect("rebuild after corruption");
     assert!(report.rebuilt, "a corrupted package is rebuilt, not reused");
-    crate::compiler::validate(&out).expect("the rebuilt package validates");
+    drop(crate::compiler::validate(&out).expect("the rebuilt package validates"));
     assert!(
         std::fs::read(&out).expect("package exists") != good || report.rebuilt,
         "the published archive is either repaired or deliberately rebuilt"
@@ -1161,7 +1206,66 @@ fn compiler_rebuilds_a_corrupted_package_and_keeps_inputs_read_only() {
         source_before,
         "compilation never changes its source"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
+}
+
+#[test]
+fn archive_publication_preserves_a_preexisting_temporary_file() {
+    let dir = scratch_dir("exclusive-temporary");
+    let output = dir.join("map.placesmap");
+    let temporary = dir.join("map.placesmap.partial");
+    std::fs::write(&output, b"previous package").expect("existing package");
+    std::fs::write(&temporary, b"unowned file").expect("existing temporary");
+    write_archive(
+        &output,
+        vec![PendingEntry {
+            name: "manifest.json".to_string(),
+            bytes: b"{}".to_vec(),
+        }],
+    )
+    .expect("publish through an exclusively owned sibling");
+    let mut reader = PackageReader::new(std::fs::File::open(&output).expect("output exists"))
+        .expect("complete archive publishes");
+    assert_eq!(
+        reader.read_entry("manifest.json", 2).expect("manifest"),
+        b"{}"
+    );
+    assert_eq!(
+        std::fs::read(&temporary).expect("temporary survives"),
+        b"unowned file"
+    );
+    std::fs::remove_dir_all(&dir).expect("remove test directory");
+}
+
+#[cfg(unix)]
+#[test]
+fn archive_publication_never_follows_a_temporary_symlink() {
+    let dir = scratch_dir("temporary-symlink");
+    let victim = dir.join("unrelated.txt");
+    let output = dir.join("map.placesmap");
+    let temporary = dir.join("map.placesmap.partial");
+    std::fs::write(&victim, b"untouched").expect("victim file");
+    std::os::unix::fs::symlink(&victim, &temporary).expect("temporary symlink");
+    write_archive(
+        &output,
+        vec![PendingEntry {
+            name: "manifest.json".to_string(),
+            bytes: b"{}".to_vec(),
+        }],
+    )
+    .expect("publish without following the unowned symlink");
+    assert_eq!(
+        std::fs::read(&victim).expect("victim survives"),
+        b"untouched"
+    );
+    let _reader = PackageReader::new(std::fs::File::open(&output).expect("output exists"))
+        .expect("complete archive publishes");
+    assert!(
+        std::fs::symlink_metadata(&temporary)
+            .expect("unowned link survives")
+            .is_symlink()
+    );
+    std::fs::remove_dir_all(&dir).expect("remove test directory");
 }
 
 #[test]
@@ -1187,7 +1291,7 @@ fn archive_publication_is_atomic_and_deterministic_for_collections() {
     // The published archives are byte-identical across a rebuild from scratch.
     let first_one = std::fs::read(dir.join("one.placesmap")).expect("one package");
     let first_two = std::fs::read(dir.join("two.placesmap")).expect("two package");
-    let results = crate::compiler::build_collection(
+    let repeated_results = crate::compiler::build_collection(
         &dir,
         &std::path::PathBuf::from("assets"),
         &[crate::quality::LightmapQuality::Off],
@@ -1195,7 +1299,7 @@ fn archive_publication_is_atomic_and_deterministic_for_collections() {
         true,
     )
     .expect("forced collection rebuild");
-    assert!(results.iter().all(Result::is_ok));
+    assert!(repeated_results.iter().all(Result::is_ok));
     assert_eq!(
         std::fs::read(dir.join("one.placesmap")).expect("one package"),
         first_one,
@@ -1230,13 +1334,13 @@ fn archive_publication_is_atomic_and_deterministic_for_collections() {
         force: true,
         capture_probes: false,
     };
-    crate::compiler::build(&request).expect("first lit build");
+    drop(crate::compiler::build(&request).expect("first lit build"));
     let first_lit = std::fs::read(dir.join("lit.placesmap")).expect("lit package");
-    crate::compiler::build(&request).expect("second lit build");
+    drop(crate::compiler::build(&request).expect("second lit build"));
     assert_eq!(
         std::fs::read(dir.join("lit.placesmap")).expect("lit package"),
         first_lit,
         "a lightmapped package is byte-identical across builds"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    crate::test_support::remove_dir_if_present(&dir);
 }

@@ -103,7 +103,7 @@ pub fn step_resolution(
         .iter()
         .position(|size| *size == current)
         .unwrap_or_else(|| nearest_resolution_index(choices, current));
-    let next = if direction < 0 {
+    let next = if direction < 0_i32 {
         index
             .checked_sub(1)
             .unwrap_or_else(|| choices.len().saturating_sub(1))
@@ -160,7 +160,12 @@ pub fn fit_window_to_bounds(size: (u32, u32), bounds: (u32, u32)) -> (u32, u32) 
 /// Scales one window edge, flooring to a whole pixel and never to zero.
 fn scale_edge(edge: u32, factor: f64) -> u32 {
     let scaled = (f64::from(edge) * factor).floor();
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The floored nonnegative dimension is clamped within 1..=u32::MAX before conversion."
+    )]
     // `edge` is a `u32` and `factor` is in `(0, 1]`, so the product is in
     // `[0, u32::MAX]` and non-negative; the clamp only guards the fractional
     // rounding.
@@ -198,7 +203,10 @@ pub fn resolution_label(settings: &Settings, status: DisplayStatus) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)]
+    #![allow(
+        clippy::float_cmp,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 
@@ -265,10 +273,10 @@ mod tests {
     fn fitting_keeps_the_aspect_and_never_leaves_the_work_area() {
         let fitted = fit_window_to_bounds((1920, 1080), (1512, 900));
         assert!(fitted.0 <= 1512 && fitted.1 <= 900);
-        let source_aspect = 1920.0 / 1080.0;
+        let source_aspect = 1_920.0_f64 / 1_080.0_f64;
         let fitted_aspect = f64::from(fitted.0) / f64::from(fitted.1);
         assert!(
-            (source_aspect - fitted_aspect).abs() < 0.01,
+            (source_aspect - fitted_aspect).abs() < 0.01_f64,
             "{fitted:?} must keep 16:9"
         );
         // A size that already fits is untouched.
@@ -300,7 +308,7 @@ mod tests {
             ),
             "1920 x 1080"
         );
-        settings.set_window_size(2560, 1440);
+        let _window_size_changed = settings.set_window_size(2560, 1440);
         assert_eq!(
             resolution_label(
                 &settings,

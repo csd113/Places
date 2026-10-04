@@ -8,7 +8,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut text = String::with_capacity(64);
     for byte in digest {
-        text.push(char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'));
+        text.push(char::from_digit(u32::from(byte >> 4_i32), 16).unwrap_or('0'));
         text.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
     }
     text

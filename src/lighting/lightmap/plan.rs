@@ -336,6 +336,6 @@ impl LightmapPlan {
                 ),
             );
         }
-        self.failure.get_or_insert(failure);
+        let _configured_get_or_insert = self.failure.get_or_insert(failure);
     }
 }

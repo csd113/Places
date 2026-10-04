@@ -22,12 +22,25 @@
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "These isolated CLI fixtures fail immediately on invalid setup, process execution or discovery output."
 )]
 
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
+
+/// Removes only this test's staging directory; absence is the sole expected error.
+fn remove_stage(path: &Path) {
+    if let Err(error) = fs::remove_dir_all(path) {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::NotFound,
+            "cannot clean CLI fixture {}: {error}",
+            path.display()
+        );
+    }
+}
 
 /// The binary under test, built by cargo for this integration test target.
 const PLACES: &str = env!("CARGO_BIN_EXE_places");
@@ -36,12 +49,12 @@ const PLACES: &str = env!("CARGO_BIN_EXE_places");
 /// `PLACES_ASSET_ROOT` / `PLACES_STATE_ROOT` overrides.
 fn list_levels(cwd: &Path, asset_root: Option<&Path>, state_root: Option<&Path>) -> Output {
     let mut command = Command::new(PLACES);
-    command.arg("--list-levels").current_dir(cwd);
+    let _configured_command = command.arg("--list-levels").current_dir(cwd);
     if let Some(root) = asset_root {
-        command.env("PLACES_ASSET_ROOT", root);
+        let _configured_asset_root = command.env("PLACES_ASSET_ROOT", root);
     }
     if let Some(root) = state_root {
-        command.env("PLACES_STATE_ROOT", root);
+        let _configured_state_root = command.env("PLACES_STATE_ROOT", root);
     }
     command.output().expect("places --list-levels runs")
 }
@@ -121,7 +134,7 @@ fn packaged_layout_lists_only_packages() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
     let stage =
         std::env::temp_dir().join(format!("places-list-levels-stage-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&stage);
+    remove_stage(&stage);
     let assets = stage.join("assets/levels");
     let state_root = stage.join("state");
     let levels = state_root.join("levels");
@@ -136,14 +149,14 @@ fn packaged_layout_lists_only_packages() {
     ];
     for source in bundled {
         let name = source.file_name().expect("package name");
-        fs::copy(&source, assets.join(name)).expect("stage the package");
+        let _copied_bytes = fs::copy(&source, assets.join(name)).expect("stage the package");
     }
     // A source beside its package is expected content, not a warning.
     fs::write(assets.join("places_demo.json"), "{}").expect("stage a source");
     // A dropped-in package in the writable directory is a row.
     let drop_in = repo.join("levels/geometry_intentional.placesmap");
     if drop_in.exists() {
-        fs::copy(&drop_in, levels.join("geometry_intentional.placesmap"))
+        let _copied_bytes = fs::copy(&drop_in, levels.join("geometry_intentional.placesmap"))
             .expect("stage the drop-in package");
     }
     fs::write(levels.join("home_showcase.json"), "{}").expect("stage a drop-in source");
@@ -169,5 +182,5 @@ fn packaged_layout_lists_only_packages() {
         "the embedded fallback is not duplicated when a package is installed"
     );
 
-    let _ = fs::remove_dir_all(&stage);
+    remove_stage(&stage);
 }

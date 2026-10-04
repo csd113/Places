@@ -198,95 +198,29 @@ pub const FONT_DATA: [[u8; 8]; FONT_CHARS_COUNT] = [
 ];
 
 /// Atlas width in texels.
-const ATLAS_WIDTH: usize = 128;
+const ATLAS_WIDTH: u32 = 128;
 /// Atlas height in texels.
-const ATLAS_HEIGHT: usize = 64;
-/// Bytes per RGBA texel.
-const RGBA: usize = 4;
-/// Glyph edge length in texels.
-const GLYPH: usize = 8;
+const ATLAS_HEIGHT: u32 = 64;
 /// Glyphs packed into one atlas row.
 const GLYPHS_PER_ROW: u8 = 16;
-/// Bytes in one row of the atlas.
-const ATLAS_ROW_BYTES: usize = ATLAS_WIDTH * RGBA;
-/// Bytes in the whole atlas.
-const ATLAS_BYTES: usize = ATLAS_WIDTH * ATLAS_HEIGHT * RGBA;
-/// Bytes in one glyph row (eight RGBA texels).
-const GLYPH_BYTES: usize = GLYPH * RGBA;
-/// MSB-first masks for the eight pixels of a glyph row.
-const GLYPH_ROW_MASKS: [u8; GLYPH] = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01];
 
 /// Last ASCII code carried by the glyph table (`~`).
 const FONT_LAST_CHAR: u8 = b'~';
 
-/// Generates a 128x64 RGBA font texture atlas containing the 95 ASCII characters (16 cols x 6 rows).
-/// Top-left 8x8 cell at (0, 0) is reserved as solid white [255, 255, 255, 255] for UI box rendering.
+/// Loads the committed 128x64 RGBA font atlas, preserving the ASCII cell layout.
+///
+/// Cell zero is opaque white for UI boxes; glyph ink and transparent cells
+/// retain the decoded bytes of the original atlas. The historical function
+/// name remains for renderer callers.
 #[must_use]
 pub fn generate_font_atlas() -> Vec<u8> {
-    // The atlas is 32 KiB, too large for a stack frame; build it in a heap
-    // buffer instead.
-    let mut data = vec![0u8; ATLAS_BYTES];
-
-    // Slot 0 (character 32 is space, but let's make pixel (0,0) to (7,7) solid white for solid quads)
-    for row in data
-        .as_chunks_mut::<ATLAS_ROW_BYTES>()
-        .0
-        .iter_mut()
-        .take(GLYPH)
-    {
-        if let Some(white) = row.get_mut(..GLYPH_BYTES) {
-            white.fill(u8::MAX);
-        }
-    }
-
-    // Now render each character 32..=126 into atlas: 16 glyphs per atlas row,
-    // each band of glyphs occupying eight atlas rows.
-    let mut atlas_rows = data.as_chunks_mut::<ATLAS_ROW_BYTES>().0.iter_mut();
-    for (band_index, glyphs) in FONT_DATA.chunks(usize::from(GLYPHS_PER_ROW)).enumerate() {
-        let mut band: Vec<&mut [u8; ATLAS_ROW_BYTES]> = atlas_rows.by_ref().take(GLYPH).collect();
-        for (column, glyph) in glyphs.iter().enumerate() {
-            // Space (glyph 0) leaves slot (0, 0) as the solid white UI block
-            // written above; its own glyph is empty anyway.
-            if band_index == 0 && column == 0 {
-                continue;
-            }
-            for (row_index, &row_bits) in glyph.iter().enumerate() {
-                let Some(row) = band.get_mut(row_index) else {
-                    continue;
-                };
-                let Some(cell) = row.as_chunks_mut::<GLYPH_BYTES>().0.get_mut(column) else {
-                    continue;
-                };
-                for (pixel, mask) in cell
-                    .as_chunks_mut::<RGBA>()
-                    .0
-                    .iter_mut()
-                    .zip(GLYPH_ROW_MASKS)
-                {
-                    // Glyph pixels are opaque white; everything else is transparent.
-                    let alpha = if row_bits & mask == 0 { 0 } else { u8::MAX };
-                    pixel.copy_from_slice(&[u8::MAX, u8::MAX, u8::MAX, alpha]);
-                }
-            }
-        }
-    }
-
-    data
+    crate::materials::BuiltinImage::FontAtlas.decode().rgba
 }
 
-/// Pixel dimensions of the atlas [`generate_font_atlas`] returns, as
-/// `(width, height)`.
-///
-/// The packing constants above stay private so the atlas layout has one
-/// definition; this accessor is the one way a renderer backend learns the
-/// texture size it must allocate and upload the generated pixels into.
+/// Pixel dimensions of the atlas [`generate_font_atlas`] loads.
 #[must_use]
 pub const fn font_atlas_dimensions() -> (u32, u32) {
-    // The atlas packing constants are private `usize`s for the generator's
-    // indexing; both are small literals (128 and 64), so the narrowing is
-    // exact on every supported target.
-    #[allow(clippy::cast_possible_truncation)]
-    (ATLAS_WIDTH as u32, ATLAS_HEIGHT as u32)
+    (ATLAS_WIDTH, ATLAS_HEIGHT)
 }
 
 /// Returns the UV bounds `[u0, v0, u1, v1]` in the 128x64 font atlas for the given ASCII character.

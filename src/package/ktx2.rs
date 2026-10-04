@@ -68,6 +68,10 @@ pub const VK_FORMAT_R16G16B16A16_SFLOAT: u32 = 97;
 const DFD_TOTAL_SIZE: u32 = 92;
 
 /// [`DFD_TOTAL_SIZE`] as an array length.
+#[expect(
+    clippy::as_conversions,
+    reason = "The fixed descriptor size is 92 and fits every supported usize; TryFrom is unavailable in a Rust 1.99 const initializer."
+)]
 const DFD_BYTES: usize = DFD_TOTAL_SIZE as usize;
 
 /// Largest accepted image edge, in texels, before allocation.
@@ -162,14 +166,14 @@ pub fn f32_to_f16_bits(value: f32) -> u16 {
         let payload = if mantissa == 0 {
             0
         } else {
-            (mantissa >> 13) | 0x0200
+            (mantissa >> 13_i32) | 0x0200
         };
         return u16::try_from((sign >> 16) | 0x7C00 | payload).unwrap_or(u16::MAX);
     }
 
     // Rebias binary32's exponent (bias 127) to binary16's (bias 15): the
     // result is the binary16 exponent, negative for subnormal or zero results.
-    let target = i64::from(exponent >> 23).saturating_sub(112);
+    let target = i64::from(exponent >> 23_i32).saturating_sub(112);
     if target >= 0x1F {
         return u16::try_from((sign >> 16) | 0x7C00).unwrap_or(u16::MAX);
     }
@@ -194,7 +198,7 @@ pub fn f32_to_f16_bits(value: f32) -> u16 {
     // Normal result: keep ten mantissa bits, rounding to nearest even. A
     // carry out of the mantissa increments the exponent, so the largest
     // finite value rounds up to infinity exactly as IEEE 754 requires.
-    let mut rounded = (u32::try_from(target).unwrap_or(0) << 10) | (mantissa >> 13);
+    let mut rounded = (u32::try_from(target).unwrap_or(0) << 10_i32) | (mantissa >> 13_i32);
     let remainder = mantissa & 0x1FFF;
     if remainder > 0x1000 || (remainder == 0x1000 && rounded & 1 == 1) {
         rounded = rounded.wrapping_add(1);
@@ -209,8 +213,8 @@ pub fn f32_to_f16_bits(value: f32) -> u16 {
 /// are all preserved. Implemented with integer bit manipulation only.
 #[must_use]
 pub fn f16_bits_to_f32(bits: u16) -> f32 {
-    let sign = u32::from(bits & 0x8000) << 16;
-    let exponent = u32::from((bits >> 10) & 0x1F);
+    let sign = u32::from(bits & 0x8000) << 16_i32;
+    let exponent = u32::from((bits >> 10_i32) & 0x1F);
     let mantissa = u32::from(bits & 0x03FF);
 
     let value = if exponent == 0 {
@@ -222,14 +226,14 @@ pub fn f16_bits_to_f32(bits: u16) -> f32 {
             let raw = bits & 0x03FF;
             let shift = raw.leading_zeros().saturating_sub(5);
             let normalized = (u32::from(raw) << shift) & 0x03FF;
-            let exponent = 113_u32.saturating_sub(shift);
-            sign | (exponent << 23) | (normalized << 13)
+            let normalized_exponent = 113_u32.saturating_sub(shift);
+            sign | (normalized_exponent << 23_i32) | (normalized << 13_i32)
         }
     } else if exponent == 0x1F {
-        sign | 0x7F80_0000 | (mantissa << 13) // Infinity or NaN payload.
+        sign | 0x7F80_0000 | (mantissa << 13_i32) // Infinity or NaN payload.
     } else {
         // Rebias the exponent from binary16's 15 to binary32's 127.
-        sign | (exponent.saturating_add(112) << 23) | (mantissa << 13)
+        sign | (exponent.saturating_add(112) << 23_i32) | (mantissa << 13_i32)
     };
     f32::from_bits(value)
 }
@@ -248,8 +252,8 @@ pub fn write_rgba8_2d_array(edge: u32, layers: &[Vec<u8>]) -> Result<Vec<u8>, St
     if layers.is_empty() {
         return Err("KTX2 payload has no layers".to_string());
     }
-    let layer_count =
-        u32::try_from(layers.len()).map_err(|_| "KTX2 payload has too many layers".to_string())?;
+    let layer_count = u32::try_from(layers.len())
+        .map_err(|error| format!("KTX2 payload has too many layers: {error}"))?;
     if layer_count > MAX_LAYERS {
         return Err(format!(
             "KTX2 payload has {layer_count} layers (limit {MAX_LAYERS})"
@@ -322,8 +326,8 @@ pub fn write_rgba16f_2d_array(edge: u32, layers: &[Vec<u8>]) -> Result<Vec<u8>, 
     if layers.is_empty() {
         return Err("KTX2 payload has no layers".to_string());
     }
-    let layer_count =
-        u32::try_from(layers.len()).map_err(|_| "KTX2 payload has too many layers".to_string())?;
+    let layer_count = u32::try_from(layers.len())
+        .map_err(|error| format!("KTX2 payload has too many layers: {error}"))?;
     if layer_count > MAX_LAYERS {
         return Err(format!(
             "KTX2 payload has {layer_count} layers (limit {MAX_LAYERS})"
@@ -382,7 +386,10 @@ fn encode(edge: u32, layers: u32, faces: u32, images: &[Vec<u8>]) -> Result<Vec<
     encode_levels(&TexelFormat::RGBA8, edge, layers, faces, &[images])
 }
 
-#[allow(clippy::too_many_lines)] // one cohesive container writer: header, DFD and level data
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive container writer: header, DFD and level data"
+)] // one cohesive container writer: header, DFD and level data
 fn encode_levels(
     format: &TexelFormat,
     edge: u32,
@@ -394,7 +401,7 @@ fn encode_levels(
         return Err("KTX2 mip chain has no levels".to_string());
     }
     let level_count = u32::try_from(level_images.len())
-        .map_err(|_| "KTX2 mip chain has too many levels".to_string())?;
+        .map_err(|error| format!("KTX2 mip chain has too many levels: {error}"))?;
     if level_count > MAX_LEVELS {
         return Err(format!(
             "KTX2 mip chain has {level_count} levels (limit {MAX_LEVELS})"
@@ -404,8 +411,8 @@ fn encode_levels(
     let mut level_bytes = Vec::with_capacity(level_images.len());
     let mut payload: u64 = 0;
     for (level, images) in level_images.iter().enumerate() {
-        let level_index =
-            u32::try_from(level).map_err(|_| "KTX2 level index is too large".to_string())?;
+        let level_index = u32::try_from(level)
+            .map_err(|error| format!("KTX2 level index is too large: {error}"))?;
         let image_edge = edge >> level_index;
         if image_edge == 0 {
             return Err(format!("KTX2 mip level {level} is smaller than one texel"));
@@ -456,7 +463,8 @@ fn encode_levels(
             .checked_add(*bytes)
             .ok_or_else(|| "KTX2 file size overflows".to_string())?;
     }
-    let capacity = usize::try_from(cursor).map_err(|_| "KTX2 file is too large".to_string())?;
+    let capacity =
+        usize::try_from(cursor).map_err(|error| format!("KTX2 file is too large: {error}"))?;
 
     let mut out: Vec<u8> = Vec::with_capacity(capacity);
     out.extend_from_slice(&KTX2_IDENTIFIER);
@@ -470,7 +478,7 @@ fn encode_levels(
     push_u32(&mut out, level_count);
     push_u32(&mut out, 0); // supercompressionScheme
     let dfd_offset_u32 =
-        u32::try_from(dfd_offset).map_err(|_| "KTX2 DFD offset overflows".to_string())?;
+        u32::try_from(dfd_offset).map_err(|error| format!("KTX2 DFD offset overflows: {error}"))?;
     push_u32(&mut out, dfd_offset_u32);
     push_u32(&mut out, DFD_TOTAL_SIZE);
     push_u32(&mut out, 0); // kvdByteOffset
@@ -483,7 +491,11 @@ fn encode_levels(
         push_u64(&mut out, *bytes);
         push_u64(&mut out, *bytes);
     }
-    debug_assert_eq!(u64::try_from(out.len()).unwrap_or(u64::MAX), dfd_offset);
+    debug_assert_eq!(
+        u64::try_from(out.len()).unwrap_or(u64::MAX),
+        dfd_offset,
+        "KTX2 header and level index must end at the declared descriptor offset"
+    );
     out.extend_from_slice(&(format.dfd)());
     while u64::try_from(out.len()).unwrap_or(u64::MAX) < data_offset {
         out.push(0);
@@ -496,7 +508,11 @@ fn encode_levels(
             out.extend_from_slice(image);
         }
     }
-    debug_assert_eq!(out.len(), capacity);
+    debug_assert_eq!(
+        out.len(),
+        capacity,
+        "KTX2 payload must match its checked allocation size"
+    );
     Ok(out)
 }
 
@@ -550,7 +566,10 @@ pub fn read_rgba16f(bytes: &[u8]) -> Result<Ktx2Rgba16f, String> {
     })
 }
 
-#[allow(clippy::too_many_lines)] // one cohesive strict-subset container reader
+#[expect(
+    clippy::too_many_lines,
+    reason = "one cohesive strict-subset container reader"
+)] // one cohesive strict-subset container reader
 fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
     let reader = Slice::new(bytes);
     if reader.take(0, 12)? != &KTX2_IDENTIFIER[..] {
@@ -628,10 +647,10 @@ fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
     if dfd_end > file_len {
         return Err("KTX2 DFD runs past the file".to_string());
     }
-    let dfd_start =
-        usize::try_from(dfd_offset).map_err(|_| "KTX2 DFD offset is too large".to_string())?;
-    let dfd_end_usize =
-        usize::try_from(dfd_end).map_err(|_| "KTX2 DFD offset is too large".to_string())?;
+    let dfd_start = usize::try_from(dfd_offset)
+        .map_err(|error| format!("KTX2 DFD offset is too large: {error}"))?;
+    let dfd_end_usize = usize::try_from(dfd_end)
+        .map_err(|error| format!("KTX2 DFD offset is too large: {error}"))?;
     let dfd = bytes
         .get(dfd_start..dfd_end_usize)
         .ok_or_else(|| "KTX2 DFD runs past the file".to_string())?;
@@ -654,8 +673,8 @@ fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
     }
     let mut decoded = Vec::with_capacity(level_offsets.len());
     for (index, (offset, length)) in level_offsets.iter().enumerate() {
-        let level_index =
-            u32::try_from(index).map_err(|_| "KTX2 level index is too large".to_string())?;
+        let level_index = u32::try_from(index)
+            .map_err(|error| format!("KTX2 level index is too large: {error}"))?;
         let image_edge = width >> level_index;
         if image_edge == 0 {
             return Err(format!("KTX2 level {index} is smaller than one texel"));
@@ -675,11 +694,12 @@ fn read_payload(bytes: &[u8], format: &TexelFormat) -> Result<Payload, String> {
                 "KTX2 level {index} exceeds {MAX_PAYLOAD_BYTES} bytes"
             ));
         }
-        let start =
-            usize::try_from(*offset).map_err(|_| "KTX2 level offset is too large".to_string())?;
+        let start = usize::try_from(*offset)
+            .map_err(|error| format!("KTX2 level offset is too large: {error}"))?;
         let end = start
             .checked_add(
-                usize::try_from(*length).map_err(|_| "KTX2 level is too large".to_string())?,
+                usize::try_from(*length)
+                    .map_err(|error| format!("KTX2 level is too large: {error}"))?,
             )
             .ok_or_else(|| "KTX2 level range overflows".to_string())?;
         let data = bytes
@@ -724,24 +744,28 @@ fn rgba8_dfd() -> [u8; DFD_BYTES] {
     write_u8(&mut dfd, &mut at, 1); // KHR_DF_PRIMARIES_BT709
     write_u8(&mut dfd, &mut at, 1); // KHR_DF_TRANSFER_LINEAR
     write_u8(&mut dfd, &mut at, 0); // flags
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         write_u8(&mut dfd, &mut at, 0); // texelBlockDimension: 1x1x1x1
     }
     write_u8(&mut dfd, &mut at, 4); // bytesPlane[0]
-    for _ in 1..8 {
+    for _ in 1_i32..8_i32 {
         write_u8(&mut dfd, &mut at, 0);
     }
     for (bit_offset, channel) in [(0_u16, 0_u8), (8, 1), (16, 2), (24, 3)] {
         write_u16(&mut dfd, &mut at, bit_offset);
         write_u8(&mut dfd, &mut at, 7); // 8-bit component: bitLength = 8 - 1
         write_u8(&mut dfd, &mut at, channel); // qualifiers 0 | channel type
-        for _ in 0..4 {
+        for _ in 0_i32..4_i32 {
             write_u8(&mut dfd, &mut at, 0); // samplePosition
         }
         write_u32(&mut dfd, &mut at, 0); // sampleLower
         write_u32(&mut dfd, &mut at, 255); // sampleUpper
     }
-    debug_assert_eq!(at, dfd.len());
+    debug_assert_eq!(
+        at,
+        dfd.len(),
+        "RGBA descriptor fields must fill the declared descriptor"
+    );
     dfd
 }
 
@@ -762,24 +786,28 @@ fn rgba16f_dfd() -> [u8; DFD_BYTES] {
     write_u8(&mut dfd, &mut at, 1); // KHR_DF_PRIMARIES_BT709
     write_u8(&mut dfd, &mut at, 1); // KHR_DF_TRANSFER_LINEAR
     write_u8(&mut dfd, &mut at, 0); // flags
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         write_u8(&mut dfd, &mut at, 0); // texelBlockDimension: 1x1x1x1
     }
     write_u8(&mut dfd, &mut at, 8); // bytesPlane[0]
-    for _ in 1..8 {
+    for _ in 1_i32..8_i32 {
         write_u8(&mut dfd, &mut at, 0);
     }
     for (bit_offset, channel) in [(0_u16, 0_u8), (16, 1), (32, 2), (48, 3)] {
         write_u16(&mut dfd, &mut at, bit_offset);
         write_u8(&mut dfd, &mut at, 15); // 16-bit component: bitLength = 16 - 1
         write_u8(&mut dfd, &mut at, channel); // qualifiers 0 | channel type
-        for _ in 0..4 {
+        for _ in 0_i32..4_i32 {
             write_u8(&mut dfd, &mut at, 0); // samplePosition
         }
         write_u32(&mut dfd, &mut at, 0); // sampleLower
         write_u32(&mut dfd, &mut at, 0x3F80_0000); // sampleUpper: 1.0
     }
-    debug_assert_eq!(at, dfd.len());
+    debug_assert_eq!(
+        at,
+        dfd.len(),
+        "HDR descriptor fields must fill the declared descriptor"
+    );
     dfd
 }
 
@@ -835,7 +863,8 @@ impl<'a> Slice<'a> {
     }
 
     fn take(&self, offset: u64, length: usize) -> Result<&'a [u8], String> {
-        let start = usize::try_from(offset).map_err(|_| "KTX2 offset is too large".to_string())?;
+        let start = usize::try_from(offset)
+            .map_err(|error| format!("KTX2 offset is too large: {error}"))?;
         let end = start
             .checked_add(length)
             .ok_or_else(|| "KTX2 range overflows".to_string())?;
@@ -848,7 +877,7 @@ impl<'a> Slice<'a> {
         let bytes: [u8; 4] = self
             .take(offset, 4)?
             .try_into()
-            .map_err(|_| "KTX2 file is truncated".to_string())?;
+            .map_err(|error| format!("KTX2 file is truncated: {error}"))?;
         Ok(u32::from_le_bytes(bytes))
     }
 
@@ -856,7 +885,7 @@ impl<'a> Slice<'a> {
         let bytes: [u8; 8] = self
             .take(offset, 8)?
             .try_into()
-            .map_err(|_| "KTX2 file is truncated".to_string())?;
+            .map_err(|error| format!("KTX2 file is truncated: {error}"))?;
         Ok(u64::from_le_bytes(bytes))
     }
 }

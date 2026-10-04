@@ -15,11 +15,11 @@
 // Test code: unwrap/expect, indexing and permissive arithmetic are idiomatic in tests.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use crate::level::{LevelDef, LevelSurfaces, WallAxis, wall_solid_slices_profiled};
@@ -291,18 +291,21 @@ fn reference_local(
 /// Moves a sample out of a wall the same way the bake's `clear_sample` does, so
 /// both models are evaluated at the same position.
 fn cleared(level: &LevelSurfaces<'_>, solids: &[Solid], room: usize, x: f32, z: f32) -> (f32, f32) {
-    let inside = |x: f32, z: f32| {
+    let inside = |point_x: f32, point_depth: f32| {
         solids.iter().any(|solid| {
-            x >= solid.min[0] && x <= solid.max[0] && z >= solid.min[2] && z <= solid.max[2]
+            point_x >= solid.min[0]
+                && point_x <= solid.max[0]
+                && point_depth >= solid.min[2]
+                && point_depth <= solid.max[2]
         })
     };
     if !inside(x, z) {
         return (x, z);
     }
-    let Some(room) = level.rooms().get(room) else {
+    let Some(room_bounds) = level.rooms().get(room) else {
         return (x, z);
     };
-    let (rx0, rx1, rz0, rz1) = room.bounds();
+    let (rx0, rx1, rz0, rz1) = room_bounds.bounds();
     let (cx, cz) = (f32::midpoint(rx0, rx1), f32::midpoint(rz0, rz1));
     let (dx, dz) = (cx - x, cz - z);
     let distance = dx.hypot(dz);
@@ -346,7 +349,7 @@ fn assert_pool_matches_reference(
     let baseline = lighting.baseline_in_room(room, x, z);
     let blend = lighting.opening_blend(room, x, y, z);
     let (reference_direct, reference_fill) = reference_local(lighting, solids, interfaces, x, y, z);
-    for (channel, (baked, reference)) in [
+    for (channel, (baked_channel, reference)) in [
         (
             baked.r - baseline.r - blend.r,
             reference_direct[0] + reference_fill[0],
@@ -363,11 +366,11 @@ fn assert_pool_matches_reference(
     .into_iter()
     .enumerate()
     {
-        let excess = baked - reference;
+        let excess = baked_channel - reference;
         assert!(
             excess <= 0.02,
             "{context} at ({x:.2}, {y:.2}, {z:.2}) channel {channel}: \
-             baked pool {baked:.4} exceeds the exact reference {reference:.4} by {excess:.4}"
+             baked pool {baked_channel:.4} exceeds the exact reference {reference:.4} by {excess:.4}"
         );
     }
 }
@@ -430,8 +433,8 @@ fn the_shipped_demos_fixture_pools_are_occlusion_exact() {
             if slice.end - slice.start <= 0.2 {
                 continue;
             }
-            for step in 0..=6 {
-                let t = step as f32 / 6.0;
+            for step in 0_i32..=6_i32 {
+                let t = crate::test_support::exact_f32(step) / 6.0;
                 let along = (slice.end - slice.start).mul_add(t, slice.start);
                 for y in [
                     slice.bottom + 0.05,
@@ -532,15 +535,15 @@ fn the_shipped_demos_wall_faces_open_into_their_own_room() {
                     probe[2],
                 );
                 let expected = lighting.sample_in_room(room, probe[0], probe[1], probe[2]);
-                for (used, expected) in [
+                for (used_channel, expected_channel) in [
                     (used.r, expected.r),
                     (used.g, expected.g),
                     (used.b, expected.b),
                 ] {
                     assert!(
-                        (used - expected).abs() <= 0.05,
+                        (used_channel - expected_channel).abs() <= 0.05,
                         "a wall face at ({:.2}, {:.2}, {:.2}) is not lit by room {room}: \
-                         {used:.3} vs {expected:.3}",
+                         {used_channel:.3} vs {expected_channel:.3}",
                         probe[0],
                         probe[1],
                         probe[2]

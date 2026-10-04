@@ -44,7 +44,7 @@ pub const EFFECTS_VERTEX_ENTRY: &str = "vs_main";
 pub const EFFECTS_FRAGMENT_ENTRY: &str = "fs_main";
 
 /// Bytes between consecutive effect vertices.
-pub const EFFECT_VERTEX_STRIDE: u64 = std::mem::size_of::<EffectVertex>() as u64;
+pub const EFFECT_VERTEX_STRIDE: u64 = super::buffer_element_bytes::<EffectVertex>();
 
 /// Vertex attribute locations, matching `effects.wgsl`'s `VertexIn`.
 const EFFECT_ATTRIB_POSITION: u32 = 0;
@@ -356,7 +356,7 @@ impl WgpuEffects {
         let indices = effect_quad_indices(MAX_EFFECT_PARTICLES_PER_LEVEL);
         let index_bytes = u64::try_from(MAX_EFFECT_INDICES_PER_LEVEL)
             .unwrap_or(u64::MAX)
-            .saturating_mul(std::mem::size_of::<u16>() as u64)
+            .saturating_mul(u64::try_from(std::mem::size_of::<u16>()).unwrap_or(u64::MAX))
             .max(4);
         let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-effects-indices"),
@@ -478,11 +478,11 @@ fn effect_quad_indices(particles: usize) -> Vec<u16> {
     let mut indices: Vec<u16> = Vec::with_capacity(particles.saturating_mul(INDICES_PER_PARTICLE));
     for particle in 0..particles {
         let base = particle.saturating_mul(VERTS_PER_PARTICLE);
-        let Some(base) = u16::try_from(base).ok() else {
+        let Some(index_base) = u16::try_from(base).ok() else {
             break;
         };
         for offset in [0_u16, 1, 2, 0, 2, 3] {
-            let Some(index) = base.checked_add(offset) else {
+            let Some(index) = index_base.checked_add(offset) else {
                 return indices;
             };
             indices.push(index);
@@ -499,7 +499,8 @@ mod tests {
         clippy::expect_used,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;

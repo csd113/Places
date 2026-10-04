@@ -7,7 +7,8 @@
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -144,9 +145,11 @@ impl ModelBuilder {
         }
         let offset = self.binary.len();
         self.binary.extend_from_slice(payload);
-        let target = target.map_or(String::new(), |target| format!(r#","target":{target}"#));
+        let target_json = target.map_or(String::new(), |target_value| {
+            format!(r#","target":{target_value}"#)
+        });
         let view = format!(
-            r#"{{"buffer":0,"byteOffset":{offset},"byteLength":{length}{target}}}"#,
+            r#"{{"buffer":0,"byteOffset":{offset},"byteLength":{length}{target_json}}}"#,
             length = payload.len()
         );
         self.views.push(view);
@@ -161,13 +164,13 @@ impl ModelBuilder {
         kind: &str,
         normalized: bool,
     ) -> usize {
-        let normalized = if normalized {
+        let normalized_json = if normalized {
             r#","normalized":true"#
         } else {
             ""
         };
         self.accessors.push(format!(
-            r#"{{"bufferView":{view},"componentType":{component_type},"count":{count},"type":"{kind}"{normalized}}}"#
+            r#"{{"bufferView":{view},"componentType":{component_type},"count":{count},"type":"{kind}"{normalized_json}}}"#
         ));
         self.accessors.len() - 1
     }
@@ -293,11 +296,11 @@ impl ModelBuilder {
 
 /// One mesh's JSON with a single primitive over the given accessors.
 fn mesh_json(positions: usize, uvs: usize, indices: usize, material: Option<usize>) -> String {
-    let material = material.map_or(String::new(), |material| {
-        format!(r#","material":{material}"#)
+    let material_json = material.map_or(String::new(), |material_index| {
+        format!(r#","material":{material_index}"#)
     });
     format!(
-        r#"{{"primitives": [{{"attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}}}, "indices": {indices}{material}}}]}}"#
+        r#"{{"primitives": [{{"attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}}}, "indices": {indices}{material_json}}}]}}"#
     )
 }
 
@@ -376,7 +379,7 @@ fn every_shipped_prop_model_parses_as_real_geometry() {
         assets.root().is_some(),
         "asset directory not found; expected assets/ next to the crate"
     );
-    let mut parsed = 0;
+    let mut parsed = 0_i32;
     for entry in catalog.entries() {
         let Some(model_path) = entry.model.as_deref() else {
             continue;
@@ -407,10 +410,10 @@ fn every_shipped_prop_model_parses_as_real_geometry() {
             "{}: every shipped model embeds a texture",
             entry.id
         );
-        parsed += 1;
+        parsed += 1_i32;
     }
     assert!(
-        parsed >= 30,
+        parsed >= 30_i32,
         "the catalogue lists only {parsed} shipped models; expected the full pack"
     );
 }
@@ -426,7 +429,9 @@ fn parses_the_shipped_chair_asset() {
     assert!(texture.width <= crate::level::MAX_PROP_TEXTURE_SIZE);
     assert_eq!(
         texture.rgba.len(),
-        (texture.width as usize) * (texture.height as usize) * 4
+        usize::try_from(texture.width).expect("fixture integer fits usize")
+            * usize::try_from(texture.height).expect("fixture integer fits usize")
+            * 4
     );
     assert_eq!(model.submeshes.len(), 1);
     assert_eq!(model.submeshes[0].texture, Some(0));
@@ -546,8 +551,8 @@ fn untextured_materials_multiply_their_base_color_factor() {
     assert!((color[3] - 0.5).abs() < 1e-6, "{color:?}");
 
     // A material with no factor at all keeps the baked COLOR_0 values.
-    let model = parse_glb(&triangle_document("{}", 0)).expect("default material parses");
-    assert!((model.vertices[0].color[1] - 128.0 / 255.0).abs() < 1e-3);
+    let default_model = parse_glb(&triangle_document("{}", 0)).expect("default material parses");
+    assert!((default_model.vertices[0].color[1] - 128.0 / 255.0).abs() < 1e-3);
 }
 
 #[test]
@@ -607,23 +612,30 @@ fn emissive_materials_carry_factor_strength_and_mask() {
 
     // No strength extension: the glTF default of 1.0 applies.
     let plain = r#"{"emissiveFactor": [1.0, 0.0, 0.0]}"#;
-    let model = parse_glb(&triangle_document(plain, 0)).expect("emissive without strength parses");
+    let default_strength_model =
+        parse_glb(&triangle_document(plain, 0)).expect("emissive without strength parses");
     assert_eq!(
-        model.submeshes[0].emission,
+        default_strength_model.submeshes[0].emission,
         MaterialEmission::new([1.0, 0.0, 0.0], 1.0)
     );
-    assert_eq!(model.texture_count(), 0, "unused images are not decoded");
+    assert_eq!(
+        default_strength_model.texture_count(),
+        0,
+        "unused images are not decoded"
+    );
 
     // Authored strengths above the engine maximum are clamped, not rejected.
     let hot = r#"{
         "emissiveFactor": [1.0, 1.0, 1.0],
         "extensions": {"KHR_materials_emissive_strength": {"emissiveStrength": 100.0}}
     }"#;
-    let model = parse_glb(&triangle_document(hot, 0)).expect("over-strength emission parses");
+    let clamped_strength_model =
+        parse_glb(&triangle_document(hot, 0)).expect("over-strength emission parses");
     assert!(
-        (model.submeshes[0].emission.intensity - MAX_EMISSION_INTENSITY).abs() < f32::EPSILON,
+        (clamped_strength_model.submeshes[0].emission.intensity - MAX_EMISSION_INTENSITY).abs()
+            < f32::EPSILON,
         "{:?}",
-        model.submeshes[0].emission
+        clamped_strength_model.submeshes[0].emission
     );
 }
 
@@ -641,21 +653,23 @@ fn a_gltf_mask_material_parses_as_cutout_with_its_cutoff() {
     assert!(alpha.is_cutout());
 
     // The glTF default cutoff is 0.5 when the material omits it.
-    let masked = r#"{
+    let default_cutoff_material = r#"{
         "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
         "alphaMode": "MASK"
     }"#;
-    let model = parse_glb(&triangle_document(masked, 0)).expect("default cutoff parses");
-    assert!((model.submeshes[0].alpha.cutoff - 0.5).abs() < f32::EPSILON);
+    let default_cutoff_model =
+        parse_glb(&triangle_document(default_cutoff_material, 0)).expect("default cutoff parses");
+    assert!((default_cutoff_model.submeshes[0].alpha.cutoff - 0.5).abs() < f32::EPSILON);
 
     // Out-of-range cutoffs are clamped into the unit range, never rejected.
-    let masked = r#"{
+    let clamped_cutoff_material = r#"{
         "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
         "alphaMode": "MASK",
         "alphaCutoff": 4.0
     }"#;
-    let model = parse_glb(&triangle_document(masked, 0)).expect("clamped cutoff parses");
-    assert!((model.submeshes[0].alpha.cutoff - 1.0).abs() < f32::EPSILON);
+    let clamped_cutoff_model =
+        parse_glb(&triangle_document(clamped_cutoff_material, 0)).expect("clamped cutoff parses");
+    assert!((clamped_cutoff_model.submeshes[0].alpha.cutoff - 1.0).abs() < f32::EPSILON);
 }
 
 #[test]
@@ -821,7 +835,7 @@ fn rejects_models_over_the_primitive_material_and_image_ceilings() {
         .collect::<Vec<&str>>()
         .join(",");
     let mesh = mesh_json(positions, uvs, indices, Some(0));
-    let json = format!(
+    let materials_json = format!(
         r#"{{
           "asset": {{"version": "2.0"}},
           "scene": 0,
@@ -837,14 +851,18 @@ fn rejects_models_over_the_primitive_material_and_image_ceilings() {
         views = builder.buffer_views(),
         length = builder.bytes().len(),
     );
-    let error =
-        parse_glb(&glb_container(&json, builder.bytes())).expect_err("too many materials fail");
-    assert!(error.0.contains("materials"), "{}", error.0);
+    let materials_error = parse_glb(&glb_container(&materials_json, builder.bytes()))
+        .expect_err("too many materials fail");
+    assert!(
+        materials_error.0.contains("materials"),
+        "{}",
+        materials_error.0
+    );
 
     let images = std::iter::repeat_n("{}", MAX_PROP_IMAGES + 1)
         .collect::<Vec<&str>>()
         .join(",");
-    let json = format!(
+    let images_json = format!(
         r#"{{
           "asset": {{"version": "2.0"}},
           "scene": 0,
@@ -860,9 +878,9 @@ fn rejects_models_over_the_primitive_material_and_image_ceilings() {
         views = builder.buffer_views(),
         length = builder.bytes().len(),
     );
-    let error =
-        parse_glb(&glb_container(&json, builder.bytes())).expect_err("too many images fail");
-    assert!(error.0.contains("images"), "{}", error.0);
+    let images_error =
+        parse_glb(&glb_container(&images_json, builder.bytes())).expect_err("too many images fail");
+    assert!(images_error.0.contains("images"), "{}", images_error.0);
 }
 
 #[test]
@@ -882,8 +900,13 @@ fn rejects_node_cycles_and_dangling_references() {
       "scenes": [{"nodes": [0]}],
       "nodes": [{"children": [0]}]
     }"#;
-    let error = parse_glb(&glb_container(self_cycle, b"")).expect_err("self references must fail");
-    assert!(error.0.to_lowercase().contains("cycle"), "{}", error.0);
+    let self_cycle_error =
+        parse_glb(&glb_container(self_cycle, b"")).expect_err("self references must fail");
+    assert!(
+        self_cycle_error.0.to_lowercase().contains("cycle"),
+        "{}",
+        self_cycle_error.0
+    );
 
     let dangling = r#"{
       "asset": {"version": "2.0"},
@@ -891,11 +914,12 @@ fn rejects_node_cycles_and_dangling_references() {
       "scenes": [{"nodes": [0]}],
       "nodes": [{"children": [7]}]
     }"#;
-    let error = parse_glb(&glb_container(dangling, b"")).expect_err("dangling children must fail");
+    let dangling_child_error =
+        parse_glb(&glb_container(dangling, b"")).expect_err("dangling children must fail");
     assert!(
-        error.0.contains('7') && error.0.contains("does not exist"),
+        dangling_child_error.0.contains('7') && dangling_child_error.0.contains("does not exist"),
         "{}",
-        error.0
+        dangling_child_error.0
     );
 
     let scene_dangling = r#"{
@@ -904,17 +928,21 @@ fn rejects_node_cycles_and_dangling_references() {
       "scenes": [{"nodes": [4]}],
       "nodes": [{}]
     }"#;
-    let error =
+    let dangling_root_error =
         parse_glb(&glb_container(scene_dangling, b"")).expect_err("dangling roots must fail");
-    assert!(error.0.contains('4'), "{}", error.0);
+    assert!(
+        dangling_root_error.0.contains('4'),
+        "{}",
+        dangling_root_error.0
+    );
 
     let parentless = r#"{
       "asset": {"version": "2.0"},
       "nodes": [{"children": [9]}]
     }"#;
-    let error =
+    let parentless_error =
         parse_glb(&glb_container(parentless, b"")).expect_err("dangling children must fail");
-    assert!(error.0.contains('9'), "{}", error.0);
+    assert!(parentless_error.0.contains('9'), "{}", parentless_error.0);
 }
 
 #[test]
@@ -1074,17 +1102,19 @@ fn rejects_attribute_count_mismatches() {
 #[test]
 fn rejects_unsupported_primitive_shapes() {
     let (json, binary) = minimal_triangle_parts();
-    let json = json.replace("\"mode\": 4", "\"mode\": 1");
-    let error = parse_glb(&glb_container(&json, &binary)).expect_err("mode 1 is not triangles");
+    let lines_json = json.replace("\"mode\": 4", "\"mode\": 1");
+    let error =
+        parse_glb(&glb_container(&lines_json, &binary)).expect_err("mode 1 is not triangles");
     assert!(error.0.contains("TRIANGLES"), "{}", error.0);
 
-    let (json, binary) = minimal_triangle_parts();
-    let json = json.replace("\"TEXCOORD_0\": 1, ", "");
-    let error = parse_glb(&glb_container(&json, &binary)).expect_err("a prop needs UVs");
+    let (uv_fixture_json, uv_fixture_binary) = minimal_triangle_parts();
+    let missing_uv_json = uv_fixture_json.replace("\"TEXCOORD_0\": 1, ", "");
+    let missing_uv_error = parse_glb(&glb_container(&missing_uv_json, &uv_fixture_binary))
+        .expect_err("a prop needs UVs");
     assert!(
-        error.0.to_lowercase().contains("uv"),
+        missing_uv_error.0.to_lowercase().contains("uv"),
         "a prop without UVs must say so: {}",
-        error.0
+        missing_uv_error.0
     );
 }
 
@@ -1104,21 +1134,25 @@ fn rejects_unsupported_images_extensions_and_sparse_data() {
     );
 
     let mime_json = json.replace("image/png", "image/jpeg");
-    let error = parse_glb(&glb_container(&mime_json, &binary)).expect_err("JPEG must fail");
-    assert!(error.0.contains("mime"), "{}", error.0);
+    let mime_error = parse_glb(&glb_container(&mime_json, &binary)).expect_err("JPEG must fail");
+    assert!(mime_error.0.contains("mime"), "{}", mime_error.0);
 
     let extension_json = json.replace(
         r#""materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}]"#,
         r#""materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}, "extensions": {"KHR_materials_clearcoat": {}}}]"#,
     );
-    let error =
+    let extension_error =
         parse_glb(&glb_container(&extension_json, &binary)).expect_err("clearcoat must fail");
-    assert!(error.0.contains("KHR_materials_clearcoat"), "{}", error.0);
+    assert!(
+        extension_error.0.contains("KHR_materials_clearcoat"),
+        "{}",
+        extension_error.0
+    );
 
     let sparse_json = json.replace(r#""type": "VEC3""#, r#""type": "VEC3", "sparse": {}"#);
-    let error =
+    let sparse_error =
         parse_glb(&glb_container(&sparse_json, &binary)).expect_err("sparse accessors must fail");
-    assert!(error.0.contains("sparse"), "{}", error.0);
+    assert!(sparse_error.0.contains("sparse"), "{}", sparse_error.0);
 }
 
 /// A PNG header claiming `width x height` pixels.
@@ -1246,15 +1280,15 @@ fn rejects_zero_stride_accessors_that_claim_many_elements() {
     // used to pass the check and then reserve/loop over a buffer it does not
     // have. The reader must reject it instead.
     let (json, binary) = minimal_triangle_parts();
-    let json = json.replace(
+    let zero_stride_json = json.replace(
         r#"{"buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962}"#,
         r#"{"buffer": 0, "byteOffset": 0, "byteLength": 36, "byteStride": 0, "target": 34962}"#,
     );
-    let json = json.replace(
+    let oversized_count_json = zero_stride_json.replace(
         r#"{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}"#,
         r#"{"bufferView": 0, "componentType": 5126, "count": 1000000000, "type": "VEC3"}"#,
     );
-    let error = parse_glb(&glb_container(&json, &binary))
+    let error = parse_glb(&glb_container(&oversized_count_json, &binary))
         .expect_err("a zero byteStride must not disable the bounds check");
     assert!(error.0.contains("byteStride"), "{}", error.0);
 }
@@ -1264,11 +1298,11 @@ fn rejects_a_count_larger_than_the_buffer_can_hold() {
     // Even with a plausible stride, a count whose elements cannot physically
     // fit the view is refused before any reservation is made.
     let (json, binary) = minimal_triangle_parts();
-    let json = json.replace(
+    let oversized_count_json = json.replace(
         r#"{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}"#,
         r#"{"bufferView": 0, "componentType": 5126, "count": 1000000000, "type": "VEC3"}"#,
     );
-    let error = parse_glb(&glb_container(&json, &binary))
+    let error = parse_glb(&glb_container(&oversized_count_json, &binary))
         .expect_err("a count past the bufferView must fail");
     assert!(
         error.0.contains("bufferView") || error.0.contains("too small"),
@@ -1299,12 +1333,12 @@ fn vec3_accessor_document(
     stride: Option<usize>,
 ) -> serde_json::Value {
     let mut view = serde_json::json!({
-        "buffer": 0,
+        "buffer": 0_i32,
         "byteOffset": view_offset,
         "byteLength": view_length,
     });
-    if let Some(stride) = stride {
-        view["byteStride"] = serde_json::json!(stride);
+    if let Some(stride_bytes) = stride {
+        view["byteStride"] = serde_json::json!(stride_bytes);
     }
     serde_json::json!({
         "bufferViews": [view],
@@ -1418,9 +1452,14 @@ fn accessor_data_rejects_overflowing_metadata_without_panicking() {
     let error = read_vec(&json, &binary, 0, 3).expect_err("an overflowing count must fail");
     assert!(error.0.contains("overflows"), "{}", error.0);
 
-    let json = vec3_accessor_document(0, 48, usize::MAX, 3, None);
-    let error = read_vec(&json, &binary, 0, 3).expect_err("an overflowing byte offset must fail");
-    assert!(error.0.contains("overflows"), "{}", error.0);
+    let overflowing_offset_json = vec3_accessor_document(0, 48, usize::MAX, 3, None);
+    let overflowing_offset_error = read_vec(&overflowing_offset_json, &binary, 0, 3)
+        .expect_err("an overflowing byte offset must fail");
+    assert!(
+        overflowing_offset_error.0.contains("overflows"),
+        "{}",
+        overflowing_offset_error.0
+    );
 }
 
 #[test]
@@ -1435,13 +1474,13 @@ fn accessor_data_decodes_a_mat4_with_a_nonzero_offset_and_exact_end() {
     binary.extend(matrix.iter().flat_map(|value| value.to_le_bytes()));
     binary.extend_from_slice(&[0xBB_u8; 4]);
     let json = serde_json::json!({
-        "bufferViews": [{"buffer": 0, "byteOffset": 4, "byteLength": 72}],
+        "bufferViews": [{"buffer": 0_i32, "byteOffset": 4_i32, "byteLength": 72_i32}],
         "accessors": [{
-            "bufferView": 0,
+            "bufferView": 0_i32,
             "componentType": COMPONENT_FLOAT,
-            "count": 1,
+            "count": 1_i32,
             "type": "MAT4",
-            "byteOffset": 4,
+            "byteOffset": 4_i32,
         }],
     });
     let values = read_vec(&json, &binary, 0, 16).expect("a MAT4 with a nonzero offset must decode");
@@ -1466,22 +1505,30 @@ fn accessor_data_rejects_negative_byte_fields() {
     let binary = accessor_fixture_binary();
 
     let mut view_offset = vec3_accessor_document(0, 48, 0, 3, None);
-    view_offset["bufferViews"][0]["byteOffset"] = serde_json::json!(-4);
+    view_offset["bufferViews"][0]["byteOffset"] = serde_json::json!(-4_i32);
     let error = read_vec(&view_offset, &binary, 0, 3)
         .expect_err("a negative bufferView byteOffset must be rejected");
     assert!(error.0.contains("non-negative"), "{}", error.0);
 
     let mut accessor_offset = vec3_accessor_document(0, 48, 0, 3, None);
-    accessor_offset["accessors"][0]["byteOffset"] = serde_json::json!(-12);
-    let error = read_vec(&accessor_offset, &binary, 0, 3)
+    accessor_offset["accessors"][0]["byteOffset"] = serde_json::json!(-12_i32);
+    let accessor_offset_error = read_vec(&accessor_offset, &binary, 0, 3)
         .expect_err("a negative accessor byteOffset must be rejected");
-    assert!(error.0.contains("non-negative"), "{}", error.0);
+    assert!(
+        accessor_offset_error.0.contains("non-negative"),
+        "{}",
+        accessor_offset_error.0
+    );
 
     let mut stride = vec3_accessor_document(0, 48, 0, 3, Some(12));
-    stride["bufferViews"][0]["byteStride"] = serde_json::json!(-12);
-    let error =
+    stride["bufferViews"][0]["byteStride"] = serde_json::json!(-12_i32);
+    let stride_error =
         read_vec(&stride, &binary, 0, 3).expect_err("a negative byteStride must be rejected");
-    assert!(error.0.contains("non-negative"), "{}", error.0);
+    assert!(
+        stride_error.0.contains("non-negative"),
+        "{}",
+        stride_error.0
+    );
 }
 
 #[test]
@@ -1608,11 +1655,11 @@ fn parses_a_skinned_model_into_bind_pose_geometry_and_a_retained_rig() {
     // Bind-pose positions: mesh inverse * joint global * IBM * p, blended.
     let positions: Vec<[f32; 3]> = model.vertices.iter().map(|vertex| vertex.pos).collect();
     let expected = [[-10.0, 1.0, 0.0], [-9.0, 2.0, 0.0], [-10.0, 2.5, 0.0]];
-    for (position, expected) in positions.iter().zip(expected.iter()) {
+    for (position, expected_position) in positions.iter().zip(expected.iter()) {
         for axis in 0..3 {
             assert!(
-                (position[axis] - expected[axis]).abs() < 1e-5,
-                "bind position {position:?} != {expected:?}"
+                (position[axis] - expected_position[axis]).abs() < 1e-5,
+                "bind position {position:?} != {expected_position:?}"
             );
         }
     }
@@ -1720,7 +1767,7 @@ fn parses_animation_clips_with_linear_and_step_samplers() {
 }
 
 #[test]
-fn rejects_malformed_skins_and_animation_samplers() {
+fn rejects_malformed_skins() {
     // A vertex whose weights are all zero has no pose to evaluate.
     let zero_weights = skinned_triangle_document(
         &[[0, 1, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
@@ -1746,8 +1793,12 @@ fn rejects_malformed_skins_and_animation_samplers() {
         &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
         "",
     );
-    let error = parse_glb(&bad_joint).expect_err("out-of-range joints must fail");
-    assert!(error.0.contains("outside the skin"), "{}", error.0);
+    let bad_joint_error = parse_glb(&bad_joint).expect_err("out-of-range joints must fail");
+    assert!(
+        bad_joint_error.0.contains("outside the skin"),
+        "{}",
+        bad_joint_error.0
+    );
 
     // A non-finite weight is refused before it can poison a pose.
     let non_finite = skinned_triangle_document(
@@ -1760,8 +1811,12 @@ fn rejects_malformed_skins_and_animation_samplers() {
         &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
         "",
     );
-    let error = parse_glb(&non_finite).expect_err("non-finite weights must fail");
-    assert!(error.0.contains("non-finite"), "{}", error.0);
+    let non_finite_error = parse_glb(&non_finite).expect_err("non-finite weights must fail");
+    assert!(
+        non_finite_error.0.contains("non-finite"),
+        "{}",
+        non_finite_error.0
+    );
 
     // The inverse bind list must match the joint list one for one.
     let short_ibm = skinned_triangle_document(
@@ -1774,9 +1829,16 @@ fn rejects_malformed_skins_and_animation_samplers() {
         &[translation_columns(0.0, -1.0, 0.0)],
         "",
     );
-    let error = parse_glb(&short_ibm).expect_err("an IBM count mismatch must fail");
-    assert!(error.0.contains("inverse bind matrices"), "{}", error.0);
+    let short_ibm_error = parse_glb(&short_ibm).expect_err("an IBM count mismatch must fail");
+    assert!(
+        short_ibm_error.0.contains("inverse bind matrices"),
+        "{}",
+        short_ibm_error.0
+    );
+}
 
+#[test]
+fn rejects_joint_attributes_without_skin_and_unsupported_interpolation() {
     // JOINTS_0/WEIGHTS_0 without a skin are malformed glTF.
     let mut builder = ModelBuilder::default();
     let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
@@ -1802,16 +1864,25 @@ fn rejects_malformed_skins_and_animation_samplers() {
         views = builder.buffer_views(),
         length = builder.bytes().len(),
     );
-    let error = parse_glb(&glb_container(&json, builder.bytes()))
+    let missing_skin_error = parse_glb(&glb_container(&json, builder.bytes()))
         .expect_err("joint attributes without a skin must fail");
-    assert!(error.0.contains("no skin"), "{}", error.0);
+    assert!(
+        missing_skin_error.0.contains("no skin"),
+        "{}",
+        missing_skin_error.0
+    );
 
     // Unknown interpolations are refused by name.
-    let (json, binary) = animated_triangle_document();
-    let json = json.replace(r#""interpolation": "STEP""#, r#""interpolation": "COSINE""#);
-    let error =
-        parse_glb(&glb_container(&json, &binary)).expect_err("unknown interpolation must fail");
-    assert!(error.0.contains("COSINE"), "{}", error.0);
+    let (animated_json, binary) = animated_triangle_document();
+    let unsupported_interpolation_json =
+        animated_json.replace(r#""interpolation": "STEP""#, r#""interpolation": "COSINE""#);
+    let interpolation_error = parse_glb(&glb_container(&unsupported_interpolation_json, &binary))
+        .expect_err("unknown interpolation must fail");
+    assert!(
+        interpolation_error.0.contains("COSINE"),
+        "{}",
+        interpolation_error.0
+    );
 }
 
 /// The animated fixture's JSON and binary, exposed so one test can mutate the
@@ -1969,21 +2040,21 @@ fn the_shipped_entity_rigs_face_plus_z_in_the_bind_pose() {
     assert!(head > tail, "rat: head {head} must lead tail {tail}");
 
     let cat = parse_glb(SPOONERMAN_GLB).expect("shipped spooner-man.glb must parse");
-    let head = joint_rest_z(&cat, "head").expect("the cat has a head joint");
+    let cat_head = joint_rest_z(&cat, "head").expect("the cat has a head joint");
     let front_paw = joint_rest_z(&cat, "leg_fl_paw").expect("the cat has a front paw");
     let rear_paw = joint_rest_z(&cat, "leg_rl_paw").expect("the cat has a rear paw");
-    let tail = joint_rest_z(&cat, "tail_08").expect("the cat has a tail tip");
+    let cat_tail = joint_rest_z(&cat, "tail_08").expect("the cat has a tail tip");
     assert!(
-        head > front_paw,
-        "cat: head {head} must lead front paw {front_paw}"
+        cat_head > front_paw,
+        "cat: head {cat_head} must lead front paw {front_paw}"
     );
     assert!(
         front_paw > 0.0 && rear_paw < 0.0,
         "cat: the front and rear paws split the origin ({front_paw}, {rear_paw})"
     );
     assert!(
-        rear_paw > tail,
-        "cat: rear paw {rear_paw} must lead tail {tail}"
+        rear_paw > cat_tail,
+        "cat: rear paw {rear_paw} must lead tail {cat_tail}"
     );
 }
 
@@ -2013,7 +2084,7 @@ fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
             "walk_reference_speed": "fast",
             "clips": [
                 { "name": "run", "loop": "yes", "reference_speed_mps": "quick" },
-                { "name": 7 }
+                { "name": 7_i32 }
             ]
         } } }
     });
@@ -2024,7 +2095,7 @@ fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
     let valid = serde_json::json!({
         "asset": { "extras": { "places_entity_clips": {
             "clips": [
-                { "name": "WALK", "loop": false, "reference_speed_mps": 0.3, "kind": "walk" }
+                { "name": "WALK", "loop": false, "reference_speed_mps": 0.3_f64, "kind": "walk" }
             ]
         } } }
     });
@@ -2078,18 +2149,18 @@ fn an_animated_unskinned_prop_parses_as_a_rigid_animated_model() {
 #[test]
 fn morph_tangent_deltas_are_vec3_without_handedness() {
     let json = serde_json::json!({
-        "bufferViews": [{"buffer": 0, "byteLength": 12}],
+        "bufferViews": [{"buffer": 0_i32, "byteLength": 12_i32}],
         "accessors": [
-            {"bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3"},
-            {"bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3"}
+            {"bufferView": 0_i32, "componentType": 5_126_i32, "count": 1_i32, "type": "VEC3"},
+            {"bufferView": 0_i32, "componentType": 5_126_i32, "count": 1_i32, "type": "VEC3"}
         ]
     });
     let binary: Vec<u8> = [1.0_f32, 2.0, 3.0]
         .into_iter()
         .flat_map(f32::to_le_bytes)
         .collect();
-    let primitive = serde_json::json!({"attributes": {"POSITION": 0},
-        "targets": [{"POSITION": 0, "NORMAL": 0, "TANGENT": 1}]});
+    let primitive = serde_json::json!({"attributes": {"POSITION": 0_i32},
+        "targets": [{"POSITION": 0_i32, "NORMAL": 0_i32, "TANGENT": 1_i32}]});
     let targets = read_morph_targets(&json, &binary, &primitive, 0).expect("valid VEC3 morphs");
     assert_eq!(targets[0].tangent, vec![[1.0, 2.0, 3.0, 0.0]]);
     let mut invalid = json;
@@ -2106,19 +2177,20 @@ fn normal_triangle_document(
     let mut builder = ModelBuilder::default();
     let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
     let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
-    let normals = builder.vec3s(normals);
+    let normal_accessor = builder.vec3s(normals);
     let mut primitive = serde_json::json!({"attributes": {
-        "POSITION": positions, "TEXCOORD_0": uvs, "NORMAL": normals
+        "POSITION": positions, "TEXCOORD_0": uvs, "NORMAL": normal_accessor
     }});
     if let Some(delta) = morph {
-        let positions = builder.positions(&[[0.0; 3]; 3]);
-        let normals = builder.vec3s(&[delta; 3]);
-        primitive["targets"] = serde_json::json!([{"POSITION": positions, "NORMAL": normals}]);
-        primitive["weights"] = serde_json::json!([0.5]);
+        let morph_positions = builder.positions(&[[0.0; 3]; 3]);
+        let morph_normals = builder.vec3s(&[delta; 3]);
+        primitive["targets"] =
+            serde_json::json!([{"POSITION": morph_positions, "NORMAL": morph_normals}]);
+        primitive["weights"] = serde_json::json!([0.5_f64]);
     }
     let json = serde_json::json!({
         "asset": {"version":"2.0"},
-        "scene":0, "scenes":[{"nodes":[0]}], "nodes":[node],
+        "scene":0_i32, "scenes":[{"nodes":[0_i32]}], "nodes":[node],
         "meshes":[{"primitives":[primitive]}],
         "accessors":serde_json::from_str::<serde_json::Value>(&format!("[{}]", builder.accessors())).expect("fixture accessor JSON"),
         "bufferViews":serde_json::from_str::<serde_json::Value>(&format!("[{}]", builder.buffer_views())).expect("fixture bufferView JSON"),
@@ -2133,7 +2205,7 @@ fn surface_normals_use_inverse_transpose_under_nonuniform_node_scale_and_yaw() {
     let glb = normal_triangle_document(
         &[[n, n, 0.0]; 3],
         &serde_json::json!({
-            "mesh":0, "scale":[2.0,1.0,0.5], "rotation":[0.0,n,0.0,n]
+            "mesh":0_i32, "scale":[2.0_f64,1.0_f64,0.5_f64], "rotation":[0.0_f64,n,0.0_f64,n]
         }),
         None,
     );
@@ -2159,7 +2231,7 @@ fn surface_normals_use_inverse_transpose_under_nonuniform_node_scale_and_yaw() {
 fn reflected_static_node_keeps_geometric_and_imported_normals_on_the_same_side() {
     let glb = normal_triangle_document(
         &[[0.0, 0.0, 1.0]; 3],
-        &serde_json::json!({"mesh":0, "scale":[-2.0,1.0,0.5]}),
+        &serde_json::json!({"mesh":0_i32, "scale":[-2.0_f64,1.0_f64,0.5_f64]}),
         None,
     );
     let model = parse_glb(&glb).expect("reflected node");
@@ -2183,7 +2255,7 @@ fn surface_normals_apply_default_morph_before_node_transform() {
     let glb = normal_triangle_document(
         &[[0.0, 1.0, 0.0]; 3],
         &serde_json::json!({
-            "mesh":0, "scale":[2.0,1.0,0.5]
+            "mesh":0_i32, "scale":[2.0_f64,1.0_f64,0.5_f64]
         }),
         Some([1.0, 0.0, 1.0]),
     );
@@ -2204,7 +2276,7 @@ fn surface_normals_reject_wrong_counts_zero_nonfinite_and_singular_transforms() 
         vec![[f32::NAN, 1.0, 0.0]; 3],
         vec![[f32::INFINITY, 1.0, 0.0]; 3],
     ] {
-        let glb = normal_triangle_document(&normals, &serde_json::json!({"mesh":0}), None);
+        let glb = normal_triangle_document(&normals, &serde_json::json!({"mesh":0_i32}), None);
         assert!(
             parse_glb(&glb)
                 .expect_err("malformed NORMAL rejected")
@@ -2214,7 +2286,7 @@ fn surface_normals_reject_wrong_counts_zero_nonfinite_and_singular_transforms() 
     }
     let glb = normal_triangle_document(
         &[[0.0, 1.0, 0.0]; 3],
-        &serde_json::json!({"mesh":0,"scale":[0.0,1.0,1.0]}),
+        &serde_json::json!({"mesh":0_i32,"scale":[0.0_f64,1.0_f64,1.0_f64]}),
         None,
     );
     assert!(
@@ -2223,24 +2295,24 @@ fn surface_normals_reject_wrong_counts_zero_nonfinite_and_singular_transforms() 
             .0
             .contains("NORMAL")
     );
-    let glb = normal_triangle_document(
+    let collapsed_normal_glb = normal_triangle_document(
         &[[0.0, 1.0, 0.0]; 3],
-        &serde_json::json!({"mesh":0}),
+        &serde_json::json!({"mesh":0_i32}),
         Some([0.0, -2.0, 0.0]),
     );
     assert!(
-        parse_glb(&glb)
+        parse_glb(&collapsed_normal_glb)
             .expect_err("collapsed morphed normal rejected")
             .0
             .contains("NORMAL")
     );
-    let glb = normal_triangle_document(
+    let non_finite_delta_glb = normal_triangle_document(
         &[[0.0, 1.0, 0.0]; 3],
-        &serde_json::json!({"mesh":0}),
+        &serde_json::json!({"mesh":0_i32}),
         Some([f32::NAN, 0.0, 0.0]),
     );
     assert!(
-        parse_glb(&glb)
+        parse_glb(&non_finite_delta_glb)
             .expect_err("nonfinite normal delta rejected")
             .0
             .contains("NORMAL")

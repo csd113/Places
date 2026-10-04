@@ -6,7 +6,8 @@
     clippy::expect_used,
     clippy::float_cmp,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use std::fmt::Write as _;
@@ -135,7 +136,7 @@ fn falloff_names_round_trip_and_parse_case_insensitively() {
 
 #[test]
 fn the_smooth_curve_is_exactly_the_historical_pool_curve() {
-    for step in 0..=20 {
+    for step in 0_i32..=20_i32 {
         let t = f32::from(u8::try_from(step).unwrap_or(0)) / 20.0;
         assert_exact_named(
             LightFalloff::Smooth.factor(t),
@@ -404,7 +405,7 @@ const AUDIT_STEPS: [f32; 16] = [
 
 /// Prints one audit scene's profiles. `axis` is the unit direction in X/Z,
 /// `limit` how far the walk may go before leaving the room.
-#[allow(clippy::print_stdout, clippy::too_many_arguments)] // developer measurement output
+#[expect(clippy::print_stdout, reason = "developer measurement output")] // developer measurement output
 fn audit_profile(
     lighting: &LevelLighting,
     baseline: LightColor,
@@ -446,7 +447,7 @@ fn audit_profile(
 
 /// Prints one audit scene: its fixture records, then the pool profile from the
 /// first fixture along both axes at every authored height.
-#[allow(clippy::print_stdout)] // developer measurement output
+#[expect(clippy::print_stdout, reason = "developer measurement output")] // developer measurement output
 fn audit_scene(scene: &AuditScene) {
     let level = LevelDef::from_json(&scene.json()).expect("audit scene parses");
     let lighting = LevelLighting::bake(&level);
@@ -474,7 +475,7 @@ fn audit_scene(scene: &AuditScene) {
 
 /// One record per baked light: position, authored height, shape, range, curve,
 /// intensity and ceiling-height factor.
-#[allow(clippy::print_stdout)] // developer measurement output
+#[expect(clippy::print_stdout, reason = "developer measurement output")] // developer measurement output
 fn audit_lights(level: &LevelDef, lighting: &LevelLighting) {
     for (index, light) in lighting.lights().iter().enumerate() {
         let authored = level
@@ -501,7 +502,7 @@ fn audit_lights(level: &LevelDef, lighting: &LevelLighting) {
 
 /// The five profiles at one height: both axes through the first fixture, then
 /// a transverse walk across the room.
-#[allow(clippy::print_stdout)] // developer measurement output
+// developer measurement output
 fn audit_heights(
     lighting: &LevelLighting,
     baseline: LightColor,
@@ -673,7 +674,6 @@ fn family_scenes() -> Vec<AuditScene> {
 /// Developer measurement, not an assertion. See the module docs above.
 #[test]
 #[ignore = "developer measurement: prints per-family fixture pool profiles"]
-#[allow(clippy::print_stdout)]
 fn fixture_distribution_audit_report() {
     for scene in audit_scenes() {
         audit_scene(&scene);

@@ -68,9 +68,9 @@ impl DrawableSize {
         let drawable_width = i32::try_from(self.width).unwrap_or(i32::MAX);
         let drawable_height = i32::try_from(self.height).unwrap_or(i32::MAX);
         let width =
-            round_to_i32(dimension_f32(UI_REFERENCE_WIDTH) * scale).clamp(1, drawable_width);
+            round_to_i32(dimension_f32(UI_REFERENCE_WIDTH) * scale).clamp(1_i32, drawable_width);
         let height =
-            round_to_i32(dimension_f32(UI_REFERENCE_HEIGHT) * scale).clamp(1, drawable_height);
+            round_to_i32(dimension_f32(UI_REFERENCE_HEIGHT) * scale).clamp(1_i32, drawable_height);
 
         UiViewport {
             x: drawable_width.saturating_sub(width) / 2,
@@ -98,7 +98,11 @@ pub fn dimension_f32(value: u32) -> f32 {
 /// [`dimension_f32`] (at most 65 535) and the scale is their ratio, so the
 /// result is a whole number in `0..=65 535`: the saturating `as` cast is exact
 /// and the caller clamps it to the drawable anyway.
-#[allow(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "The rounded UI viewport coordinate is bounded by u16 drawable dimensions and fits i32."
+)]
 const fn round_to_i32(value: f32) -> i32 {
     value.round() as i32
 }

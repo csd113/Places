@@ -34,17 +34,10 @@
 //! collision index and produces a private run that is merged in row order, so
 //! a parallel bake is byte-identical to the serial one.
 
-// The navigation/AI runtime is numeric kernel code: bounded `f32` geometry
-// over validated finite records, lattice indices converted after their caps
-// are enforced, and fixed-size arrays walked by index. Those are exactly the
-// shapes the cast/float/index lints flag, so they are allowed here as a unit;
-// no other module inherits them, and every allocation and collection access
-// still goes through bounds-checked paths.
+// Preserve exact sentinel comparisons, floating-point operation order and
+// cohesive geometry/query stages. Numeric conversions and integer arithmetic
+// are audited at their local expressions instead of exempting the module.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::float_cmp,
     clippy::imprecise_flops,
     clippy::missing_const_for_fn,
@@ -52,7 +45,8 @@
     clippy::similar_names,
     clippy::suboptimal_flops,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
 use crate::collision::{DoorCollider, WallAabb};
@@ -296,7 +290,8 @@ pub fn bake(
              size or split the level"
         ));
     }
-    let cell_count = usize::try_from(cells).map_err(|_| "navigation grid is too large")?;
+    let cell_count =
+        usize::try_from(cells).map_err(|error| format!("navigation grid is too large: {error}"))?;
 
     let mut combined: Vec<WallAabb> =
         Vec::with_capacity(input.walls.len().saturating_add(input.obstacles.len()));
@@ -304,7 +299,10 @@ pub fn bake(
     combined.extend_from_slice(input.obstacles);
 
     let class_count = input.classes.len();
-    let workers = options.workers.max(1).min(cells_z.max(1) as usize);
+    let workers = options
+        .workers
+        .max(1)
+        .min(usize::try_from(cells_z.max(1)).unwrap_or(usize::MAX));
     let rows_per_worker = cells_z.div_ceil(u32::try_from(workers).unwrap_or(1).max(1));
     let mut ranges: Vec<(u32, u32)> = Vec::with_capacity(workers);
     let mut start = 0u32;
@@ -323,16 +321,16 @@ pub fn bake(
         walk_proxies: input.walk_proxies,
     };
 
-    let work = |start: u32, end: u32| -> RowRun {
-        scene.bake_rows(start, end, cell_m, origin_x, origin_z, cells_x)
+    let work = |first_row: u32, end: u32| -> RowRun {
+        scene.bake_rows(first_row, end, cell_m, origin_x, origin_z, cells_x)
     };
     let runs: Vec<RowRun> = if ranges.len() <= 1 {
         vec![work(ranges.first().map_or(0, |range| range.0), cells_z)]
     } else {
         std::thread::scope(|scope| {
             let mut handles = Vec::with_capacity(ranges.len());
-            for (start, end) in &ranges {
-                handles.push(scope.spawn(move || work(*start, *end)));
+            for (range_start, end) in &ranges {
+                handles.push(scope.spawn(move || work(*range_start, *end)));
             }
             let mut out = Vec::with_capacity(handles.len());
             for handle in handles {
@@ -350,8 +348,12 @@ pub fn bake(
     let mut masks: Vec<Vec<u8>> = (0..class_count).map(|_| vec![0u8; mask_bytes]).collect();
     for run in runs {
         for (row, row_cells, row_masks) in run {
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "The product of two u32 values fits in u64; the platform collection-size conversion is checked."
+            )]
             let row_start = usize::try_from(u64::from(row) * u64::from(cells_x))
-                .map_err(|_| "navigation grid is too large")?;
+                .map_err(|error| format!("navigation grid is too large: {error}"))?;
             for (offset, cell) in row_cells.into_iter().enumerate() {
                 let target = row_start.saturating_add(offset);
                 if let Some(slot) = cells_data.get_mut(target) {
@@ -473,6 +475,11 @@ struct BakeScene<'a> {
 
 impl BakeScene<'_> {
     /// Bakes one contiguous run of rows.
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "Grid dimensions are validated against the 2^21-cell package cap before workers start; every row and column index converts exactly to f32."
+    )]
     fn bake_rows(
         &self,
         start_row: u32,
@@ -525,17 +532,19 @@ impl BakeScene<'_> {
                 ..BakeCell::default()
             };
         };
-        let surface = match proxy {
-            Some(proxy) if proxy > surface + crate::collision::STEP_EPS => proxy,
+        let walk_surface = match proxy {
+            Some(proxy_height) if proxy_height > surface + crate::collision::STEP_EPS => {
+                proxy_height
+            }
             _ => surface,
         };
-        if !surface.is_finite() {
+        if !walk_surface.is_finite() {
             return BakeCell::default();
         }
-        let flags = CELL_SURFACE | self.slope_flag(x, z, cell_m, surface);
-        let headroom = self.headroom_cm(x, z, surface, index);
+        let flags = CELL_SURFACE | self.slope_flag(x, z, cell_m, walk_surface);
+        let headroom = self.headroom_cm(x, z, walk_surface, index);
         BakeCell {
-            surface: Some(surface),
+            surface: Some(walk_surface),
             flags,
             headroom_cm: headroom,
             portal: self.portal_at(x, z, cell_m),
@@ -577,6 +586,12 @@ impl BakeScene<'_> {
     }
 
     /// The headroom above `surface`, in centimetres.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "Centimetres are clamped to 0..=65534 and intentionally truncated down for conservative clearance; 65535 remains reserved for unbounded headroom."
+    )]
     fn headroom_cm(&self, x: f32, z: f32, surface: f32, index: &CollisionIndex) -> u16 {
         let mut above = self.ceiling.ceiling_y_at(x, z);
         let radius = self
@@ -589,13 +604,14 @@ impl BakeScene<'_> {
         {
             above = Some(above.map_or(underside, |ceiling| ceiling.min(underside)));
         }
-        let Some(above) = above else {
+        let Some(ceiling_height) = above else {
             return HEADROOM_UNBOUNDED_CM;
         };
-        if !above.is_finite() {
+        if !ceiling_height.is_finite() {
             return HEADROOM_UNBOUNDED_CM;
         }
-        let centimetres = ((above - surface).max(0.0) * 100.0).min(f32::from(u16::MAX - 1));
+        let centimetres =
+            ((ceiling_height - surface).max(0.0) * 100.0).min(f32::from(u16::MAX - 1));
         centimetres as u16
     }
 
@@ -726,8 +742,14 @@ fn label_regions(
         }
         walkable = walkable.saturating_add(1);
         while let Some(index) = stack.pop() {
-            let cx = u32::try_from(index).unwrap_or(0) % cells_x.max(1);
-            let cz = u32::try_from(index).unwrap_or(0) / cells_x.max(1);
+            #[expect(
+                clippy::arithmetic_side_effects,
+                reason = "The divisor is normalized with max(1), so unsigned lattice decomposition cannot divide by zero."
+            )]
+            let (cx, cz) = (
+                u32::try_from(index).unwrap_or(0) % cells_x.max(1),
+                u32::try_from(index).unwrap_or(0) / cells_x.max(1),
+            );
             for (dx, dz) in NEIGHBOURS {
                 let Some(nx) = cx.checked_add_signed(dx) else {
                     continue;
@@ -738,6 +760,10 @@ fn label_regions(
                 if nx >= cells_x {
                     continue;
                 }
+                #[expect(
+                    clippy::arithmetic_side_effects,
+                    reason = "Even (u32::MAX * u32::MAX) + u32::MAX fits in u64; conversion to usize and the resulting cell address are checked."
+                )]
                 let Some(nindex) =
                     usize::try_from(u64::from(nz) * u64::from(cells_x) + u64::from(nx)).ok()
                 else {
@@ -749,7 +775,7 @@ fn label_regions(
                 if !bit(nindex) {
                     continue;
                 }
-                let diagonal = dx != 0 && dz != 0;
+                let diagonal = dx != 0_i32 && dz != 0_i32;
                 if diagonal {
                     let (Some(a), Some(b)) = (
                         neighbour_index(cx, cz, dx, 0, cells_x, cell_count),
@@ -789,6 +815,10 @@ fn neighbour_index(
     if nx >= cells_x {
         return None;
     }
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Even (u32::MAX * u32::MAX) + u32::MAX fits in u64; conversion to usize and the resulting cell address are checked."
+    )]
     let index = usize::try_from(u64::from(nz) * u64::from(cells_x) + u64::from(nx)).ok()?;
     (index < cell_count).then_some(index)
 }
@@ -896,6 +926,12 @@ fn floor_bounds(level: &LevelDef) -> Result<(f32, f32, f32, f32), String> {
 }
 
 /// One grid dimension from a real span, clamped to at least one cell.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::as_conversions,
+    reason = "The input is checked finite and nonnegative, then clamped to 1..=65535 before the native float-to-u32 conversion."
+)]
 fn clamp_cells(value: f32) -> Result<u32, String> {
     if !value.is_finite() || value < 0.0 {
         return Err("navigation grid extent is not finite".to_string());

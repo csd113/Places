@@ -163,7 +163,10 @@ pub fn tiled_uv(a: f32, b: f32, tile_metres: f32) -> [f32; 2] {
     [a / tile, b / tile]
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One quad uses four explicit position/color/UV tuples, preserving the established vertex order."
+)]
 fn add_quad(
     vertices: &mut Vec<Vertex>,
     p0: [f32; 3],
@@ -221,7 +224,10 @@ fn add_quad(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One flat-shaded quad uses four explicit position/UV pairs and a shared color, preserving vertex order."
+)]
 fn add_quad_flat(
     vertices: &mut Vec<Vertex>,
     p0: [f32; 3],
@@ -258,7 +264,11 @@ fn shade(base: [f32; 3], light: LightColor) -> [f32; 3] {
 ///
 /// Every count in this module is bounded by the level geometry and GPU buffer
 /// sizes, far below 2^24, where an `usize` to `f32` conversion is exact.
-#[allow(clippy::cast_precision_loss)] // counts are < 2^24, where f32 is exact
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "counts are < 2^24, where f32 is exact"
+)] // counts are < 2^24, where f32 is exact
 const fn count_to_f32(value: usize) -> f32 {
     value as f32
 }
@@ -333,13 +343,13 @@ pub fn stamp_lightmap_quad(
     corners: [[f32; 3]; 4],
     room: Option<usize>,
 ) {
-    let Some(plan) = lightmap.and_then(|lightmap| lightmap.plan) else {
+    let Some(plan) = lightmap.and_then(|wall_lightmap| wall_lightmap.plan) else {
         return;
     };
-    let Ok(mut plan) = plan.try_borrow_mut() else {
+    let Ok(mut borrowed_plan) = plan.try_borrow_mut() else {
         return;
     };
-    let _ = plan.stamp_emitted(vertices, first, kind, corners, room);
+    let _ = borrowed_plan.stamp_emitted(vertices, first, kind, corners, room);
 }
 
 /// Splits `(lo, hi)` into sub-intervals of at most `max_span` length each.
@@ -353,7 +363,12 @@ pub fn split_span(lo: f32, hi: f32, max_span: f32) -> Vec<(f32, f32)> {
         return vec![(lo, hi)];
     }
     let pieces = (span / max_span).ceil().clamp(1.0, 64.0);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The integral subdivision count is clamped to 1..=64 before conversion."
+    )]
     // `pieces` is clamped to [1, 64] before the cast.
     let count = pieces as u32;
     let step = span / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
@@ -480,12 +495,12 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
     /// once (a 2x saving) and a merged strip keeps a single value at every
     /// surviving edge.
     fn boundaries(&self, face_room: Option<usize>) -> Vec<WallBoundary> {
-        let segments = wall_light_segments((self.l1 - self.l0).abs());
-        let boundary_count = segments as usize + 1;
+        let segments = usize::try_from(wall_light_segments((self.l1 - self.l0).abs())).unwrap_or(1);
+        let boundary_count = segments.saturating_add(1);
         let mut boundaries: Vec<WallBoundary> = Vec::with_capacity(boundary_count);
         for boundary in 0..boundary_count {
-            let at = self.l0
-                + (self.l1 - self.l0) * count_to_f32(boundary) / count_to_f32(segments as usize);
+            let at =
+                self.l0 + (self.l1 - self.l0) * count_to_f32(boundary) / count_to_f32(segments);
             let top = (self.top_at)(at);
             boundaries.push((
                 at,
@@ -504,12 +519,12 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
         // staying constant along the face, so tiling never breaks across a
         // gable slope or a merged lighting run.
         let uv_v_ref = (self.top_at)(self.l0);
-        let segments = wall_light_segments((self.l1 - self.l0).abs());
+        let segments = usize::try_from(wall_light_segments((self.l1 - self.l0).abs())).unwrap_or(1);
         let boundaries = self.boundaries(face_room);
         let max_span_m = self
             .lightmap
             .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
-        for (start, end) in merge_light_runs(&boundaries, segments as usize, max_span_m) {
+        for (start, end) in merge_light_runs(&boundaries, segments, max_span_m) {
             let (
                 Some(&(at_start, top_start, bottom_start, top_color_start)),
                 Some(&(at_end, top_end, bottom_end, top_color_end)),
@@ -588,7 +603,10 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
 }
 
 /// Emits one wall face parallel to the wall's length axis as a strip of quads.
-#[allow(clippy::too_many_arguments)] // one emitter per face; see `WallFaceStrip`
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one emitter per face; see `WallFaceStrip`"
+)] // one emitter per face; see `WallFaceStrip`
 fn add_wall_length_face<'a>(
     vertices: &mut Vec<Vertex>,
     axis: WallAxis,
@@ -646,20 +664,21 @@ fn merge_light_runs(
     segments: usize,
     max_span_m: f32,
 ) -> Vec<(usize, usize)> {
-    let matches_run = |reference: &WallBoundary, candidate: &WallBoundary| {
-        (candidate.0 - reference.0).abs() <= max_span_m
-            && reference
-                .2
-                .iter()
-                .zip(&candidate.2)
-                .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
-            && reference
-                .3
-                .iter()
-                .zip(&candidate.3)
-                .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
-            && (candidate.1 - reference.1).abs() <= HEIGHT_MERGE_EPS
-    };
+    let matches_run =
+        |reference: &WallBoundary, candidate: &WallBoundary| {
+            (candidate.0 - reference.0).abs() <= max_span_m
+                && reference.2.iter().zip(&candidate.2).all(
+                    |(reference_channel, candidate_channel)| {
+                        (candidate_channel - reference_channel).abs() <= LIGHT_GRID_MERGE_EPS
+                    },
+                )
+                && reference.3.iter().zip(&candidate.3).all(
+                    |(reference_channel, candidate_channel)| {
+                        (candidate_channel - reference_channel).abs() <= LIGHT_GRID_MERGE_EPS
+                    },
+                )
+                && (candidate.1 - reference.1).abs() <= HEIGHT_MERGE_EPS
+        };
     let mut runs = Vec::new();
     let mut start = 0;
     while start < segments {
@@ -680,12 +699,12 @@ fn merge_light_runs(
         }
         // `end` is the first boundary that does not belong to the run (or
         // `segments + 1` when the whole face does), so the run ends one short.
-        let end = end.saturating_sub(1).max(start.saturating_add(1));
-        if boundaries.get(end).is_none() {
+        let last_segment = end.saturating_sub(1).max(start.saturating_add(1));
+        if boundaries.get(last_segment).is_none() {
             break;
         }
-        runs.push((start, end));
-        start = end;
+        runs.push((start, last_segment));
+        start = last_segment;
     }
     runs
 }
@@ -758,16 +777,26 @@ pub(in crate::render) enum WallUnit<'a> {
 impl WallUnit<'_> {
     const fn wall(&self) -> &WallDef {
         match self {
-            Self::Plain { wall, .. } => wall,
-            Self::Coalesced { wall, .. } => wall,
+            Self::Plain { wall, index: _ } => wall,
+            Self::Coalesced {
+                wall,
+                members: _,
+                slices: _,
+                runs: _,
+            } => wall,
         }
     }
 
     /// Every authored wall index whose volume this unit emits.
     fn members(&self) -> Vec<usize> {
         match self {
-            Self::Plain { index, .. } => vec![*index],
-            Self::Coalesced { members, .. } => members.clone(),
+            Self::Plain { index, wall: _ } => vec![*index],
+            Self::Coalesced {
+                members,
+                wall: _,
+                slices: _,
+                runs: _,
+            } => members.clone(),
         }
     }
 
@@ -779,8 +808,13 @@ impl WallUnit<'_> {
     /// it (see `emit_wall_caps`).
     fn first_member(&self) -> usize {
         match self {
-            Self::Plain { index, .. } => *index,
-            Self::Coalesced { members, .. } => members.first().copied().unwrap_or(0),
+            Self::Plain { index, wall: _ } => *index,
+            Self::Coalesced {
+                members,
+                wall: _,
+                slices: _,
+                runs: _,
+            } => members.first().copied().unwrap_or(0),
         }
     }
 
@@ -790,7 +824,7 @@ impl WallUnit<'_> {
     /// already resolved by [`coalesce_wall_group`].
     fn slices(&self, surfaces: &LevelSurfaces<'_>) -> Vec<WallSlice> {
         match self {
-            Self::Plain { wall, .. } => {
+            Self::Plain { wall, index: _ } => {
                 let breaks = surfaces.wall_profile_breaks(wall);
                 wall_solid_slices_profiled(
                     wall,
@@ -798,7 +832,12 @@ impl WallUnit<'_> {
                     &breaks,
                 )
             }
-            Self::Coalesced { slices, .. } => slices.clone(),
+            Self::Coalesced {
+                slices,
+                members: _,
+                wall: _,
+                runs: _,
+            } => slices.clone(),
         }
     }
 
@@ -807,8 +846,13 @@ impl WallUnit<'_> {
     /// materials.
     fn run_at(&self, position: f32, y: f32) -> Option<&WallMaterialRun> {
         match self {
-            Self::Plain { .. } => None,
-            Self::Coalesced { runs, .. } => runs.iter().find(|run| {
+            Self::Plain { index: _, wall: _ } => None,
+            Self::Coalesced {
+                runs,
+                members: _,
+                wall: _,
+                slices: _,
+            } => runs.iter().find(|run| {
                 position >= run.start - WALL_COINCIDENCE_EPS
                     && position <= run.end + WALL_COINCIDENCE_EPS
                     && y >= run.bottom - WALL_COINCIDENCE_EPS
@@ -824,8 +868,13 @@ impl WallUnit<'_> {
     /// whole face.
     fn runs_between(&self, start: f32, end: f32, bottom: f32, top: f32) -> Vec<WallMaterialRun> {
         match self {
-            Self::Plain { .. } => Vec::new(),
-            Self::Coalesced { runs, .. } => runs
+            Self::Plain { index: _, wall: _ } => Vec::new(),
+            Self::Coalesced {
+                runs,
+                members: _,
+                wall: _,
+                slices: _,
+            } => runs
                 .iter()
                 .filter_map(|run| {
                     let low = run.start.max(start);
@@ -1617,12 +1666,16 @@ fn merge_intervals(mut intervals: Vec<(f32, f32)>) -> Vec<(f32, f32)> {
 /// Y ranges that are solid on exactly one of the two sides of a wall cross
 /// section: the faces exposed by an opening or by the wall's end.
 fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> Vec<(f32, f32)> {
-    let left = merge_intervals(left.to_vec());
-    let right = merge_intervals(right.to_vec());
+    let merged_left = merge_intervals(left.to_vec());
+    let merged_right = merge_intervals(right.to_vec());
 
-    let mut cuts: Vec<f32> =
-        Vec::with_capacity(left.len().saturating_add(right.len()).saturating_mul(2));
-    for (bottom, top) in left.iter().chain(right.iter()) {
+    let mut cuts: Vec<f32> = Vec::with_capacity(
+        merged_left
+            .len()
+            .saturating_add(merged_right.len())
+            .saturating_mul(2),
+    );
+    for (bottom, top) in merged_left.iter().chain(merged_right.iter()) {
         cuts.push(*bottom);
         cuts.push(*top);
     }
@@ -1643,7 +1696,7 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
             continue;
         }
         let middle = f32::midpoint(bottom, top);
-        if covers(&left, middle) != covers(&right, middle) {
+        if covers(&merged_left, middle) != covers(&merged_right, middle) {
             difference.push((bottom, top));
         }
     }
@@ -1662,7 +1715,10 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
 /// between two rooms can carry each side's baked light through the door rather
 /// than falling back to ambient in the middle of the wall. UVs follow the wall
 /// face convention (horizontal world coordinate, then Y).
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One wall-cross quad keeps orientation, thickness, corners, material and lighting inputs explicit."
+)]
 fn add_wall_cross_quad(
     vertices: &mut Vec<Vertex>,
     axis: WallAxis,
@@ -1877,7 +1933,10 @@ pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]
 /// idempotent and the authored value is never lost. Every other caller keeps
 /// [`decal_quad_points`] and the authored rotation.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam vector math is float-only and cannot cause integer overflow or panic"
+)] // glam vector math is float-only and cannot overflow or panic
 pub fn decal_quad_points_rotated(
     decal: &crate::level::DecalDef,
     rotation_degrees: f32,
@@ -1989,7 +2048,10 @@ pub fn decal_tint_for_normal(normal: [f32; 3]) -> [f32; 3] {
 ///    [`DECAL_POLYGON_OFFSET`] — so it can never occupy exactly the same depth
 ///    plane as its parent surface. The displacement is tiny and perpendicular
 ///    to the surface, so the marking still reads as printed/painted on it.
-#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam vector math is float-only and cannot cause integer overflow or panic"
+)] // glam vector math is float-only and cannot overflow or panic
 fn add_decal_quad(
     vertices: &mut Vec<Vertex>,
     decal: &crate::level::DecalDef,
@@ -2128,7 +2190,9 @@ fn grid_rect_is_uniform(
             color
                 .iter()
                 .zip(&reference)
-                .all(|(channel, reference)| (channel - reference).abs() <= LIGHT_GRID_MERGE_EPS)
+                .all(|(channel, reference_channel)| {
+                    (channel - reference_channel).abs() <= LIGHT_GRID_MERGE_EPS
+                })
         })
 }
 
@@ -2352,7 +2416,10 @@ impl<'a, Y: Fn(f32, f32) -> f32> GridMerger<'a, Y> {
 /// `MAX_LIGHT_GRID_CELLS`² of them. The surviving corners keep their exact
 /// sampled colours and heights; UVs stay world-space, so merging is invisible
 /// to texturing.
-#[allow(clippy::too_many_arguments)] // mirrors the other quad emitters in this module
+#[expect(
+    clippy::too_many_arguments,
+    reason = "mirrors the other quad emitters in this module"
+)] // mirrors the other quad emitters in this module
 fn emit_lit_surface_grid(
     vertices: &mut Vec<Vertex>,
     xs: &[f32],
@@ -2374,7 +2441,7 @@ fn emit_lit_surface_grid(
     if cells_x == 0 || cells_z == 0 {
         return;
     }
-    let max_span_m = lightmap.map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+    let max_span_m = lightmap.map_or(f32::INFINITY, |wall_lightmap| wall_lightmap.max_span_m);
     let mut merger = GridMerger::new(xs, zs, colors, region, &y_at, max_span_m);
     let row_len = xs.len();
 
@@ -2434,7 +2501,10 @@ fn emit_lit_surface_grid(
 
 /// Emits one merged grid rectangle: its `(x, z)` corners in winding order and
 /// the four shaded corner colours, with world height and UVs derived here.
-#[allow(clippy::too_many_arguments)] // mirrors the other quad emitters in this module
+#[expect(
+    clippy::too_many_arguments,
+    reason = "mirrors the other quad emitters in this module"
+)] // mirrors the other quad emitters in this module
 fn emit_grid_quad(
     vertices: &mut Vec<Vertex>,
     xz: [[f32; 2]; 4],
@@ -2474,7 +2544,10 @@ fn emit_grid_quad(
 /// colour is the material tint alone (white when there is none), so the
 /// fragment stage's `texture x vertex colour x lightmap` still multiplies the
 /// surface by exactly the tint and the light it always did.
-#[allow(clippy::too_many_arguments)] // shared floor/ramp/ceiling grid, including its orientation
+#[expect(
+    clippy::too_many_arguments,
+    reason = "shared floor/ramp/ceiling grid, including its orientation"
+)] // shared floor/ramp/ceiling grid, including its orientation
 fn lit_surface_grid(
     lighting: &LevelLighting,
     room_index: usize,
@@ -2503,8 +2576,12 @@ fn lit_surface_grid(
             let light = lighting
                 .sample_in_room(room_index, *x, y, *z)
                 .plus(lighting.global_surface_light([*x, y, *z], normal.to_array()));
-            colors.push(tint.map_or([light.r, light.g, light.b], |tint| {
-                [tint[0] * light.r, tint[1] * light.g, tint[2] * light.b]
+            colors.push(tint.map_or([light.r, light.g, light.b], |material_tint| {
+                [
+                    material_tint[0] * light.r,
+                    material_tint[1] * light.g,
+                    material_tint[2] * light.b,
+                ]
             }));
         }
     }
@@ -2654,10 +2731,10 @@ fn skirt_corner_colors(
     let normal = quad_normal(points);
     std::array::from_fn(|index| {
         // `index` is always < 4: both arrays have exactly four corners.
-        let base = base.get(index).copied().unwrap_or_default();
+        let corner_base = base.get(index).copied().unwrap_or_default();
         let point = points.get(index).copied().unwrap_or_default();
         shade(
-            base,
+            corner_base,
             lighting
                 .sample(point[0], point[1], point[2])
                 .plus(lighting.global_surface_light(point, normal)),
@@ -2703,8 +2780,8 @@ fn emit_skirt_face(
         WallAxis::Z => (f32::midpoint(span.0, span.1), at),
     };
     let room = lighting.room_index_at_height(hint_x, f32::midpoint(low, high), hint_z);
-    let lightmapped = lightmap.is_some_and(|lightmap| lightmap.is_on());
-    let max_span_m = lightmap.map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+    let lightmapped = lightmap.is_some_and(|wall_lightmap| wall_lightmap.is_on());
+    let max_span_m = lightmap.map_or(f32::INFINITY, |wall_lightmap| wall_lightmap.max_span_m);
 
     for (span_start, span_end) in split_span(span.0, span.1, max_span_m) {
         for (tile_low, tile_high) in split_span(low, high, max_span_m) {

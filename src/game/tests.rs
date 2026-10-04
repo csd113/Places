@@ -3,7 +3,12 @@
 // Test code: unwrap/expect, indexing, loose casts, panics and permissive
 // arithmetic are idiomatic in tests; the production lints stay enforced
 // everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::panic, clippy::unreachable)]
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 
 use std::fmt::Write as _;
 
@@ -270,7 +275,7 @@ fn test_controller_climbs_a_staircase_of_floor_regions() {
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     let mut highest = game.player_floor_y;
-    for _ in 0..25 {
+    for _ in 0_i32..25_i32 {
         game.update_player_movement(&mut input, &settings);
         highest = highest.max(game.player_floor_y);
     }
@@ -303,7 +308,7 @@ fn test_controller_walks_off_a_deep_edge_and_falls() {
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     let mut airborne = false;
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut input, &settings);
         if !game.grounded {
             airborne = true;
@@ -325,7 +330,7 @@ fn test_controller_walks_off_a_deep_edge_and_falls() {
     // The 1.5 m wall is taller than a step: walking back out is refused, and
     // the floor never rises toward the lip.
     game.player_yaw = (-90.0f32).to_radians();
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut input, &settings);
     }
     assert!(
@@ -459,25 +464,25 @@ fn test_controller_climbs_the_home_staircase_and_the_ramp() {
     );
 
     // Up the ramp: the same 0.75 m, this time continuously.
-    let mut game = game_for(&level);
-    let ramp_floor = game
+    let mut ramp_game = game_for(&level);
+    let ramp_floor = ramp_game
         .floor
         .walk_height_at(4.5, 0.5)
         .expect("ramp spawn surface");
-    set_eye_position(&mut game, Vec3::new(4.5, ramp_floor + EYE_HEIGHT, 0.5));
-    game.player_floor_y = ramp_floor;
-    game.player_yaw = 180.0_f32.to_radians();
-    walk_forward(&mut game, 60);
+    set_eye_position(&mut ramp_game, Vec3::new(4.5, ramp_floor + EYE_HEIGHT, 0.5));
+    ramp_game.player_floor_y = ramp_floor;
+    ramp_game.player_yaw = 180.0_f32.to_radians();
+    walk_forward(&mut ramp_game, 60);
     assert!(
-        (game.player_floor_y - 0.75).abs() < 1e-4,
+        (ramp_game.player_floor_y - 0.75).abs() < 1e-4,
         "the ramp climbs to the platform: floor {}",
-        game.player_floor_y
+        ramp_game.player_floor_y
     );
     // Standing on the ramp part-way up answers a part-way height, and it is
     // monotone from the foot to the platform.
     let floor = WalkableFloor::from_level(&level);
     let mut previous = 0.0_f32;
-    for z in 0..=32 {
+    for z in 0_i32..=32_i32 {
         let at = f32::mul_add(f32::from(u16::try_from(z).unwrap_or(0)), 0.05, 0.4);
         let height = floor.height_at(4.5, at).unwrap_or(f32::NAN);
         assert!(
@@ -528,7 +533,7 @@ fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     let mut highest = game.player_floor_y;
-    for _ in 0..3 {
+    for _ in 0_i32..3_i32 {
         game.update_player_movement(&mut input, &settings);
         highest = highest.max(game.player_floor_y);
     }
@@ -624,7 +629,7 @@ fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
     // per-frame check is monotonicity, not the per-sub-step step size: the
     // player must never bounce back up the ramp.
     let mut previous = game.player_floor_y;
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_floor_y <= previous + 1e-3,
@@ -670,7 +675,7 @@ fn test_controller_traverses_the_home_split_level_both_ways() {
     let mut previous = game.player_floor_y;
     let settings = Settings::default();
     let mut input = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_floor_y <= previous + 1e-3,
@@ -847,7 +852,7 @@ fn test_controller_walks_a_staircase_smoothly_up() {
     let mut previous_eye = game.player_position.y;
     let mut foot_steps = 0_u32;
     let mut on_stair = Vec::new();
-    for _ in 0..140 {
+    for _ in 0_i32..140_i32 {
         game.update_player_movement(&mut input, &settings);
         let x = game.player_position.x;
         let floor = game.player_floor_y;
@@ -893,7 +898,7 @@ fn test_controller_walks_a_staircase_smoothly_up() {
         "the walk crosses the landing: {:?}",
         game.player_position
     );
-    assert_ne!(on_stair, [] as [(f32, f32, f32); 0]);
+    assert!(!on_stair.is_empty(), "on_stair must contain entries");
     // The walking surface is always between the tread underfoot and the tread
     // ahead: never inside a step, never floating above the next one.
     for (x, floor, stepped) in on_stair {
@@ -926,7 +931,7 @@ fn test_controller_walks_a_staircase_smoothly_down() {
     let mut previous_x = game.player_position.x;
     let mut previous_eye = game.player_position.y;
     let mut foot_steps = 0_u32;
-    for _ in 0..150 {
+    for _ in 0_i32..150_i32 {
         game.update_player_movement(&mut input, &settings);
         let x = game.player_position.x;
         let eye = game.player_position.y;
@@ -1071,20 +1076,20 @@ fn test_controller_cannot_climb_a_tall_step_or_a_wall() {
     );
 
     // An authored wall blocks exactly as before.
-    let mut game = game_for(&level);
-    set_eye_position(&mut game, Vec3::new(10.0, EYE_HEIGHT, 4.0));
-    game.player_floor_y = 0.0;
-    game.player_yaw = 90.0_f32.to_radians();
-    walk_forward(&mut game, 60);
+    let mut wall_game = game_for(&level);
+    set_eye_position(&mut wall_game, Vec3::new(10.0, EYE_HEIGHT, 4.0));
+    wall_game.player_floor_y = 0.0;
+    wall_game.player_yaw = 90.0_f32.to_radians();
+    walk_forward(&mut wall_game, 60);
     assert!(
-        game.player_floor_y.abs() < 1e-4,
+        wall_game.player_floor_y.abs() < 1e-4,
         "a wall is not climbed: {}",
-        game.player_floor_y
+        wall_game.player_floor_y
     );
     assert!(
-        game.player_position.x <= 12.0 - PLAYER_RADIUS + 1e-3,
+        wall_game.player_position.x <= 12.0 - PLAYER_RADIUS + 1e-3,
         "the player stops at the wall face: {:?}",
-        game.player_position
+        wall_game.player_position
     );
 }
 
@@ -1163,7 +1168,7 @@ fn grounded_player_never_falls_through_the_floor() {
     play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
     let settings = Settings::default();
     let mut input = InputState::default();
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(game.grounded, "the player stays on the floor");
         assert_exact(game.player_position.y, game.player_floor_y + EYE_HEIGHT);
@@ -1186,7 +1191,7 @@ fn off_room_spawn_stands_on_the_ground_plane() {
     game.sim_delta_seconds = 1.0 / 60.0;
     let settings = Settings::default();
     let mut input = InputState::default();
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut input, &settings);
         assert_exact(game.player_position.y, EYE_HEIGHT);
     }
@@ -1194,7 +1199,7 @@ fn off_room_spawn_stands_on_the_ground_plane() {
 
     let mut jump = InputState::holding(&[Control::Jump]);
     let mut highest = game.player_position.y;
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut jump, &settings);
         highest = highest.max(game.player_position.y);
     }
@@ -1222,7 +1227,7 @@ fn jump_starts_only_while_grounded_and_never_double_jumps() {
 
     // Holding the key never re-launches: the vertical speed only decreases.
     let mut previous = game.vertical_velocity;
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut held, &settings);
         assert!(
             game.vertical_velocity <= previous + 1e-6,
@@ -1234,7 +1239,7 @@ fn jump_starts_only_while_grounded_and_never_double_jumps() {
 
     // The jump lands, and the still-held key does not bounce.
     let mut landed = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut held, &settings);
         if game.grounded {
             landed = true;
@@ -1248,19 +1253,19 @@ fn jump_starts_only_while_grounded_and_never_double_jumps() {
     assert_exact(game.player_position.y, floor_after_landing + EYE_HEIGHT);
 
     // Releasing and pressing again mid-air is rejected.
-    let mut game = game_for(&level);
-    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
-    game.update_player_movement(&mut held, &settings); // launch
+    let mut airborne_game = game_for(&level);
+    play_at(&mut airborne_game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    airborne_game.update_player_movement(&mut held, &settings); // launch
     let mut released = InputState::default();
-    game.update_player_movement(&mut released, &settings); // release
-    assert!(!game.grounded);
-    game.vertical_velocity = -1.0; // descending mid-air
+    airborne_game.update_player_movement(&mut released, &settings); // release
+    assert!(!airborne_game.grounded);
+    airborne_game.vertical_velocity = -1.0; // descending mid-air
     let mut pressed = InputState::holding(&[Control::Jump]);
-    game.update_player_movement(&mut pressed, &settings);
+    airborne_game.update_player_movement(&mut pressed, &settings);
     assert!(
-        game.vertical_velocity < 0.0,
+        airborne_game.vertical_velocity < 0.0,
         "a mid-air jump must be rejected: {}",
-        game.vertical_velocity
+        airborne_game.vertical_velocity
     );
 }
 
@@ -1275,7 +1280,7 @@ fn jump_apex_at(delta: f32) -> f32 {
     let start = game.player_floor_y;
     let mut apex = 0.0_f32;
     let mut left_the_floor = false;
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut input, &settings);
         apex = apex.max(game.player_position.y - EYE_HEIGHT - start);
         if game.grounded {
@@ -1336,7 +1341,7 @@ fn ceiling_bump_clamps_the_head_and_zeroes_upward_velocity() {
     let max_eye = 2.2 - (PLAYER_HEIGHT - EYE_HEIGHT);
     let mut highest = game.player_position.y;
     let mut bumped = false;
-    for _ in 0..180 {
+    for _ in 0_i32..180_i32 {
         game.update_player_movement(&mut input, &settings);
         highest = highest.max(game.player_position.y);
         assert!(
@@ -1377,7 +1382,7 @@ fn falling_into_deep_water_switches_to_swimming() {
     let settings = Settings::default();
     let mut input = InputState::default();
     let mut switched = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut input, &settings);
         if game.is_swimming() && !switched {
             switched = true;
@@ -1407,7 +1412,7 @@ fn holding_jump_rises_to_the_float_line_and_stabilizes() {
     let mut input = InputState::holding(&[Control::Jump]);
     let mut highest = game.player_position.y;
     let mut underwater_frames = 0_u32;
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(game.is_swimming(), "still in the pool");
         let eye = game.player_position.y;
@@ -1454,7 +1459,7 @@ fn releasing_jump_descends_in_water() {
     let before = game.player_position.y;
     let mut released = InputState::default();
     let mut previous = before;
-    for _ in 0..180 {
+    for _ in 0_i32..180_i32 {
         game.update_player_movement(&mut released, &settings);
         assert!(
             game.player_position.y <= previous + 1e-4,
@@ -1483,7 +1488,7 @@ fn swimming_to_a_shallow_step_stands_up_and_walks() {
     let settings = Settings::default();
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut stood_up = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut input, &settings);
         if game.grounded {
             stood_up = true;
@@ -1500,7 +1505,7 @@ fn swimming_to_a_shallow_step_stands_up_and_walks() {
 
     let start_x = game.player_position.x;
     let mut walk = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         game.update_player_movement(&mut walk, &settings);
         assert!(game.grounded, "the step is walked");
         assert!(!game.is_swimming(), "the shallows never re-enter swimming");
@@ -1537,7 +1542,7 @@ fn shallow_water_is_walked_and_can_still_jump() {
 
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let start_x = game.player_position.x;
-    for _ in 0..5 {
+    for _ in 0_i32..5_i32 {
         game.update_player_movement(&mut walk, &settings);
     }
     let walked = game.player_position.x - start_x;
@@ -1620,7 +1625,7 @@ fn walking_is_classified_at_every_frame_rate() {
     game.collision_index = CollisionIndex::build(&game.walls);
     play_at(&mut game, 1.0, 0.0, PLAYER_RADIUS, 0.0, 1.0 / 144.0);
     let mut blocked = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..4 {
+    for _ in 0_i32..4_i32 {
         game.update_player_movement(&mut blocked, &settings);
     }
     assert_exact(game.locomotion_snapshot().speed, 0.0);
@@ -1737,7 +1742,7 @@ fn a_shallow_pool_still_lets_the_swimmer_submerge() {
     let settings = Settings::default();
     let mut input = InputState::default();
     let mut deepest = game.player_position.y;
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut input, &settings);
         deepest = deepest.min(game.player_position.y);
         assert!(
@@ -1782,7 +1787,7 @@ fn standing_jump_lands_on_the_demo_desk_top() {
     let mut game = demo_game_at(4.6, 0.0, 6.7, 0.0, 1.0 / 60.0);
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut landed_on_desk = false;
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         game.update_player_movement(&mut input, &settings);
         if game.grounded && (game.player_floor_y - OFFICE_DESK_TOP_M).abs() < 1e-3 {
             landed_on_desk = true;
@@ -1803,7 +1808,7 @@ fn standing_jump_lands_on_the_demo_desk_top() {
     // The desk's side blocks a walking player who is not jumping.
     let mut walker = demo_game_at(4.6, 0.0, 6.7, 0.0, 1.0 / 60.0);
     let mut walk = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         walker.update_player_movement(&mut walk, &settings);
     }
     assert!(walker.grounded && walker.player_floor_y.abs() < 1e-3);
@@ -1832,7 +1837,7 @@ fn jumping_onto_the_demo_kitchen_counter_run_lands_walks_and_leaves() {
         let mut landed = false;
         let mut highest_feet = game.feet_y();
         let mut previous_feet = game.feet_y();
-        for _ in 0..120 {
+        for _ in 0_i32..120_i32 {
             game.update_player_movement(&mut jump, &settings);
             highest_feet = highest_feet.max(game.feet_y());
             assert!(
@@ -1866,7 +1871,7 @@ fn jumping_onto_the_demo_kitchen_counter_run_lands_walks_and_leaves() {
         // the same height with no step, no snag and no fall.
         let start_x = game.player_position.x;
         let mut strafe = InputState::holding(&[Control::StrafeLeft]);
-        for frame in 0..20 {
+        for frame in 0_i32..20_i32 {
             game.update_player_movement(&mut strafe, &settings);
             assert!(
                 game.grounded,
@@ -1888,7 +1893,7 @@ fn jumping_onto_the_demo_kitchen_counter_run_lands_walks_and_leaves() {
         // kitchen floor, and the landing is grounded, never embedded.
         let mut back = InputState::holding(&[Control::MoveBackward]);
         let mut left = false;
-        for _ in 0..120 {
+        for _ in 0_i32..120_i32 {
             game.update_player_movement(&mut back, &settings);
             if game.grounded && (game.player_floor_y + 0.9).abs() < 1e-3 {
                 left = true;
@@ -1913,7 +1918,7 @@ fn the_counter_jump_lands_at_30_60_and_144_fps() {
         let mut game = demo_game_at(56.0, -0.9, 5.2, 0.0, delta);
         let mut jump = InputState::holding(&[Control::MoveForward, Control::Jump]);
         let mut landed = false;
-        for _ in 0..240 {
+        for _ in 0_i32..240_i32 {
             game.update_player_movement(&mut jump, &settings);
             if game.grounded && game.player_floor_y.abs() < 1e-3 {
                 landed = true;
@@ -1938,7 +1943,7 @@ fn the_jump_never_mantles_onto_the_pool_guardrail() {
     let mut game = demo_game_at(14.0, -1.5, 8.6, 180.0, 1.0 / 60.0);
     let mut jump = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut highest_feet = game.feet_y();
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut jump, &settings);
         highest_feet = highest_feet.max(game.feet_y());
     }
@@ -1988,7 +1993,7 @@ fn walking_on_a_prop_top_stays_on_the_top() {
     let settings = Settings::default();
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let start_z = game.player_position.z;
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         game.update_player_movement(&mut walk, &settings);
         assert!(game.grounded, "the table top is walked");
         assert!(
@@ -2029,7 +2034,7 @@ fn prop_tops_are_left_by_falling_and_rejoined_by_a_bounded_step() {
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let mut airborne = false;
     let mut landed = false;
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         game.update_player_movement(&mut walk, &settings);
         if !game.grounded {
             airborne = true;
@@ -2048,28 +2053,35 @@ fn prop_tops_are_left_by_falling_and_rejoined_by_a_bounded_step() {
 
     // A descent from above crosses the top and lands on it. A body already
     // below the top must never be lifted onto it by the walking allowance.
-    let mut game = game_for(&level);
-    play_at(&mut game, 6.0, OFFICE_DESK_TOP_M, 4.0, 0.0, 1.0 / 60.0);
-    game.grounded = false;
-    game.player_floor_y = 0.0;
-    set_eye_y(&mut game, OFFICE_DESK_TOP_M + EYE_HEIGHT + 0.3);
-    game.vertical_velocity = -1.0;
+    let mut below_top_game = game_for(&level);
+    play_at(
+        &mut below_top_game,
+        6.0,
+        OFFICE_DESK_TOP_M,
+        4.0,
+        0.0,
+        1.0 / 60.0,
+    );
+    below_top_game.grounded = false;
+    below_top_game.player_floor_y = 0.0;
+    set_eye_y(&mut below_top_game, OFFICE_DESK_TOP_M + EYE_HEIGHT + 0.3);
+    below_top_game.vertical_velocity = -1.0;
     let mut idle = InputState::default();
     let mut landed_on_top = false;
-    for _ in 0..60 {
-        game.update_player_movement(&mut idle, &settings);
-        if game.grounded {
+    for _ in 0_i32..60_i32 {
+        below_top_game.update_player_movement(&mut idle, &settings);
+        if below_top_game.grounded {
             landed_on_top = true;
             break;
         }
     }
     assert!(landed_on_top, "the fall lands");
     assert!(
-        (game.player_floor_y - OFFICE_DESK_TOP_M).abs() < 1e-4,
+        (below_top_game.player_floor_y - OFFICE_DESK_TOP_M).abs() < 1e-4,
         "the landing is the prop top, not the room floor: {}",
-        game.player_floor_y
+        below_top_game.player_floor_y
     );
-    assert!((game.feet_y() - OFFICE_DESK_TOP_M).abs() < 1e-4);
+    assert!((below_top_game.feet_y() - OFFICE_DESK_TOP_M).abs() < 1e-4);
 }
 
 /// Jump onto the table, walk around on it, walk off the edge and fall, four
@@ -2079,12 +2091,12 @@ fn prop_tops_are_left_by_falling_and_rejoined_by_a_bounded_step() {
 fn repeated_jumps_onto_a_prop_top_land_and_stand_stably() {
     let level = table_top_level();
     let settings = Settings::default();
-    for round in 0..4 {
+    for round in 0_i32..4_i32 {
         let mut game = game_for(&level);
         play_at(&mut game, 6.0, 0.0, 6.6, 0.0, 1.0 / 60.0);
         let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
         let mut landed_on_top = false;
-        for _ in 0..120 {
+        for _ in 0_i32..120_i32 {
             game.update_player_movement(&mut input, &settings);
             if game.grounded && (game.player_floor_y - OFFICE_DESK_TOP_M).abs() < 1e-3 {
                 landed_on_top = true;
@@ -2100,7 +2112,7 @@ fn repeated_jumps_onto_a_prop_top_land_and_stand_stably() {
 
         // Walk around on the top for a moment: the eye line never dips.
         let mut walk = InputState::holding(&[Control::MoveForward]);
-        for _ in 0..8 {
+        for _ in 0_i32..8_i32 {
             game.update_player_movement(&mut walk, &settings);
             assert!(game.grounded, "round {round} walks on the top");
             assert!(
@@ -2113,7 +2125,7 @@ fn repeated_jumps_onto_a_prop_top_land_and_stand_stably() {
         // Walk off the north edge and fall back to the room floor.
         let mut airborne = false;
         let mut back_on_floor = false;
-        for _ in 0..90 {
+        for _ in 0_i32..90_i32 {
             game.update_player_movement(&mut walk, &settings);
             if !game.grounded {
                 airborne = true;
@@ -2156,7 +2168,7 @@ fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
     let mut game = game_for(&level);
     play_at(&mut game, 7.5, 0.0, 5.0, 270.0, 1.0 / 60.0);
     let mut walk = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         game.update_player_movement(&mut walk, &settings);
     }
     assert!(
@@ -2166,19 +2178,19 @@ fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
     );
 
     // Crouched, the same body fits under the 1.0 m beam.
-    let mut game = game_for(&level);
-    play_at(&mut game, 5.0, 0.0, 5.0, 0.0, 1.0 / 60.0);
-    force_stance(&mut game, Stance::Crouched);
+    let mut crouched_game = game_for(&level);
+    play_at(&mut crouched_game, 5.0, 0.0, 5.0, 0.0, 1.0 / 60.0);
+    force_stance(&mut crouched_game, Stance::Crouched);
     let mut jump = InputState::holding(&[Control::Jump]);
-    let mut highest = game.player_position.y;
+    let mut highest = crouched_game.player_position.y;
     let mut bumped = false;
-    for _ in 0..120 {
-        game.update_player_movement(&mut jump, &settings);
-        highest = highest.max(game.player_position.y);
-        if game.ceiling_contact_this_frame {
+    for _ in 0_i32..120_i32 {
+        crouched_game.update_player_movement(&mut jump, &settings);
+        highest = highest.max(crouched_game.player_position.y);
+        if crouched_game.ceiling_contact_this_frame {
             bumped = true;
             assert!(
-                game.vertical_velocity <= 0.0,
+                crouched_game.vertical_velocity <= 0.0,
                 "ceiling removed upward velocity"
             );
         }
@@ -2189,7 +2201,10 @@ fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
         "the crouched head stops under the beam: {highest} vs {max_eye}"
     );
     assert!(bumped, "the beam underside consumes the upward velocity");
-    assert!(game.grounded, "the bumped jump falls back to the floor");
+    assert!(
+        crouched_game.grounded,
+        "the bumped jump falls back to the floor"
+    );
 }
 
 /// Pressing C crouches and pressing it again stands: the stance is exactly half
@@ -2236,7 +2251,7 @@ fn crouch_toggles_and_anchors_the_feet() {
     assert!((game.player_position.y - (feet + CROUCH_EYE_HEIGHT)).abs() < 1e-5);
 
     // Holding the key is still one toggle.
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut pressed, &settings);
     }
     assert!(game.is_crouched(), "a held key never repeats the toggle");
@@ -2270,7 +2285,7 @@ fn crouch_eye_eases_smoothly_and_snaps_at_the_exact_ends() {
     let mut pressed = InputState::holding(&[Control::Crouch]);
     let mut previous = game.player_position.y;
     // Two more frames than the transition needs, to pin the snap.
-    for frame in 0..12 {
+    for frame in 0_i32..12_i32 {
         game.update_player_movement(&mut pressed, &settings);
         let eye = game.player_position.y;
         assert_exact(eye, game.feet_y() + game.eye_offset());
@@ -2296,7 +2311,7 @@ fn crouch_eye_eases_smoothly_and_snaps_at_the_exact_ends() {
     let mut released = InputState::default();
     game.update_player_movement(&mut released, &settings);
     previous = game.player_position.y;
-    for frame in 0..12 {
+    for frame in 0_i32..12_i32 {
         game.update_player_movement(&mut pressed, &settings);
         let eye = game.player_position.y;
         assert_exact(eye, game.feet_y() + game.eye_offset());
@@ -2362,7 +2377,7 @@ fn blocked_uncrouch_keeps_the_crouched_body() {
     game.update_player_movement(&mut released, &settings);
     game.update_player_movement(&mut pressed, &settings);
     assert_eq!(game.stance(), Stance::Standing);
-    for _ in 0..12 {
+    for _ in 0_i32..12_i32 {
         game.update_player_movement(&mut pressed, &settings);
     }
     assert_exact(game.eye_offset(), EYE_HEIGHT);
@@ -2385,7 +2400,7 @@ fn jumping_through_the_demo_doorway_never_teleports_or_clips() {
     let mut previous_x = game.player_position.x;
     let mut max_step = 0.0_f32;
     let mut bumped = false;
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         game.update_player_movement(&mut input, &settings);
         max_step = max_step.max((game.player_position.x - previous_x).abs());
         previous_x = game.player_position.x;
@@ -2427,10 +2442,10 @@ fn repeated_jumps_under_the_demo_header_stay_bounded() {
     let max_eye = 2.1 - (PLAYER_HEIGHT - EYE_HEIGHT) + CONTACT_EPS + 1e-3;
     let mut idle = InputState::default();
     let mut jump = InputState::holding(&[Control::Jump]);
-    for round in 0..4 {
+    for round in 0_i32..4_i32 {
         game.update_player_movement(&mut idle, &settings);
         let mut highest = game.player_position.y;
-        for _ in 0..90 {
+        for _ in 0_i32..90_i32 {
             game.update_player_movement(&mut jump, &settings);
             highest = highest.max(game.player_position.y);
             assert!(
@@ -2476,7 +2491,7 @@ fn landing_on_a_staircase_uses_the_rendered_tread() {
     game.update_player_movement(&mut jump, &settings);
     assert!(!game.grounded);
     let mut released = InputState::default();
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut released, &settings);
         if !game.grounded {
             assert!(
@@ -2511,7 +2526,7 @@ fn the_demo_staircase_joins_the_hall_and_the_balcony() {
     let mut input = InputState::holding(&[Control::MoveForward]);
     let mut previous_eye = game.player_position.y;
     let mut reached_top = false;
-    for _ in 0..220 {
+    for _ in 0_i32..220_i32 {
         game.update_player_movement(&mut input, &settings);
         let dy = game.player_position.y - previous_eye;
         previous_eye = game.player_position.y;
@@ -2533,7 +2548,7 @@ fn the_demo_staircase_joins_the_hall_and_the_balcony() {
 
     game.player_yaw = (-90.0_f32).to_radians();
     let mut previous_floor = game.player_floor_y;
-    for _ in 0..220 {
+    for _ in 0_i32..220_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_floor_y <= previous_floor + 1e-3,
@@ -2563,7 +2578,7 @@ fn walking_off_the_demo_deck_falls_into_the_pool_and_swims() {
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let mut airborne = false;
     let mut swimming = false;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut walk, &settings);
         if !game.grounded {
             airborne = true;
@@ -2583,7 +2598,7 @@ fn walking_off_the_demo_deck_falls_into_the_pool_and_swims() {
 
     // Holding Jump from the water surfaces the swimmer at the float line.
     let mut surface_input = InputState::holding(&[Control::MoveForward, Control::Jump]);
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut surface_input, &settings);
     }
     assert!(
@@ -2608,7 +2623,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     // frames enter the swim state and sink toward the float clearance line.
     let mut idle = InputState::default();
     let mut deepest = game.player_position.y;
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut idle, &settings);
         deepest = deepest.min(game.player_position.y);
     }
@@ -2620,7 +2635,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
 
     // Phase 1: surface and swim east across the basin to the deck rim.
     let mut exited = false;
-    for _ in 0..400 {
+    for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut swim_east, &settings);
         assert!(
             game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
@@ -2651,7 +2666,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
 
     // Walk away from the edge: the exit is stable, never re-entering.
     let mut walk = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         game.update_player_movement(&mut walk, &settings);
         assert!(game.grounded, "the deck is walked");
         assert!(!game.is_swimming(), "the deck never re-enters swimming");
@@ -2668,7 +2683,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     // band.
     game.player_yaw = 270.0_f32.to_radians();
     let mut walk_back = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         game.update_player_movement(&mut walk_back, &settings);
         if game.player_position.x <= 20.7 {
             break;
@@ -2682,7 +2697,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     game.update_player_movement(&mut idle, &settings); // release the jump latch
     let mut leap = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut re_entered = false;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut leap, &settings);
         if game.is_swimming() {
             re_entered = true;
@@ -2694,7 +2709,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
 
     // Phase 3: exit again, the same way.
     let mut exited_again = false;
-    for _ in 0..400 {
+    for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut swim_east, &settings);
         if game.grounded && game.player_floor_y > -1.6 {
             exited_again = true;
@@ -2709,7 +2724,7 @@ fn the_demo_pool_exits_over_the_deck_rim_and_re_enters_cleanly() {
     assert!((game.player_floor_y - (-1.5)).abs() < 1e-3);
 
     // Standing still on the deck never oscillates back into the water.
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut idle, &settings);
         assert!(game.grounded, "the exited player stays grounded");
         assert!(!game.is_swimming(), "no surface oscillation after the exit");
@@ -2745,7 +2760,7 @@ fn a_high_walled_pool_cannot_be_exited() {
     play_at(&mut game, 8.0, -3.0, 4.0, 90.0, 1.0 / 60.0);
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut highest_eye = game.player_position.y;
-    for _ in 0..400 {
+    for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut input, &settings);
         highest_eye = highest_eye.max(game.player_position.y);
         assert!(
@@ -2800,7 +2815,7 @@ fn a_solid_edge_prop_is_never_a_water_exit() {
     let mut game = game_for(&level);
     play_at(&mut game, 8.0, -3.0, 4.0, 90.0, 1.0 / 60.0);
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_position.x < 10.0,
@@ -2843,7 +2858,7 @@ fn the_water_exit_step_up_only_applies_at_the_surface() {
     // Sink without Jump: the eye drops more than `EXIT_EYE_MARGIN` below the
     // surface and the low ledge stays refused.
     let mut forward = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..180 {
+    for _ in 0_i32..180_i32 {
         game.update_player_movement(&mut forward, &settings);
     }
     assert!(game.is_swimming());
@@ -2862,7 +2877,7 @@ fn the_water_exit_step_up_only_applies_at_the_surface() {
     // Hold Jump to rise to the surface: the same ledge is now a real exit.
     let mut surface_input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut stood = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut surface_input, &settings);
         if game.grounded {
             stood = true;
@@ -2891,7 +2906,7 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
 
     // Phase 1: walk off the deck west and fall into the basin.
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut input, &settings);
         if game.is_swimming() {
             break;
@@ -2903,7 +2918,7 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
     // must attach.
     game.player_yaw = 90.0_f32.to_radians();
     let mut attached = false;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut input, &settings);
         attached |= game.is_climbing();
         if attached {
@@ -2917,7 +2932,7 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
     let mut max_step = 0.0_f32;
     let mut max_eye = game.player_position.y;
     let mut landed_on_deck = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut input, &settings);
         max_step = max_step.max((game.player_position.x - previous_x).abs());
         previous_x = game.player_position.x;
@@ -2975,7 +2990,7 @@ fn a_ladder_never_attaches_from_its_exit_side() {
     play_at(&mut game, 5.5, 0.0, 5.0, 90.0, 1.0 / 60.0);
     let mut input = InputState::holding(&[Control::MoveForward]);
     let mut max_eye = game.player_position.y;
-    for _ in 0..90 {
+    for _ in 0_i32..90_i32 {
         game.update_player_movement(&mut input, &settings);
         max_eye = max_eye.max(game.player_position.y);
         assert!(!game.is_climbing(), "the exit side never attaches");
@@ -2986,10 +3001,10 @@ fn a_ladder_never_attaches_from_its_exit_side() {
     );
 
     // Behind the centre, the same intent attaches.
-    let mut game = game_for(&level);
-    play_at(&mut game, 4.5, 0.0, 5.0, 90.0, 1.0 / 60.0);
-    game.update_player_movement(&mut input, &settings);
-    assert!(game.is_climbing(), "the approach side attaches");
+    let mut behind_game = game_for(&level);
+    play_at(&mut behind_game, 4.5, 0.0, 5.0, 90.0, 1.0 / 60.0);
+    behind_game.update_player_movement(&mut input, &settings);
+    assert!(behind_game.is_climbing(), "the approach side attaches");
 }
 
 /// An overhead obstruction stops a climb without pushing the climber down or
@@ -3021,7 +3036,7 @@ fn a_ladder_obstruction_holds_the_climber_in_place() {
     game.update_player_movement(&mut input, &settings);
     assert!(game.is_climbing(), "the approach side attaches");
     let feet = game.feet_y();
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut input, &settings);
         assert!(game.is_climbing(), "the obstruction does not detach");
         assert!(
@@ -3052,7 +3067,7 @@ fn the_pool_ladder_releases_on_backing_away_and_jump() {
     let mut game = make_attached();
     let mut idle = InputState::default();
     let held_eye = game.player_position.y;
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(game.is_climbing(), "releasing holds the ladder");
@@ -3073,17 +3088,17 @@ fn the_pool_ladder_releases_on_backing_away_and_jump() {
     // Jump: detach with the ordinary launch. The climber is part-way up the
     // rails, above the waterline, so the jump rises clear instead of being
     // recaptured by the swim state.
-    let mut game = make_attached();
-    set_eye_y(&mut game, -0.9);
-    game.vertical_velocity = 0.0;
-    let before = game.player_position.y;
+    let mut jump_game = make_attached();
+    set_eye_y(&mut jump_game, -0.9);
+    jump_game.vertical_velocity = 0.0;
+    let before = jump_game.player_position.y;
     let mut jump = InputState::holding(&[Control::Jump]);
-    game.update_player_movement(&mut jump, &settings);
-    assert!(!game.is_climbing(), "jump releases the ladder");
+    jump_game.update_player_movement(&mut jump, &settings);
+    assert!(!jump_game.is_climbing(), "jump releases the ladder");
     assert!(
-        game.player_position.y > before,
+        jump_game.player_position.y > before,
         "the jump launch rises off the ladder: {before} then {}",
-        game.player_position.y
+        jump_game.player_position.y
     );
 }
 
@@ -3133,7 +3148,7 @@ fn wading_uses_the_stance_eye_offset_on_the_real_step() {
     let mut crouch = InputState::holding(&[Control::Crouch]);
     game.update_player_movement(&mut crouch, &settings);
     assert!(game.is_crouched());
-    for _ in 0..12 {
+    for _ in 0_i32..12_i32 {
         game.update_player_movement(&mut crouch, &settings);
     }
     assert!(
@@ -3195,7 +3210,7 @@ fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
     game.update_player_movement(&mut crouch, &settings);
     assert!(game.is_crouched());
     let mut crouched_into_water = false;
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut idle, &settings);
         if game.is_swimming() {
             crouched_into_water = true;
@@ -3213,7 +3228,7 @@ fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
     game.update_player_movement(&mut released, &settings);
     game.update_player_movement(&mut crouch, &settings);
     assert_eq!(game.stance(), Stance::Standing);
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(!game.is_swimming(), "standing recovers to wading");
@@ -3242,7 +3257,7 @@ fn a_frame_hitch_does_not_tunnel_or_launch() {
     game.swimming = false;
     let mut idle = InputState::default();
     let mut deepest = game.player_position.y;
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut idle, &settings);
         deepest = deepest.min(game.player_position.y);
         assert!(
@@ -3275,7 +3290,7 @@ fn a_floor_rim_never_drags_a_surface_swimmer_down() {
     game.swimming = true;
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut min_eye = game.player_position.y;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut input, &settings);
         min_eye = min_eye.min(game.player_position.y);
         assert!(
@@ -3324,7 +3339,7 @@ fn the_pit_carpet_hole_is_a_real_fall() {
     let settings = Settings::default();
     let mut input = InputState::holding(&[Control::MoveForward]);
     let mut airborne = false;
-    for _ in 0..180 {
+    for _ in 0_i32..180_i32 {
         game.update_player_movement(&mut input, &settings);
         airborne |= !game.grounded;
         if game.reset_count() >= 1 {
@@ -3367,66 +3382,69 @@ fn stance_changes_on_stairs_in_air_and_on_ladders_anchor_the_feet() {
 
     // Mid-jump: the crouch eases the eye down but keeps the feet on their
     // ballistic line, and the landing is still the rendered tread.
-    let mut game = game_for(&level);
-    play_at(&mut game, x, pitch, z, 90.0, 1.0 / 60.0);
+    let mut airborne_game = game_for(&level);
+    play_at(&mut airborne_game, x, pitch, z, 90.0, 1.0 / 60.0);
     let mut released = InputState::default();
     let mut jump = InputState::holding(&[Control::Jump]);
-    game.update_player_movement(&mut jump, &settings);
-    assert!(!game.grounded);
-    let feet_before = game.feet_y();
-    let eye_before = game.player_position.y;
-    game.update_player_movement(&mut pressed, &settings);
-    assert!(game.is_crouched());
+    airborne_game.update_player_movement(&mut jump, &settings);
+    assert!(!airborne_game.grounded);
+    let feet_before = airborne_game.feet_y();
+    let eye_before = airborne_game.player_position.y;
+    airborne_game.update_player_movement(&mut pressed, &settings);
+    assert!(airborne_game.is_crouched());
     assert!(
-        game.feet_y() > feet_before && game.feet_y() < feet_before + 0.1,
+        airborne_game.feet_y() > feet_before && airborne_game.feet_y() < feet_before + 0.1,
         "the airborne feet keep rising on their ballistic line: {} vs {feet_before}",
-        game.feet_y()
+        airborne_game.feet_y()
     );
     assert!(
-        game.player_position.y < eye_before,
+        airborne_game.player_position.y < eye_before,
         "the eye eases down with the stance, not the body: {} vs {eye_before}",
-        game.player_position.y
+        airborne_game.player_position.y
     );
     assert!(
-        game.eye_offset() < EYE_HEIGHT && game.eye_offset() > CROUCH_EYE_HEIGHT,
+        airborne_game.eye_offset() < EYE_HEIGHT && airborne_game.eye_offset() > CROUCH_EYE_HEIGHT,
         "the eye offset is mid-transition, not snapped: {}",
-        game.eye_offset()
+        airborne_game.eye_offset()
     );
     // The eased offset settles at the crouch height while the feet keep the
     // ballistic line; the rendered eye never leaves the invariant.
-    for _ in 0..12 {
-        game.update_player_movement(&mut released, &settings);
-        assert_exact(game.player_position.y, game.feet_y() + game.eye_offset());
+    for _ in 0_i32..12_i32 {
+        airborne_game.update_player_movement(&mut released, &settings);
+        assert_exact(
+            airborne_game.player_position.y,
+            airborne_game.feet_y() + airborne_game.eye_offset(),
+        );
     }
-    assert_exact(game.eye_offset(), CROUCH_EYE_HEIGHT);
-    for _ in 0..120 {
-        game.update_player_movement(&mut released, &settings);
-        if game.grounded {
+    assert_exact(airborne_game.eye_offset(), CROUCH_EYE_HEIGHT);
+    for _ in 0_i32..120_i32 {
+        airborne_game.update_player_movement(&mut released, &settings);
+        if airborne_game.grounded {
             break;
         }
     }
-    assert!(game.grounded, "the crouched jump still lands");
+    assert!(airborne_game.grounded, "the crouched jump still lands");
 
     // On the demo ladder: crouching anchors the feet and keeps the attachment.
-    let mut game = demo_game_at(19.5, -3.0, 12.0, 90.0, 1.0 / 60.0);
-    game.grounded = false;
-    set_eye_y(&mut game, -1.9);
-    game.swimming = false;
+    let mut ladder_game = demo_game_at(19.5, -3.0, 12.0, 90.0, 1.0 / 60.0);
+    ladder_game.grounded = false;
+    set_eye_y(&mut ladder_game, -1.9);
+    ladder_game.swimming = false;
     let mut forward = InputState::holding(&[Control::MoveForward]);
-    game.update_player_movement(&mut forward, &settings);
-    assert!(game.is_climbing(), "the fixture attaches");
-    let feet = game.feet_y();
-    let mut released = InputState::default();
-    game.update_player_movement(&mut released, &settings);
-    game.update_player_movement(&mut pressed, &settings);
-    assert!(game.is_crouched());
-    assert!(game.is_climbing(), "the crouch keeps the attachment");
+    ladder_game.update_player_movement(&mut forward, &settings);
+    assert!(ladder_game.is_climbing(), "the fixture attaches");
+    let ladder_feet = ladder_game.feet_y();
+    let mut ladder_release = InputState::default();
+    ladder_game.update_player_movement(&mut ladder_release, &settings);
+    ladder_game.update_player_movement(&mut pressed, &settings);
+    assert!(ladder_game.is_crouched());
+    assert!(ladder_game.is_climbing(), "the crouch keeps the attachment");
     assert!(
-        (game.feet_y() - feet).abs() < 1e-4,
-        "the ladder feet stay anchored: {} vs {feet}",
-        game.feet_y()
+        (ladder_game.feet_y() - ladder_feet).abs() < 1e-4,
+        "the ladder feet stay anchored: {} vs {ladder_feet}",
+        ladder_game.feet_y()
     );
-    assert!((game.body_height() - CROUCH_HEIGHT).abs() < 1e-6);
+    assert!((ladder_game.body_height() - CROUCH_HEIGHT).abs() < 1e-6);
 }
 
 // ---------------------------------------------------------------------------
@@ -3517,8 +3535,11 @@ fn interaction_press_latches_once_and_never_fires_while_paused() {
     game.update_player_movement(&mut released, &settings);
     game.update_player_movement(&mut held, &settings);
     assert!(game.take_interact_press(), "release re-arms the edge");
-    let report = game.dispatch_interaction().expect("a target");
-    assert_eq!(report.actions_run, 1, "one press is one binding fire");
+    let rearmed_report = game.dispatch_interaction().expect("a target");
+    assert_eq!(
+        rearmed_report.actions_run, 1,
+        "one press is one binding fire"
+    );
     assert!(!game.is_label_visible(0));
 
     // Paused: the movement update never latches, even with the key down.
@@ -3558,8 +3579,8 @@ fn interaction_targeting_is_nearest_in_reach_and_duplicates_are_independent() {
     play_at(&mut game, 4.0, 0.0, 5.0, 0.0, 1.0 / 60.0);
     aim_at(&mut game, 4.6, 5.0, 0.9);
     assert_eq!(game.interaction_target(), Some(1));
-    let report = game.dispatch_interaction().expect("the far plant");
-    assert_eq!(report.actions_run, 1);
+    let far_report = game.dispatch_interaction().expect("the far plant");
+    assert_eq!(far_report.actions_run, 1);
     assert!(game.is_label_visible(1));
     assert!(game.is_label_visible(0), "the near plant's label survives");
 }
@@ -3571,7 +3592,7 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
     // A raised solid beam at x 2.8..3.6, y 1.0..1.4, z 4.6..5.4: the standing
     // eye (1.6) ray to the plant's bound (0..0.9) dips through it; the crouched
     // eye (0.8) passes under.
-    let level = interaction_level(
+    let mut level = interaction_level(
         r#"[
             { "id": "far_plant", "display_name": "Far Plant", "model": "core:plant",
               "x": 4.6, "z": 5.0,
@@ -3582,7 +3603,6 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
         "[]",
         "[]",
     );
-    let mut level = level;
     level.props.push(crate::level::PropDef {
         id: Some("beam".into()),
         display_name: None,
@@ -3616,7 +3636,7 @@ fn crouched_eye_height_and_occlusion_respect_geometry() {
     let mut crouch = InputState::holding(&[Control::Crouch]);
     game.update_player_movement(&mut crouch, &settings);
     let mut released = InputState::default();
-    for _ in 0..12 {
+    for _ in 0_i32..12_i32 {
         game.update_player_movement(&mut released, &settings);
     }
     assert!(game.is_crouched());
@@ -3737,7 +3757,7 @@ fn area_triggers_enter_once_rearm_and_honour_cooldown_and_once() {
 
     // Standing inside the cooldown pad does not repeat, even as time passes.
     play_at(&mut game, 5.0, 0.0, 5.0, 0.0, 1.0 / 60.0);
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut InputState::default(), &Settings::default());
     }
     assert!(game.is_label_visible(plant), "one entry fires once");
@@ -3753,7 +3773,7 @@ fn area_triggers_enter_once_rearm_and_honour_cooldown_and_once() {
     );
 
     // Leave, wait out the cooldown, return: fires again.
-    for _ in 0..70 {
+    for _ in 0_i32..70_i32 {
         play_at(&mut game, 1.0, 0.0, 1.0, 0.0, 1.0 / 60.0);
         game.update_player_movement(&mut InputState::default(), &Settings::default());
     }
@@ -3765,9 +3785,9 @@ fn area_triggers_enter_once_rearm_and_honour_cooldown_and_once() {
     );
 
     // The once pad fires once, then refuses re-entry even after leaving.
-    let once_enter = |game: &mut Game| {
-        play_at(game, 9.0, 0.0, 13.0, 0.0, 1.0 / 60.0);
-        game.update_player_movement(&mut InputState::default(), &Settings::default());
+    let once_enter = |subject: &mut Game| {
+        play_at(subject, 9.0, 0.0, 13.0, 0.0, 1.0 / 60.0);
+        subject.update_player_movement(&mut InputState::default(), &Settings::default());
     };
     once_enter(&mut game);
     assert!(game.is_label_visible(plant));
@@ -3827,7 +3847,7 @@ fn a_fast_fall_through_a_thin_trigger_band_is_caught() {
 /// fires.
 #[test]
 fn reset_to_start_clears_state_and_never_sweeps_the_teleport() {
-    let level = interaction_level(
+    let mut level = interaction_level(
         "[]",
         "[]",
         r#"[
@@ -3843,14 +3863,13 @@ fn reset_to_start_clears_state_and_never_sweeps_the_teleport() {
     );
     // Move the spawn into the first pad's volume: the enter semantics must not
     // fire on load, and a reset must not fire it either.
-    let mut level = level;
     level.spawn.x = 1.0;
     level.spawn.z = 1.0;
     let mut game = game_for(&level);
     let spawn = game.spawn_position();
     let settings = Settings::default();
 
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     assert_eq!(
@@ -3889,7 +3908,7 @@ fn reset_to_start_clears_state_and_never_sweeps_the_teleport() {
 
     // Staying at the spawn (inside the first pad's volume) never loops: the
     // player was seeded inside, so there is no entry event to fire.
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     assert_eq!(
@@ -3926,7 +3945,7 @@ fn holding_jump_across_a_reset_does_not_launch_or_stick() {
     game.update_player_movement(&mut held, &settings);
     assert_eq!(game.reset_count(), 1);
     assert!(game.grounded);
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         game.update_player_movement(&mut held, &settings);
         assert!(
             game.grounded && game.vertical_velocity <= 0.0,
@@ -3960,22 +3979,22 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
     let missing = [ActionDef::ToggleLabel {
         target: Some("ghost".into()),
     }];
-    let report = game.dispatch_actions(&missing, None);
-    assert_eq!(report.missing_targets, 1);
+    let missing_report = game.dispatch_actions(&missing, None);
+    assert_eq!(missing_report.missing_targets, 1);
 
     // An explicit target addresses another instance, independently of the
     // acting one: the near plant's interaction toggles the far plant.
     let cross = [ActionDef::ToggleLabel {
         target: Some("far_plant".into()),
     }];
-    let report = game.dispatch_actions(&cross, Some(0));
-    assert_eq!(report.labels_shown, 1);
+    let cross_report = game.dispatch_actions(&cross, Some(0));
+    assert_eq!(cross_report.labels_shown, 1);
     assert!(game.is_label_visible(1));
     assert!(
         !game.is_label_visible(0),
         "the actor's own label is untouched"
     );
-    game.dispatch_actions(&cross, Some(0));
+    let _dispatch_report = game.dispatch_actions(&cross, Some(0));
 
     // An explicit target that cannot resolve must never fall back to the
     // actor: that would toggle the wrong instance.
@@ -3987,9 +4006,9 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
             target: Some("   ".into()),
         },
     ];
-    let report = game.dispatch_actions(&unresolved, Some(0));
-    assert_eq!(report.missing_targets, 2);
-    assert_eq!(report.labels_toggled(), 0);
+    let unresolved_report = game.dispatch_actions(&unresolved, Some(0));
+    assert_eq!(unresolved_report.missing_targets, 2);
+    assert_eq!(unresolved_report.labels_toggled(), 0);
     assert!(
         !game.is_label_visible(0),
         "a failed explicit target never retargets the actor"
@@ -4004,11 +4023,11 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
             target: Some("far_plant".into()),
         },
     ];
-    let report = game.dispatch_actions(&batch, Some(0));
-    assert_eq!(report.actions_run, 2);
-    assert!(report.player_reset);
-    assert_eq!(report.labels_shown, 1);
-    assert_eq!(report.labels_hidden, 0);
+    let reset_report = game.dispatch_actions(&batch, Some(0));
+    assert_eq!(reset_report.actions_run, 2);
+    assert!(reset_report.player_reset);
+    assert_eq!(reset_report.labels_shown, 1);
+    assert_eq!(reset_report.labels_hidden, 0);
     assert!(
         !game.is_label_visible(1),
         "the action after the reset was deferred"
@@ -4016,14 +4035,14 @@ fn dispatch_reports_missing_targets_unsupported_actions_and_stops_after_reset() 
 
     // Programmatically oversized batches are truncated to the bound (validation
     // rejects them for real maps): 10 toggles run 8.
-    let oversized: Vec<ActionDef> = (0..10)
+    let oversized: Vec<ActionDef> = (0_i32..10_i32)
         .map(|_| ActionDef::ToggleLabel {
             target: Some("near_plant".into()),
         })
         .collect();
-    let report = game.dispatch_actions(&oversized, None);
+    let oversized_report = game.dispatch_actions(&oversized, None);
     assert_eq!(
-        report.actions_run,
+        oversized_report.actions_run,
         crate::level::MAX_ACTIONS_PER_SOURCE,
         "the dispatcher never runs more than the bound"
     );
@@ -4075,7 +4094,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
         play_at(&mut game, cx, 0.0, cz - 0.8, 180.0, 1.0 / 60.0);
         let mut input = InputState::holding(&[Control::MoveForward]);
         let mut reset = false;
-        for _ in 0..180 {
+        for _ in 0_i32..180_i32 {
             game.update_player_movement(&mut input, &settings);
             if game.reset_count() >= 1 {
                 reset = true;
@@ -4098,7 +4117,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
     let mut game = Game::new(spawn, spawn_yaw, CollisionWorld::from_level(&level));
     play_at(&mut game, 12.0, 0.0, -27.0, 180.0, 1.0 / 60.0);
     let mut input = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut input, &settings);
         assert_eq!(game.reset_count(), 0, "carpet between holes is safe");
     }
@@ -4120,7 +4139,7 @@ fn the_pit_carpet_holes_reset_and_the_carpet_is_safe() {
         play_at(&mut repeat, cx, 0.0, cz - 0.8, 180.0, 1.0 / 60.0);
         let mut walk = InputState::holding(&[Control::MoveForward]);
         let mut settled = false;
-        for _ in 0..180 {
+        for _ in 0_i32..180_i32 {
             repeat.update_player_movement(&mut walk, &settings);
             if repeat.reset_count() >= expected {
                 settled = true;
@@ -4364,7 +4383,7 @@ fn a_route_moves_the_entity_and_its_live_anchor_follows() {
 
     // Two metres at 0.5 m/s: four seconds of 0.1 s frames, with margin.
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..45 {
+    for _ in 0_i32..45_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     let state = game.route_state("walker").expect("the route exists");
@@ -4390,7 +4409,13 @@ fn a_route_moves_the_entity_and_its_live_anchor_follows() {
     assert!(
         matches!(
             frame.cue,
-            PoseCue::Idle | PoseCue::Walk { .. } | PoseCue::Clip { .. }
+            PoseCue::Idle
+                | PoseCue::Walk { speed_mps: _ }
+                | PoseCue::Clip {
+                    name: _,
+                    once: _,
+                    paused: _
+                }
         ),
         "a supported cue: {:?}",
         frame.cue
@@ -4425,7 +4450,7 @@ fn a_route_never_walks_the_entity_through_a_wall() {
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..100 {
+    for _ in 0_i32..100_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     let state = game.route_state("walker").expect("the route exists");
@@ -4463,8 +4488,8 @@ fn a_fading_entity_changes_opacity_between_ticks() {
     let settings = Settings::default();
     let mut input = InputState::default();
 
-    let opacity = |game: &Game| -> f32 {
-        let frame = game
+    let opacity = |subject: &Game| -> f32 {
+        let frame = subject
             .entity_frames()
             .iter()
             .find(|frame| frame.instance_id == "ghost")
@@ -4531,7 +4556,7 @@ fn play_animation_sets_a_pose_override_that_reset_clears() {
         clip: Some("idle".into()),
         looped: true,
     }];
-    game.dispatch_actions(&looping, None);
+    let _dispatch_report = game.dispatch_actions(&looping, None);
     assert_eq!(
         game.animation_override("walker"),
         Some(&PoseCue::Clip {
@@ -4547,9 +4572,9 @@ fn play_animation_sets_a_pose_override_that_reset_clears() {
         clip: Some("idle".into()),
         looped: false,
     }];
-    let report = game.dispatch_actions(&ghost, Some(index));
-    assert_eq!(report.missing_targets, 1);
-    assert_eq!(report.animations_started, 0);
+    let missing_clip_report = game.dispatch_actions(&ghost, Some(index));
+    assert_eq!(missing_clip_report.missing_targets, 1);
+    assert_eq!(missing_clip_report.animations_started, 0);
 
     // A reset returns routed entities to their spawn and clears overrides.
     game.reset_to_spawn();
@@ -4595,7 +4620,7 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     let rat_a = game.route_state("rat_a").expect("rat_a route").position;
@@ -4629,7 +4654,7 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
     assert!(
         matches!(
             frame.cue,
-            PoseCue::Clip { ref name, once: true, .. } if name == "pose_arms_forward"
+            PoseCue::Clip { ref name, once: true, paused: _ } if name == "pose_arms_forward"
         ),
         "the pose cycle reached its second clip: {:?}",
         frame.cue
@@ -4641,12 +4666,12 @@ fn the_entity_showcase_runs_two_independent_rat_routes() {
     let seated = game
         .entity_frames()
         .iter()
-        .find(|frame| frame.instance_id == "skeleton_chair")
+        .find(|seated_skeleton| seated_skeleton.instance_id == "skeleton_chair")
         .expect("the seated skeleton has a frame");
     assert!(
         matches!(
             seated.cue,
-            PoseCue::Clip { ref name, .. } if name == "pose_stand"
+            PoseCue::Clip { ref name, once: _, paused: _ } if name == "pose_stand"
         ),
         "the chair cycle moved to standing: {:?}",
         seated.cue
@@ -4693,7 +4718,7 @@ fn the_halloween_fixture_runs_jumping_pumpkins_fading_ghosts_and_wandering_skele
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
 
@@ -4789,7 +4814,7 @@ fn reset_to_spawn_restores_a_routed_entitys_authored_anchor_and_bounds() {
     let authored_bounds = game.interactables().get(0).expect("target").bounds;
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..20 {
+    for _ in 0_i32..20_i32 {
         game.update_player_movement(&mut InputState::default(), &Settings::default());
     }
     let live_anchor = game.interactables().get(0).expect("target").anchor;
@@ -4900,7 +4925,7 @@ fn a_route_turn_reorients_the_live_aim_bounds() {
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
     game.sim_delta_seconds = MAX_SIM_DELTA;
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
     }
     let state = game.route_state("turner").expect("the route exists");
@@ -5011,7 +5036,7 @@ fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
 
     // A second press flips the target back toward the rest end rather than
     // restarting at it; the label toggles off again.
-    let report = game.dispatch_actions(
+    let second_report = game.dispatch_actions(
         &[
             ActionDef::ToggleAnimation {
                 target: Some("switch_a".into()),
@@ -5023,7 +5048,7 @@ fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
         ],
         None,
     );
-    assert_eq!(report.labels_hidden, 1);
+    assert_eq!(second_report.labels_hidden, 1);
     assert_eq!(
         game.animation_override("switch_a"),
         Some(&PoseCue::Scrub {
@@ -5038,7 +5063,7 @@ fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
         .interactables()
         .index_of("switch_b")
         .expect("switch B is interactable");
-    game.dispatch_actions(
+    let _dispatch_report = game.dispatch_actions(
         &[ActionDef::ToggleAnimation {
             target: None,
             clip: Some("toggle".into()),
@@ -5076,14 +5101,17 @@ fn toggle_animation_rejects_a_missing_clip_or_target() {
     );
     assert_eq!(report.missing_targets, 1);
     assert_eq!(report.actions_run, 0);
-    let report = game.dispatch_actions(
+    let missing_target_report = game.dispatch_actions(
         &[ActionDef::ToggleAnimation {
             target: Some("switch_a".into()),
             clip: Some("   ".into()),
         }],
         None,
     );
-    assert_eq!(report.unsupported, 1, "a blank clip is unsupported");
+    assert_eq!(
+        missing_target_report.unsupported, 1,
+        "a blank clip is unsupported"
+    );
     assert_eq!(game.animation_override("switch_a"), None);
 }
 
@@ -5097,7 +5125,7 @@ fn reset_clears_toggle_scrubs_and_playing_animations() {
         .interactables()
         .index_of("switch_a")
         .expect("switch A is interactable");
-    game.dispatch_actions(
+    let _dispatch_report = game.dispatch_actions(
         &[ActionDef::ToggleAnimation {
             target: None,
             clip: Some("toggle".into()),
@@ -5117,7 +5145,7 @@ fn reset_clears_toggle_scrubs_and_playing_animations() {
         None,
         "a reset clears the toggle override, returning the prop to its authored start"
     );
-    game.dispatch_actions(
+    let _dispatch_report_2 = game.dispatch_actions(
         &[ActionDef::PlayAnimation {
             target: Some("switch_a".into()),
             clip: Some("toggle".into()),
@@ -5145,7 +5173,7 @@ fn demo_spoonerman_completes_six_seated_destinations_without_blocking() {
     let mut destinations = Vec::new();
     let mut previous = 0;
     let mut completed = false;
-    for _ in 0..30_000 {
+    for _ in 0_i32..30_000_i32 {
         game.update_player_movement(&mut InputState::default(), &settings);
         let state = game.route_state("spooner_man").expect("demo route");
         assert!(
@@ -5225,7 +5253,7 @@ fn gameplay_consumes_fast_taps_once_without_a_held_frame() {
         game.update_player_movement(handler.state_mut(), &settings);
         assert_eq!(game.is_crouched(), crouched, "one tap is one toggle");
     }
-    for _ in 0..2 {
+    for _ in 0_i32..2_i32 {
         tap(&mut handler, Keycode::E, &settings);
         game.update_player_movement(handler.state_mut(), &settings);
         assert!(game.take_interact_press());
@@ -5252,7 +5280,7 @@ fn gameplay_consumes_fast_taps_once_without_a_held_frame() {
 /// `toggle` action that drives a door, and the renderer's hand-off reports the
 /// change exactly once.
 #[test]
-#[allow(clippy::too_many_lines)] // one cohesive end-to-end scenario
+#[expect(clippy::too_many_lines, reason = "one cohesive end-to-end scenario")] // one cohesive end-to-end scenario
 fn a_switch_toggles_a_switchable_light_fixture() {
     let level = LevelDef::from_json(
         r#"{
@@ -5312,11 +5340,11 @@ fn a_switch_toggles_a_switchable_light_fixture() {
     assert!(game.take_light_toggles().is_empty(), "and never repeats");
 
     // A second press flips it back on.
-    let report = game
+    let second_report = game
         .entities_mut()
         .dispatch_interaction(Some(switch))
         .expect("the switch fires again");
-    assert_eq!(report.actions_run, 1);
+    assert_eq!(second_report.actions_run, 1);
     assert_eq!(game.take_light_toggles(), vec![(0, true)]);
 
     // A `toggle` that names a fixture which never switches is rejected twice:
@@ -5349,17 +5377,17 @@ fn a_switch_toggles_a_switchable_light_fixture() {
         "the error names the requirement: {err}"
     );
     let mut bad_game = game_for(&bad_level);
-    let report = bad_game.dispatch_actions(
+    let unsupported_report = bad_game.dispatch_actions(
         &[ActionDef::Toggle {
             target: Some("always_on".into()),
         }],
         None,
     );
     assert_eq!(
-        report.unsupported, 1,
+        unsupported_report.unsupported, 1,
         "a baked fixture is refused, never reported as switched"
     );
-    assert_eq!(report.actions_run, 0);
+    assert_eq!(unsupported_report.actions_run, 0);
     assert!(
         bad_game.take_light_toggles().is_empty(),
         "a refused toggle reaches the renderer as nothing"
@@ -5425,7 +5453,7 @@ fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
     let settings = Settings::default();
     let mut idle = InputState::default();
-    for _ in 0..80 {
+    for _ in 0_i32..80_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "open");
@@ -5655,12 +5683,15 @@ fn a_switch_sets_a_switchable_fixture_light_off() {
 
     // Writing the same state again is not a change: the binding still runs,
     // but nothing is reported to the renderer.
-    let report = game
+    let unchanged_report = game
         .entities_mut()
         .dispatch_interaction(Some(switch))
         .expect("the switch fires again");
-    assert_eq!(report.actions_run, 1);
-    assert_eq!(game.take_light_toggles(), [] as [(usize, bool); 0]);
+    assert_eq!(unchanged_report.actions_run, 1);
+    assert!(
+        game.take_light_toggles().is_empty(),
+        "game.take_light_toggles() must be empty"
+    );
 }
 
 /// `set_state` emits an `object_state` event, and a second binding on the same
@@ -5726,7 +5757,7 @@ fn an_object_state_binding_runs_only_when_its_condition_holds() {
 
     // False branch: disabling the door makes the same event skip the binding.
     let mut blocked = game_for(&level);
-    blocked.dispatch_actions(
+    let _dispatch_report = blocked.dispatch_actions(
         &[ActionDef::Disable {
             target: Some("gate".into()),
         }],
@@ -5740,13 +5771,13 @@ fn an_object_state_binding_runs_only_when_its_condition_holds() {
             }),
         "the disabled door fails the condition"
     );
-    let panel = blocked.interactables().index_of("panel").expect("panel");
-    let report = blocked
+    let blocked_panel = blocked.interactables().index_of("panel").expect("panel");
+    let blocked_report = blocked
         .entities_mut()
-        .dispatch_interaction(Some(panel))
+        .dispatch_interaction(Some(blocked_panel))
         .expect("the panel fires");
     assert_eq!(
-        report.actions_run, 1,
+        blocked_report.actions_run, 1,
         "only the state write ran; the false-condition binding was skipped"
     );
     assert_eq!(
@@ -5755,7 +5786,7 @@ fn an_object_state_binding_runs_only_when_its_condition_holds() {
         "the state is written in both branches"
     );
     assert!(
-        !blocked.is_label_visible(panel),
+        !blocked.is_label_visible(blocked_panel),
         "the false-condition binding never ran"
     );
 }
@@ -5792,9 +5823,9 @@ fn a_once_volume_binding_fires_once_and_re_arms_on_reset() {
     let lamp = game.interactables().index_of("lamp").expect("lamp");
     assert_eq!(game.volume_count(), 1);
 
-    let enter = |game: &mut Game| {
-        play_at(game, 6.0, 0.0, 6.0, 0.0, 1.0 / 60.0);
-        game.update_player_movement(&mut InputState::default(), &Settings::default());
+    let enter = |subject: &mut Game| {
+        play_at(subject, 6.0, 0.0, 6.0, 0.0, 1.0 / 60.0);
+        subject.update_player_movement(&mut InputState::default(), &Settings::default());
     };
     enter(&mut game);
     assert!(
@@ -5878,8 +5909,8 @@ fn a_one_shot_timer_fires_exactly_once() {
     assert!(game.is_label_visible(lamp), "the fire ran its binding");
 
     advance_frames(&mut game, 120);
-    let timer = game.entities().timers().get("tick_once").expect("timer");
-    assert_eq!(timer.fires, 1, "a one-shot never fires again");
+    let later_timer = game.entities().timers().get("tick_once").expect("timer");
+    assert_eq!(later_timer.fires, 1, "a one-shot never fires again");
     assert!(
         game.is_label_visible(lamp),
         "no second fire toggled the label back"
@@ -6254,9 +6285,16 @@ fn a_spawned_entity_despawns_when_its_lifetime_elapses() {
     assert!(game.entities().handle_of("spark").is_some());
     let commands = game.entities_mut().take_commands();
     assert!(
-        commands
-            .iter()
-            .any(|command| matches!(command, WorldCommand::SpawnDynamic { .. })),
+        commands.iter().any(|command| matches!(
+            command,
+            WorldCommand::SpawnDynamic {
+                entity: _,
+                model: _,
+                position: _,
+                yaw_degrees: _,
+                scale: _
+            }
+        )),
         "the spawn hands a render command to the frame loop"
     );
 
@@ -6270,12 +6308,19 @@ fn a_spawned_entity_despawns_when_its_lifetime_elapses() {
     // Past the lifetime it despawns itself and releases its render object.
     advance_frames(&mut game, 2);
     assert!(game.entities().handle_of("spark").is_none());
-    assert_eq!(game.entities().live_spawns(), []);
-    let commands = game.entities_mut().take_commands();
     assert!(
-        commands
-            .iter()
-            .any(|command| matches!(command, WorldCommand::DespawnDynamic { .. })),
+        game.entities().live_spawns().is_empty(),
+        "game.entities().live_spawns() must be empty"
+    );
+    let despawn_commands = game.entities_mut().take_commands();
+    assert!(
+        despawn_commands.iter().any(|command| matches!(
+            command,
+            WorldCommand::DespawnDynamic {
+                entity: _,
+                instance_id: _
+            }
+        )),
         "the despawn hands a render command to the frame loop"
     );
 }
@@ -6307,8 +6352,8 @@ fn an_at_most_one_spawn_group_admits_one_member_and_releases_it() {
     crate::loader::validate_level(&level).expect("the spawn-group level validates");
 
     let mut game = game_for(&level);
-    let spawn = |game: &mut Game, name: &str| {
-        game.dispatch_actions(
+    let spawn = |subject: &mut Game, name: &str| {
+        subject.dispatch_actions(
             &[ActionDef::SpawnEntity {
                 template: None,
                 point: Some("group_pad".into()),
@@ -6437,19 +6482,19 @@ fn a_locked_door_refuses_interaction_until_unlocked_by_a_binding() {
     assert!(game.doors().get(0).expect("door").angle().abs() < 1e-6);
 
     // The key's own interact binding unlocks it.
-    let report = game
+    let unlock_report = game
         .entities_mut()
         .dispatch_interaction(Some(key))
         .expect("the key fires");
-    assert_eq!(report.actions_run, 1);
+    assert_eq!(unlock_report.actions_run, 1);
     assert_eq!(game.doors().is_locked("gate"), Some(false));
 
     // The same door interaction now opens the leaf, and the frames advance it.
-    let report = game
+    let opened_report = game
         .entities_mut()
         .dispatch_interaction(Some(door_target))
         .expect("the door fires");
-    assert_eq!(report.actions_run, 1);
+    assert_eq!(opened_report.actions_run, 1);
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
     advance_frames(&mut game, 80);
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "open");
@@ -6488,7 +6533,7 @@ fn the_demo_sauna_chain_runs_end_to_end() {
     game.update_player_movement(&mut InputState::default(), &settings);
 
     // Two seconds of simulation: volume edge, 1.5 s timer, 0.5 s wait.
-    for _ in 0..140 {
+    for _ in 0_i32..140_i32 {
         game.sim_delta_seconds = 1.0 / 60.0;
         game.update_player_movement(&mut InputState::default(), &settings);
     }
@@ -6541,11 +6586,12 @@ fn demo_navigation(level: &LevelDef) -> (crate::nav::NavMesh, Vec<String>) {
         "the demo's seven doors (hall, pool-side sauna, shower-side sauna, corridor-side sauna, \
          study, front, house) are portal links"
     );
-    let bytes = crate::package::navigation::write_navigation(
+    let reencoded_bytes = crate::package::navigation::write_navigation(
         &crate::package::navigation::read_navigation(&bytes).expect("the record decodes"),
     )
     .expect("the record re-encodes");
-    let grid = crate::package::navigation::read_navigation(&bytes).expect("the record decodes");
+    let grid =
+        crate::package::navigation::read_navigation(&reencoded_bytes).expect("the record decodes");
     let mesh = crate::nav::NavMesh::from_record(grid).expect("the mesh validates");
     (mesh, warnings)
 }
@@ -6635,7 +6681,7 @@ fn advance_checked(game: &mut Game, frames: usize, actors: &[&str]) {
 }
 
 #[test]
-#[allow(clippy::too_many_lines)] // one end-to-end encounter, in order
+#[expect(clippy::too_many_lines, reason = "one end-to-end encounter, in order")] // one end-to-end encounter, in order
 fn demo_home_encounter_repeats_end_to_end() {
     const DELTA: f32 = 1.0 / 60.0;
     let mut game = demo_game_with_navigation(DELTA);
@@ -6651,7 +6697,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     assert_eq!(agents_named(&game, rat), 1);
     let _ = press(&mut game, "rat_release_switch");
     assert_eq!(agents_named(&game, rat), 1, "the group admits one rat");
-    game.entities_mut().take_commands();
+    drop(game.entities_mut().take_commands());
 
     // 2. The rat flees and the cat pursues, both through the baked mesh.
     advance_checked(&mut game, 180, &[rat, cat]);
@@ -6661,11 +6707,17 @@ fn demo_home_encounter_repeats_end_to_end() {
     };
     let cat_state = game.entities().ai().agent(cat).expect("cat").state;
     assert!(
-        matches!(rat_state, crate::ai::AiState::Flee { .. }),
+        matches!(
+            rat_state,
+            crate::ai::AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ),
         "the rat flees, got {rat_state:?}"
     );
     assert!(
-        matches!(cat_state, crate::ai::AiState::Pursue { .. }),
+        matches!(cat_state, crate::ai::AiState::Pursue { target: _ }),
         "the cat pursues, got {cat_state:?}"
     );
     assert!(
@@ -6675,7 +6727,7 @@ fn demo_home_encounter_repeats_end_to_end() {
 
     // 3. The cat catches within a generous bounded simulation period.
     let mut caught_at = None;
-    for frame in 0..(60 * 90) {
+    for frame in 0_i32..(60_i32 * 90_i32) {
         advance_checked(&mut game, 1, &[rat, cat]);
         if game
             .entities()
@@ -6697,7 +6749,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     );
     let cat_agent = game.entities().ai().agent(cat).expect("cat");
     assert!(
-        matches!(cat_agent.state, crate::ai::AiState::Catch { .. }),
+        matches!(cat_agent.state, crate::ai::AiState::Catch { target: _ }),
         "the catch state owns the presentation, got {:?}",
         cat_agent.state
     );
@@ -6705,7 +6757,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     // 4. The authored pounce/consume sequence despawns the rat at its end and
     //    returns the cat to ordinary AI; the switch works again.
     let mut despawned = false;
-    for _ in 0..(60 * 30) {
+    for _ in 0_i32..(60_i32 * 30_i32) {
         advance_checked(&mut game, 1, &[cat]);
         if game.entities().handle_of(rat).is_none() {
             despawned = true;
@@ -6717,10 +6769,10 @@ fn demo_home_encounter_repeats_end_to_end() {
     // The presentation keeps running for its authored consume/stand-up steps;
     // the cat must return to ordinary AI when the sequence ends.
     let mut released = false;
-    for _ in 0..(60 * 20) {
+    for _ in 0_i32..(60_i32 * 20_i32) {
         advance_checked(&mut game, 1, &[cat]);
         let state = game.entities().ai().agent(cat).expect("cat").state;
-        if !matches!(state, crate::ai::AiState::Catch { .. }) {
+        if !matches!(state, crate::ai::AiState::Catch { target: _ }) {
             released = true;
             break;
         }
@@ -6734,7 +6786,7 @@ fn demo_home_encounter_repeats_end_to_end() {
     //    the whole encounter.
     let home = game.entities().ai().agent(cat).expect("cat").home;
     let mut returned = false;
-    for _ in 0..(60 * 90) {
+    for _ in 0_i32..(60_i32 * 90_i32) {
         advance_checked(&mut game, 1, &[cat]);
         let agent = game.entities().ai().agent(cat).expect("cat");
         if agent.position.distance(home) < 2.0 && matches!(agent.state, crate::ai::AiState::Idle) {
@@ -6743,16 +6795,21 @@ fn demo_home_encounter_repeats_end_to_end() {
         }
     }
     assert!(returned, "the predator walks back to its post");
-    let report = press(&mut game, "rat_release_switch");
-    assert_eq!(report.spawned, 1, "the released group spawns again");
+    let repeat_report = press(&mut game, "rat_release_switch");
+    assert_eq!(repeat_report.spawned, 1, "the released group spawns again");
     assert_eq!(agents_named(&game, rat), 1, "a fresh rat");
     let mut chased = false;
-    for _ in 0..(60 * 30) {
+    for _ in 0_i32..(60_i32 * 30_i32) {
         advance_checked(&mut game, 1, &[rat, cat]);
-        let rat_state = game.entities().ai().agent(rat).expect("rat").state;
-        let cat_state = game.entities().ai().agent(cat).expect("cat").state;
-        if matches!(rat_state, crate::ai::AiState::Flee { .. })
-            && matches!(cat_state, crate::ai::AiState::Pursue { .. })
+        let repeated_rat_state = game.entities().ai().agent(rat).expect("rat").state;
+        let predator_state = game.entities().ai().agent(cat).expect("cat").state;
+        if matches!(
+            repeated_rat_state,
+            crate::ai::AiState::Flee {
+                threat: _,
+                destination: _
+            }
+        ) && matches!(predator_state, crate::ai::AiState::Pursue { target: _ })
         {
             chased = true;
             break;
@@ -6774,18 +6831,18 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
     let cat = "spooner_man_home";
     let report = press(&mut game, "rat_release_switch");
     assert_eq!(report.spawned, 1);
-    game.entities_mut().take_commands();
+    drop(game.entities_mut().take_commands());
     advance_checked(&mut game, 120, &[rat, cat]);
     assert!(game.entities().handle_of(rat).is_some());
 
     // An external despawn releases the group and the AI cleanly.
-    let report = game.dispatch_actions(
+    let despawn_report = game.dispatch_actions(
         &[ActionDef::DespawnEntity {
             target: "home_rat_encounter".to_string(),
         }],
         None,
     );
-    assert_eq!(report.despawned, 1, "the group's rat despawns");
+    assert_eq!(despawn_report.despawned, 1, "the group's rat despawns");
     assert!(game.entities().handle_of(rat).is_none());
     assert_eq!(agents_named(&game, rat), 0, "the AI released the rat");
     advance_checked(&mut game, 240, &[cat]);
@@ -6793,15 +6850,18 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
     assert!(
         !matches!(
             cat_agent.state,
-            crate::ai::AiState::Pursue { .. } | crate::ai::AiState::Catch { .. }
+            crate::ai::AiState::Pursue { target: _ } | crate::ai::AiState::Catch { target: _ }
         ),
         "the cat releases a despawned target, got {:?}",
         cat_agent.state
     );
 
     // The switch is reusable after the failure.
-    let report = press(&mut game, "rat_release_switch");
-    assert_eq!(report.spawned, 1, "the switch re-arms after a despawn");
+    let rearmed_report = press(&mut game, "rat_release_switch");
+    assert_eq!(
+        rearmed_report.spawned, 1,
+        "the switch re-arms after a despawn"
+    );
     assert_eq!(agents_named(&game, rat), 1);
 
     // Without navigation the AI cannot move but never panics: a package with
@@ -6810,7 +6870,7 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
     let level = demo_level();
     let world = CollisionWorld::from_level(&level);
     assert!(world.navigation.is_none(), "from_level never bakes");
-    let mut world = world.world;
+    let mut entity_world = world.world;
     let walls = level.collision_aabbs();
     let index = crate::collision_index::CollisionIndex::build(&walls);
     let floor = crate::level::WalkableFloor::from_level(&level);
@@ -6825,7 +6885,7 @@ fn demo_home_encounter_survives_external_despawn_and_absence() {
         floor: &floor,
         nav: None,
     };
-    let tick = world.tick(&ctx);
+    let tick = entity_world.tick(&ctx);
     assert_eq!(tick.events_dropped, 0, "a meshless world still ticks");
 }
 
@@ -7005,16 +7065,16 @@ fn demo_office_floor_door_and_stair_hall_steps_walk_both_ways() {
 
     // East from the office, through the threshold, onto the landing.
     let mut game = demo_game_at(17.2, 0.0, 0.9, 90.0, 1.0 / 60.0);
-    let approach = audited_walk(&mut game, 160, 1e-3, None, |game| {
-        game.player_position.x > 22.0
+    let approach = audited_walk(&mut game, 160, 1e-3, None, |subject| {
+        subject.player_position.x > 22.0
     });
     approach.assert_flat("office door approach");
     assert!((game.player_floor_y - 0.0).abs() < 1e-3);
 
     // South down all five steps onto the hall floor.
     game.player_yaw = 180.0_f32.to_radians();
-    let descent = audited_walk(&mut game, 200, max_step, Some(riser * 0.9), |game| {
-        game.player_floor_y < -1.45
+    let descent = audited_walk(&mut game, 200, max_step, Some(riser * 0.9), |subject| {
+        subject.player_floor_y < -1.45
     });
     descent.assert_walkable("hall steps descent");
     assert_eq!(descent.discrete_steps, 5, "one riser per step boundary");
@@ -7027,8 +7087,8 @@ fn demo_office_floor_door_and_stair_hall_steps_walk_both_ways() {
 
     // North back up the steps to the landing and into the doorway's lane.
     game.player_yaw = 0.0;
-    let ascent = audited_walk(&mut game, 220, max_step, Some(riser * 0.9), |game| {
-        game.player_floor_y > -0.05 && game.player_position.z < 1.0
+    let ascent = audited_walk(&mut game, 220, max_step, Some(riser * 0.9), |subject| {
+        subject.player_floor_y > -0.05 && subject.player_position.z < 1.0
     });
     ascent.assert_walkable("hall steps ascent");
     assert_eq!(ascent.discrete_steps, 5, "one riser per step boundary");
@@ -7036,31 +7096,31 @@ fn demo_office_floor_door_and_stair_hall_steps_walk_both_ways() {
 
     // West through the doorway back into the office.
     game.player_yaw = 270.0_f32.to_radians();
-    let exit = audited_walk(&mut game, 200, 1e-3, None, |game| {
-        game.player_position.x < 18.3
+    let exit = audited_walk(&mut game, 200, 1e-3, None, |subject| {
+        subject.player_position.x < 18.3
     });
     exit.assert_flat("office door exit");
     assert!((game.player_floor_y - 0.0).abs() < 1e-3);
 
     // The landing is closed by wall 3 on the north and wall 4 on the east:
     // each stops the walk on the landing plane, never through it.
-    let mut game = demo_game_at(22.0, 0.0, 0.6, 0.0, 1.0 / 60.0);
-    pushed_walk(&mut game, 60);
+    let mut landing_game = demo_game_at(22.0, 0.0, 0.6, 0.0, 1.0 / 60.0);
+    let _pushed_walk_status = pushed_walk(&mut landing_game, 60);
     assert!(
-        game.player_position.z > 0.4,
+        landing_game.player_position.z > 0.4,
         "wall 3 stops the landing walk: {:?}",
-        game.player_position
+        landing_game.player_position
     );
-    assert!(game.grounded && game.player_floor_y.abs() < 1e-3);
+    assert!(landing_game.grounded && landing_game.player_floor_y.abs() < 1e-3);
 
-    let mut game = demo_game_at(22.5, 0.0, 0.9, 90.0, 1.0 / 60.0);
-    pushed_walk(&mut game, 60);
+    let mut side_game = demo_game_at(22.5, 0.0, 0.9, 90.0, 1.0 / 60.0);
+    let _pushed_walk_status_2 = pushed_walk(&mut side_game, 60);
     assert!(
-        game.player_position.x < 23.6,
+        side_game.player_position.x < 23.6,
         "wall 4 stops the landing walk: {:?}",
-        game.player_position
+        side_game.player_position
     );
-    assert!(game.grounded && game.player_floor_y.abs() < 1e-3);
+    assert!(side_game.grounded && side_game.player_floor_y.abs() < 1e-3);
 }
 
 /// A 45-degree crossing of the five 0.3 m steps that passes through the wall-5
@@ -7071,8 +7131,8 @@ fn demo_office_steps_diagonal_and_stop_on_a_step() {
     let max_step = riser + 1e-3;
 
     let mut game = demo_game_at(23.0, -1.5, 4.9, 315.0, 1.0 / 60.0);
-    let diagonal = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |game| {
-        game.player_position.x < 18.4
+    let diagonal = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |subject| {
+        subject.player_position.x < 18.4
     });
     diagonal.assert_walkable("hall steps diagonal");
     assert_eq!(diagonal.discrete_steps, 5, "each boundary is one riser");
@@ -7080,23 +7140,27 @@ fn demo_office_steps_diagonal_and_stop_on_a_step() {
 
     // Stopping on the third step holds the pose: no drift, no oscillation,
     // still grounded; resuming climbs the remaining risers.
-    let mut game = demo_game_at(22.0, -0.9, 3.6, 0.0, 1.0 / 60.0);
+    let mut paused_game = demo_game_at(22.0, -0.9, 3.6, 0.0, 1.0 / 60.0);
     let settings = Settings::default();
     let mut idle = InputState::default();
-    let held = game.player_position;
-    for _ in 0..60 {
-        game.update_player_movement(&mut idle, &settings);
-        assert!(game.grounded, "the step holds the player");
-        assert!((game.player_floor_y - (-0.9)).abs() < 1e-4);
+    let held = paused_game.player_position;
+    for _ in 0_i32..60_i32 {
+        paused_game.update_player_movement(&mut idle, &settings);
+        assert!(paused_game.grounded, "the step holds the player");
+        assert!((paused_game.player_floor_y - (-0.9)).abs() < 1e-4);
         assert!(
-            (game.player_position - held).length() <= 1e-6,
+            (paused_game.player_position - held).length() <= 1e-6,
             "no drift while stopped on a step"
         );
-        assert_exact(game.vertical_velocity, 0.0);
+        assert_exact(paused_game.vertical_velocity, 0.0);
     }
-    let resumed = audited_walk(&mut game, 220, max_step, Some(riser * 0.9), |game| {
-        game.player_floor_y > -0.05
-    });
+    let resumed = audited_walk(
+        &mut paused_game,
+        220,
+        max_step,
+        Some(riser * 0.9),
+        |subject| subject.player_floor_y > -0.05,
+    );
     resumed.assert_walkable("hall steps resume");
     assert_eq!(resumed.discrete_steps, 3, "the three risers above step 3");
 }
@@ -7111,8 +7175,8 @@ fn demo_pool_walk_in_step_up_down_and_diagonal() {
 
     // South deck (-1.5) north onto the step (-1.85).
     let mut game = demo_game_at(13.0, -1.5, 17.6, 0.0, 1.0 / 60.0);
-    let down = audited_walk(&mut game, 80, max_step, Some(riser * 0.9), |game| {
-        (game.player_floor_y - (-1.85)).abs() < 1e-3
+    let down = audited_walk(&mut game, 80, max_step, Some(riser * 0.9), |subject| {
+        (subject.player_floor_y - (-1.85)).abs() < 1e-3
     });
     down.assert_walkable("pool deck to walk-in step");
     assert_eq!(down.discrete_steps, 1, "one 0.35 m drop edge");
@@ -7128,7 +7192,7 @@ fn demo_pool_walk_in_step_up_down_and_diagonal() {
     let settings = Settings::default();
     let mut idle = InputState::default();
     let held = game.player_position;
-    for _ in 0..60 {
+    for _ in 0_i32..60_i32 {
         game.update_player_movement(&mut idle, &settings);
         assert!(game.grounded, "the submerged step holds the body");
         assert!(!game.is_swimming(), "0.2 m of water never swims");
@@ -7142,27 +7206,37 @@ fn demo_pool_walk_in_step_up_down_and_diagonal() {
 
     // Turn around: the same 0.35 m edge back up onto the deck.
     game.player_yaw = 180.0_f32.to_radians();
-    let up = audited_walk(&mut game, 80, max_step, Some(riser * 0.9), |game| {
-        (game.player_floor_y - (-1.5)).abs() < 1e-3 && game.player_position.z > 16.95
+    let up = audited_walk(&mut game, 80, max_step, Some(riser * 0.9), |subject| {
+        (subject.player_floor_y - (-1.5)).abs() < 1e-3 && subject.player_position.z > 16.95
     });
     up.assert_walkable("walk-in step to deck");
     assert_eq!(up.discrete_steps, 1, "one 0.35 m rise edge");
 
     // The step spans the basin's south rim: cross it west to east from the
     // deck beside the pool, dropping and climbing the same edge.
-    let mut game = demo_game_at(17.6, -1.5, 16.45, 270.0, 1.0 / 60.0);
-    let across = audited_walk(&mut game, 180, max_step, Some(riser * 0.9), |game| {
-        game.player_position.x < 9.7
-    });
+    let mut across_game = demo_game_at(17.6, -1.5, 16.45, 270.0, 1.0 / 60.0);
+    let across = audited_walk(
+        &mut across_game,
+        180,
+        max_step,
+        Some(riser * 0.9),
+        |subject| subject.player_position.x < 9.7,
+    );
     across.assert_walkable("walk-in step deck to deck");
     assert_eq!(across.discrete_steps, 2, "down and back up the same edge");
-    assert!((game.player_floor_y - (-1.5)).abs() < 1e-3);
+    assert!((across_game.player_floor_y - (-1.5)).abs() < 1e-3);
 
     // A diagonal approach lands on the step and stays grounded on it.
-    let mut game = demo_game_at(16.9, -1.5, 17.7, 315.0, 1.0 / 60.0);
-    let diagonal = audited_walk(&mut game, 60, max_step, Some(riser * 0.9), |game| {
-        (game.player_floor_y - (-1.85)).abs() < 1e-3 && game.player_position.z < 16.8
-    });
+    let mut diagonal_game = demo_game_at(16.9, -1.5, 17.7, 315.0, 1.0 / 60.0);
+    let diagonal = audited_walk(
+        &mut diagonal_game,
+        60,
+        max_step,
+        Some(riser * 0.9),
+        |subject| {
+            (subject.player_floor_y - (-1.85)).abs() < 1e-3 && subject.player_position.z < 16.8
+        },
+    );
     diagonal.assert_walkable("walk-in step diagonal");
     assert_eq!(
         diagonal.discrete_steps, 1,
@@ -7181,7 +7255,7 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
     let mut previous = game.player_position;
     let mut airborne = false;
     let mut swimming = false;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut forward, &settings);
         let position = game.player_position;
         assert!(
@@ -7215,17 +7289,17 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
     game.player_yaw = 180.0_f32.to_radians();
     let mut exit = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut stood_on_step = false;
-    let mut previous = game.player_position;
-    for _ in 0..400 {
+    let mut exit_previous = game.player_position;
+    for _ in 0_i32..400_i32 {
         let frame_start_eye = game.player_position.y;
         game.update_player_movement(&mut exit, &settings);
         let position = game.player_position;
         assert!(
-            Vec2::new(position.x - previous.x, position.z - previous.z).length()
+            Vec2::new(position.x - exit_previous.x, position.z - exit_previous.z).length()
                 <= settings.walk_speed / 60.0 + 1e-3,
             "no teleport out of the basin"
         );
-        previous = position;
+        exit_previous = position;
         assert!(
             position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-3,
             "the body never passes the basin floor: {}",
@@ -7257,8 +7331,8 @@ fn demo_pool_basin_drops_from_the_step_and_wades_back_out() {
 
     // The wade out to the deck is the ordinary 0.35 m walkable edge.
     game.player_yaw = 180.0_f32.to_radians();
-    let wade = audited_walk(&mut game, 80, 0.35 + 1e-3, Some(0.35 * 0.9), |game| {
-        (game.player_floor_y - (-1.5)).abs() < 1e-3 && game.player_position.z > 17.0
+    let wade = audited_walk(&mut game, 80, 0.35 + 1e-3, Some(0.35 * 0.9), |subject| {
+        (subject.player_floor_y - (-1.5)).abs() < 1e-3 && subject.player_position.z > 17.0
     });
     wade.assert_walkable("walk-in step wade to deck");
     assert_eq!(wade.discrete_steps, 1, "one 0.35 m rise edge");
@@ -7274,7 +7348,7 @@ fn falling_into_deep_water_starts_swimming_near_the_surface() {
     let mut walk = InputState::holding(&[Control::MoveForward]);
     let mut grounded_on_basin = false;
     let mut first_swim_feet = f32::MAX;
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut walk, &settings);
         if game.is_swimming() {
             first_swim_feet = game.feet_y();
@@ -7325,7 +7399,7 @@ fn entering_the_pool_never_snaps_the_eye() {
         };
         let mut previous_eye = game.player_position.y;
         let mut entry_velocity = None;
-        for _ in 0..240 {
+        for _ in 0_i32..240_i32 {
             let before_velocity = game.vertical_velocity;
             game.update_player_movement(&mut input, &settings);
             let eye = game.player_position.y;
@@ -7375,7 +7449,7 @@ fn exiting_the_demo_pool_is_a_bounded_climb() {
     let mut swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut previous_eye = game.player_position.y;
     let mut exited = false;
-    for _ in 0..400 {
+    for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut swim, &settings);
         let eye = game.player_position.y;
         assert!(
@@ -7409,68 +7483,71 @@ fn exiting_the_demo_pool_is_a_bounded_climb() {
     // Reversing mid-climb: face back west over the water and release Jump. The
     // recorded support stops being standable and the climb cancels back to
     // swimming, with no snap on the way.
-    let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
-    let mut swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
-    for _ in 0..400 {
-        game.update_player_movement(&mut swim, &settings);
-        if game.water_exit.is_some() {
+    let mut side_exit_game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
+    let mut side_swim = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    for _ in 0_i32..400_i32 {
+        side_exit_game.update_player_movement(&mut side_swim, &settings);
+        if side_exit_game.water_exit.is_some() {
             break;
         }
     }
     assert!(
-        game.water_exit.is_some(),
+        side_exit_game.water_exit.is_some(),
         "the swimmer reaches the rim and climbs"
     );
     // A few frames of climb put the eye above the float line, so the reversal
     // is a genuine mid-climb cancel.
-    for _ in 0..4 {
-        game.update_player_movement(&mut swim, &settings);
+    for _ in 0_i32..4_i32 {
+        side_exit_game.update_player_movement(&mut side_swim, &settings);
     }
-    assert!(game.water_exit.is_some(), "the climb is still in progress");
-    game.player_yaw = 270.0_f32.to_radians();
+    assert!(
+        side_exit_game.water_exit.is_some(),
+        "the climb is still in progress"
+    );
+    side_exit_game.player_yaw = 270.0_f32.to_radians();
     let mut reverse = InputState::holding(&[Control::MoveForward]);
-    let mut previous_eye = game.player_position.y;
-    let mut previous_position = game.player_position;
+    let mut reverse_previous = side_exit_game.player_position.y;
+    let mut previous_position = side_exit_game.player_position;
     let mut cancelled = false;
     let horizontal_bound = settings.walk_speed * SWIM_SPEED_FACTOR / 60.0 + 1e-3;
-    for _ in 0..120 {
-        game.update_player_movement(&mut reverse, &settings);
-        let eye = game.player_position.y;
+    for _ in 0_i32..120_i32 {
+        side_exit_game.update_player_movement(&mut reverse, &settings);
+        let eye = side_exit_game.player_position.y;
         assert!(
-            (eye - previous_eye).abs() <= bound,
+            (eye - reverse_previous).abs() <= bound,
             "the cancelled climb is bounded: {} m in one frame",
-            eye - previous_eye
+            eye - reverse_previous
         );
-        previous_eye = eye;
+        reverse_previous = eye;
         // The cancel must not hand the body to the airborne pass while the rim
         // is beside it: the horizontal step stays at the swim speed, never a
         // rim depenetration lurch (the verifier's D1).
         let step = Vec2::new(
-            game.player_position.x - previous_position.x,
-            game.player_position.z - previous_position.z,
+            side_exit_game.player_position.x - previous_position.x,
+            side_exit_game.player_position.z - previous_position.z,
         )
         .length();
         assert!(
             step <= horizontal_bound,
             "the cancelled climb never lurches horizontally: {step} m in one frame"
         );
-        previous_position = game.player_position;
-        cancelled |= game.water_exit.is_none();
+        previous_position = side_exit_game.player_position;
+        cancelled |= side_exit_game.water_exit.is_none();
     }
     assert!(cancelled, "reversing back over the water cancels the climb");
     assert!(
-        game.swimming && game.is_swimming(),
+        side_exit_game.swimming && side_exit_game.is_swimming(),
         "the cancelled climb returns to the swim pose"
     );
     assert!(
-        (game.player_floor_y - (-3.0)).abs() < 1e-3,
+        (side_exit_game.player_floor_y - (-3.0)).abs() < 1e-3,
         "the support is the basin floor again: {}",
-        game.player_floor_y
+        side_exit_game.player_floor_y
     );
     assert!(
-        game.player_position.x < 20.0,
+        side_exit_game.player_position.x < 20.0,
         "the reversed player is back over the basin: {:?}",
-        game.player_position
+        side_exit_game.player_position
     );
 }
 
@@ -7494,7 +7571,7 @@ fn repeated_pool_entry_and_exit_stays_bounded() {
     let mut before_swimming = game.swimming;
     let mut toggles = 0_u32;
     let mut cycles = 0_u32;
-    for _ in 0..4000 {
+    for _ in 0_i32..4_000_i32 {
         if phase == 0 && game.swimming {
             game.player_yaw = 90.0_f32.to_radians();
             input = InputState::holding(&[Control::MoveForward, Control::Jump]);
@@ -7536,52 +7613,55 @@ fn repeated_pool_entry_and_exit_stays_bounded() {
 
     // The walk-in step: wade north off the step, sink and surface, climb back
     // out over the step's submerged floor (-1.85).
-    let mut game = demo_game_at(13.0, -1.85, 16.4, 0.0, 1.0 / 60.0);
-    let mut phase = 0_u8;
-    let mut input = InputState::holding(&[Control::MoveForward]);
-    let mut previous = game.player_position;
-    let mut before_swimming = game.swimming;
-    let mut toggles = 0_u32;
-    let mut cycles = 0_u32;
-    for _ in 0..4000 {
-        if phase == 0 && game.swimming {
-            game.player_yaw = 180.0_f32.to_radians();
-            input = InputState::holding(&[Control::MoveForward, Control::Jump]);
-            phase = 1;
-        } else if phase == 1 && game.grounded && (game.player_floor_y - (-1.85)).abs() < 1e-3 {
-            cycles = cycles.saturating_add(1);
-            if cycles >= 3 {
+    let mut step_game = demo_game_at(13.0, -1.85, 16.4, 0.0, 1.0 / 60.0);
+    let mut step_phase = 0_u8;
+    let mut step_input = InputState::holding(&[Control::MoveForward]);
+    let mut step_previous = step_game.player_position;
+    let mut step_was_swimming = step_game.swimming;
+    let mut step_toggles = 0_u32;
+    let mut step_cycles = 0_u32;
+    for _ in 0_i32..4_000_i32 {
+        if step_phase == 0 && step_game.swimming {
+            step_game.player_yaw = 180.0_f32.to_radians();
+            step_input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+            step_phase = 1;
+        } else if step_phase == 1
+            && step_game.grounded
+            && (step_game.player_floor_y - (-1.85)).abs() < 1e-3
+        {
+            step_cycles = step_cycles.saturating_add(1);
+            if step_cycles >= 3 {
                 break;
             }
-            game.player_yaw = 0.0;
-            input = InputState::holding(&[Control::MoveForward]);
-            phase = 0;
+            step_game.player_yaw = 0.0;
+            step_input = InputState::holding(&[Control::MoveForward]);
+            step_phase = 0;
         }
-        game.update_player_movement(&mut input, &settings);
-        let position = game.player_position;
+        step_game.update_player_movement(&mut step_input, &settings);
+        let position = step_game.player_position;
         assert!(
-            Vec2::new(position.x - previous.x, position.z - previous.z).length()
+            Vec2::new(position.x - step_previous.x, position.z - step_previous.z).length()
                 <= horizontal_bound,
             "step cycle: no horizontal teleport"
         );
         assert!(
-            (position.y - previous.y).abs() <= PLAYER_STEP_HEIGHT + 1e-3,
+            (position.y - step_previous.y).abs() <= PLAYER_STEP_HEIGHT + 1e-3,
             "step cycle: the eye stepped {} m in one frame",
-            position.y - previous.y
+            position.y - step_previous.y
         );
         assert!(
-            !(game.swimming || game.water_exit.is_some())
-                || (position.y - previous.y).abs() <= water_bound,
+            !(step_game.swimming || step_game.water_exit.is_some())
+                || (position.y - step_previous.y).abs() <= water_bound,
             "step cycle: the water states stay bounded"
         );
-        previous = position;
-        if game.swimming != before_swimming {
-            toggles = toggles.saturating_add(1);
-            before_swimming = game.swimming;
+        step_previous = position;
+        if step_game.swimming != step_was_swimming {
+            step_toggles = step_toggles.saturating_add(1);
+            step_was_swimming = step_game.swimming;
         }
     }
-    assert_eq!(cycles, 3, "three full step cycles complete");
-    assert_eq!(toggles, 6, "one entry and one completed exit per cycle");
+    assert_eq!(step_cycles, 3, "three full step cycles complete");
+    assert_eq!(step_toggles, 6, "one water entry and exit per step cycle");
 }
 
 /// The demo rim entry and exit are frame-rate independent: 30, 60 and 144 fps
@@ -7603,8 +7683,8 @@ fn water_transitions_hold_at_30_60_and_144_fps() {
         let mut exited = false;
         // 20 s at 144 fps covers the whole cycle at every rate; the loop
         // breaks as soon as the exit completes.
-        let frames = 144 * 20;
-        for _ in 0..frames {
+        let frames = 144_i32 * 20_i32;
+        for _ in 0_i32..frames {
             if phase == 0 && game.swimming {
                 game.player_yaw = 90.0_f32.to_radians();
                 input = InputState::holding(&[Control::MoveForward, Control::Jump]);
@@ -7653,7 +7733,7 @@ fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
     let settings = Settings::default();
     let mut game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
     let mut idle = InputState::default();
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(game.is_swimming(), "the basin water is swum");
@@ -7668,7 +7748,7 @@ fn a_swimmer_over_the_walk_in_step_stands_up_continuously() {
     let mut forward = InputState::holding(&[Control::MoveForward]);
     let mut previous_eye = game.player_position.y;
     let mut stood = false;
-    for _ in 0..400 {
+    for _ in 0_i32..400_i32 {
         game.update_player_movement(&mut forward, &settings);
         let eye = game.player_position.y;
         assert!(
@@ -7710,8 +7790,8 @@ fn demo_sauna_landing_steps_from_three_sides_and_diagonal() {
     ];
     for (x, z, yaw, label) in approaches {
         let mut game = demo_game_at(x, -1.5, z, yaw, 1.0 / 60.0);
-        let audit = audited_walk(&mut game, 160, max_step, Some(riser * 0.9), |game| {
-            (game.player_floor_y - (-0.9)).abs() < 1e-3
+        let audit = audited_walk(&mut game, 160, max_step, Some(riser * 0.9), |subject| {
+            (subject.player_floor_y - (-0.9)).abs() < 1e-3
         });
         audit.assert_walkable(&format!("sauna landing {label}"));
         assert_eq!(
@@ -7735,79 +7815,95 @@ fn demo_sauna_door_passes_open_and_blocks_closed() {
 
     // The authored leaf starts open: cross region 8 into the sauna, flush.
     let mut game = demo_game_at(25.0, -0.9, 13.3, 90.0, 1.0 / 60.0);
-    let open_pass = audited_walk(&mut game, 160, 1e-3, None, |game| {
-        game.player_position.x > 27.2
+    let open_pass = audited_walk(&mut game, 160, 1e-3, None, |subject| {
+        subject.player_position.x > 27.2
     });
     open_pass.assert_flat("sauna door open passage");
     assert!((game.player_floor_y - (-0.9)).abs() < 1e-3);
 
     // Stopped inside the aperture: the doorway floor holds, no drift.
-    let mut game = demo_game_at(25.9, -0.9, 13.3, 90.0, 1.0 / 60.0);
-    let held = game.player_position;
+    let mut aperture_game = demo_game_at(25.9, -0.9, 13.3, 90.0, 1.0 / 60.0);
+    let held = aperture_game.player_position;
     let mut idle = InputState::default();
-    for _ in 0..60 {
-        game.update_player_movement(&mut idle, &settings);
-        assert!(game.grounded, "the doorway floor holds the body");
-        assert!((game.player_floor_y - (-0.9)).abs() < 1e-4);
+    for _ in 0_i32..60_i32 {
+        aperture_game.update_player_movement(&mut idle, &settings);
+        assert!(aperture_game.grounded, "the doorway floor holds the body");
+        assert!((aperture_game.player_floor_y - (-0.9)).abs() < 1e-4);
         assert!(
-            (game.player_position - held).length() <= 1e-6,
+            (aperture_game.player_position - held).length() <= 1e-6,
             "no drift while stopped in the doorway"
         );
-        assert_exact(game.vertical_velocity, 0.0);
+        assert_exact(aperture_game.vertical_velocity, 0.0);
     }
 
     // Close the leaf with the player clear of its sweep, then walk into it.
-    let mut game = demo_game_at(24.0, -0.9, 13.3, 90.0, 1.0 / 60.0);
-    let leaf = game
+    let mut closed_game = demo_game_at(24.0, -0.9, 13.3, 90.0, 1.0 / 60.0);
+    let leaf = closed_game
         .doors()
         .index_of("sauna_door")
         .expect("the demo authors the sauna door");
     assert!(
-        game.world_mut().doors_mut().request_close("sauna_door"),
+        closed_game
+            .world_mut()
+            .doors_mut()
+            .request_close("sauna_door"),
         "the authored-open leaf accepts a close request"
     );
-    let mut idle = InputState::default();
-    for _ in 0..80 {
-        game.update_player_movement(&mut idle, &settings);
+    let mut closing_idle = InputState::default();
+    for _ in 0_i32..80_i32 {
+        closed_game.update_player_movement(&mut closing_idle, &settings);
     }
     assert_eq!(
-        game.doors().get(leaf).expect("sauna leaf").phase().name(),
+        closed_game
+            .doors()
+            .get(leaf)
+            .expect("sauna leaf")
+            .phase()
+            .name(),
         "closed",
         "the authored-open leaf reaches its closed end"
     );
-    let max_step = pushed_walk(&mut game, 120);
+    let max_step = pushed_walk(&mut closed_game, 120);
     assert!(
         max_step <= settings.walk_speed / 60.0 + 1e-3,
         "the closed leaf never teleports the walker"
     );
     assert!(
-        game.player_position.x < 26.0,
+        closed_game.player_position.x < 26.0,
         "the closed leaf stops the walker short of the sauna: {:?}",
-        game.player_position
+        closed_game.player_position
     );
-    assert!(game.grounded);
-    assert!((game.player_floor_y - (-0.9)).abs() < 1e-3);
+    assert!(closed_game.grounded);
+    assert!((closed_game.player_floor_y - (-0.9)).abs() < 1e-3);
 
     // Back off, open it again, and cross: the doorway's floor is flush.
-    game.player_yaw = 270.0_f32.to_radians();
+    closed_game.player_yaw = 270.0_f32.to_radians();
     let mut away = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..14 {
-        game.update_player_movement(&mut away, &settings);
+    for _ in 0_i32..14_i32 {
+        closed_game.update_player_movement(&mut away, &settings);
     }
     assert!(
-        game.world_mut().doors_mut().request_open("sauna_door"),
+        closed_game
+            .world_mut()
+            .doors_mut()
+            .request_open("sauna_door"),
         "the closed leaf opens again"
     );
-    for _ in 0..120 {
-        game.update_player_movement(&mut idle, &settings);
+    for _ in 0_i32..120_i32 {
+        closed_game.update_player_movement(&mut closing_idle, &settings);
     }
     assert_eq!(
-        game.doors().get(leaf).expect("sauna leaf").phase().name(),
+        closed_game
+            .doors()
+            .get(leaf)
+            .expect("sauna leaf")
+            .phase()
+            .name(),
         "open"
     );
-    game.player_yaw = 90.0_f32.to_radians();
-    let through = audited_walk(&mut game, 160, 1e-3, None, |game| {
-        game.player_position.x > 27.2
+    closed_game.player_yaw = 90.0_f32.to_radians();
+    let through = audited_walk(&mut closed_game, 160, 1e-3, None, |subject| {
+        subject.player_position.x > 27.2
     });
     through.assert_flat("sauna door reopened passage");
 }
@@ -7827,8 +7923,8 @@ fn demo_home_staircase_audit_up_down_diagonal_and_stops() {
     // Bottom approach through the wall-32/33 gap at x53 (header at 2.1) and up
     // the flight to the balcony region 11 at 1.2.
     let mut game = demo_game_at(52.4, -0.9, 13.3, 90.0, 1.0 / 60.0);
-    let up = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |game| {
-        game.player_position.x > 58.35
+    let up = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |subject| {
+        subject.player_position.x > 58.35
     });
     up.assert_walkable("home staircase ascent");
     assert_eq!(
@@ -7845,66 +7941,78 @@ fn demo_home_staircase_audit_up_down_diagonal_and_stops() {
     let pitch = WalkableFloor::from_level(&level)
         .walk_height_at(56.6, 13.6)
         .expect("mid-flight");
-    let mut game = game_for(&level);
-    play_at(&mut game, 56.6, pitch, 13.6, 90.0, 1.0 / 60.0);
+    let mut midflight_game = game_for(&level);
+    play_at(&mut midflight_game, 56.6, pitch, 13.6, 90.0, 1.0 / 60.0);
     let mut idle = InputState::default();
-    let held = game.player_position;
-    for _ in 0..60 {
-        game.update_player_movement(&mut idle, &settings);
-        assert!(game.grounded, "a tread holds the player");
-        assert!((game.player_floor_y - pitch).abs() < 1e-4);
+    let held = midflight_game.player_position;
+    for _ in 0_i32..60_i32 {
+        midflight_game.update_player_movement(&mut idle, &settings);
+        assert!(midflight_game.grounded, "a tread holds the player");
+        assert!((midflight_game.player_floor_y - pitch).abs() < 1e-4);
         assert!(
-            (game.player_position - held).length() <= 1e-6,
+            (midflight_game.player_position - held).length() <= 1e-6,
             "no drift while stopped on a tread"
         );
-        assert_exact(game.vertical_velocity, 0.0);
+        assert_exact(midflight_game.vertical_velocity, 0.0);
     }
 
     // Resume to the balcony: every remaining tread boundary is smoothed, so
     // no further discrete riser may appear.
-    let resumed = audited_walk(&mut game, 160, max_step, Some(riser * 0.9), |game| {
-        game.player_position.x > 58.35
-    });
+    let resumed = audited_walk(
+        &mut midflight_game,
+        160,
+        max_step,
+        Some(riser * 0.9),
+        |subject| subject.player_position.x > 58.35,
+    );
     resumed.assert_walkable("home staircase resume");
     assert_eq!(resumed.discrete_steps, 0, "no fake riser mid-flight");
-    assert!((game.player_floor_y - 1.2).abs() < 1e-3);
+    assert!((midflight_game.player_floor_y - 1.2).abs() < 1e-3);
 
     // Walk back down: the foot's real riser is the one discrete drop.
-    game.player_yaw = 270.0_f32.to_radians();
-    let down = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |game| {
-        game.player_floor_y < -0.85 && game.player_position.x < 54.4
-    });
+    midflight_game.player_yaw = 270.0_f32.to_radians();
+    let down = audited_walk(
+        &mut midflight_game,
+        260,
+        max_step,
+        Some(riser * 0.9),
+        |subject| subject.player_floor_y < -0.85 && subject.player_position.x < 54.4,
+    );
     down.assert_walkable("home staircase descent");
     assert_eq!(
         down.discrete_steps, 1,
         "only the foot's real riser is discrete"
     );
     assert!(
-        (game.player_floor_y - (-0.9)).abs() < 1e-3,
+        (midflight_game.player_floor_y - (-0.9)).abs() < 1e-3,
         "the descent returns to the hall floor: {}",
-        game.player_floor_y
+        midflight_game.player_floor_y
     );
 
     // The balcony landing is one flat plane at 1.2 north of the armchair.
     // The guardrail ends at (58.035, 13.0). Keep the radius clear of its
     // rounded corner; x58.3 initially intersects it by about 17 mm.
-    let mut game = demo_game_at(58.35, 1.2, 13.1, 90.0, 1.0 / 60.0);
-    let landing = audited_walk(&mut game, 140, 1e-3, None, |game| {
-        game.player_position.x > 60.4
+    let mut landing_game = demo_game_at(58.35, 1.2, 13.1, 90.0, 1.0 / 60.0);
+    let landing = audited_walk(&mut landing_game, 140, 1e-3, None, |subject| {
+        subject.player_position.x > 60.4
     });
     landing.assert_flat("home balcony landing");
 
     // A 45-degree approach: enter the lane diagonally, hug the south handrail
     // up the flight, and top out on the balcony.
-    let mut game = demo_game_at(54.2, -0.9, 12.5, 135.0, 1.0 / 60.0);
-    let diagonal = audited_walk(&mut game, 260, max_step, Some(riser * 0.9), |game| {
-        game.player_position.x > 58.2
-    });
+    let mut diagonal_game = demo_game_at(54.2, -0.9, 12.5, 135.0, 1.0 / 60.0);
+    let diagonal = audited_walk(
+        &mut diagonal_game,
+        260,
+        max_step,
+        Some(riser * 0.9),
+        |subject| subject.player_position.x > 58.2,
+    );
     diagonal.assert_walkable("home staircase diagonal");
     assert!(
-        (game.player_floor_y - 1.2).abs() < 1e-3,
+        (diagonal_game.player_floor_y - 1.2).abs() < 1e-3,
         "the diagonal tops out on the balcony: {}",
-        game.player_floor_y
+        diagonal_game.player_floor_y
     );
 }
 
@@ -8006,8 +8114,8 @@ fn demo_home_lower_floor_corridor_legs_are_flat() {
     ];
     for (x, z, yaw, frames, stop_z, stop_x, label) in legs {
         let mut game = demo_game_at(x, -0.9, z, yaw, 1.0 / 60.0);
-        let audit = audited_walk(&mut game, frames, 1e-3, None, |game| {
-            game.player_position.z < stop_z || game.player_position.x < stop_x
+        let audit = audited_walk(&mut game, frames, 1e-3, None, |subject| {
+            subject.player_position.z < stop_z || subject.player_position.x < stop_x
         });
         audit.assert_flat(label);
         assert!(
@@ -8043,7 +8151,7 @@ fn demo_home_hall_door_blocks_closed_and_passes_open() {
         "closed",
         "the hall door starts closed"
     );
-    pushed_walk(&mut game, 120);
+    let _pushed_walk_status = pushed_walk(&mut game, 120);
     assert!(
         game.player_position.z > 3.2,
         "the closed hall door stops the walker: {:?}",
@@ -8057,7 +8165,7 @@ fn demo_home_hall_door_blocks_closed_and_passes_open() {
     // and walk back into the living room.
     game.player_yaw = 180.0_f32.to_radians();
     let mut away = InputState::holding(&[Control::MoveForward]);
-    for _ in 0..40 {
+    for _ in 0_i32..40_i32 {
         game.update_player_movement(&mut away, &settings);
     }
     assert!(
@@ -8065,7 +8173,7 @@ fn demo_home_hall_door_blocks_closed_and_passes_open() {
         "the closed hall door accepts an open request"
     );
     let mut idle = InputState::default();
-    for _ in 0..80 {
+    for _ in 0_i32..80_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert_eq!(
@@ -8075,14 +8183,14 @@ fn demo_home_hall_door_blocks_closed_and_passes_open() {
     );
 
     game.player_yaw = 0.0;
-    let through = audited_walk(&mut game, 200, 1e-3, None, |game| {
-        game.player_position.z < 2.0
+    let through = audited_walk(&mut game, 200, 1e-3, None, |subject| {
+        subject.player_position.z < 2.0
     });
     through.assert_flat("hall door passage");
 
     game.player_yaw = 180.0_f32.to_radians();
-    let back = audited_walk(&mut game, 200, 1e-3, None, |game| {
-        game.player_position.z > 4.0
+    let back = audited_walk(&mut game, 200, 1e-3, None, |subject| {
+        subject.player_position.z > 4.0
     });
     back.assert_flat("hall door return");
 }
@@ -8132,7 +8240,7 @@ const fn capture_phase(
 
 /// The complete developer capture inventory: every walkable height transition
 /// of the real demo, phase by phase, mirroring the audit tests.
-#[allow(clippy::too_many_lines)] // one inventory table, read top to bottom
+// one inventory table, read top to bottom
 fn demo_capture_transitions() -> Vec<CaptureTransition> {
     vec![
         CaptureTransition {
@@ -8244,8 +8352,8 @@ fn capture_demo_stair_inventory() {
     let Ok(dir) = std::env::var("PLACES_STAIR_TRACE_DIR") else {
         return;
     };
-    let dir = std::path::PathBuf::from(dir);
-    std::fs::create_dir_all(&dir).expect("the trace directory is creatable");
+    let trace_path = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&trace_path).expect("the trace directory is creatable");
     let level = demo_level();
     let settings = Settings::default();
     let mut summary = String::new();
@@ -8291,7 +8399,7 @@ fn capture_demo_stair_inventory() {
             }
             per_phase.push((phase, max_step, game.player_floor_y));
         }
-        std::fs::write(dir.join(format!("{}.csv", transition.id)), &csv)
+        std::fs::write(trace_path.join(format!("{}.csv", transition.id)), &csv)
             .expect("the trace CSV is writable");
         for (phase, max_step, end_floor) in per_phase {
             writeln!(
@@ -8302,7 +8410,7 @@ fn capture_demo_stair_inventory() {
             .expect("the summary builds in memory");
         }
     }
-    std::fs::write(dir.join("summary.txt"), &summary).expect("the summary is writable");
+    std::fs::write(trace_path.join("summary.txt"), &summary).expect("the summary is writable");
 }
 
 // ---- The night route: the outdoor extension ---------------------------------
@@ -8479,7 +8587,7 @@ fn demo_night_route_containment_holds_walking_and_jumping() {
         let mut max_x = f32::MIN;
         let mut min_z = f32::MAX;
         let mut max_z = f32::MIN;
-        for _ in 0..(60 * 25) {
+        for _ in 0_i32..(60_i32 * 25_i32) {
             game.sim_delta_seconds = delta;
             game.update_player_movement(&mut input, &settings);
             max_feet = max_feet.max(game.feet_y());
@@ -8553,7 +8661,7 @@ fn every_demo_door_completes_a_full_close_and_a_full_open() {
         // every call is meaningful.
         // The first request always moves the leaf off the end it starts on.
         let first_open = matches!(start, crate::door::DoorPhase::Closed);
-        for _ in 0..2 {
+        for _ in 0_i32..2_i32 {
             for open in [first_open, !first_open] {
                 let expected = if open { "open" } else { "closed" };
                 // The request is made inside the loop: issuing both before the
@@ -8564,7 +8672,7 @@ fn every_demo_door_completes_a_full_close_and_a_full_open() {
                     game.world_mut().doors_mut().request_close(id)
                 };
                 assert!(requested, "{id} accepts the request");
-                for _ in 0..600 {
+                for _ in 0_i32..600_i32 {
                     game.update_player_movement(&mut idle, &settings);
                     if game.doors().get(leaf).expect("leaf").phase().name() == expected {
                         break;
@@ -8612,7 +8720,7 @@ fn a_closed_destination_entrance_blocks_and_an_open_one_passes() {
             .request_close("night_house_door")
     );
     let mut idle = InputState::default();
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut idle, &settings);
         if game.doors().get(leaf).expect("leaf").phase().name() == "closed" {
             break;
@@ -8640,7 +8748,7 @@ fn a_closed_destination_entrance_blocks_and_an_open_one_passes() {
             .doors_mut()
             .request_open("night_house_door")
     );
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut idle, &settings);
         if game.doors().get(leaf).expect("leaf").phase().name() == "open" {
             break;
@@ -8650,8 +8758,8 @@ fn a_closed_destination_entrance_blocks_and_an_open_one_passes() {
     // The walk crosses the doorway's 0.24 m stoop, so the eye's bounded step
     // is the stoop height plus a frame of slack, not the flat 1 mm.
     let stoop_step = 0.24 + 1e-3;
-    let through = audited_walk(&mut game, 240, stoop_step, None, |game| {
-        game.player_position.z > -90.5
+    let through = audited_walk(&mut game, 240, stoop_step, None, |subject| {
+        subject.player_position.z > -90.5
     });
     through.assert_walkable("open night doorway");
     assert!(
@@ -8681,7 +8789,7 @@ fn a_closed_source_entrance_blocks_and_an_open_one_passes() {
             .request_close("night_source_door")
     );
     let mut idle = InputState::default();
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut idle, &settings);
         if game.doors().get(leaf).expect("leaf").phase().name() == "closed" {
             break;
@@ -8708,15 +8816,15 @@ fn a_closed_source_entrance_blocks_and_an_open_one_passes() {
             .doors_mut()
             .request_open("night_source_door")
     );
-    for _ in 0..600 {
+    for _ in 0_i32..600_i32 {
         game.update_player_movement(&mut idle, &settings);
         if game.doors().get(leaf).expect("leaf").phase().name() == "open" {
             break;
         }
     }
     assert_eq!(game.doors().get(leaf).expect("leaf").phase().name(), "open");
-    let through = audited_walk(&mut game, 240, 1e-3, None, |game| {
-        game.player_position.z > 2.0
+    let through = audited_walk(&mut game, 240, 1e-3, None, |subject| {
+        subject.player_position.z > 2.0
     });
     through.assert_flat("open source doorway");
     assert!(
@@ -8946,7 +9054,7 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
     for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0] {
         for (x, z, yaw) in [(12.0, 14.0, 90.0), (12.0, 13.0, 45.0), (12.0, 15.0, 135.0)] {
             let mut game = demo_game_at(x, -3.0, z, yaw, delta);
-            for _ in 0..240 {
+            for _ in 0_i32..240_i32 {
                 game.update_player_movement(&mut idle, &settings);
             }
             assert!(
@@ -8969,17 +9077,17 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
     let mut game = demo_game_at(12.0, -3.0, 14.0, 90.0, 1.0 / 60.0);
     let mut crouch = InputState::holding(&[Control::Crouch]);
     game.update_player_movement(&mut crouch, &settings);
-    for _ in 0..30 {
+    for _ in 0_i32..30_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(game.is_crouched(), "the crouched pose settles");
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     assert!(
-        run_camera_clear(&mut game, &mut input, &settings, 900, |game| {
-            game.grounded
-                && (game.player_floor_y - (-1.5)).abs() < 1e-3
-                && game.player_position.x > 20.0
-                && game.is_crouched()
+        run_camera_clear(&mut game, &mut input, &settings, 900, |subject| {
+            subject.grounded
+                && (subject.player_floor_y - (-1.5)).abs() < 1e-3
+                && subject.player_position.x > 20.0
+                && subject.is_crouched()
         }),
         "the crouched exit completes: {:?} floor {}",
         game.player_position,
@@ -8990,24 +9098,36 @@ fn the_demo_pool_exit_never_puts_the_camera_inside_geometry() {
     // the step edge before the body crosses it, and the climb then stands the
     // body up on the deck past the step (a higher standable support under the
     // centre is adopted, never cancelled with the body embedded in it).
-    let mut game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
-    for _ in 0..240 {
-        game.update_player_movement(&mut idle, &settings);
+    let mut step_exit_game = demo_game_at(13.0, -3.0, 14.5, 180.0, 1.0 / 60.0);
+    for _ in 0_i32..240_i32 {
+        step_exit_game.update_player_movement(&mut idle, &settings);
     }
-    assert!(game.is_swimming(), "the step approach starts deep");
+    assert!(
+        step_exit_game.is_swimming(),
+        "the step approach starts deep"
+    );
     let mut forward = InputState::holding(&[Control::MoveForward]);
     assert!(
-        run_camera_clear(&mut game, &mut forward, &settings, 600, |game| {
-            game.grounded && game.player_position.z > 16.0 && game.player_floor_y >= -1.85 - 1e-3
-        }),
+        run_camera_clear(
+            &mut step_exit_game,
+            &mut forward,
+            &settings,
+            600,
+            |subject| {
+                subject.grounded
+                    && subject.player_position.z > 16.0
+                    && subject.player_floor_y >= -1.85 - 1e-3
+            }
+        ),
         "the walk-in step exit completes: {:?} floor {}",
-        game.player_position,
-        game.player_floor_y
+        step_exit_game.player_position,
+        step_exit_game.player_floor_y
     );
     assert!(
-        (game.player_floor_y + 1.85).abs() < 1e-3 || (game.player_floor_y + 1.5).abs() < 1e-3,
+        (step_exit_game.player_floor_y + 1.85).abs() < 1e-3
+            || (step_exit_game.player_floor_y + 1.5).abs() < 1e-3,
         "the walk-in exit ends on the submerged step or the deck: floor {}",
-        game.player_floor_y
+        step_exit_game.player_floor_y
     );
 }
 
@@ -9018,16 +9138,16 @@ fn the_demo_pool_ladder_exit_never_puts_the_camera_inside_geometry() {
     let settings = Settings::default();
     let mut game = demo_game_at(18.0, -3.0, 12.0, 90.0, 1.0 / 60.0);
     let mut idle = InputState::default();
-    for _ in 0..240 {
+    for _ in 0_i32..240_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert!(game.is_swimming(), "the approach starts in the water");
     let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
     let mut attached = false;
     assert!(
-        run_camera_clear(&mut game, &mut input, &settings, 600, |game| {
-            attached |= game.is_climbing();
-            attached && game.grounded && (game.player_floor_y - (-1.5)).abs() < 1e-3
+        run_camera_clear(&mut game, &mut input, &settings, 600, |subject| {
+            attached |= subject.is_climbing();
+            attached && subject.grounded && (subject.player_floor_y - (-1.5)).abs() < 1e-3
         }),
         "the ladder climb tops out on the deck: {:?} floor {}",
         game.player_position,
@@ -9061,7 +9181,7 @@ fn released_sink_segment(delta: f32) -> (f32, f32) {
     let mut seconds = 0.0_f32;
     let mut reached_terminal: Option<f32> = None;
     let mut reached = false;
-    for _ in 0..2000 {
+    for _ in 0_i32..2_000_i32 {
         game.update_player_movement(&mut idle, &settings);
         seconds += delta;
         assert!(
@@ -9165,7 +9285,7 @@ fn sinking_in_deep_water_is_frame_rate_independent() {
     set_eye_y(&mut game, start_eye);
     let mut idle = InputState::default();
     let mut previous = game.player_position.y;
-    for _ in 0..200 {
+    for _ in 0_i32..200_i32 {
         game.update_player_movement(&mut idle, &settings);
         let eye = game.player_position.y;
         assert!(
@@ -9199,22 +9319,22 @@ fn a_scripted_interact_press_closes_the_open_hall_door() {
     let mut input = InputState::default();
     let (script, rejected) = crate::input::parse_move_script("interact@3.0-3.1");
     assert!(rejected.is_empty(), "{rejected:?}");
-    let mut pressed_frames = 0;
+    let mut pressed_frames = 0_i32;
     let mut prompt_at_press: Option<String> = None;
     for frame in 0_u16..240 {
         let seconds = f32::from(frame) / 60.0;
         input.apply_move_script(&script, seconds);
         game.update_player_movement(&mut input, &settings);
         if game.take_interact_press() {
-            pressed_frames += 1;
+            pressed_frames += 1_i32;
             let target = game.interaction_target();
             prompt_at_press = target
                 .and_then(|index| game.world().interactables().get(index))
                 .map(|item| item.prompt.clone());
-            game.dispatch_interaction();
+            let _dispatch_report = game.dispatch_interaction();
         }
     }
-    assert_eq!(pressed_frames, 1, "one press edge");
+    assert_eq!(pressed_frames, 1_i32, "one press edge");
     assert_eq!(
         prompt_at_press.as_deref(),
         Some("Hall door"),
@@ -9247,8 +9367,9 @@ fn demo_sauna_switch_toggles_only_its_lamp() {
         .entities()
         .handle_of("sauna_light")
         .expect("the demo authors the sauna lamp");
-    let lamp_on = |game: &Game| {
-        game.entities()
+    let lamp_on = |subject: &Game| {
+        subject
+            .entities()
             .components()
             .lights
             .get(lamp)
@@ -9306,8 +9427,9 @@ fn demo_sauna_door_toggles_only_itself() {
         .entities()
         .handle_of("sauna_light")
         .expect("the demo authors the sauna lamp");
-    let lamp_on = |game: &Game| {
-        game.entities()
+    let lamp_on = |subject: &Game| {
+        subject
+            .entities()
             .components()
             .lights
             .get(lamp)
@@ -9341,7 +9463,7 @@ fn demo_sauna_door_toggles_only_itself() {
     assert!(lamp_on(&game), "the lamp stays on");
 
     let mut idle = InputState::default();
-    for _ in 0..120 {
+    for _ in 0_i32..120_i32 {
         game.update_player_movement(&mut idle, &settings);
     }
     assert_eq!(
@@ -9414,30 +9536,30 @@ fn demo_sauna_switch_aim_respects_occlusion_and_reach() {
 
     // From the pool deck the sauna wall is between the eye and the switch:
     // occluded targets are never aimed even inside their reach.
-    let mut game = demo_game_at(25.4, -0.9, 14.3, 0.0, 1.0 / 60.0);
-    aim_at(&mut game, 26.16, 14.3, 0.39);
+    let mut occluded_game = demo_game_at(25.4, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    aim_at(&mut occluded_game, 26.16, 14.3, 0.39);
     assert_eq!(
-        game.interaction_target(),
+        occluded_game.interaction_target(),
         None,
         "the wall occludes the switch from the deck"
     );
 
     // The switch's authored reach is 1.6 m: from further back it is not a
     // candidate at all.
-    let mut game = demo_game_at(28.6, -0.9, 14.3, 0.0, 1.0 / 60.0);
-    aim_at(&mut game, 26.16, 14.3, 0.39);
+    let mut distant_game = demo_game_at(28.6, -0.9, 14.3, 0.0, 1.0 / 60.0);
+    aim_at(&mut distant_game, 26.16, 14.3, 0.39);
     assert_eq!(
-        game.interaction_target(),
+        distant_game.interaction_target(),
         None,
         "the switch is out of reach from 2.4 m"
     );
 
     // Aiming at the open leaf from just inside the doorway resolves the leaf,
     // and the switch stays a separate target.
-    let mut game = demo_game_at(27.4, -0.9, 12.9, 0.0, 1.0 / 60.0);
-    aim_at(&mut game, 27.0, 12.45, 0.39);
+    let mut nearby_door_game = demo_game_at(27.4, -0.9, 12.9, 0.0, 1.0 / 60.0);
+    aim_at(&mut nearby_door_game, 27.0, 12.45, 0.39);
     assert_eq!(
-        game.interaction_target(),
+        nearby_door_game.interaction_target(),
         Some(door_target),
         "the open leaf is the aimed target when it is on the line"
     );
@@ -9501,7 +9623,7 @@ fn demo_house_guards_wake_once_per_entry_without_restarting_mid_clip() {
     let settings = Settings::default();
     let mut inside = InputState::holding(&[Control::MoveForward]);
     let mut woken = false;
-    for _ in 0..180 {
+    for _ in 0_i32..180_i32 {
         game.update_player_movement(&mut inside, &settings);
         if guard_state(&game, &guards)
             .iter()
@@ -9554,8 +9676,9 @@ fn demo_house_guards_rearm_after_exit_and_completion() {
         .entities()
         .handle_of("night_guard_zone")
         .expect("the entry zone entity");
-    let sequence_running = |game: &Game| {
-        game.entities()
+    let sequence_running = |subject: &Game| {
+        subject
+            .entities()
             .components()
             .sequences
             .get(zone)
@@ -9576,7 +9699,7 @@ fn demo_house_guards_rearm_after_exit_and_completion() {
     let settings = Settings::default();
     let mut idle = InputState::default();
     let mut completed = false;
-    for _ in 0..(60 * 16) {
+    for _ in 0_i32..(60_i32 * 16_i32) {
         game.update_player_movement(&mut idle, &settings);
         if !sequence_running(&game) {
             completed = true;
@@ -9612,7 +9735,7 @@ fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
     let settings = Settings::default();
     let mut game = demo_game_at(3.6, -1.5, 10.9, 0.0, DELTA);
 
-    let wet = |game: &Game, x: f32, z: f32| game.water.sample(x, z, -2.0).is_some();
+    let wet = |subject: &Game, x: f32, z: f32| subject.water.sample(x, z, -2.0).is_some();
     assert!(wet(&game, 3.6, 8.7), "the disc centre is water");
     assert!(wet(&game, 4.6, 8.7), "1.0 m east of centre is water");
     assert!(
@@ -9625,7 +9748,7 @@ fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
     // Walk north off the deck: the plunge enters the water.
     let mut forward = InputState::holding(&[Control::MoveForward]);
     let mut entered = false;
-    for _ in 0..300 {
+    for _ in 0_i32..300_i32 {
         game.update_player_movement(&mut forward, &settings);
         if game.is_swimming() {
             entered = true;
@@ -9646,7 +9769,7 @@ fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
     // Keep swimming into the far rim: the bounded climb stands up on the deck.
     let mut climb = InputState::holding(&[Control::MoveForward]);
     let mut out = false;
-    for _ in 0..900 {
+    for _ in 0_i32..900_i32 {
         game.update_player_movement(&mut climb, &settings);
         if !game.is_swimming()
             && game.water_exit.is_none()
@@ -9676,12 +9799,13 @@ fn demo_hot_tub_water_is_circular_and_the_basin_exits() {
 fn demo_sauna_steam_switch_toggles_only_the_steam() {
     let settings = Settings::default();
     let mut game = demo_game_at(27.6, -0.9, 13.6, 180.0, 1.0 / 60.0);
-    let steam = |game: &Game, id: &str| {
-        let handle = game
+    let steam = |subject: &Game, id: &str| {
+        let handle = subject
             .entities()
             .handle_of(id)
             .unwrap_or_else(|| panic!("`{id}` effect entity"));
-        game.entities()
+        subject
+            .entities()
             .components()
             .steam
             .get(handle)
@@ -9692,8 +9816,9 @@ fn demo_sauna_steam_switch_toggles_only_the_steam() {
         .entities()
         .handle_of("sauna_light")
         .expect("the sauna lamp");
-    let lamp_on = |game: &Game| {
-        game.entities()
+    let lamp_on = |subject: &Game| {
+        subject
+            .entities()
             .components()
             .lights
             .get(lamp)
@@ -9742,16 +9867,19 @@ fn demo_sauna_steam_switch_toggles_only_the_steam() {
     // A second press clears the steam again; the key must be released first
     // (the press is edge-latched).
     let mut released = InputState::default();
-    for _ in 0..2 {
+    for _ in 0_i32..2_i32 {
         game.update_player_movement(&mut released, &settings);
     }
     let mut second = InputState::holding(&[Control::Interact]);
     game.update_player_movement(&mut second, &settings);
     assert!(game.take_interact_press(), "the second press latches");
-    let report = game
+    let off_report = game
         .dispatch_interaction()
         .expect("the second press fires the other branch");
-    assert_eq!(report.actions_run, 4, "the lever clip and both disables");
+    assert_eq!(
+        off_report.actions_run, 4,
+        "the lever and both emitters disable"
+    );
     assert!(
         !steam(&game, "sauna_steam_a") && !steam(&game, "sauna_steam_b"),
         "the sauna clears"
@@ -9759,10 +9887,7 @@ fn demo_sauna_steam_switch_toggles_only_the_steam() {
 
     // The light switch keeps its own target and never drives the steam; the
     // key is released first so the next press is a fresh edge.
-    let mut released = InputState::default();
-    for _ in 0..2 {
-        game.update_player_movement(&mut released, &settings);
-    }
+    advance_frames(&mut game, 2);
     let mut press_light = InputState::holding(&[Control::Interact]);
     aim_at(&mut game, 26.16, 14.3, 0.39);
     let light_switch = game
@@ -9772,7 +9897,7 @@ fn demo_sauna_steam_switch_toggles_only_the_steam() {
     assert_eq!(game.interaction_target(), Some(light_switch));
     game.update_player_movement(&mut press_light, &settings);
     assert!(game.take_interact_press(), "the light press latches");
-    game.dispatch_interaction().expect("the light switch fires");
+    let _dispatch_report = game.dispatch_interaction().expect("the light switch fires");
     assert!(!lamp_on(&game), "the lamp flipped");
     assert!(
         !steam(&game, "sauna_steam_a") && !steam(&game, "sauna_steam_b"),

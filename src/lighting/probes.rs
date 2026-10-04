@@ -20,18 +20,16 @@
 //! brightness, colour and directional character reach a character exactly as
 //! they reach the walls.
 
-// The probe field is a numeric grid: explicit `f32` arithmetic keeps bakes
-// reproducible, lattice indices are bounded before conversion, and arrays are
-// indexed by constants. Those lint shapes are allowed for the module as a
-// unit.
+// Fixed three-channel arrays use constant or 0..3 indices; variable probe
+// addresses are checked. Preserve the established floating-point evaluation
+// order, with numeric conversion exceptions documented at their expressions.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
     clippy::indexing_slicing,
     clippy::missing_const_for_fn,
     clippy::option_if_let_else,
     clippy::suboptimal_flops,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Fixed three-channel arrays use constant or 0..3 indices; variable probe addresses are checked. Preserve floating-point evaluation order and cohesive runtime sampling routines."
 )]
 
 use crate::lighting::lightmap::LightmapTexel;
@@ -156,6 +154,11 @@ impl ProbeField {
     /// position in no room or inside solid geometry. An unlabelled probe is
     /// never sampled, so a probe baked in a wall or outside the level cannot
     /// leak its values to a moving object.
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "Indices come from u32 dimensions. Serialized axes are capped at 64 and convert exactly; a larger programmatically constructed field retains its finite rounded f32 world coordinates."
+    )]
     pub fn assign_rooms<F>(&mut self, room_of: F)
     where
         F: Fn([f32; 3]) -> Option<usize>,
@@ -183,7 +186,7 @@ impl ProbeField {
                     if let Some(probe) = self.probes.get_mut(index) {
                         probe.room = match room_of(position) {
                             Some(room) => i32::try_from(room).unwrap_or(i32::MAX),
-                            None => -1,
+                            None => -1_i32,
                         };
                     }
                 }
@@ -253,11 +256,15 @@ impl ProbeField {
                 moment[channel] += weight * f64::from(probe.direction[channel]);
             }
         })?;
-        if sum <= 0.0 {
+        if sum <= 0.0_f64 {
             return None;
         }
         // A normalized convex combination of validated f32 values fits f32.
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "A normalized convex combination of validated f32 values fits f32."
+        )]
         let texel = LightmapTexel {
             irradiance: energy.map(|v| (v / sum) as f32),
             direction: moment.map(|v| (v / sum) as f32),
@@ -324,7 +331,7 @@ impl ProbeField {
                     });
                 },
             )
-            .unwrap_or(0.0);
+            .unwrap_or(0.0_f64);
         for candidate in &mut candidates {
             candidate.weight /= sum;
         }
@@ -353,52 +360,77 @@ impl ProbeField {
         {
             return None;
         }
-        let room = room.map(i32::try_from).transpose().ok()?;
+        let room_label = room.map(i32::try_from).transpose().ok()?;
         let coords: [f64; 3] = std::array::from_fn(|axis| {
-            (f64::from(position[axis]) - f64::from(self.min[axis])) / f64::from(self.cell_m) - 0.5
+            (f64::from(position[axis]) - f64::from(self.min[axis])) / f64::from(self.cell_m)
+                - 0.5_f64
         });
         let dims = self.dims_usize();
         if coords
             .iter()
-            .zip(dims)
-            .any(|(v, dim)| *v < -2.0 || *v > dim as f64 + 1.0)
+            .zip(self.dims)
+            .any(|(v, dim)| *v < -2.0_f64 || *v > f64::from(dim) + 1.0_f64)
         {
             return None;
         }
         let mut ranges = [(0usize, 0usize); 3];
         for axis in 0..3 {
             // Coordinates are finite and bounded to the grid's small support.
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "Coordinates are finite and bounded to the grid's small support."
+            )]
             let low = (coords[axis] - 2.0).ceil().max(0.0) as usize;
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "Coordinates are finite and checked within the grid support; the resulting integer index is capped to its axis dimension."
+            )]
             let high = (coords[axis] + 2.0).floor().max(0.0) as usize;
             ranges[axis] = (low, high.min(dims[axis].saturating_sub(1)));
         }
         // Exact lookup is checked first so no previously visited candidate
         // survives when the sample coincides with a valid probe centre.
         let mut exact = None;
-        let mut sum = 0.0;
-        for pass in 0..2 {
+        let mut sum = 0.0_f64;
+        for pass in 0_i32..2_i32 {
             for z in ranges[2].0..=ranges[2].1 {
                 for y in ranges[1].0..=ranges[1].1 {
                     for x in ranges[0].0..=ranges[0].1 {
-                        let probe = self.probe(x, y, z)?;
-                        if !probe.is_valid() || room.is_some_and(|r| r != probe.room) {
+                        let id = z
+                            .checked_mul(dims[1])?
+                            .checked_add(y)?
+                            .checked_mul(dims[0])?
+                            .checked_add(x)?;
+                        let probe = *self.probes.get(id)?;
+                        if !probe.is_valid() || room_label.is_some_and(|r| r != probe.room) {
                             continue;
                         }
+                        #[expect(
+                            clippy::cast_precision_loss,
+                            clippy::as_conversions,
+                            reason = "Lattice indices are below their u32 axis dimensions, so every integer converts exactly to f64."
+                        )]
                         let d2 = [x, y, z]
                             .iter()
                             .zip(coords)
                             .map(|(a, b)| (*a as f64 - b).powi(2))
                             .sum::<f64>();
-                        let id = (z * dims[1] + y) * dims[0] + x;
                         let lattice = [x, y, z];
+                        #[expect(
+                            clippy::cast_precision_loss,
+                            clippy::as_conversions,
+                            reason = "Serialized lattice axes are capped at 64; larger in-memory u32 axes retain the same rounded f32 coordinates used by assign_rooms."
+                        )]
                         let world_position = std::array::from_fn(|axis| {
                             self.min[axis] + (lattice[axis] as f32 + 0.5) * self.cell_m
                         });
-                        if d2 >= 4.0
-                            || (pass == 0
-                                && d2 > 1.0e-20
+                        if d2 >= 4.0_f64
+                            || (pass == 0_i32
+                                && d2 > 1.0e-20_f64
                                 && world_position.map(f32::to_bits) != position.map(f32::to_bits))
                         {
                             continue;
@@ -406,15 +438,15 @@ impl ProbeField {
                         if !accept(world_position, probe.room) {
                             continue;
                         }
-                        if pass == 0 {
-                            if d2 <= 1.0e-20
+                        if pass == 0_i32 {
+                            if d2 <= 1.0e-20_f64
                                 || world_position.map(f32::to_bits) == position.map(f32::to_bits)
                             {
                                 exact = Some((id, world_position, probe));
                             }
                             continue;
                         }
-                        if d2 >= 4.0 {
+                        if d2 >= 4.0_f64 {
                             continue;
                         }
                         let weight = (1.0 - d2.sqrt() / 2.0).powi(2) / d2;
@@ -424,7 +456,7 @@ impl ProbeField {
                 }
             }
             if let Some((id, world_position, probe)) = exact {
-                visit(id, world_position, probe, 1.0);
+                visit(id, world_position, probe, 1.0_f64);
                 return Some(1.0);
             }
         }
@@ -484,6 +516,11 @@ impl ProbeField {
     ///
     /// Returns an error for an inconsistent grid, invalid numeric data,
     /// an out-of-range dimension or a field beyond [`MAX_PROBE_FIELD_BYTES`].
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "All axis counts are checked to be 1..=64 before the f32 extent calculation, so the integer conversions are exact."
+    )]
     pub fn write(&self) -> Result<Vec<u8>, String> {
         if !self.is_consistent() {
             return Err("probe field dimensions do not match its probe count".to_string());
@@ -539,7 +576,7 @@ impl ProbeField {
         }
         out.extend_from_slice(
             &u32::try_from(count)
-                .map_err(|_| "probe count is too large".to_string())?
+                .map_err(|error| format!("probe count is too large: {error}"))?
                 .to_le_bytes(),
         );
         for probe in &self.probes {
@@ -564,6 +601,11 @@ impl ProbeField {
     /// Returns an error for a wrong magic or version, a malformed or
     /// out-of-range header, a wrong declared length, non-finite values, an
     /// out-of-range room, or trailing bytes.
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "Decoded axis counts are validated to be 1..=64 before the f32 extent calculation, so the integer conversions are exact."
+    )]
     pub fn read(bytes: &[u8]) -> Result<Self, String> {
         let mut cursor = Cursor::new(bytes);
         if cursor.take(4)? != &PROBE_FIELD_MAGIC[..] {
@@ -578,8 +620,8 @@ impl ProbeField {
         let min = [cursor.f32()?, cursor.f32()?, cursor.f32()?];
         let cell_m = cursor.f32()?;
         let dims = [cursor.u32()?, cursor.u32()?, cursor.u32()?];
-        let count =
-            usize::try_from(cursor.u32()?).map_err(|_| "probe count is too large".to_string())?;
+        let count = usize::try_from(cursor.u32()?)
+            .map_err(|error| format!("probe count is too large: {error}"))?;
         if !min.iter().all(|value| value.is_finite()) {
             return Err("probe field origin is not finite".to_string());
         }
@@ -627,8 +669,8 @@ impl ProbeField {
                 cursor.remaining()
             ));
         }
-        for (origin, count) in min.iter().zip(dims) {
-            if !(origin + cell_m * count as f32).is_finite() {
+        for (origin, axis_count) in min.iter().zip(dims) {
+            if !(origin + cell_m * axis_count as f32).is_finite() {
                 return Err("probe field world extent is not finite".to_string());
             }
         }
@@ -676,13 +718,13 @@ impl ProbeSample {
             .map(|value| f64::from(*value).powi(2))
             .sum::<f64>()
             .sqrt();
-        if moment > mean * (1.0 + 32.0 * f64::from(f32::EPSILON)) {
+        if moment > mean * (1.0_f64 + 32.0_f64 * f64::from(f32::EPSILON)) {
             return Err("probe field moment exceeds its irradiance energy".to_string());
         }
         if self.axis.iter().any(|value| !(0.0..=1.0).contains(value)) {
             return Err("probe field reserved axis is out of range".to_string());
         }
-        if self.room < -1 || self.room > i32::from(i16::MAX) {
+        if self.room < -1_i32 || self.room > i32::from(i16::MAX) {
             return Err(format!("probe field room {} is out of range", self.room));
         }
         Ok(())
@@ -712,12 +754,12 @@ impl ProbeSample {
             };
         }
         for (index, value) in self.axis.iter().enumerate() {
-            let value = if value.is_finite() {
+            let unit_value = if value.is_finite() {
                 value.clamp(0.0, 1.0)
             } else {
                 0.5
             };
-            out.axis[index] = value;
+            out.axis[index] = unit_value;
         }
         out
     }
@@ -751,7 +793,7 @@ impl<'a> Cursor<'a> {
         let bytes: [u8; 2] = self
             .take(2)?
             .try_into()
-            .map_err(|_| "probe field is truncated".to_string())?;
+            .map_err(|error| format!("probe field is truncated: {error}"))?;
         Ok(u16::from_le_bytes(bytes))
     }
 
@@ -759,7 +801,7 @@ impl<'a> Cursor<'a> {
         let bytes: [u8; 4] = self
             .take(4)?
             .try_into()
-            .map_err(|_| "probe field is truncated".to_string())?;
+            .map_err(|error| format!("probe field is truncated: {error}"))?;
         Ok(u32::from_le_bytes(bytes))
     }
 
@@ -767,7 +809,7 @@ impl<'a> Cursor<'a> {
         let bytes: [u8; 4] = self
             .take(4)?
             .try_into()
-            .map_err(|_| "probe field is truncated".to_string())?;
+            .map_err(|error| format!("probe field is truncated: {error}"))?;
         Ok(i32::from_le_bytes(bytes))
     }
 
@@ -793,7 +835,8 @@ mod tests {
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -834,8 +877,8 @@ mod tests {
         let candidates = read.sample_diagnostics(position, Some(3));
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].id, 0);
-        assert_eq!(candidates[0].weight, 1.0);
-        assert_eq!(candidates[0].distance_m, 0.0);
+        assert_eq!(candidates[0].weight, 1.0_f64);
+        assert_eq!(candidates[0].distance_m, 0.0_f64);
     }
 
     #[test]
@@ -870,11 +913,11 @@ mod tests {
                 let sample = f.sample(p, Some(3)).expect("sample");
                 let candidates = f.sample_diagnostics(p, Some(3));
                 let sum: f64 = candidates.iter().map(|c| c.weight).sum();
-                assert!((sum - 1.0).abs() < 1.0e-12);
+                assert!((sum - 1.0).abs() < 1.0e-12_f64);
                 assert!(
                     candidates
                         .iter()
-                        .all(|c| c.weight.is_finite() && c.weight >= 0.0)
+                        .all(|c| c.weight.is_finite() && c.weight >= 0.0_f64)
                 );
                 if let Some(previous) = last {
                     assert!((sample.irradiance[0] - previous).abs() < 0.02);
@@ -972,7 +1015,7 @@ mod tests {
                 continue;
             };
             let mut bytes = Vec::new();
-            archive
+            let _by_name_status = archive
                 .by_name(entry)
                 .expect("field")
                 .read_to_end(&mut bytes)
@@ -1059,7 +1102,7 @@ mod tests {
     #[test]
     fn an_inconsistent_grid_is_rejected_by_the_codec() {
         let mut field = field();
-        field.probes.pop();
+        let _removed_value = field.probes.pop();
         assert!(field.write().is_err());
         field.dims = [0, 1, 1];
         assert!(field.write().is_err());
@@ -1094,7 +1137,7 @@ mod tests {
         value.probes[0].direction = [10.0; 3];
         assert!(value.write().is_err());
         value = field();
-        value.probes[0].room = -2;
+        value.probes[0].room = -2_i32;
         assert!(value.write().is_err());
         let bytes = field().write().expect("valid bytes");
         for invalid in [f32::NAN, f32::INFINITY, -0.01] {

@@ -1,5 +1,8 @@
 //! Persistence and graphics-transition contract for the Low lighting override.
-#![allow(clippy::expect_used)]
+#![allow(
+    clippy::expect_used,
+    reason = "These isolated migration fixtures cannot continue after JSON parsing or setup fails."
+)]
 
 use super::*;
 use crate::quality::{GraphicsAction, graphics_action};
@@ -7,7 +10,7 @@ use crate::quality::{GraphicsAction, graphics_action};
 fn assert_low_lighting(settings: &Settings, texture_quality: QualityLevel, filtering: &str) {
     let actual = settings.graphics_spec();
     let mut low = Settings::default();
-    low.set_quality(QualityLevel::Low);
+    let _quality_changed = low.set_quality(QualityLevel::Low);
     let expected = low.graphics_spec();
     assert_eq!(actual.quality, texture_quality);
     assert_eq!(actual.filtering, filtering);
@@ -27,9 +30,9 @@ fn assert_low_lighting(settings: &Settings, texture_quality: QualityLevel, filte
 #[test]
 fn old_settings_default_off_and_saved_opt_in_survives_launch() {
     let legacy = serde_json::to_value(Settings::default()).expect("legacy settings");
-    let mut legacy = legacy.as_object().expect("settings object").clone();
-    legacy.remove("use_low_quality_lighting");
-    let settings: Settings = serde_json::from_value(legacy.into()).expect("old file loads");
+    let mut legacy_object = legacy.as_object().expect("settings object").clone();
+    drop(legacy_object.remove("use_low_quality_lighting"));
+    let settings: Settings = serde_json::from_value(legacy_object.into()).expect("old file loads");
     assert!(!settings.use_low_quality_lighting);
     assert_eq!(settings.graphics_spec().lighting, QualityLevel::High);
 
@@ -37,10 +40,10 @@ fn old_settings_default_off_and_saved_opt_in_survives_launch() {
         "places-low-lighting-persistence-{}.json",
         std::process::id()
     ));
-    let mut settings = Settings::default();
-    settings.set_texture_filtering("medium");
-    settings.set_use_low_quality_lighting(true);
-    settings.save_to_path(&path).expect("save opt-in");
+    let mut opted_in = Settings::default();
+    let _texture_filtering_changed = opted_in.set_texture_filtering("medium");
+    let _use_low_quality_lighting_changed = opted_in.set_use_low_quality_lighting(true);
+    opted_in.save_to_path(&path).expect("save opt-in");
     let mut launched = Settings::load_or_default_from_path(&path);
     assert!(launched.use_low_quality_lighting);
     assert!(
@@ -48,7 +51,7 @@ fn old_settings_default_off_and_saved_opt_in_survives_launch() {
         "launch has no stale apply"
     );
     assert_low_lighting(&launched, QualityLevel::High, "medium");
-    launched.set_use_low_quality_lighting(false);
+    let _use_low_quality_lighting_changed_2 = launched.set_use_low_quality_lighting(false);
     assert_eq!(launched.graphics_spec().lighting, QualityLevel::High);
     assert_eq!(launched.lightmap_quality(), LightmapQuality::Full);
     assert_eq!(launched.reflection_quality(), ReflectionQuality::Full);
@@ -61,7 +64,7 @@ fn old_settings_default_off_and_saved_opt_in_survives_launch() {
 fn live_high_on_medium_off_high_preserves_selected_quality() {
     let mut settings = Settings::default();
     let high = settings.graphics_spec();
-    settings.set_use_low_quality_lighting(true);
+    let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(true);
     assert!(settings.take_pending_apply().graphics);
     assert_low_lighting(&settings, QualityLevel::High, "high");
     let low_high = settings.graphics_spec();
@@ -70,7 +73,7 @@ fn live_high_on_medium_off_high_preserves_selected_quality() {
         GraphicsAction::Schedule
     );
 
-    settings.set_quality(QualityLevel::Medium);
+    let _quality_changed = settings.set_quality(QualityLevel::Medium);
     assert!(settings.take_pending_apply().graphics);
     assert_low_lighting(&settings, QualityLevel::Medium, "medium");
     let low_medium = settings.graphics_spec();
@@ -78,7 +81,7 @@ fn live_high_on_medium_off_high_preserves_selected_quality() {
         graphics_action(low_medium, low_high, Some(low_high), None, true),
         GraphicsAction::Schedule
     );
-    settings.set_use_low_quality_lighting(false);
+    let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
     assert!(settings.take_pending_apply().graphics);
     let medium = settings.graphics_spec();
     assert_eq!(medium.quality, QualityLevel::Medium);
@@ -86,20 +89,20 @@ fn live_high_on_medium_off_high_preserves_selected_quality() {
     assert_eq!(medium.lightmaps, LightmapQuality::Medium);
     assert_eq!(medium.reflections, ReflectionQuality::Medium);
     assert_eq!(medium.filtering, "medium");
-    settings.set_quality(QualityLevel::High);
+    let _quality_changed_2 = settings.set_quality(QualityLevel::High);
     assert_eq!(settings.graphics_spec(), high);
 }
 
 #[test]
 fn repeated_toggles_restore_advanced_preferences_and_cancel_stale_installs() {
     let mut settings = Settings::default();
-    settings.set_texture_filtering("medium");
-    settings.set_lightmap_quality(LightmapQuality::Medium);
-    settings.set_reflection_quality(ReflectionQuality::Off);
-    settings.set_bloom(false);
-    let _ = settings.take_pending_apply();
+    let _texture_filtering_changed = settings.set_texture_filtering("medium");
+    let _lightmap_quality_changed = settings.set_lightmap_quality(LightmapQuality::Medium);
+    let _reflection_quality_changed = settings.set_reflection_quality(ReflectionQuality::Off);
+    let _bloom_changed = settings.set_bloom(false);
+    let _cleared_pending_apply = settings.take_pending_apply();
     let saved = settings.graphics_spec();
-    for _ in 0..8 {
+    for _ in 0_i32..8_i32 {
         assert!(settings.set_use_low_quality_lighting(true));
         let low = settings.graphics_spec();
         assert_eq!(low.quality, saved.quality);
@@ -109,7 +112,7 @@ fn repeated_toggles_restore_advanced_preferences_and_cancel_stale_installs() {
         assert!(settings.take_pending_apply().graphics);
         assert!(!settings.set_use_low_quality_lighting(true));
         assert!(!settings.take_pending_apply().any());
-        settings.set_use_low_quality_lighting(false);
+        let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(false);
         assert_eq!(settings.graphics_spec(), saved);
         assert_eq!(
             graphics_action(saved, saved, Some(low), None, true),
@@ -123,11 +126,11 @@ fn repeated_toggles_restore_advanced_preferences_and_cancel_stale_installs() {
 fn low_to_medium_and_high_keeps_override_until_explicitly_disabled() {
     for quality in [QualityLevel::Medium, QualityLevel::High] {
         let mut settings = Settings::default();
-        settings.set_quality(QualityLevel::Low);
-        settings.set_use_low_quality_lighting(true);
-        settings.set_quality(quality);
+        let _quality_changed = settings.set_quality(QualityLevel::Low);
+        let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(true);
+        let _quality_changed_2 = settings.set_quality(quality);
         assert_low_lighting(&settings, quality, texture_filtering_for(quality));
-        settings.set_use_low_quality_lighting(false);
+        let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
         assert_eq!(settings.lighting_quality(), quality);
         assert_eq!(
             settings.lightmap_quality(),
@@ -146,10 +149,10 @@ fn low_override_dominates_startup_lighting_overrides_without_erasing_them() {
     settings.overrides.quality = Some(QualityLevel::Medium);
     settings.overrides.lightmaps = Some(LightmapQuality::Full);
     settings.overrides.reflections = Some(ReflectionQuality::Full);
-    settings.set_use_low_quality_lighting(true);
+    let _use_low_quality_lighting_changed = settings.set_use_low_quality_lighting(true);
     assert_low_lighting(&settings, QualityLevel::Medium, "high");
     assert!(settings.lightmap_quality_overridden());
-    settings.set_use_low_quality_lighting(false);
+    let _use_low_quality_lighting_changed_2 = settings.set_use_low_quality_lighting(false);
     assert_eq!(settings.lighting_quality(), QualityLevel::Medium);
     assert_eq!(settings.lightmap_quality(), LightmapQuality::Full);
     assert_eq!(settings.reflection_quality(), ReflectionQuality::Full);

@@ -54,8 +54,8 @@ fn metadata_navigation_reuse_has_no_orphans_and_matches_clean_at_one_and_many_wo
     for (iteration, workers) in [1, 12, 64].into_iter().enumerate() {
         value["name"] = format!("Compiler reuse regression {iteration}").into();
         value["props"][0]["components"] = serde_json::json!([{
-            "component": "nav_agent", "radius": if iteration == 0 { 0.1 } else { 0.2 },
-            "height": 0.16, "speed_mps": 0.2, "step_height": 0.2, "max_slope": 2.6667
+            "component": "nav_agent", "radius": if iteration == 0 { 0.1_f64 } else { 0.2_f64 },
+            "height": 0.16_f64, "speed_mps": 0.2_f64, "step_height": 0.2_f64, "max_slope": 2.666_7_f64
         }]);
         let source = directory.join(format!("iteration-{iteration}.json"));
         write_source(&source, &value);
@@ -76,12 +76,13 @@ fn metadata_navigation_reuse_has_no_orphans_and_matches_clean_at_one_and_many_wo
         let fresh = out.with_extension("clean.placesmap");
         all_variants.out = fresh.clone();
         all_variants.force = true;
-        build(&all_variants).expect("independent clean build of every variant");
+        drop(build(&all_variants).expect("independent clean build of every variant"));
         assert_eq!(
             std::fs::read(&out).expect("incremental bytes"),
             std::fs::read(fresh).expect("clean bytes")
         );
-        std::fs::copy(&out, source.with_extension("placesmap")).expect("retain playable variant");
+        let _with_extension_status = std::fs::copy(&out, source.with_extension("placesmap"))
+            .expect("retain playable variant");
         let manifest = inspect(&out).expect("inspect current package");
         let navigation: Vec<_> = manifest
             .entries
@@ -103,7 +104,7 @@ fn failed_source_and_invalid_worker_budget_preserve_last_valid_package() {
     let source = directory.join("valid.json");
     let out = directory.join("valid.placesmap");
     write_source(&source, &fixture());
-    build(&request(&source, &out, 1)).expect("initial valid package");
+    drop(build(&request(&source, &out, 1)).expect("initial valid package"));
     let good = std::fs::read(&out).expect("valid archive");
     assert!(build(&request(&source, &out, 0)).is_err());
     let invalid = directory.join("invalid-source.expected-failure");
@@ -111,7 +112,7 @@ fn failed_source_and_invalid_worker_budget_preserve_last_valid_package() {
     assert!(build(&request(&invalid, &out, 12)).is_err());
     assert_eq!(std::fs::read(&out).expect("previous archive"), good);
     assert!(!out.with_extension("placesmap.partial").exists());
-    validate(&out).expect("last valid package still decodes");
+    drop(validate(&out).expect("last valid package still decodes"));
 }
 
 #[test]
@@ -127,9 +128,10 @@ fn corrupt_cached_lighting_rebuilds_both_unchanged_and_metadata_only_inputs() {
         LightmapQuality::Medium,
         LightmapQuality::Full,
     ];
-    build(&build_request).expect("valid all-quality cache");
+    drop(build(&build_request).expect("valid all-quality cache"));
     let good = std::fs::read(&out).expect("valid original bytes");
-    std::fs::copy(&source, directory.join("before.json")).expect("retain original authoring input");
+    let _join_status = std::fs::copy(&source, directory.join("before.json"))
+        .expect("retain original authoring input");
     std::fs::write(directory.join("before.placesmap"), &good)
         .expect("retain original playable package");
     let manifest = inspect(&out).expect("valid original manifest");
@@ -148,13 +150,13 @@ fn corrupt_cached_lighting_rebuilds_both_unchanged_and_metadata_only_inputs() {
     drop(reader);
     write_archive(&out, entries).expect("retain readable ZIP with invalid lighting hash");
     let bad = directory.join("corrupt-cache.expected-failure");
-    std::fs::copy(&out, &bad).expect("preserve corruption reproduction");
+    let _expect_status = std::fs::copy(&out, &bad).expect("preserve corruption reproduction");
     assert!(validate(&out).is_err());
     let rebuilt = build(&build_request).expect("unchanged input safely rebuilds poisoned cache");
     assert!(rebuilt.rebuilt);
     assert_eq!(std::fs::read(&out).expect("repaired bytes"), good);
 
-    std::fs::copy(&bad, &out).expect("restore retained poisoned cache");
+    let _expect_status_2 = std::fs::copy(&bad, &out).expect("restore retained poisoned cache");
     value["name"] = "Corrupt cache metadata regression".into();
     write_source(&source, &value);
     let edited = build(&build_request).expect("metadata edit safely rejects poisoned stage");
@@ -167,7 +169,7 @@ fn corrupt_cached_lighting_rebuilds_both_unchanged_and_metadata_only_inputs() {
     let fresh = out.with_extension("clean.placesmap");
     build_request.out = fresh.clone();
     build_request.force = true;
-    build(&build_request).expect("independent clean edited-source build");
+    drop(build(&build_request).expect("independent clean edited-source build"));
     assert_eq!(
         std::fs::read(&out).expect("repaired metadata archive"),
         std::fs::read(fresh).expect("independent clean bytes")
@@ -192,7 +194,7 @@ fn changed_catalogue_invalidates_both_package_and_prepared_stage() {
         let target = root.join(&dependency.path);
         std::fs::create_dir_all(target.parent().expect("dependency parent"))
             .expect("dependency directories");
-        std::fs::copy(Path::new("assets").join(&dependency.path), target)
+        let _join_status = std::fs::copy(Path::new("assets").join(&dependency.path), target)
             .expect("preserve exact original input bytes");
     }
     let mut raw: serde_json::Value = serde_json::from_str(
@@ -204,9 +206,9 @@ fn changed_catalogue_invalidates_both_package_and_prepared_stage() {
     let mut build_request = request(&source, &out, 1);
     build_request.asset_root = root;
     let original = build(&build_request).expect("original custom-root package");
-    std::fs::copy(&catalogue_path, directory.join("catalogue-before.json"))
+    let _join_status_2 = std::fs::copy(&catalogue_path, directory.join("catalogue-before.json"))
         .expect("retain initial catalogue variant");
-    std::fs::copy(&out, directory.join("catalogue-before.placesmap"))
+    let _join_status_3 = std::fs::copy(&out, directory.join("catalogue-before.placesmap"))
         .expect("retain initial package variant");
     raw["assets"][0]["display_name"] = "Compiler catalogue identity regression".into();
     write_source(&catalogue_path, &raw);
@@ -222,7 +224,7 @@ fn changed_catalogue_invalidates_both_package_and_prepared_stage() {
     let fresh = out.with_extension("clean.placesmap");
     build_request.out = fresh.clone();
     build_request.force = true;
-    build(&build_request).expect("independent changed-catalogue build");
+    drop(build(&build_request).expect("independent changed-catalogue build"));
     assert_eq!(
         std::fs::read(out).expect("incremental bytes"),
         std::fs::read(fresh).expect("clean bytes")
@@ -287,11 +289,11 @@ fn catalogue_bytes_and_each_referenced_image_class_are_build_inputs() {
         .iter_mut()
         .find(|entry| entry["id"] == "core:plastic_panel_01")
         .expect("panel material");
-    material["emissive"] = serde_json::json!([0.1, 0.1, 0.1]);
+    material["emissive"] = serde_json::json!([0.1_f64, 0.1_f64, 0.1_f64]);
     material["emissive_mask"] = "core:tex_white_01".into();
     let catalogue =
         crate::loader::PropCatalog::from_json_str(&raw.to_string()).expect("mask catalogue");
-    let dependencies =
+    let mask_dependencies =
         collect_dependencies(&altered, &catalogue, Path::new("assets"), &mut warnings)
             .expect("mask inputs");
     let mask = catalogue
@@ -299,7 +301,7 @@ fn catalogue_bytes_and_each_referenced_image_class_are_build_inputs() {
         .texture_path("core:tex_white_01")
         .expect("mask PNG path");
     assert!(
-        dependencies
+        mask_dependencies
             .iter()
             .any(|dependency| dependency.path == mask)
     );

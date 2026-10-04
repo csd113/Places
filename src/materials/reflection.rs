@@ -151,7 +151,7 @@ impl Default for MaterialReflection {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // the clamping contract is exact
+    #![allow(clippy::float_cmp, reason = "the clamping contract is exact")] // the clamping contract is exact
 
     use super::*;
 

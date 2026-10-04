@@ -6,7 +6,7 @@ use super::*;
 fn same_color(left: [f32; 3], right: [f32; 3]) -> bool {
     left.iter()
         .zip(right)
-        .all(|(left, right)| (left - right).abs() < f32::EPSILON)
+        .all(|(left_channel, right_channel)| (left_channel - right_channel).abs() < f32::EPSILON)
 }
 
 /// True when two scalars match.

@@ -140,7 +140,8 @@ impl EntityStore {
     /// Creates a slot and returns its handle.
     pub fn insert(&mut self) -> EntityHandle {
         if let Some(index) = self.free.pop()
-            && let Some(slot) = self.slots.get_mut(index as usize)
+            && let Ok(slot_index) = usize::try_from(index)
+            && let Some(slot) = self.slots.get_mut(slot_index)
         {
             slot.live = true;
             self.live = self.live.saturating_add(1);
@@ -168,7 +169,10 @@ impl EntityStore {
     /// The slot's generation is bumped so every handle issued before this call
     /// resolves to `None`.
     pub fn remove(&mut self, handle: EntityHandle) -> bool {
-        let Some(slot) = self.slots.get_mut(handle.index as usize) else {
+        let Ok(slot_index) = usize::try_from(handle.index) else {
+            return false;
+        };
+        let Some(slot) = self.slots.get_mut(slot_index) else {
             return false;
         };
         if !slot.live || slot.generation != handle.generation {
@@ -184,8 +188,9 @@ impl EntityStore {
     /// True when `handle` addresses a live slot at the handle's generation.
     #[must_use]
     pub fn contains(&self, handle: EntityHandle) -> bool {
-        self.slots
-            .get(handle.index as usize)
+        usize::try_from(handle.index)
+            .ok()
+            .and_then(|slot_index| self.slots.get(slot_index))
             .is_some_and(|slot| slot.live && slot.generation == handle.generation)
     }
 
@@ -227,8 +232,8 @@ impl EntityStore {
             .enumerate()
             .filter(|(_, slot)| slot.live)
             .filter_map(|(index, slot)| {
-                u32::try_from(index).ok().map(|index| EntityHandle {
-                    index,
+                u32::try_from(index).ok().map(|slot_index| EntityHandle {
+                    index: slot_index,
                     generation: slot.generation,
                 })
             })
@@ -261,13 +266,13 @@ impl EntityNames {
     /// Binds `id` to `handle`. Returns the previous binding, if any.
     pub fn insert(&mut self, id: EntityId, handle: EntityHandle) -> Option<EntityHandle> {
         if let Some(previous) = self.by_handle.remove(&handle) {
-            self.by_id.remove(&previous);
+            let _removed_value = self.by_id.remove(&previous);
         }
         let previous = self.by_id.insert(id.clone(), handle);
         if let Some(previous_handle) = previous {
-            self.by_handle.remove(&previous_handle);
+            drop(self.by_handle.remove(&previous_handle));
         }
-        self.by_handle.insert(handle, id);
+        drop(self.by_handle.insert(handle, id));
         previous
     }
 
@@ -286,7 +291,7 @@ impl EntityNames {
     /// Removes one binding.
     pub fn remove(&mut self, id: &str) -> Option<EntityHandle> {
         let handle = self.by_id.remove(&EntityId::new(id))?;
-        self.by_handle.remove(&handle);
+        drop(self.by_handle.remove(&handle));
         Some(handle)
     }
 
@@ -317,7 +322,11 @@ impl EntityNames {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+    )]
 
     use super::*;
 

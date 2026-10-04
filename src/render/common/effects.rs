@@ -61,6 +61,10 @@ use crate::materials::{MaterialAlpha, MaterialTable, ResolvedTexture};
 
 /// Particles one level's effect scene can draw, at the level schema's own
 /// maximum: [`MAX_LEVEL_EFFECTS`] emitters times [`MAX_EFFECT_PARTICLES`].
+#[expect(
+    clippy::as_conversions,
+    reason = "The schema particle cap is 128 and fits every supported usize; TryFrom is unavailable in a Rust 1.99 const initializer."
+)]
 pub const MAX_EFFECT_PARTICLES_PER_LEVEL: usize =
     MAX_LEVEL_EFFECTS.saturating_mul(MAX_EFFECT_PARTICLES as usize);
 
@@ -107,7 +111,11 @@ const GROWTH: f32 = 0.35;
 
 /// One phase step between consecutive emitters: a fresh block of golden-ratio
 /// phases, so two identical emitters never pulse in lockstep.
-#[allow(clippy::cast_precision_loss)] // `MAX_EFFECT_PARTICLES` is 128, exactly representable
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "`MAX_EFFECT_PARTICLES` is 128, exactly representable"
+)] // `MAX_EFFECT_PARTICLES` is 128, exactly representable
 const EMITTER_PHASE_STRIDE: f32 = MAX_EFFECT_PARTICLES as f32;
 
 /// One particle's evaluated pose at the scene clock.
@@ -448,7 +456,10 @@ impl EffectScene {
     /// face `camera_position`; the return value is the number of particles
     /// written. `out` is cleared first and never grows past the level budget.
     #[must_use]
-    #[allow(clippy::arithmetic_side_effects)] // bounded f32/vec3 billboard arithmetic
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "bounded f32/vec3 billboard arithmetic"
+    )] // bounded f32/vec3 billboard arithmetic
     pub fn build_billboards(
         &self,
         camera_position: [f32; 3],
@@ -520,7 +531,7 @@ fn resolve_effect_material(
     let entry = materials.entry_of(material_id)?;
     // A material without a decoded image cannot draw; this mirrors
     // `build_door_models`, whose `material_image` requires the image.
-    entry.image.as_ref()?;
+    let _configured_as_ref = entry.image.as_ref()?;
     let texture = materials
         .textures()
         .get(usize::try_from(entry.texture_index).unwrap_or(usize::MAX))?
@@ -564,7 +575,7 @@ fn build_emitter(
 ) -> Option<EffectEmitter> {
     let count = usize::try_from(def.count)
         .unwrap_or(0)
-        .min(MAX_EFFECT_PARTICLES as usize)
+        .min(usize::try_from(MAX_EFFECT_PARTICLES).unwrap_or(usize::MAX))
         .min(budget);
     if count == 0 {
         return None;
@@ -603,7 +614,7 @@ fn build_emitter(
 /// by the footprint plus `drift` horizontally and by `height` vertically, and
 /// the alpha includes the material's opacity.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // bounded particle arithmetic on sanitised f32 inputs
+// bounded particle arithmetic on sanitised f32 inputs
 pub fn particle_pose(emitter: &EffectEmitter, seconds: f32, particle: usize) -> EffectPose {
     let clock = if seconds.is_finite() {
         seconds.max(0.0)
@@ -657,14 +668,14 @@ pub fn particle_pose(emitter: &EffectEmitter, seconds: f32, particle: usize) -> 
 /// The fade envelope over a particle's life: zero at `life = 0` and at
 /// `life = 1`, one across the middle.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // bounded f32 envelope arithmetic
+// bounded f32 envelope arithmetic
 const fn fade(life: f32, fade_fraction: f32) -> f32 {
     smooth01(life / fade_fraction) * smooth01((1.0 - life) / fade_fraction)
 }
 
 /// A Hermite ramp clamped to `[0, 1]`.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // bounded f32 polynomial
+// bounded f32 polynomial
 const fn smooth01(value: f32) -> f32 {
     let t = value.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -677,13 +688,16 @@ const fn smooth01(value: f32) -> f32 {
 /// horizontal pair, so the quad is always finite and perpendicular to the
 /// view.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // one bounded vector subtraction
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "one bounded vector subtraction"
+)] // one bounded vector subtraction
 fn billboard_basis(camera_position: Vec3, particle: [f32; 3]) -> (Vec3, Vec3) {
     let forward = (camera_position - Vec3::from_array(particle)).normalize_or_zero();
     let right = forward.cross(Vec3::Y);
     if right.length_squared() > 1.0e-8 {
-        let right = right.normalize();
-        (right, right.cross(forward))
+        let unit_right = right.normalize();
+        (unit_right, unit_right.cross(forward))
     } else {
         (Vec3::X, Vec3::Z)
     }
@@ -726,7 +740,11 @@ fn source_position(position: [f32; 3]) -> Vec3 {
 /// Every index this module converts is a particle or emitter index below 2^24,
 /// where the conversion is exact.
 #[must_use]
-#[allow(clippy::cast_precision_loss)] // indices are below 2^24, where f32 is exact
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "indices are below 2^24, where f32 is exact"
+)] // indices are below 2^24, where f32 is exact
 const fn index_to_f32(value: usize) -> f32 {
     value as f32
 }
@@ -738,12 +756,12 @@ mod tests {
     // else in the crate.
     #![allow(
         clippy::arithmetic_side_effects,
-        clippy::cast_precision_loss,
         clippy::expect_used,
         clippy::float_cmp,
         clippy::indexing_slicing,
         clippy::panic,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -752,11 +770,11 @@ mod tests {
 
     fn level_with_effects(effects: &[serde_json::Value]) -> LevelDef {
         let document = json!({
-            "format_version": 3,
+            "format_version": 3_i32,
             "id": "effects_test",
             "name": "Effects Test",
-            "spawn": { "x": 1.0, "z": 1.0 },
-            "rooms": [ { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 2.7 } ],
+            "spawn": { "x": 1.0_f64, "z": 1.0_f64 },
+            "rooms": [ { "x": 0.0_f64, "z": 0.0_f64, "width": 6.0_f64, "depth": 6.0_f64, "height": 2.7_f64 } ],
             "effects": effects
         });
         LevelDef::from_json(&document.to_string()).expect("test level parses")
@@ -803,13 +821,13 @@ mod tests {
         assert!(scene.is_empty());
         assert_eq!(scene.len(), 0);
         assert_eq!(scene.particle_count(), 0);
-        assert_eq!(scene.draw_groups(), []);
+        assert!(
+            scene.draw_groups().is_empty(),
+            "scene.draw_groups() must be empty"
+        );
         let mut vertices = Vec::new();
         assert_eq!(scene.build_billboards([0.0, 1.6, 0.0], &mut vertices), 0);
-        assert_eq!(
-            vertices,
-            [] as [crate::render::common::effects::EffectVertex; 0]
-        );
+        assert!(vertices.is_empty(), "vertices must be empty");
         assert_eq!(scene.update(0.0), EffectUpdate::default());
     }
 
@@ -913,7 +931,7 @@ mod tests {
     fn the_scene_never_exceeds_the_level_particle_budget() {
         let effects: Vec<serde_json::Value> = (0..MAX_LEVEL_EFFECTS)
             .map(|index| {
-                let mut effect = steam_effect(index as f32, 0.0);
+                let mut effect = steam_effect(crate::test_support::exact_f32(index), 0.0);
                 effect["count"] = json!(MAX_EFFECT_PARTICLES);
                 effect
             })
@@ -939,12 +957,15 @@ mod tests {
     #[test]
     fn an_unvalidated_level_still_stays_inside_the_budget() {
         let level = level_with_effects(&[
-            json!({ "kind": "steam", "count": 10_000, "width": 1.0, "depth": 1.0, "height": 1.0, "size": 0.3 }),
+            json!({ "kind": "steam", "count": 10_000_i32, "width": 1.0_f64, "depth": 1.0_f64, "height": 1.0_f64, "size": 0.3_f64 }),
         ]);
         let materials = materials(&level);
         let scene = EffectScene::build(&level, &materials);
         assert_eq!(scene.len(), 1);
-        assert_eq!(scene.particle_count(), MAX_EFFECT_PARTICLES as usize);
+        assert_eq!(
+            scene.particle_count(),
+            usize::try_from(MAX_EFFECT_PARTICLES).expect("fixture integer fits usize")
+        );
     }
 
     // ----------------------------------------------------------------- bounds
@@ -956,8 +977,8 @@ mod tests {
         let [base_x, base_y, base_z] = emitter.base;
         let max_x = emitter.width.mul_add(0.5, emitter.drift) + 1.0e-3;
         let max_z = emitter.depth.mul_add(0.5, emitter.drift) + 1.0e-3;
-        for step in 0..400 {
-            let seconds = step as f32 * 0.05;
+        for step in 0_i32..400_i32 {
+            let seconds = crate::test_support::exact_f32(step) * 0.05;
             for particle in 0..emitter.count {
                 let pose = particle_pose(emitter, seconds, particle);
                 let [x, y, z] = pose.position;
@@ -985,14 +1006,14 @@ mod tests {
     #[test]
     fn drift_keeps_every_centre_inside_the_authored_bounds_at_every_clock() {
         let mut effect = steam_effect(3.0, 3.0);
-        effect["drift"] = json!(0.6);
+        effect["drift"] = json!(0.6_f64);
         effect["count"] = json!(MAX_EFFECT_PARTICLES);
         let scene = scene(&[effect]);
         let emitter = &scene.emitters()[0];
         let max_x = emitter.width.mul_add(0.5, emitter.drift) + 1.0e-3;
         let max_z = emitter.depth.mul_add(0.5, emitter.drift) + 1.0e-3;
         let mut seconds = 0.0_f32;
-        for _ in 0..1_500 {
+        for _ in 0_i32..1_500_i32 {
             // An irrational-ish step so the sampling never aligns with a
             // particle's life or drift phase.
             seconds += 0.013_717;
@@ -1035,11 +1056,17 @@ mod tests {
         assert!(scene.set_enabled(0, false));
         assert_eq!(scene.particle_count(), 0);
         assert_eq!(scene.vertex_count(), 0);
-        assert_eq!(scene.draw_groups(), []);
+        assert!(
+            scene.draw_groups().is_empty(),
+            "scene.draw_groups() must be empty"
+        );
         for clock in [0.0, 1.0, 30.0, 1_000.0] {
-            scene.update(clock);
-            let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
-            assert_eq!(drawn, 0, "a disabled emitter draws nothing at {clock}s");
+            let _update_stats = scene.update(clock);
+            let disabled_draws = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
+            assert_eq!(
+                disabled_draws, 0,
+                "a disabled emitter draws nothing at {clock}s"
+            );
             assert!(
                 vertices.is_empty(),
                 "a disabled emitter leaves no vertices at {clock}s"
@@ -1054,9 +1081,9 @@ mod tests {
         assert!(scene.set_enabled(0, true));
         assert_eq!(scene.particle_count(), scene.emitters()[0].count);
         assert_eq!(scene.draw_groups().len(), 1);
-        let drawn = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
+        let enabled_draws = scene.build_billboards([3.0, 1.6, 3.0], &mut vertices);
         assert_eq!(
-            drawn,
+            enabled_draws,
             scene.particle_count(),
             "every particle draws again on the re-enable frame"
         );
@@ -1102,8 +1129,8 @@ mod tests {
         }
         let mut first = Vec::new();
         let mut second = Vec::new();
-        let _ = scene.build_billboards([2.0, 1.7, 5.0], &mut first);
-        let _ = scene.build_billboards([2.0, 1.7, 5.0], &mut second);
+        let _billboard_stats = scene.build_billboards([2.0, 1.7, 5.0], &mut first);
+        let _billboard_stats_2 = scene.build_billboards([2.0, 1.7, 5.0], &mut second);
         assert_eq!(first, second, "the same clock and camera must be identical");
     }
 
@@ -1199,7 +1226,8 @@ mod tests {
             clock: f32::NAN,
         };
         let mut vertices = Vec::new();
-        let _ = scene.build_billboards([f32::NAN, 0.0, f32::INFINITY], &mut vertices);
+        let _billboard_stats =
+            scene.build_billboards([f32::NAN, 0.0, f32::INFINITY], &mut vertices);
         assert_eq!(vertices.len(), 4 * 4);
         for vertex in &vertices {
             assert!(vertex.position.iter().all(|value| value.is_finite()));
@@ -1229,6 +1257,9 @@ mod tests {
         assert!(!scene.textures().is_empty(), "clear keeps the materials");
         scene.clear_all();
         assert!(scene.textures().is_empty());
-        assert_eq!(scene.draw_groups(), []);
+        assert!(
+            scene.draw_groups().is_empty(),
+            "scene.draw_groups() must be empty"
+        );
     }
 }

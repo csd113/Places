@@ -65,7 +65,6 @@ impl FogState {
     #[cfg(test)]
     // Float-only arithmetic on finite inputs: no overflow, no panic, and the
     // result is clamped.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn amount(self, distance: f32, height: f32) -> f32 {
         let below = (self.reference_y - height).clamp(0.0, 12.0);
         let density = self.height_gain.mul_add(below, 1.0) * self.density;
@@ -118,7 +117,7 @@ impl FogRegion {
             def.min[1].max(def.max[1]),
             def.min[2].max(def.max[2]),
         ];
-        let finite = |value: Option<f32>| value.filter(|value| value.is_finite());
+        let finite = |value: Option<f32>| value.filter(|candidate| candidate.is_finite());
         Self {
             min,
             max,
@@ -144,7 +143,6 @@ impl FogRegion {
     #[cfg(test)]
     // Float-only arithmetic on finite inputs: no overflow, no panic, and the
     // result is clamped.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn contribution(&self, position: [f32; 3]) -> f32 {
         self.density * self.horizontal_factor(position) * self.vertical_factor(position[1])
     }
@@ -157,7 +155,6 @@ impl FogRegion {
     #[must_use]
     #[cfg(test)]
     // Float-only arithmetic on finite inputs: no overflow and no panic.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn horizontal_factor(&self, position: [f32; 3]) -> f32 {
         let horizontal = (position[0] - self.min[0])
             .min(self.max[0] - position[0])
@@ -180,7 +177,6 @@ impl FogRegion {
     #[must_use]
     #[cfg(test)]
     // Float-only arithmetic on finite inputs: no overflow and no panic.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn vertical_factor(&self, y: f32) -> f32 {
         if self.top_y <= self.ground_y {
             return if y <= self.ground_y { 1.0 } else { 0.0 };
@@ -253,7 +249,6 @@ impl LevelFog {
     #[cfg(test)]
     // Float-only arithmetic on finite inputs: no overflow, no panic, and the
     // result is clamped.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn amount(&self, camera_position: [f32; 3], world_position: [f32; 3]) -> (f32, [f32; 3]) {
         let dx = camera_position[0] - world_position[0];
         let dy = camera_position[1] - world_position[1];
@@ -301,7 +296,8 @@ mod tests {
     #![allow(
         clippy::arithmetic_side_effects,
         clippy::float_cmp,
-        clippy::indexing_slicing
+        clippy::indexing_slicing,
+        reason = "The helpers are mirrored by exact values, the mirrored formulas are float arithmetic on finite inputs, and test fixtures index their own arrays."
     )]
 
     use super::*;
@@ -489,14 +485,14 @@ mod tests {
         assert!(amount > 0.0, "the region is the only density left");
         // With no region and zero density the fog is exactly off.
         let off = LevelFog::global_only();
-        let off = LevelFog {
+        let off_layer = LevelFog {
             global: FogState {
                 density: 0.0,
                 ..off.global
             },
             ..off
         };
-        assert_exact(off.amount([0.0; 3], [1000.0, -20.0, 0.0]).0, 0.0);
+        assert_exact(off_layer.amount([0.0; 3], [1000.0, -20.0, 0.0]).0, 0.0);
     }
 
     #[test]
@@ -524,11 +520,11 @@ mod tests {
             top_y: Some(1.0),
             ..def
         };
-        let resolved = FogRegion::resolve(&explicit, FogState::SHIPPED.color);
-        assert_eq!(resolved.color, [0.2, 0.3, 0.4]);
-        assert_exact(resolved.falloff_m, 0.0);
-        assert_exact(resolved.ground_y, -1.0);
-        assert_exact(resolved.top_y, 1.0);
+        let explicit_region = FogRegion::resolve(&explicit, FogState::SHIPPED.color);
+        assert_eq!(explicit_region.color, [0.2, 0.3, 0.4]);
+        assert_exact(explicit_region.falloff_m, 0.0);
+        assert_exact(explicit_region.ground_y, -1.0);
+        assert_exact(explicit_region.top_y, 1.0);
     }
 
     #[test]
@@ -542,8 +538,8 @@ mod tests {
     fn a_preset_change_only_changes_the_uploaded_count() {
         let regions: Vec<FogRegion> = (0..MAX_FOG_REGIONS)
             .map(|index| {
-                let index = f32::from(u8::try_from(index).unwrap_or(u8::MAX));
-                region(0.01 * index, [0.5; 3], 2.0, 0.0, 1.0)
+                let density_index = f32::from(u8::try_from(index).unwrap_or(u8::MAX));
+                region(0.01 * density_index, [0.5; 3], 2.0, 0.0, 1.0)
             })
             .collect();
         let level_fog = LevelFog {

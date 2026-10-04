@@ -91,7 +91,10 @@ const UI_BLEND: wgpu::BlendState = wgpu::BlendState {
 /// is never read. The correction is applied anyway so the HUD shares the one
 /// documented coordinate conversion every wgpu pass uses.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam matrix multiplication uses floating point components without integer overflow or a panic path."
+)]
 pub fn ui_view_projection() -> Mat4 {
     // `glam` matrix products are per-element `f32` arithmetic with no overflow
     // or panic path.
@@ -267,7 +270,7 @@ impl UiRenderer {
             }
             pass.draw(0..count, 0..1);
         }
-        queue.submit([encoder.finish()]);
+        let _submission = queue.submit([encoder.finish()]);
 
         UiStats {
             draw_calls: 1,
@@ -306,11 +309,11 @@ impl UiRenderer {
     }
 }
 
-/// Creates the font atlas texture, fills it from the generated pixels and
+/// Creates the font atlas texture, fills it from the committed PNG pixels and
 /// returns its view. The bind group built from the view owns the texture.
 ///
 /// `generate_font_atlas` is the one font source the project has: a 128x64 RGBA8
-/// sheet with the reserved white cell and the 8x8 glyphs. It is generated and
+/// sheet with the reserved white cell and the 8x8 glyphs. It is decoded and
 /// uploaded once, at construction.
 fn upload_font_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
     let font_dimensions = font_atlas_dimensions();
@@ -514,7 +517,8 @@ mod tests {
         clippy::indexing_slicing,
         clippy::panic,
         clippy::suboptimal_flops,
-        clippy::unwrap_used
+        clippy::unwrap_used,
+        reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
     )]
 
     use super::*;
@@ -574,7 +578,7 @@ mod tests {
         let exact = DrawableSize::new(960, 544).ui_viewport();
         assert_eq!(
             (exact.x, exact.y, exact.width, exact.height),
-            (0, 0, 960, 544)
+            (0_i32, 0_i32, 960_i32, 544_i32)
         );
         assert_eq!(
             (
@@ -589,7 +593,10 @@ mod tests {
         // exactly, the 480-wide region rounds to 1271 and is centred with
         // 4-pixel margins.
         let wide = DrawableSize::new(1280, 720).ui_viewport();
-        assert_eq!((wide.x, wide.y, wide.width, wide.height), (4, 0, 1271, 720));
+        assert_eq!(
+            (wide.x, wide.y, wide.width, wide.height),
+            (4_i32, 0_i32, 1_271_i32, 720_i32)
+        );
         assert_eq!(
             (
                 viewport_f32(wide.x),
@@ -605,7 +612,7 @@ mod tests {
         let tall = DrawableSize::new(1000, 1000).ui_viewport();
         assert_eq!(
             (tall.x, tall.y, tall.width, tall.height),
-            (0, 216, 1000, 567)
+            (0_i32, 216_i32, 1_000_i32, 567_i32)
         );
         assert_eq!(
             (

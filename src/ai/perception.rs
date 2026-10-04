@@ -8,17 +8,10 @@
 //! leaves. Both are evaluated on a staggered interval per agent by
 //! [`crate::ai::AiWorld`], never as a global per-frame scan.
 
-// The navigation/AI runtime is numeric kernel code: bounded `f32` geometry
-// over validated finite records, lattice indices converted after their caps
-// are enforced, and fixed-size arrays walked by index. Those are exactly the
-// shapes the cast/float/index lints flag, so they are allowed here as a unit;
-// no other module inherits them, and every allocation and collection access
-// still goes through bounds-checked paths.
+// Preserve exact sentinel comparisons, floating-point operation order and
+// cohesive geometry/query stages. Numeric conversions and integer arithmetic
+// are audited at their local expressions instead of exempting the module.
 #![allow(
-    clippy::arithmetic_side_effects,
-    clippy::cast_possible_truncation,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::float_cmp,
     clippy::imprecise_flops,
     clippy::missing_const_for_fn,
@@ -26,7 +19,8 @@
     clippy::similar_names,
     clippy::suboptimal_flops,
     clippy::too_many_arguments,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
 use glam::Vec3;
@@ -106,6 +100,10 @@ pub fn perceive(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
 }
 
 /// The nearest sighted agent within range, field of view and line of sight.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+)]
 fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
     if agent.def.sight_range <= 0.0 {
         return None;
@@ -134,10 +132,10 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         let bubble = agent.profile.radius + target.radius + 0.35;
         if distance > bubble && agent.def.sight_fov_degrees < 360.0 {
             let flat = Vec3::new(to_target.x, 0.0, to_target.z);
-            let Some(flat) = flat.try_normalize() else {
+            let Some(unit_direction) = flat.try_normalize() else {
                 continue;
             };
-            let angle = flat.dot(facing).clamp(-1.0, 1.0).acos();
+            let angle = unit_direction.dot(facing).clamp(-1.0, 1.0).acos();
             if angle > half_fov {
                 continue;
             }
@@ -221,6 +219,10 @@ pub fn sight_clear(
     if !from.is_finite() || !to.is_finite() {
         return false;
     }
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+    )]
     let delta = to - from;
     let distance = delta.length();
     if distance <= 1.0e-4 {
@@ -265,6 +267,10 @@ pub fn sight_clear_with_leaves(
     if !from.is_finite() || !to.is_finite() {
         return false;
     }
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
+    )]
     let delta = to - from;
     let distance = delta.length();
     if distance <= 1.0e-4 {

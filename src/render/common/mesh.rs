@@ -142,7 +142,12 @@ pub const fn quantize_unit(value: f32) -> u8 {
     // `clamped` is in [0, 1], so `clamped * 255 + 0.5` is in [0.5, 255.5]: the
     // truncating cast only drops the fraction and can never leave the byte
     // range, and the value is non-negative.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`clamped` is in [0, 1], so `clamped * 255 + 0.5` is in [0.5, 255.5]: the truncating cast only drops the fraction and can never leave the byte range, and the value is non-negative."
+    )]
     let byte = clamped.mul_add(255.0, 0.5) as u8;
     byte
 }
@@ -195,6 +200,20 @@ pub enum SurfaceKind {
     /// Local surface decals. Drawn last, in their own pass with a depth bias,
     /// so a decal always resolves in front of the surface it lies on.
     Decal,
+}
+
+impl SurfaceKind {
+    /// Stable slot in the six surface-family counters.
+    pub(crate) const fn index(self) -> usize {
+        match self {
+            Self::Floor => 0,
+            Self::Ceiling => 1,
+            Self::Wall => 2,
+            Self::Light => 3,
+            Self::PropFallback => 4,
+            Self::Decal => 5,
+        }
+    }
 }
 
 /// One surface family's slot: a material index or a sheet index.
@@ -278,9 +297,11 @@ impl SurfaceShine {
         }
         // The clamp keeps the scaled value inside `0..=100`, so the cast
         // neither wraps, truncates a meaningful fraction nor loses a sign.
-        #[allow(
+        #[expect(
+            clippy::as_conversions,
             clippy::cast_possible_truncation,
-            clippy::cast_sign_loss // non-negative by the clamp
+            clippy::cast_sign_loss,
+            reason = "the clamp bounds the rounded shine to a non-negative whole percent in 0..=100"
         )]
         Self((shine.clamp(0.0, 1.0) * 100.0).round() as u8)
     }
@@ -505,7 +526,7 @@ impl LevelMesh {
                 range
                     .indices
                     .iter()
-                    .filter_map(|index| range.vertices.get(*index as usize).copied()),
+                    .filter_map(|index| range.vertices.get(usize::from(*index)).copied()),
             );
         }
         out
@@ -520,7 +541,7 @@ impl LevelMesh {
                 range
                     .indices
                     .iter()
-                    .filter_map(|index| range.vertices.get(*index as usize).copied()),
+                    .filter_map(|index| range.vertices.get(usize::from(*index)).copied()),
             );
         }
         out
@@ -604,7 +625,7 @@ pub fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKe
         compute_surface_frames(&mut vertices, &range.indices, ranges.len(), &mut smooth);
         let index_len = i32::try_from(range.indices.len()).unwrap_or(i32::MAX);
         let span_end = virtual_index.saturating_add(index_len);
-        if let Some(slot) = spans.get_mut(key.kind as usize) {
+        if let Some(slot) = spans.get_mut(key.kind.index()) {
             *slot = Some(match *slot {
                 None => (virtual_index, span_end),
                 Some((low, high)) => (low.min(virtual_index), high.max(span_end)),
@@ -808,10 +829,10 @@ fn resolve_smooth_vertices(ranges: &mut [LevelMeshRange], smooth: &[SmoothVertex
         let vertex = ranges
             .get_mut(entry.range)
             .and_then(|range| range.vertices.get_mut(entry.vertex));
-        if let Some(vertex) = vertex {
-            vertex.normal = normal;
-            vertex.tangent = tangent;
-            vertex.handedness = handedness;
+        if let Some(target_vertex) = vertex {
+            target_vertex.normal = normal;
+            target_vertex.tangent = tangent;
+            target_vertex.handedness = handedness;
         }
     }
 }
@@ -853,8 +874,8 @@ fn scale3(a: [f32; 3], scale: f32) -> [f32; 3] {
 
 /// `a + b`, in place.
 fn add3_assign(accumulator: &mut [f32; 3], value: [f32; 3]) {
-    for (slot, value) in accumulator.iter_mut().zip(value) {
-        *slot += value;
+    for (slot, component) in accumulator.iter_mut().zip(value) {
+        *slot += component;
     }
 }
 
@@ -888,7 +909,7 @@ fn normalize3(value: [f32; 3]) -> Option<[f32; 3]> {
 /// One surface family's aggregate index span, or an empty range when the
 /// family emitted nothing.
 fn span_for(spans: &[Option<(i32, i32)>], kind: SurfaceKind) -> BatchRange {
-    match spans.get(kind as usize).copied().flatten() {
+    match spans.get(kind.index()).copied().flatten() {
         Some((start, end)) => BatchRange {
             start,
             count: end.saturating_sub(start),
@@ -990,18 +1011,18 @@ impl MeshPacker {
                 cursor = cursor.saturating_add(1);
             }
 
-            let Some(chunk) = self.chunks.get(chunk_index) else {
+            let Some(resident_chunk) = self.chunks.get(chunk_index) else {
                 break;
             };
-            let index_end = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX);
+            let index_end = i32::try_from(resident_chunk.indices.len()).unwrap_or(i32::MAX);
             let index_count = index_end.saturating_sub(index_start);
-            if index_count > 0 {
+            if index_count > 0_i32 {
                 placements.push(PackedRange {
                     chunk: chunk_index,
                     index_start,
                     index_count,
                     vertex_start,
-                    vertex_count: i32::try_from(chunk.vertices.len())
+                    vertex_count: i32::try_from(resident_chunk.vertices.len())
                         .unwrap_or(i32::MAX)
                         .saturating_sub(vertex_start),
                 });

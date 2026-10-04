@@ -4,8 +4,8 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::arithmetic_side_effects,
-    clippy::cast_precision_loss,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
 )]
 
 use super::*;
@@ -261,7 +261,7 @@ fn indexing_turns_six_vertices_per_quad_into_four() {
     // Every vertex must actually be referenced.
     let mut used = vec![false; range.vertices.len()];
     for index in &range.indices {
-        used[*index as usize] = true;
+        used[usize::from(*index)] = true;
     }
     assert!(used.iter().all(|seen| *seen), "no orphan vertices");
     assert!(!range.bounds.is_empty());
@@ -273,7 +273,7 @@ fn indexing_keeps_triangles_in_the_same_winding() {
     buckets.add_quads((), &quad(0.0, 0.0, 1.0));
     let drained = buckets.drain_indexed();
     let range = &drained[0].1;
-    let pos = |index: u16| range.vertices[index as usize].pos;
+    let pos = |index: u16| range.vertices[usize::from(index)].pos;
     assert_exact_array(pos(range.indices[0]), [0.0, 0.0, 0.0]);
     assert_exact_array(pos(range.indices[1]), [1.0, 0.0, 0.0]);
     assert_exact_array(pos(range.indices[2]), [1.0, 0.0, 1.0]);
@@ -406,7 +406,7 @@ fn a_range_is_split_before_it_overflows_16_bit_indices() {
     let mut run: Vec<crate::render::Vertex> = Vec::new();
     let count = MAX_INDEX_VERTICES / 4 + 8;
     for index in 0..count {
-        run.extend(quad(index as f32, 0.0, 0.5));
+        run.extend(quad(crate::test_support::exact_f32(index), 0.0, 0.5));
     }
     let ranges = index_run(&run);
     assert!(
@@ -425,7 +425,7 @@ fn a_range_is_split_before_it_overflows_16_bit_indices() {
             range
                 .indices
                 .iter()
-                .all(|index| (*index as usize) < range.vertices.len()),
+                .all(|index| usize::from(*index) < range.vertices.len()),
             "an index pointed outside its own range"
         );
         total_indices += range.indices.len();
@@ -437,8 +437,11 @@ fn a_range_is_split_before_it_overflows_16_bit_indices() {
 fn indexed_draining_is_deterministic() {
     let build = || {
         let mut buckets = SpatialBuckets::<()>::new(12.0);
-        for index in 0..8 {
-            buckets.add_quads((), &quad(index as f32 * 0.5, 0.0, 0.5));
+        for index in 0_i32..8_i32 {
+            buckets.add_quads(
+                (),
+                &quad(crate::test_support::exact_f32(index) * 0.5, 0.0, 0.5),
+            );
         }
         buckets.add_quads((), &quad(20.0, 0.0, 0.5));
         buckets.drain_indexed()

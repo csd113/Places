@@ -19,7 +19,11 @@ mod tests;
 
 impl DirectionalLight {
     #[must_use]
-    #[allow(clippy::cast_possible_truncation)] // normalized f64 components are finite in [-1, 1]; f32 is the stored representation
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "normalized f64 components are finite in [-1, 1]; f32 is the stored representation"
+    )] // normalized f64 components are finite in [-1, 1]; f32 is the stored representation
     pub fn from_definition(def: &GlobalIlluminatorDef) -> Option<Self> {
         if def.validate().is_err() || !def.enabled || !def.bake || def.intensity == 0.0 {
             return None;
@@ -69,7 +73,10 @@ impl DirectionalLight {
         let angle = f32::from(sample) * 2.399_963_1;
         let (sin, cos) = angle.sin_cos();
         // Unit vectors and a bounded angular radius cannot overflow vector arithmetic.
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "Unit vectors and a bounded angular radius cannot overflow vector arithmetic."
+        )]
         let direction = axis + radius * (u * cos + v * sin);
         direction.normalize_or_zero().to_array()
     }

@@ -1,5 +1,10 @@
 //! Authoring, vertex fallback and compiled-record contracts.
-#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::float_cmp)]
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::float_cmp,
+    reason = "Regression fixtures assert exact reference results and fail on invalid setup; these exceptions are confined to tests"
+)]
 use super::*;
 use crate::level::LevelDef;
 
