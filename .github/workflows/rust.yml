@@ -20,7 +20,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          lfs: true
           persist-credentials: false
+      - name: Verify bundled map archives
+        run: |
+          unzip -tq assets/levels/places_demo.placesmap
+          unzip -tq assets/levels/lantern_hollow.placesmap
       - name: Install native build dependencies
         run: brew install sdl3 pkg-config
       - name: Select repository toolchain
