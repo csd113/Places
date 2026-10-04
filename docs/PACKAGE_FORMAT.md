@@ -57,7 +57,7 @@ never triggers procedural geometry generation.
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",
-  "created_by": "places-compile 0.7.0",
+  "created_by": "places-compile 0.8.0",
   "compiler_fingerprint": "<sha256>",
   "required_capabilities": ["geometry", "props", "lighting", "collision",
                             "lightmaps-hdr", "irradiance-probes", "probes-rgba8"],

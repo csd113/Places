@@ -1,3 +1,39 @@
+## 0.8.0 — 2026-10-04
+
+The SDL3/wgpu desktop generation, including the engine, compiler and content
+work since the final pre-wgpu 0.7.0 baseline.
+
+### Highlights
+
+- Native wgpu/WGSL rendering with Metal on macOS, Vulkan on Linux and
+  Direct3D 12 on Windows; SDL3 provides windowing and input.
+- Offline compiled maps with prepared geometry, collision, navigation,
+  static lighting, HDR lightmaps and entity lighting. Map baking has
+  exact-output regression coverage and bounded parallel workers.
+- Player sweep and vertical-contact fixes, current ground support, and
+  regression coverage for stairs, doorways, props, jumping and water.
+- Lantern Hollow, Places Demo and Model Zoo content, asset and lighting
+  repairs, with retained native validation evidence.
+- Rust 1.99 strict lint enforcement in Cargo, a shared local verification
+  gate and macOS CI. Numeric bounds, indexing, FFI resource ownership,
+  atomic package publication and command-line error handling are hardened;
+  fixed legacy texture sheets are now pixel-identical repository PNGs.
+
+### Validation and compatibility
+
+- The hardening pass passed 1,995 ordinary Rust tests, strict development
+  and release Clippy, representative map builds, 27 pixel-identical native
+  rendering comparisons and 12 movement comparisons. Full results and
+  benchmark limits are in `docs/reports/rust-1.99-lint-hardening.txt`.
+- Native rendering was validated on macOS/Metal; Linux/Vulkan and
+  Windows/Direct3D 12 have not been exercised in this validation campaign.
+- Existing bundled map archives remain loadable and are preserved. Their
+  developer fingerprints are stale after the catalog additions; the 0.8.0
+  compiler identity also changes rebuild fingerprints. Compile authored
+  sources explicitly when current developer fingerprints are required.
+- Retained compiler-audit packages use Git LFS; fetch LFS content when
+  using those artifacts from a clone.
+
 ## Unreleased — Lantern Hollow geometry and collision pass
 
 ### Fixed
