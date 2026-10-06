@@ -20,6 +20,11 @@
       "id": "outdoor",
       "display_name": "Outdoor",
       "description": "Night exterior: a dark starry sky, tileable grass ground, a dirt and gravel path with feathered edges, a restrained concrete walkway, a leafy tree, warm exterior lamps and modular house facade parts."
+    },
+    {
+      "id": "winter",
+      "display_name": "Winter",
+      "description": "Snowy night settlement; foundation materials reuse shared PNGs until the winter art passes."
     }
   ],
   "assets": [
@@ -3837,6 +3842,63 @@
       "tile_metres": 1.0,
       "color": "#dfbc55",
       "description": "Muted yellow road paint; normal nonemissive albedo."
+    },
+    {
+      "id": "winter:snow_01",
+      "display_name": "Snow (foundation)",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_ceiling_plaster_01",
+      "tile_metres": 3,
+      "tint": [
+        0.83,
+        0.9,
+        1
+      ],
+      "specular": 0,
+      "shine": 0,
+      "description": "Temporary snow ground, banks and roof material using the real shared plaster PNG; replace with winter snow terrain art."
+    },
+    {
+      "id": "winter:snow_packed_01",
+      "display_name": "Packed Snow (foundation)",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "tile_metres": 2,
+      "tint": [
+        0.7,
+        0.8,
+        0.95
+      ],
+      "specular": 0,
+      "shine": 0.04,
+      "description": "Temporary compacted snowy footpaths and treads; replace with restrained winter path art."
+    },
+    {
+      "id": "winter:ice_01",
+      "display_name": "Frozen Pond (foundation)",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_glass_clear_01",
+      "tile_metres": 3,
+      "tint": [
+        0.36,
+        0.6,
+        0.82
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "description": "Opaque physical frozen pond placeholder. Ordinary floor friction; no water/swimming behavior. Replace in the ice pass."
     }
   ]
 }

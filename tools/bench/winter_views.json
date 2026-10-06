@@ -1,0 +1,131 @@
+[
+  {
+    "name": "square",
+    "spawn": [
+      1,
+      10,
+      -32
+    ],
+    "camera": [
+      -32,
+      -3
+    ]
+  },
+  {
+    "name": "lodge",
+    "spawn": [
+      -5,
+      -3,
+      -42
+    ],
+    "camera": [
+      -42,
+      0
+    ]
+  },
+  {
+    "name": "pond",
+    "spawn": [
+      4,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -14
+    ]
+  },
+  {
+    "name": "forest",
+    "spawn": [
+      0,
+      -22,
+      0
+    ],
+    "camera": [
+      0,
+      -2
+    ]
+  },
+  {
+    "name": "interior",
+    "spawn": [
+      -11.5,
+      -11.5,
+      -28
+    ],
+    "camera": [
+      -28,
+      -5
+    ]
+  },
+  {
+    "name": "overview",
+    "spawn": [
+      0,
+      32,
+      22,
+      0
+    ],
+    "camera": [
+      0,
+      -47
+    ]
+  },
+  {
+    "name": "walk-lodge",
+    "spawn": [
+      -11.5,
+      -3.5,
+      0
+    ],
+    "camera": [
+      0,
+      -5
+    ],
+    "capture_time": 7,
+    "move_script": "forward@0-3.1,backward@3.5-6.6"
+  },
+  {
+    "name": "walk-stairs",
+    "spawn": [
+      -18.2,
+      -9,
+      90
+    ],
+    "camera": [
+      90,
+      -5
+    ],
+    "capture_time": 3.8,
+    "move_script": "forward@0-1.1,backward@1.5-2.6"
+  },
+  {
+    "name": "walk-pond",
+    "spawn": [
+      4,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -9
+    ],
+    "capture_time": 6.8,
+    "move_script": "forward@0-2.3,jump@2.4-2.46,backward@3.5-5.8"
+  },
+  {
+    "name": "walk-forest",
+    "spawn": [
+      0,
+      12,
+      0
+    ],
+    "camera": [
+      0,
+      -4
+    ],
+    "capture_time": 15.7,
+    "move_script": "forward@0-15.4"
+  }
+]

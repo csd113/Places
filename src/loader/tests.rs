@@ -1577,9 +1577,10 @@ fn test_the_default_level_is_the_shipped_demo() {
             "lantern_hollow",
             "model_zoo",
             "movement_test",
-            "places_demo"
+            "places_demo",
+            "winter"
         ],
-        "the bundled levels include the showcases and Movement Test"
+        "the bundled levels include the showcases, Movement Test and Winter"
     );
 
     let loaded = manager.load_default().expect("the shipped demo loads");

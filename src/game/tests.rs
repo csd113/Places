@@ -21,6 +21,7 @@ use crate::test_support::assert_exact;
 mod movement_diagnostics;
 mod movement_performance;
 mod movement_regression;
+mod winter;
 
 /// Advances `frames` deterministic 60 Hz simulation frames with no input.
 fn advance_frames(game: &mut Game, frames: usize) {

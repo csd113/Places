@@ -157,8 +157,8 @@ class ShippedLevelTests(unittest.TestCase):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test"},
-            "the showcases and Movement Test are bundled levels",
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter"},
+            "the showcases, Movement Test and Winter are bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
@@ -186,7 +186,7 @@ class ShippedLevelTests(unittest.TestCase):
         packages = {path.stem: path for path in package_files()}
         self.assertEqual(
             set(packages),
-            {"places_demo", "model_zoo", "lantern_hollow", "movement_test"},
+            {"places_demo", "model_zoo", "lantern_hollow", "movement_test", "winter"},
             "each bundled level has a compiled package",
         )
         for stem, path in packages.items():
