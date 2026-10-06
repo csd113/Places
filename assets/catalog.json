@@ -24,7 +24,7 @@
     {
       "id": "winter",
       "display_name": "Winter",
-      "description": "Snowy night settlement; foundation materials reuse shared PNGs until the winter art passes."
+      "description": "Snowy night settlement with modeled evergreen snow, modular drifts, rock caps, architecture snow and icicles."
     }
   ],
   "assets": [
@@ -3845,41 +3845,41 @@
     },
     {
       "id": "winter:snow_01",
-      "display_name": "Snow (foundation)",
+      "display_name": "Snow terrain",
       "asset_class": "environment",
       "theme": "winter",
       "asset_type": "material",
       "source": "definition",
       "surface": "floor",
-      "texture": "home:tex_ceiling_plaster_01",
-      "tile_metres": 3,
+      "texture": "winter:tex_snow_01",
+      "tile_metres": 8,
       "tint": [
-        0.83,
-        0.9,
+        1,
+        1,
         1
       ],
       "specular": 0,
       "shine": 0,
-      "description": "Temporary snow ground, banks and roof material using the real shared plaster PNG; replace with winter snow terrain art."
+      "description": "Dedicated matte snow PNG; quiet cool variation, world-aligned seamless tiling."
     },
     {
       "id": "winter:snow_packed_01",
-      "display_name": "Packed Snow (foundation)",
+      "display_name": "Packed snow",
       "asset_class": "environment",
       "theme": "winter",
       "asset_type": "material",
       "source": "definition",
       "surface": "floor",
-      "texture": "outdoor:tex_concrete_pavement_01",
-      "tile_metres": 2,
+      "texture": "winter:tex_snow_01",
+      "tile_metres": 5,
       "tint": [
-        0.7,
-        0.8,
+        0.84,
+        0.89,
         0.95
       ],
       "specular": 0,
-      "shine": 0.04,
-      "description": "Temporary compacted snowy footpaths and treads; replace with restrained winter path art."
+      "shine": 0,
+      "description": "Same snow albedo with restrained compaction tint on cleared circulation and treads."
     },
     {
       "id": "winter:ice_01",
@@ -3899,6 +3899,492 @@
       "specular": 0.3,
       "shine": 0.4,
       "description": "Opaque physical frozen pond placeholder. Ordinary floor friction; no water/swimming behavior. Replace in the ice pass."
+    },
+    {
+      "id": "winter:tex_snow_01",
+      "display_name": "Snow terrain albedo",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/winter/textures/floors/snow_01.png"
+    },
+    {
+      "id": "winter:tree_snow_01",
+      "display_name": "Tree snow 01",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/tree_snow_01.glb",
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:tree_snow_02",
+      "display_name": "Tree snow 02",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/tree_snow_02.glb",
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:drift_small",
+      "display_name": "Drift small",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/drift_small.glb",
+      "size": [
+        1.2,
+        0.28,
+        0.8
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:drift_medium",
+      "display_name": "Drift medium",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/drift_medium.glb",
+      "size": [
+        2.4,
+        0.55,
+        1.5
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:drift_large",
+      "display_name": "Drift large",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/drift_large.glb",
+      "size": [
+        4.4,
+        0.9,
+        2.8
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:drift_wall",
+      "display_name": "Drift wall",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/drift_wall.glb",
+      "size": [
+        3,
+        0.65,
+        1.1
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:drift_fence",
+      "display_name": "Drift fence",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/drift_fence.glb",
+      "size": [
+        1.8,
+        0.38,
+        0.7
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:mound_irregular",
+      "display_name": "Mound irregular",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/mound_irregular.glb",
+      "size": [
+        2.1,
+        0.75,
+        1.9
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:boulder_snow",
+      "display_name": "Boulder snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/boulder_snow.glb",
+      "size": [
+        1.4,
+        0.97,
+        1.3
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:rock_face_snow",
+      "display_name": "Rock face snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/rock_face_snow.glb",
+      "size": [
+        4,
+        5.16,
+        2.2
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_door_overhang",
+      "display_name": "Snow door overhang",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_door_overhang.glb",
+      "size": [
+        1.6,
+        0.14,
+        0.55
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_awning",
+      "display_name": "Snow awning",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_awning.glb",
+      "size": [
+        2.4,
+        0.18,
+        2.6
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_stair_edge",
+      "display_name": "Snow stair edge",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_stair_edge.glb",
+      "size": [
+        0.38,
+        0.085,
+        0.8
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_ledge",
+      "display_name": "Snow ledge",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_ledge.glb",
+      "size": [
+        1.2,
+        0.1,
+        0.24
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_roof_edge",
+      "display_name": "Snow roof edge",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_roof_edge.glb",
+      "size": [
+        2.4,
+        0.16,
+        0.36
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_porch_edge",
+      "display_name": "Snow porch edge",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_porch_edge.glb",
+      "size": [
+        1.8,
+        0.1,
+        0.3
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_roof_slope",
+      "display_name": "Snow roof slope",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_roof_slope.glb",
+      "size": [
+        3.4,
+        1.41,
+        2
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_rail_top",
+      "display_name": "Snow rail top",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_rail_top.glb",
+      "size": [
+        1.2,
+        0.075,
+        0.11
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:snow_post_cap",
+      "display_name": "Snow post cap",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/snow_post_cap.glb",
+      "size": [
+        0.12,
+        0.085,
+        0.12
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:railing_snow_straight",
+      "display_name": "Railing snow straight",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/railing_snow_straight.glb",
+      "size": [
+        1.8,
+        1.125,
+        0.16
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:railing_snow_corner",
+      "display_name": "Railing snow corner",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/railing_snow_corner.glb",
+      "size": [
+        0.3,
+        1.125,
+        0.3
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:railing_snow_end",
+      "display_name": "Railing snow end",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/railing_snow_end.glb",
+      "size": [
+        0.3,
+        1.135,
+        0.16
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:fence_post_snow",
+      "display_name": "Fence post snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/fence_post_snow.glb",
+      "size": [
+        0.16,
+        1.135,
+        0.16
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:icicle_short",
+      "display_name": "Icicle short",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/icicle_short.glb",
+      "size": [
+        0.07,
+        0.18,
+        0.07
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:icicle_medium",
+      "display_name": "Icicle medium",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/icicle_medium.glb",
+      "size": [
+        0.1,
+        0.36,
+        0.1
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:icicle_long",
+      "display_name": "Icicle long",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/icicle_long.glb",
+      "size": [
+        0.13,
+        0.65,
+        0.13
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:icicle_cluster_mixed",
+      "display_name": "Icicle cluster mixed",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/icicle_cluster_mixed.glb",
+      "size": [
+        1.2,
+        0.65,
+        0.13
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
+    },
+    {
+      "id": "winter:icicle_cluster_sparse",
+      "display_name": "Icicle cluster sparse",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/icicle_cluster_sparse.glb",
+      "size": [
+        1.2,
+        0.36,
+        0.1
+      ],
+      "color": "#f4f8ff",
+      "category": "Winter",
+      "solid": false
     }
   ]
 }

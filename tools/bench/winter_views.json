@@ -127,5 +127,46 @@
     ],
     "capture_time": 15.7,
     "move_script": "forward@0-15.4"
+  },
+  {
+    "name": "tree-snow",
+    "spawn": [
+      1,
+      -27,
+      -90
+    ],
+    "camera": [
+      -90,
+      12
+    ]
+  },
+  {
+    "name": "entrance-snow",
+    "spawn": [
+      -11.5,
+      -6,
+      0
+    ],
+    "camera": [
+      0,
+      10
+    ]
+  },
+  {
+    "name": "railing-snow",
+    "spawn": [
+      14,
+      -13,
+      90
+    ],
+    "camera": [
+      90,
+      -5
+    ]
+  },
+  {
+    "name": "tree-lit-snow",
+    "spawn": [-2.5, 2, -69],
+    "camera": [-69, 19]
   }
 ]

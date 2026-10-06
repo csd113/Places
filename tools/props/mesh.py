@@ -583,7 +583,8 @@ class Mesh:
     # an empty slot list and the one-material output byte-for-byte.
 
     def material(self, name: str, emissive=None, strength: float = 1.0, color=None,
-                 alpha_mode: str | None = None, alpha_cutoff: float | None = None) -> int:
+                 alpha_mode: str | None = None, alpha_cutoff: float | None = None,
+                 use_texture: bool = True) -> int:
         """Registers (or returns) a material slot.
 
         ``emissive`` is an RGB triple in 0..1, ``strength`` the
@@ -592,6 +593,8 @@ class Mesh:
         ``None``/``"opaque"`` or ``"mask"`` with an optional ``alpha_cutoff``
         (glTF default 0.5); a masked material draws through the game's
         alpha-tested cutout pass, which is how foliage cards work.
+        ``use_texture=False`` uses the runtime's committed white PNG, allowing
+        modular snow to retain an unchanged foliage/wood/rock atlas.
         Re-registering an identical name returns its slot; re-registering it
         differently is a builder bug and raises.
         """
@@ -608,6 +611,7 @@ class Mesh:
             "color": None if color is None else tuple(color),
             "alpha_mode": mode,
             "alpha_cutoff": cutoff,
+            "use_texture": bool(use_texture),
         }
         for index, existing in enumerate(self.materials):
             if existing["name"] == slot["name"]:

@@ -26,7 +26,8 @@ class WinterTests(unittest.TestCase):
     def test_namespace_uses_real_shared_images_and_keeps_original_evergreen(self):
         catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
         assets = {a['id']: a for a in catalog['assets']}
-        for material in (a for a in catalog['assets'] if a.get('theme') == 'winter'):
+        for material in (a for a in catalog['assets'] if a.get('theme') == 'winter'
+                         and a['asset_type'] == 'material'):
             texture = assets[material['texture']]
             self.assertTrue((ROOT / 'assets' / texture['model']).is_file())
             self.assertEqual(texture['source'], 'file')
@@ -35,7 +36,8 @@ class WinterTests(unittest.TestCase):
         self.assertEqual(tree['size'], [3.2, 6.8, 3.2])
         level = author.build_level()
         self.assertFalse(level.get('water'), 'foundation ice is a physical floor, not swimming water')
-        self.assertTrue(any(p['model'] == 'outdoor:tree_03' for p in level['props']))
+        self.assertTrue(any(p['model'] == 'winter:tree_snow_01' for p in level['props']))
+        self.assertTrue(any(p['model'] == 'winter:tree_snow_02' for p in level['props']))
         # Leak waivers must remain outside the world, never conceal an indoor hole.
         for intent in level['geometry_intent']:
             if intent['check'] == 'room-leak':

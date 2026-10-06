@@ -118,6 +118,19 @@ struct ImageIdentity {
     key: String,
 }
 
+fn prop_texture_slot(
+    texture: Option<u16>,
+    texture_base: usize,
+    texture_count: usize,
+    fallback: usize,
+) -> usize {
+    texture
+        .map(usize::from)
+        .filter(|index| *index < texture_count)
+        .and_then(|index| texture_base.checked_add(index))
+        .unwrap_or(fallback)
+}
+
 impl PropUpload {
     pub(crate) fn new(skip_models: &[String], level: QualityLevel) -> Self {
         Self {
@@ -162,6 +175,11 @@ impl PropUpload {
         let identities = &mut self.identities;
         let level = self.level;
         stats.batches = stats.batches.saturating_add(1);
+        // Slot zero is shared white for untextured primitives. A snow cap
+        // must not sample another primitive's foliage, bark or wood atlas.
+        if textures.is_empty() {
+            textures.push(cache.fallback());
+        }
         // The model's sheets, once per texture list entry.
         let texture_base = textures.len();
         for (index, image) in batch.textures.iter().enumerate() {
@@ -218,9 +236,7 @@ impl PropUpload {
             if submesh.index_count == 0 {
                 continue;
             }
-            let texture = texture_base
-                .saturating_add(usize::from(submesh.texture.unwrap_or(0)))
-                .min(textures.len().saturating_sub(1));
+            let texture = prop_texture_slot(submesh.texture, texture_base, batch.textures.len(), 0);
             let mask = submesh
                 .emission
                 .mask
@@ -390,6 +406,21 @@ mod tests {
         let stats = PropGpuStats::default();
         assert_eq!(stats.batches, 0);
         assert_eq!(stats.draws, 0);
+    }
+
+    #[test]
+    fn untextured_snow_does_not_sample_the_canonical_models_atlas() {
+        // Slots 5 and 6 contain the canonical model's images; slot 7 is white.
+        assert_eq!(prop_texture_slot(None, 5, 2, 7), 7);
+        assert_eq!(prop_texture_slot(Some(0), 5, 2, 7), 5);
+        assert_eq!(prop_texture_slot(Some(1), 5, 2, 7), 6);
+        assert_eq!(prop_texture_slot(None, 5, 0, 5), 5);
+    }
+
+    #[test]
+    fn invalid_prop_texture_indices_cannot_sample_another_models_sheet() {
+        assert_eq!(prop_texture_slot(Some(2), 5, 2, 7), 7);
+        assert_eq!(prop_texture_slot(Some(1), usize::MAX, 2, 7), 7);
     }
 
     #[test]

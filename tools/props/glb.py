@@ -486,10 +486,11 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
     uses_emissive_strength = False
     for index, entry in enumerate(materials):
         pbr: Dict[str, Any] = {
-            "baseColorTexture": {"index": 0},
             "metallicFactor": 0.0,
             "roughnessFactor": 1.0,
         }
+        if entry.get("use_texture", True):
+            pbr["baseColorTexture"] = {"index": 0}
         if entry.get("color") is not None:
             pbr["baseColorFactor"] = [round(float(channel) / 255.0, 6) for channel in entry["color"]] + [1.0]
         material: Dict[str, Any] = {

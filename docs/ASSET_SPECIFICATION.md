@@ -778,7 +778,45 @@ The cells are clean yellow, lighter yellow, orange and charcoal material
 swatches; the eye silhouette comes from small closed mesh discs, not alpha.
 The atlas is embedded by `tools/props/parts/duck_remade.py` during export.
 
-### 8.7 Model geometry conventions (for context)
+### 8.7 Winter static snow kit
+
+Winter uses the existing surface/model classes, with no new shader or raster
+contract. `winter:tex_snow_01` is an opaque, seamless 1024² floor sheet at
+`environment/winter/textures/floors/snow_01.png`. Snow and packed snow share
+this source; their world-aligned repeats are 8 m and 5 m respectively. The
+packed material uses a restrained compaction tint. Both are matte and carry
+no normal map, emission or baked directional illumination.
+
+`environment/winter/props/models/snow_surface.png` is its native 256² fitted
+derivative. Modular drifts, architecture caps and icicles embed that PNG;
+their top UVs are continuous across neighbouring facets. All snow/ice shells
+are closed and outward-wound, with no blend materials.
+
+`tools/props/parts/winter.py` imports the committed canonical evergreen,
+rocks and railing meshes verbatim: original vertex positions, indices, UVs,
+colours, atlas layout and MASK foliage remain unchanged. It adds a separate
+`snow_accumulation` mesh/material. This material samples the existing committed
+white sheet through the supported untextured-material path; the original
+embedded atlas and equivalent outdoor standalone PNG stay intact. No snow
+artwork is painted at build/load time. The exporter accepts
+`material(..., use_texture=False)` for that existing runtime contract.
+
+The two evergreen loads are 1238 and 1442 triangles, explicitly reviewed above
+800 because each retains all 770 original triangles plus closed supported
+snow. Every other winter model is below 500 triangles. Tree dimensions remain
+3.2 × 6.8 × 3.2 m; the level retains the original narrow trunk collider.
+Snow on rocks and rails increases their visual envelope only. Their collision
+sizes must remain those of the canonical bare structures.
+
+Modular cap origins are their base-contact plane, centred in X/Z. Sink caps
+8–9 mm into their supports to avoid coplanar seams. Icicle origins are the
+lowest tip, with all roots at the catalogue height; mount the root plane
+15 mm into the underside. Prop Y remains floor-relative. See
+`assets/environment/winter/README.md` for the module dimensions and roof pitch.
+`python3 -m unittest tests.test_winter_assets` protects canonical identity,
+supported snow, UVs, winding, sealed topology, budgets and reproducible exports.
+
+### 8.8 Model geometry conventions (for context)
 
 * 1 model unit = 1 metre; +Y up; +Z is the model's front at
   `rotation_degrees = 0`.

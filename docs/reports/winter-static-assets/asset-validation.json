@@ -1,0 +1,926 @@
+[
+  {
+    "id": "winter:tree_snow_01",
+    "sha256": "0f4ef186efe16b74b6f9c61ca8d2cc6d9b056e2a4e22ec09a2710f4e7e3fffdd",
+    "triangles": 1238,
+    "vertices": 2648,
+    "bounds": [
+      [
+        -1.600000023841858,
+        0.0,
+        -1.600000023841858
+      ],
+      [
+        1.600000023841858,
+        6.800000190734863,
+        1.600000023841858
+      ]
+    ],
+    "size": [
+      3.2,
+      6.8,
+      3.2
+    ],
+    "snow_topology": {
+      "triangles": 468,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 39,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:tree_snow_02",
+    "sha256": "020f36bfa8b6426c38927abe6be0cb0bdc494c5d3badc055708ec93d7c087a82",
+    "triangles": 1442,
+    "vertices": 3124,
+    "bounds": [
+      [
+        -1.600000023841858,
+        0.0,
+        -1.600000023841858
+      ],
+      [
+        1.600000023841858,
+        6.800000190734863,
+        1.600000023841858
+      ]
+    ],
+    "size": [
+      3.2,
+      6.8,
+      3.2
+    ],
+    "snow_topology": {
+      "triangles": 672,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 56,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:drift_small",
+    "sha256": "f5ea57e5c9f5c4d90d663e05e5fdd6410362133f4ed9f902c26b5b46b680b9e9",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.6000000238418579,
+        0.2800000011920929,
+        0.4000000059604645
+      ]
+    ],
+    "size": [
+      1.2,
+      0.28,
+      0.8
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:drift_medium",
+    "sha256": "afcab9c0acd9e9e380d9f358e167e41ecf9ef0c175221b5dd62f27c1f63b3cd6",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -1.2000000476837158,
+        0.0,
+        -0.75
+      ],
+      [
+        1.2000000476837158,
+        0.550000011920929,
+        0.75
+      ]
+    ],
+    "size": [
+      2.4,
+      0.55,
+      1.5
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:drift_large",
+    "sha256": "c2910d8f1bb22f13b61cae349645aa0fab6be513e08303b64930d9af8881e391",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -2.200000047683716,
+        0.0,
+        -1.399999976158142
+      ],
+      [
+        2.200000047683716,
+        0.8999999761581421,
+        1.399999976158142
+      ]
+    ],
+    "size": [
+      4.4,
+      0.9,
+      2.8
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:drift_wall",
+    "sha256": "23a766d7dd0420f6252f92ba5f5969c6e84af455bc7e0e3010458a9850745ce1",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -1.5,
+        0.0,
+        -0.550000011920929
+      ],
+      [
+        1.5,
+        0.6499999761581421,
+        0.550000011920929
+      ]
+    ],
+    "size": [
+      3,
+      0.65,
+      1.1
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:drift_fence",
+    "sha256": "be1b59adf75a4c994ebf861f9f79a90cd52869e0fb49b96d7ace478d793720dc",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -0.8999999761581421,
+        0.0,
+        -0.3499999940395355
+      ],
+      [
+        0.8999999761581421,
+        0.3799999952316284,
+        0.3499999940395355
+      ]
+    ],
+    "size": [
+      1.8,
+      0.38,
+      0.7
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:mound_irregular",
+    "sha256": "353e73ad35fe11351f7ce79dcbfe93d51da2c7a5889f01fa813cd735c206c5b7",
+    "triangles": 72,
+    "vertices": 168,
+    "bounds": [
+      [
+        -1.0499999523162842,
+        0.0,
+        -0.949999988079071
+      ],
+      [
+        1.0499999523162842,
+        0.75,
+        0.949999988079071
+      ]
+    ],
+    "size": [
+      2.1,
+      0.75,
+      1.9
+    ],
+    "snow_topology": {
+      "triangles": 72,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:boulder_snow",
+    "sha256": "63f4cf99527d25f97fabdefa434d8d5c89efa9b8aec3057441f152a75f447f65",
+    "triangles": 116,
+    "vertices": 276,
+    "bounds": [
+      [
+        -0.699999988079071,
+        0.0,
+        -0.6499999761581421
+      ],
+      [
+        0.699999988079071,
+        0.9625390768051147,
+        0.6499999761581421
+      ]
+    ],
+    "size": [
+      1.4,
+      0.97,
+      1.3
+    ],
+    "snow_topology": {
+      "triangles": 44,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:rock_face_snow",
+    "sha256": "bddfc9b03f79442fa247b68c463f2f12b5b33baf2dd22ca34b3b17da53b50607",
+    "triangles": 76,
+    "vertices": 180,
+    "bounds": [
+      [
+        -2.0,
+        0.0,
+        -1.100000023841858
+      ],
+      [
+        2.0,
+        5.158791542053223,
+        1.100000023841858
+      ]
+    ],
+    "size": [
+      4,
+      5.16,
+      2.2
+    ],
+    "snow_topology": {
+      "triangles": 28,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_door_overhang",
+    "sha256": "1214f4bd66ca068be22245243e668f04314568dfbe1682c0d471d7938ec48afa",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.800000011920929,
+        0.0,
+        -0.2750000059604645
+      ],
+      [
+        0.800000011920929,
+        0.14000000059604645,
+        0.2750000059604645
+      ]
+    ],
+    "size": [
+      1.6,
+      0.14,
+      0.55
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_awning",
+    "sha256": "a95c2414de9b2e869241b04155e31f550898e3a239d7e5a77f81a2c04726110a",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -1.2000000476837158,
+        0.0,
+        -1.2999999523162842
+      ],
+      [
+        1.2000000476837158,
+        0.18000000715255737,
+        1.2999999523162842
+      ]
+    ],
+    "size": [
+      2.4,
+      0.18,
+      2.6
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_stair_edge",
+    "sha256": "be938624537f3e1319936a46a49da0db50af09e5f5ab806e873fffe6b661a8af",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.1899999976158142,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.1899999976158142,
+        0.08500000089406967,
+        0.4000000059604645
+      ]
+    ],
+    "size": [
+      0.38,
+      0.085,
+      0.8
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_ledge",
+    "sha256": "12050cb1df01352263235520296acc3190875ff991e63d55a67081c292545259",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.11999999731779099
+      ],
+      [
+        0.6000000238418579,
+        0.10000000149011612,
+        0.11999999731779099
+      ]
+    ],
+    "size": [
+      1.2,
+      0.1,
+      0.24
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_roof_edge",
+    "sha256": "be2be793abc52990f4e8fede9cd57875edfa4b029d9052cd99f3744c27cc358b",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -1.2000000476837158,
+        0.0,
+        -0.18000000715255737
+      ],
+      [
+        1.2000000476837158,
+        0.1599999964237213,
+        0.18000000715255737
+      ]
+    ],
+    "size": [
+      2.4,
+      0.16,
+      0.36
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_porch_edge",
+    "sha256": "b4ae6438158b925889c1c36d644476caf139ae1f3c840e2a4c6250f518d8ad62",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.8999999761581421,
+        0.0,
+        -0.15000000596046448
+      ],
+      [
+        0.8999999761581421,
+        0.10000000149011612,
+        0.15000000596046448
+      ]
+    ],
+    "size": [
+      1.8,
+      0.1,
+      0.3
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_roof_slope",
+    "sha256": "2c4c06895e1d4cb56eda5571fc0d8767df0755269e6a23f98b354cdbfe880195",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -1.7000000476837158,
+        0.0,
+        -1.0
+      ],
+      [
+        1.7000000476837158,
+        1.3746154308319092,
+        1.0
+      ]
+    ],
+    "size": [
+      3.4,
+      1.41,
+      2
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_rail_top",
+    "sha256": "91c106f79d6175cd7163c163517662b57242ac4fe7f988b775b6f84e9787f45e",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.054999999701976776
+      ],
+      [
+        0.6000000238418579,
+        0.07500000298023224,
+        0.054999999701976776
+      ]
+    ],
+    "size": [
+      1.2,
+      0.075,
+      0.11
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:snow_post_cap",
+    "sha256": "eda52d74184d38c80df245426aa6b22ab81a163cd3840e0161ee268bf3616a7e",
+    "triangles": 66,
+    "vertices": 138,
+    "bounds": [
+      [
+        -0.05999999865889549,
+        0.0,
+        -0.05999999865889549
+      ],
+      [
+        0.05999999865889549,
+        0.08500000089406967,
+        0.05999999865889549
+      ]
+    ],
+    "size": [
+      0.12,
+      0.085,
+      0.12
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:railing_snow_straight",
+    "sha256": "e4acc865a07ae0b6bb52f2d9824a3d9179ad0e9345f67cc90156b0f5dcc45028",
+    "triangles": 336,
+    "vertices": 716,
+    "bounds": [
+      [
+        -0.8999999761581421,
+        0.0,
+        -0.07999999821186066
+      ],
+      [
+        0.8999999761581421,
+        1.1160000562667847,
+        0.07999999821186066
+      ]
+    ],
+    "size": [
+      1.8,
+      1.125,
+      0.16
+    ],
+    "snow_topology": {
+      "triangles": 132,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 2,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:railing_snow_corner",
+    "sha256": "9347143f9b767949b999cb312c73b5cba5e82ac12cbfbe6e0db7a9d34bfe4a4e",
+    "triangles": 244,
+    "vertices": 524,
+    "bounds": [
+      [
+        -0.15000000596046448,
+        0.0,
+        -0.15000000596046448
+      ],
+      [
+        0.15000000596046448,
+        1.1239999532699585,
+        0.15000000596046448
+      ]
+    ],
+    "size": [
+      0.3,
+      1.125,
+      0.3
+    ],
+    "snow_topology": {
+      "triangles": 132,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 2,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:railing_snow_end",
+    "sha256": "af15f949b2bd64e0554796b43bbfbeae439c816d43c2cd8c32f7d5a95648e0be",
+    "triangles": 318,
+    "vertices": 722,
+    "bounds": [
+      [
+        -0.15000000596046448,
+        0.0,
+        -0.07999999821186066
+      ],
+      [
+        0.15000000596046448,
+        1.1260000467300415,
+        0.07999999821186066
+      ]
+    ],
+    "size": [
+      0.3,
+      1.135,
+      0.16
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:fence_post_snow",
+    "sha256": "efe1011fc186cb9d3efc4a063791d9674c5c10c411c84af58c257d8dfe57b101",
+    "triangles": 94,
+    "vertices": 202,
+    "bounds": [
+      [
+        -0.07999999821186066,
+        0.0,
+        -0.07999999821186066
+      ],
+      [
+        0.07999999821186066,
+        1.1260000467300415,
+        0.07999999821186066
+      ]
+    ],
+    "size": [
+      0.16,
+      1.135,
+      0.16
+    ],
+    "snow_topology": {
+      "triangles": 66,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:icicle_short",
+    "sha256": "e328c055df0f652659ef3c1c8c2d431213b4954f6259d491f0dc3691574ee5e8",
+    "triangles": 8,
+    "vertices": 24,
+    "bounds": [
+      [
+        -0.03500000014901161,
+        0.0,
+        -0.03500000014901161
+      ],
+      [
+        0.03500000014901161,
+        0.18000000715255737,
+        0.03500000014901161
+      ]
+    ],
+    "size": [
+      0.07,
+      0.18,
+      0.07
+    ],
+    "snow_topology": {
+      "triangles": 8,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:icicle_medium",
+    "sha256": "bac8f97a91bac203184f260f352a9617691563bec2c7b9bed94fc933533b8307",
+    "triangles": 8,
+    "vertices": 24,
+    "bounds": [
+      [
+        -0.05000000074505806,
+        0.0,
+        -0.05000000074505806
+      ],
+      [
+        0.05000000074505806,
+        0.36000001430511475,
+        0.05000000074505806
+      ]
+    ],
+    "size": [
+      0.1,
+      0.36,
+      0.1
+    ],
+    "snow_topology": {
+      "triangles": 8,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:icicle_long",
+    "sha256": "403c680875115312a2a8bedf7b6d90f0cfee081d31cca8274037509c2eaada98",
+    "triangles": 8,
+    "vertices": 24,
+    "bounds": [
+      [
+        -0.06499999761581421,
+        0.0,
+        -0.06499999761581421
+      ],
+      [
+        0.06499999761581421,
+        0.6499999761581421,
+        0.06499999761581421
+      ]
+    ],
+    "size": [
+      0.13,
+      0.65,
+      0.13
+    ],
+    "snow_topology": {
+      "triangles": 8,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:icicle_cluster_mixed",
+    "sha256": "d3d1979823d7bd66c3a2a7a965926d9bdb0a8ea11af3953f769fd57e8ae52432",
+    "triangles": 56,
+    "vertices": 168,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.06499999761581421
+      ],
+      [
+        0.6000000238418579,
+        0.6499999761581421,
+        0.06499999761581421
+      ]
+    ],
+    "size": [
+      1.2,
+      0.65,
+      0.13
+    ],
+    "snow_topology": {
+      "triangles": 56,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 7,
+      "contradictory_components": 0
+    }
+  },
+  {
+    "id": "winter:icicle_cluster_sparse",
+    "sha256": "5e1336f902bb716a9dfb5eede8ae0c154e17795725c7c29175afa73667df29ba",
+    "triangles": 24,
+    "vertices": 72,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.05000000074505806
+      ],
+      [
+        0.6000000238418579,
+        0.36000001430511475,
+        0.05000000074505806
+      ]
+    ],
+    "size": [
+      1.2,
+      0.36,
+      0.1
+    ],
+    "snow_topology": {
+      "triangles": 24,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 3,
+      "contradictory_components": 0
+    }
+  }
+]

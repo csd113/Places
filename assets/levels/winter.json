@@ -53,7 +53,7 @@
         "ridge_rise": 1.6
       },
       "ceiling_material": "home:ceiling_white_01",
-      "comment": "Raised lodge: shared shingle roof with temporary snow eaves."
+      "comment": "Raised lodge: shared shingle roof with separate modeled snow caps."
     },
     {
       "x": 8,
@@ -69,7 +69,7 @@
         "ridge_rise": 1.6
       },
       "ceiling_material": "home:ceiling_white_01",
-      "comment": "Cottage 1: shared shingle roof with temporary snow eaves."
+      "comment": "Cottage 1: shared shingle roof with separate modeled snow caps."
     },
     {
       "x": -17,
@@ -85,7 +85,7 @@
         "ridge_rise": 1.6
       },
       "ceiling_material": "home:ceiling_white_01",
-      "comment": "Cottage 2: shared shingle roof with temporary snow eaves."
+      "comment": "Cottage 2: shared shingle roof with separate modeled snow caps."
     },
     {
       "x": 4,
@@ -1726,7 +1726,7 @@
     },
     {
       "id": "boulder_0",
-      "model": "outdoor:showcase_boulder",
+      "model": "winter:boulder_snow",
       "x": 7,
       "z": -18,
       "solid": true,
@@ -1738,7 +1738,7 @@
     },
     {
       "id": "boulder_1",
-      "model": "outdoor:showcase_boulder",
+      "model": "winter:boulder_snow",
       "x": 18.8,
       "z": -10,
       "rotation_degrees": 47,
@@ -1752,7 +1752,7 @@
     },
     {
       "id": "boulder_2",
-      "model": "outdoor:showcase_boulder",
+      "model": "winter:boulder_snow",
       "x": 5,
       "z": -5,
       "rotation_degrees": 94,
@@ -1779,7 +1779,7 @@
     },
     {
       "id": "boulder_4",
-      "model": "outdoor:showcase_boulder",
+      "model": "winter:boulder_snow",
       "x": -5,
       "z": 6,
       "rotation_degrees": 188,
@@ -1835,36 +1835,36 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_1",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -34.2,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_2",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -30.4,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -1877,36 +1877,36 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_4",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -22.8,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_5",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -19.0,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -1919,36 +1919,36 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_7",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -11.4,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_8",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": -7.6,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -1961,36 +1961,36 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_10",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": 0.0,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_11",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": 3.8,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2003,36 +2003,36 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_13",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": 11.4,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_west_14",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -24,
       "z": 15.2,
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2045,8 +2045,8 @@
       "rotation_degrees": 90,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2059,36 +2059,36 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_1",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -34.2,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_2",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -30.4,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2101,36 +2101,36 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_4",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -22.8,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_5",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -19.0,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2143,36 +2143,36 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_7",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -11.4,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_8",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": -7.6,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2185,36 +2185,36 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_10",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": 0.0,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_11",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": 3.8,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2227,36 +2227,36 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_13",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": 11.4,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_east_14",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 24,
       "z": 15.2,
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2269,8 +2269,8 @@
       "rotation_degrees": 270,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2282,34 +2282,34 @@
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_1",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -19.2,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_2",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -15.4,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2321,34 +2321,34 @@
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_4",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -7.8,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_5",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -4.0,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2360,34 +2360,34 @@
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_7",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 3.6,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_8",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 7.4,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2399,34 +2399,34 @@
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_10",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 15.0,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_north_11",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 18.8,
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2438,8 +2438,8 @@
       "z": -40,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2452,36 +2452,36 @@
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_1",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -19.2,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_2",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -15.4,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2494,36 +2494,36 @@
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_4",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -7.8,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_5",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": -4.0,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2536,36 +2536,36 @@
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_7",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 3.6,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_8",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 7.4,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2578,36 +2578,36 @@
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_10",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 15.0,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "boundary_south_11",
-      "model": "outdoor:showcase_rock_face",
+      "model": "winter:rock_face_snow",
       "x": 18.8,
       "z": 20,
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
@@ -2620,15 +2620,15 @@
       "rotation_degrees": 180,
       "solid": true,
       "size": [
-        4.0,
-        5.0,
+        4,
+        5,
         2.2
       ],
       "occludes": false
     },
     {
       "id": "forest_0_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.0062,
       "z": -35.7912,
       "rotation_degrees": 330.1805,
@@ -2643,7 +2643,7 @@
     },
     {
       "id": "forest_0_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -15.6604,
       "z": -36.3202,
       "rotation_degrees": 225.1324,
@@ -2658,7 +2658,7 @@
     },
     {
       "id": "forest_0_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -11.5687,
       "z": -35.6887,
       "rotation_degrees": 38.7834,
@@ -2673,7 +2673,7 @@
     },
     {
       "id": "forest_0_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -8.5036,
       "z": -36.2912,
       "rotation_degrees": 207.1721,
@@ -2688,7 +2688,7 @@
     },
     {
       "id": "forest_0_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -4.3387,
       "z": -36.4969,
       "rotation_degrees": 179.5142,
@@ -2703,7 +2703,7 @@
     },
     {
       "id": "forest_0_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 3.9494,
       "z": -36.5649,
       "rotation_degrees": 35.1342,
@@ -2718,7 +2718,7 @@
     },
     {
       "id": "forest_0_7",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 7.6192,
       "z": -36.2724,
       "rotation_degrees": 139.3815,
@@ -2733,7 +2733,7 @@
     },
     {
       "id": "forest_0_8",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 12.506,
       "z": -36.3277,
       "rotation_degrees": 183.664,
@@ -2748,7 +2748,7 @@
     },
     {
       "id": "forest_0_9",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 16.156,
       "z": -36.3067,
       "rotation_degrees": 75.4021,
@@ -2763,7 +2763,7 @@
     },
     {
       "id": "forest_0_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 20.5248,
       "z": -35.4745,
       "rotation_degrees": 178.6011,
@@ -2778,7 +2778,7 @@
     },
     {
       "id": "forest_1_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -19.4781,
       "z": -32.5515,
       "rotation_degrees": 256.7159,
@@ -2793,7 +2793,7 @@
     },
     {
       "id": "forest_1_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -16.1785,
       "z": -32.4595,
       "rotation_degrees": 251.5669,
@@ -2808,7 +2808,7 @@
     },
     {
       "id": "forest_1_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -12.5545,
       "z": -32.248,
       "rotation_degrees": 66.5955,
@@ -2823,7 +2823,7 @@
     },
     {
       "id": "forest_1_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -8.415,
       "z": -31.5276,
       "rotation_degrees": 46.6603,
@@ -2838,7 +2838,7 @@
     },
     {
       "id": "forest_1_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -4.5596,
       "z": -32.4725,
       "rotation_degrees": 231.8341,
@@ -2853,7 +2853,7 @@
     },
     {
       "id": "forest_1_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 3.4847,
       "z": -31.5123,
       "rotation_degrees": 269.4948,
@@ -2868,7 +2868,7 @@
     },
     {
       "id": "forest_1_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 19.5263,
       "z": -31.5293,
       "rotation_degrees": 209.505,
@@ -2883,7 +2883,7 @@
     },
     {
       "id": "forest_2_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -19.7476,
       "z": -28.5725,
       "rotation_degrees": 144.9856,
@@ -2898,7 +2898,7 @@
     },
     {
       "id": "forest_2_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -16.1539,
       "z": -28.0335,
       "rotation_degrees": 23.3626,
@@ -2913,7 +2913,7 @@
     },
     {
       "id": "forest_2_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -12.3963,
       "z": -27.6079,
       "rotation_degrees": 82.0985,
@@ -2928,7 +2928,7 @@
     },
     {
       "id": "forest_2_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -8.1042,
       "z": -27.8889,
       "rotation_degrees": 193.4928,
@@ -2943,7 +2943,7 @@
     },
     {
       "id": "forest_2_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -4.1693,
       "z": -27.5179,
       "rotation_degrees": 104.4334,
@@ -2958,7 +2958,7 @@
     },
     {
       "id": "forest_2_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 4.0631,
       "z": -27.6199,
       "rotation_degrees": 30.1652,
@@ -2973,7 +2973,7 @@
     },
     {
       "id": "forest_2_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 19.4165,
       "z": -28.0065,
       "rotation_degrees": 163.8553,
@@ -2988,7 +2988,7 @@
     },
     {
       "id": "forest_3_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.0872,
       "z": -23.7409,
       "rotation_degrees": 35.2728,
@@ -3003,7 +3003,7 @@
     },
     {
       "id": "forest_3_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -16.2301,
       "z": -24.1001,
       "rotation_degrees": 13.8248,
@@ -3018,7 +3018,7 @@
     },
     {
       "id": "forest_3_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -12.2794,
       "z": -23.9577,
       "rotation_degrees": 201.4496,
@@ -3033,7 +3033,7 @@
     },
     {
       "id": "forest_3_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -8.3093,
       "z": -23.7592,
       "rotation_degrees": 202.6325,
@@ -3048,7 +3048,7 @@
     },
     {
       "id": "forest_3_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -4.4296,
       "z": -23.5873,
       "rotation_degrees": 267.2492,
@@ -3063,7 +3063,7 @@
     },
     {
       "id": "forest_3_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 3.9175,
       "z": -24.5696,
       "rotation_degrees": 97.1944,
@@ -3078,7 +3078,7 @@
     },
     {
       "id": "forest_3_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 20.5707,
       "z": -24.4047,
       "rotation_degrees": 327.134,
@@ -3093,7 +3093,7 @@
     },
     {
       "id": "forest_4_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.0877,
       "z": -19.7187,
       "rotation_degrees": 348.1267,
@@ -3108,7 +3108,7 @@
     },
     {
       "id": "forest_4_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -16.0148,
       "z": -20.2875,
       "rotation_degrees": 193.0533,
@@ -3123,7 +3123,7 @@
     },
     {
       "id": "forest_4_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -12.2272,
       "z": -20.5081,
       "rotation_degrees": 94.3696,
@@ -3138,7 +3138,7 @@
     },
     {
       "id": "forest_4_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -7.7653,
       "z": -20.4064,
       "rotation_degrees": 322.2864,
@@ -3153,7 +3153,7 @@
     },
     {
       "id": "forest_4_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -3.5211,
       "z": -19.4172,
       "rotation_degrees": 346.331,
@@ -3168,7 +3168,7 @@
     },
     {
       "id": "forest_5_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.2222,
       "z": -15.4894,
       "rotation_degrees": 142.8054,
@@ -3183,7 +3183,7 @@
     },
     {
       "id": "forest_5_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -3.5772,
       "z": -16.3821,
       "rotation_degrees": 0.0847,
@@ -3198,7 +3198,7 @@
     },
     {
       "id": "forest_6_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.1511,
       "z": -11.7136,
       "rotation_degrees": 357.1685,
@@ -3213,7 +3213,7 @@
     },
     {
       "id": "forest_6_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -4.5664,
       "z": -12.234,
       "rotation_degrees": 75.2188,
@@ -3228,7 +3228,7 @@
     },
     {
       "id": "forest_7_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.0338,
       "z": -8.1361,
       "rotation_degrees": 168.39,
@@ -3243,7 +3243,7 @@
     },
     {
       "id": "forest_7_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -4.388,
       "z": -8.2732,
       "rotation_degrees": 277.7219,
@@ -3258,7 +3258,7 @@
     },
     {
       "id": "forest_7_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 20.4428,
       "z": -7.4449,
       "rotation_degrees": 336.9747,
@@ -3273,7 +3273,7 @@
     },
     {
       "id": "forest_8_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -19.537,
       "z": -4.1365,
       "rotation_degrees": 256.1518,
@@ -3288,7 +3288,7 @@
     },
     {
       "id": "forest_9_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.2138,
       "z": 0.52,
       "rotation_degrees": 87.9509,
@@ -3303,7 +3303,7 @@
     },
     {
       "id": "forest_9_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -15.429,
       "z": 0.2053,
       "rotation_degrees": 123.7336,
@@ -3318,7 +3318,7 @@
     },
     {
       "id": "forest_9_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -11.8702,
       "z": 0.4365,
       "rotation_degrees": 107.078,
@@ -3333,7 +3333,7 @@
     },
     {
       "id": "forest_9_3",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -7.5593,
       "z": 0.0518,
       "rotation_degrees": 233.0917,
@@ -3348,7 +3348,7 @@
     },
     {
       "id": "forest_10_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.4342,
       "z": 4.0012,
       "rotation_degrees": 114.8136,
@@ -3363,7 +3363,7 @@
     },
     {
       "id": "forest_10_7",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 8.0226,
       "z": 4.1532,
       "rotation_degrees": 78.5002,
@@ -3378,7 +3378,7 @@
     },
     {
       "id": "forest_10_8",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 12.087,
       "z": 3.6468,
       "rotation_degrees": 44.8504,
@@ -3393,7 +3393,7 @@
     },
     {
       "id": "forest_10_9",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 16.1073,
       "z": 3.856,
       "rotation_degrees": 59.7187,
@@ -3408,7 +3408,7 @@
     },
     {
       "id": "forest_10_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 19.5934,
       "z": 3.8027,
       "rotation_degrees": 242.4904,
@@ -3423,7 +3423,7 @@
     },
     {
       "id": "forest_11_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.0336,
       "z": 8.3691,
       "rotation_degrees": 220.3452,
@@ -3438,7 +3438,7 @@
     },
     {
       "id": "forest_11_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -3.8583,
       "z": 7.4826,
       "rotation_degrees": 94.72,
@@ -3453,7 +3453,7 @@
     },
     {
       "id": "forest_11_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 4.3645,
       "z": 8.1923,
       "rotation_degrees": 344.8613,
@@ -3468,7 +3468,7 @@
     },
     {
       "id": "forest_11_7",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 7.6753,
       "z": 7.999,
       "rotation_degrees": 56.5723,
@@ -3483,7 +3483,7 @@
     },
     {
       "id": "forest_11_8",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 11.6626,
       "z": 7.4766,
       "rotation_degrees": 144.0254,
@@ -3498,7 +3498,7 @@
     },
     {
       "id": "forest_11_9",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 16.1099,
       "z": 8.06,
       "rotation_degrees": 321.0144,
@@ -3513,7 +3513,7 @@
     },
     {
       "id": "forest_11_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 20.5215,
       "z": 8.3779,
       "rotation_degrees": 157.9843,
@@ -3528,7 +3528,7 @@
     },
     {
       "id": "forest_12_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.5155,
       "z": 11.4098,
       "rotation_degrees": 178.1392,
@@ -3543,7 +3543,7 @@
     },
     {
       "id": "forest_12_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 3.5655,
       "z": 12.4178,
       "rotation_degrees": 100.3034,
@@ -3558,7 +3558,7 @@
     },
     {
       "id": "forest_12_7",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 8.5463,
       "z": 12.0903,
       "rotation_degrees": 296.3318,
@@ -3573,7 +3573,7 @@
     },
     {
       "id": "forest_12_8",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 11.864,
       "z": 12.5106,
       "rotation_degrees": 157.0209,
@@ -3588,7 +3588,7 @@
     },
     {
       "id": "forest_12_9",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 16.3454,
       "z": 12.1312,
       "rotation_degrees": 320.0513,
@@ -3603,7 +3603,7 @@
     },
     {
       "id": "forest_12_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 19.9925,
       "z": 11.9569,
       "rotation_degrees": 199.482,
@@ -3618,7 +3618,7 @@
     },
     {
       "id": "forest_13_0",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -20.1146,
       "z": 15.8989,
       "rotation_degrees": 53.0789,
@@ -3633,7 +3633,7 @@
     },
     {
       "id": "forest_13_1",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": -16.493,
       "z": 15.6787,
       "rotation_degrees": 53.5886,
@@ -3648,7 +3648,7 @@
     },
     {
       "id": "forest_13_2",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -12.4474,
       "z": 16.43,
       "rotation_degrees": 152.927,
@@ -3663,7 +3663,7 @@
     },
     {
       "id": "forest_13_4",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": -3.7493,
       "z": 16.3888,
       "rotation_degrees": 181.819,
@@ -3678,7 +3678,7 @@
     },
     {
       "id": "forest_13_6",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 3.6427,
       "z": 16.0031,
       "rotation_degrees": 154.7505,
@@ -3693,7 +3693,7 @@
     },
     {
       "id": "forest_13_7",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 8.4522,
       "z": 16.1097,
       "rotation_degrees": 107.8598,
@@ -3708,7 +3708,7 @@
     },
     {
       "id": "forest_13_8",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_01",
       "x": 11.5498,
       "z": 16.1156,
       "rotation_degrees": 286.5171,
@@ -3723,7 +3723,7 @@
     },
     {
       "id": "forest_13_9",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 16.5545,
       "z": 15.5882,
       "rotation_degrees": 10.4003,
@@ -3738,7 +3738,7 @@
     },
     {
       "id": "forest_13_10",
-      "model": "outdoor:tree_03",
+      "model": "winter:tree_snow_02",
       "x": 20.2596,
       "z": 15.6085,
       "rotation_degrees": 52.5751,
@@ -3750,6 +3750,923 @@
         0.6
       ],
       "occludes": false
+    },
+    {
+      "id": "home_0_snow_roof_0_front",
+      "model": "winter:snow_roof_slope",
+      "x": -13.88,
+      "z": -11.04,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_0_snow_roof_0_back",
+      "model": "winter:snow_roof_slope",
+      "x": -13.88,
+      "z": -14.96,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_0_snow_roof_1_front",
+      "model": "winter:snow_roof_slope",
+      "x": -9.12,
+      "z": -11.04,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_0_snow_roof_1_back",
+      "model": "winter:snow_roof_slope",
+      "x": -9.12,
+      "z": -14.96,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_0_snow_eave_0",
+      "model": "winter:snow_roof_edge",
+      "x": -15.1,
+      "z": -9.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_0_snow_eave_1",
+      "model": "winter:snow_roof_edge",
+      "x": -12.7,
+      "z": -9.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_0_snow_eave_2",
+      "model": "winter:snow_roof_edge",
+      "x": -10.3,
+      "z": -9.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_0_snow_eave_3",
+      "model": "winter:snow_roof_edge",
+      "x": -7.9,
+      "z": -9.5,
+      "y": 3.516
+    },
+    {
+      "id": "home_0_snow_sill_0",
+      "model": "winter:snow_ledge",
+      "x": -14.35,
+      "z": -9.86,
+      "y": 1.002
+    },
+    {
+      "id": "home_0_sill_icicle_0",
+      "model": "winter:icicle_short",
+      "x": -14.13,
+      "z": -9.76,
+      "y": 0.775
+    },
+    {
+      "id": "home_0_snow_sill_1",
+      "model": "winter:snow_ledge",
+      "x": -8.65,
+      "z": -9.86,
+      "y": 1.002
+    },
+    {
+      "id": "home_0_sill_icicle_1",
+      "model": "winter:icicle_short",
+      "x": -8.43,
+      "z": -9.76,
+      "y": 0.775
+    },
+    {
+      "id": "home_0_wall_drift_0",
+      "model": "winter:drift_wall",
+      "x": -15.1,
+      "z": -9.69,
+      "y": -0.008,
+      "scale": 0.65
+    },
+    {
+      "id": "home_0_wall_drift_1",
+      "model": "winter:drift_wall",
+      "x": -7.9,
+      "z": -9.8,
+      "y": -0.008,
+      "rotation_degrees": 8,
+      "scale": 0.65
+    },
+    {
+      "id": "home_0_side_drift",
+      "model": "winter:drift_medium",
+      "x": -16.68,
+      "z": -14.5,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "home_1_snow_roof_0_front",
+      "model": "winter:snow_roof_slope",
+      "x": 10.12,
+      "z": -25.04,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_1_snow_roof_0_back",
+      "model": "winter:snow_roof_slope",
+      "x": 10.12,
+      "z": -28.96,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_1_snow_roof_1_front",
+      "model": "winter:snow_roof_slope",
+      "x": 14.88,
+      "z": -25.04,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_1_snow_roof_1_back",
+      "model": "winter:snow_roof_slope",
+      "x": 14.88,
+      "z": -28.96,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_1_snow_eave_0",
+      "model": "winter:snow_roof_edge",
+      "x": 8.9,
+      "z": -23.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_1_eave_icicles_0",
+      "model": "winter:icicle_cluster_mixed",
+      "x": 8.9,
+      "z": -23.4,
+      "y": 2.065
+    },
+    {
+      "id": "home_1_snow_eave_1",
+      "model": "winter:snow_roof_edge",
+      "x": 11.3,
+      "z": -23.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_1_snow_eave_2",
+      "model": "winter:snow_roof_edge",
+      "x": 13.7,
+      "z": -23.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_1_snow_eave_3",
+      "model": "winter:snow_roof_edge",
+      "x": 16.1,
+      "z": -23.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_1_eave_icicles_3",
+      "model": "winter:icicle_cluster_sparse",
+      "x": 16.1,
+      "z": -23.4,
+      "y": 2.355
+    },
+    {
+      "id": "home_1_snow_sill_0",
+      "model": "winter:snow_ledge",
+      "x": 9.65,
+      "z": -23.86,
+      "y": 1.002
+    },
+    {
+      "id": "home_1_sill_icicle_0",
+      "model": "winter:icicle_short",
+      "x": 9.87,
+      "z": -23.76,
+      "y": 0.775
+    },
+    {
+      "id": "home_1_snow_sill_1",
+      "model": "winter:snow_ledge",
+      "x": 15.35,
+      "z": -23.86,
+      "y": 1.002
+    },
+    {
+      "id": "home_1_sill_icicle_1",
+      "model": "winter:icicle_short",
+      "x": 15.57,
+      "z": -23.76,
+      "y": 0.775
+    },
+    {
+      "id": "home_1_door_snow",
+      "model": "winter:snow_door_overhang",
+      "x": 12.5,
+      "z": -23.695,
+      "y": 2.372
+    },
+    {
+      "id": "home_1_door_icicles",
+      "model": "winter:icicle_cluster_sparse",
+      "x": 12.5,
+      "z": -23.45,
+      "y": 1.935
+    },
+    {
+      "id": "home_1_wall_drift_0",
+      "model": "winter:drift_wall",
+      "x": 8.9,
+      "z": -23.69,
+      "y": -0.008,
+      "scale": 0.65
+    },
+    {
+      "id": "home_1_wall_drift_1",
+      "model": "winter:drift_wall",
+      "x": 16.1,
+      "z": -23.8,
+      "y": -0.008,
+      "rotation_degrees": 8,
+      "scale": 0.65
+    },
+    {
+      "id": "home_1_side_drift",
+      "model": "winter:drift_medium",
+      "x": 7.32,
+      "z": -28.5,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "home_2_snow_roof_0_front",
+      "model": "winter:snow_roof_slope",
+      "x": -14.88,
+      "z": 8.96,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_2_snow_roof_0_back",
+      "model": "winter:snow_roof_slope",
+      "x": -14.88,
+      "z": 5.04,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_2_snow_roof_1_front",
+      "model": "winter:snow_roof_slope",
+      "x": -10.12,
+      "z": 8.96,
+      "y": 2.9838,
+      "scale": 1.4
+    },
+    {
+      "id": "home_2_snow_roof_1_back",
+      "model": "winter:snow_roof_slope",
+      "x": -10.12,
+      "z": 5.04,
+      "y": 2.9838,
+      "rotation_degrees": 180,
+      "scale": 1.4
+    },
+    {
+      "id": "home_2_snow_eave_0",
+      "model": "winter:snow_roof_edge",
+      "x": -16.1,
+      "z": 10.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_2_eave_icicles_0",
+      "model": "winter:icicle_cluster_mixed",
+      "x": -16.1,
+      "z": 10.6,
+      "y": 2.065
+    },
+    {
+      "id": "home_2_snow_eave_1",
+      "model": "winter:snow_roof_edge",
+      "x": -13.7,
+      "z": 10.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_2_snow_eave_2",
+      "model": "winter:snow_roof_edge",
+      "x": -11.3,
+      "z": 10.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_2_snow_eave_3",
+      "model": "winter:snow_roof_edge",
+      "x": -8.9,
+      "z": 10.5,
+      "y": 2.916
+    },
+    {
+      "id": "home_2_eave_icicles_3",
+      "model": "winter:icicle_cluster_sparse",
+      "x": -8.9,
+      "z": 10.6,
+      "y": 2.355
+    },
+    {
+      "id": "home_2_snow_sill_0",
+      "model": "winter:snow_ledge",
+      "x": -15.35,
+      "z": 10.14,
+      "y": 1.002
+    },
+    {
+      "id": "home_2_sill_icicle_0",
+      "model": "winter:icicle_short",
+      "x": -15.13,
+      "z": 10.24,
+      "y": 0.775
+    },
+    {
+      "id": "home_2_snow_sill_1",
+      "model": "winter:snow_ledge",
+      "x": -9.65,
+      "z": 10.14,
+      "y": 1.002
+    },
+    {
+      "id": "home_2_sill_icicle_1",
+      "model": "winter:icicle_short",
+      "x": -9.43,
+      "z": 10.24,
+      "y": 0.775
+    },
+    {
+      "id": "home_2_door_snow",
+      "model": "winter:snow_door_overhang",
+      "x": -12.5,
+      "z": 10.305,
+      "y": 2.372
+    },
+    {
+      "id": "home_2_door_icicles",
+      "model": "winter:icicle_cluster_sparse",
+      "x": -12.5,
+      "z": 10.55,
+      "y": 1.935
+    },
+    {
+      "id": "home_2_wall_drift_0",
+      "model": "winter:drift_wall",
+      "x": -16.1,
+      "z": 10.31,
+      "y": -0.008,
+      "scale": 0.65
+    },
+    {
+      "id": "home_2_wall_drift_1",
+      "model": "winter:drift_wall",
+      "x": -8.9,
+      "z": 10.2,
+      "y": -0.008,
+      "rotation_degrees": 8,
+      "scale": 0.65
+    },
+    {
+      "id": "home_2_side_drift",
+      "model": "winter:drift_medium",
+      "x": -17.68,
+      "z": 5.5,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "lodge_awning_snow_0",
+      "model": "winter:snow_awning",
+      "x": -14,
+      "z": -8.75,
+      "y": 2.902
+    },
+    {
+      "id": "lodge_awning_icicles_0",
+      "model": "winter:icicle_cluster_mixed",
+      "x": -14,
+      "z": -7.47,
+      "y": 2.695
+    },
+    {
+      "id": "lodge_awning_snow_1",
+      "model": "winter:snow_awning",
+      "x": -11.6,
+      "z": -8.75,
+      "y": 2.902
+    },
+    {
+      "id": "lodge_awning_icicles_1",
+      "model": "winter:icicle_cluster_mixed",
+      "x": -11.6,
+      "z": -7.47,
+      "y": 2.121
+    },
+    {
+      "id": "lodge_awning_snow_2",
+      "model": "winter:snow_awning",
+      "x": -9.2,
+      "z": -8.75,
+      "y": 2.902
+    },
+    {
+      "id": "lodge_awning_icicles_2",
+      "model": "winter:icicle_cluster_mixed",
+      "x": -9.2,
+      "z": -7.47,
+      "y": 2.695
+    },
+    {
+      "id": "lodge_awning_icicle_long",
+      "model": "winter:icicle_long",
+      "x": -14.8,
+      "z": -7.47,
+      "y": 2.695
+    },
+    {
+      "id": "lodge_awning_icicle_medium",
+      "model": "winter:icicle_medium",
+      "x": -8.2,
+      "z": -7.47,
+      "y": 2.985
+    },
+    {
+      "id": "lodge_porch_snow_0",
+      "model": "winter:snow_porch_edge",
+      "x": -14.05,
+      "z": -7.72,
+      "y": -0.008
+    },
+    {
+      "id": "lodge_porch_snow_1",
+      "model": "winter:snow_porch_edge",
+      "x": -8.95,
+      "z": -7.72,
+      "y": -0.008
+    },
+    {
+      "id": "lodge_stair_snow_0",
+      "model": "winter:snow_stair_edge",
+      "x": -17.0,
+      "z": -9.48,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "lodge_stair_snow_1",
+      "model": "winter:snow_stair_edge",
+      "x": -16.2,
+      "z": -9.48,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "lodge_stair_snow_2",
+      "model": "winter:snow_stair_edge",
+      "x": -15.4,
+      "z": -9.48,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "rail_0_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": -14.4,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_lower_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": -14.4,
+      "z": -7.65,
+      "y": 0.322,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_0_snow_1",
+      "model": "winter:snow_rail_top",
+      "x": -13.2,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": -12.375,
+      "z": -7.65,
+      "y": 1.042,
+      "scale": 0.375
+    },
+    {
+      "id": "rail_0_lower_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": -12.375,
+      "z": -7.65,
+      "y": 0.322,
+      "scale": 0.27
+    },
+    {
+      "id": "rail_0_post_snow_0",
+      "model": "winter:snow_post_cap",
+      "x": -15.0,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_post_snow_1",
+      "model": "winter:snow_post_cap",
+      "x": -13.8,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_post_snow_2",
+      "model": "winter:snow_post_cap",
+      "x": -12.6,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_post_snow_3",
+      "model": "winter:snow_post_cap",
+      "x": -12.15,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_0_drift",
+      "model": "winter:drift_fence",
+      "x": -13.803,
+      "z": -7.45,
+      "y": 0.592
+    },
+    {
+      "id": "rail_1_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": -10.25,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_lower_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": -10.25,
+      "z": -7.65,
+      "y": 0.322,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_1_snow_1",
+      "model": "winter:snow_rail_top",
+      "x": -9.05,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": -8.225,
+      "z": -7.65,
+      "y": 1.042,
+      "scale": 0.375
+    },
+    {
+      "id": "rail_1_lower_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": -8.225,
+      "z": -7.65,
+      "y": 0.322,
+      "scale": 0.27
+    },
+    {
+      "id": "rail_1_post_snow_0",
+      "model": "winter:snow_post_cap",
+      "x": -10.85,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_post_snow_1",
+      "model": "winter:snow_post_cap",
+      "x": -9.65,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_post_snow_2",
+      "model": "winter:snow_post_cap",
+      "x": -8.45,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_post_snow_3",
+      "model": "winter:snow_post_cap",
+      "x": -8.0,
+      "z": -7.65,
+      "y": 1.042
+    },
+    {
+      "id": "rail_1_drift",
+      "model": "winter:drift_fence",
+      "x": -9.653,
+      "z": -7.45,
+      "y": 0.592
+    },
+    {
+      "id": "rail_2_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -14.4,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_lower_snow_0",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -14.4,
+      "y": 0.322,
+      "rotation_degrees": 270,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_2_snow_1",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -13.2,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -12.0,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_lower_snow_2",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -12.0,
+      "y": 0.322,
+      "rotation_degrees": 270,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_2_snow_3",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -10.8,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_snow_4",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -9.6,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_lower_snow_4",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -9.6,
+      "y": 0.322,
+      "rotation_degrees": 270,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_2_snow_5",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -8.4,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_snow_6",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -7.2,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_lower_snow_6",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -7.2,
+      "y": 0.322,
+      "rotation_degrees": 270,
+      "scale": 0.72
+    },
+    {
+      "id": "rail_2_snow_7",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -6.0,
+      "y": 1.042,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "rail_2_snow_8",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -5.2,
+      "y": 1.042,
+      "rotation_degrees": 270,
+      "scale": 0.3333
+    },
+    {
+      "id": "rail_2_lower_snow_8",
+      "model": "winter:snow_rail_top",
+      "x": 16.8,
+      "z": -5.2,
+      "y": 0.322,
+      "rotation_degrees": 270,
+      "scale": 0.24
+    },
+    {
+      "id": "rail_2_post_snow_0",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -15.0,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_1",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -13.8,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_2",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -12.6,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_3",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -11.4,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_4",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -10.2,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_5",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -9.0,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_6",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -7.8,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_7",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -6.6,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_8",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -5.4,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_post_snow_9",
+      "model": "winter:snow_post_cap",
+      "x": 16.8,
+      "z": -5.0,
+      "y": 1.042
+    },
+    {
+      "id": "rail_2_drift",
+      "model": "winter:drift_fence",
+      "x": 16.8,
+      "z": -10.8,
+      "y": -0.008,
+      "rotation_degrees": 270
+    },
+    {
+      "id": "landscape_drift_0",
+      "model": "winter:drift_small",
+      "x": -5.7,
+      "z": 5.5,
+      "y": -0.008,
+      "rotation_degrees": 35
+    },
+    {
+      "id": "landscape_drift_1",
+      "model": "winter:drift_medium",
+      "x": -6.4,
+      "z": -24,
+      "y": -0.008,
+      "rotation_degrees": 110
+    },
+    {
+      "id": "landscape_drift_2",
+      "model": "winter:drift_large",
+      "x": -20,
+      "z": -26.8,
+      "y": -0.008,
+      "rotation_degrees": 10
+    },
+    {
+      "id": "landscape_drift_3",
+      "model": "winter:drift_large",
+      "x": 21.3,
+      "z": -32,
+      "y": -0.008,
+      "rotation_degrees": 75
+    },
+    {
+      "id": "landscape_drift_4",
+      "model": "winter:mound_irregular",
+      "x": 19.4,
+      "z": -8.8,
+      "y": -0.008,
+      "rotation_degrees": 23
+    },
+    {
+      "id": "landscape_drift_5",
+      "model": "winter:mound_irregular",
+      "x": -19.5,
+      "z": 1,
+      "y": -0.008,
+      "rotation_degrees": 130
+    },
+    {
+      "id": "landscape_drift_6",
+      "model": "winter:drift_small",
+      "x": 5.2,
+      "z": -3.8,
+      "y": -0.008,
+      "rotation_degrees": 45
+    },
+    {
+      "id": "landscape_drift_7",
+      "model": "winter:drift_medium",
+      "x": 15.1,
+      "z": -17.4,
+      "y": -0.008,
+      "rotation_degrees": 165
+    },
+    {
+      "id": "landscape_drift_8",
+      "model": "winter:drift_wall",
+      "x": 21.7,
+      "z": 12,
+      "y": -0.008,
+      "rotation_degrees": 90
+    },
+    {
+      "id": "landscape_drift_9",
+      "model": "winter:drift_fence",
+      "x": 3.5,
+      "z": -30.5,
+      "y": -0.008,
+      "rotation_degrees": 25
     }
   ],
   "ceiling_lights": [
@@ -4269,7 +5186,7 @@
         3.42,
         -15.55
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4286,7 +5203,7 @@
         3.42,
         -9.55
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4303,7 +5220,7 @@
         2.82,
         -29.55
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4320,7 +5237,7 @@
         2.82,
         -23.55
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4337,7 +5254,7 @@
         2.82,
         4.45
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4354,7 +5271,7 @@
         2.82,
         10.45
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -4371,10 +5288,146 @@
         3.51,
         -7.45
       ],
-      "material": "winter:snow_01",
+      "material": "home:handrail_wood_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
+    },
+    {
+      "id": "home_0_sill_0",
+      "min": [
+        -14.95,
+        1.54,
+        -9.985
+      ],
+      "max": [
+        -13.75,
+        1.6099999999999999,
+        -9.73
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_0_sill_1",
+      "min": [
+        -9.25,
+        1.54,
+        -9.985
+      ],
+      "max": [
+        -8.05,
+        1.6099999999999999,
+        -9.73
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_sill_0",
+      "min": [
+        9.05,
+        0.94,
+        -23.985
+      ],
+      "max": [
+        10.25,
+        1.01,
+        -23.73
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_sill_1",
+      "min": [
+        14.75,
+        0.94,
+        -23.985
+      ],
+      "max": [
+        15.95,
+        1.01,
+        -23.73
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_door_hood",
+      "min": [
+        11.7,
+        2.28,
+        -23.97
+      ],
+      "max": [
+        13.3,
+        2.38,
+        -23.42
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_sill_0",
+      "min": [
+        -15.95,
+        0.94,
+        10.015
+      ],
+      "max": [
+        -14.75,
+        1.01,
+        10.27
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_sill_1",
+      "min": [
+        -10.25,
+        0.94,
+        10.015
+      ],
+      "max": [
+        -9.05,
+        1.01,
+        10.27
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_door_hood",
+      "min": [
+        -13.3,
+        2.28,
+        10.03
+      ],
+      "max": [
+        -11.7,
+        2.38,
+        10.58
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
     }
   ],
   "guardrails": [
