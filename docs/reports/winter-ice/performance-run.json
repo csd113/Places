@@ -1,0 +1,46 @@
+{
+  "package_sha256": "1f0639d912a4398e3200b089196e0e21b9db5029da0a52d88b968910ee05cd44",
+  "binary_sha256": "9bead0d18b7eca4e4d58636266f29c6a2796992f24d95dae24f57fa11c34d862",
+  "spawn": [
+    8,
+    -10,
+    90
+  ],
+  "camera": [
+    90,
+    -18
+  ],
+  "frames": 1200,
+  "warmup_frames": 240,
+  "move_script": "forward@0-1",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90.0,
+    "look_speed_v": 60.0,
+    "walk_speed": 3.0,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "use_low_quality_lighting": false,
+    "vsync": true,
+    "window_mode": "windowed",
+    "window_width": 1920,
+    "window_height": 1080,
+    "fov_degrees": 60.0
+  }
+}

@@ -44,6 +44,50 @@ fn shipped_catalog() -> AssetCatalog {
     AssetCatalog::load_default()
 }
 
+#[test]
+fn ice_traction_is_a_validated_material_property_separate_from_visual_response() {
+    let level = basic_level("winter:snow_01", "winter:ice_01", "winter:snow_01");
+    let catalog = shipped_catalog();
+    let table = MaterialTable::logical(&level, &catalog, None);
+    let ice = table.entry_of("winter:ice_01").expect("ice material");
+    assert_eq!(ice.ground_surface, GroundSurface::Ice);
+    assert_eq!(ice.alpha.mode, AlphaMode::Blend);
+    assert_eq!(ice.reflection.mode, ReflectionMode::None);
+    assert_eq!(
+        table
+            .entry_of("winter:snow_01")
+            .expect("snow")
+            .ground_surface,
+        GroundSurface::Normal
+    );
+    let json = include_str!("../../assets/catalog.json").replace(
+        "\"ground_surface\": \"ice\"",
+        "\"ground_surface\": \"unknown\"",
+    );
+    assert!(
+        AssetCatalog::from_json_str(&json).is_err(),
+        "unknown traction is rejected"
+    );
+}
+
+#[test]
+fn pack_materials_can_author_ice_traction() {
+    let definitions = parse_materials_json(Some(
+        r#"{"pack:ice":{"texture":"core:tex_glass_clear_01","ground_surface":"ice"},"pack:normal":{"texture":"core:tex_glass_clear_01"}}"#,
+    ));
+    assert_eq!(
+        definitions.get("pack:ice").expect("ice").ground_surface,
+        GroundSurface::Ice
+    );
+    assert_eq!(
+        definitions
+            .get("pack:normal")
+            .expect("normal")
+            .ground_surface,
+        GroundSurface::Normal
+    );
+}
+
 /// Encodes raw samples with an explicit PNG colour type (test helper).
 fn encode_as(
     color: png::ColorType,

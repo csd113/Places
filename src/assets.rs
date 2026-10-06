@@ -698,6 +698,8 @@ pub struct AssetThemeDef {
 /// One logical asset.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssetEntry {
+    /// Physical traction on walkable surfaces using this material.
+    pub ground_surface: crate::materials::GroundSurface,
     /// Stable logical id used by levels (`core:desk`, `spooner-man`).
     pub id: String,
     /// Human-readable name for tools and menus.
@@ -944,6 +946,8 @@ struct ValidatedResponse {
 #[derive(serde::Deserialize)]
 struct CatalogEntryFile {
     #[serde(default)]
+    ground_surface: Option<crate::materials::GroundSurface>,
+    #[serde(default)]
     id: String,
     #[serde(default)]
     display_name: String,
@@ -1042,10 +1046,18 @@ impl CatalogEntryFile {
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
         let emission = self.resolve_emissive(&id, &asset_type, source)?;
         let response = self.resolve_response(&id, &asset_type, source)?;
+        if self.ground_surface.is_some()
+            && (asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition)
+        {
+            return Err(format!(
+                "{id}: ground_surface requires a material definition"
+            ));
+        }
         let size = self
             .size
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
         Ok(AssetEntry {
+            ground_surface: self.ground_surface.unwrap_or_default(),
             display_name: self.resolved_display_name(&id),
             id,
             asset_class,

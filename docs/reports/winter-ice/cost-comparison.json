@@ -1,0 +1,34 @@
+{
+  "view": {
+    "name": "pond",
+    "spawn": [
+      4,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -14
+    ]
+  },
+  "before_package_sha256": "2f0cbb11116b84a9dd0d9a515d9a2d21396335155e9a58b9d7aa50ffb19c63f0",
+  "after_package_sha256": "1f0639d912a4398e3200b089196e0e21b9db5029da0a52d88b968910ee05cd44",
+  "before": {
+    "total_vertices": 382340,
+    "total_batches": 455,
+    "draw_calls": 62,
+    "vbo_bytes": 24469760,
+    "texture_binds": 36,
+    "material_changes": 37,
+    "reflection_passes": 0
+  },
+  "after": {
+    "total_vertices": 383660,
+    "total_batches": 462,
+    "draw_calls": 69,
+    "vbo_bytes": 24554240,
+    "texture_binds": 39,
+    "material_changes": 44,
+    "reflection_passes": 0
+  }
+}

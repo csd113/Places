@@ -35,6 +35,8 @@ pub enum TextureOrigin {
 /// One material as a level uses it: its texture, tiling and tint.
 #[derive(Clone, Debug)]
 pub struct ResolvedMaterial {
+    /// Physical traction, consumed by the controller only while supported.
+    pub ground_surface: super::GroundSurface,
     /// The material id exactly as the level wrote it.
     pub id: String,
     /// Session-unique texture key (logical texture id, or `pack:<ns>:<path>`).
@@ -446,6 +448,7 @@ fn material_base(
     error: Option<String>,
 ) -> ResolvedMaterial {
     ResolvedMaterial {
+        ground_surface: super::GroundSurface::Normal,
         id: id.to_string(),
         texture_key,
         texture_index: 0,
@@ -463,6 +466,11 @@ fn material_base(
 }
 
 impl ResolvedMaterial {
+    const fn with_ground_surface(mut self, surface: super::GroundSurface) -> Self {
+        self.ground_surface = surface;
+        self
+    }
+
     /// Attaches a resolved surface response and alpha contract.
     #[must_use]
     const fn with_surface(mut self, response: MaterialResponse, alpha: MaterialAlpha) -> Self {
@@ -664,6 +672,7 @@ fn describe_catalog_material(
     )
     .with_grid_metres(grid_scale)
     .with_surface(catalog_response(entry), catalog_alpha(entry))
+    .with_ground_surface(entry.ground_surface)
     .with_reflection(catalog_reflection(entry))
 }
 
@@ -696,6 +705,7 @@ fn describe_pack_material(
                 None,
             )
             .with_surface(response, alpha)
+            .with_ground_surface(pack_material.ground_surface)
             .with_reflection(pack_material.reflection());
         }
         if pack.is_some_and(|material_pack| material_pack.lookup(&pack_material.texture).is_some())
@@ -709,7 +719,8 @@ fn describe_pack_material(
                 emission,
                 None,
             )
-            .with_surface(response, alpha);
+            .with_surface(response, alpha)
+            .with_ground_surface(pack_material.ground_surface);
         }
         return material_base(
             id,

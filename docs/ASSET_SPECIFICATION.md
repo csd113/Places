@@ -816,6 +816,17 @@ lowest tip, with all roots at the catalogue height; mount the root plane
 `python3 -m unittest tests.test_winter_assets` protects canonical identity,
 supported snow, UVs, winding, sealed topology, budgets and reproducible exports.
 
+Winter frozen-water albedo uses the existing **floor surface sheet** contract:
+`winter:tex_ice_01` at `environment/winter/textures/floors/ice_01.png` is a
+square, opaque 1024² PNG, seamless on both axes, world `(x,z)` UVs at an 8 m
+repeat, north (-Z) at image top. Its blue-gray cloudy facets, sparse angular
+cracks and pale marks are albedo artwork with neutral lighting. The material
+supplies `alpha_mode: "blend"`, opacity 0.84, modest specular/shine (0.38),
+no normal/emission maps and no reflection image. A darker opaque material reuses
+this PNG on a shallow non-solid backing. `ground_surface: "ice"` controls
+traction independently of the PNG's opaque alpha and the material's visual sheen.
+Validate with the standard texture budget/seam checks and native pond views.
+
 ### 8.8 Model geometry conventions (for context)
 
 * 1 model unit = 1 metre; +Y up; +Z is the model's front at

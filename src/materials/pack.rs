@@ -22,6 +22,8 @@ use super::{
 /// object form (`{"texture": ..., "tile_metres": ..., "tint": [...]}`) parse.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PackMaterialDef {
+    /// Physical traction; malformed optional pack values retain normal ground.
+    pub ground_surface: super::GroundSurface,
     /// Path inside the pack, or a logical catalog texture id.
     pub texture: String,
     /// World metres per repeat; `None` keeps [`DEFAULT_TILE_METRES`].
@@ -305,6 +307,11 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                 continue;
             };
             PackMaterialDef {
+                ground_surface: material_value
+                    .get("ground_surface")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(super::GroundSurface::parse)
+                    .unwrap_or_default(),
                 texture: path.to_string(),
                 tile_metres: material_value
                     .get("tile_metres")

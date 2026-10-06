@@ -19,6 +19,24 @@ class WinterTests(unittest.TestCase):
                 dz = min(a['z'] + a['depth'], b['z'] + b['depth']) - max(a['z'], b['z'])
                 self.assertFalse(dx > 1e-6 and dz > 1e-6, (a, b))
 
+    def test_ice_has_real_albedo_traction_backing_and_clear_shore_access(self):
+        assets = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
+        ice = assets['winter:ice_01']
+        self.assertEqual(ice['ground_surface'], 'ice')
+        self.assertEqual(ice['alpha_mode'], 'blend')
+        self.assertGreater(ice['opacity'], .7)
+        self.assertLess(ice['opacity'], 1)
+        self.assertNotIn('reflection_mode', ice)
+        self.assertEqual(assets[ice['texture']]['model'], 'environment/winter/textures/floors/ice_01.png')
+        level = author.build_level()
+        backing = next(b for b in level['void_walls'] if b['id'] == 'pond_ice_depth')
+        self.assertFalse(backing['solid'])
+        self.assertLess(backing['max'][1], -.16)
+        self.assertEqual(sum(p['id'].startswith('pond_shore_snow_') for p in level['props']), 6)
+        # The approach at z=-10 is not buried beneath snow props.
+        self.assertFalse(any(p['id'].startswith('pond_shore_snow_') and abs(p['z'] + 10) < 1
+                             for p in level['props']))
+
     def test_source_is_current_and_repeatable(self):
         self.assertEqual(author.OUTPUT.read_text(), author.serialise(author.build_level()))
         self.assertEqual(author.build_level(), author.build_level())
@@ -35,7 +53,7 @@ class WinterTests(unittest.TestCase):
         self.assertEqual(tree['model'], 'environment/outdoor/props/models/tree_03.glb')
         self.assertEqual(tree['size'], [3.2, 6.8, 3.2])
         level = author.build_level()
-        self.assertFalse(level.get('water'), 'foundation ice is a physical floor, not swimming water')
+        self.assertFalse(level.get('water'), 'frozen pond replaces swimming water with a solid floor')
         self.assertTrue(any(p['model'] == 'winter:tree_snow_01' for p in level['props']))
         self.assertTrue(any(p['model'] == 'winter:tree_snow_02' for p in level['props']))
         # Leak waivers must remain outside the world, never conceal an indoor hole.

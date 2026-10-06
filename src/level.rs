@@ -1,3 +1,6 @@
+mod ground;
+pub use ground::GroundSurfaces;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

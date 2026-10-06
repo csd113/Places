@@ -1250,6 +1250,36 @@ Rules that matter:
 * `offset_y: 0` is a legal region that only changes material (like a patch) and
   emits no skirt.
 
+### Frozen water and ice traction
+
+A material definition may author `"ground_surface": "ice"`; the default is
+`"normal"`. This is a physical material property, separate from `shine`,
+alpha and reflections. It applies to the supporting room floor, latest patch,
+region, ramp or stair material, using the same precedence as rendered surfaces.
+Solid props, bridges and another storey above ice retain normal traction.
+
+Ice approaches requested walk velocity at 4.5/s, coasts with 1.6/s drag and
+retains ordinary maximum walk speed. Direction changes and braking take time;
+normal terrain immediately resumes ordinary input-driven walking. Ice takeoff
+retains planar momentum in air with restrained steering (1.2/s), and landing
+uses the contacted surface. Jump height, gravity, step reach, head clearance,
+rim and swept collision are unchanged. Reset and ladder attachment clear ice
+momentum. Blocked movement spends blocked momentum.
+
+For a winter variant of a pond, remove its `water[]` volume and author a solid
+`floor_regions[]` ice floor at the former waterline, with an offset relative to
+the containing room. Keep shoreline rises within the 0.4 m step allowance or
+provide a snow ramp. Merely setting `swimming: false` leaves a non-solid water
+surface and does not freeze it. Never leave a liquid swim volume intersecting
+an ice floor. Non-winter sources retain their water volumes and swimming.
+
+Winter's example is a 10 × 12 m ice floor at -0.16 m, using `winter:ice_01`.
+It has an opaque, non-solid depth backing at -0.31 m so the blended surface
+does not expose the void. Existing snow drifts sit on dry shoreline supports;
+the west and south approaches remain clear. Geometry is still prepared by the
+offline compiler; only material traction descriptors are installed from its
+validated source/materials at world load, preserving the collision binary format.
+
 ### The walkable step rule
 
 **A rise of more than 0.4 m is refused; a drop of any size is walked off and
@@ -1859,6 +1889,7 @@ catalog (with the asset id in the message), not just the field.
 | `tile_metres` | number | `2.0` | `0.05`–`64`. World metres covered by one repeat, both directions. Only a material may declare it. | Uses `2.0`, the standard sheet size. |
 | `tint` | `[r,g,b]` | `[1,1,1]` | Each channel `0.0`–`1.0`. Static multiply on the sampled texture. Only a material may declare it. | White; no tint. |
 | `surface` | string | none | `wall`, `floor` or `ceiling`. Documentation/validation only; geometry decides which family a material draws on, so any material may legally be used on any surface. | No surface tag. |
+| `ground_surface` | string | `"normal"` | `"normal"` or `"ice"`; material definitions only | Physical traction on supporting floor surfaces; unrelated to visual gloss. |
 | `emissive` | `[r,g,b]` | none | Each channel `0.0`–`1.0`. Adds an emissive term on top of baked light. Only a `material` `definition` may declare emission. | The surface does not emit. |
 | `emissive_intensity` | number | `1.0` when `emissive` is set | `0.0`–`8.0`. Multiplier on the emissive colour. Asserting it without `emissive` is a catalog error. | `1.0`. |
 | `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |

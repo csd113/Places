@@ -13,7 +13,7 @@ use std::time::Instant;
 #[test]
 #[ignore = "opt-in before/after movement hot-path measurement"]
 fn measure_controller_hot_path() {
-    let level = LevelDef::from_json(
+    let mut level = LevelDef::from_json(
         r#"{
         "format_version":3,"id":"movement_performance","name":"movement cost",
         "spawn":{"x":0,"z":0},
@@ -22,8 +22,12 @@ fn measure_controller_hot_path() {
     )
     .expect("benchmark fixture");
     let mut results = Vec::new();
-    for (label, extra_boxes) in [("ordinary", 0_u32), ("dense 4000", 4000)] {
-        let mut world = CollisionWorld::from_level(&level);
+    for (label, extra_boxes) in [("ordinary", 0_u32), ("dense 4000", 4000), ("ice", 0)] {
+        if label == "ice" {
+            level.defaults.floor = "winter:ice_01".to_owned();
+        }
+        let mut world = CollisionWorld::from_level(&level)
+            .with_ground_materials(&level, &super::ice::materials(&level));
         world
             .walls
             .push(WallAabb::with_y(1.0, 0.0, -4.0, 0.01, 3.0, 8.0));

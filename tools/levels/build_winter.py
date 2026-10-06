@@ -197,9 +197,11 @@ def build_level() -> dict:
         prop('outdoor:house_02_porch_post', x, -7.85, f'porch_post_{x}', scale=1.187,
              solid=True, size=[.14, 2.3, .14])
 
-    # An opaque, shallow, physical pond floor. No liquid/swim volume and no
-    # friction changes: the later ice pass can attach behavior to this material.
+    # Solid frozen water replaces the liquid volume at the waterline. The
+    # material owns traction; the ordinary floor and rim own all collision.
+    # A shallow opaque backing gives the blended surface readable depth.
     region(6, -16, 10, 12, -.16, 'winter:ice_01')
+    box('pond_ice_depth', [6, -.36, -16], [16, -.31, -4], 'winter:ice_depth_01', solid=False)
     for x, z, w, d in ((6, -16, 2, 2), (14, -16, 2, 2), (6, -6, 2, 2), (14, -6, 2, 2)):
         region(x, z, w, d, .18)
     # A pond railing leaves the west/south shore open for walking onto ice.
@@ -348,6 +350,18 @@ def build_level() -> dict:
         mounted('drift_fence', px, pz+.20 if index < 2 else pz,
                 f'rail_{index}_drift', -.008 if index == 2 else .592,
                 yaw=rail.get('rotation_degrees', 0))
+
+    # Low, supported shoreline loads gather outside the ice footprint. Open
+    # west/south entries retain their shallow step and visible snow/ice boundary.
+    for j, (model, x, z, yaw, scale) in enumerate((
+        ('drift_small', 5.35, -14.0, 90, .6),
+        ('drift_small', 5.35, -7.2, 80, .55),
+        ('drift_medium', 10.5, -16.65, 0, .7),
+        ('drift_small', 9.4, -3.35, 180, .6),
+        ('drift_small', 13.3, -3.35, 175, .55),
+        ('drift_medium', 16.65, -7.0, 270, .6),
+    )):
+        mounted(model, x, z, f'pond_shore_snow_{j}', -.008, yaw=yaw, scale=scale)
 
     # A range of drift scales near tree roots, boulders, the bank and shoreline.
     # The clear centre/forest spine, ramps and ice entry remain unburied.

@@ -84,12 +84,10 @@ placeholders are now real modular additions. Snow coverage varies around
 shelters, entrances and exposed trees. Cleared paths, dry interiors, most
 under-rail space, the forest spine and pond approaches remain usable.
 
-### Remaining foundation material
+### Remaining environment passes
 
-`winter:ice_01` still uses the shared glass PNG as opaque physical ice at
-−.16 m, with ordinary floor collision and friction. Ice artwork/behaviour,
-weather, aurora and string lights are separate passes. Existing stars and warm
-lamps remain unchanged.
+Weather, aurora and string lights remain separate passes. Existing stars and
+warm lamps remain unchanged; frozen water is described below.
 
 ### Validation
 
@@ -124,3 +122,23 @@ contracts and processed through the existing offline seam-repair tool.
 
 The foundation builder authors geometry and references only. The normal Places
 compiler prepares lightmaps, navigation, resource identities and packages.
+
+## Frozen water
+
+`winter:ice_01` uses the real seamless 1024² `textures/floors/ice_01.png` at
+an 8 m repeat: blue-gray cloudy facets, sparse cracks and pale highlights. It
+blends at 0.84 opacity with modest broad sheen, no mirror/reflection image, no
+normal map or emission. The opaque `winter:ice_depth_01` reuses the sheet
+under the pond. The solid floor uses material `ground_surface: "ice"`, which
+applies reduced friction and gradual steering only on the current support.
+
+To freeze a winter pond, substitute an ice floor region at its waterline for
+the liquid volume. `swimming: false` alone never provides collision. Winter
+keeps its -0.16 m shallow shoreline step and adds supported dry-shore drifts.
+
+Ice albedo was generated with the built-in imagegen tool, then resized to the
+existing 1024² floor-sheet contract and seam-repaired with the repository tool.
+Prompt: “square seamless top-down opaque retro low-poly frozen pond albedo;
+quiet blue-gray ice, subtle cloudy polygonal variation, sparse angular hairline
+cracks and pale highlights, even neutral illumination; no scene, snow, objects,
+text, photographic detail, mirror reflection or baked shadows.”

@@ -760,7 +760,8 @@ fn prepare_world(
     let navigation = crate::nav::NavMesh::from_record(records.navigation.clone())
         .map_err(|error| format!("navigation record: {error}"))?;
     let collision =
-        CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation));
+        CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation))
+            .with_ground_materials(&loaded.level, &loaded.materials);
     if !control.checkpoint(Phase::Characters) {
         return Ok(None);
     }

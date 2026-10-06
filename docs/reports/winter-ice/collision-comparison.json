@@ -1,0 +1,15 @@
+{
+  "unchanged_sections": [
+    "rooms",
+    "walls",
+    "floor_regions",
+    "guardrails",
+    "stairs",
+    "ramps",
+    "doors"
+  ],
+  "added_props": 6,
+  "added_visual_boxes": 1,
+  "added_colliders": 0,
+  "source_reference": "ec533422fcb45c8b1f20be3da7b5047d7f6ff004"
+}

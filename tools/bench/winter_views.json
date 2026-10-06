@@ -111,8 +111,8 @@
       90,
       -9
     ],
-    "capture_time": 6.8,
-    "move_script": "forward@0-2.3,jump@2.4-2.46,backward@3.5-5.8"
+    "capture_time": 8.8,
+    "move_script": "forward@0-2.3,jump@2.4-2.46,backward@3.5-7.8"
   },
   {
     "name": "walk-forest",
@@ -168,5 +168,59 @@
     "name": "tree-lit-snow",
     "spawn": [-2.5, 2, -69],
     "camera": [-69, 19]
+  },
+  {
+    "name": "ice-close",
+    "spawn": [
+      9,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -32
+    ]
+  },
+  {
+    "name": "walk-ice-coast",
+    "spawn": [
+      8,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -18
+    ],
+    "capture_time": 5.2,
+    "move_script": "forward@0-1.0"
+  },
+  {
+    "name": "walk-snow-stop",
+    "spawn": [
+      8,
+      -20.4,
+      90
+    ],
+    "camera": [
+      90,
+      -10
+    ],
+    "capture_time": 5.2,
+    "move_script": "forward@0-1.0"
+  },
+  {
+    "name": "walk-ice-wall",
+    "spawn": [
+      14,
+      -10,
+      90
+    ],
+    "camera": [
+      90,
+      -15
+    ],
+    "capture_time": 4.2,
+    "move_script": "forward@0-3.0"
   }
 ]

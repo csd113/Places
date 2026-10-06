@@ -17,7 +17,8 @@ fn at(level: &LevelDef, x: f32, z: f32) -> Game {
     let mut game = Game::new(
         Vec3::new(x, floor, z) + Vec3::Y * EYE_HEIGHT,
         0.0,
-        CollisionWorld::from_level(level),
+        CollisionWorld::from_level(level)
+            .with_ground_materials(level, &super::ice::materials(level)),
     );
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = 1.0 / 60.0;

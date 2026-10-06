@@ -105,6 +105,9 @@ for name in selected:
             'walk-stairs': max(ys) >= 2.19 and max(xs) > -15.1 and xs[-1] < -18,
             'walk-pond': min(ys) <= 1.45 and max(ys) > 2.3 and max(xs) > 10.5 and xs[-1] < 4.2,
             'walk-forest': min(zs) < -34 and max(ys) < 1.61,
+            'walk-ice-coast': 11.8 < xs[-1] < 12.6 and max(ys) < 1.45,
+            'walk-snow-stop': 10.8 < xs[-1] < 11.15 and min(ys) > 1.59 and max(ys) < 1.61,
+            'walk-ice-wall': 16.3 < xs[-1] < 16.55 and max(ys) < 1.61,
         }
         item['traversal_passed'] = min(ys) >= 1.39 and checks[name]
         item['player_bounds'] = [[min(axis), max(axis)] for axis in (xs, ys, zs)]

@@ -12,10 +12,12 @@ use crate::entities::{EntityWorld, WorldContext, WorldTick};
 use crate::entity::{EntityFrame, EntityRoutes, PoseCue, RouteState, RouteWorld};
 use crate::input::{Control, InputState};
 use crate::interact::{Interactables, nearest_target_indexed};
+use crate::level::GroundSurfaces;
 use crate::level::{
     ActionDef, Ladder, Ladders, LevelDef, LevelSurfaces, WalkableCeiling, WalkableFloor,
     WaterSample, WaterVolumes,
 };
+use crate::materials::GroundSurface;
 use crate::settings::Settings;
 
 pub const TWO_PI: f32 = std::f32::consts::TAU;
@@ -80,6 +82,13 @@ pub const JUMP_VELOCITY: f32 = 4.427_189;
 /// for fractional 144 Hz intervals. At most twelve of them fit in
 /// [`MAX_SIM_DELTA`].
 pub const VERTICAL_SUBSTEP: f32 = 1.0 / 120.0;
+
+/// Ice approaches requested walk velocity in about half a second and coasts
+/// roughly 1.8 m from ordinary speed. Rates are per second, not per frame.
+const ICE_CONTROL_RESPONSE: f32 = 4.5;
+const ICE_FRICTION: f32 = 1.6;
+const ICE_AIR_CONTROL_RESPONSE: f32 = 1.2;
+const ICE_STOP_SPEED: f32 = 0.025;
 
 /// Upper bound on vertical substeps consumed in one frame.
 const MAX_VERTICAL_SUBSTEPS: usize = 12;
@@ -321,6 +330,8 @@ pub struct LocomotionSnapshot {
 /// per-frame query surface a fixed set of samplers rather than a mesh walk.
 #[derive(Debug, Default)]
 pub struct CollisionWorld {
+    /// Physical material properties installed alongside collision geometry.
+    pub ground_surfaces: GroundSurfaces,
     pub walls: Vec<WallAabb>,
     pub floor: WalkableFloor,
     pub water: WaterVolumes,
@@ -337,10 +348,22 @@ pub struct CollisionWorld {
 }
 
 impl CollisionWorld {
+    /// Installs material traction without changing the compiled geometry.
+    #[must_use]
+    pub fn with_ground_materials(
+        mut self,
+        level: &LevelDef,
+        materials: &crate::materials::MaterialTable,
+    ) -> Self {
+        self.ground_surfaces = GroundSurfaces::from_level(level, materials);
+        self
+    }
+
     /// Resolves every collision sampler and the entity runtime against a level.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
         Self {
+            ground_surfaces: GroundSurfaces::default(),
             walls: level.collision_aabbs(),
             floor: WalkableFloor::from_level(level),
             water: WaterVolumes::from_level(level),
@@ -369,6 +392,7 @@ impl CollisionWorld {
         navigation: Option<crate::nav::NavMesh>,
     ) -> Self {
         Self {
+            ground_surfaces: GroundSurfaces::default(),
             walls: statics.walls,
             floor: statics.floor,
             water: statics.water,
@@ -416,6 +440,11 @@ pub use crate::entities::DispatchReport;
     reason = "The flags are independent, documented state machines (Rust's enum-per-flag would obscure the existing public fields), not interchangeable booleans."
 )]
 pub struct Game {
+    ground_surfaces: GroundSurfaces,
+    /// Last collision-constrained planar velocity. Normal walking still uses
+    /// immediate input; only ice (and its airborne takeoff) integrates it.
+    horizontal_velocity: Vec2,
+    ice_airborne: bool,
     running: bool,
     app_state: AppState,
     last_frame_time: Instant,
@@ -644,6 +673,9 @@ impl Game {
             ladders: world.ladders,
             world: world.world,
             navigation: world.navigation,
+            ground_surfaces: world.ground_surfaces,
+            horizontal_velocity: Vec2::ZERO,
+            ice_airborne: false,
             vertical_velocity: 0.0,
             grounded,
             locomotion: LocomotionSnapshot::default(),
@@ -748,6 +780,7 @@ impl Game {
     /// standing. A fresh level also starts the run's reset counter at zero and
     /// re-seeds every trigger volume from the spawn position.
     pub fn reset_level(&mut self, spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) {
+        self.ground_surfaces = world.ground_surfaces;
         self.walls = world.walls;
         self.collision_index = CollisionIndex::build(&self.walls);
         self.floor = world.floor;
@@ -811,6 +844,8 @@ impl Game {
         self.eye_offset_current = EYE_HEIGHT;
         self.player_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.player_pitch = 0.0;
+        self.horizontal_velocity = Vec2::ZERO;
+        self.ice_airborne = false;
         self.vertical_velocity = 0.0;
         self.vertical_accumulator = 0.0;
         self.grounded = false;
@@ -1212,6 +1247,95 @@ impl Game {
         trigger_origin
     }
 
+    /// Applies material traction to planar velocity, then uses the established
+    /// walk/air/swim collision sweep. Normal movement keeps its original path.
+    fn move_on_surface(
+        &mut self,
+        move_dir: Vec3,
+        settings: &Settings,
+        delta: f32,
+        before_sample: Option<WaterSample>,
+        on_ice: bool,
+    ) -> f32 {
+        let previous = Vec2::new(self.player_position.x, self.player_position.z);
+        let in_water = self.swimming || self.water_exit.is_some();
+        let feet = self.feet_y;
+        let ice_motion = on_ice || (!self.grounded && !in_water && self.ice_airborne);
+        let direction = Vec2::new(move_dir.x, move_dir.z).normalize_or_zero();
+        let target = Vec2::new(
+            direction.x * settings.walk_speed,
+            direction.y * settings.walk_speed,
+        );
+        let velocity = if ice_motion {
+            let response = if on_ice {
+                if target.length_squared() > 0.0 {
+                    ICE_CONTROL_RESPONSE
+                } else {
+                    ICE_FRICTION
+                }
+            } else if target.length_squared() > 0.0 {
+                ICE_AIR_CONTROL_RESPONSE
+            } else {
+                0.0
+            };
+            let retention = (-response * delta).exp();
+            self.horizontal_velocity = target.lerp(self.horizontal_velocity, retention);
+            if target == Vec2::ZERO
+                && self.horizontal_velocity.length_squared() < ICE_STOP_SPEED * ICE_STOP_SPEED
+            {
+                self.horizontal_velocity = Vec2::ZERO;
+            }
+            self.horizontal_velocity
+        } else {
+            target
+        };
+        if velocity.length_squared() > 0.0 {
+            let mode = if let Some(exit) = self.water_exit {
+                // The climb keeps the swimming collision step against the
+                // waterline the exit was validated on, so the player walks onto
+                // the real deck with ordinary input and real collision.
+                HorizontalMode::Swim {
+                    surface_y: exit.surface_y,
+                }
+            } else if self.swimming {
+                HorizontalMode::Swim {
+                    surface_y: before_sample.map_or(feet, |s| s.surface_y),
+                }
+            } else if self.grounded {
+                HorizontalMode::Walk
+            } else {
+                HorizontalMode::Airborne
+            };
+            let speed = if in_water {
+                settings.walk_speed * SWIM_SPEED_FACTOR
+            } else {
+                settings.walk_speed
+            };
+            if ice_motion {
+                self.move_horizontal(
+                    Vec3::new(velocity.x, 0.0, velocity.y),
+                    velocity.length(),
+                    delta,
+                    mode,
+                );
+            } else {
+                self.move_horizontal(move_dir, speed, delta, mode);
+            }
+        }
+        let current = Vec2::new(self.player_position.x, self.player_position.z);
+        let horizontal_distance = previous.distance(current);
+        if delta > 0.0 {
+            // Collision spends blocked momentum; it never stores pressure that
+            // could launch the player when a wall or pond rim ends.
+            self.horizontal_velocity = Vec2::new(
+                (current.x - previous.x) / delta,
+                (current.y - previous.y) / delta,
+            );
+        }
+
+        horizontal_distance
+    }
+
     /// One short locomotion interval, with current contacts and velocity.
     /// Input edges, stance, looking and doors remain frame-owned.
     fn update_locomotion_step(&mut self, input: &InputState, settings: &Settings, delta: f32) {
@@ -1253,6 +1377,8 @@ impl Game {
         // A ladder owns the frame while attached (or on the frame it attaches):
         // it resolves climb motion and the top landing itself.
         if self.update_ladder(move_dir, jump_pressed, delta, settings) {
+            self.horizontal_velocity = Vec2::ZERO;
+            self.ice_airborne = false;
             self.refresh_locomotion(0.0, delta);
             return;
         }
@@ -1266,44 +1392,26 @@ impl Game {
             .sample(self.player_position.x, self.player_position.z, feet);
         let in_water = self.swimming || self.water_exit.is_some();
 
-        if !in_water {
-            if self.grounded {
-                self.refresh_ground_support();
-            }
-            if jump_pressed && self.grounded && !self.entering_water(before_sample) {
-                self.vertical_velocity = JUMP_VELOCITY;
-                self.grounded = false;
-                self.vertical_accumulator = 0.0;
-            }
+        if !in_water && self.grounded {
+            self.refresh_ground_support();
+        }
+        let on_ice = !in_water
+            && self.grounded
+            && self
+                .ground_surfaces
+                .at(self.player_position.x, self.player_position.z, self.feet_y)
+                == GroundSurface::Ice;
+        if self.grounded || in_water {
+            self.ice_airborne = on_ice;
+        }
+        if !in_water && jump_pressed && self.grounded && !self.entering_water(before_sample) {
+            self.vertical_velocity = JUMP_VELOCITY;
+            self.grounded = false;
+            self.vertical_accumulator = 0.0;
         }
 
-        let previous = Vec2::new(self.player_position.x, self.player_position.z);
-        if move_dir.length_squared() > 0.0 {
-            let mode = if let Some(exit) = self.water_exit {
-                // The climb keeps the swimming collision step against the
-                // waterline the exit was validated on, so the player walks onto
-                // the real deck with ordinary input and real collision.
-                HorizontalMode::Swim {
-                    surface_y: exit.surface_y,
-                }
-            } else if self.swimming {
-                HorizontalMode::Swim {
-                    surface_y: before_sample.map_or(feet, |s| s.surface_y),
-                }
-            } else if self.grounded {
-                HorizontalMode::Walk
-            } else {
-                HorizontalMode::Airborne
-            };
-            let speed = if in_water {
-                settings.walk_speed * SWIM_SPEED_FACTOR
-            } else {
-                settings.walk_speed
-            };
-            self.move_horizontal(move_dir, speed, delta, mode);
-        }
         let horizontal_distance =
-            previous.distance(Vec2::new(self.player_position.x, self.player_position.z));
+            self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
 
         // The water at the post-move position decides the vertical behaviour.
         // Staying in the swim state is keyed on the *depth* under the player,
