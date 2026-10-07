@@ -182,6 +182,15 @@ pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
 /// than [`MAX_TEXTURE_DIMENSION`] on either edge, or the decoded buffer does
 /// not match its declared size.
 pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
+    decode_png_with_sky_policy(bytes, false)
+}
+
+/// Decodes a bounded 2:1 power-of-two sky panorama before allocating pixels.
+fn decode_sky_png(bytes: &[u8]) -> Result<RawImage, String> {
+    decode_png_with_sky_policy(bytes, true)
+}
+
+fn decode_png_with_sky_policy(bytes: &[u8], sky: bool) -> Result<RawImage, String> {
     if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         return Err("not a PNG file (missing signature)".into());
     }
@@ -197,7 +206,9 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
     if width == 0 || height == 0 {
         return Err("texture dimensions cannot be zero".into());
     }
-    if width > MAX_TEXTURE_DIMENSION || height > MAX_TEXTURE_DIMENSION {
+    if sky {
+        crate::assets::ShippedTextureKind::Sky.check_dimensions(width, height)?;
+    } else if width > MAX_TEXTURE_DIMENSION || height > MAX_TEXTURE_DIMENSION {
         return Err(format!(
             "texture dimensions {width}x{height} exceed the {MAX_TEXTURE_DIMENSION}x{MAX_TEXTURE_DIMENSION} limit"
         ));
@@ -257,6 +268,17 @@ pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String
     let bytes =
         fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
     decode_png(&bytes).map_err(|error| format!("`{}`: {error}", path.display()))
+}
+
+/// Loads a sky with its separate bounded panorama contract.
+///
+/// # Errors
+/// Returns a message if the file cannot be read or fails sky PNG validation.
+pub fn load_sky_png_relative(root: &Path, relative: &str) -> Result<RawImage, String> {
+    let path = root.join(relative);
+    let bytes =
+        fs::read(&path).map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    decode_sky_png(&bytes).map_err(|error| format!("`{}`: {error}", path.display()))
 }
 
 /// The one conspicuous pattern a missing or corrupt texture resolves to.

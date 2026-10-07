@@ -651,6 +651,19 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
     ShippedTextureKind::Sky
         .check_dimensions(1024, 512)
         .expect("the shipped 1024x512 sky sheet is the class contract");
+    ShippedTextureKind::Sky
+        .check_dimensions(2048, 1024)
+        .expect("a higher resolution panorama fits the sky-only budget");
+    assert!(
+        ShippedTextureKind::Sky
+            .check_dimensions(4096, 2048)
+            .is_err()
+    );
+    assert!(
+        ShippedTextureKind::FixtureFace
+            .check_dimensions(2048, 1024)
+            .is_err()
+    );
     let aspect_error = ShippedTextureKind::Sky
         .check_dimensions(1024, 1024)
         .expect_err("a square sky sheet must be rejected");
@@ -774,8 +787,12 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
             .unwrap_or_else(|| panic!("{}: a file-backed sheet needs a model", entry.id));
         let bytes = std::fs::read(root.join(model))
             .unwrap_or_else(|error| panic!("{}: cannot read `{model}`: {error}", entry.id));
-        let image = crate::materials::decode_png(&bytes)
-            .unwrap_or_else(|error| panic!("{}: `{model}` does not decode: {error}", entry.id));
+        let image = if kind == ShippedTextureKind::Sky {
+            crate::materials::load_sky_png_relative(&root, model)
+        } else {
+            crate::materials::decode_png(&bytes)
+        }
+        .unwrap_or_else(|error| panic!("{}: `{model}` does not decode: {error}", entry.id));
         kind.check_dimensions(image.width, image.height)
             .unwrap_or_else(|error| panic!("{}: `{model}`: {error}", entry.id));
         checked += 1;

@@ -11,11 +11,14 @@ import time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--root', type=Path, required=True)
+parser.add_argument('--package-root', type=Path, help='optional isolated package containing assets/')
 parser.add_argument('--quality', choices=('low', 'medium', 'high'), default='high')
 parser.add_argument('--views', default='square,lodge,pond,forest,interior,overview')
 parser.add_argument('--low-lighting', action='store_true')
 args = parser.parse_args()
 root = args.root.resolve()
+package_root = args.package_root.resolve() if args.package_root else root
+asset_root = package_root / 'assets'
 views = json.loads((root / 'tools/bench/winter_views.json').read_text())
 selected = args.views.split(',')
 if not all(name in {view['name'] for view in views} for name in selected):
@@ -27,7 +30,8 @@ manifest_path = out / 'manifest.json'
 manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else []
 verification = subprocess.run([str(root / 'target/release/places-compile'), 'verify',
                                str(root / 'assets/levels/winter.json'), '--package',
-                               str(root / 'assets/levels/winter.placesmap'), '--require-current'],
+                               str(root / 'assets/levels/winter.placesmap'), '--require-current',
+                               '--asset-root', str(asset_root)],
                               cwd=root, check=False, text=True, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
 if verification.returncode:
@@ -56,11 +60,12 @@ for name in selected:
     for suffix in ('-frames.csv', '-load.csv', '-player.csv', '.log'):
         (out / (name + suffix)).unlink(missing_ok=True)
     env = {key: value for key, value in os.environ.items() if not key.startswith('PLACES_')}
-    env.update(PLACES_ASSET_ROOT=str(root), PLACES_STATE_ROOT=str(state),
+    env.update(PLACES_ASSET_ROOT=str(package_root), PLACES_STATE_ROOT=str(state),
                PLACES_LEVEL='winter', PLACES_QUALITY=args.quality,
                PLACES_SPAWN=','.join(map(str, view['spawn'])),
                PLACES_CAMERA=','.join(map(str, view['camera'])),
                PLACES_BENCH='1', PLACES_BENCH_FRAMES='2400', PLACES_BENCH_WARMUP='120',
+               PLACES_VERBOSE='1',
                PLACES_CAPTURE=str(path), PLACES_CAPTURE_TIME=str(view.get('capture_time', 1.5)),
                PLACES_BENCH_OUT=str(out / (name + '-frames.csv')),
                PLACES_LOAD_TRACE=str(out / (name + '-load.csv')),
@@ -82,6 +87,7 @@ for name in selected:
             'capture': str(path), 'exit': result.returncode,
             'package_sha256': package_hash, 'binary_sha256': binary_hash,
             'elapsed_seconds': time.monotonic() - start, 'captured': path.is_file()}
+    item['sky_upload_log'] = [line for line in result.stdout.splitlines() if '[wgpu] sky ' in line]
     trace = out / (name + '-load.csv')
     events = [json.loads(line) for line in trace.read_text().splitlines()] if trace.is_file() else []
     item['winter_presented'] = any(event['event'] == 'scene_presented' and event['detail'] == 'winter'

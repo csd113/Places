@@ -10,12 +10,13 @@
 use super::*;
 
 /// Every texture class, for loops that assert a property across all of them.
-const CLASSES: [TextureClass; 5] = [
+const CLASSES: [TextureClass; 6] = [
     TextureClass::Surface,
     TextureClass::FixtureFace,
     TextureClass::DecalSheet,
     TextureClass::Prop,
     TextureClass::EmissionMask,
+    TextureClass::Sky,
 ];
 
 #[test]
@@ -109,6 +110,9 @@ fn medium_budgets_are_the_documented_intermediate() {
     assert_eq!(QualityLevel::Medium.budget(TextureClass::DecalSheet), 512);
     assert_eq!(QualityLevel::Medium.budget(TextureClass::Prop), 256);
     assert_eq!(QualityLevel::Medium.budget(TextureClass::EmissionMask), 256);
+    assert_eq!(QualityLevel::High.budget(TextureClass::Sky), 2048);
+    assert_eq!(QualityLevel::Medium.budget(TextureClass::Sky), 1024);
+    assert_eq!(QualityLevel::Low.budget(TextureClass::Sky), 512);
 
     for class in CLASSES {
         let low = QualityLevel::Low.budget(class);

@@ -282,9 +282,8 @@ impl WgpuSky {
             );
             return None;
         };
-        let mut decode_cache = crate::materials::TextureCache::new();
-        let image = match decode_cache.load_relative(root, &path, &path) {
-            Ok((image, _key)) => image,
+        let image = match crate::materials::load_sky_png_relative(root, &path) {
+            Ok(image) => image,
             Err(error) => {
                 crate::logging::warn_once(
                     format!("sky:{id}"),
@@ -293,7 +292,7 @@ impl WgpuSky {
                 return None;
             }
         };
-        let fitted = fit_image(image.as_ref(), quality, TextureClass::Sky);
+        let fitted = fit_image(&image, quality, TextureClass::Sky);
         let key = super::texture::TextureKey {
             logical: format!("sky:{id}"),
             semantic: super::texture::TextureSemantic::BaseColorDisplay,

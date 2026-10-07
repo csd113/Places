@@ -14,7 +14,7 @@
     "ceiling": "home:ceiling_white_01"
   },
   "sky": {
-    "texture": "outdoor:tex_sky_stars_01",
+    "texture": "winter:tex_sky_aurora_01",
     "brightness": 0.85,
     "ambient": 0.24
   },

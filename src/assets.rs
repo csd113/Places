@@ -291,8 +291,11 @@ pub const MIN_TILE_METRES: f32 = 0.05;
 /// centimetres vs pixels).
 pub const MAX_TILE_METRES: f32 = 64.0;
 
-/// Maximum PNG edge length the runtime decoder accepts.
+/// Maximum ordinary PNG edge length the runtime decoder accepts.
 pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
+
+/// Maximum sky PNG edge; its 2:1 panorama spans the entire viewing sphere.
+pub const MAX_SKY_TEXTURE_DIMENSION: u32 = 2048;
 
 /// Soft warning edge for shipped textures.
 ///
@@ -360,7 +363,7 @@ pub enum ShippedTextureKind {
     /// A level's equirectangular night-sky sheet.
     ///
     /// The sky is sampled by view direction with a CPU mip chain, so it must be
-    /// exactly 2:1 with power-of-two edges (the shipped sheet is 1024x512).
+    /// exactly 2:1 with power-of-two edges, up to 2048x1024.
     Sky,
 }
 
@@ -384,7 +387,7 @@ impl ShippedTextureKind {
     /// # Errors
     ///
     /// Returns the accumulated violations when a sheet is zero-sized, exceeds
-    /// [`MAX_TEXTURE_DIMENSION`], is a non-square [`Self::Surface`], is a
+    /// its class's edge limit, is a non-square [`Self::Surface`], is a
     /// surface sheet over [`MAX_SURFACE_TEXTURE_BYTES`] decoded, or is a
     /// non-power-of-two [`Self::FixtureFace`] / [`Self::DecalSheet`].
     pub fn check_dimensions(self, width: u32, height: u32) -> Result<(), String> {
@@ -394,9 +397,14 @@ impl ShippedTextureKind {
                 "dimensions must be non-zero, found {width}x{height}"
             ));
         }
-        if width > MAX_TEXTURE_DIMENSION || height > MAX_TEXTURE_DIMENSION {
+        let max_edge = if self == Self::Sky {
+            MAX_SKY_TEXTURE_DIMENSION
+        } else {
+            MAX_TEXTURE_DIMENSION
+        };
+        if width > max_edge || height > max_edge {
             problems.push(format!(
-                "found {width}x{height}, over the {MAX_TEXTURE_DIMENSION}x{MAX_TEXTURE_DIMENSION} hard limit"
+                "found {width}x{height}, over the {max_edge}x{max_edge} hard limit"
             ));
         }
         match self {

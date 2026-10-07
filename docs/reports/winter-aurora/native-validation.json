@@ -1,0 +1,478 @@
+[
+  {
+    "view": {
+      "name": "sky-north",
+      "spawn": [
+        0,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        22
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/sky-north.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.97389949997887,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "331c5549710e5cb625246e03cfdb716f80c4efec525a7751f2aa023331d738f6"
+  },
+  {
+    "view": {
+      "name": "sky-east",
+      "spawn": [
+        0,
+        10,
+        90
+      ],
+      "camera": [
+        90,
+        22
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/sky-east.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 4.968351499992423,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "4b9dd49d3c4511363900d636a799be316d74707afd8df64ca3781a0c19e03015"
+  },
+  {
+    "view": {
+      "name": "sky-seam",
+      "spawn": [
+        0,
+        10,
+        180
+      ],
+      "camera": [
+        180,
+        22
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/sky-seam.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.756399584002793,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "ec290996006e55a36cdca67d10f5094bed275fde799f5b6ab7221153d6b837ed"
+  },
+  {
+    "view": {
+      "name": "sky-west",
+      "spawn": [
+        0,
+        10,
+        -90
+      ],
+      "camera": [
+        -90,
+        22
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/sky-west.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.477650167013053,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "7ec75bcd6d10fe0f7dec64c032d69e7769c6146e9379fd57834f0dc080516962"
+  },
+  {
+    "view": {
+      "name": "sky-zenith",
+      "spawn": [
+        0,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        85
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/sky-zenith.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 4.987847375043202,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "d7a5f765ff08ed8723555936ef24e8cafca69b8d303490218659c09bf41c7ede"
+  },
+  {
+    "view": {
+      "name": "square",
+      "spawn": [
+        1,
+        10,
+        -32
+      ],
+      "camera": [
+        -32,
+        -3
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/square.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.113720084016677,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "c012d98b282cbd72b6f3a3cac7b01fd3df0ca767b2827915c56fc7ec0ce8d5c6"
+  },
+  {
+    "view": {
+      "name": "pond",
+      "spawn": [
+        4,
+        -10,
+        90
+      ],
+      "camera": [
+        90,
+        -14
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/pond.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.211880166025367,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "8cf27f44f48373d72b7fd35dc948744e018ab1178994697e72a8820ab3ebe7ed"
+  },
+  {
+    "view": {
+      "name": "forest",
+      "spawn": [
+        0,
+        -22,
+        0
+      ],
+      "camera": [
+        0,
+        -2
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/forest.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.155503541056532,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "0f870dc7675c079ac995f1735b20bf61424ae61dbea5f57759d6a45c577c20e8"
+  },
+  {
+    "view": {
+      "name": "interior",
+      "spawn": [
+        -11.5,
+        -11.5,
+        -28
+      ],
+      "camera": [
+        -28,
+        -5
+      ]
+    },
+    "quality": "high",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/high/interior.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 5.434644541994203,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "c5a6f0714c00e185a24fd8934ac8784cc4da4bfe738305a7a30e1fea12ca2756"
+  },
+  {
+    "view": {
+      "name": "sky-north",
+      "spawn": [
+        0,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        22
+      ]
+    },
+    "quality": "medium",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/medium/sky-north.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 4.270778333011549,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 1024x512 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "d7b9bb402bacbaa06f1bbecf7bba94d60ba2003d50b34f2e081387835782db5b"
+  },
+  {
+    "view": {
+      "name": "sky-seam",
+      "spawn": [
+        0,
+        10,
+        180
+      ],
+      "camera": [
+        180,
+        22
+      ]
+    },
+    "quality": "medium",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/medium/sky-seam.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 4.229947625019122,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 1024x512 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "66dcc90124789e44e73cd80da1c38a8f090b68d42ec30c210fdeb8e319edb539"
+  },
+  {
+    "view": {
+      "name": "square",
+      "spawn": [
+        1,
+        10,
+        -32
+      ],
+      "camera": [
+        -32,
+        -3
+      ]
+    },
+    "quality": "medium",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/medium/square.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 4.406438416044693,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 1024x512 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "555060f8f7a75e57ef3ec61aa9ef1e956493d5c2b43bffab8cccce04d7d34309"
+  },
+  {
+    "view": {
+      "name": "sky-north",
+      "spawn": [
+        0,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        22
+      ]
+    },
+    "quality": "low",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/low/sky-north.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 2.7428709589876235,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 512x256 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "322cdb0597e02d8b93764f48a6dcd244823ac2b21c0b1b0cb333565332237339"
+  },
+  {
+    "view": {
+      "name": "sky-seam",
+      "spawn": [
+        0,
+        10,
+        180
+      ],
+      "camera": [
+        180,
+        22
+      ]
+    },
+    "quality": "low",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/low/sky-seam.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 2.701685250038281,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 512x256 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "732c9fc98f9a3df1b026b10251cdab40cf86442c9787f3d57f1afafbf1d203f1"
+  },
+  {
+    "view": {
+      "name": "square",
+      "spawn": [
+        1,
+        10,
+        -32
+      ],
+      "camera": [
+        -32,
+        -3
+      ]
+    },
+    "quality": "low",
+    "low_lighting": false,
+    "capture": "target/winter-evidence/low/square.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 2.5584822909440845,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 512x256 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "2ee4109d5461c51ca08b54f7f918b122e27518de0a92e34f33504d4cd88f03dc"
+  },
+  {
+    "view": {
+      "name": "sky-north",
+      "spawn": [
+        0,
+        10,
+        0
+      ],
+      "camera": [
+        0,
+        22
+      ]
+    },
+    "quality": "high",
+    "low_lighting": true,
+    "capture": "target/winter-evidence/high-low-lighting/sky-north.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 2.91929995798273,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "6057dd40927ea787677b90ab3f8cda71425ac52b1216996b72dcf4adbc1a818a"
+  },
+  {
+    "view": {
+      "name": "square",
+      "spawn": [
+        1,
+        10,
+        -32
+      ],
+      "camera": [
+        -32,
+        -3
+      ]
+    },
+    "quality": "high",
+    "low_lighting": true,
+    "capture": "target/winter-evidence/high-low-lighting/square.png",
+    "exit": 0,
+    "package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6",
+    "binary_sha256": "b15bdf1fa6475350c7ef5f9b6f900a9c24ad6672b88013f2b4666dea488f3f2b",
+    "elapsed_seconds": 2.7796473340131342,
+    "captured": true,
+    "sky_upload_log": [
+      "[wgpu] sky `winter:tex_sky_aurora_01`: 2048x1024 uploaded"
+    ],
+    "winter_presented": true,
+    "quality_applied": true,
+    "capture_sha256": "0f6a57b7a712b830991f974f1b7bccdfa7de1fd14c38e680294dd2bad4a97dbb"
+  }
+]

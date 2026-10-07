@@ -60,6 +60,7 @@ mod response;
 mod tests;
 
 pub(crate) use builtin::BuiltinImage;
+pub(crate) use image::load_sky_png_relative;
 
 pub use decal::{ResolvedDecalSheet, resolve_decal_sheet};
 pub use emission::{

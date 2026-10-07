@@ -3933,6 +3933,17 @@
       "model": "environment/winter/textures/floors/ice_01.png"
     },
     {
+      "id": "winter:tex_sky_aurora_01",
+      "display_name": "Winter Northern Lights Sky",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "sky",
+      "model": "environment/winter/textures/sky/sky_aurora_01.png",
+      "description": "Opaque 2:1 equirectangular deep-blue night with small stars, distant sweeping green/cyan aurora ribbons and restrained violet fringes; open blue sky, quiet wrap margins and no landscape. Background only, independent of cool moonlight and baked ambient fill."
+    },
+    {
       "id": "winter:tex_snow_01",
       "display_name": "Snow terrain albedo",
       "asset_class": "environment",

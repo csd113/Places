@@ -20,8 +20,8 @@ Run it from the repository root::
 
 ``--check`` never regenerates: it reads the catalog, parses each file-backed
 sheet PNG's IHDR (surface textures, decal sheets and fixture faces) and fails on
-missing/corrupt/oversized files (hard limit 1024x1024, preferred 256x256,
-power-of-two dimensions preferred).
+missing/corrupt/oversized files (ordinary hard limit 1024x1024; sky-only
+2048x1024 with 2:1 POT edges; preferred 256x256, power-of-two dimensions preferred).
 """
 
 from __future__ import annotations
@@ -152,10 +152,14 @@ def validate_textures(
         if width <= 0 or height <= 0:
             errors.append(f"{texture_id}: '{model}' has zero pixels ({width}x{height})")
             continue
-        if width > HARD_DIMENSION or height > HARD_DIMENSION:
+        sky = entry.get("surface") == "sky" and asset_type == "texture"
+        hard_dimension = 2048 if sky else HARD_DIMENSION
+        if width > hard_dimension or height > hard_dimension:
             errors.append(
-                f"{texture_id}: '{model}' is {width}x{height}, over the {HARD_DIMENSION}x{HARD_DIMENSION} hard limit"
+                f"{texture_id}: '{model}' is {width}x{height}, over the {hard_dimension}x{hard_dimension} hard limit"
             )
+        if sky and (width != 2 * height or not is_power_of_two(width) or not is_power_of_two(height)):
+            errors.append(f"{texture_id}: sky must be 2:1 with power-of-two edges")
         if width > PREFERRED_DIMENSION or height > PREFERRED_DIMENSION:
             warnings.append(
                 f"{texture_id}: '{model}' is {width}x{height}, over the preferred {PREFERRED_DIMENSION}x{PREFERRED_DIMENSION}"

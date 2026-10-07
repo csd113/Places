@@ -23,8 +23,9 @@
 //! hardware requirement of the desktop target, and it never changes the size
 //! of the asset stored in the repository.
 //!
-//! Texture discipline is unchanged: the decoder still refuses anything above
-//! [`crate::assets::MAX_TEXTURE_DIMENSION`], and the shipped prop art budget
+//! Ordinary images remain bounded by [`crate::assets::MAX_TEXTURE_DIMENSION`];
+//! 2:1 skies have their own [`crate::assets::MAX_SKY_TEXTURE_DIMENSION`] limit.
+//! The shipped prop art budget
 //! still caps a prop atlas at its 256x256 native size. A quality level only
 //! decides how much of an *accepted* source reaches the GPU; it never raises
 //! the source limit.
@@ -100,9 +101,10 @@ const FULL_SHEET_EDGE: u32 = 1_024;
 const FULL_PROP_EDGE: u32 = 256;
 /// Full-quality edge budget: emissive masks at 512.
 const FULL_MASK_EDGE: u32 = 512;
-/// Full- and Medium-quality edge budget: sky sheets at 1024 (their 2:1 sheet is
-/// 1024x512, the largest the runtime decoder accepts).
-const FULL_SKY_EDGE: u32 = 1_024;
+/// Full-quality edge budget: 2048x1024 panoramas.
+const FULL_SKY_EDGE: u32 = 2_048;
+/// Medium-quality edge budget: 1024x512 panoramas.
+const MEDIUM_SKY_EDGE: u32 = 1_024;
 /// Low-quality edge budget: sky sheets at 512 (512x256).
 const LOW_SKY_EDGE: u32 = 512;
 /// Medium-quality edge budget: sheets at 512.
@@ -376,7 +378,7 @@ impl QualityLevel {
                 }
                 TextureClass::Prop => FULL_PROP_EDGE,
                 TextureClass::EmissionMask => MEDIUM_MASK_EDGE,
-                TextureClass::Sky => FULL_SKY_EDGE,
+                TextureClass::Sky => MEDIUM_SKY_EDGE,
             },
             Self::High => QualityProfile::Full.budget(class),
         }

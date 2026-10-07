@@ -34,11 +34,13 @@ import tex  # noqa: E402
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
 # Texture dimension policy, mirrored from `src/assets.rs`: `MAX_TEXTURE_DIMENSION`
-# is the hard runtime limit, `PREFERRED_TEXTURE_DIMENSION` the soft warning
+# is the ordinary hard runtime limit, `MAX_SKY_TEXTURE_DIMENSION` the sky-only
+# limit, `PREFERRED_TEXTURE_DIMENSION` the soft warning
 # budget, and `MAX_SURFACE_TEXTURE_BYTES` the per-sheet decoded budget. Python
 # cannot import the Rust constants, so the shared numbers are named here and the
 # Rust policy unit tests (`assets::tests`) pin the same contract.
 MAX_TEXTURE_DIMENSION = 1024
+MAX_SKY_TEXTURE_DIMENSION = 2048
 PREFERRED_TEXTURE_DIMENSION = 256
 # The shipped artwork is deliberately high resolution, not placeholder-size: the
 # Office/Pool surfaces and the NO DIVING sign were raised to the hard budget.
@@ -828,8 +830,14 @@ class EnvironmentTextureTests(unittest.TestCase):
             width, height = struct.unpack(">II", data[16:24])
             self.assertGreater(width, 0, texture["id"])
             self.assertGreater(height, 0, texture["id"])
-            self.assertLessEqual(width, 1024, texture["id"])
-            self.assertLessEqual(height, 1024, texture["id"])
+            sky = texture.get("surface") == "sky"
+            max_edge = MAX_SKY_TEXTURE_DIMENSION if sky else MAX_TEXTURE_DIMENSION
+            self.assertLessEqual(width, max_edge, texture["id"])
+            self.assertLessEqual(height, max_edge, texture["id"])
+            if sky:
+                self.assertEqual(width, 2 * height, texture["id"])
+                self.assertEqual(width & (width - 1), 0, texture["id"])
+                self.assertEqual(height & (height - 1), 0, texture["id"])
 
     def test_the_seed_texture_tool_validates_the_shipped_set(self):
         result = subprocess.run(

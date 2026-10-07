@@ -86,8 +86,29 @@ under-rail space, the forest spine and pond approaches remain usable.
 
 ### Remaining environment passes
 
-Weather and aurora remain separate passes. Existing stars and
-warm lamps remain unchanged; frozen water is described below.
+Weather remains a separate pass. The northern-lights sky is described below;
+warm lamps retain their existing lighting, and frozen water is described below.
+
+### Northern-lights sky
+
+`winter:tex_sky_aurora_01` loads the opaque RGB 2048×1024
+`textures/sky/sky_aurora_01.png` through the existing sky background pass.
+High uploads 2048×1024, Medium 1024×512 and Low 512×256. The sky-only decoder
+limit preserves ordinary texture budgets. Distant green/cyan ribbons, small stars and restrained violet fringes
+sit in an open deep navy sky. The sheet is 2:1 equirectangular: U wraps around yaw,
+V=0 is the zenith, V=.5 is the horizon and V=1 is the nadir. Quiet blue wrap
+margins and poles avoid obvious edge joins and pole pinching. No terrain is
+painted into the sky; the map's real rock and tree silhouettes own the horizon.
+
+The static sky uses brightness .85. Existing ambient .24 and the blue
+`winter_moon` directional source (intensity .18) remain independent of the
+artwork. Aurora colour never enters the lighting bake; warm local pools stay
+amber against cool snow. The sky is neither fogged nor included in reflection
+captures, following the existing renderer contract. No shaders, animation,
+atmospheric rendering or dependencies were added. The built-in ImageGen output
+was authored at 1774×887 with sharper stars/edges and fitted offline to the
+2048×1024 POT contract (a slight enlargement, rather than the previous downsize); the shipped PNG is the
+authoritative artwork. See `docs/reports/winter-aurora.md` for prompts and checks.
 
 ### String-light kit
 

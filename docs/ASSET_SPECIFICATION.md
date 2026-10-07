@@ -104,9 +104,9 @@ introducing it.
    prop/entity textures are opaque; their alpha channel is ignored. See §16.
 
 8. **Source artwork should retain as much quality as the hard limits allow.**
-   The hard ceiling is 1024 px on either edge, for every PNG, enforced by the
-   runtime decoder. Store the best source within that limit; the engine
-   decides how much of it reaches the GPU. Do not author a second, smaller
+   The ordinary PNG hard ceiling is 1024 px on either edge; 2:1 sky panoramas
+   have a separate 2048 px ceiling, enforced by the dedicated sky decoder.
+   Store the best source within that limit; the engine decides how much of it reaches the GPU. Do not author a second, smaller
    asset set for a lower quality level — every level uses the same files
    (see §14).
 
@@ -231,7 +231,7 @@ currently nothing enforces a minimum for any class.
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background. A catalog decal may add `"alpha_mode": "blend"` for a soft-edged feather sheet (path-to-grass strips); the default stays the hard 0.5 cut-out | no | full sheet fitted to the level placement's width × height | POT both edges |
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | opaque by default; a glTF material may declare `alphaMode: "MASK"` (+`alphaCutoff`, default 0.5) for alpha-cutout foliage, which draws through the engine's cutout pass, or `alphaMode: "BLEND"` for a translucent material, which only the character/dynamic translucent routes draw (a blended static architecture placement is an authoring error) | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
-| Sky sheet | `sky_stars_01.png` | **2:1 equirectangular** | 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
+| Sky sheet | `sky_aurora_01.png` / `sky_stars_01.png` | **2:1 equirectangular** | 2048×1024 preferred; stars 1024×512 | none enforced | RGB; alpha unused | **yes in u** (the horizon seam); v is a pole-to-pole span, clamped at the poles | sampled by view direction: `u` = yaw, `v` = pitch (`0` straight up). No level placement UVs | Hard maximum 2048×1024, POT both edges (`ShippedTextureKind::Sky`); the only non-square tiling-class sheet; catalog `texture` with `"surface": "sky"` |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
@@ -585,7 +585,7 @@ and the sheet is sampled once per particle.
 |---|---|
 | Aspect ratio | **1:1 (square)** |
 | Preferred source resolution | 256×256 (the shipped `steam_01.png`); 128×128 painter output is contract-valid |
-| Hard maximum | 1024 per edge, like every PNG |
+| Hard maximum | 1024 per edge, like every ordinary PNG |
 | Channels | RGBA is effectively required: the alpha channel is the puff |
 | Alpha | **required**, and must fall to 0 at every edge. The particle's own fade-in/out envelope multiplies it, and the material's `opacity` multiplies again |
 | Tileable | sampled `REPEAT`, and the zero edge alpha is what keeps a repeat invisible; the artwork itself is a radial puff, not a seam-matching pattern |
@@ -1092,6 +1092,7 @@ a runtime edge budget per texture class:
 | Decal sheet | 1024 | 512 | 256 |
 | Prop sheet (embedded) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
+| Sky panorama | 2048 | 1024 | 512 |
 | Lightmap atlas page | 1024 @ 16 texels/m | 1024 @ 12 texels/m | 512 @ 10 texels/m |
 
 * Downscaling happens **once, at upload / level-load time**, through an
@@ -1135,7 +1136,8 @@ future quality work; the hard limit exists for correctness, not as a target.
 
 ### 14.3 Hard limits
 
-* **1024 px per edge** for every PNG the decoder loads: surfaces, fixtures,
+* **2048×1024 for sky panoramas only**, validated as 2:1 and POT before pixel allocation by the sky loader; at most 8 MiB decoded RGBA8. High preserves these pixels, Medium uploads 1024×512 and Low 512×256.
+* **1024 px per edge** for ordinary PNGs the decoder loads: surfaces, fixtures,
   decals, packs and GLB-embedded images. `decode_png` rejects anything larger
   with `texture dimensions {w}x{h} exceed the 1024x1024 limit`.
 * A GLB-embedded image above 1024 additionally fails the whole model at parse
@@ -1160,6 +1162,7 @@ future quality work; the hard limit exists for correctness, not as a target.
 | Decal sheet | POT both edges, cut-out alpha | 128×128 small; 1024×1024 hero | 1024 |
 | Prop texture | model UV layout, no tiling | 256×256 native (the normal shipped size) | 1024 |
 | Emissive mask | same UV frame as albedo | ≤512 | 1024 |
+| Sky panorama | 2:1, POT, repeat U / clamp V | 2048×1024 | 2048 |
 
 **No minimum source resolution is enforced anywhere.** The soft "preferred
 256" value is an *upper* warning threshold, not a floor. If a class's practical
@@ -1177,7 +1180,7 @@ Use this vocabulary when describing an asset contract:
 stretched, mirrored, clipped, invisible or rejected asset.
 
 * PNG format; signature-checked.
-* ≤1024 px on either edge.
+* ≤1024 px on either edge for ordinary sheets; sky panoramas ≤2048×1024.
 * Surfaces: exactly 1:1.
 * Fixture faces: 2:1 (panel, wall luminaire) or 1:1 (round downlight), both
   edges POT, orientations as specified in §6.
@@ -1427,7 +1430,7 @@ Specifically, an AI agent must not:
 * repack or reorder a model texture atlas;
 * mirror, rotate or crop a fitted sheet;
 * introduce a seam into a tiling sheet;
-* exceed 1024 px on either edge;
+* exceed the class ceiling: 1024 px for ordinary sheets, 2048×1024 for sky panoramas;
 * invent an aspect ratio for a fixture from the current file's dimensions.
 
 If no class covers the asset, **inspect the implementation and update this
@@ -1443,7 +1446,7 @@ repository):
 | Rule | Enforced by | Command | Fails? |
 |---|---|---|---|
 | Catalog is valid, references resolve, ids unique, level references valid | `tools/assets/validate.py`; runtime catalog parser | `python3 tools/assets/validate.py` | yes (exit 1) |
-| PNG exists, real PNG, non-zero, ≤1024 | `tools/textures/build.py --check` | `python3 tools/textures/build.py --check` | yes (exit 1) |
+| PNG exists, real PNG, non-zero, ≤1024 (sky: 2:1 POT, ≤2048×1024) | `tools/textures/build.py --check` | `python3 tools/textures/build.py --check` | yes (exit 1) |
 | Over-preferred (>256) warning; non-POT warning | `tools/textures/build.py --check` | same | no (warnings only) |
 | Environment surface seams | `tools/textures/seam_repair.py --check` via `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | Ten named surfaces' seams (independent metric) | Rust test `test_shipped_surface_textures_tile` | `cargo test` | yes |
@@ -1535,11 +1538,11 @@ without checking the implementation.
     The audit checks source coverage independently of PNG compression. Larger
     masters are retained alongside native derivatives; editing a source alone
     does not update a GLB, which must be exported intentionally (§8.6).
-11. **No minimum sizes and no per-class maximum below the global 1024, and the
+11. **No minimum sizes and no per-class maximum below the ordinary 1024, and the
     pack budget is aggregate.** A 16×16 surface sheet passes the dimension
     tests; the prop toolkit refuses to ship an embedded atlas above the native
     256×256 and the Rust props test enforces both that and the 64 MiB decoded
-    pack budget, but a single pathological sheet below the global 1024 edge cap
+    pack budget, but a single pathological sheet below the ordinary 1024 edge cap
     is otherwise unconstrained. Art direction is the only guard for the rest.
 12. **Shipped fixture dimensions are pinned by a Rust test.** The loader test
     `test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` asserts

@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -2406,7 +2406,7 @@ layouts preserved; see the table below and Asset Specification §12.3.
 | Property | Value |
 | --- | --- |
 | File format | **PNG only.** Signature-checked; RGB, RGBA, grayscale, grayscale+alpha and palette (with/without `tRNS`) all normalise to 8-bit RGBA; 16-bit is stripped to 8-bit. |
-| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for every PNG (surfaces, decals, fixtures, embedded GLB images): `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
+| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for ordinary PNGs (surfaces, decals, fixtures, embedded GLB images); sky panoramas have a separate 2048×1024 ceiling: `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
 | Preferred edge | **256 px** — a soft tooling/policy warning, not a runtime error. |
 | Surface sheets | **Square** (both edges equal) per shipped-asset policy; the runtime accepts another shape, but a `tile_metres` cell would stretch. |
 | Decal sheets | **Power-of-two on both edges** (mipmapped fitted sampling; POT is the shipped-asset policy). |
@@ -2440,6 +2440,7 @@ resident, so the player, camera and game state are preserved:
 | Decal sheet | 1024 | 512 | 256 |
 | Prop sheet (GLB) | 256 | 256 | 128 |
 | Emissive mask | 512 | 256 | 128 |
+| Sky panorama | 2048 | 1024 | 512 |
 | Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 10 texels/m |
 | Shadow penumbra taps | 2 per axis (5) | 2 per axis (5) | 1 per axis (hard) |
 | Prop occlusion grid | 0.075 m | 0.11 m | 0.15 m |
@@ -2454,7 +2455,7 @@ resident, so the player, camera and game state are preserved:
 * Downscaling happens once per upload, never per frame, and the result is cached
   with the texture it produced. Every level is deterministic: the same source
   always produces the same runtime image.
-* The source hard limit (1024 px) is unchanged by any level: quality only
+* The source hard limit (1024 px for ordinary sheets, 2048×1024 for skies) is unchanged by any level: quality only
   decides how much of an accepted source reaches the GPU.
 * The **lightmap atlas** is baked light data, not shipped artwork (see
   [Baked lightmaps](#baked-lightmaps)): the same level bakes at the level's
@@ -2540,7 +2541,7 @@ rather than texture artwork.
 
 | Budget | Value | Enforced by |
 | --- | --- | --- |
-| PNG hard edge | 1024 | runtime decoder + `tools/textures/build.py` + package tests |
+| PNG hard edge | 1024 ordinary; sky 2048×1024, 2:1 POT | runtime decoder + `tools/textures/build.py` + package tests |
 | Preferred edge (soft) | 256 | tooling warning + shipped-asset policy tests |
 | Surface square | both edges equal | policy tests |
 | Surface decoded bytes | 4 MiB | policy tests |
@@ -4292,7 +4293,7 @@ none of them is optional for a change that ships content.
 | `cargo test --workspace --all-features` | The whole Rust suite: level/loader/render/material/collision/lighting tests plus the audits (surface, lighting, isolation, parity, partition, vertical, leak) | **Yes** |
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
-| `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
+| `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024 (sky ≤2048×1024, 2:1 POT); warns >256 / non-POT | Yes when art changed |
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `python3 tools/assets/audit.py --workers 12` | Every GLB and standalone PNG, finite geometry/UVs/skin data/clip channels, fitted UV range, zero-area faces, native image budget and equivalent PNG source coverage; records topology, materials, bounds, clips, duplicates and map uses in JSON. Topology review candidates require visual interpretation | Yes when assets changed |
 | `./target/release/places-compile build <source>.json` | Compiles the edited source into its `.placesmap` (prepares geometry, lighting, atlas, collision and probe captures) | **Yes, after every map edit** |
@@ -6304,7 +6305,9 @@ A level may declare one sky background:
 
 * `texture` is a catalog `texture` asset whose PNG is an **equirectangular
   2:1** sheet: `u` is yaw (seamless around the horizon), `v` is pitch with `0`
-  straight up. `outdoor:tex_sky_stars_01` is 1024×512, near-black with a small
+  straight up. Sky sheets must have power-of-two edges and fit within 2048×1024;
+  the dedicated sky loader validates this before allocating pixels. High uploads
+  up to 2048×1024, Medium 1024×512, Low 512×256. `outdoor:tex_sky_stars_01` is 1024×512, near-black with a small
   number of faint stars in the upper half — no moon, no glow, no horizon.
 * `brightness` (`0.0..=4.0`, default 1.0) scales the sheet at draw time. It is
   a visual control, not an exposure: the authored art is the look.

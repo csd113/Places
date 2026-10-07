@@ -1,0 +1,25 @@
+{
+  "baseline_revision": "be7740fcea1c952b9a364d0bf29483e1a8ee0f72",
+  "record_roles_byte_identical": {
+    "collision": true,
+    "irradiance": true,
+    "lighting": true,
+    "lightmaps": true,
+    "mesh": true,
+    "navigation": true,
+    "props": true
+  },
+  "lightmap_metadata": [
+    {
+      "quality": "medium",
+      "equal_except_content_key": true
+    },
+    {
+      "quality": "full",
+      "equal_except_content_key": true
+    }
+  ],
+  "before_dependencies": 66,
+  "after_dependencies": 66,
+  "final_package_sha256": "ad97e5ae2de22d550ca5d8995e58d88c196edef2f582336b0c170367eddfeab6"
+}

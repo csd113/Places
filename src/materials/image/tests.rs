@@ -39,6 +39,19 @@ fn solid_image(width: u32, height: u32, color: [u8; 4]) -> RawImage {
 }
 
 #[test]
+fn larger_panorama_decoding_is_exclusive_to_valid_skies() {
+    let sky = solid_image(2048, 1024, [10, 20, 30, 255]);
+    let encoded = encode_png(&sky).expect("valid test panorama");
+    assert_eq!(decode_sky_png(&encoded).expect("valid sky"), sky);
+    assert!(decode_png(&encoded).is_err());
+    for (width, height) in [(2048, 2048), (1536, 768), (4096, 2048)] {
+        let invalid = solid_image(width, height, [0, 0, 0, 255]);
+        let bytes = encode_png(&invalid).expect("test fixture encoding");
+        assert!(decode_sky_png(&bytes).is_err(), "{width}x{height}");
+    }
+}
+
+#[test]
 fn an_image_within_budget_is_left_alone() {
     let image = coordinate_image(64);
     assert!(image.downscaled_to(64).is_none());

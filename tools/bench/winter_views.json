@@ -1,5 +1,30 @@
 [
   {
+    "name": "sky-north",
+    "spawn": [0, 10, 0],
+    "camera": [0, 22]
+  },
+  {
+    "name": "sky-east",
+    "spawn": [0, 10, 90],
+    "camera": [90, 22]
+  },
+  {
+    "name": "sky-seam",
+    "spawn": [0, 10, 180],
+    "camera": [180, 22]
+  },
+  {
+    "name": "sky-west",
+    "spawn": [0, 10, -90],
+    "camera": [-90, 22]
+  },
+  {
+    "name": "sky-zenith",
+    "spawn": [0, 10, 0],
+    "camera": [0, 85]
+  },
+  {
     "name": "square",
     "spawn": [
       1,
