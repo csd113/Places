@@ -3399,6 +3399,16 @@ static SWEEP: &[ModelCandidate] = &[
     },
 ];
 
+fn disable_prop_lights(level: &mut LevelDef, prop_id: &str) {
+    for prop in &mut level.props {
+        if prop.id.as_deref() == Some(prop_id) {
+            for light in &mut prop.lights {
+                light.enabled = false;
+            }
+        }
+    }
+}
+
 /// the demo's exit sign and hanging ball light really illuminate the
 /// rooms, and the illumination comes from their authored lights rather than
 /// from their emissive materials: disabling the lights leaves only the room's
@@ -3409,13 +3419,7 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
         .expect("the shipped demo parses");
     let scene_lighting = LevelLighting::bake(&level);
     let mut scene_pendant_off = level.clone();
-    for prop in &mut scene_pendant_off.props {
-        if prop.id.as_deref() == Some("kitchen_pendant") {
-            for light in &mut prop.lights {
-                light.enabled = false;
-            }
-        }
-    }
+    disable_prop_lights(&mut scene_pendant_off, "kitchen_pendant");
     let scene_pendant_off_lighting = LevelLighting::bake(&scene_pendant_off);
     let scene_near_orb = scene_lighting.sample(56.0, 4.1, 7.6);
     let scene_near_orb_off = scene_pendant_off_lighting.sample(56.0, 4.1, 7.6);
@@ -3451,23 +3455,11 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     let pendant = lighting.sample(table_x, table_y, table_z);
 
     let mut dark = level.clone();
-    for prop in &mut dark.props {
-        if prop.id.as_deref() == Some("corridor_exit_sign") {
-            for light in &mut prop.lights {
-                light.enabled = false;
-            }
-        }
-    }
+    disable_prop_lights(&mut dark, "corridor_exit_sign");
     let dark_lighting = LevelLighting::bake(&dark);
     let exit_dark = dark_lighting.sample(52.0, 1.0, 13.0);
     let mut pendant_off = level.clone();
-    for prop in &mut pendant_off.props {
-        if prop.id.as_deref() == Some("kitchen_pendant") {
-            for light in &mut prop.lights {
-                light.enabled = false;
-            }
-        }
-    }
+    disable_prop_lights(&mut pendant_off, "kitchen_pendant");
     let pendant_dark_lighting = LevelLighting::bake(&pendant_off);
     let pendant_dark = pendant_dark_lighting.sample(table_x, table_y, table_z);
     assert!(
@@ -3523,8 +3515,10 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     let soft = LevelLighting::bake_with(&level, crate::quality::QualityLevel::High.bake_config());
     let soft_exit = soft.sample(52.0, 1.0, 13.0);
     let soft_pendant = soft.sample(table_x, table_y, table_z);
-    let soft_pendant_off =
-        LevelLighting::bake_with(&pendant_off, crate::quality::QualityLevel::High.bake_config());
+    let soft_pendant_off = LevelLighting::bake_with(
+        &pendant_off,
+        crate::quality::QualityLevel::High.bake_config(),
+    );
     assert!(
         soft_pendant.r > soft_pendant_off.sample(table_x, table_y, table_z).r + 0.02,
         "High retains the pendant's own pool: {soft_pendant:?}"

@@ -18,7 +18,7 @@ in the separate candidate snapshots.
 | Four affected bundled packages | Final identities/size/CRC and compiler timing are recorded in `costs.json`; verification requires current source/catalog/dependencies. |
 | Release binary build | Final result recorded below. |
 | `cargo fmt --all --check` | PASS. |
-| `RUSTC_WRAPPER= cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS: final exit zero, 15.99 seconds; no suppression or configuration weakening. |
+| `RUSTC_WRAPPER= cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS: final exit zero; no suppression or configuration weakening. |
 | `RUSTC_WRAPPER= cargo test --workspace` | Final result recorded below. |
 | Native High captures | Twelve matched before/after views and a single-pendant on/off pair with all other lights active; native Metal renderer, zero failed models/missing world textures. Manifests retain camera settings, renderer identity and PNG hashes. |
 | Scope preservation | Non-Home asset bytes/catalog entries and immutable Home sheets identical. Demo routes/entities/interactions and original room dimensions/openings intact. Existing non-Home Zoo placements intact. Only the Home prop/material/light/dressing fields change. |
@@ -77,7 +77,14 @@ maps or weakening the assertions.
 
 The exact preceding Pool commit's [CI run 37672078580](https://github.com/csd113/Places/actions/runs/37672078580)
 completed successfully on `476dfb4e603da2dbaaf78a1016243ca20f4e1858`.
-The Home handoff reports its own exact pushed SHA, remote verification and CI.
+The initial [Home publication](https://github.com/csd113/Places/commit/0ca1c926d233f11dbad645e62148cfd1980f85ec)
+passed map archive checks but [CI 37693916111](https://github.com/csd113/Places/actions/runs/37693916111)
+stopped on rustfmt for the last added High lamp assertion. The assertion was
+formatted; its repeated named-source disabling loops became a small test
+helper to satisfy the existing function-length lint. Every assertion and
+threshold remains. The lamp regression and required format/Clippy checks were
+rerun before the small follow-up commit; assets, packages and capture source hashes were unaffected.
+The Home handoff reports the final exact pushed SHA, remote verification and CI.
 
 All task-owned build/capture jobs finish before checkout/target release. The
 transferred `caffeinate -di` process remains active with both idle-system and

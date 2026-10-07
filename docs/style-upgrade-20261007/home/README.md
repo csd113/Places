@@ -3,6 +3,8 @@
 Starting commit: [`476dfb4`](https://github.com/csd113/Places/commit/476dfb4e603da2dbaaf78a1016243ca20f4e1858),
 on the existing `Winter-expansion` branch, immediately after Pool. This is
 the second serial entry in the [visual development journal](../README.md).
+Reconstruction commit: [`0ca1c92`](https://github.com/csd113/Places/commit/0ca1c926d233f11dbad645e62148cfd1980f85ec);
+the handoff identifies the narrow validation follow-up.
 Both immutable Home sheets were inspected as actual pixels before authoring:
 [Home Environment Asset Sheet](../../../assets/environment/home/Home%20Environment%20Asset%20Sheet.png)
 and [Warm Low-Poly Home Asset Sheet](../../../assets/environment/home/Places_%20Warm%20Low-Poly%20Home%20Asset%20Sheet.png).
@@ -144,7 +146,8 @@ half-scale committed Home globes with owned warm lights. Each needs only
 the domestic fill within the unchanged limit: 99,974 vertices below 100,000.
 The prop emitters use 12 m reach for the tall vault: they measure full 3D
 distance, whereas the old ceiling family used horizontal reach. The kitchen
-pendant retains its original unsaturated output. Two repeated
+pendant keeps its identity/transform and warm point light, tuned to .55
+intensity with its existing 5 m reach to avoid CPU channel clipping. Two repeated
 outlets and a repeated small frame were omitted without removing any new
 object family. The source-ownership checks sample 25 cm above the dining plane, clear of its
 new planter and coarse tabletop occlusion. The full authored scene separately
