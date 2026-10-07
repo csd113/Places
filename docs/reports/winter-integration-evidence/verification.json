@@ -105,5 +105,23 @@
       "bytes": 6578080,
       "sha256": "80b9a00594abffef4dab01aac4615cfba07114a7e3b29c84801006b7cea25e6b"
     }
+  },
+  "native_resume": {
+    "bootstrap_tests": 26,
+    "bootstrap_passed": 26,
+    "bootstrap_skipped": 0,
+    "bootstrap_seconds": 150.902,
+    "bootstrap_exit": 0,
+    "original_gate_skips_resolved": 11,
+    "timing_campaigns": 2,
+    "timing_runs": 24,
+    "measured_frames": 14400,
+    "ready_presentations_including_warmup": 17280,
+    "ready_not_presented": 0,
+    "all_measured_frames_have_positive_draw_and_geometry_counters": true,
+    "console_unlocked_at_phase_boundaries": true,
+    "package_verification_exit": 0,
+    "player_and_compiler_unchanged": true,
+    "scope": "Focused native suite and sequential calm/severe timings; no repeated aggregate, build or rebake"
   }
 }

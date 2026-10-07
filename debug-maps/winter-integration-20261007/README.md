@@ -13,14 +13,16 @@ python3 tools/bench/capture_winter_integration.py --out target/winter-integratio
 ```
 
 Keep the macOS console unlocked for presentation tests and frame profiling.
-The initial full gate recorded eleven locked-console skips; these commands
-rerun the native suite and collect final completed-frame on/off/off/on timings
-after other CPU/GPU work has stopped:
+The initial full gate recorded eleven locked-console skips. The unlocked
+completion subsequently passes all 26 native cases with zero skips and both
+twelve-run timing campaigns with valid presentations. These commands reproduce
+the focused suite and completed-frame on/off/off/on timings after other CPU/GPU
+work has stopped:
 
 ```sh
-env -u PLACES_ASSET_ROOT RUSTC_WRAPPER= CARGO_INCREMENTAL=0 python3 -m unittest -v tests.test_wgpu_bootstrap
-python3 tools/bench/capture_snowfall.py --mode perf --views square --out target/winter-integration-perf-calm
-python3 tools/bench/capture_snowfall.py --level blizzard_review --mode perf --views square --out target/winter-integration-perf-severe
+caffeinate -di env -u PLACES_ASSET_ROOT RUSTC_WRAPPER= CARGO_INCREMENTAL=0 python3 -m unittest -v tests.test_wgpu_bootstrap
+caffeinate -di python3 tools/bench/capture_snowfall.py --mode perf --views square --out target/winter-integration-perf-calm
+caffeinate -di python3 tools/bench/capture_snowfall.py --level blizzard_review --mode perf --views square --out target/winter-integration-perf-severe
 ```
 
 The ignored `evidence/` collection preserves raw before/after captures,
