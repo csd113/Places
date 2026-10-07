@@ -126,10 +126,16 @@ GPU tests, and `git diff --check`.
 The compiled-build suite passed all 10 cases in 41.060 s with zero skips. The
 wgpu bootstrap suite reported 26 cases in 66.620 s, with 11 presentation cases
 skipped by its existing macOS lock guard (`CGSSessionScreenIsLocked=Yes`). No
-guard or assertion was changed. Earlier Winter/contrast/movement checks ran on
-the actual native Metal renderer with zero capture skips. An isolated bootstrap
-rerun is requested when the Mac unlocks; its final status is recorded in
-`evidence/handoff.json` and the final handoff alongside the publication/CI result.
+guard or assertion was changed. After the user unlocked the Mac, the isolated
+`env -u PLACES_ASSET_ROOT python3 -m unittest tests.test_wgpu_bootstrap` rerun
+passed all 26 cases in 150.115 s with zero failures and zero skips on native Metal.
+It used the existing matching release binaries and packages: no Cargo build,
+bundled rebake or full aggregate rerun was performed. Binary and all five bundled
+package hashes remained unchanged. All 196 aggregate Python cases have therefore
+executed successfully across the original gate and this focused completion.
+Earlier Winter/contrast/movement checks also ran on the actual native Metal
+renderer with zero capture skips. No presentation cases remain pending; the
+rerun log, fixture traces and final status are retained in the existing evidence.
 Intentional failing-tool fixtures print error text while their assertions pass.
 
 Winter was normally compiled once in 107.315 s (53,540,951 bytes), then passed
