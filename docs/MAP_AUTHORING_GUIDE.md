@@ -5551,7 +5551,7 @@ first's write:
       "actions": [ { "action": "enable", "target": "sauna_steam_a" } ] } ] }
 ```
 
-### Weather: light snow
+### Weather: light snow and blizzard
 
 Weather is optional reusable level content. Add `"weather": {"kind": "snow"}`
 to any level for gentle camera-centred snowfall. Winter opts in normally; all
@@ -5565,10 +5565,14 @@ compiled semantics and its material/PNG travels through ordinary dependencies.
 | `count` | 1400 | 1–2048 seeds; High/Medium/Low evaluate 100%/75%/50% of a stable prefix |
 | `radius` | 16 | 4–32 m spherical draw range in a camera-local horizontal tile |
 | `height` | 12 | 4–24 m vertical tile, centred on camera Y |
-| `wind` | `[0.18, 0.06]` | finite world X/Z velocities, each −0.5…0.5 m/s |
+| `wind` | `[0.18, 0.06]` | finite world X/Z velocities; ±0.5 m/s for calm, ±20 m/s when severity > 0 |
 | `size` | `[0.025, 0.075]` | ordered size range, 0.005–0.15 m |
 | `speed` | `[0.45, 1.05]` | ordered downward speed range, 0.1–2 m/s |
 | `opacity` | 0.85 | finite 0–1 multiplier |
+| `intensity` | 1 | finite 0–1 seed fraction, independent of fog |
+| `storm_severity` | 0 | finite 0–1; 0 retains calm rendering, 1 is whiteout |
+| `visibility_m` | 5 | finite 2–100 m; at severity 1 removes 98.2% of outdoor contrast at this distance |
+| `fog_color` | `[0.68, 0.73, 0.79]` | three finite display-space 0–1 components |
 | `material` | `core:snowflake_01` | catalog material with a full-UV flake PNG (§7.1a of the asset specification) |
 
 Flakes fall downward with independently seeded speed, size and sinusoidal drift.
@@ -5589,6 +5593,40 @@ shelter model does not trace arbitrary prop roofs, tree canopies or dynamic
 geometry; author a ceiling or roof slab when those need weather shelter.
 Snow is presentation only, without collision or accumulation. Ground clipping
 uses the world's existing depth buffer.
+
+For severe weather, keep the seed budget small and use a compact nearby volume:
+
+```json
+"weather": {
+  "kind": "snow", "radius": 6, "height": 6,
+  "wind": [8, 3], "size": [0.025, 0.06], "speed": [0.8, 1.8],
+  "storm_severity": 1, "visibility_m": 5
+}
+```
+
+Storm extinction is exponential-squared in the **outdoor portion** of each
+camera-to-fragment sightline, after the normal atmosphere. It affects world
+surfaces, props, characters, translucent ice, decals and emitted bloom. Nearby
+warm lamps glow; distant emissive sources disappear rather than leaking bright
+bloom through the whiteout. The background sky blends toward the same fog color
+by the square root of severity, hiding aurora at full severity. No illumination,
+lightmap or reflection bake changes. Storm visibility stays identical across
+qualities; only the particle seed prefix changes. Strong wind gives velocity-
+aligned billboard streaks using the existing flake PNG and depth testing.
+
+Room interiors use their actual convex flat/gable roof volumes; occluding
+`void_walls` shelter the space below their top faces. Ray intervals are merged,
+so overlapping eaves/rooms never double-subtract optical distance. Indoor
+sightlines stay clear while views through openings fog over the exterior part
+of the ray. Storm maps may contain at most 32 combined non-open room ceilings
+and occluding roof slabs; both validators reject excess rather than silently
+losing shelters. As for snow, arbitrary prop/dynamic roofs are not traced.
+There is no screen-space noise or veil and no new texture/camera shake effect.
+
+Winter keeps its calm default. The separately compiled
+`debug-maps/blizzard-20261007/sources/blizzard_review.json` is a severe Winter
+review configuration, preserving all original terrain, buildings, pond, trees,
+lights and sky. Its README provides compilation, native captures and launches.
 
 Benchmark diagnostics: with `PLACES_BENCH=1`, `PLACES_WEATHER_TRACE=<csv>` records
 camera, evaluated/submitted/sheltered/culled counts, sum of projected quad areas

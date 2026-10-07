@@ -18,6 +18,7 @@ struct Camera {
     position: vec3<f32>,
     // Explicit tail padding so the struct is 80 bytes, 16-byte aligned.
     _padding: f32,
+    storm: Storm,
 };
 
 // Group 0 is the frame camera: the same uniform the world pass uploads, in the
@@ -51,6 +52,7 @@ struct VsOut {
     @builtin(position) clip: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
+    @location(2) world_position: vec3<f32>,
 };
 
 @vertex
@@ -62,6 +64,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.clip = camera.view_projection * vec4<f32>(vertex.position, 1.0);
     out.uv = vertex.uv;
     out.color = vertex.color;
+    out.world_position = vertex.position;
     return out;
 }
 
@@ -98,7 +101,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     }
     let alpha = base.a * in.color.a;
     // One conversion, on the display-space product.
-    return vec4<f32>(srgb_to_linear(base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
 }
 
 // The same fragment for a raw (non-sRGB) scene or reflection target: the
@@ -110,7 +113,7 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     let alpha = base.a * in.color.a;
-    return vec4<f32>(base.rgb * in.color.rgb, alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
 }
 
 // A soft-edged decal (a path-to-grass feather strip): the same texture
@@ -125,7 +128,7 @@ fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     // One conversion, on the display-space product.
-    return vec4<f32>(srgb_to_linear(base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
 }
 
 // The blended fragment for a raw (non-sRGB) scene target.
@@ -136,5 +139,12 @@ fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
     if (alpha == 0.0) {
         discard;
     }
-    return vec4<f32>(base.rgb * in.color.rgb, alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
 }
+
+// Read weather directly from uniform storage. Passing the complete shelter
+// array by value makes Metal copy it into thread-private memory per fragment.
+fn storm_density() -> f32 { return camera.storm.color_density.a; }
+fn storm_color() -> vec3<f32> { return camera.storm.color_density.rgb; }
+fn storm_count() -> u32 { return camera.storm.count.x; }
+fn storm_shelter(index: u32) -> StormShelter { return camera.storm.shelters[index]; }

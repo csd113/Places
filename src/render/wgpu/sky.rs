@@ -19,8 +19,9 @@
 //!   so it paints the cleared background and every later draw wins. It is
 //!   simply not submitted when the level declares no sky, which keeps the
 //!   historical clear colour as the background.
-//! * **No culling, no fog, no reflections.** The background is infinite: it is
-//!   not in the reflection captures or the planar mirror, and the world fog
+//! * **No culling, no reflections.** The background is infinite: it is
+//!   not in the reflection captures or the planar mirror. Opt-in storm weather
+//!   blends it toward the storm color; the ordinary world fog
 //!   does not tint it.
 
 use std::path::Path;
@@ -45,7 +46,7 @@ pub const SKY_FRAGMENT_ENTRY: &str = "fs_main";
 /// The raw (non-sRGB) scene-target fragment entry point.
 pub const SKY_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
 
-/// The sky uniform, 80 bytes: a 4x4 matrix and 16 bytes of parameters.
+/// The sky uniform, 96 bytes: a 4x4 matrix and two parameter slots.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SkyUniform {
@@ -53,10 +54,11 @@ pub struct SkyUniform {
     pub inverse_view_projection: [[f32; 4]; 4],
     /// `x` is the brightness multiplier; `yzw` are reserved and zero.
     pub params: [f32; 4],
+    pub storm: [f32; 4],
 }
 
 /// Size of [`SkyUniform`] in bytes.
-pub const SKY_UNIFORM_SIZE: u64 = 80;
+pub const SKY_UNIFORM_SIZE: u64 = 96;
 
 impl SkyUniform {
     /// The uniform for one frame.
@@ -65,6 +67,7 @@ impl SkyUniform {
         Self {
             inverse_view_projection: view_projection.inverse().to_cols_array_2d(),
             params: [brightness, 0.0, 0.0, 0.0],
+            storm: [0.0; 4],
         }
     }
 }
@@ -198,8 +201,15 @@ impl SkyPipeline {
     }
 
     /// Uploads the frame's view-projection and brightness when they changed.
-    pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, brightness: f32) {
-        let uniform = SkyUniform::new(view_projection, brightness);
+    pub fn upload_camera_with_storm(
+        &mut self,
+        queue: &wgpu::Queue,
+        view_projection: Mat4,
+        brightness: f32,
+        storm: [f32; 4],
+    ) {
+        let mut uniform = SkyUniform::new(view_projection, brightness);
+        uniform.storm = storm;
         if self.uploaded == Some(uniform) {
             return;
         }
@@ -324,5 +334,24 @@ impl WgpuSky {
     #[must_use]
     pub const fn brightness(&self) -> f32 {
         self.brightness
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn storm_sky_uniform_and_shader_match_and_calm_keeps_zero_blend()
+    -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(std::mem::size_of::<SkyUniform>(), 96);
+        assert_eq!(std::mem::offset_of!(SkyUniform, storm), 80);
+        assert_eq!(SkyUniform::new(Mat4::IDENTITY, 1.0).storm, [0.0; 4]);
+        let module = wgpu::naga::front::wgsl::parse_str(SKY_SHADER_SRC)?;
+        let _validated = wgpu::naga::valid::Validator::new(
+            wgpu::naga::valid::ValidationFlags::all(),
+            wgpu::naga::valid::Capabilities::all(),
+        )
+        .validate(&module)?;
+        Ok(())
     }
 }

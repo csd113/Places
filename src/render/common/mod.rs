@@ -31,6 +31,7 @@ pub mod props;
 pub mod reflections;
 pub mod snow;
 pub mod stats;
+pub mod storm;
 pub mod view;
 pub mod water;
 

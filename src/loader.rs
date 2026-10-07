@@ -313,6 +313,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_sky(level)?;
     if let Some(weather) = &level.weather {
         weather.snowfall().validate()?;
+        if weather.snowfall().storm_severity > 0.0
+            && crate::weather::shelter_count(level) > crate::weather::MAX_STORM_SHELTERS
+        {
+            return Err("storm weather supports at most 32 ceiling/roof shelters".to_string());
+        }
     }
     validate_global_illuminators(level)?;
     validate_rooms(level)?;

@@ -89,7 +89,8 @@ use crate::render::common::{MeshChunk, MeshPacker};
 use crate::spatial::{Aabb, Frustum};
 
 /// The world shader, from the file next to this module.
-pub const WORLD_SHADER_SRC: &str = include_str!("world.wgsl");
+pub const WORLD_SHADER_SRC: &str =
+    concat!(include_str!("storm.wgsl"), "\n", include_str!("world.wgsl"));
 
 /// Name of the world vertex entry point.
 pub const WORLD_VERTEX_ENTRY: &str = "vs_main";
@@ -431,7 +432,8 @@ impl FogRegionUniform {
 /// offset 224  fog_regions        [FogRegion; 16]  1024 bytes, 64 each
 /// offset 1248 entity_irradiance   [f32; 4]     16 bytes
 /// offset 1264 entity_moment       [f32; 4]     16 bytes
-/// ------------------------------------------------------ 1280 bytes, align 16
+/// offset 1280 storm               Storm       1568 bytes
+/// ------------------------------------------------------ 2848 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -443,7 +445,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 1280 bytes on the wire and in Rust
+/// live count word. The struct is 2848 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -502,6 +504,7 @@ pub struct EnvironmentUniform {
     pub entity_irradiance: [f32; 4],
     /// Signed linear first moment; reserved w is zero.
     pub entity_moment: [f32; 4],
+    pub storm: crate::render::common::storm::StormUniform,
 }
 
 impl EnvironmentUniform {
@@ -535,6 +538,15 @@ impl EnvironmentUniform {
             fog_regions: [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS],
             entity_irradiance: [0.0; 4],
             entity_moment: [0.0; 4],
+            storm: crate::render::common::storm::StormUniform {
+                color_density: [0.0; 4],
+                count: [0; 4],
+                shelters: [crate::render::common::storm::StormShelter {
+                    min: [0.0; 4],
+                    max: [0.0; 4],
+                    roof: [0.0; 4],
+                }; crate::weather::MAX_STORM_SHELTERS],
+            },
         }
     }
 
@@ -4081,9 +4093,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1280);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 1280);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 2848);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4230,7 +4242,7 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, entity_moment),
             1264
         );
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 1280);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(

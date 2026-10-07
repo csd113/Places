@@ -51,3 +51,26 @@ class WeatherTests(unittest.TestCase):
     def test_default_weather_material_is_a_compiler_reference(self):
         refs = list(validate.level_ids({'weather': {'kind': 'snow'}}))
         self.assertIn(('core:snowflake_01', 'weather material'), refs)
+
+    def test_blizzard_configuration_and_shelter_limit(self):
+        storm = {'kind': 'snow', 'storm_severity': 1, 'visibility_m': 5, 'wind': [8, 3]}
+        errors = []
+        validate.validate_weather({'weather': storm}, 'fixture', errors)
+        self.assertEqual(errors, [])
+        for patch in ({'storm_severity': -1}, {'storm_severity': 1.1}, {'visibility_m': 1},
+                      {'visibility_m': float('inf')}, {'intensity': 2}, {'wind': [21, 0]},
+                      {'fog_color': [.5, .5]}, {'fog_color': [.5, .5, -1]}):
+            errors = []
+            validate.validate_weather({'weather': {**storm, **patch}}, 'fixture', errors)
+            self.assertTrue(errors, patch)
+        errors = []
+        validate.validate_weather({'weather': storm, 'rooms': [{}] * 33}, 'fixture', errors)
+        self.assertTrue(errors)
+
+    def test_blizzard_review_preserves_winter_content(self):
+        original = json.loads((ROOT / 'assets/levels/winter.json').read_text())
+        review = json.loads((ROOT / 'debug-maps/blizzard-20261007/sources/blizzard_review.json').read_text())
+        for key in original.keys() - {'id', 'name', 'weather'}:
+            self.assertEqual(original[key], review[key], key)
+        self.assertEqual(review['weather']['storm_severity'], 1)
+        self.assertEqual(review['weather'].get('count', 1400), 1400)

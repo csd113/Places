@@ -39,6 +39,7 @@ pub struct SnowStats {
 #[derive(Debug)]
 pub struct SnowScene {
     config: SnowfallDef,
+    pub storm: super::storm::StormUniform,
     seeds: Vec<Seed>,
     shelters: Vec<Shelter>,
     pub texture: usize,
@@ -91,6 +92,7 @@ impl SnowScene {
         }
         Self {
             config: config.clone(),
+            storm: super::storm::StormUniform::build(level, config),
             seeds,
             shelters,
             texture,
@@ -101,6 +103,16 @@ impl SnowScene {
     #[must_use]
     pub const fn budget(&self) -> usize {
         self.seeds.len()
+    }
+
+    #[must_use]
+    pub fn sky_storm(&self) -> [f32; 4] {
+        [
+            self.config.fog_color[0],
+            self.config.fog_color[1],
+            self.config.fog_color[2],
+            self.config.storm_severity.sqrt(),
+        ]
     }
 
     /// World-anchored analytic motion; the camera selects an equivalent tile.
@@ -168,7 +180,7 @@ impl SnowScene {
     #[must_use]
     #[expect(
         clippy::arithmetic_side_effects,
-        reason = "Bounded finite billboard projection and weather fades"
+        reason = "Bounded finite billboard projection; validated seed fraction in 0..=1"
     )]
     pub fn append(
         &self,
@@ -184,13 +196,22 @@ impl SnowScene {
             QualityLevel::Medium => 3,
             QualityLevel::High => 4,
         };
-        let count = self.budget().saturating_mul(fraction) / 4;
+        let prefix = self.budget().saturating_mul(fraction) / 4;
+        let limit = (f32::from(u16::try_from(prefix).unwrap_or(0)) * self.config.intensity).floor();
         let mut stats = SnowStats::default();
-        for seed in self.seeds.iter().take(count) {
+        for (seed, _) in self
+            .seeds
+            .iter()
+            .take(prefix)
+            .zip(0_u16..)
+            .take_while(|(_, index)| f32::from(*index) < limit)
+        {
             stats.evaluated = stats.evaluated.saturating_add(1);
             let mut pose = self.pose(*seed, seconds, camera);
             let position = Vec3::from_array(pose.position);
-            let extent = Vec3::splat(pose.size);
+            let velocity = Vec3::new(self.config.wind[0], -seed.speed, self.config.wind[1]);
+            let streak = velocity * (self.config.storm_severity * 0.035);
+            let extent = Vec3::splat(pose.size) + streak.abs();
             if pose.alpha <= 0.002
                 || !frustum.intersects_aabb(&Aabb {
                     min: (position - extent).to_array(),
@@ -200,13 +221,35 @@ impl SnowScene {
                 stats.culled = stats.culled.saturating_add(1);
                 continue;
             }
-            pose.alpha *= self.shelter_alpha(position, pose.size);
-            if pose.alpha <= 0.002 {
+            let shelter = self.shelter_alpha(position, pose.size + streak.length());
+            if pose.alpha * shelter <= 0.002 {
                 stats.sheltered = stats.sheltered.saturating_add(1);
+                continue;
+            }
+            pose.alpha *= shelter * self.storm.transmission(camera, position);
+            if pose.alpha <= 0.002 {
+                stats.culled = stats.culled.saturating_add(1);
                 continue;
             }
             let first = out.len();
             append_billboard(camera, pose, 1.0, out);
+            if self.config.storm_severity > 0.0 {
+                let facing = (camera - position).normalize_or_zero();
+                let along = streak - facing * streak.dot(facing);
+                let up = along.normalize_or_zero();
+                if up.length_squared() > 0.5 {
+                    let right = up.cross(facing).normalize_or_zero() * pose.size * 0.5;
+                    let half = along * 0.5 + up * pose.size * 0.5;
+                    for (vertex, corner) in out.iter_mut().skip(first).zip([
+                        position - right - half,
+                        position + right - half,
+                        position + right + half,
+                        position - right + half,
+                    ]) {
+                        vertex.position = corner.to_array();
+                    }
+                }
+            }
             // Project actual quad corners; this conservative fill estimate
             // includes transparent texels and fragments later rejected by depth.
             if let Some(matrix) = projection {
@@ -249,6 +292,91 @@ mod tests {
             serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
         Ok(SnowScene::build(&level, &SnowfallDef::default(), 0, 1.0))
     }
+    #[test]
+    fn severe_streaks_and_quality_prefixes_use_bounded_retained_storage()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let level: LevelDef =
+            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let mut config = SnowfallDef::blizzard();
+        config.intensity = 0.5;
+        let scene = SnowScene::build(&level, &config, 0, 1.0);
+        let camera = Vec3::new(0.0, 1.6, 10.0);
+        let projection = Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
+            * Mat4::look_at_rh(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
+        let frustum =
+            Frustum::from_view_projection(&projection, crate::spatial::DepthRange::ZeroToOne);
+        let mut vertices = Vec::with_capacity(scene.budget().saturating_mul(4));
+        let capacity = vertices.capacity();
+        for (quality, expected) in [
+            (QualityLevel::Low, 350),
+            (QualityLevel::Medium, 525),
+            (QualityLevel::High, 700),
+        ] {
+            for step in 0_u16..60 {
+                vertices.clear();
+                let stats = scene.append(
+                    f32::from(step) * 0.1,
+                    camera,
+                    Some(projection),
+                    &frustum,
+                    quality,
+                    &mut vertices,
+                );
+                assert_eq!(stats.evaluated, expected);
+                assert!(stats.submitted > 0 && stats.submitted < expected / 2);
+                assert_eq!(vertices.capacity(), capacity);
+                assert!(stats.coverage < 0.2);
+                assert!(
+                    vertices
+                        .iter()
+                        .flat_map(|vertex| vertex.position)
+                        .all(f32::is_finite)
+                );
+                let first = vertices.first().ok_or("missing streak corner")?;
+                let second = vertices.get(1).ok_or("missing streak corner")?;
+                let third = vertices.get(2).ok_or("missing streak corner")?;
+                let width =
+                    Vec3::from_array(first.position).distance(Vec3::from_array(second.position));
+                let length =
+                    Vec3::from_array(second.position).distance(Vec3::from_array(third.position));
+                assert!(
+                    length > width * 2.0,
+                    "wind-aligned streak must be elongated"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn extinction_culls_are_not_misreported_as_roof_suppression() -> Result<(), serde_json::Error> {
+        let level: LevelDef =
+            serde_json::from_str(include_str!("../../../assets/levels/winter.json"))?;
+        let mut scene = SnowScene::build(&level, &SnowfallDef::blizzard(), 0, 1.0);
+        scene.shelters.clear();
+        scene.storm.count = [0; 4];
+        let camera = Vec3::new(0.0, 1.6, 10.0);
+        let matrix = Mat4::perspective_rh(60_f32.to_radians(), 16.0 / 9.0, 0.1, 100.0)
+            * Mat4::look_at_rh(camera, Vec3::new(0.0, 1.6, 9.0), Vec3::Y);
+        let frustum = Frustum::from_view_projection(&matrix, crate::spatial::DepthRange::ZeroToOne);
+        let mut vertices = Vec::with_capacity(scene.budget().saturating_mul(4));
+        let stats = scene.append(
+            2.0,
+            camera,
+            None,
+            &frustum,
+            QualityLevel::High,
+            &mut vertices,
+        );
+        assert_eq!(stats.sheltered, 0, "open air has no roof suppression");
+        assert!(stats.culled > 0);
+        assert_eq!(
+            stats.evaluated,
+            stats.submitted.saturating_add(stats.culled)
+        );
+        Ok(())
+    }
+
     #[test]
     fn fall_is_downward_varied_and_frame_rate_independent() -> Result<(), serde_json::Error> {
         let scene = scene()?;

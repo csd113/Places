@@ -2598,10 +2598,15 @@ impl WgpuRenderer {
     fn level_environment(&self) -> EnvironmentUniform {
         let (page_count, switchable_count, mask) = self.lightmap_selection();
         let fog_regions = self.fog.uploaded_region_count(self.quality);
-        static_environment(self.lightmaps_resident, self.fog.global)
+        let mut result = static_environment(self.lightmaps_resident, self.fog.global)
             .with_fog_regions(&self.fog.regions, fog_regions)
             .with_lightmaps(page_count, switchable_count, mask)
-            .with_probe_mips(self.probe_max_mip)
+            .with_probe_mips(self.probe_max_mip);
+        result.storm = self
+            .effects
+            .snow()
+            .map_or_else(Default::default, |snow| snow.storm);
+        result
     }
 
     /// Creates the group-3 environment bindings from the current atlas, probe
@@ -3019,7 +3024,12 @@ impl WgpuRenderer {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
         if let Some(pipeline) = self.decal_pipeline.as_mut() {
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+            pipeline.upload_camera_with_storm(
+                &self.queue,
+                frame.view_projection,
+                frame.eye,
+                &environment_template.storm,
+            );
         }
         if let Some(pipeline) = self.scene_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
@@ -3042,12 +3052,26 @@ impl WgpuRenderer {
             pipeline.update_lights(&self.queue, lights);
         }
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+            pipeline.upload_camera_with_storm(
+                &self.queue,
+                frame.view_projection,
+                frame.eye,
+                &environment_template.storm,
+            );
         }
         if let Some(sky) = self.sky.as_ref()
             && let Some(pipeline) = self.sky_pipeline.as_mut()
         {
-            pipeline.upload_camera(&self.queue, frame.view_projection, sky.brightness());
+            let storm = self
+                .effects
+                .snow()
+                .map_or([0.0; 4], crate::render::common::snow::SnowScene::sky_storm);
+            pipeline.upload_camera_with_storm(
+                &self.queue,
+                frame.view_projection,
+                sky.brightness(),
+                storm,
+            );
         }
         if let Some(pipeline) = self.effects_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
@@ -3682,6 +3706,14 @@ impl WgpuRenderer {
         ));
     }
 
+    fn clear_capture_weather(&mut self) {
+        let mut clear_atmosphere = self.level_environment();
+        clear_atmosphere.storm = crate::render::common::storm::StormUniform::default();
+        if let Some(binding) = self.environment.as_mut() {
+            let _updated = binding.update(&self.queue, &clear_atmosphere);
+        }
+    }
+
     /// Bakes every wanted probe cubemap: six full scene submissions per probe.
     ///
     /// Runs once per level load, after the world, its textures and its materials
@@ -3700,6 +3732,8 @@ impl WgpuRenderer {
         if self.fatal.is_some() {
             return;
         }
+        // Transient weather belongs to the presented sightline, never a bake.
+        self.clear_capture_weather();
         let Some(pipeline) = self.capture_pipeline.as_mut() else {
             return;
         };
@@ -3828,6 +3862,8 @@ impl WgpuRenderer {
         frame: &super::world::WorldFrame,
         plane_index: usize,
     ) -> bool {
+        // The main surface applies weather once after sampling its reflection.
+        self.clear_capture_weather();
         let Some(pipeline) = self.capture_pipeline.as_mut() else {
             return false;
         };

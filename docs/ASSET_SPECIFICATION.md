@@ -609,6 +609,9 @@ The white centre and subdued blue-grey rim retain contrast on dark sky and
 pale ground. No directional orientation, emission, reflection or tiling is
 required. The shared effect sampler uses repeat; transparent margins avoid
 seams. Straight alpha is multiplied by weather fades and material opacity.
+The same full-UV square sheet also supports velocity-aligned elongated
+billboards in storm weather; only the quad geometry stretches, while PNG
+aspect, UV orientation, straight alpha and transparent borders remain intact.
 The corresponding blend material is `core:snowflake_01`. The PNG is artwork
 from the built-in imagegen tool, downsampled with alpha preserved; the game
 never synthesizes it. See `src/render/common/snow.rs` for geometry and fades.

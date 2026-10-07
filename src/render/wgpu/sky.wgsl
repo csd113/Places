@@ -18,6 +18,7 @@ struct Sky {
     inverse_view_projection: mat4x4<f32>,
     // x = brightness multiplier, yzw reserved (zero).
     params: vec4<f32>,
+    storm: vec4<f32>,
 };
 
 // Group 0 is the sky pass's own uniform.
@@ -74,7 +75,7 @@ fn sky_uv(ndc: vec2<f32>) -> vec2<f32> {
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(srgb_to_linear(base.rgb * sky.params.x), 1.0);
+    return vec4<f32>(srgb_to_linear(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a)), 1.0);
 }
 
 // The raw (non-sRGB) scene-target entry point: the authored value written
@@ -82,5 +83,5 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
 @fragment
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
     let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(base.rgb * sky.params.x, 1.0);
+    return vec4<f32>(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a), 1.0);
 }

@@ -155,6 +155,7 @@ struct Environment {
     fog_regions: array<FogRegion, 16u>,
     entity_irradiance: vec4<f32>,
     entity_moment: vec4<f32>,
+    storm: Storm,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -664,7 +665,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
         color = base_display;
     }
     var out: Shaded;
-    out.color = color;
+    out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;
     return out;
 }
@@ -711,7 +712,7 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     }
     // The per-instance opacity scales the emission so a faded ghost does not
     // keep its full bloom; the attached-light term is deliberately absent here.
-    return vec4<f32>(surface_emission(in, base.rgb) * environment.opacity, 1.0);
+    return vec4<f32>(surface_emission(in, base.rgb) * environment.opacity * storm_transmission(camera.position, in.world_position), 1.0);
 }
 
 @fragment
@@ -723,3 +724,10 @@ fn fs_emission(in: VsOut, @builtin(front_facing) front_facing: bool) -> @locatio
 fn fs_emission_cutout(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
     return emissive_only(in, true);
 }
+
+// Read weather directly from uniform storage. Passing the complete shelter
+// array by value makes Metal copy it into thread-private memory per fragment.
+fn storm_density() -> f32 { return environment.storm.color_density.a; }
+fn storm_color() -> vec3<f32> { return environment.storm.color_density.rgb; }
+fn storm_count() -> u32 { return environment.storm.count.x; }
+fn storm_shelter(index: u32) -> StormShelter { return environment.storm.shelters[index]; }

@@ -15,6 +15,11 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 VIEWS = {
+    'lights-near': ([-3.5, 5, 0], [0, 15], '', 2),
+    'lodge-near': ([-11.5, -5, 0], [0, 0], '', 2),
+    'lodge-silhouette': ([-11.5, -3, 0], [0, 0], '', 2),
+    'pond': ([11, -2, 0], [0, -25], '', 2),
+    'forest-close': ([1.5, -28.5, 32], [32, 5], '', 2),
     'square': ([1, 10, -32], [-32, -3], '', 2),
     'pale-ground': ([0, 10, 0], [0, -35], '', 2),
     'dark-sky': ([0, 10, 0], [0, 25], '', 2),
@@ -115,7 +120,7 @@ def main():
     parser.add_argument('--mode', choices=('capture','perf','cycle'), default='capture')
     parser.add_argument('--qualities', default='high,medium,low')
     parser.add_argument('--views', default='square,pale-ground,dark-sky,interior,door-in,door-out,forest-turn,fast-strafe')
-    parser.add_argument('--level', default='winter', choices=('winter','snowfall_contrast'))
+    parser.add_argument('--level', default='winter', choices=('winter','snowfall_contrast','blizzard_review'))
     args = parser.parse_args()
     out = args.out.resolve(); out.mkdir(parents=True,exist_ok=True)
     summaries = []
@@ -129,7 +134,7 @@ def main():
                 else:
                     repeat = out
                 summaries.append(run(repeat,quality,name,off,args.mode == 'perf',args.mode == 'cycle',args.level))
-    package = ROOT/'assets/levels/winter.placesmap' if args.level == 'winter' else ROOT/'levels/snowfall_contrast.placesmap'
+    package = ROOT/'assets/levels/winter.placesmap' if args.level == 'winter' else ROOT/'levels'/(args.level+'.placesmap')
     manifest = {'binary_sha256':hashlib.sha256((ROOT/'target/release/places').read_bytes()).hexdigest(),
                 'level':args.level, 'package_sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
                 'runs':summaries}

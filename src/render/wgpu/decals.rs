@@ -43,8 +43,7 @@ use glam::Mat4;
 use super::surface::DEPTH_FORMAT;
 use super::texture::{TextureCache, TextureFiltering};
 use super::world::{
-    CAMERA_UNIFORM_SIZE, CameraUniform, WORLD_VERTEX_STRIDE, WorldFrame, WorldVertex,
-    camera_uniform_changed, world_vertex_layout,
+    CameraUniform, WORLD_VERTEX_STRIDE, WorldFrame, WorldVertex, world_vertex_layout,
 };
 use crate::assets::AssetCatalog;
 use crate::level::LevelDef;
@@ -59,7 +58,11 @@ use crate::render::common::{MeshChunk, MeshPacker};
 use crate::spatial::Aabb;
 
 /// The decal shader, from the file next to this module.
-pub const DECAL_SHADER_SRC: &str = include_str!("decals.wgsl");
+pub const DECAL_SHADER_SRC: &str = concat!(
+    include_str!("storm.wgsl"),
+    "\n",
+    include_str!("decals.wgsl")
+);
 
 /// Name of the decal vertex entry point.
 pub const DECAL_VERTEX_ENTRY: &str = "vs_main";
@@ -238,8 +241,16 @@ pub struct DecalPipeline {
     camera_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     /// The last uploaded camera state, so a still camera writes nothing.
-    uploaded: Option<CameraUniform>,
+    uploaded: Option<DecalCamera>,
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+struct DecalCamera {
+    camera: CameraUniform,
+    storm: crate::render::common::storm::StormUniform,
+}
+const DECAL_CAMERA_SIZE: u64 = 1648;
 
 /// The camera bind group layout: one frame uniform at binding 0.
 ///
@@ -252,11 +263,11 @@ fn camera_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
             binding: 0,
             // Only the vertex stage transforms by the camera; the decal
             // fragment stage has no view-dependent term.
-            visibility: wgpu::ShaderStages::VERTEX,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: wgpu::BufferSize::new(CAMERA_UNIFORM_SIZE),
+                min_binding_size: wgpu::BufferSize::new(DECAL_CAMERA_SIZE),
             },
             count: None,
         }],
@@ -384,7 +395,7 @@ impl DecalPipeline {
         });
         let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-decal-camera"),
-            size: CAMERA_UNIFORM_SIZE,
+            size: DECAL_CAMERA_SIZE,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -425,8 +436,26 @@ impl DecalPipeline {
     /// touches the buffer, and any change to either the matrix or the eye
     /// reaches the shader.
     pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, eye: glam::Vec3) {
-        let uniform = CameraUniform::new(view_projection, eye);
-        if !camera_uniform_changed(self.uploaded, uniform) {
+        self.upload_camera_with_storm(
+            queue,
+            view_projection,
+            eye,
+            &crate::render::common::storm::StormUniform::default(),
+        );
+    }
+
+    pub fn upload_camera_with_storm(
+        &mut self,
+        queue: &wgpu::Queue,
+        view_projection: Mat4,
+        eye: glam::Vec3,
+        storm: &crate::render::common::storm::StormUniform,
+    ) {
+        let uniform = DecalCamera {
+            camera: CameraUniform::new(view_projection, eye),
+            storm: *storm,
+        };
+        if self.uploaded == Some(uniform) {
             return;
         }
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
@@ -1187,6 +1216,19 @@ mod tests {
     // ------------------------------------------------------------ shader
 
     #[test]
+    fn storm_camera_layout_and_decal_shader_validate() {
+        assert_eq!(std::mem::size_of::<DecalCamera>(), 1648);
+        assert_eq!(std::mem::offset_of!(DecalCamera, storm), 80);
+        let module = wgpu::naga::front::wgsl::parse_str(DECAL_SHADER_SRC).expect("decal WGSL");
+        let _validated = wgpu::naga::valid::Validator::new(
+            wgpu::naga::valid::ValidationFlags::all(),
+            wgpu::naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .expect("decal validation");
+    }
+
+    #[test]
     fn the_decal_fragment_tests_texture_alpha_and_converts_the_product_once() {
         assert!(DECAL_SHADER_SRC.contains("fn srgb_to_linear"));
         assert!(DECAL_SHADER_SRC.contains("fn linear_to_srgb"));
@@ -1196,7 +1238,10 @@ mod tests {
         assert!(DECAL_SHADER_SRC.contains("discard"));
         // The display-space product is converted exactly once, for the sRGB
         // target.
-        assert!(DECAL_SHADER_SRC.contains("srgb_to_linear(base.rgb * in.color.rgb)"));
+        assert!(DECAL_SHADER_SRC.contains(
+            "srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb))"
+        ));
+        assert!(DECAL_SHADER_SRC.contains("if (storm_density() == 0.0) { return color; }"));
         assert!((0.0..1.0).contains(&DECAL_ALPHA_CUTOFF));
         // The shader's cut-off and the Rust constant cannot drift apart.
         assert!(DECAL_SHADER_SRC.contains(&format!("< {DECAL_ALPHA_CUTOFF}")));
