@@ -14,6 +14,7 @@ in the separate candidate snapshots.
 | Periodic seams | PASS: all ten remade/new Home surface PNGs. |
 | Master/native pipeline | PASS: all 24 pairs exactly match 1024² → 256² Lanczos downsampling. |
 | Home GLB/PNG audit | PASS: 31 families, 9,200 triangles total, largest 704; no degenerate/nonmanifold/inconsistent-winding triangles. Embedded pixels match the native standalone PNGs; UVs within 0..1 with floating-point tolerance. |
+| Exact lighting acceptance | PASS: all three cases, including the full shipped-scene occlusion audit and exterior-endpoint/real-penetration regression. |
 | Native geometry validation | PASS: zero errors, the same two existing non-Home warnings. |
 | Four affected bundled packages | Final identities/size/CRC and compiler timing are recorded in `costs.json`; verification requires current source/catalog/dependencies. |
 | Release binary build | Final result recorded below. |
@@ -84,6 +85,15 @@ formatted; its repeated named-source disabling loops became a small test
 helper to satisfy the existing function-length lint. Every assertion and
 threshold remains. The lamp regression and required format/Clippy checks were
 rerun before the small follow-up commit; assets, packages and capture source hashes were unaffected.
+[The corrected publication CI](https://github.com/csd113/Places/actions/runs/37694798789)
+passed format, check and both debug/release Clippy modes, then reached 2,020
+passing library tests, 23 ignored and one lighting-reference failure. A
+diagnostic at the Home knee-wall junction proved f32 slab-parameter rounding
+classified an exterior endpoint as a wall hit. The independent reference now
+uses f64 arithmetic over the same unshrunk bounds; a focused regression checks
+both the clear exterior endpoint and genuine wall penetration. No visibility
+engine, pool tolerance, map, asset or screenshot changed for this correction.
+The complete lighting acceptance module and strict Clippy were rerun.
 The Home handoff reports the final exact pushed SHA, remote verification and CI.
 
 All task-owned build/capture jobs finish before checkout/target release. The

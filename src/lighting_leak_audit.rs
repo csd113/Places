@@ -148,20 +148,24 @@ fn segment_crosses_interface(interface: FloorInterface, from: [f32; 3], to: [f32
 
 /// True when the segment `from`-`to` crosses the solid.
 fn segment_hits_solid(solid: Solid, from: [f32; 3], to: [f32; 3]) -> bool {
-    let mut enter = 0.0_f32;
-    let mut exit = 1.0_f32;
+    // Keep the independent reference precise at wall junctions. In f32 a
+    // segment ending just outside a face can round its entry parameter down
+    // to 1.0 and falsely classify that exterior endpoint as a wall crossing.
+    let mut enter = 0.0_f64;
+    let mut exit = 1.0_f64;
     for axis in 0..3 {
-        let (start, end) = (from[axis], to[axis]);
+        let (start, end) = (f64::from(from[axis]), f64::from(to[axis]));
+        let (min, max) = (f64::from(solid.min[axis]), f64::from(solid.max[axis]));
         let delta = end - start;
-        if delta.abs() <= f32::EPSILON {
-            if start < solid.min[axis] || start > solid.max[axis] {
+        if delta.abs() <= f64::EPSILON {
+            if start < min || start > max {
                 return false;
             }
             continue;
         }
-        let inverse = 1.0 / delta;
-        let mut near = (solid.min[axis] - start) * inverse;
-        let mut far = (solid.max[axis] - start) * inverse;
+        let inverse = 1.0_f64 / delta;
+        let mut near = (min - start) * inverse;
+        let mut far = (max - start) * inverse;
         if near > far {
             std::mem::swap(&mut near, &mut far);
         }
@@ -172,6 +176,27 @@ fn segment_hits_solid(solid: Solid, from: [f32; 3], to: [f32; 3]) -> bool {
         }
     }
     true
+}
+
+#[test]
+fn the_exact_reference_keeps_a_home_junction_endpoint_outside_the_wall() {
+    let north_wall = Solid {
+        min: [53.0, -0.9, 2.85],
+        max: [60.3, 3.6, 3.149_999_9],
+    };
+    let source = [61.0, 4.561_666_5, 9.1];
+    assert!(
+        !segment_hits_solid(north_wall, source, [58.76, -0.375, 3.15]),
+        "the Home knee-wall probe ends outside the north wall"
+    );
+    assert!(
+        segment_hits_solid(
+            north_wall,
+            source,
+            [58.76, -0.375, north_wall.max[2] - 0.01],
+        ),
+        "a ray entering the same wall must remain blocked"
+    );
 }
 
 /// The exact local lighting at a point, with no visibility relaxation: the

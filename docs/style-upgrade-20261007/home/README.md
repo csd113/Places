@@ -177,6 +177,15 @@ and the adjacent settings preserve the evidence. The full-scene CPU regression
 and supplemental source-isolation checks preserve the protected .02 contrast
 thresholds; no renderer or limit was changed to obtain a pass.
 
+The clean all-features CI later exposed a numerical false positive in its
+independent wall-intersection reference. At the knee-wall/north-wall junction,
+a ray ending just outside the north face rounded into a hit in f32; a
+10-micrometre outward move restored exact agreement. The reference now solves
+its unshrunk slab intersection in f64. A regression retains the exterior
+endpoint as clear and a ray entering the same wall as blocked. Production
+lighting, authored assets and the .02 acceptance threshold remain unchanged.
+The source diagnostic and original failed CI logs remain in local evidence.
+
 ## Remaining visual limits and cost
 
 The room is still larger and taller than the reference's domestic interior;
