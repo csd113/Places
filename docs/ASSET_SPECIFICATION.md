@@ -327,13 +327,14 @@ Wallpaper is a wall surface sheet. Requirements:
 * pale/near-neutral albedo where the material tints it
   (`core:wallpaper_yellow_01` uses tint `[0.85, 0.80, 0.42]`);
 * the repeat must read at the material's `tile_metres` (the office wallpaper
-  uses seven rows/columns of double chevrons per 2 m repeat, about 28.6 cm per motif).
+  uses restrained vertical pinstripes with staggered elongated lozenges across
+  its 2 m repeat).
 
 The stained variant is the same paper with damage; the damage must wrap too.
-The chevron artwork preserves the pale cream/beige palette and material tint.
+The vertical print preserves the pale cream/beige palette and material tint.
 Both sheets are loaded from PNG by `office_art.py`, including forced builds.
-The stained sheet was seam-repaired with `--band 24 --residual-band 12
---radius 8 --offset 146`; the clean sheet passed without seam repair.
+The stained sheet was seam-repaired with `--band 32 --residual-band 12
+--radius 12 --offset 16`; the clean sheet passed without seam repair.
 
 ### 5.6 Tile, concrete, metal, plastic, glass and grille
 

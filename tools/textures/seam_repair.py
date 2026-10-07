@@ -56,7 +56,7 @@ the sheet), preferring the lower mean.
 Shipped environment parameters (basename -> radius, band, residual band, LR
 offset, TB offset)::
 
-    wallpaper_stained_01.png  32  64  12  199  131
+    wallpaper_stained_01.png  12  32  12   16   16
     carpet_beige_01.png       32  80  12  967  765
     carpet_damp_01.png        32  80  12  184  831
     pool_tile_wall_01.png     32  64  12   64   64
@@ -111,8 +111,8 @@ INTERIOR_PIXEL_STRIDE = 8
 # Tuned parameters for the shipped environment sheets (see the module docstring).
 SHIPPED_PARAMETERS: dict[str, dict[str, int]] = {
     "wallpaper_stained_01.png": {
-        "band": 64, "residual_band": 12, "radius": 32,
-        "offset_lr": 199, "offset_tb": 131,
+        "band": 32, "residual_band": 12, "radius": 12,
+        "offset_lr": 16, "offset_tb": 16,
     },
     "carpet_beige_01.png": {
         "band": 80, "residual_band": 12, "radius": 32,

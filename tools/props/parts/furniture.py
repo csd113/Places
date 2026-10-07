@@ -628,15 +628,15 @@ def build_bed(p: PropBuilder) -> None:
 
 
 # File-backed domestic remakes; other builders remain unchanged.
-from parts import domestic_remade
+from parts import domestic_remade, office_refined
 
 PROPS = {
     "core:couch": domestic_remade.couch,
     "core:armchair": build_armchair,
-    "core:chair": domestic_remade.chair,
+    "core:chair": office_refined.chair,
     "core:table": build_table,
-    "core:desk": build_desk,
+    "core:desk": office_refined.desk,
     "core:bookshelf": build_bookshelf,
-    "core:cabinet": build_cabinet,
+    "core:cabinet": office_refined.cabinet,
     "core:bed": domestic_remade.bed,
 }
