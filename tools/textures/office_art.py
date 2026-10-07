@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
-"""Office surface artwork: wallpaper, carpet and panel ceiling PNGs.
+"""Office surface artwork, loaded from the authoritative committed PNGs.
 
-Wallpaper loads its authored PNGs; carpet and ceiling use their own painters;
-``ART`` maps the logical texture id to its catalog
-``model`` path and painter, which ``build.py`` merges into the manifest.
-
-The PNGs are the authoritative runtime assets: the game loads them at level
-load and never runs this script.  Editing this file only matters when the
-shipped artwork is meant to change; hand-painted replacements are equally
-valid.  The shipped Office sheets are the 1024x1024 artwork, while
-this painter generates 128x128 sheets: ``build.py`` skips a shipped sheet
-whose dimensions differ from its painter's unless ``--force`` is passed.
-
-Painting rules for this set:
-
-* 128x128, 8-bit RGBA, opaque, tileable in both directions (every pattern
-  period divides the sheet and every noise helper wraps);
-* pale, near-neutral albedo, because the material ``tint`` and the baked
-  lighting multiply into the sampled texel;
-* no metre checker and no debug grid: the carpet is mottled pile with a fine
-  directional fibre, not four tinted quadrants;
-* everything deterministic -- only :mod:`artkit` helpers, no randomness, no
-  clock, no external images.
+All six manifest builders retain the authored 1024-square sheets, including
+forced builds. Historical low-resolution paint helpers remain below for
+reference; they are not the production export path. No artwork is generated
+at runtime. Prop master-to-native conversion lives in
+``tools/props/build_office_textures.py``.
 """
 
 from __future__ import annotations
@@ -35,9 +19,8 @@ from artkit import (
     tile_noise,
 )
 
-# One sheet per texture; the office set stays at the preferred 128x128 so the
-# pattern periods below divide it exactly (64 px of pattern = 1 m at
-# tile_metres = 2.0).
+# Historical helpers use 128px, with 64px per metre at tile_metres = 2.0.
+# Production manifest exporters below load the committed 1024px PNGs.
 SIZE = 128
 HALF = SIZE // 2
 
@@ -125,15 +108,15 @@ def wallpaper_rgb(x: int, y: int) -> tuple[float, float, float]:
     )
 
 
-def _load_wallpaper(name: str) -> Canvas:
-    """Preserve the authored chevron PNG, including when build uses --force."""
+def load_office_sheet(folder: str, name: str, dimensions=(1024, 1024)) -> Canvas:
+    """Load committed Office artwork; forced builds preserve its authored layout."""
     from pathlib import Path
     from seam_repair import read_png
 
-    source = Path(__file__).resolve().parents[2] / "assets/environment/office/textures/walls" / name
+    source = Path(__file__).resolve().parents[2] / "assets/environment/office/textures" / folder / name
     image = read_png(str(source))
-    if (image.width, image.height) != (1024, 1024):
-        raise ValueError("office wallpaper must retain its 1024x1024 contract")
+    if (image.width, image.height) != dimensions:
+        raise ValueError(f"{name} must retain its {dimensions} contract")
     canvas = Canvas(image.width, image.height)
     for i in range(image.width * image.height):
         start = i * image.channels
@@ -144,11 +127,11 @@ def _load_wallpaper(name: str) -> Canvas:
 
 
 def build_wallpaper_yellow() -> Canvas:
-    return _load_wallpaper("wallpaper_yellow_01.png")
+    return load_office_sheet("walls", "wallpaper_yellow_01.png")
 
 
 def build_wallpaper_stained() -> Canvas:
-    return _load_wallpaper("wallpaper_stained_01.png")
+    return load_office_sheet("walls", "wallpaper_stained_01.png")
 
 
 # ------------------------------------------------------------------- carpet
@@ -218,11 +201,11 @@ def carpet_canvas(damp: bool) -> Canvas:
 
 
 def build_carpet_beige() -> Canvas:
-    return carpet_canvas(damp=False)
+    return load_office_sheet("floors", "carpet_beige_01.png")
 
 
 def build_carpet_damp() -> Canvas:
-    return carpet_canvas(damp=True)
+    return load_office_sheet("floors", "carpet_damp_01.png")
 
 
 # ------------------------------------------------------------------ ceiling
@@ -265,59 +248,11 @@ def ceiling_rgb(x: int, y: int) -> tuple[float, float, float]:
 
 
 def build_ceiling_panel() -> Canvas:
-    canvas = Canvas(SIZE, SIZE)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            canvas.set(x, y, ceiling_rgb(x, y))
-    return canvas
+    return load_office_sheet("ceilings", "ceiling_panel_01.png")
 
 
 def build_ceiling_stained() -> Canvas:
-    """One panel carries a believable water tide mark, two smaller leaks.
-
-    Tile 3 (the bottom-right panel) is the worst: an irregular brown blob with
-    a darker rim, mottled inside so the fill is not a flat disc.  The grid
-    fade clips every mark against the T-bar and its shadow, so the panel grid
-    still reads through the damage.
-    """
-    # tile -> (severity, radius px, centre x, centre y); tile 2 is untouched.
-    stains = (
-        (0.45, 13.0, 24.0, 40.0),
-        (0.30, 11.0, 42.0, 23.0),
-        (0.0, 0.0, 0.0, 0.0),
-        (1.00, 23.0, 38.0, 27.0),
-    )
-    canvas = Canvas(SIZE, SIZE)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            r, g, b = ceiling_rgb(x, y)
-            tx, ty, tile, edge = _ceiling_geometry(x, y)
-            severity, radius, cx, cy = stains[tile]
-            if severity > 0.0:
-                dx = float(tx) - cx
-                dy = float(ty) - cy
-                # Wobble the radius so the mark is a spill, not a printed
-                # circle, and mottle the fill so it is not a flat disc.
-                wobble = (
-                    tile_noise(x * 2, y * 3, SIZE, 9, 301)
-                    + tile_noise(x, y, SIZE, 5, 302)
-                ) * 0.5 - 0.5
-                distance = (dx * dx + dy * dy) ** 0.5 * (1.0 + 0.42 * wobble)
-                blob = 1.0 - smoothstep(distance, radius - 3.0, radius + 3.0)
-                rim = clamp(1.0 - abs(distance - radius) / 2.4, 0.0, 1.0)
-                fill = 0.5 + 0.5 * (tile_noise(x, y, SIZE, 5, 303) - 0.5)
-                grid_fade = smoothstep(float(edge), 0.0, 4.0)
-                interior = clamp(blob * severity * (0.20 + 0.30 * fill), 0.0, 0.58)
-                interior *= grid_fade
-                ring = clamp(rim * severity * 0.60, 0.0, 0.62) * grid_fade
-                r = STAIN_TILE[0] * interior + r * (1.0 - interior)
-                g = STAIN_TILE[1] * interior + g * (1.0 - interior)
-                b = STAIN_TILE[2] * interior + b * (1.0 - interior)
-                r = TIDE_TILE[0] * ring + r * (1.0 - ring)
-                g = TIDE_TILE[1] * ring + g * (1.0 - ring)
-                b = TIDE_TILE[2] * ring + b * (1.0 - ring)
-            canvas.set(x, y, (r, g, b))
-    return canvas
+    return load_office_sheet("ceilings", "ceiling_stained_01.png")
 
 
 # ------------------------------------------------------------------ manifest

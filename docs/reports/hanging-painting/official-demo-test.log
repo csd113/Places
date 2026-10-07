@@ -1,0 +1,11 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 39s
+     Running unittests src/lib.rs (target/debug/deps/places-155fcb0622fe1b24)
+
+running 1 test
+test loader::tests::test_the_official_demo_exercises_every_showcased_feature ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2030 filtered out; finished in 12.50s
+

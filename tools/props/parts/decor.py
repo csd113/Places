@@ -409,9 +409,30 @@ def build_tv(p: PropBuilder) -> None:
     p.add_note("flat panel on a pedestal stand; bezel bars carry the size, one recessed screen quad")
 
 
+def build_painting_frame(p: PropBuilder) -> None:
+    """Shallow timber frame; its full-resolution artwork is a separate decal.
+
+    See ASSET_SPECIFICATION §7.2 for the matching quad and centre offset.
+    Reuse the bookshelf's committed atlas rather than generating new imagery.
+    """
+    tex = load_atlas(p, "bookshelf", ("side", "shelf", "back", "front"))
+    border = 0.05
+    inner_width = p.width - 2.0 * border
+    rail_uv = tex.uv("front", inset=2)
+    white = (255, 255, 255)
+    for side in (-1.0, 1.0):
+        solid_box(p, (side * (p.width - border) * 0.5, p.height * 0.5, 0.0),
+                  (border, p.height, p.depth), uv=rail_uv, color=white)
+    for y in (border * 0.5, p.height - border * 0.5):
+        solid_box(p, (0.0, y, 0.0), (inner_width, border, p.depth),
+                  uv=rail_uv, color=white)
+    p.add_note("50 mm timber rails; open back; artwork supplied by a paired wall decal")
+
+
 PROPS = {
     "core:plant": build_plant,
     "core:rug": build_rug,
     "core:lamp": build_lamp,
     "core:tv": build_tv,
+    "core:painting_frame_landscape_01": build_painting_frame,
 }

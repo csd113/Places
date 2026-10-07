@@ -69,6 +69,7 @@ MEMORY_GUARD_BYTES = 96 * 1024 * 1024
 # asset: the model, its size, its scale and its textures are untouched.
 WALL_MOUNTS = {
     "core:tv": 1.30,
+    "core:painting_frame_landscape_01": 1.104,
     "home:wall_switch": 1.20,
     "home:cabinet_wall": 1.45,
     # Thin snow attachments and hanging icicles belong on the display wall;
@@ -867,6 +868,17 @@ def place_wall_items(layout: Layout, displays: Sequence[Dict]) -> Dict[str, Dict
         z = 0.22
         y = WALL_MOUNTS.get(entry["id"], 1.2)
         fields: Dict = {"rotation_degrees": 0.0, "y": y}
+        if entry["id"] == "core:painting_frame_landscape_01":
+            # Rear of the 60 mm open frame meets the wall; the artwork stays
+            # on the wall's own plane (ASSET_SPECIFICATION §7.2).
+            z = 0.03
+            fields["display_name"] = "The Temptation of Adam and Eve"
+            layout.decals.append({
+                "x": round(x, 3), "y": round(y + 0.596, 3), "z": 0.0,
+                "width": 2.048, "height": 2.048,
+                "material": "core:decal_temptation_adam_eve_01",
+                "surface": "wall_south",
+            })
         if entry["id"] == SWITCH_DEMO:
             fields["interaction"] = {
                 "prompt": "Switch",

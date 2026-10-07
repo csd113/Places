@@ -2448,6 +2448,34 @@
   ],
   "props": [
     {
+      "id": "temptation_adam_eve",
+      "display_name": "The Temptation of Adam and Eve",
+      "model": "core:painting_frame_landscape_01",
+      "x": 53.33,
+      "y": 1.104,
+      "z": 10.0,
+      "rotation_degrees": 90.0,
+      "size": [1.9, 1.192, 0.06],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle title"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "comment": "Hanging painting on the Home's west wall, facing east. The frame's rear meets the wall at x=53.3; the paired wall decal preserves the photograph's 900 x 546 pixels at High quality. Centre is 1.7 m above the local -0.9 m floor."
+    },
+    {
       "id": "kitchen_bowl",
       "model": "home:bowl",
       "x": 56.0,
@@ -31418,6 +31446,16 @@
     }
   ],
   "decals": [
+    {
+      "x": 53.3,
+      "y": 0.8,
+      "z": 10.0,
+      "width": 2.048,
+      "height": 2.048,
+      "material": "core:decal_temptation_adam_eve_01",
+      "surface": "wall_east",
+      "comment": "Artwork on the wall inside temptation_adam_eve's open-backed frame. Transparent padding leaves the original 1.800 x 1.092 m image inside the timber frame, upright and unmirrored."
+    },
     {
       "x": 10.5,
       "y": -1.5,

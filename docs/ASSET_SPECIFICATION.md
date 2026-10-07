@@ -327,13 +327,14 @@ Wallpaper is a wall surface sheet. Requirements:
 * pale/near-neutral albedo where the material tints it
   (`core:wallpaper_yellow_01` uses tint `[0.85, 0.80, 0.42]`);
 * the repeat must read at the material's `tile_metres` (the office wallpaper
-  uses seven rows/columns of double chevrons per 2 m repeat, about 28.6 cm per motif).
+  uses restrained vertical pinstripes with staggered elongated lozenges across
+  its 2 m repeat).
 
 The stained variant is the same paper with damage; the damage must wrap too.
-The chevron artwork preserves the pale cream/beige palette and material tint.
+The vertical print preserves the pale cream/beige palette and material tint.
 Both sheets are loaded from PNG by `office_art.py`, including forced builds.
-The stained sheet was seam-repaired with `--band 24 --residual-band 12
---radius 8 --offset 146`; the clean sheet passed without seam repair.
+The stained sheet was seam-repaired with `--band 32 --residual-band 12
+--radius 12 --offset 16`; the clean sheet passed without seam repair.
 
 ### 5.6 Tile, concrete, metal, plastic, glass and grille
 
@@ -364,11 +365,9 @@ The stained sheet was seam-repaired with `--band 24 --residual-band 12
   a 9 cm board shows the top ~18 % of the sheet vertically: paint the grain and
   any tonal banding so it reads in that band, and keep the top and bottom rows
   similar (the sheet still tiles vertically).
-* **Concrete and standalone artwork/paintings** — not present as separate
-  classes in the repository. The catalog's `core:painting_dull_01` material
-  reuses the wallpaper texture. A new concrete or artwork sheet would be
-  introduced as an ordinary surface sheet (1:1, tileable if repeated) unless a
-  new fitted usage is defined; that decision must be recorded here first.
+* **Concrete and tiling artwork** — the catalog's `core:painting_dull_01`
+  material reuses the wallpaper texture. New tiling sheets follow the ordinary
+  surface contract (1:1, tileable). Fitted hanging paintings use §7.2 instead.
 
 ---
 
@@ -598,6 +597,37 @@ An effect billboard is never collidable, never occludes baked light and is not
 part of the lighting bake. The RGB channels are sampled as authored and
 multiplied by the particle's alpha; keep the puff white-grey and place all of
 the shape in the alpha channel.
+
+### 7.2 Framed hanging paintings
+
+Paintings pair a file-backed decal with a separate, shallow GLB frame. The
+artwork uses the decal texture budget (High ≤1024), avoiding the prop atlas's
+256-pixel runtime cap. The frame follows the ordinary prop geometry and
+embedded-texture contract (§8); its front is +Z and its base is y=0.
+
+`core:decal_temptation_adam_eve_01` ("The Temptation of Adam and Eve") keeps
+the supplied photograph's decoded **900×546 pixels**, upright and unmirrored,
+without cropping, resampling or colour adjustments. The PNG is a **1024×1024
+RGBA** sheet: the photograph occupies `[62, 239, 962, 785)` and the surrounding
+padding is transparent. The fitted square quad must therefore be **2.048 m ×
+2.048 m** at scale 1, giving the visible painting **1.800 m × 1.092 m** and
+preserving the original 150:91 aspect ratio. High uploads the whole sheet
+unchanged; Medium and Low apply the ordinary decal budgets.
+
+`core:painting_frame_landscape_01` is a **1.900 m × 1.192 m × 0.060 m** timber
+open-backed frame with a 50 mm border. It reuses the committed
+`assets/core/props/models/bookshelf.png` atlas. The painting's centre in model
+space is `(0, 0.596, -0.030)`, on the wall at the frame's rear plane; the decal renderer
+adds its usual depth bias. Rotate this offset with the frame, and set the
+decal's `surface` to match its facing direction. Prop `y` is relative to the
+local floor; decal `y` is absolute world height. When scaling the pair, scale
+the quad, centre offset and frame together. The frame alone carries no artwork.
+
+The demo mounts the pair on the Home's west wall, facing east. Its frame
+instance carries the title label through the existing E interaction. Keeping
+the image on the real wall preserves the standard decal parent/depth contract;
+the frame rails provide the painting's physical depth.
+
 
 ---
 

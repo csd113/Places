@@ -1,0 +1,8 @@
+{
+  "source": "assets/levels/places_demo.json",
+  "package": "assets/levels/places_demo.placesmap",
+  "package_fingerprint": "6cf720034df1faadc97d929206eb053f21f98cdc14f0981ef531b3571494914d",
+  "current_fingerprint": "6cf720034df1faadc97d929206eb053f21f98cdc14f0981ef531b3571494914d",
+  "current": true,
+  "differences": []
+}

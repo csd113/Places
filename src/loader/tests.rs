@@ -1351,6 +1351,7 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
     assert_eq!(
         sheets,
         vec![
+            "core:decal_temptation_adam_eve_01".to_string(),
             "core:decal_no_diving_01".to_string(),
             "core:decal_stripes_01".to_string(),
             "core:decal_ceiling_vent_01".to_string(),

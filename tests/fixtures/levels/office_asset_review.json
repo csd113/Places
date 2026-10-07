@@ -1,0 +1,248 @@
+{
+  "format_version": 3,
+  "id": "office_asset_review",
+  "name": "Office Asset Review",
+  "author": "Places",
+  "spawn": {
+    "x": 6.6,
+    "z": 6.5,
+    "yaw_degrees": 320
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 8,
+      "depth": 8,
+      "height": 2.7
+    },
+    {
+      "x": 8,
+      "z": 0,
+      "width": 8,
+      "depth": 8,
+      "height": 2.7,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": 0,
+      "z": -0.15,
+      "width": 16,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": 0,
+      "z": 7.85,
+      "width": 16,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": -0.15,
+      "z": 0.15,
+      "width": 0.3,
+      "depth": 7.7,
+      "height": 2.7
+    },
+    {
+      "x": 15.85,
+      "z": 0.15,
+      "width": 0.3,
+      "depth": 7.7,
+      "height": 2.7
+    },
+    {
+      "x": 7.85,
+      "z": 0.15,
+      "width": 0.3,
+      "depth": 7.7,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3,
+          "width": 1.4,
+          "height": 2.1
+        }
+      ]
+    }
+  ],
+  "columns": [
+    {
+      "x": 11.15,
+      "z": 2.15,
+      "width": 0.7,
+      "depth": 0.7,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 12.15,
+      "z": 4.15,
+      "width": 0.7,
+      "depth": 0.7,
+      "material": "core:wallpaper_stained_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 2.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 5.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.5,
+      "z": 2.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.5,
+      "z": 5.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.5,
+      "z": 2.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.5,
+      "z": 5.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13.5,
+      "z": 2.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13.5,
+      "z": 5.5,
+      "brightness": 0.6,
+      "color": [
+        1,
+        0.94,
+        0.82
+      ]
+    }
+  ],
+  "props": [
+    {
+      "model": "core:desk",
+      "x": 2,
+      "z": 2.4,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "model": "core:chair",
+      "x": 2,
+      "z": 3.2,
+      "rotation_degrees": 180,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "model": "core:cabinet",
+      "x": 0.9,
+      "z": 0.6,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ]
+    },
+    {
+      "model": "core:water_cooler",
+      "x": 4.4,
+      "z": 0.6,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ]
+    },
+    {
+      "model": "core:vending_machine",
+      "x": 6,
+      "z": 0.6,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ]
+    }
+  ]
+}

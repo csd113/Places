@@ -6856,10 +6856,41 @@
       ]
     },
     {
+      "id": "zoo:core-painting_frame_landscape_01:wall",
+      "display_name": "The Temptation of Adam and Eve",
+      "model": "core:painting_frame_landscape_01",
+      "x": 4.86,
+      "z": 0.03,
+      "size": [
+        1.9,
+        1.192,
+        0.06
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0,
+      "y": 1.104
+    },
+    {
       "id": "zoo:core-tv:wall",
       "display_name": "Television",
       "model": "core:tv",
-      "x": 5.96,
+      "x": 7.46,
       "z": 0.22,
       "size": [
         1.1,
@@ -6890,7 +6921,7 @@
       "id": "zoo:home-cabinet_wall:wall",
       "display_name": "Wall Kitchen Cabinet",
       "model": "home:cabinet_wall",
-      "x": 7.91,
+      "x": 9.41,
       "z": 0.22,
       "size": [
         0.6,
@@ -6921,7 +6952,7 @@
       "id": "zoo:home-wall_switch:wall",
       "display_name": "Wall Light Switch",
       "model": "home:wall_switch",
-      "x": 9.41,
+      "x": 10.91,
       "z": 0.22,
       "size": [
         0.086,
@@ -6963,7 +6994,7 @@
       "id": "zoo:winter-icicle_cluster_mixed:wall",
       "display_name": "Icicle cluster mixed",
       "model": "winter:icicle_cluster_mixed",
-      "x": 11.21,
+      "x": 12.71,
       "z": 0.22,
       "size": [
         1.2,
@@ -6994,7 +7025,7 @@
       "id": "zoo:winter-icicle_cluster_sparse:wall",
       "display_name": "Icicle cluster sparse",
       "model": "winter:icicle_cluster_sparse",
-      "x": 13.51,
+      "x": 15.01,
       "z": 0.22,
       "size": [
         1.2,
@@ -7025,7 +7056,7 @@
       "id": "zoo:winter-icicle_long:wall",
       "display_name": "Icicle long",
       "model": "winter:icicle_long",
-      "x": 15.31,
+      "x": 16.81,
       "z": 0.22,
       "size": [
         0.13,
@@ -7056,7 +7087,7 @@
       "id": "zoo:winter-icicle_medium:wall",
       "display_name": "Icicle medium",
       "model": "winter:icicle_medium",
-      "x": 16.61,
+      "x": 18.11,
       "z": 0.22,
       "size": [
         0.1,
@@ -7087,7 +7118,7 @@
       "id": "zoo:winter-icicle_short:wall",
       "display_name": "Icicle short",
       "model": "winter:icicle_short",
-      "x": 17.91,
+      "x": 19.41,
       "z": 0.22,
       "size": [
         0.07,
@@ -7118,7 +7149,7 @@
       "id": "zoo:winter-snow_awning:wall",
       "display_name": "Snow awning",
       "model": "winter:snow_awning",
-      "x": 20.31,
+      "x": 21.81,
       "z": 0.22,
       "size": [
         2.4,
@@ -7149,7 +7180,7 @@
       "id": "zoo:winter-snow_door_overhang:wall",
       "display_name": "Snow door overhang",
       "model": "winter:snow_door_overhang",
-      "x": 23.41,
+      "x": 24.91,
       "z": 0.22,
       "size": [
         1.6,
@@ -7180,7 +7211,7 @@
       "id": "zoo:winter-snow_ledge:wall",
       "display_name": "Snow ledge",
       "model": "winter:snow_ledge",
-      "x": 25.91,
+      "x": 27.41,
       "z": 0.22,
       "size": [
         1.2,
@@ -7211,7 +7242,7 @@
       "id": "zoo:winter-snow_porch_edge:wall",
       "display_name": "Snow porch edge",
       "model": "winter:snow_porch_edge",
-      "x": 28.51,
+      "x": 30.01,
       "z": 0.22,
       "size": [
         1.8,
@@ -7242,7 +7273,7 @@
       "id": "zoo:winter-snow_post_cap:wall",
       "display_name": "Snow post cap",
       "model": "winter:snow_post_cap",
-      "x": 30.61,
+      "x": 32.11,
       "z": 0.22,
       "size": [
         0.12,
@@ -7273,7 +7304,7 @@
       "id": "zoo:winter-snow_rail_top:wall",
       "display_name": "Snow rail top",
       "model": "winter:snow_rail_top",
-      "x": 32.41,
+      "x": 33.91,
       "z": 0.22,
       "size": [
         1.2,
@@ -7304,7 +7335,7 @@
       "id": "zoo:winter-snow_roof_edge:wall",
       "display_name": "Snow roof edge",
       "model": "winter:snow_roof_edge",
-      "x": 35.31,
+      "x": 36.81,
       "z": 0.22,
       "size": [
         2.4,
@@ -7335,7 +7366,7 @@
       "id": "zoo:winter-snow_roof_slope:wall",
       "display_name": "Snow roof slope",
       "model": "winter:snow_roof_slope",
-      "x": 39.31,
+      "x": 40.81,
       "z": 0.22,
       "size": [
         3.4,
@@ -7366,7 +7397,7 @@
       "id": "zoo:winter-snow_stair_edge:wall",
       "display_name": "Snow stair edge",
       "model": "winter:snow_stair_edge",
-      "x": 42.3,
+      "x": 43.8,
       "z": 0.22,
       "size": [
         0.38,
@@ -7397,7 +7428,7 @@
       "id": "zoo:home-wall_switch:switch-b",
       "display_name": "Wall Light Switch",
       "model": "home:wall_switch",
-      "x": 43.69,
+      "x": 45.19,
       "z": 0.22,
       "size": [
         0.086,
@@ -8230,6 +8261,15 @@
     }
   ],
   "decals": [
+    {
+      "x": 4.86,
+      "y": 1.7,
+      "z": 0.0,
+      "width": 2.048,
+      "height": 2.048,
+      "material": "core:decal_temptation_adam_eve_01",
+      "surface": "wall_south"
+    },
     {
       "x": 6.6,
       "z": 71.35,

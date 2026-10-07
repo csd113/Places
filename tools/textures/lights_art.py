@@ -10,9 +10,9 @@ path, and replacing the PNG needs no Rust change and no recompilation.
 Each sheet is the fixture's own visible surface, mapped once across the face it
 draws (no world tiling, so nothing here is tileable and nothing wraps):
 
-* ``core:fluorescent_panel_01`` -- 256x128, the flat luminous panel face. Image
-  ``x`` is the panel's 1.2 m width axis and image ``y`` its 0.6 m depth axis, so
-  one texel is 4.7 mm in both directions. The artwork is a twin-tube diffuser:
+* ``core:fluorescent_panel_01`` -- authored 1024x512 fitted diffuser. Image
+  ``x`` is the aperture's 1.12 m width axis and ``y`` its 0.56 m depth axis.
+  The file-backed artwork is a twin-tube diffuser:
   two soft tube bands under an off-white acrylic sheet, a restrained falloff
   towards the frame, fine grain and a little dust along the edges. It must read
   as a *surface*, never as baked illumination: the room lighting is the bake's
@@ -32,8 +32,8 @@ light colour) multiplied into the sampled texel, so an off fixture darkens this
 artwork to black without any code knowing about the texture, while a coloured
 light changes only the illumination it bakes into the room.
 
-Everything is deterministic -- only :mod:`artkit` helpers, no randomness, no
-clock, no external images.
+The Office exporter loads its committed PNG; the other painters use deterministic
+:mod:`artkit` helpers. None runs in the game.
 """
 
 from __future__ import annotations
@@ -103,23 +103,9 @@ def _panel_tone(x: int, y: int) -> float:
 
 
 def build_fluorescent_panel() -> Canvas:
-    """The office fluorescent panel face: a twin-tube acrylic diffuser."""
-    canvas = Canvas(PANEL_SIZE_X, PANEL_SIZE_Y)
-    for y in range(PANEL_SIZE_Y):
-        for x in range(PANEL_SIZE_X):
-            tone = _panel_tone(x, y)
-            # The tubes sit marginally cooler than the aged sheet around them.
-            warm = (tone - 1.0) * 0.35
-            canvas.set(
-                x,
-                y,
-                (
-                    DIFFUSER_BASE[0] * tone * (1.0 - 0.012 * warm),
-                    DIFFUSER_BASE[1] * tone,
-                    DIFFUSER_BASE[2] * tone * (1.0 + 0.016 * warm),
-                ),
-            )
-    return canvas
+    """Preserve the authored 2:1 Office diffuser, including forced builds."""
+    from office_art import load_office_sheet
+    return load_office_sheet("lights", "fluorescent_panel_01.png", (1024, 512))
 
 
 # ---------------------------------------------------------------- pool, round

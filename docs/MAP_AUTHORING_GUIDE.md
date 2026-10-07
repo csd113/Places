@@ -2938,6 +2938,17 @@ at or under ~0.8 m; on a 2 m module it can be larger. A vent is ordinary decal
 artwork — alpha cut-out, no emission, no light — and never changes the ceiling
 geometry.
 
+**Hanging paintings.** The Home's west wall pairs
+`core:painting_frame_landscape_01` with
+`core:decal_temptation_adam_eve_01`, named "The Temptation of Adam and Eve".
+The timber GLB provides depth; the separate decal preserves the supplied
+900×546 photograph under High's 1024-pixel decal budget rather than the
+256-pixel prop budget. Its 1024-square transparent sheet fits a 2.048 m square
+quad, leaving 1.800×1.092 m of visible artwork. Keep the frame and decal
+placements together; see [Asset Specification §7.1](ASSET_SPECIFICATION.md#71-framed-hanging-paintings)
+for the wall-plane offset, orientation and scaling contract. The demo's
+frame instance exposes the title through the existing E/toggle-label binding.
+
 ### Adding a New Decal
 
 1. Author a **POT** RGBA PNG cut-out (alpha-0 background, alpha-255 artwork). For

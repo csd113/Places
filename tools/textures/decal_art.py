@@ -303,3 +303,25 @@ ART["core:decal_ceiling_vent_01"] = {
     "build": build_ceiling_vent,
     "kind": "decal",
 }
+
+
+def build_temptation_adam_eve() -> Canvas:
+    """Load the imported painting unchanged, including its transparent padding."""
+    from pathlib import Path
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
+    from tex import decode_png
+    source = Path(__file__).resolve().parents[2] / "assets/core/decals/temptation_adam_eve_01.png"
+    width, height, pixels = decode_png(source.read_bytes())
+    if (width, height) != (1024, 1024):
+        raise ValueError("painting must retain its padded 1024x1024 contract")
+    canvas = Canvas(width, height, fill=CLEAR)
+    canvas.pixels[:] = pixels
+    return canvas
+
+
+ART["core:decal_temptation_adam_eve_01"] = {
+    "model": "core/decals/temptation_adam_eve_01.png",
+    "build": build_temptation_adam_eve,
+    "kind": "decal",
+}

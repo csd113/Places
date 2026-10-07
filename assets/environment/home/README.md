@@ -55,3 +55,14 @@ surfaces the demo's doors are built from; their frames share
 See [`../README.md`](../README.md) for how the environment themes are
 organized, and [`../../README.md`](../../README.md) for the catalog format and
 resolution flow.
+
+## Hanging painting
+
+The demo's west wall at `(53.33, 10.0)` displays **The Temptation of Adam and
+Eve**. Aim at the frame and press E to toggle its title. This uses two reusable
+core assets: `core:painting_frame_landscape_01` for the timber frame and
+`core:decal_temptation_adam_eve_01` for the artwork. The supplied photograph's
+full 900×546 pixels are preserved inside a transparent 1024×1024 PNG; High
+quality displays it without downscaling. The painting is 1.800×1.092 m, with
+a 50 mm timber border. See [the asset specification](../../../docs/ASSET_SPECIFICATION.md#72-framed-hanging-paintings)
+for the paired placement contract.

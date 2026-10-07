@@ -1283,12 +1283,14 @@ def build_water_cooler(p: PropBuilder) -> None:
     p.add_note("bottle translucency is a painted gradient on an 8-segment taper; taps are geometry")
 
 
+from parts import office_refined
+
 PROPS = {
     "core:stove": build_stove,
     "core:sink": build_sink,
     "core:fridge": build_fridge,
     "core:washing_machine": build_washing_machine,
-    "core:vending_machine": build_vending_machine,
-    "core:water_cooler": build_water_cooler,
+    "core:vending_machine": office_refined.vending_machine,
+    "core:water_cooler": office_refined.water_cooler,
     "core:washer_drum": build_washer_drum,
 }

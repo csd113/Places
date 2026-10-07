@@ -1,0 +1,17 @@
+{
+  "package": "assets/levels/model_zoo.placesmap",
+  "id": "model_zoo",
+  "name": "Model Zoo",
+  "format_version": 1,
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "entries": 19,
+  "bytes": 276411364,
+  "dependencies": 172,
+  "dependencies_intact": true,
+  "fingerprint": "eb9c07e3d8b1bd6ce649926c218f9247d4a1510e942f5380f3aaf464dd4d894c",
+  "warnings": []
+}

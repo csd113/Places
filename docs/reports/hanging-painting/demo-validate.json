@@ -1,0 +1,17 @@
+{
+  "package": "assets/levels/places_demo.placesmap",
+  "id": "places_demo",
+  "name": "Places Demo",
+  "format_version": 1,
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "entries": 33,
+  "bytes": 674001561,
+  "dependencies": 111,
+  "dependencies_intact": true,
+  "fingerprint": "6cf720034df1faadc97d929206eb053f21f98cdc14f0981ef531b3571494914d",
+  "warnings": []
+}

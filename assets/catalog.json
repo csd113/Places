@@ -533,6 +533,19 @@
       "solid": false
     },
     {
+      "id": "core:painting_frame_landscape_01",
+      "display_name": "Landscape Painting Frame",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/painting_frame_landscape_01.glb",
+      "size": [1.9, 1.192, 0.06],
+      "color": "#66503b",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Timber hanging frame with a 1.800 x 1.092 m recessed painting face. Pair with core:decal_temptation_adam_eve_01 at its documented offset to preserve the artwork's full resolution."
+    },
+    {
       "id": "core:wallpaper_yellow_01",
       "display_name": "Yellow Wallpaper",
       "asset_class": "environment",
@@ -982,6 +995,15 @@
       "source": "file",
       "model": "environment/pool/decals/no_diving_01.png",
       "description": "Final pool safety sign sheet: the authoritative PNG lives under assets/ and can be replaced without a Rust change."
+    },
+    {
+      "id": "core:decal_temptation_adam_eve_01",
+      "display_name": "The Temptation of Adam and Eve",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "core/decals/temptation_adam_eve_01.png",
+      "description": "User-supplied painting photograph, preserved at 900 x 546 pixels inside a transparent 1024-square sheet. Place a 2.048 m square quad with core:painting_frame_landscape_01; the visible image is 1.800 x 1.092 m."
     },
     {
       "id": "core:decal_test_01",

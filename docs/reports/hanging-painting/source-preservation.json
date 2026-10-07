@@ -1,0 +1,26 @@
+{
+  "title": "The Temptation of Adam and Eve",
+  "source_file": "signal-2026-10-06-22-54-41-910.jpg",
+  "source_sha256": "08f813db2b0cb4082cda5600a03650d0bb3475a5cf754c34cca26cbee99427ed",
+  "source_pixels": [
+    900,
+    546
+  ],
+  "asset_pixels": [
+    1024,
+    1024
+  ],
+  "active_rectangle": [
+    62,
+    239,
+    962,
+    785
+  ],
+  "decoded_source_pixels_preserved": true,
+  "asset_sha256": "092634219f571b9201c6821544707c082ab187c3cf1b1d7bb69c9d4cf63f171f",
+  "visible_size_metres": [
+    1.8,
+    1.092
+  ],
+  "high_quality_no_downscale": true
+}
