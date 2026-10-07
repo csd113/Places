@@ -63,10 +63,12 @@ class StringLightTests(unittest.TestCase):
         # Square/path attachments sit in the existing timber post model envelope.
         for p in (p for p in spans if p['id'].startswith(('square_string_', 'path_string'))):
             variant = p['model'].removeprefix('winter:string_lights_')
+            angle = math.radians(p.get('rotation_degrees', 0))
             for side in (-1, 1):
-                x = p['x'] + side*SPANS[variant][0]/2
+                x = p['x'] + side*SPANS[variant][0]/2*math.cos(angle)
+                z = p['z'] - side*SPANS[variant][0]/2*math.sin(angle)
                 post = next(q for q in level['props'] if q['id'].startswith('string_post_')
-                            and math.isclose(q['x'], x) and math.isclose(q['z'], p['z']))
+                            and abs(q['x']-x) < .0001 and abs(q['z']-z) < .0001)
                 self.assertLess(abs(post['x']), 4)
                 self.assertGreater(abs(post['x']), 1.9, 'central packed path remains clear')
                 self.assertLess(p['y']+attachment_height(variant), post['size'][1]*post['scale'])

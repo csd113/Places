@@ -99,13 +99,23 @@ class WinterAssetTests(unittest.TestCase):
                                               nodes=p.nodes, animations=p.clips),
                                  (winter.WINTER / (name+'.glb')).read_bytes())
 
-    def test_map_uses_all_snow_classes_without_new_colliders_on_additions(self):
+    def test_exposed_snow_classes_preserve_collision_and_sheltered_deck_stays_dry(self):
         level = json.loads((ROOT / 'assets/levels/winter.json').read_text())
         props = level['props']
         models = {p['model'] for p in props}
         for name in winter.SIZES:
-            if not name.startswith('railing_snow') and name != 'fence_post_snow':
+            if not name.startswith('railing_snow') and name not in ('fence_post_snow', 'snow_porch_edge'):
                 self.assertIn('winter:'+name, models)
+        # The covered porch must not be populated solely to exhibit this cap.
+        # Library/Model Zoo coverage still checks all reusable asset classes.
+        self.assertNotIn('winter:snow_porch_edge', models)
+        awning = next(b for b in level['void_walls'] if b['id'] == 'lodge_awning')
+        for p in props:
+            if not p['model'].startswith(('winter:snow_', 'winter:drift_', 'winter:mound_')):
+                continue
+            if awning['min'][0] < p['x'] < awning['max'][0] and awning['min'][2] < p['z'] < awning['max'][2]:
+                self.assertGreater(p.get('y', 0) + .6, awning['max'][1]-.01,
+                                   'snow under the sealed lodge awning')
         for p in props:
             if p['model'].startswith('winter:') and p.get('solid'):
                 expected = [1.4, .85, 1.3] if 'boulder' in p['model'] else [4, 5, 2.2] if 'rock_face' in p['model'] else [.6, 6.8, .6]

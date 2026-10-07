@@ -1,0 +1,109 @@
+{
+  "required_clippy": {
+    "exit": 0,
+    "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+  },
+  "workspace_tests": {
+    "exit": 0,
+    "library_passed": 2021,
+    "binary_integration_passed": 6,
+    "existing_library_ignored": 23
+  },
+  "full_gate": {
+    "exit": 0,
+    "python_groups": [
+      {
+        "tests": 26,
+        "seconds": 2.647
+      },
+      {
+        "tests": 48,
+        "seconds": 35.988
+      },
+      {
+        "tests": 23,
+        "seconds": 1.758
+      },
+      {
+        "tests": 51,
+        "seconds": 15.995
+      },
+      {
+        "tests": 14,
+        "seconds": 339.94
+      },
+      {
+        "tests": 10,
+        "seconds": 40.751
+      },
+      {
+        "tests": 26,
+        "seconds": 67.986
+      }
+    ],
+    "python_total": 198,
+    "python_skipped": 11,
+    "reason": "macOS console locked; presentation-sensitive test guards",
+    "rust_library_passed": 2021,
+    "rust_binary_integration_passed": 6,
+    "rust_existing_ignored": 23,
+    "explicit_native_low_lighting_passed": 2,
+    "explicit_atlas_plan_passed": 1
+  },
+  "focused_python": {
+    "tests": 18,
+    "exit": 0
+  },
+  "native_routes": {
+    "modes": 2,
+    "routes_each": 11,
+    "passed": 22
+  },
+  "geometry": {
+    "calm": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "severe": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "existing_suppressed": {
+      "missing-wall": 159,
+      "room-leak": 24
+    }
+  },
+  "build": {
+    "release_exit": 0,
+    "calm_full_ms": 143865,
+    "severe_full_ms": 124151,
+    "calm_incremental_ms": 1464,
+    "note": "concurrent verification load; compile times are not controlled benchmark claims"
+  },
+  "files": {
+    "assets/levels/winter.json": {
+      "bytes": 129966,
+      "sha256": "32803b76ae232e69c606951b072345bc483b66a2b0632e7a5d3c9be47822c32b"
+    },
+    "assets/levels/winter.placesmap": {
+      "bytes": 48047278,
+      "sha256": "bcec61a680c65348d1cd74dab46797da98c2ed911c5792a827546279996f1e2d"
+    },
+    "debug-maps/blizzard-20261007/sources/blizzard_review.json": {
+      "bytes": 130199,
+      "sha256": "aa035874b6f9792093cb6e667a8372c7e20c5772b0f44b8d19d0dedc80a43bc6"
+    },
+    "levels/blizzard_review.placesmap": {
+      "bytes": 48047311,
+      "sha256": "432f3b89182ba935862281abcfa1fe1d80dc9dfbd333c15a7cdf83d360fb6165"
+    },
+    "target/release/places": {
+      "bytes": 104267456,
+      "sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100"
+    },
+    "target/release/places-compile": {
+      "bytes": 6578080,
+      "sha256": "80b9a00594abffef4dab01aac4615cfba07114a7e3b29c84801006b7cea25e6b"
+    }
+  }
+}

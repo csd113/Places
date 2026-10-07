@@ -129,9 +129,10 @@ use .32 intensity, 4.5 m range; rails use .10, 3 m. No transparent glow cards
 or new shaders are used. The standard compiler bakes all sources, and existing
 emission bloom supplies a small optional halo.
 
-Winter uses eight spans (38 new sources): two cottage fascias, one sheltered
+Winter uses eight spans (38 string sources): two cottage fascias, one sheltered
 lodge span, two porch rails, two square spans and one path crossing.
-Six narrow existing timber posts support the square/path. The forest spine,
+Six narrow existing timber posts support the gently angled square/path spans.
+One low lamp marks the northern forest resting place; the surrounding forest,
 pond perimeter and rear building faces remain cold. All cable spans are
 non-solid; supports stand outside the packed route.
 
@@ -161,13 +162,29 @@ contracts and processed through the existing offline seam-repair tool.
   front ramp, sheltered deck, amber entrance lights, separate eave/awning edges.
 - Cottages: `[8, -30]..[17, -24]` and `[-17, 4]..[-8, 10]`; real glazed windows,
   operable doors, furnishing and clear circulation.
-- Pond: center `(11, -10)`; clipped rectangular shoreline, physically walkable
+- Pond: center `(11, -10)`; shallow tapered corner shelves and irregular banks, physically walkable
   ice floor, east railing, open west and south approaches.
 - Forest spine: `(0, 16)..(0, -36)`; unobstructed long weather-test sightline.
 - Perimeter: visible five-metre rock escarpments, not invisible walls.
 
 The foundation builder authors geometry and references only. The normal Places
 compiler prepares lightmaps, navigation, resource identities and packages.
+
+### Integration and shelter
+
+The October 7 integration pass keeps the lodge deck, covered rail tops and
+covered window ledges dry. The porch-edge cap remains a reusable library asset
+and Model Zoo exhibit, rather than requiring a display underneath a roof.
+Icicle groups flank the lodge doorway at varied lengths, with a short centre
+drip. Cottage banks vary in scale; shoreline drifts sit on the shallow dry
+shelves, clear of the west ice crossing. Timber surrounds and mullions frame
+the real glazed openings. Concrete skirts close the raised lodge's exposed
+foundation without changing its movement surfaces or colliders.
+
+Forest spacing and tree scale vary more widely, with intentional grove gaps
+and 61 evergreen placements. The main spine and cottage routes stay clear.
+The source generator also synchronizes the severe review scene while retaining
+its exact weather settings; the frozen Prompt 7 evidence is unchanged.
 
 ## Frozen water
 

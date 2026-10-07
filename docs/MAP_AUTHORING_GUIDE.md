@@ -6561,6 +6561,13 @@ Winter traversal scripts. The static snow validation report records geometry,
 collision, native views and draw cost; do not treat a software preview as a
 substitute for the compiled native load.
 
+The integrated scene uses selective exposed accumulation: the sealed lodge
+awning shelters its porch rails and window sills. Keep those supports bare.
+Pond corner drifts sit on tapered dry shelves, and forest scatter leaves a
+clear packed walking spine and a small illuminated resting place. The generator
+also synchronizes the severe review's composition while preserving its existing
+weather. See `docs/reports/winter-integration.md` for native evidence and limits.
+
 ### Winter string-light modules
 
 `winter:string_lights_short`, `winter:string_lights_medium` and

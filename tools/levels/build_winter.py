@@ -17,6 +17,7 @@ from string_lights import SPANS, attachment_height, lights
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'assets/levels/winter.json'
+REVIEW_OUTPUT = ROOT / 'debug-maps/blizzard-20261007/sources/blizzard_review.json'
 # x, z, floor_y, facade family. Entrances face south (+Z).
 HOMES = ((-16, -16, .6, '02'), (8, -30, 0, '01'), (-17, 4, 0, '04'))
 POND_ROOM = (4, -18, 16, 16)
@@ -101,6 +102,20 @@ def build_level() -> dict:
             {'x': x + 8.7, 'z': z + .28, 'width': .3, 'depth': 5.44, 'y': floor,
              'material': 'outdoor:house_siding_01', 'faces': {'west': 'home:wall_paint_offwhite_01'}},
         ]
+        if floor:
+            # The raised room's floor is not a vertical foundation. Close the
+            # exposed sky slot below its wall bases with real concrete skirts.
+            # Tops tuck into wall solids; lapped corner planes stay distinct.
+            for j, edge in enumerate((z, front-.2)):
+                box(f'home_{i}_foundation_{j}',
+                    [x-.06, -.12, edge-.04 if j == 0 else edge],
+                    [x+9.06, floor+.04, edge+.2 if j == 0 else front+.04],
+                    'outdoor:showcase_asphalt', solid=False)
+            for j, edge in enumerate((x, x+8.84)):
+                box(f'home_{i}_foundation_side_{j}',
+                    [edge-.04 if j == 0 else edge, -.14, z+.16],
+                    [edge+.16 if j == 0 else x+9.04, floor+.035, front-.16],
+                    'outdoor:showcase_asphalt', solid=False)
         prop(f'outdoor:house_{family}_wall_doorway', cx, front + .05, f'home_{i}_doorway', y=floor - .24)
         for dx in (0, 9):
             for dz in (0, 6):
@@ -173,8 +188,10 @@ def build_level() -> dict:
         level['geometry_intent'].append({'check': 'room-leak', 'x': x, 'z': z, 'width': w, 'depth': d,
             'note': 'Outside authored floors, behind the visible solid rock boundary; native movement audits verify containment.'})
 
-    # Central square, forest spine, cottage approaches and pond-side circuit.
-    patch(-3, -5, 6, 10)
+    # Packed walking lines meet a broad untrampled gathering area. Avoid a
+    # six-metre rectangular material stamp across the whole square.
+    patch(-1, -5, 2, 10)
+    patch(-3.8, 1.6, 2.8, 1.5)
     patch(-1, -37, 2, 32)
     patch(-1, 5, 2, 12)
     patch(-11.5, -4.6, 11.5, 1.7)
@@ -208,13 +225,23 @@ def build_level() -> dict:
     # A shallow opaque backing gives the blended surface readable depth.
     region(6, -16, 10, 12, -.16, 'winter:ice_01')
     box('pond_ice_depth', [6, -.36, -16], [16, -.31, -4], 'winter:ice_depth_01', solid=False)
-    for x, z, w, d in ((6, -16, 2, 2), (14, -16, 2, 2), (6, -6, 2, 2), (14, -6, 2, 2)):
-        region(x, z, w, d, .18)
+    # Shallow tapered shore shelves replace four identical raised corner
+    # platforms. Three short strips describe each clipped corner; dry drifts
+    # soften their outline, while the west crossing stays at the old waterline.
+    for east, south in ((False, False), (True, False), (False, True), (True, True)):
+        for strip, width in enumerate((2.4, 1.65, .9)):
+            x = 16-width if east else 6
+            z = -4-(strip+1)*.6 if south else -16+strip*.6
+            region(x, z, width, .6, 0)
     # A pond railing leaves the west/south shore open for walking onto ice.
     level['guardrails'].append({'x': 16.8, 'z': -15, 'length': 10, 'rotation_degrees': 270,
         'height': 1.05, 'material': 'home:handrail_wood_01'})
     for i, (x, z) in enumerate(((-3.5, 2.5), (4, -2), (2.8, -21), (-12.5, 14.4))):
         lamp('outdoor:lamp_stand', x, z, f'path_lamp_{i}')
+    # A single modest beacon marks the forest resting place in severe weather.
+    # Leave the surrounding grove cold rather than filling it with path lamps.
+    lamp('outdoor:lamp_stand', -2.8, -32.6, 'forest_rest_lamp')
+    level['props'][-1]['lights'][0].update(intensity=.42, range=4.5)
     for i, (x, z) in enumerate(((-3.8, -3), (13.8, -21.8))):
         lamp('outdoor:streetlight', x, z, f'square_lamp_{i}')
     for i, (x, z) in enumerate(((7, -18), (18.8, -10), (5, -5), (-6, -25), (-5, 6))):
@@ -238,16 +265,20 @@ def build_level() -> dict:
     rng = random.Random(20261006)
     for row, z in enumerate(range(-36, 18, 4)):
         for col, x in enumerate(range(-20, 22, 4)):
-            px, pz = x + rng.uniform(-.6, .6), z + rng.uniform(-.6, .6)
+            px, pz = x + rng.uniform(-1.35, 1.35), z + rng.uniform(-1.35, 1.35)
+            # Gaps between small groves break the repeated grid and expose
+            # isolated silhouettes. The central walking spine stays clear.
+            if (row*7+col*3) % 11 in (0, 1): continue
             if abs(px) < 3 or (-6 < px < 6 and -7 < pz < 7): continue
             if any(hx - 2 < px < hx + 11 and hz - 2 < pz < hz + 10 for hx, hz, _, _ in HOMES): continue
             if -19 < px < -6 and -18 < pz < -3: continue
             if 3 < px < 20 and -20 < pz < 1: continue
             if -15 < px < 3 and 10 < pz < 16: continue
             if 0 < px < 15 and -24 < pz < -18: continue
+            if math.hypot(px+3.5, pz+31) < 2 or math.hypot(px+2.8, pz+32.6) < 1.8: continue
             snow_model = 'winter:tree_snow_02' if abs(px) > 15 or (row + col) % 4 == 0 else 'winter:tree_snow_01'
             prop(snow_model, px, pz, f'forest_{row}_{col}',
-                 yaw=rng.uniform(0, 360), scale=rng.uniform(.9, 1.14),
+                 yaw=rng.uniform(0, 360), scale=rng.uniform(.72, 1.14),
                  solid=True, size=[.6, 6.8, .6], occludes=False)
     # Keep the existing bank traversal; drifts soften its hard edge.
     region(-21, -25, 5, 5, .28)
@@ -302,26 +333,49 @@ def build_level() -> dict:
             # A shallow timber window sill seats the snow; neither affects collision.
             box(f'home_{i}_sill_{j}', [x+dx-.6, floor+.94, front+.015],
                 [x+dx+.6, floor+1.01, front+.27], 'home:handrail_wood_01', solid=False)
-            mounted('snow_ledge', x+dx, front+.14, f'home_{i}_snow_sill_{j}', floor+1.002)
-            icicles('icicle_short', x+dx+.22, front+.24, f'home_{i}_sill_icicle_{j}', floor+.94)
+            # The lodge windows are beneath the sealed awning; they stay dry.
+            if i:
+                mounted('snow_ledge', x+dx, front+.14, f'home_{i}_snow_sill_{j}', floor+1.002)
+                icicles('icicle_short', x+dx+(.22 if j == 0 else -.3), front+.24,
+                        f'home_{i}_sill_icicle_{j}', floor+.94, scale=.8 if j else 1)
+            # Real timber surrounds and a mullion articulate the glazed hole.
+            # Projecting rails lap into the jambs; their ends are buried and
+            # their faces have distinct planes. Mullion ends tuck into rails.
+            wx = x+dx
+            for side in (-1, 1):
+                box(f'home_{i}_window_{j}_jamb_{side}',
+                    [wx+side*.55-.045, floor+1, front+.005],
+                    [wx+side*.55+.045, floor+2, front+.075],
+                    'home:handrail_wood_01', solid=False)
+            for row, height in enumerate((1, 2)):
+                box(f'home_{i}_window_{j}_rail_{row}',
+                    [wx-.53, floor+height-.035, front+.012],
+                    [wx+.53, floor+height+.035, front+.082],
+                    'home:handrail_wood_01', solid=False)
+            box(f'home_{i}_window_{j}_mullion',
+                [wx-.025, floor+1.018, front+.018],
+                [wx+.025, floor+1.99, front+.068],
+                'home:handrail_wood_01', solid=False)
         if i:
             box(f'home_{i}_door_hood', [cx-.8, floor+2.28, front+.03],
                 [cx+.8, floor+2.38, front+.58], 'home:handrail_wood_01', solid=False)
             mounted('snow_door_overhang', cx, front+.305, f'home_{i}_door_snow', floor+2.372)
             icicles('icicle_cluster_sparse', cx, front+.55, f'home_{i}_door_icicles', floor+2.28)
         # Building bases: asymmetric outside banks, away from openings/paths.
-        for j, dx in enumerate((.9, 8.1)):
+        for j, dx in enumerate((.9, 8.1) if i else ()):
             mounted('drift_wall', x+dx, front+(.31 if j == 0 else .20), f'home_{i}_wall_drift_{j}', -.008,
-                    yaw=0 if j == 0 else 8, scale=.65)
+                    yaw=0 if j == 0 else 8, scale=(.52, .72, .6)[i] if j == 0 else (.68, .48, .78)[i])
         mounted('drift_medium', x-.68, z+1.5, f'home_{i}_side_drift', -.008, yaw=90)
 
     for j, x in enumerate((-14, -11.6, -9.2)):
         mounted('snow_awning', x, -8.75, f'lodge_awning_snow_{j}', 3.502)
-        icicles('icicle_cluster_mixed', x, -7.47, f'lodge_awning_icicles_{j}', 3.33)
+    # Separated groups flank a clear entrance, with only a short centre drip.
+    for j, (model, x, scale) in enumerate((('icicle_cluster_mixed', -14.1, .88),
+                                          ('icicle_short', -11.85, .85),
+                                          ('icicle_cluster_sparse', -8.95, .72))):
+        icicles(model, x, -7.47, f'lodge_awning_icicles_{j}', 3.33, scale=scale)
     icicles('icicle_long', -14.8, -7.47, 'lodge_awning_icicle_long', 3.33)
     icicles('icicle_medium', -8.2, -7.47, 'lodge_awning_icicle_medium', 3.33)
-    for j, x in enumerate((-14.05, -8.95)):
-        mounted('snow_porch_edge', x, -7.72, f'lodge_porch_snow_{j}', .592)
     # Only the side of each stair tread holds snow; the walking line stays packed.
     for step in range(3):
         mounted('snow_stair_edge', -17.0+step*.8, -9.48, f'lodge_stair_snow_{step}',
@@ -330,6 +384,10 @@ def build_level() -> dict:
     # Add snow to the original guardrails, preserving their exact dimensions,
     # collision, post spacing and height. Top loads vary along each run.
     for index, rail in enumerate(level['guardrails']):
+        if index < 2:
+            # Both porch rails lie fully beneath the awning. No snow on the
+            # deck, rail tops, sheltered sills or sealed lower rail space.
+            continue
         angle = math.radians(rail.get('rotation_degrees', 0))
         def rail_point(along):
             return rail['x']+math.cos(angle)*along, rail['z']-math.sin(angle)*along
@@ -340,7 +398,7 @@ def build_level() -> dict:
             px, pz = rail_point(j*1.2+span/2)
             mounted('snow_rail_top', px, pz, f'rail_{index}_snow_{j}', base+rail['height']-.008,
                     yaw=rail.get('rotation_degrees', 0), scale=span/1.2)
-            if j % 2 == 0:
+            if j % 3 == 0:
                 mounted('snow_rail_top', px, pz, f'rail_{index}_lower_snow_{j}', base+.322,
                         yaw=rail.get('rotation_degrees', 0), scale=span/1.2*.72)
         posts = [j*1.2 for j in range(math.floor(length/1.2)+1)]
@@ -351,21 +409,21 @@ def build_level() -> dict:
         for j, along in enumerate(posts):
             px, pz = rail_point(along)
             mounted('snow_post_cap', px, pz, f'rail_{index}_post_snow_{j}', base+rail['height']-.008)
-        px, pz = rail_point(length*.42)
+        px, pz = rail_point(length*.63)
         # Keep the pond-side drift above dry shore, never floating over ice.
-        mounted('drift_fence', px, pz+.20 if index < 2 else pz,
-                f'rail_{index}_drift', -.008 if index == 2 else .592,
+        mounted('drift_fence', px, pz,
+                f'rail_{index}_drift', -.008,
                 yaw=rail.get('rotation_degrees', 0))
 
     # Low, supported shoreline loads gather outside the ice footprint. Open
     # west/south entries retain their shallow step and visible snow/ice boundary.
     for j, (model, x, z, yaw, scale) in enumerate((
-        ('drift_small', 5.35, -14.0, 90, .6),
-        ('drift_small', 5.35, -7.2, 80, .55),
-        ('drift_medium', 10.5, -16.65, 0, .7),
-        ('drift_small', 9.4, -3.35, 180, .6),
-        ('drift_small', 13.3, -3.35, 175, .55),
-        ('drift_medium', 16.65, -7.0, 270, .6),
+        ('drift_medium', 6.65, -15.7, 24, .7),
+        ('drift_small', 6.3, -4.4, 110, .64),
+        ('drift_medium', 14.8, -15.8, 158, .62),
+        ('drift_small', 9.4, -3.75, 180, .6),
+        ('drift_small', 13.3, -3.6, 168, .45),
+        ('drift_medium', 15.6, -4.35, 235, .58),
     )):
         mounted(model, x, z, f'pond_shore_snow_{j}', -.008, yaw=yaw, scale=scale)
 
@@ -382,10 +440,10 @@ def build_level() -> dict:
 
     # A few warm destinations, leaving the forest/pond and most facades cold.
     # Source offsets and cable anchors are shared with the GLB authoring tool.
-    def string(variant, x, z, identity, anchor_y, intensity=.32, radius=4.5):
+    def string(variant, x, z, identity, anchor_y, intensity=.32, radius=4.5, yaw=0):
         mounted('string_lights_'+variant, x, z, identity,
                 anchor_y-attachment_height(variant), occludes=False,
-                lights=lights(variant, intensity, radius))
+                yaw=yaw, lights=lights(variant, intensity, radius))
 
     # Small timber brackets project from the fascia past the snowy door hood.
     # The glass stays clear of the snow/hood and its hanging icicle roots.
@@ -404,13 +462,15 @@ def build_level() -> dict:
 
     # Ordinary narrow timber posts support the square and one path crossing.
     # Their bases sit outside the packed walking lines and seating footprints.
-    for i, (variant, x, z) in enumerate((('long', 0, -3.6), ('long', 0, 3.8),
-                                         ('medium', 0, -8.0))):
+    for i, (variant, x, z, yaw) in enumerate((('long', .5, -3.6, 8), ('long', -.5, 3.8, -12),
+                                              ('medium', 0, -8.0, 5))):
         span = SPANS[variant][0]
+        angle = math.radians(yaw)
         for side in (-1, 1):
-            prop('outdoor:house_02_porch_post', x+side*span/2, z,
+            prop('outdoor:house_02_porch_post', x+side*span/2*math.cos(angle),
+                 z-side*span/2*math.sin(angle),
                  f'string_post_{i}_{side}', scale=1.35, solid=True, size=[.14, 2.3, .14])
-        string(variant, x, z, f'square_string_{i}' if i < 2 else 'path_string', 3.02)
+        string(variant, x, z, f'square_string_{i}' if i < 2 else 'path_string', 3.02, yaw=yaw)
     return level
 
 
@@ -418,15 +478,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    expected = serialise(build_level())
+    level = build_level()
+    # Preserve the existing severe mode's exact identity and weather settings;
+    # its current scene must follow Winter, while its frozen evidence stays put.
+    review = json.loads(REVIEW_OUTPUT.read_text())
+    severe = {**level, **{key: review[key] for key in ('id', 'name', 'weather')}}
+    for path, source in ((OUTPUT, level), (REVIEW_OUTPUT, severe)):
+        expected = serialise(source)
+        if args.check:
+            if not path.is_file() or path.read_text() != expected:
+                print(f'{path.name} is stale; run tools/levels/build_winter.py')
+                return 1
+        else:
+            path.write_text(expected)
+            print(f'Authored {path}')
     if args.check:
-        if not OUTPUT.is_file() or OUTPUT.read_text() != expected:
-            print('Winter source is stale; run tools/levels/build_winter.py')
-            return 1
-        print('Winter source is deterministic and current')
-    else:
-        OUTPUT.write_text(expected)
-        print(f'Authored {OUTPUT}')
+        print('Winter and severe review sources are deterministic and current')
     return 0
 
 

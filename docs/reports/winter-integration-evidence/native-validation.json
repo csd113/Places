@@ -1,0 +1,572 @@
+{
+  "runs": [
+    {
+      "mode": "calm",
+      "quality": "high",
+      "source_sha256": "32803b76ae232e69c606951b072345bc483b66a2b0632e7a5d3c9be47822c32b",
+      "package_sha256": "bcec61a680c65348d1cd74dab46797da98c2ed911c5792a827546279996f1e2d",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 22,
+      "traversal": [
+        {
+          "label": "high-walk-lodge-on",
+          "passed": true,
+          "bounds": [
+            [
+              -11.5,
+              -11.5
+            ],
+            [
+              1.6,
+              2.2
+            ],
+            [
+              -12.7831,
+              -3.4825
+            ]
+          ],
+          "final": [
+            -11.5,
+            1.6,
+            -3.4825
+          ]
+        },
+        {
+          "label": "high-walk-stairs-on",
+          "passed": true,
+          "bounds": [
+            [
+              -18.2128,
+              -14.9128
+            ],
+            [
+              1.6,
+              2.2
+            ],
+            [
+              -9.0,
+              -9.0
+            ]
+          ],
+          "final": [
+            -18.2128,
+            1.6,
+            -9.0
+          ]
+        },
+        {
+          "label": "high-walk-pond-on",
+          "passed": true,
+          "bounds": [
+            [
+              2.0351,
+              13.9546
+            ],
+            [
+              1.44,
+              2.4383
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            2.0351,
+            1.6,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-forest-on",
+          "passed": true,
+          "bounds": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -34.1985,
+              11.9248
+            ]
+          ],
+          "final": [
+            0.0,
+            1.6,
+            -34.1985
+          ]
+        },
+        {
+          "label": "high-walk-ice-coast-on",
+          "passed": true,
+          "bounds": [
+            [
+              8.0021,
+              12.1746
+            ],
+            [
+              1.44,
+              1.44
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            12.1746,
+            1.44,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-snow-stop-on",
+          "passed": true,
+          "bounds": [
+            [
+              8.0034,
+              10.9779
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -20.4,
+              -20.4
+            ]
+          ],
+          "final": [
+            10.9779,
+            1.6,
+            -20.4
+          ]
+        },
+        {
+          "label": "high-walk-ice-wall-on",
+          "passed": true,
+          "bounds": [
+            [
+              14.0,
+              16.465
+            ],
+            [
+              1.44,
+              1.6
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            16.465,
+            1.6,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-rock-on",
+          "passed": true,
+          "bounds": [
+            [
+              4.1999,
+              6.0
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -18.0,
+              -18.0
+            ]
+          ],
+          "final": [
+            4.1999,
+            1.6,
+            -18.0
+          ]
+        },
+        {
+          "label": "high-walk-rail-on",
+          "passed": true,
+          "bounds": [
+            [
+              14.2093,
+              16.465
+            ],
+            [
+              1.44,
+              1.6
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            14.2093,
+            1.44,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-cottage-north-on",
+          "passed": true,
+          "bounds": [
+            [
+              12.5,
+              12.5
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -27.5891,
+              -20.9886
+            ]
+          ],
+          "final": [
+            12.5,
+            1.6,
+            -20.9886
+          ]
+        },
+        {
+          "label": "high-walk-cottage-south-on",
+          "passed": true,
+          "bounds": [
+            [
+              -12.5,
+              -12.5
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              6.501,
+              13.1015
+            ]
+          ],
+          "final": [
+            -12.5,
+            1.6,
+            13.1015
+          ]
+        }
+      ],
+      "capacity_growth": 0
+    },
+    {
+      "mode": "calm",
+      "quality": "low",
+      "source_sha256": "32803b76ae232e69c606951b072345bc483b66a2b0632e7a5d3c9be47822c32b",
+      "package_sha256": "bcec61a680c65348d1cd74dab46797da98c2ed911c5792a827546279996f1e2d",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 6,
+      "traversal": [],
+      "capacity_growth": 0
+    },
+    {
+      "mode": "calm",
+      "quality": "medium",
+      "source_sha256": "32803b76ae232e69c606951b072345bc483b66a2b0632e7a5d3c9be47822c32b",
+      "package_sha256": "bcec61a680c65348d1cd74dab46797da98c2ed911c5792a827546279996f1e2d",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 6,
+      "traversal": [],
+      "capacity_growth": 0
+    },
+    {
+      "mode": "severe",
+      "quality": "high",
+      "source_sha256": "aa035874b6f9792093cb6e667a8372c7e20c5772b0f44b8d19d0dedc80a43bc6",
+      "package_sha256": "432f3b89182ba935862281abcfa1fe1d80dc9dfbd333c15a7cdf83d360fb6165",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 22,
+      "traversal": [
+        {
+          "label": "high-walk-lodge-on",
+          "passed": true,
+          "bounds": [
+            [
+              -11.5,
+              -11.5
+            ],
+            [
+              1.6,
+              2.2
+            ],
+            [
+              -12.7932,
+              -3.4929
+            ]
+          ],
+          "final": [
+            -11.5,
+            1.6,
+            -3.4929
+          ]
+        },
+        {
+          "label": "high-walk-stairs-on",
+          "passed": true,
+          "bounds": [
+            [
+              -18.2036,
+              -14.9274
+            ],
+            [
+              1.6,
+              2.2
+            ],
+            [
+              -9.0,
+              -9.0
+            ]
+          ],
+          "final": [
+            -18.2036,
+            1.6,
+            -9.0
+          ]
+        },
+        {
+          "label": "high-walk-pond-on",
+          "passed": true,
+          "bounds": [
+            [
+              2.0699,
+              13.9743
+            ],
+            [
+              1.44,
+              2.4383
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            2.0699,
+            1.6,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-forest-on",
+          "passed": true,
+          "bounds": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -34.1913,
+              11.9765
+            ]
+          ],
+          "final": [
+            0.0,
+            1.6,
+            -34.1913
+          ]
+        },
+        {
+          "label": "high-walk-ice-coast-on",
+          "passed": true,
+          "bounds": [
+            [
+              8.0,
+              12.1666
+            ],
+            [
+              1.44,
+              1.44
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            12.1666,
+            1.44,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-snow-stop-on",
+          "passed": true,
+          "bounds": [
+            [
+              8.0565,
+              10.9853
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -20.4,
+              -20.4
+            ]
+          ],
+          "final": [
+            10.9853,
+            1.6,
+            -20.4
+          ]
+        },
+        {
+          "label": "high-walk-ice-wall-on",
+          "passed": true,
+          "bounds": [
+            [
+              14.0001,
+              16.465
+            ],
+            [
+              1.44,
+              1.6
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            16.465,
+            1.6,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-rock-on",
+          "passed": true,
+          "bounds": [
+            [
+              4.2004,
+              6.0
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -18.0,
+              -18.0
+            ]
+          ],
+          "final": [
+            4.2004,
+            1.6,
+            -18.0
+          ]
+        },
+        {
+          "label": "high-walk-rail-on",
+          "passed": true,
+          "bounds": [
+            [
+              14.191,
+              16.465
+            ],
+            [
+              1.44,
+              1.6
+            ],
+            [
+              -10.0,
+              -10.0
+            ]
+          ],
+          "final": [
+            14.191,
+            1.44,
+            -10.0
+          ]
+        },
+        {
+          "label": "high-walk-cottage-north-on",
+          "passed": true,
+          "bounds": [
+            [
+              12.5,
+              12.5
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              -27.5779,
+              -20.9772
+            ]
+          ],
+          "final": [
+            12.5,
+            1.6,
+            -20.9772
+          ]
+        },
+        {
+          "label": "high-walk-cottage-south-on",
+          "passed": true,
+          "bounds": [
+            [
+              -12.5,
+              -12.5
+            ],
+            [
+              1.6,
+              1.6
+            ],
+            [
+              6.5227,
+              13.123
+            ]
+          ],
+          "final": [
+            -12.5,
+            1.6,
+            13.123
+          ]
+        }
+      ],
+      "capacity_growth": 0
+    },
+    {
+      "mode": "severe",
+      "quality": "low",
+      "source_sha256": "aa035874b6f9792093cb6e667a8372c7e20c5772b0f44b8d19d0dedc80a43bc6",
+      "package_sha256": "432f3b89182ba935862281abcfa1fe1d80dc9dfbd333c15a7cdf83d360fb6165",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 6,
+      "traversal": [],
+      "capacity_growth": 0
+    },
+    {
+      "mode": "severe",
+      "quality": "medium",
+      "source_sha256": "aa035874b6f9792093cb6e667a8372c7e20c5772b0f44b8d19d0dedc80a43bc6",
+      "package_sha256": "432f3b89182ba935862281abcfa1fe1d80dc9dfbd333c15a7cdf83d360fb6165",
+      "binary_sha256": "ebf879d326820f64e2dfb074e6f4813db9f2364e1bc1bc0456e19eb3e065f100",
+      "views": 6,
+      "traversal": [],
+      "capacity_growth": 0
+    }
+  ]
+}

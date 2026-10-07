@@ -1,0 +1,32 @@
+{
+  "before": {
+    "props": 347,
+    "evergreens": 75,
+    "placed_model_triangles": 130356,
+    "unique_models": 53,
+    "static_sources": 53,
+    "floor_patches": 13,
+    "floor_regions": 7
+  },
+  "after": {
+    "props": 304,
+    "evergreens": 61,
+    "placed_model_triangles": 109412,
+    "unique_models": 52,
+    "static_sources": 54,
+    "floor_patches": 14,
+    "floor_regions": 15
+  },
+  "unchanged": {
+    "rooms": true,
+    "walls": true,
+    "stairs": true,
+    "ramps": true,
+    "guardrails": true,
+    "doors": true,
+    "sky": true,
+    "weather": true,
+    "global_illuminators": true
+  },
+  "solid_voids_unchanged": true
+}
