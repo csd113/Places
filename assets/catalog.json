@@ -290,7 +290,7 @@
       "color": "#e8e6e0",
       "category": "Furniture",
       "solid": true,
-      "description": "White resin patio table for the pool deck."
+      "description": "Round white moulded resin patio table with rolled edge and four tapered feet."
     },
     {
       "id": "core:pool_chair",
@@ -308,7 +308,7 @@
       "color": "#e8e6e0",
       "category": "Furniture",
       "solid": true,
-      "description": "White resin patio chair matching the pool table."
+      "description": "White moulded resin armchair with an arched vertically slotted back."
     },
     {
       "id": "core:pool_ladder",
@@ -398,7 +398,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Two metre waist-high guardrail section: silver top and middle rails on three flanged posts."
+      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts."
     },
     {
       "id": "core:pool_guardrail_end",
@@ -416,7 +416,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Short two-rail guardrail return that terminates a run."
+      "description": "Short single-rail guardrail return that terminates a run."
     },
     {
       "id": "core:pool_guardrail_corner",
@@ -434,7 +434,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "L-shaped two-rail guardrail module that turns a run through 90 degrees."
+      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees."
     },
     {
       "id": "core:crate",
@@ -539,7 +539,11 @@
       "asset_type": "prop",
       "source": "file",
       "model": "core/props/models/painting_frame_landscape_01.glb",
-      "size": [1.9, 1.192, 0.06],
+      "size": [
+        1.9,
+        1.192,
+        0.06
+      ],
       "color": "#66503b",
       "category": "Decorative",
       "solid": false,
@@ -686,7 +690,7 @@
       "tile_metres": 1.0,
       "specular": 0.3,
       "shine": 0.4,
-      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a restrained visible sheen."
+      "description": "Cool blue 10 cm glazed basin ceramic, for submerged floors and basin skirts."
     },
     {
       "id": "core:pool_tile_wall_01",
@@ -697,10 +701,10 @@
       "source": "definition",
       "surface": "wall",
       "texture": "core:tex_pool_tile_wall_01",
-      "tile_metres": 1.0,
+      "tile_metres": 2.0,
       "specular": 0.3,
       "shine": 0.4,
-      "description": "Commercial wall tile for the pool room and basin walls: a restrained glazed sheen, not a glossy panel."
+      "description": "Pale 20 cm glazed wall ceramic with quiet fine grout."
     },
     {
       "id": "core:pool_ceiling_01",
@@ -916,7 +920,7 @@
       "source": "file",
       "model": "environment/pool/textures/walls/pool_tile_wall_01.png",
       "surface": "wall",
-      "description": "Commercial 10 cm wall tile at a 1 m repeat."
+      "description": "Commercial pale 20 cm wall tile at a 2 m repeat."
     },
     {
       "id": "core:tex_pool_ceiling_01",
@@ -4522,6 +4526,137 @@
       "color": "#ffc878",
       "category": "Lighting",
       "solid": false
+    },
+    {
+      "id": "pool:tex_coping_01",
+      "display_name": "Pool Coping Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/floors/pool_coping_01.png",
+      "surface": "floor"
+    },
+    {
+      "id": "pool:coping_01",
+      "display_name": "Pool Coping",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "pool:tex_coping_01",
+      "surface": "floor",
+      "tile_metres": 1.5,
+      "specular": 0.25,
+      "shine": 0.35
+    },
+    {
+      "id": "pool:tex_band_01",
+      "display_name": "Pool Band Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/walls/pool_band_01.png",
+      "surface": "wall"
+    },
+    {
+      "id": "pool:band_01",
+      "display_name": "Pool Band",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "pool:tex_band_01",
+      "surface": "wall",
+      "tile_metres": 1.0,
+      "specular": 0.25,
+      "shine": 0.35
+    },
+    {
+      "id": "pool:tex_metal_01",
+      "display_name": "Pool Metal Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/walls/pool_metal_01.png",
+      "surface": "wall"
+    },
+    {
+      "id": "pool:metal_01",
+      "display_name": "Pool Metal",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "pool:tex_metal_01",
+      "surface": "wall",
+      "tile_metres": 0.5,
+      "specular": 0.5,
+      "shine": 0.35,
+      "normal_texture": "core:tex_normal_brushed_01",
+      "normal_strength": 0.18
+    },
+    {
+      "id": "pool:pool_bench",
+      "display_name": "Pool Bench",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_bench.glb",
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "color": "#b9c3c5",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "pool:pool_drain",
+      "display_name": "Pool Drain",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_drain.glb",
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "color": "#b9c3c5",
+      "category": "Utility",
+      "solid": false
+    },
+    {
+      "id": "pool:pool_service_door",
+      "display_name": "Pool Service Door",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_service_door.glb",
+      "size": [
+        1.0,
+        2.1,
+        0.15
+      ],
+      "color": "#b9c3c5",
+      "category": "Structure",
+      "solid": false
+    },
+    {
+      "id": "pool:decal_lane_01",
+      "display_name": "Pool Blue Tile Lane",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/pool/decals/lane_01.png"
     }
   ]
 }

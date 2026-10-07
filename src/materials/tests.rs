@@ -1396,7 +1396,7 @@ fn pool_tiles_keep_a_restrained_visible_sheen() {
     for (id, tile) in [
         ("core:pool_tile_deck_01", 1.5),
         ("core:pool_tile_basin_01", 1.0),
-        ("core:pool_tile_wall_01", 1.0),
+        ("core:pool_tile_wall_01", 2.0),
     ] {
         let entry = materials.entry_of(id).expect(id);
         assert!(
@@ -1413,7 +1413,7 @@ fn pool_tiles_keep_a_restrained_visible_sheen() {
             entry.response.roughness > 0.0,
             "{id} must never become a mirror through shine alone"
         );
-        assert_eq!(entry.tile_metres, tile, "{id} tiling unchanged");
+        assert_eq!(entry.tile_metres, tile, "{id} authored ceramic repeat");
         assert!(
             entry.reflection.mode == crate::materials::MaterialReflection::NONE.mode,
             "{id} keeps no reflection mode"

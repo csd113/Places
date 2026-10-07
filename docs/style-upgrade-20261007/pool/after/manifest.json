@@ -1,0 +1,132 @@
+[
+  {
+    "name": "wide",
+    "spawn": "10.5,17.9,0",
+    "camera": "25,-12",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.926947082974948,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "f7183ec2ad8f600cef8faccc4ed7cc83bf0ccb6dd60ea300c8b556d697b607f8"
+  },
+  {
+    "name": "basin",
+    "spawn": "10.5,10.6,0",
+    "camera": "130,-26",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.3114351249532774,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "7fec4adc276f9992546b87ba6ec6c625049165c9166ee24d8d1f4af7e130e20c"
+  },
+  {
+    "name": "walls",
+    "spawn": "12.0,9.0,0",
+    "camera": "0,5",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.225559832993895,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "c5d68b68e6f99a4537de9c5a2fceab7e00b3b4b81a8f928adf417507795a8a19"
+  },
+  {
+    "name": "ceiling_windows",
+    "spawn": "12.0,14.0,0",
+    "camera": "0,38",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.3344175410456955,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "2e0d67751797d775aa5ea9b5cb870ccc5a273784c522fc19695ccf45ca546f0a"
+  },
+  {
+    "name": "edge",
+    "spawn": "7.1,12.8,0",
+    "camera": "90,-35",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.273719000048004,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "8317876d7fe5144d0a7ffbced4237a5721dc7e6e1c82027cd03d3e01b80e3beb"
+  },
+  {
+    "name": "stairs",
+    "spawn": "22.0,11.5,0",
+    "camera": "90,-14",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.1159511659061536,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "5a2f82c8716fe9f19c306533c3ad265493ef3e9d0f48a9f6cc1877dbf71c9218"
+  },
+  {
+    "name": "ladder",
+    "spawn": "18.7,14.1,0",
+    "camera": "25,-24",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.184470833046362,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "7b8f44e8d70d216d11d0e512038affddf4a0c5e4e6d5f00c125e98c91e65c8f5"
+  },
+  {
+    "name": "furniture",
+    "spawn": "5.9,17.6,0",
+    "camera": "325,-22",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.195732416003011,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "fd7ea05b57c55dfbd48918644f707a94151fc69394f407f43505687fb76b2667"
+  },
+  {
+    "name": "curtains",
+    "spawn": "21.1,9.0,0",
+    "camera": "70,-5",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.289517082972452,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "c611ec2533635ca8fddb49a56c7d3f601fc22e2c902615a9ee699d86f6488911"
+  },
+  {
+    "name": "tile_close",
+    "spawn": "7.1,12.8,0",
+    "camera": "90,-62",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.3969692500540987,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "f790e7c67885375a70f2382084db1fd97e29af2b6201beb1031bc1bbc0251376"
+  },
+  {
+    "name": "basin_stairs",
+    "spawn": "20.8,15.2,0",
+    "camera": "270,-38",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.1353902500122786,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "5e2566a16bc4efe22d34b4a2949b6319728a7cafc6db73d94b1e608859d433b5"
+  },
+  {
+    "name": "ladder_deck",
+    "spawn": "21.5,13.8,0",
+    "camera": "320,-18",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.2739015420665964,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "8879409912dd6d200d0fd8b9dcd297ab69052e3c4fa82308d0e6a8a7a805f38c"
+  },
+  {
+    "name": "bench",
+    "spawn": "22.1,9.4,0",
+    "camera": "0,-27",
+    "quality": "high",
+    "level": "places_demo",
+    "elapsed_seconds": 3.2649182500317693,
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720",
+    "sha256": "69d0e1922157df87859a032ba5873b0832bb23423b0d987ade0ac546200b359f"
+  }
+]

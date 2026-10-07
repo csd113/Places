@@ -1,120 +1,58 @@
 # Pool environment
 
-The Pool content pack: a clean, relatively new, sterile institutional pool.
-Everything is pale and cool — off-white tile, a neutral painted ceiling, white
-resin furniture, chrome and dull-silver metalwork and pale privacy curtains —
-with only light wear, because the Pool is empty and quiet, not abandoned.
+The concept source is [Places: Quiet Indoor Pool Asset Sheet](Places_%20Quiet%20Indoor%20Pool%20Asset%20Sheet.png).
+The [2026-10-07 visual pass](../../../docs/style-upgrade-20261007/pool/README.md)
+records the object inventory, matched native captures, validation and costs.
 
-The pack is an ordinary set of catalog entries; nothing about the Office/Pool
-split restricts where an asset may be placed (see
-[`../../README.md`](../../README.md)).
+Pool remains a quiet commercial interior: pale speckled deck ceramic, blue
+basin ceramic, pale large-format wall tile, fine-seamed painted ceiling, white
+moulded resin, silver fittings and warm off-white privacy cloth. Wear is light.
 
-## Surface textures
+| Surface | ID | Source | Repeat / construction |
+| --- | --- | --- | --- |
+| Deck | `core:pool_tile_deck_01` | 1024² | 10×10 tiles / 1.5 m, 15 cm tile with restrained mineral flecks |
+| Basin | `core:pool_tile_basin_01` | 1024² | 10×10 tiles / 1 m, distinctly blue 10 cm ceramic |
+| Wall | `core:pool_tile_wall_01` | 1024² | 10×10 tiles / 2 m, pale 20 cm ceramic |
+| Ceiling | `core:pool_ceiling_01` | 1024² | 2×2 panels / 2 m, fine seams without office staining |
+| Coping | `pool:coping_01` | 1024² | 5×5 pale tiles / 1.5 m, non-colliding 45 mm cap strips |
+| Tile band | `pool:band_01` | 1024² | 10×10 blue tiles / 1 m, thin wainscot and construction transitions |
+| Metal trim | `pool:metal_01` | 1024² | opaque cool powder coat, restrained existing brushed normal at 0.18 strength |
+| Water | `core:water_pool_01` | existing 1024² | existing working water texture, material and volume mechanics retained |
 
-| texture id | file | dimensions | tile_metres | what it is |
-| --- | --- | --- | --- | --- |
-| `core:tex_pool_tile_deck_01` | `textures/floors/pool_tile_deck_01.png` | 1024x1024 | 1.5 | 10x10 grid of 15 cm commercial deck tiles (102.4 px per tile) |
-| `core:tex_pool_tile_basin_01` | `textures/floors/pool_tile_basin_01.png` | 1024x1024 | 1.0 | 10x10 grid of 10 cm basin tiles, a shade cooler |
-| `core:tex_pool_tile_wall_01` | `textures/walls/pool_tile_wall_01.png` | 1024x1024 | 1.0 | 10x10 grid of 10 cm wall tiles, the palest of the family |
-| `core:tex_pool_ceiling_01` | `textures/ceilings/pool_ceiling_01.png` | 1024x1024 | 2.0 | 2x2 painted panels (512 px = 1 m), fine joints, screw dimples |
+All surface sheets are square, opaque and seam-gated. The round fixture face
+remains 1:1 at 1024²; the wall lens remains its required 2:1 at 1024×512.
+`pool:decal_lane_01` is a fitted 1024×32 RGBA basin marking, placed at 32:1.
+The existing 1024² NO DIVING cutout and water artwork are retained.
 
-All four are opaque 8-bit RGBA, tileable in both directions, and deterministic:
-`tools/textures/build.py --only <id>` regenerates them from
-[`pool_art.py`](../../../tools/textures/pool_art.py). The grout/panel joints are
-one pixel, close in value to the field (12.5 % darker for the tile joints,
-10 % for the ceiling seams) with a 1 px bevel, so they read as joints and never
-as a debug grid. Tone comes from per-tile jitter (one tile in seven slightly
-darker), a gentle low-frequency field and a barely-visible speckle.
-
-The 1024x1024 sheets are the authoritative artwork, not the 128 px painter
-output: `tools/textures/build.py` skips a sheet whose shipped dimensions
-differ from its painter's output, so a plain run leaves them untouched and only
-`--force` would replace the shipped sheets with the 128 px output. The wall
-tile's left-to-right wrap uses a tuned repair where the raw wrap step measured
-about three times its own interior variation (a visible vertical seam where the
-tile grid re-met itself), applied with
-`python3 tools/textures/seam_repair.py --repair assets/environment/pool/textures/walls/pool_tile_wall_01.png`;
-the wrapped edge is gated by both the Rust surface-tiling test and
-`python3 tools/textures/seam_repair.py --check`. The tool pins this sheet's
-repair parameters, so `--repair` reproduces the shipped file deterministically.
-
-The fixture faces are external artwork too: `core:pool_light_round` ships
-`textures/lights/pool_light_round_01.png` (128x128) as its recessed downlight
-diffuser and `core:pool_light_wall` ships
-`textures/lights/pool_light_wall_01.png` (128x64) as its luminaire lens. The
-mesh around them is generated; author a wall fixture with `"mount": "wall"` and
-a world `"y"`, exactly as before.
-
-## Materials
-
-| material id | texture | tile_metres |
+| Prop family | Catalog bounds (m) | Construction |
 | --- | --- | --- |
-| `core:pool_tile_deck_01` | deck tile | 1.5 |
-| `core:pool_tile_basin_01` | basin tile | 1.0 |
-| `core:pool_tile_wall_01` | wall tile | 1.0 |
-| `core:pool_ceiling_01` | ceiling panel | 2.0 |
+| `core:pool_table` | .80 × .74 × .80 | round rolled resin top, recessed skirt, four square tapered legs |
+| `core:pool_chair` | .52 × .85 × .55 | moulded arms, crowned vertically slotted back, rolled seat and four floor-contact feet |
+| `core:pool_ladder` | .55 × 2.20 × .45 | closed inverted-U rails returning to bolted deck flanges; four dark tread inserts |
+| `core:pool_guardrail_*` | existing module bounds | one waist-high rail at .98 m; flanged posts; straight, end and corner modules |
+| `core:pool_curtain_*` | existing module bounds | 2 mm closed pleated cloth shell, gathered header, hanging tabs, stitched weighted hem |
+| `pool:pool_bench` | 1.60 × .45 × .38 | four grey resin slats on two metal trestles, floor-contact foot pads |
+| `pool:pool_drain` | .60 × .014 × .16 | dark closed recess, metal perimeter and fifteen raised grate bars |
+| `pool:pool_service_door` | 1.00 × 2.10 × .15 | blue static leaf, deep frame, threshold, pull handle and recessed six-slat vent |
+| `core:rubber_duck`, `core:hot_tub` | existing bounds | retained identity/mechanics; neither was remade by this pass |
 
-## Props
+Model UVs use fitted 2×2 cells. Each remade/added model keeps a 1024²
+`*_master.png` beside its 256² native PNG. The offline authoring script
+`tools/textures/author_pool.py` creates those masters and downsamples once with
+Lanczos; ordinary texture builds load the committed PNGs without repainting.
+The game loads GLBs and PNGs only. It never runs the painter.
 
-All nine are modelled in [`tools/props/parts/pool.py`](../../../tools/props/parts/pool.py):
-1 unit = 1 m, origin on the floor-contact centre, `+Z` front, one embedded
-128x128 texture each, well inside the triangle budget. Moulded resin parts are
-built from four-sided tapered blocks, metal work from eight-sided stock, and
-cloth from a double-sided folded ribbon, so the three material families never
-read alike.
+Rebuild selected props with `python3 tools/props/build.py --only <id>`.
+All current Pool builders are in `tools/props/parts/pool_remade.py`, registered
+by `pool.py`; the retained hot tub and duck use their existing builders.
+Native model textures stay at 256² (128² on Low); no 1024² image is embedded
+in the GLBs. The largest remade model is 612 triangles.
 
-| prop id | size [w, h, d] | notes |
-| --- | --- | --- |
-| `core:pool_table` | 0.80 x 0.74 x 0.80 | white resin tray top with a 4 cm rim over a 12 mm tray floor, a moulded apron, four tapered square legs and a low perimeter stretcher ring |
-| `core:pool_chair` | 0.52 x 0.85 x 0.55 | the table's sibling: 45 cm seat with a rolled front edge, apron, tapered front legs, rear legs raked 8 degrees and a 13 degree slatted back |
-| `core:pool_ladder` | 0.55 x 2.20 x 0.45 | chrome rails curving 0.33 m out over the deck edge on a 0.10 m radius, four non-skid treads on a 0.305 m pitch and vinyl foot boots |
-| `core:pool_curtain_straight` | 1.20 x 2.60 x 0.22 | two 48 mm posts on square foot plates, an extruded top track and a ten-pleat gathered panel |
-| `core:pool_curtain_end` | 0.60 x 2.60 x 0.22 | one post and a five-pleat panel closing a run |
-| `core:pool_curtain_corner` | 0.60 x 2.60 x 0.60 | shared corner post, one tighter-packed panel per leg |
-| `core:pool_guardrail_straight` | 2.00 x 1.05 x 0.08 | **one** waist-high Ø42 rail at 0.98 m on three Ø48 posts with turned caps and bolted flanges |
-| `core:pool_guardrail_end` | 0.60 x 1.05 x 0.08 | short single-rail return terminating a run |
-| `core:pool_guardrail_corner` | 0.60 x 1.05 x 0.60 | L section, one rail per leg turning through the shared corner post |
-
-The guardrail is deliberately a *guard rail* and not a fence: a single rail on
-posts, no second rail line and no infill. Its 8 cm catalogue depth is the
-flange, which is sized across the rail it carries.
-
-Curtain and guardrail modules compose on a 0.6 m bay grid: a straight section's
-posts sit inboard by exactly their own radius (curtains: by the foot plate's
-half-width), so a module's post surface, and a guardrail's flange, are flush
-with the module's catalogue edge and two modules placed edge to edge meet
-piece to piece. A section rotated 90 degrees needs its level `"size"` written
-with x/z swapped.
-
-## The Pool content
-
-The Pool family is the one the official demo ends in: `places_demo` walks from
-the office into the red stair hall and out onto the pool deck, past the
-guardrail runs and the curtain cubicle line. A dedicated regression fixture in
-`tests/fixtures/levels/pool_showcase.json` composes the family on its own: a
-16 x 11 m pool room with a 9 x 4.5 m empty basin (deck at 0, a -0.35 m walk-in
-step, the basin floor at -1.5 m), a corridor and a changing bay, cool round
-ceiling lights plus four wall luminaires, the patio table and two chairs, and
-the final NO DIVING decal on the deck and on the north wall. Stage it in a
-`levels/` directory to boot it with `PLACES_LEVEL=pool_showcase`.
-
-## Decal artwork
-
-`core:decal_no_diving_01` is an external PNG cut-out
-(`decals/no_diving_01.png`, 1024x1024 RGBA, generated by
-[`decal_art.py`](../../../tools/textures/decal_art.py)): a white plate with a
-red rim, the prohibition pictogram and bold lettering, with alpha 0 around the
-plate so the decal pass can discard it. Replace the PNG and restart to change
-the sign; no Rust change and no recompilation. The sheet is uploaded as its own
-decal texture, and the renderer corrects the in-plane orientation so the
-artwork reads exactly as it does in an image viewer (verified for a floor and a
-wall placement; `render::decal_uv_rect_full` is pinned by a unit test).
-
-## Renderer behaviour
-
-Wall-mounted decals keep their world orientation
-(`render::tests::external_decal_sheets_pin_their_world_orientation`), and the
-generated decal atlas places each pattern in the cell that matches its sheet
-slot, so `core:decal_arrow_01` samples the arrow and `core:decal_stripes_01`
-the stripes
-(`render::tests::generated_decal_atlas_cells_match_their_sheet_slots`).
+`tools/levels/refine_pool.py` idempotently updates only Pool content in the
+connected demo. Water volumes, climb volumes, entity placements, other rooms
+and the office-facing wall materials/glazing remain intact. Submerged treads
+are real floor regions with 300 mm risers. Dry coping caps keep 2–4 mm grout
+joints and stay outside the recessed walking surfaces. The reference benches
+sit by the changing screens and at the dry perimeter. The two former blank
+notice boards are now static blue service leaves. The existing potted plant
+is reused beside the resin furniture.

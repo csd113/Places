@@ -1361,7 +1361,8 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
             "core:decal_ceiling_vent_01".to_string(),
             "outdoor:decal_path_edge_01".to_string(),
             "outdoor:decal_path_end_01".to_string(),
-            "outdoor:decal_path_corner_01".to_string()
+            "outdoor:decal_path_corner_01".to_string(),
+            "pool:decal_lane_01".to_string()
         ],
         "every decal sheet the demo places resolves as external PNG artwork"
     );

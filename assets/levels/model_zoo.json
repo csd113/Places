@@ -8258,6 +8258,96 @@
         }
       ],
       "rotation_degrees": 180.0
+    },
+    {
+      "id": "zoo:pool-pool_bench:floor",
+      "display_name": "Pool Bench",
+      "model": "pool:pool_bench",
+      "x": 40.0,
+      "z": 140.0,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:pool-pool_drain:floor",
+      "display_name": "Pool Drain",
+      "model": "pool:pool_drain",
+      "x": 43.0,
+      "z": 140.0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:pool-pool_service_door:floor",
+      "display_name": "Pool Service Door",
+      "model": "pool:pool_service_door",
+      "x": 46.0,
+      "z": 140.0,
+      "size": [
+        1.0,
+        2.1,
+        0.15
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
     }
   ],
   "decals": [

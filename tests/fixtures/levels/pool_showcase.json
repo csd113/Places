@@ -784,6 +784,42 @@
         2.6
       ],
       "solid": false
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 2.0,
+      "z": 9.7,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Native construction reference prop."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 8.0,
+      "z": 2.45,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Native construction reference prop."
+    },
+    {
+      "model": "pool:pool_service_door",
+      "x": 1.5,
+      "z": 0.2,
+      "size": [
+        1.0,
+        2.1,
+        0.15
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Native construction reference prop."
     }
   ],
   "water": [

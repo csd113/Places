@@ -612,9 +612,9 @@ def build_hot_tub(p: PropBuilder) -> None:
 from parts import pool_remade, duck_remade
 
 PROPS = {
-    "core:pool_table": build_pool_table,
-    "core:pool_chair": build_pool_chair,
-    "core:pool_ladder": build_pool_ladder,
+    "core:pool_table": pool_remade.table,
+    "core:pool_chair": pool_remade.chair,
+    "core:pool_ladder": pool_remade.ladder,
     "core:hot_tub": build_hot_tub,
     "core:pool_curtain_straight": pool_remade.curtains,
     "core:pool_curtain_end": pool_remade.curtains,
@@ -623,4 +623,7 @@ PROPS = {
     "core:pool_guardrail_end": pool_remade.rails,
     "core:pool_guardrail_corner": pool_remade.rails,
     "core:rubber_duck": duck_remade.build,
+    "pool:pool_bench": pool_remade.bench,
+    "pool:pool_drain": pool_remade.drain,
+    "pool:pool_service_door": pool_remade.service_door,
 }

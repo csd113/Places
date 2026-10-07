@@ -17,14 +17,14 @@ draws (no world tiling, so nothing here is tileable and nothing wraps):
   towards the frame, fine grain and a little dust along the edges. It must read
   as a *surface*, never as baked illumination: the room lighting is the bake's
   job (see ``src/lighting.rs``).
-* ``core:pool_light_round`` -- 128x128, the round diffuser seen face-on: image
+* ``core:pool_light_round`` -- 1024x1024, the round diffuser seen face-on: image
   centre is the fixture centre, the inscribed circle is the diffuser's own
-  radius (0.22 m), and one texel is 3.9 mm. Concentric moulding rings, faint
+  radius (0.22 m), and one source texel is 0.43 mm. Concentric moulding rings, faint
   radial ribs, a bright lamp core and a dark contact line where the diffuser
   meets its bezel.
-* ``core:pool_light_wall`` -- 128x64, the wall luminaire's lens face: 0.4 m
-  wide by 0.2 m tall, 3.1 mm per texel. An opal cover with a soft horizontal
-  lamp band, vertical ribbing and a slightly shadowed cover edge.
+* ``core:pool_light_wall`` -- 1024x512, the wall luminaire's lens face: 0.4 m
+  wide by 0.2 m tall, 0.39 mm per source texel. An opal cover with three horizontal
+  lamp bands, vertical ribbing and a slightly shadowed cover edge.
 
 The palette stays pale and near-neutral on purpose: the fixture's vertex colour
 is a *neutral* emission strength (the intensity response, never the authored
@@ -32,7 +32,7 @@ light colour) multiplied into the sampled texel, so an off fixture darkens this
 artwork to black without any code knowing about the texture, while a coloured
 light changes only the illumination it bakes into the room.
 
-The Office exporter loads its committed PNG; the other painters use deterministic
+The Office and Pool exporters load their committed PNGs; the remaining painter uses deterministic
 :mod:`artkit` helpers. None runs in the game.
 """
 
@@ -112,7 +112,7 @@ def build_fluorescent_panel() -> Canvas:
 #
 # The round downlight's diffuser seen face-on. The geometry maps the fixture
 # plane onto the sheet, so image centre = fixture centre and the inscribed
-# circle = the diffuser radius (0.22 m): 128 px across 0.5 m, 3.9 mm per texel.
+# circle = the diffuser radius (0.22 m); the authored sheet is 1024 square.
 
 ROUND_SIZE = 128
 ROUND_CENTRE = (ROUND_SIZE - 1) * 0.5   # 63.5, so the disc is symmetric
@@ -140,58 +140,15 @@ def _round_rib(x: int, y: int) -> float:
 
 
 def build_pool_light_round() -> Canvas:
-    """The pool downlight's diffuser face: opal disc, lamp core, shadowed edge."""
-    canvas = Canvas(ROUND_SIZE, ROUND_SIZE)
-    for y in range(ROUND_SIZE):
-        for x in range(ROUND_SIZE):
-            dx = x + 0.5 - ROUND_CENTRE
-            dy = y + 0.5 - ROUND_CENTRE
-            radius = math.sqrt(dx * dx + dy * dy) / ROUND_INSCRIBED
-            if radius <= ROUND_LAMP_EDGE:
-                # The lamp recess behind the diffuser's centre hole: unseen
-                # geometry, but it is what the inner edge blends into, so it
-                # stays bright rather than black.
-                ease = smoothstep(radius, 0.0, ROUND_LAMP_EDGE)
-                r = ROUND_LAMP[0] * (1.0 - ease) + ROUND_DIFFUSER[0] * ease
-                g = ROUND_LAMP[1] * (1.0 - ease) + ROUND_DIFFUSER[1] * ease
-                b = ROUND_LAMP[2] * (1.0 - ease) + ROUND_DIFFUSER[2] * ease
-            elif radius < ROUND_RIM_START:
-                # Diffuser: brightest next to the lamp, dimming gently outwards.
-                tone = 1.0 - 0.135 * smoothstep(radius, ROUND_LAMP_EDGE, 0.96)
-                # Three concentric moulding rings with a lit lip inside each.
-                for ring in (0.34, 0.55, 0.76):
-                    band = 1.0 - smoothstep(abs(radius - ring), 0.0, 0.022)
-                    tone *= 1.0 - ROUND_RING_TONE * band
-                    lip = 1.0 - smoothstep(abs(radius - (ring - 0.030)), 0.0, 0.014)
-                    tone *= 1.0 + ROUND_RING_TONE * 0.75 * lip
-                tone *= 1.0 + ROUND_RIB_TONE * _round_rib(x, y)
-                tone *= 1.0 + (hash01(x, y, 601) - 0.5) * 0.013
-                tone *= 1.0 + (tile_noise(x, y, ROUND_SIZE, 5, 607) - 0.5) * 0.022
-                r = ROUND_DIFFUSER[0] * tone
-                g = ROUND_DIFFUSER[1] * tone
-                b = ROUND_DIFFUSER[2] * tone
-                # A thin contact shadow where the diffuser meets its bezel.
-                joint = smoothstep(radius, ROUND_RIM_START - 0.055, ROUND_RIM_START)
-                r = r * (1.0 - joint) + ROUND_RIM[0] * 0.82 * joint
-                g = g * (1.0 - joint) + ROUND_RIM[1] * 0.82 * joint
-                b = b * (1.0 - joint) + ROUND_RIM[2] * 0.82 * joint
-            else:
-                # The diffuser's outer edge, and the sheet's corners: the metal
-                # the diffuser sits in. Never sampled as a surface, but it is
-                # what the edge blends into and what a distant mip averages
-                # against, so it stays a plausible dark grey rather than black.
-                outside = smoothstep(radius, ROUND_RIM_START, 1.0)
-                tone = 0.92 + 0.08 * (1.0 - outside)
-                tone *= 1.0 + (hash01(x, y, 617) - 0.5) * 0.010
-                r, g, b = (channel * tone for channel in ROUND_RIM)
-            canvas.set(x, y, (r, g, b))
-    return canvas
+    """Load the authored Pool opal lens, preserving its fitted face layout."""
+    from pool_art import load_sheet
+    return load_sheet("textures/lights", "pool_light_round_01.png", (1024,1024))
 
 
 # ------------------------------------------------------------------ wall light
 #
 # The wall luminaire's lens face: 0.4 m wide by 0.2 m tall at 128x64, so one
-# texel is 3.1 mm. The housing around it is generated geometry with a flat
+# source texel is 0.39 mm. The housing around it is generated geometry with a flat
 # metal colour; only the lens face is artwork.
 
 WALL_SIZE_X = 128
@@ -230,21 +187,9 @@ def _wall_tone(x: int, y: int) -> float:
 
 
 def build_pool_light_wall() -> Canvas:
-    """The pool wall luminaire's lens face: a ribbed opal cover."""
-    canvas = Canvas(WALL_SIZE_X, WALL_SIZE_Y)
-    for y in range(WALL_SIZE_Y):
-        for x in range(WALL_SIZE_X):
-            tone = _wall_tone(x, y)
-            r = WALL_LENS[0] * tone
-            g = WALL_LENS[1] * tone
-            b = WALL_LENS[2] * tone
-            # The cover's lip is the only part that reads as a hard edge.
-            edge = min(x, WALL_SIZE_X - 1 - x, y, WALL_SIZE_Y - 1 - y)
-            if edge == 0:
-                lip = WALL_COVER_EDGE
-                r, g, b = (channel * lip for channel in (r, g, b))
-            canvas.set(x, y, (r, g, b))
-    return canvas
+    """Load the authored Pool opal lens, preserving its fitted face layout."""
+    from pool_art import load_sheet
+    return load_sheet("textures/lights", "pool_light_wall_01.png", (1024,512))
 
 
 # ---------------------------------------------------------------- home, round

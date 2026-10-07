@@ -6791,7 +6791,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     assert!(sheen >= 4, "the demo's glossy surfaces have a sheen");
     assert_eq!(
         normal_mapped, 2,
-        "the metal and plastic panels are the demo's normal-mapped materials"
+        "the shared metal and Pool window casings are the demo's normal-mapped materials"
     );
 }
 

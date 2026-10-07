@@ -1,0 +1,1444 @@
+[
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -1.3350000381469727,
+        0.0,
+        -1.3350000381469727
+      ],
+      [
+        1.3350000381469727,
+        1.559999942779541,
+        1.3350000381469727
+      ]
+    ],
+    "bytes": 37192,
+    "catalog_size": [
+      2.6,
+      1.56,
+      2.6
+    ],
+    "category": "Structure",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      2.6700000762939453,
+      1.559999942779541,
+      2.6700000762939453
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/hot_tub.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "7ff3d960a564b99fdff58c5d6ae5c772cab237009bfe6e80db1c3abb8e746938",
+    "id": "core:hot_tub",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13540,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/hot_tub.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "core_hot_tub_diffuse",
+        "pixel_sha256": "c3d8ab5ba78d9b4c5d679d468c73a0999116edb86d5e9d606333dcae14c3b24d",
+        "sha256": "e50be5b11f0738a8bc5ef1ff43565efc562e0516ea5618f00f72bc8cddda896b",
+        "source_pngs": [
+          "assets/environment/pool/props/models/hot_tub.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "tub_tile",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "tub_cap",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "adfcc41cb47055022674ab34bb115b774c40005133a0b119a3489ecfbc854919",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 192,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 384
+    },
+    "transforms": [],
+    "triangles": 384,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 768,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.800000011920929,
+        0.0,
+        -0.1899999976158142
+      ],
+      [
+        0.800000011920929,
+        0.44999998807907104,
+        0.1899999976158142
+      ]
+    ],
+    "bytes": 20740,
+    "catalog_size": [
+      1.6,
+      0.45,
+      0.38
+    ],
+    "category": "Furniture",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/levels/refine_pool.py",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      1.600000023841858,
+      0.44999998807907104,
+      0.3799999952316284
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_bench.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "5510bd3b7ff67f94c66f14728f079040b8177ca0e73c7a0ad64944e0ab1b71fe",
+    "id": "pool:pool_bench",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 2581,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_bench.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "pool_pool_bench_diffuse",
+        "pixel_sha256": "a3027594ea3d48aae00c19e3509d3877f78bb58faf345b264830e9a5deabbee9",
+        "sha256": "2c740bbf44d3fbedcec3aaad100bc4f04cb88c6a411fbe42d2eac80072e3f596",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/places_demo.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "pool_pool_bench_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "bf3a225c45f3419453ae02b8e665afb98e6053367d178ad2f44a68a67614e926",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 296
+    },
+    "transforms": [],
+    "triangles": 296,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 624,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.2569185793399811,
+        0.0,
+        -0.2726617455482483
+      ],
+      [
+        0.2569185793399811,
+        0.8492249250411987,
+        0.2726610004901886
+      ]
+    ],
+    "bytes": 25104,
+    "catalog_size": [
+      0.52,
+      0.85,
+      0.55
+    ],
+    "category": "Furniture",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.5138371586799622,
+      0.8492249250411987,
+      0.5453227460384369
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_chair.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "336c4984cbb7dfd89059a314569c6d72555afd4f69b9955e68bc1666817d67e7",
+    "id": "core:pool_chair",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 2413,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_chair.png",
+          "assets/environment/pool/props/models/pool_table.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_chair_diffuse",
+        "pixel_sha256": "fb6de615770632934e1a8631af6f49b248fb955edcde2620f9d30b99b6f6a574",
+        "sha256": "9169c31f1f7f60a252c7d2cf619d2c316c60d55a0107971b2055ba5db9624514",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_chair_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "9cfe66ef0c5b9947eada1a62ff01351967879b5dc0008abd3469a0e92e921fab",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 360
+    },
+    "transforms": [],
+    "triangles": 360,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 796,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        2.5999999046325684,
+        0.30000001192092896
+      ]
+    ],
+    "bytes": 50620,
+    "catalog_size": [
+      0.6,
+      2.6,
+      0.6
+    ],
+    "category": "Decorative",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.6000000238418579,
+      2.5999999046325684,
+      0.6000000238418579
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_curtain_corner.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "71dcd06aa230e408b22d524083ba695ad2f44818aabfc22cdef09ba6dfd3be87",
+    "id": "core:pool_curtain_corner",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 18322,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_curtain_corner.png",
+          "assets/environment/pool/props/models/pool_curtain_end.png",
+          "assets/environment/pool/props/models/pool_curtain_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_curtain_corner_diffuse",
+        "pixel_sha256": "ad8a80077d35244bf896231fa507bad6c7a39cc4d561a5f79c17fc0e39f07b5a",
+        "sha256": "b7ccb64169eea9c6e46235e68790d0c673cc60fc5ee6a4c1b1486da89f2b85e7",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_curtain_corner_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "30691369df8484367a50d2abed272521292599207adda1ddb429bcd20b721cf6",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 12,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 564
+    },
+    "transforms": [],
+    "triangles": 564,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 1144,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.10700000077486038
+      ],
+      [
+        0.30000001192092896,
+        2.5999999046325684,
+        0.10700000077486038
+      ]
+    ],
+    "bytes": 37640,
+    "catalog_size": [
+      0.6,
+      2.6,
+      0.22
+    ],
+    "category": "Decorative",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.6000000238418579,
+      2.5999999046325684,
+      0.21400000154972076
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_curtain_end.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "3d4d23aa92ba62ccb3e743033bf8e2dc08e953d119ac8c4298da8a89112b95d2",
+    "id": "core:pool_curtain_end",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 18322,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_curtain_corner.png",
+          "assets/environment/pool/props/models/pool_curtain_end.png",
+          "assets/environment/pool/props/models/pool_curtain_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_curtain_end_diffuse",
+        "pixel_sha256": "ad8a80077d35244bf896231fa507bad6c7a39cc4d561a5f79c17fc0e39f07b5a",
+        "sha256": "b7ccb64169eea9c6e46235e68790d0c673cc60fc5ee6a4c1b1486da89f2b85e7",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_curtain_end_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "7679516909324c04857b8e82e2b20fd92ba851a40fa3fa954e3d229e085ba626",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 8,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 324
+    },
+    "transforms": [],
+    "triangles": 324,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 664,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.10700000077486038
+      ],
+      [
+        0.6000000238418579,
+        2.5999999046325684,
+        0.10700000077486038
+      ]
+    ],
+    "bytes": 53608,
+    "catalog_size": [
+      1.2,
+      2.6,
+      0.22
+    ],
+    "category": "Decorative",
+    "clip_metadata": null,
+    "code_references": [
+      "src/lighting/occlusion.rs",
+      "src/loader/tests.rs",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      1.2000000476837158,
+      2.5999999046325684,
+      0.21400000154972076
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_curtain_straight.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "9afed6d90e414ff3f6846016a55b51ffd194a2158ed790ede3d7e9bf647d5a3b",
+    "id": "core:pool_curtain_straight",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 18322,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_curtain_corner.png",
+          "assets/environment/pool/props/models/pool_curtain_end.png",
+          "assets/environment/pool/props/models/pool_curtain_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_curtain_straight_diffuse",
+        "pixel_sha256": "ad8a80077d35244bf896231fa507bad6c7a39cc4d561a5f79c17fc0e39f07b5a",
+        "sha256": "b7ccb64169eea9c6e46235e68790d0c673cc60fc5ee6a4c1b1486da89f2b85e7",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_curtain_straight_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "5810ed97272b86a38b16d1cb936db92ee1ab7eecad09113f376899cbaf5e0295",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 13,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 612
+    },
+    "transforms": [],
+    "triangles": 612,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 1256,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.07999999821186066
+      ],
+      [
+        0.30000001192092896,
+        0.014000000432133675,
+        0.07999999821186066
+      ]
+    ],
+    "bytes": 35828,
+    "catalog_size": [
+      0.6,
+      0.014,
+      0.16
+    ],
+    "category": "Utility",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/levels/refine_pool.py",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.6000000238418579,
+      0.014000000432133675,
+      0.1599999964237213
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_drain.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "461e1beeda69295353585bcb2955249ada145fcbcb13f4bb65d27f28eb7752c0",
+    "id": "pool:pool_drain",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21458,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_drain.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "pool_pool_drain_diffuse",
+        "pixel_sha256": "e679c11724c64971a0d3a7e765a83d234f30808a4127b591ab1c78418f86e65e",
+        "sha256": "92747ef044fe1b2be35c1ab1cc388196f801e9304bb411954f21b1e1b3970f8a",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/places_demo.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "pool_pool_drain_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "d192b9afb84feb947cea4be5f43412ba9e662d4bc3135ef86274d69b5f52f81d",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 20,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 6,
+      "triangles": 240
+    },
+    "transforms": [],
+    "triangles": 240,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 480,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        1.0499999523162842,
+        0.30000001192092896
+      ]
+    ],
+    "bytes": 37552,
+    "catalog_size": [
+      0.6,
+      1.05,
+      0.6
+    ],
+    "category": "Utility",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.6000000238418579,
+      1.0499999523162842,
+      0.6000000238418579
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_guardrail_corner.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "393806b054b5ce24ca9c87983003f33741fea9b3ef9cf377c94e7d7f1a92d838",
+    "id": "core:pool_guardrail_corner",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20994,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_guardrail_corner.png",
+          "assets/environment/pool/props/models/pool_guardrail_end.png",
+          "assets/environment/pool/props/models/pool_guardrail_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_guardrail_corner_diffuse",
+        "pixel_sha256": "0f2264e9088e706239385472bdb5cc3f4477eca2ce7d9b9f2afcba3c6fdfcc2a",
+        "sha256": "52f61d1438549362a068ec0ce6c441e9b11febad430c62c9e5acbab5dd4ac543",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_guardrail_corner_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "d86e073e77d7dbe358b440414c63a76ba512ef3de940b7e657b37a50a609132d",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 8,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 244
+    },
+    "transforms": [],
+    "triangles": 244,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 568,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.03999999910593033
+      ],
+      [
+        0.30000001192092896,
+        1.0499999523162842,
+        0.03999999910593033
+      ]
+    ],
+    "bytes": 31800,
+    "catalog_size": [
+      0.6,
+      1.05,
+      0.08
+    ],
+    "category": "Utility",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.6000000238418579,
+      1.0499999523162842,
+      0.07999999821186066
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_guardrail_end.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "174eb89bcbc968a2d3587a2ad589da70497d2c1b02dbbd66fcfcc69aa666a4b0",
+    "id": "core:pool_guardrail_end",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20994,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_guardrail_corner.png",
+          "assets/environment/pool/props/models/pool_guardrail_end.png",
+          "assets/environment/pool/props/models/pool_guardrail_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_guardrail_end_diffuse",
+        "pixel_sha256": "0f2264e9088e706239385472bdb5cc3f4477eca2ce7d9b9f2afcba3c6fdfcc2a",
+        "sha256": "52f61d1438549362a068ec0ce6c441e9b11febad430c62c9e5acbab5dd4ac543",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "levels/level0_pit.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/level0_pit.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_guardrail_end_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "cd88e89d7e12abe4bd5cea36a60943ffb6cdabe909528658606bbdcb234639b6",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 5,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 152
+    },
+    "transforms": [],
+    "triangles": 152,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 352,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.03999999910593033
+      ],
+      [
+        1.0,
+        1.0499999523162842,
+        0.03999999910593033
+      ]
+    ],
+    "bytes": 35452,
+    "catalog_size": [
+      2.0,
+      1.05,
+      0.08
+    ],
+    "category": "Utility",
+    "clip_metadata": null,
+    "code_references": [
+      "src/lighting/occlusion.rs",
+      "src/loader/tests.rs",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      2.0,
+      1.0499999523162842,
+      0.07999999821186066
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_guardrail_straight.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "3dac967b277354130083548095446c0e1cfe0b3e25cf824e95aa4e261e99f3a0",
+    "id": "core:pool_guardrail_straight",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20994,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_guardrail_corner.png",
+          "assets/environment/pool/props/models/pool_guardrail_end.png",
+          "assets/environment/pool/props/models/pool_guardrail_straight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_guardrail_straight_diffuse",
+        "pixel_sha256": "0f2264e9088e706239385472bdb5cc3f4477eca2ce7d9b9f2afcba3c6fdfcc2a",
+        "sha256": "52f61d1438549362a068ec0ce6c441e9b11febad430c62c9e5acbab5dd4ac543",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "levels/level0_pit.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/level0_pit.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_guardrail_straight_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "2cde1ef11c50e5e63fc0762ec2a7bf1372e1e0fc52ef74e517573857474def29",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 212
+    },
+    "transforms": [],
+    "triangles": 212,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 488,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.2750000059604645,
+        0.0,
+        -0.22499999403953552
+      ],
+      [
+        0.2750000059604645,
+        2.200000047683716,
+        0.22499999403953552
+      ]
+    ],
+    "bytes": 56748,
+    "catalog_size": [
+      0.55,
+      2.2,
+      0.45
+    ],
+    "category": "Utility",
+    "clip_metadata": null,
+    "code_references": [
+      "src/loader/tests.rs",
+      "tools/levels/build_model_zoo.py",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.550000011920929,
+      2.200000047683716,
+      0.44999998807907104
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_ladder.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "a0d2eb04c0244f4a9be7b2eec2b6fc7e5f9d8bcfae59d43884d56c58cdb4b46a",
+    "id": "core:pool_ladder",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20186,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_ladder.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_ladder_diffuse",
+        "pixel_sha256": "cb738edc05dc0e943cf8e2d5497512e38b9dd72f81358f4c59a98778d89a8836",
+        "sha256": "53c3b213d75334b6de2472f5d45f1e73a12e8d3280bf6c17adaf88462ef46c27",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_ladder_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "268d7303f498c13b64afaf023e80f712fca811ba1d4227c5680d9fc7087eb28c",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 608
+    },
+    "transforms": [],
+    "triangles": 608,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 1312,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.5,
+        0.0,
+        -0.07500000298023224
+      ],
+      [
+        0.5,
+        2.0999999046325684,
+        0.07500000298023224
+      ]
+    ],
+    "bytes": 17808,
+    "catalog_size": [
+      1.0,
+      2.1,
+      0.15
+    ],
+    "category": "Structure",
+    "clip_metadata": null,
+    "code_references": [
+      "tools/levels/refine_pool.py",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      1.0,
+      2.0999999046325684,
+      0.15000000596046448
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_service_door.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "cde1f59fb3ead642872af77458aadb3f27d55f6b84560c7fed4c3844c4e09c0f",
+    "id": "pool:pool_service_door",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 3144,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_service_door.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "pool_pool_service_door_diffuse",
+        "pixel_sha256": "76675d9edfa8eaaf9389272ba628c1419089811a4d8fc0517d13d965a9c4661f",
+        "sha256": "9b2c5e43fb1a000eb51dd4d990577117cee202b0e1f0611d87e900ec39a8e1fa",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/places_demo.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "pool_pool_service_door_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "81d19420b25a789a990cdc9cf07a988cf4ec0ad519fdca2d4499eeb79e42582d",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 236
+    },
+    "transforms": [],
+    "triangles": 236,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 492,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.4000000059604645,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.4000000059604645,
+        0.7400000095367432,
+        0.4000000059604645
+      ]
+    ],
+    "bytes": 23788,
+    "catalog_size": [
+      0.8,
+      0.74,
+      0.8
+    ],
+    "category": "Furniture",
+    "clip_metadata": null,
+    "code_references": [
+      "src/loader/tests.rs",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.800000011920929,
+      0.7400000095367432,
+      0.800000011920929
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/pool_table.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "934f9d11382409570a1abaadbccf11cc2427f4b4f0f48f310d2a38e57808f379",
+    "id": "core:pool_table",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 2413,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/pool_chair.png",
+          "assets/environment/pool/props/models/pool_table.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_pool_table_diffuse",
+        "pixel_sha256": "fb6de615770632934e1a8631af6f49b248fb955edcde2620f9d30b99b6f6a574",
+        "sha256": "9169c31f1f7f60a252c7d2cf619d2c316c60d55a0107971b2055ba5db9624514",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/pool_showcase.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_pool_table_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "f1dda462dfa61ae0b0d95a4313f06035e825f095bd0983e32068dce9f91cc81a",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 6,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 320
+    },
+    "transforms": [],
+    "triangles": 320,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 752,
+    "zero_uv_area_faces": 0
+  },
+  {
+    "animations": [],
+    "authored_normal_vertices": 0,
+    "bounds": [
+      [
+        -0.050620000809431076,
+        0.0,
+        -0.07249999791383743
+      ],
+      [
+        0.050620000809431076,
+        0.11999999731779099,
+        0.07249999791383743
+      ]
+    ],
+    "bytes": 75028,
+    "catalog_size": [
+      0.1,
+      0.12,
+      0.14
+    ],
+    "category": "Decorative",
+    "clip_metadata": null,
+    "code_references": [
+      "src/collision/tests.rs",
+      "src/level/tests.rs",
+      "src/loader/tests.rs",
+      "src/render/common/dynamic.rs",
+      "src/render/tests.rs",
+      "src/zoo_audit.rs",
+      "tools/levels/build_fixture_levels.py",
+      "tools/levels/build_lighting_quality.py",
+      "tools/levels/build_model_zoo.py",
+      "tools/props/parts/pool.py"
+    ],
+    "coincident_quads": [],
+    "dimensions": [
+      0.10124000161886215,
+      0.11999999731779099,
+      0.14499999582767487
+    ],
+    "duplicate_faces": 0,
+    "errors": [],
+    "file": "assets/environment/pool/props/models/rubber_duck.glb",
+    "format": "GLB 2.0",
+    "geometry_sha256": "1595637a15ba04567a8a48bd3a4ace3953a06bcf023b1101a7755db1e1c91e0b",
+    "id": "core:rubber_duck",
+    "images": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 40287,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/pool/props/models/rubber_duck.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_rubber_duck_diffuse",
+        "pixel_sha256": "6eecc2cfbbd9d8544fdc05268296578f310f25d7b949e93d1699cfab31640c89",
+        "sha256": "a73ac8d46d498ce8d885c7414010b707504b44fb3b50e4120d42cefbba100bea",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "maps": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/asset_polish_showcase.json",
+      "tests/fixtures/levels/capacity_dense.json",
+      "tests/fixtures/levels/lighting_quality.json",
+      "tests/fixtures/levels/prop_showcase.json",
+      "tests/fixtures/levels/round_pool_and_proximity_fade.json"
+    ],
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "core_rubber_duck_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        }
+      }
+    ],
+    "review": [],
+    "sha256": "164f15f0931772b515cf55b2446b1cb43598445d5245071fe0d02e3a751ffae6",
+    "size_matches_catalog": true,
+    "skins": [],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 560
+    },
+    "transforms": [],
+    "triangles": 560,
+    "unused_accessors": [],
+    "unused_materials": [],
+    "unused_primitive_vertices": 0,
+    "vertices": 1248,
+    "zero_uv_area_faces": 0
+  }
+]

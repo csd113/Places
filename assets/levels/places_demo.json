@@ -502,102 +502,6 @@
       "height": 3.0
     },
     {
-      "x": 25.78,
-      "z": 7.3,
-      "width": 0.06,
-      "depth": 1.7,
-      "y": -1.5,
-      "height": 2.6,
-      "material": "core:metal_brushed_01",
-      "comment": "Pool notice board: a brushed-metal frame turns the bare panel into a wall-mounted board. The former backlit sign face was removed as an unintended artifact (see the removed-object note in the shadows pass); re-add a sign only as a flush pane with real artwork."
-    },
-    {
-      "x": 25.74,
-      "z": 7.18,
-      "width": 0.12,
-      "depth": 1.94,
-      "y": 1.12,
-      "height": 0.14,
-      "material": "core:metal_brushed_01"
-    },
-    {
-      "x": 25.74,
-      "z": 7.18,
-      "width": 0.12,
-      "depth": 1.94,
-      "y": -1.49,
-      "height": 0.14,
-      "material": "core:metal_brushed_01"
-    },
-    {
-      "x": 25.74,
-      "z": 7.18,
-      "width": 0.12,
-      "depth": 0.14,
-      "y": -1.518,
-      "height": 2.636,
-      "material": "core:metal_brushed_01"
-    },
-    {
-      "x": 25.74,
-      "z": 8.98,
-      "width": 0.12,
-      "depth": 0.14,
-      "y": -1.518,
-      "height": 2.636,
-      "material": "core:metal_brushed_01"
-    },
-    {
-      "x": 5.2,
-      "z": 7.18,
-      "width": 1.6,
-      "depth": 0.06,
-      "y": -1.5,
-      "height": 2.4,
-      "material": "core:plastic_panel_01",
-      "comment": "Second pool notice board, framed the same way but in polished stainless: per-surface `shine` makes this metal deliberately glossy while the first board keeps the aged brushed default."
-    },
-    {
-      "x": 5.02,
-      "z": 7.16,
-      "width": 1.96,
-      "depth": 0.14,
-      "y": 0.92,
-      "height": 0.14,
-      "material": "core:metal_brushed_01",
-      "shine": 0.6
-    },
-    {
-      "x": 5.02,
-      "z": 7.16,
-      "width": 1.96,
-      "depth": 0.14,
-      "y": -1.49,
-      "height": 0.14,
-      "material": "core:metal_brushed_01",
-      "shine": 0.6
-    },
-    {
-      "x": 5.02,
-      "z": 7.16,
-      "width": 0.16,
-      "depth": 0.14,
-      "y": -1.518,
-      "height": 2.436,
-      "material": "core:metal_brushed_01",
-      "shine": 0.6
-    },
-    {
-      "x": 6.82,
-      "z": 7.16,
-      "width": 0.16,
-      "depth": 0.14,
-      "y": -1.518,
-      "height": 2.436,
-      "material": "core:metal_brushed_01",
-      "shine": 0.6
-    },
-    {
       "x": 36.15,
       "z": 10.85,
       "width": 16.85,
@@ -1442,7 +1346,7 @@
       "depth": 6.0,
       "offset_y": -1.5,
       "material": "core:pool_tile_basin_01",
-      "edge_material": "core:pool_tile_wall_01"
+      "edge_material": "core:pool_tile_basin_01"
     },
     {
       "x": 10.0,
@@ -1831,6 +1735,56 @@
       "material": "outdoor:concrete_pavement_01",
       "edge_material": "outdoor:concrete_pavement_01",
       "comment": "[night-route] The destination doorway's 0.24 m stoop: real raised floor, so the step rule walks it; the porch deck prop dresses this exact footprint."
+    },
+    {
+      "x": 17.6,
+      "z": 14.5,
+      "width": 2.0,
+      "depth": 0.3,
+      "offset_y": -1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Blue ceramic submerged walk-in tread, 300 mm rise, closed skirt."
+    },
+    {
+      "x": 17.6,
+      "z": 14.8,
+      "width": 2.0,
+      "depth": 0.3,
+      "offset_y": -0.9,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Blue ceramic submerged walk-in tread, 300 mm rise, closed skirt."
+    },
+    {
+      "x": 17.6,
+      "z": 15.1,
+      "width": 2.0,
+      "depth": 0.3,
+      "offset_y": -0.6,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Blue ceramic submerged walk-in tread, 300 mm rise, closed skirt."
+    },
+    {
+      "x": 17.6,
+      "z": 15.4,
+      "width": 2.0,
+      "depth": 0.3,
+      "offset_y": -0.3,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Blue ceramic submerged walk-in tread, 300 mm rise, closed skirt."
+    },
+    {
+      "x": 17.6,
+      "z": 15.7,
+      "width": 2.0,
+      "depth": 0.3,
+      "offset_y": 0.0,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Blue ceramic submerged walk-in tread, 300 mm rise, closed skirt."
     }
   ],
   "water": [
@@ -1986,10 +1940,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.85,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -1998,10 +1953,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.85,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2010,10 +1966,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.85,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2022,10 +1979,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2034,10 +1992,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2046,10 +2005,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2058,10 +2018,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2070,10 +2031,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.75,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_wall",
@@ -2082,12 +2044,13 @@
       "rotation_degrees": 0.0,
       "brightness": 0.7,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
       ],
       "mount": "wall",
-      "y": 1.9
+      "y": 0.65,
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_wall",
@@ -2096,12 +2059,13 @@
       "rotation_degrees": 0.0,
       "brightness": 0.7,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
       ],
       "mount": "wall",
-      "y": 1.9
+      "y": 0.65,
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_wall",
@@ -2110,12 +2074,13 @@
       "rotation_degrees": 90.0,
       "brightness": 0.7,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
       ],
       "mount": "wall",
-      "y": 1.9
+      "y": 0.65,
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_wall",
@@ -2124,12 +2089,13 @@
       "rotation_degrees": 270.0,
       "brightness": 0.65,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
       ],
       "mount": "wall",
-      "y": 1.9
+      "y": 0.65,
+      "emission": 0.65
     },
     {
       "fixture": "core:fluorescent_panel_01",
@@ -2345,10 +2311,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2357,10 +2324,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2369,10 +2337,11 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
-      ]
+      ],
+      "emission": 0.65
     },
     {
       "fixture": "core:pool_light_round",
@@ -2381,11 +2350,12 @@
       "rotation_degrees": 0.0,
       "brightness": 0.8,
       "color": [
-        0.55,
-        0.78,
+        0.82,
+        0.9,
         1.0
       ],
-      "comment": "Lights the drying bench and the passage back to the pool."
+      "comment": "Lights the drying bench and the passage back to the pool.",
+      "emission": 0.65
     },
     {
       "fixture": "home:ceiling_light_round",
@@ -31447,6 +31417,314 @@
         }
       ],
       "comment": "One of the three waiting skeletons inside the house: it rests on the authored pose until the entry zone plays collapse_reassemble on it."
+    },
+    {
+      "model": "pool:pool_service_door",
+      "x": 6.0,
+      "z": 7.245,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        1.0,
+        2.1,
+        0.15
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Blue utility leaf replaces the blank notice-board placeholder."
+    },
+    {
+      "model": "pool:pool_service_door",
+      "x": 25.755,
+      "z": 8.2,
+      "y": 0,
+      "rotation_degrees": 270,
+      "size": [
+        0.15,
+        2.1,
+        1.0
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Closed service leaf behind changing screens; no interactive function removed."
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 22.1,
+      "z": 7.7,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "comment": "[pool-concept] Reference four-slat bench: one at the changing screens and two at the dry perimeter."
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 24.85,
+      "z": 17.6,
+      "y": 0,
+      "rotation_degrees": 90,
+      "size": [
+        0.38,
+        0.45,
+        1.6
+      ],
+      "solid": true,
+      "comment": "[pool-concept] Reference four-slat bench: one at the changing screens and two at the dry perimeter."
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 4.0,
+      "z": 18.2,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "comment": "[pool-concept] Reference four-slat bench: one at the changing screens and two at the dry perimeter."
+    },
+    {
+      "model": "core:plant",
+      "x": 2.8,
+      "z": 17.5,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.4,
+        0.85,
+        0.4
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Existing potted foliage beside resin seating, as in the concept; shared artwork retained."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 8.5,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 9.2,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.0,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.7,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 11.4,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.1,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.8,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 13.5,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 14.2,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 14.9,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 15.6,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 16.3,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 17.0,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 17.7,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 18.4,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 19.1,
+      "z": 9.54,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
     }
   ],
   "decals": [
@@ -31463,7 +31741,7 @@
     {
       "x": 10.5,
       "y": -1.5,
-      "z": 9.2,
+      "z": 8.9,
       "width": 0.9,
       "height": 0.9,
       "rotation_degrees": 0.0,
@@ -31472,7 +31750,7 @@
     },
     {
       "x": 14.5,
-      "y": 0.1,
+      "y": 0.3,
       "z": 7.15,
       "width": 0.9,
       "height": 0.9,
@@ -32613,6 +32891,26 @@
       "rotation_degrees": 180.0,
       "material": "outdoor:decal_path_corner_01",
       "surface": "floor"
+    },
+    {
+      "x": 13.4,
+      "z": 11.6,
+      "y": -3.0,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-concept] 32:1 navy basin lane, exact source aspect; the decal snaps to the basin floor."
+    },
+    {
+      "x": 13.4,
+      "z": 14.7,
+      "y": -3.0,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-concept] 32:1 navy basin lane, exact source aspect; the decal snaps to the basin floor."
     }
   ],
   "animated_emissions": [
@@ -32891,6 +33189,94 @@
       "y": 1.02,
       "material": "core:metal_brushed_01",
       "comment": "Shower arm from the riser to the head."
+    },
+    {
+      "x": 14,
+      "z": 9.863,
+      "length": 12.544,
+      "rotation_degrees": 0,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 7.863,
+      "z": 13,
+      "length": 5.996,
+      "rotation_degrees": 90,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 20.137,
+      "z": 13,
+      "length": 5.996,
+      "rotation_degrees": 90,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 8.727,
+      "z": 16.137,
+      "length": 1.998,
+      "rotation_degrees": 0,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 18.273,
+      "z": 16.137,
+      "length": 3.998,
+      "rotation_degrees": 0,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 9.863,
+      "z": 16.451,
+      "length": 0.898,
+      "rotation_degrees": 90,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 16.137,
+      "z": 16.451,
+      "length": 0.898,
+      "rotation_degrees": 90,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
+    },
+    {
+      "x": 13,
+      "z": 17.037,
+      "length": 6.544,
+      "rotation_degrees": 0,
+      "y": -1.5,
+      "thickness": 0.27,
+      "height": 0.045,
+      "material": "pool:coping_01",
+      "comment": "[pool-concept] 45 mm coping cap entirely over the dry deck; existing rim traversal unchanged."
     }
   ],
   "baseboards": [
@@ -33156,6 +33542,358 @@
       "y": -0.9,
       "material": "home:baseboard_wood_01",
       "comment": "Cedar skirting south of the corridor opening."
+    },
+    {
+      "x": 25.85,
+      "z": 18.85,
+      "length": 25.7,
+      "rotation_degrees": 180,
+      "y": -0.4,
+      "height": 0.16,
+      "thickness": 0.016,
+      "material": "pool:band_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 25.85,
+      "z": 18.85,
+      "length": 25.7,
+      "rotation_degrees": 180,
+      "y": 2.48,
+      "height": 0.16,
+      "thickness": 0.025,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 0.15,
+      "z": 7.15,
+      "length": 18.7,
+      "rotation_degrees": 0,
+      "y": -0.4,
+      "height": 0.16,
+      "thickness": 0.016,
+      "material": "pool:band_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 0.15,
+      "z": 7.15,
+      "length": 18.7,
+      "rotation_degrees": 0,
+      "y": 2.48,
+      "height": 0.16,
+      "thickness": 0.025,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 0.15,
+      "z": 18.85,
+      "length": 11.7,
+      "rotation_degrees": 90,
+      "y": -0.4,
+      "height": 0.16,
+      "thickness": 0.016,
+      "material": "pool:band_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 0.15,
+      "z": 18.85,
+      "length": 11.7,
+      "rotation_degrees": 90,
+      "y": 2.48,
+      "height": 0.16,
+      "thickness": 0.025,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 25.85,
+      "z": 15.15,
+      "length": 3.7,
+      "rotation_degrees": 270,
+      "y": -0.4,
+      "height": 0.16,
+      "thickness": 0.016,
+      "material": "pool:band_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 25.85,
+      "z": 15.15,
+      "length": 3.7,
+      "rotation_degrees": 270,
+      "y": 2.48,
+      "height": 0.16,
+      "thickness": 0.025,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 1.455,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 1.455,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 4.7,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 4.7,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 1.455,
+      "z": 7.15,
+      "length": 3.29,
+      "rotation_degrees": 0,
+      "y": 1.502,
+      "height": 0.073,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 1.455,
+      "z": 7.15,
+      "length": 3.29,
+      "rotation_degrees": 0,
+      "y": 0.14499999999999996,
+      "height": 0.053,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 10.955,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 10.955,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 13.6,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 13.6,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 10.955,
+      "z": 7.15,
+      "length": 2.69,
+      "rotation_degrees": 0,
+      "y": 1.502,
+      "height": 0.073,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 10.955,
+      "z": 7.15,
+      "length": 2.69,
+      "rotation_degrees": 0,
+      "y": 0.14499999999999996,
+      "height": 0.053,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 15.354999999999999,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 15.354999999999999,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 18.0,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.19999999999999996,
+      "height": 0.648,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 18.0,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.85,
+      "height": 0.65,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 15.354999999999999,
+      "z": 7.15,
+      "length": 2.69,
+      "rotation_degrees": 0,
+      "y": 1.502,
+      "height": 0.073,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 15.354999999999999,
+      "z": 7.15,
+      "length": 2.69,
+      "rotation_degrees": 0,
+      "y": 0.14499999999999996,
+      "height": 0.053,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 21.855,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": -0.30000000000000004,
+      "height": 0.698,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 21.855,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.3999999999999999,
+      "height": 0.7,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 23.700000000000003,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": -0.30000000000000004,
+      "height": 0.698,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 23.700000000000003,
+      "z": 7.15,
+      "length": 0.045,
+      "rotation_degrees": 0,
+      "y": 0.3999999999999999,
+      "height": 0.7,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 21.855,
+      "z": 7.15,
+      "length": 1.8900000000000001,
+      "rotation_degrees": 0,
+      "y": 1.1019999999999999,
+      "height": 0.073,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 21.855,
+      "z": 7.15,
+      "length": 1.8900000000000001,
+      "rotation_degrees": 0,
+      "y": -0.35500000000000004,
+      "height": 0.053,
+      "thickness": 0.04,
+      "material": "pool:metal_01",
+      "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
     }
   ],
   "geometry_intent": [
@@ -34428,5 +35166,37 @@
     "texture": "outdoor:tex_sky_stars_01",
     "brightness": 1.0,
     "ambient": 0.0
-  }
+  },
+  "columns": [
+    {
+      "x": 8.83,
+      "z": 7.16,
+      "width": 0.28,
+      "depth": 0.3,
+      "height": 4.2,
+      "y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Slim full-height blue ceramic pilaster."
+    },
+    {
+      "x": 18.8,
+      "z": 7.16,
+      "width": 0.28,
+      "depth": 0.3,
+      "height": 4.2,
+      "y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Slim full-height blue ceramic pilaster."
+    },
+    {
+      "x": 22.95,
+      "z": 18.48,
+      "width": 0.28,
+      "depth": 0.3,
+      "height": 4.2,
+      "y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "comment": "[pool-concept] Slim full-height blue ceramic pilaster."
+    }
+  ]
 }

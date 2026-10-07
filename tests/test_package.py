@@ -1253,6 +1253,9 @@ class PoolContentTests(unittest.TestCase):
         "core:pool_tile_basin_01",
         "core:pool_tile_wall_01",
         "core:pool_ceiling_01",
+        "pool:coping_01",
+        "pool:band_01",
+        "pool:metal_01",
     )
     POOL_PROPS = (
         "core:pool_table",
@@ -1264,6 +1267,9 @@ class PoolContentTests(unittest.TestCase):
         "core:pool_guardrail_straight",
         "core:pool_guardrail_end",
         "core:pool_guardrail_corner",
+        "pool:pool_bench",
+        "pool:pool_drain",
+        "pool:pool_service_door",
     )
     POOL_FIXTURES = ("core:pool_light_round", "core:pool_light_wall")
 

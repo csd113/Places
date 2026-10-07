@@ -1,0 +1,8 @@
+geometry check: places_demo (assets/levels/places_demo.json)
+  coplanar-sliver: 0 error(s), 1 warning(s)
+  prop-layer-coplanar: 0 error(s), 1 warning(s)
+  missing-wall: 10 suppressed by geometry_intent
+  room-leak: 3 suppressed by geometry_intent
+WARNING [coplanar-sliver] Wall m42: a 0.00029 m² coplanar overlap sliver at a joint (a at 1.21,0.09,0.16; b at 0.16,0.09,2.28) @ (1.215, 0.090, 0.162)
+WARNING [prop-layer-coplanar] night_house_porch: 'outdoor:house_02_porch_deck' top sits 0.0 mm from the walkable floor at (13.5, -90.9); a dressing layer this close z-fights with the real surface @ (13.500, 0.240, -90.950)
+summary: 0 error(s), 2 warning(s), some warnings suppressed by intent annotations

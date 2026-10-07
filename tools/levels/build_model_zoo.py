@@ -555,6 +555,12 @@ def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
     return components, [{"on": "interact", "actions": interaction["actions"]}]
 
 
+# Small Pool additions fit the unused south-east exhibit apron. Keeping them
+# outside the main bay count preserves every existing theme's placement and
+# the hall/light grid when this family grows by these three compact props.
+POOL_APRON_DISPLAYS = ("pool:pool_bench", "pool:pool_drain", "pool:pool_service_door")
+
+
 def ordered_displays(catalog: Dict) -> List[Dict]:
     """Every display the zoo must contain, in a deterministic order.
 
@@ -563,6 +569,8 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
     """
     displays: List[Dict] = []
     for entry in placeables(catalog):
+        if entry["id"] in POOL_APRON_DISPLAYS:
+            continue
         klass = display_class(entry)
         role = klass
         displays.append({"entry": entry, "class": klass, "role": role, "clip": None})
@@ -1253,6 +1261,11 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     width = plan["width"]
     depth = plan["depth"]
     height = plan["height"]
+    for index, asset_id in enumerate(POOL_APRON_DISPLAYS):
+        entry = by_id.get(asset_id)
+        if entry is not None:
+            layout.add_prop(entry, "floor", width - 9.2 + index * 3.0,
+                            depth - 2.7, rotation_degrees=0.0)
     thickness = 0.4
     walls = [
         {

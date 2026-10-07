@@ -340,7 +340,7 @@ The stained sheet was seam-repaired with `--band 32 --residual-band 12
 
 * **Tile** (pool deck/basin/wall) — square 1024×1024, tileable, opaque. The
   painted grid must be regular at the material's `tile_metres` (deck 1.5 m,
-  basin 1.0 m, wall 1.0 m). A tile sheet is still a *surface* sheet: the same
+  basin 1.0 m, wall 2.0 m). A tile sheet is still a *surface* sheet: the same
   square/tileable/resolution rules apply.
 * **Metal and plastic panels** — square core sheets (1024×1024 in the current
   production set), tileable, opaque, optionally paired with a tangent-space
@@ -812,13 +812,19 @@ unchanged extracted pixels, not newly painted textures. The switch retains its
 `toggle` clip and node names; its rocker hinge is now at `(0, 0.066, 0.022)`
 metres, with a 0.35-second, 30-degree travel. Its back remains at `z = 0`.
 
-Pool curtain and guardrail remakes load their existing 256² source PNGs beside
-all six GLBs in `environment/pool/props/models/`. The curtain atlas preserves
-cloth/post/plate/track; the rail atlas preserves post/rail/plate/spare. Their
-pixels and 2×2 region layout are unchanged. Rail axes are at 0.98 m and 0.525 m
-on every leg. Curtains use closed 2 mm cloth shells with continuous fitted UVs,
-visible track tabs and a 7.5 cm minimum floor clearance. Catalog dimensions,
-module origins and placement IDs remain unchanged.
+Pool concept remakes load 256² native PNGs beside the GLBs, with 1024²
+`*_master.png` sources preserved by the offline `tools/textures/author_pool.py`
+workflow. Table: tray/trim/leg/brace; chair: seat/frame/leg/slat; ladder:
+tube/tread/grip/boot; curtains: cloth/post/plate/track; rails: post/rail/plate/spare.
+All preserve a fitted 2×2 layout, opaque alpha, base-at-floor origin and +Z front.
+The single guardrail axis is now 0.98 m, matching the approved concept. Curtains
+retain closed 2 mm shells and a 7.5 cm minimum floor clearance.
+
+The added Pool bench uses slat/edge/metal/foot, the grate uses
+metal/recess/edge/tile, and the static service door uses leaf/frame/metal/dark.
+These use the same 1024² master → 256² native → GLB workflow; ordinary builds
+load artwork and never paint it. The basin lane decal is 1024×32 RGBA (32:1),
+with a transparent margin, and is placed at 32:1 on one flat basin floor.
 
 The remade rubber duck loads `environment/pool/props/models/rubber_duck.png`,
 an opaque 256² atlas retaining body/head/beak/eye in the existing 2×2 layout.
