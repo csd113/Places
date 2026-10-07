@@ -559,6 +559,14 @@ def interaction_v3(interaction: Dict) -> Tuple[List[Dict], List[Dict]]:
 # outside the main bay count preserves every existing theme's placement and
 # the hall/light grid when this family grows by these three compact props.
 POOL_APRON_DISPLAYS = ("pool:pool_bench", "pool:pool_drain", "pool:pool_service_door")
+HOME_APRON_DISPLAYS = (
+    "home:sofa", "home:armchair", "home:coffee_table", "home:dining_table",
+    "home:dining_chair", "home:tv_console", "home:bookshelf", "home:rug",
+    "home:floor_lamp", "home:mug", "home:book_stack", "home:cushion",
+    "home:outlet", "home:cabinet_strip", "home:landscape_frame", "home:sink", "home:stove",
+    "home:kettle", "home:toaster",
+    "home:door_casing",
+)
 
 
 def ordered_displays(catalog: Dict) -> List[Dict]:
@@ -569,7 +577,7 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
     """
     displays: List[Dict] = []
     for entry in placeables(catalog):
-        if entry["id"] in POOL_APRON_DISPLAYS:
+        if entry["id"] in POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS:
             continue
         klass = display_class(entry)
         role = klass
@@ -1266,6 +1274,16 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
         if entry is not None:
             layout.add_prop(entry, "floor", width - 9.2 + index * 3.0,
                             depth - 2.7, rotation_degrees=0.0)
+    # Home models use the unused south apron, beyond the route at z=134.1
+    # and west of the companion at x=35.1. No pre-existing bay is reflowed.
+    for index, asset_id in enumerate(HOME_APRON_DISPLAYS):
+        entry = by_id.get(asset_id)
+        if entry is not None:
+            fields = {"rotation_degrees": 0.0}
+            if asset_id == "home:sink":
+                fields["size"] = [.6, .9, .6]
+            layout.add_prop(entry, "floor", 13.4 + (index % 8) * 2.85,
+                            depth - 5.2 + (index // 8) * 1.65, **fields)
     thickness = 0.4
     walls = [
         {

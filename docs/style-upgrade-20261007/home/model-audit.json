@@ -1,0 +1,963 @@
+[
+  {
+    "triangles": 360,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 10,
+    "contradictory_components": 0,
+    "id": "home:armchair",
+    "vertices": 816,
+    "bytes": 83636,
+    "bounds": [
+      [
+        -0.44999998807907104,
+        0.0,
+        -0.44999998807907104
+      ],
+      [
+        0.44999998807907104,
+        0.8999999761581421,
+        0.4749999940395355
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      1.0
+    ],
+    "sha256": "67a3ba40ac0aa463cf78da9a2196568618900eaa38a5880c1125001f9bd1521d"
+  },
+  {
+    "triangles": 320,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 4,
+    "contradictory_components": 0,
+    "id": "home:ball_light",
+    "vertices": 720,
+    "bytes": 57176,
+    "bounds": [
+      [
+        -0.1899999976158142,
+        0.0005164914764463902,
+        -0.1899999976158142
+      ],
+      [
+        0.1899999976158142,
+        0.800000011920929,
+        0.1899999976158142
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "c1d44add23a0ab8059b903fc5d7d9c638a97b9e5ede561e49e30634663462dad"
+  },
+  {
+    "triangles": 112,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 4,
+    "contradictory_components": 0,
+    "id": "home:book_stack",
+    "vertices": 240,
+    "bytes": 45556,
+    "bounds": [
+      [
+        -0.125,
+        0.0020000000949949026,
+        -0.09000000357627869
+      ],
+      [
+        0.125,
+        0.05700000002980232,
+        0.09000000357627869
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "ecd7ca1e98b44c329a4fcb744b1e8c2347a2fb372c2a860314f9743eee5e0b90"
+  },
+  {
+    "triangles": 384,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 32,
+    "contradictory_components": 0,
+    "id": "home:bookshelf",
+    "vertices": 768,
+    "bytes": 80748,
+    "bounds": [
+      [
+        -0.5,
+        0.0,
+        -0.17499999701976776
+      ],
+      [
+        0.5,
+        1.7999999523162842,
+        0.17499999701976776
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      -2.220446049250313e-16,
+      1.0
+    ],
+    "sha256": "6ff87c5e35a89d14e7f6d75fb0ccbe94a785ab0f8844e15467aefab2cf98b85a"
+  },
+  {
+    "triangles": 480,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 1,
+    "contradictory_components": 0,
+    "id": "home:bowl",
+    "vertices": 1000,
+    "bytes": 31540,
+    "bounds": [
+      [
+        -0.07500000298023224,
+        0.0,
+        -0.07500000298023224
+      ],
+      [
+        0.07500000298023224,
+        0.06499999761581421,
+        0.07500000298023224
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "61306b9374ea482bf1eb6ad97c772a9bc7d04b8bd5ca47af691e1fa928525c44"
+  },
+  {
+    "triangles": 396,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 27,
+    "contradictory_components": 0,
+    "id": "home:cabinet_base",
+    "vertices": 864,
+    "bytes": 59144,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        0.8999999761581421,
+        0.30000001192092896
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "29c871b20e2a74badf7d043080a9619d20d971f7b406dace45cb9522d02f382c"
+  },
+  {
+    "triangles": 24,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 2,
+    "contradictory_components": 0,
+    "id": "home:cabinet_strip",
+    "vertices": 48,
+    "bytes": 37592,
+    "bounds": [
+      [
+        -0.2750000059604645,
+        0.0,
+        -0.03500000014901161
+      ],
+      [
+        0.2750000059604645,
+        0.026000000536441803,
+        0.03500000014901161
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "1b8b27d55628d60c3bd22a1a2515128233e8c007e886831a693eddbef5cf1204"
+  },
+  {
+    "triangles": 252,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 17,
+    "contradictory_components": 0,
+    "id": "home:cabinet_wall",
+    "vertices": 552,
+    "bytes": 51168,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.16300000250339508
+      ],
+      [
+        0.30000001192092896,
+        0.7200000286102295,
+        0.16500000655651093
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "10f0420a42e3d749fa14d106292dc027995a7ce58ea4c088fbdfd33e8550f4f1"
+  },
+  {
+    "triangles": 184,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 10,
+    "contradictory_components": 0,
+    "id": "home:coffee_table",
+    "vertices": 384,
+    "bytes": 77644,
+    "bounds": [
+      [
+        -0.699999988079071,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.699999988079071,
+        0.46000000834465027,
+        0.4000000059604645
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "ba72cc5618015e8541ca4343b4cedd20784adaf98661eb02bfba353bf882eeb6"
+  },
+  {
+    "triangles": 516,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 16,
+    "contradictory_components": 0,
+    "id": "home:crt_tv",
+    "vertices": 1160,
+    "bytes": 91380,
+    "bounds": [
+      [
+        -0.2750000059604645,
+        0.0,
+        -0.23000000417232513
+      ],
+      [
+        0.2750000059604645,
+        0.47999998927116394,
+        0.23000000417232513
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.00390625,
+      0.99609375
+    ],
+    "sha256": "598653c413852f290a021bfd3cda30adfbcccd515fa5055e82234cff09f688d1"
+  },
+  {
+    "triangles": 44,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 1,
+    "contradictory_components": 0,
+    "id": "home:cushion",
+    "vertices": 96,
+    "bytes": 58564,
+    "bounds": [
+      [
+        -0.16500000655651093,
+        0.0,
+        -0.057500001043081284
+      ],
+      [
+        0.16500000655651093,
+        0.3199999928474426,
+        0.057500001043081284
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.4921875
+    ],
+    "sha256": "cc3af5ca5944b83ef56c7b3930d7f17a2ebd7116d2c7b4cd63a5a03a4a20c1ff"
+  },
+  {
+    "triangles": 204,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 9,
+    "contradictory_components": 0,
+    "id": "home:dining_chair",
+    "vertices": 432,
+    "bytes": 79196,
+    "bounds": [
+      [
+        -0.25,
+        0.0,
+        -0.24500000476837158
+      ],
+      [
+        0.25,
+        0.9020000100135803,
+        0.24500000476837158
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e"
+  },
+  {
+    "triangles": 140,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 9,
+    "contradictory_components": 0,
+    "id": "home:dining_table",
+    "vertices": 288,
+    "bytes": 75448,
+    "bounds": [
+      [
+        -0.699999988079071,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.699999988079071,
+        0.75,
+        0.4000000059604645
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "0534999501e4e36be9201e35f75e942bd37078c1ade277f71f7d8846290f050c"
+  },
+  {
+    "triangles": 72,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 6,
+    "contradictory_components": 0,
+    "id": "home:door_casing",
+    "vertices": 144,
+    "bytes": 39416,
+    "bounds": [
+      [
+        -0.7900000214576721,
+        0.0,
+        -0.029999999329447746
+      ],
+      [
+        0.7900000214576721,
+        2.180000066757202,
+        0.024000000208616257
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "084e6155218091a898b4aee2092a79089378eba0c131b7a77bc1734730390099"
+  },
+  {
+    "triangles": 224,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 3,
+    "contradictory_components": 0,
+    "id": "home:floor_lamp",
+    "vertices": 488,
+    "bytes": 50452,
+    "bounds": [
+      [
+        -0.17499999701976776,
+        0.0,
+        -0.17499999701976776
+      ],
+      [
+        0.17499999701976776,
+        1.5,
+        0.17499999701976776
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "28cc32163e3d64ac41e7209275fb02b10b2696a9128cbb61048026e92408e1c3"
+  },
+  {
+    "triangles": 320,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 6,
+    "contradictory_components": 0,
+    "id": "home:fork",
+    "vertices": 736,
+    "bytes": 25684,
+    "bounds": [
+      [
+        -0.013000000268220901,
+        0.0,
+        -0.09799999743700027
+      ],
+      [
+        0.013000000268220901,
+        0.012000000104308128,
+        0.09799999743700027
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.015625,
+      0.984375
+    ],
+    "sha256": "d31997ec8f9818db4405511cfa502fbc0f9a12b6de114688e5843c87671f724b"
+  },
+  {
+    "triangles": 308,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 7,
+    "contradictory_components": 0,
+    "id": "home:kettle",
+    "vertices": 696,
+    "bytes": 55052,
+    "bounds": [
+      [
+        -0.1054999977350235,
+        0.0,
+        -0.08100000023841858
+      ],
+      [
+        0.11699999868869781,
+        0.20100000500679016,
+        0.08100000023841858
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "c8fcc43cc05be0e410a3f472e74c84b6b161b0d3c86ca0ef5eba2bf131b43cd0"
+  },
+  {
+    "triangles": 188,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 3,
+    "contradictory_components": 0,
+    "id": "home:knife",
+    "vertices": 416,
+    "bytes": 17148,
+    "bounds": [
+      [
+        -0.008999999612569809,
+        0.0,
+        -0.10750000178813934
+      ],
+      [
+        0.012000000104308128,
+        0.01600000075995922,
+        0.10750000178813934
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.015625,
+      0.984375
+    ],
+    "sha256": "5746ff970cd85e3619bfe0fb5acad940de0ee94701396991cbd0542b264320f8"
+  },
+  {
+    "triangles": 84,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 7,
+    "contradictory_components": 0,
+    "id": "home:landscape_frame",
+    "vertices": 168,
+    "bytes": 53016,
+    "bounds": [
+      [
+        -0.22499999403953552,
+        0.0,
+        -0.012000000104308128
+      ],
+      [
+        0.22499999403953552,
+        0.5,
+        0.017999999225139618
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "25951b9b3069829b05cddc44043ed223813ac284aed15ab99b9289d0ed918ef5"
+  },
+  {
+    "triangles": 420,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 5,
+    "contradictory_components": 0,
+    "id": "home:mug",
+    "vertices": 928,
+    "bytes": 61088,
+    "bounds": [
+      [
+        -0.04899999871850014,
+        0.0,
+        -0.039000000804662704
+      ],
+      [
+        0.06800000369548798,
+        0.09000000357627869,
+        0.039000000804662704
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "5d6cdebcbfe2aad546981fc7f5558e8372ca9b4f9dc49e5853ad90af8ae24632"
+  },
+  {
+    "triangles": 252,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 11,
+    "contradictory_components": 0,
+    "id": "home:outlet",
+    "vertices": 552,
+    "bytes": 51300,
+    "bounds": [
+      [
+        -0.042500000447034836,
+        0.0,
+        -0.004999999888241291
+      ],
+      [
+        0.042500000447034836,
+        0.11999999731779099,
+        0.013000000268220901
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "787b6c5f049189fb12341a67e1e3a84accc38625e9e22618234297a8d91630f8"
+  },
+  {
+    "triangles": 376,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 9,
+    "contradictory_components": 0,
+    "id": "home:plant_table",
+    "vertices": 775,
+    "bytes": 27804,
+    "bounds": [
+      [
+        -0.06499999761581421,
+        0.0,
+        -0.06499999761581421
+      ],
+      [
+        0.06499999761581421,
+        0.2804843485355377,
+        0.06499999761581421
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61"
+  },
+  {
+    "triangles": 400,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 1,
+    "contradictory_components": 0,
+    "id": "home:plate",
+    "vertices": 840,
+    "bytes": 27140,
+    "bounds": [
+      [
+        -0.10999999940395355,
+        0.0,
+        -0.10999999940395355
+      ],
+      [
+        0.10999999940395355,
+        0.02199999988079071,
+        0.10999999940395355
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "477e1957512cf801f522dd5cfc70844e5eeeae65176b3bad637e3f8f008264a8"
+  },
+  {
+    "triangles": 56,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 2,
+    "contradictory_components": 0,
+    "id": "home:rug",
+    "vertices": 120,
+    "bytes": 100980,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.699999988079071
+      ],
+      [
+        1.0,
+        0.019999999552965164,
+        0.699999988079071
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "0171ad8df033958933da7e92311cd6f425b734a7feb519adf252ce4b1d93bd4f"
+  },
+  {
+    "triangles": 668,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 40,
+    "contradictory_components": 0,
+    "id": "home:sink",
+    "vertices": 1496,
+    "bytes": 76284,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        1.0889999866485596,
+        0.30000001192092896
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "37971e3e7af616de41346b5e3a3716bbbdd9db171c69cbe9bfc1ce40f892d927"
+  },
+  {
+    "triangles": 536,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 14,
+    "contradictory_components": 0,
+    "id": "home:sofa",
+    "vertices": 1200,
+    "bytes": 93892,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.44999998807907104
+      ],
+      [
+        1.0,
+        0.8999999761581421,
+        0.4749999940395355
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      1.0
+    ],
+    "sha256": "9ab95deac810c7482415cc81fb6ffab6796615fd776159f4b0c6796700ee8471"
+  },
+  {
+    "triangles": 336,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 3,
+    "contradictory_components": 0,
+    "id": "home:spoon",
+    "vertices": 736,
+    "bytes": 25764,
+    "bounds": [
+      [
+        -0.017999999225139618,
+        0.0,
+        -0.0925000011920929
+      ],
+      [
+        0.017999999225139618,
+        0.019999999552965164,
+        0.0925000011920929
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.015625,
+      0.984375
+    ],
+    "sha256": "2166f1d8c09e8a26c43ccd6f4060b87fb1ddd14b9455d0d70bfd26630b5cfa02"
+  },
+  {
+    "triangles": 704,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 26,
+    "contradictory_components": 0,
+    "id": "home:stove",
+    "vertices": 1680,
+    "bytes": 81072,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.32100000977516174
+      ],
+      [
+        0.30000001192092896,
+        0.9160000085830688,
+        0.3199999928474426
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "3695f201a988e089081ef6373afe95466174ddd51bf3c217916f8723828f1eb2"
+  },
+  {
+    "triangles": 112,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 5,
+    "contradictory_components": 0,
+    "id": "home:toaster",
+    "vertices": 248,
+    "bytes": 43240,
+    "bounds": [
+      [
+        -0.125,
+        0.0,
+        -0.07999999821186066
+      ],
+      [
+        0.12700000405311584,
+        0.16099999845027924,
+        0.08799999952316284
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "00d6aaa4ae8584d53b0e23dcdf6b094489dfb5a316fa4f0fbb3e153ce75bdac8"
+  },
+  {
+    "triangles": 496,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 32,
+    "contradictory_components": 0,
+    "id": "home:tv_console",
+    "vertices": 1056,
+    "bytes": 88424,
+    "bounds": [
+      [
+        -0.7749999761581421,
+        0.0,
+        -0.22499999403953552
+      ],
+      [
+        0.7749999761581421,
+        0.550000011920929,
+        0.23800000548362732
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0,
+      1.0
+    ],
+    "sha256": "fde5b404d834dce5d0332e6c25b5eab10aa87b5f6e6a15d87dfd12c288e35ff1"
+  },
+  {
+    "triangles": 232,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 8,
+    "contradictory_components": 0,
+    "id": "home:wall_switch",
+    "vertices": 520,
+    "bytes": 27088,
+    "bounds": [
+      [
+        -0.0430000014603138,
+        0.0,
+        0.0
+      ],
+      [
+        0.0430000014603138,
+        0.11999999731779099,
+        0.03252364695072174
+      ]
+    ],
+    "texture_matches_source": true,
+    "uv_range": [
+      0.0078125,
+      0.9921875
+    ],
+    "sha256": "3537a94bbeab4049cb95321cecfd96d1d6ecdd330f0cf6dd417bb3d29ad85d73"
+  }
+]

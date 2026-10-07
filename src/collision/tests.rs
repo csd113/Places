@@ -787,7 +787,7 @@ fn the_sink_deck_blocks_the_floor_and_supports_the_counter() {
     let sink = level
         .props
         .iter()
-        .find(|prop| prop.model == "core:sink")
+        .find(|prop| prop.model == "home:sink")
         .expect("the shipped demo places the sink");
     let size = sink.resolved_size(crate::level::PROP_FALLBACK_SIZE);
     assert!(

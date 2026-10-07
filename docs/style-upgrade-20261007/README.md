@@ -25,5 +25,22 @@ Commit subject: `rebuild pool assets toward concept art`. The exact pushed
 commit is reported with the task handoff; `git log -- docs/style-upgrade-20261007/pool`
 locates this entry in repository history.
 
-Home, Outdoors and Winter are subsequent serial entries and have not been
-started by the Pool pass.
+## 2026-10-07 — Home
+
+[Detailed comparison, coverage and validation](home/README.md) ·
+[Primary concept](../../assets/environment/home/Home%20Environment%20Asset%20Sheet.png)
+
+| Before | After |
+| --- | --- |
+| ![Home before](home/before/living.png) | ![Home after](home/after/living.png) |
+
+The original living group used dark shared seating, a dining-height coffee
+table, office-style chairs and a low flat screen. Home now has cream woven
+seating, a low shelf table, timber dining construction, Shaker kitchen stock,
+matching domestic appliances and a dark CRT on a cupboard console. Twenty
+new static families add the reference's missing domestic fittings, with warm
+local surface variants and supported ceramic backsplash. The connected
+vault/loft remains; the reference's external balcony is documented as a gap.
+
+Commit subject: `rebuild home assets toward concept art`; the task handoff
+records the exact pushed SHA and CI. Outdoors and Winter follow this entry.

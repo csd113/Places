@@ -1,0 +1,15 @@
+{
+  "starting_commit": "476dfb4e603da2dbaaf78a1016243ca20f4e1858",
+  "stage": "Home final pre-commit worktree",
+  "utc": "2026-10-07T21:49:34Z",
+  "binary_sha256": {
+    "places": "98a98366aef0f3e7c3e6d0148602b21fe71157bb1251fba998250c865c746c68",
+    "places-compile": "31adb25096646f688dcce8098ffb341a6d0715b3bea0c1bac6d8929deadc4147"
+  },
+  "source_sha256": {
+    "assets/catalog.json": "edb91878d669eac5bb448ded50e451d659d9e2a199569d2299b3645dcb17e020",
+    "assets/levels/places_demo.json": "e7404fa34cf60cfa28662cabf3af720153dc8c9e16a1d663bb6c8362661e1ba8",
+    "assets/levels/places_demo.placesmap": "5079b691beb6663e7965e69bd38ab355702d2e5d0d4a7580c0cf5b7d46802931"
+  },
+  "images": "Unaltered native SDL/wgpu captures"
+}

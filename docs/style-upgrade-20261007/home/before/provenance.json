@@ -1,0 +1,14 @@
+{
+  "starting_commit": "476dfb4e603da2dbaaf78a1016243ca20f4e1858",
+  "stage": "Home before: exact Pool checkout frozen before editing",
+  "binary_sha256": {
+    "places": "dee37998b524773933b81c3232006005382452c18e98bca5079898046fa19d1b",
+    "places-compile": "31adb25096646f688dcce8098ffb341a6d0715b3bea0c1bac6d8929deadc4147"
+  },
+  "source_sha256": {
+    "catalog.json": "be2455ffa354a2096a227bfe889dcd1348f71e2a2a2db742554635cd5dbee523",
+    "levels/places_demo.json": "b8d1190a6384bc26b85c51e4363c24ed8bde3683171601a524a9b3fdaf4bf6fa",
+    "levels/places_demo.placesmap": "ed413653b36eb1ad002fb8521f8b6941d284b467f1fcfddcb0a84e806edf6419"
+  },
+  "images": "Unaltered native SDL/wgpu captures"
+}

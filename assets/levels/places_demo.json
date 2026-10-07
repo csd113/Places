@@ -80,8 +80,8 @@
         "ridge": "x",
         "ridge_rise": 1.4
       },
-      "material": "home:hardwood_oak_01",
-      "ceiling_material": "home:ceiling_white_01",
+      "material": "home:hardwood_oak_warm_01",
+      "ceiling_material": "home:ceiling_warm_01",
       "comment": "The Home: eave at 3.6 m and ridge at 5.0 m; the lower floor and walnut balcony share a pitched space."
     },
     {
@@ -92,7 +92,7 @@
       "height": 2.5,
       "floor_y": -0.9,
       "material": "home:carpet_cream_01",
-      "ceiling_material": "home:ceiling_plaster_01",
+      "ceiling_material": "home:ceiling_plaster_warm_01",
       "comment": "Narrow enclosed Home loop: 1.4 m clear, with long dark sight lines and two blind turns."
     },
     {
@@ -103,7 +103,7 @@
       "height": 2.5,
       "floor_y": -0.9,
       "material": "home:carpet_cream_01",
-      "ceiling_material": "home:ceiling_plaster_01",
+      "ceiling_material": "home:ceiling_plaster_warm_01",
       "comment": "Narrow enclosed Home loop: 1.4 m clear, with long dark sight lines and two blind turns."
     },
     {
@@ -114,7 +114,7 @@
       "height": 2.5,
       "floor_y": -0.9,
       "material": "home:carpet_cream_01",
-      "ceiling_material": "home:ceiling_plaster_01",
+      "ceiling_material": "home:ceiling_plaster_warm_01",
       "comment": "Narrow enclosed Home loop: 1.4 m clear, with long dark sight lines and two blind turns."
     },
     {
@@ -125,7 +125,7 @@
       "height": 2.5,
       "floor_y": -0.9,
       "material": "home:carpet_cream_01",
-      "ceiling_material": "home:ceiling_plaster_01",
+      "ceiling_material": "home:ceiling_plaster_warm_01",
       "comment": "Narrow enclosed Home loop: 1.4 m clear, with long dark sight lines and two blind turns."
     },
     {
@@ -562,7 +562,7 @@
       "width": 0.3,
       "depth": 12.0,
       "y": -0.9,
-      "material": "home:wall_paint_offwhite_01",
+      "material": "home:wall_paint_warm_01",
       "openings": [
         {
           "kind": "passage",
@@ -661,7 +661,7 @@
       "width": 0.26,
       "depth": 3.39,
       "height": 1.05,
-      "material": "home:wall_paint_offwhite_01",
+      "material": "home:wall_paint_warm_01",
       "comment": "North knee wall meets the north wall face and north post without an overlapping tail.",
       "y": -0.9
     },
@@ -671,7 +671,7 @@
       "width": 4.95,
       "depth": 0.26,
       "height": 1.05,
-      "material": "home:wall_paint_offwhite_01",
+      "material": "home:wall_paint_warm_01",
       "y": -0.9
     },
     {
@@ -679,7 +679,7 @@
       "z": 8.34,
       "width": 0.26,
       "depth": 0.26,
-      "material": "home:wall_paint_offwhite_01",
+      "material": "home:wall_paint_warm_01",
       "comment": "South kitchen post meets the knee wall end exactly on the same 26 cm module.",
       "y": -0.9
     },
@@ -688,7 +688,7 @@
       "z": 6.54,
       "width": 0.26,
       "depth": 0.26,
-      "material": "home:wall_paint_offwhite_01",
+      "material": "home:wall_paint_warm_01",
       "y": -0.9
     },
     {
@@ -768,6 +768,16 @@
         "west": "home:wall_paint_offwhite_01"
       },
       "comment": "East gable wall: its top follows the roof plane to the ridge."
+    },
+    {
+      "x": 53.305,
+      "z": 3.151,
+      "width": 3.695,
+      "depth": 0.08,
+      "y": 0.003,
+      "height": 0.544,
+      "material": "home:backsplash_01",
+      "comment": "[home-concept] Working ceramic splash, up to the wall-unit underside."
     }
   ],
   "floor_patches": [
@@ -1402,7 +1412,7 @@
       "depth": 3.9,
       "offset_y": 2.1,
       "material": "home:hardwood_walnut_02",
-      "edge_material": "home:wall_paint_offwhite_01",
+      "edge_material": "home:wall_paint_warm_01",
       "comment": "The walkable second floor and balcony: walnut boards 2.6 m above the lower floor, reached by the staircase at its west end."
     },
     {
@@ -2166,62 +2176,6 @@
     },
     {
       "fixture": "home:ceiling_light_round",
-      "x": 55.4,
-      "z": 4.4,
-      "brightness": 0.3,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 55.4,
-      "z": 7.2,
-      "brightness": 0.28,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 61.0,
-      "z": 5.2,
-      "brightness": 0.28,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 61.0,
-      "z": 9.1,
-      "brightness": 0.28,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 55.6,
-      "z": 10.6,
-      "brightness": 0.26,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 59.4,
-      "z": 12.4,
-      "brightness": 0.28,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 62.6,
-      "z": 12.4,
-      "brightness": 0.3,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
-      "x": 62.6,
-      "z": 14.1,
-      "brightness": 0.28,
-      "emission": 1.0
-    },
-    {
-      "fixture": "home:ceiling_light_round",
       "x": 61,
       "z": 1,
       "brightness": 0.16,
@@ -2877,15 +2831,15 @@
       "solid": true
     },
     {
-      "model": "core:sink",
+      "model": "home:sink",
       "x": 54.8,
       "y": 0.0,
-      "z": 3.425,
+      "z": 3.45,
       "rotation_degrees": 0.0,
       "size": [
         0.6,
         0.9,
-        0.55
+        0.6
       ],
       "solid": true,
       "comment": "The 0.90 m deck/rim plane is the standable approximation: the 0.40 x 0.31 m basin cannot admit a 0.6 m player disc, so the rim is treated as continuous support, and the faucet post above the deck is decorative and non-blocking."
@@ -2904,7 +2858,7 @@
       "solid": true
     },
     {
-      "model": "core:stove",
+      "model": "home:stove",
       "x": 56.0,
       "y": 0.0,
       "z": 3.45,
@@ -2985,7 +2939,7 @@
       "comment": "An upper cabinet 0.55 m above the 0.9 m walkable counter cannot be solid to a 1.8 m player; the base cabinets already block the floor. occludes stays true, so baked lighting and the artwork are unchanged."
     },
     {
-      "model": "core:table",
+      "model": "home:dining_table",
       "x": 56.0,
       "y": 0.0,
       "z": 7.6,
@@ -2999,86 +2953,88 @@
       "comment": "Kitchen table in the tile bay between the knee walls."
     },
     {
-      "model": "core:chair",
+      "model": "home:dining_chair",
       "x": 54.95,
       "y": 0.0,
       "z": 7.6,
       "rotation_degrees": 90.0,
       "size": [
         0.5,
-        0.9,
-        0.5
+        0.902,
+        0.49
       ],
       "solid": true
     },
     {
-      "model": "core:chair",
+      "model": "home:dining_chair",
       "x": 57.05,
       "y": 0.0,
       "z": 7.6,
       "rotation_degrees": 270.0,
       "size": [
         0.5,
-        0.9,
-        0.5
+        0.902,
+        0.49
       ],
       "solid": true
     },
     {
-      "model": "core:couch",
+      "model": "home:sofa",
       "x": 61.3,
       "y": 0.0,
       "z": 5.6,
       "rotation_degrees": 90.0,
       "size": [
+        2,
         0.9,
-        0.9,
-        2.0
+        0.9
       ],
       "solid": true,
       "comment": "Living group facing the television across the coffee table."
     },
     {
-      "model": "core:table",
+      "model": "home:coffee_table",
       "x": 62.7,
       "y": 0.0,
       "z": 5.6,
-      "rotation_degrees": 0.0,
+      "rotation_degrees": 90,
       "size": [
         1.4,
-        0.75,
+        0.46,
         0.8
       ],
       "solid": true
     },
     {
-      "model": "core:tv",
-      "x": 64.5,
+      "model": "home:tv_console",
+      "x": 64.4,
       "y": 0.0,
       "z": 6.55,
       "rotation_degrees": 270.0,
       "size": [
-        0.1,
-        0.7,
-        1.1
+        1.55,
+        0.55,
+        0.45
       ],
-      "solid": true
+      "solid": true,
+      "comment": "Home CRT console in the existing television position."
     },
     {
-      "model": "core:rug",
+      "model": "home:rug",
       "x": 62.7,
       "y": 0.0,
       "z": 5.6,
-      "rotation_degrees": 90.0,
+      "rotation_degrees": 90,
       "size": [
-        2.0,
+        2,
         0.02,
         1.4
       ],
-      "solid": false
+      "solid": false,
+      "scale": 1.38
     },
     {
-      "model": "core:armchair",
+      "model": "home:armchair",
       "x": 62.7,
       "y": 0.0,
       "z": 7.3,
@@ -3091,21 +3047,44 @@
       "solid": true
     },
     {
-      "model": "core:lamp",
+      "model": "home:floor_lamp",
       "x": 60.6,
       "y": 0.0,
       "z": 4.4,
       "rotation_degrees": 0.0,
-      "solid": false
+      "solid": false,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "intensity": 0.6,
+          "range": 4.4,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ]
     },
     {
-      "model": "core:bookshelf",
+      "model": "home:bookshelf",
       "x": 63.9,
       "y": 0.0,
       "z": 3.35,
       "rotation_degrees": 0.0,
       "size": [
-        1.0,
+        1,
         1.8,
         0.35
       ],
@@ -3135,28 +3114,51 @@
       "comment": "Loft sleeping nook against the east gable end."
     },
     {
-      "model": "core:rug",
+      "model": "home:rug",
       "x": 60.5,
       "y": 0.0,
       "z": 12.9,
       "rotation_degrees": 0.0,
       "size": [
-        2.0,
+        2,
         0.02,
         1.4
       ],
       "solid": false
     },
     {
-      "model": "core:lamp",
+      "model": "home:floor_lamp",
       "x": 61.9,
       "y": 0.0,
       "z": 13.9,
       "rotation_degrees": 0.0,
-      "solid": false
+      "solid": false,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "intensity": 0.6,
+          "range": 4.4,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ]
     },
     {
-      "model": "core:armchair",
+      "model": "home:armchair",
       "x": 59.2,
       "y": 0.0,
       "z": 14.0,
@@ -3169,15 +3171,15 @@
       "solid": true
     },
     {
-      "model": "core:bookshelf",
+      "model": "home:bookshelf",
       "x": 64.45,
       "y": 0.0,
       "z": 14.0,
       "rotation_degrees": 270.0,
       "size": [
-        0.35,
+        1,
         1.8,
-        1.0
+        0.35
       ],
       "solid": true
     },
@@ -31725,6 +31727,679 @@
       ],
       "solid": false,
       "comment": "[pool-concept] Recessed deck overflow grate outside the coping, non-colliding."
+    },
+    {
+      "model": "home:ball_light",
+      "x": 55.4,
+      "z": 4.4,
+      "y": 4.421667,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.58,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 55.4,
+      "z": 7.2,
+      "y": 5.075,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.58,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 61.0,
+      "z": 5.2,
+      "y": 4.608333,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.58,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 61.0,
+      "z": 9.1,
+      "y": 5.471667,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.58,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 55.6,
+      "z": 10.6,
+      "y": 5.121667,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.58,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 59.4,
+      "z": 12.4,
+      "y": 2.601667,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.45,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 62.6,
+      "z": 12.4,
+      "y": 2.601667,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.45,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 62.6,
+      "z": 14.1,
+      "y": 2.205,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 0.5,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.45,
+          "range": 12,
+          "color": [
+            1,
+            0.91,
+            0.77
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:crt_tv",
+      "x": 64.4,
+      "z": 6.55,
+      "y": 0.55,
+      "rotation_degrees": 270,
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:plant_table",
+      "x": 64.4,
+      "z": 6.0,
+      "y": 0.55,
+      "rotation_degrees": 0,
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "scale": 1.6,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:plant_table",
+      "x": 62.72,
+      "z": 5.57,
+      "y": 0.46,
+      "rotation_degrees": 0,
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "scale": 1.7,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:mug",
+      "x": 62.45,
+      "z": 5.38,
+      "y": 0.46,
+      "rotation_degrees": 35,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:book_stack",
+      "x": 62.87,
+      "z": 5.78,
+      "y": 0.46,
+      "rotation_degrees": 0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:book_stack",
+      "x": 62.7,
+      "z": 5.55,
+      "y": 0.136,
+      "rotation_degrees": 15,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cushion",
+      "x": 61.52,
+      "z": 5.16,
+      "y": 0.44,
+      "rotation_degrees": 90,
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cushion",
+      "x": 61.52,
+      "z": 6.1,
+      "y": 0.44,
+      "rotation_degrees": 90,
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:plant_table",
+      "x": 56.0,
+      "z": 7.6,
+      "y": 0.75,
+      "rotation_degrees": 0,
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "scale": 1.5,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:kettle",
+      "x": 55.4,
+      "z": 3.36,
+      "y": 0.9,
+      "rotation_degrees": 0,
+      "size": [
+        0.217,
+        0.201,
+        0.162
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:toaster",
+      "x": 56.6,
+      "z": 3.36,
+      "y": 0.9,
+      "rotation_degrees": 0,
+      "size": [
+        0.25,
+        0.16,
+        0.169
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 56.6,
+      "z": 3.315,
+      "y": 1.45,
+      "rotation_degrees": 0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cabinet_strip",
+      "x": 56.6,
+      "z": 3.42,
+      "y": 1.424,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "solid": false,
+      "scale": 1,
+      "lights": [
+        {
+          "shape": "line",
+          "length": 0.48,
+          "offset": [
+            0,
+            -0.025,
+            0.08
+          ],
+          "intensity": 0.24,
+          "range": 2.5,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cabinet_strip",
+      "x": 53.6,
+      "z": 3.42,
+      "y": 1.424,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "solid": false,
+      "scale": 1,
+      "lights": [
+        {
+          "shape": "line",
+          "length": 0.48,
+          "offset": [
+            0,
+            -0.025,
+            0.08
+          ],
+          "intensity": 0.24,
+          "range": 2.5,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cabinet_strip",
+      "x": 54.2,
+      "z": 3.42,
+      "y": 1.424,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "solid": false,
+      "scale": 1,
+      "lights": [
+        {
+          "shape": "line",
+          "length": 0.48,
+          "offset": [
+            0,
+            -0.025,
+            0.08
+          ],
+          "intensity": 0.24,
+          "range": 2.5,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:cabinet_strip",
+      "x": 54.8,
+      "z": 3.42,
+      "y": 1.424,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "solid": false,
+      "scale": 1,
+      "lights": [
+        {
+          "shape": "line",
+          "length": 0.48,
+          "offset": [
+            0,
+            -0.025,
+            0.08
+          ],
+          "intensity": 0.24,
+          "range": 2.5,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:outlet",
+      "x": 55.55,
+      "z": 3.235,
+      "y": 1.12,
+      "rotation_degrees": 0,
+      "size": [
+        0.085,
+        0.12,
+        0.014
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:outlet",
+      "x": 64.694,
+      "z": 6.55,
+      "y": 0.23,
+      "rotation_degrees": 270,
+      "size": [
+        0.085,
+        0.12,
+        0.014
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:landscape_frame",
+      "x": 64.687,
+      "z": 7.95,
+      "y": 1.5,
+      "rotation_degrees": 270,
+      "size": [
+        0.45,
+        0.5,
+        0.032
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:ball_light",
+      "x": 62.0,
+      "z": 6.6,
+      "y": 4.54,
+      "rotation_degrees": 0,
+      "size": [
+        0.38,
+        0.8,
+        0.38
+      ],
+      "solid": false,
+      "scale": 1,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            -0.1,
+            0
+          ],
+          "intensity": 0.55,
+          "range": 5,
+          "color": [
+            1,
+            0.9,
+            0.72
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "[home-concept] "
+    },
+    {
+      "model": "home:door_casing",
+      "x": 61.0,
+      "z": 3.25,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        1.58,
+        2.18,
+        0.054
+      ],
+      "solid": false,
+      "scale": 1,
+      "comment": "[home-concept] "
     }
   ],
   "decals": [
@@ -32940,8 +33615,8 @@
       "offset_y": 0.0,
       "rise": 2.1,
       "steps": 8,
-      "material": "home:hardwood_oak_01",
-      "riser_material": "home:wall_paint_offwhite_01",
+      "material": "home:hardwood_oak_warm_01",
+      "riser_material": "home:wall_paint_warm_01",
       "side_material": "home:baseboard_white_01",
       "comment": "Lower floor to the balcony: eight risers of 0.2625 m on 0.30 m treads, climbing east out of the entrance's sight line and landing flush on the walnut upper floor."
     }
@@ -33074,7 +33749,7 @@
       "opening_height": 2.1,
       "arch_rise": 0.3,
       "material": "home:wallpaper_offwhite_01",
-      "reveal_material": "home:wall_paint_offwhite_01",
+      "reveal_material": "home:wall_paint_warm_01",
       "comment": "The Home's entrance, cased 2 cm proud of the west wall: the corridor ends by stepping through it into the two-storey room."
     }
   ],
@@ -33894,6 +34569,116 @@
       "thickness": 0.04,
       "material": "pool:metal_01",
       "comment": "[pool-concept] Surface-mounted ceramic/metal construction trim; no collision."
+    },
+    {
+      "x": 53.3,
+      "z": 12.1,
+      "length": 8.95,
+      "rotation_degrees": 90.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 53.3,
+      "z": 3.15,
+      "length": 7.0,
+      "rotation_degrees": 0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 61.7,
+      "z": 3.15,
+      "length": 3.02,
+      "rotation_degrees": 0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 64.7,
+      "z": 3.172,
+      "length": 1.228,
+      "rotation_degrees": 270.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 64.7,
+      "z": 5.8,
+      "length": 9.05,
+      "rotation_degrees": 270.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 64.7,
+      "z": 14.85,
+      "length": 11.4,
+      "rotation_degrees": 180.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 53.0,
+      "z": 11.17,
+      "length": 0.93,
+      "rotation_degrees": 270.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 53.0,
+      "z": 13.9,
+      "length": 0.93,
+      "rotation_degrees": 270.0,
+      "y": -0.81,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 64.7,
+      "z": 14.85,
+      "length": 6.7,
+      "rotation_degrees": 180.0,
+      "y": 1.29,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
+    },
+    {
+      "x": 64.7,
+      "z": 11.0,
+      "length": 3.85,
+      "rotation_degrees": 270.0,
+      "y": 1.29,
+      "height": 0.028,
+      "thickness": 0.023,
+      "material": "home:baseboard_white_01",
+      "comment": "[home-concept] Raised painted timber profile; wall-mounted, collision-free."
     }
   ],
   "geometry_intent": [

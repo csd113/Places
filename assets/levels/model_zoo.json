@@ -7522,9 +7522,9 @@
       "x": 16.4,
       "z": 137.1,
       "size": [
-        0.2,
+        0.38,
         0.8,
-        0.2
+        0.38
       ],
       "solid": false,
       "components": [
@@ -8329,6 +8329,606 @@
         1.0,
         2.1,
         0.15
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-sofa:floor",
+      "display_name": "Cream Upholstered Sofa",
+      "model": "home:sofa",
+      "x": 13.4,
+      "z": 137.5,
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-armchair:floor",
+      "display_name": "Cream Upholstered Armchair",
+      "model": "home:armchair",
+      "x": 16.25,
+      "z": 137.5,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-coffee_table:floor",
+      "display_name": "Timber Shelf Coffee Table",
+      "model": "home:coffee_table",
+      "x": 19.1,
+      "z": 137.5,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-dining_table:floor",
+      "display_name": "Timber Dining Table",
+      "model": "home:dining_table",
+      "x": 21.95,
+      "z": 137.5,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-dining_chair:floor",
+      "display_name": "Timber Dining Chair",
+      "model": "home:dining_chair",
+      "x": 24.8,
+      "z": 137.5,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-tv_console:floor",
+      "display_name": "Low Timber CRT Console",
+      "model": "home:tv_console",
+      "x": 27.65,
+      "z": 137.5,
+      "size": [
+        1.55,
+        0.55,
+        0.45
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-bookshelf:floor",
+      "display_name": "Domestic Bookcase",
+      "model": "home:bookshelf",
+      "x": 30.5,
+      "z": 137.5,
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-rug:floor",
+      "display_name": "Cream Pile Rug",
+      "model": "home:rug",
+      "x": 33.35,
+      "z": 137.5,
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-floor_lamp:floor",
+      "display_name": "Linen Floor Lamp",
+      "model": "home:floor_lamp",
+      "x": 13.4,
+      "z": 139.15,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-mug:floor",
+      "display_name": "Ceramic Coffee Mug",
+      "model": "home:mug",
+      "x": 16.25,
+      "z": 139.15,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-book_stack:floor",
+      "display_name": "Two Stacked Books",
+      "model": "home:book_stack",
+      "x": 19.1,
+      "z": 139.15,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-cushion:floor",
+      "display_name": "Checked Throw Cushion",
+      "model": "home:cushion",
+      "x": 21.95,
+      "z": 139.15,
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-outlet:floor",
+      "display_name": "Domestic Wall Outlet",
+      "model": "home:outlet",
+      "x": 24.8,
+      "z": 139.15,
+      "size": [
+        0.085,
+        0.12,
+        0.014
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-cabinet_strip:floor",
+      "display_name": "Under-Cabinet Strip",
+      "model": "home:cabinet_strip",
+      "x": 27.65,
+      "z": 139.15,
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-landscape_frame:floor",
+      "display_name": "Small Framed Landscape",
+      "model": "home:landscape_frame",
+      "x": 30.5,
+      "z": 139.15,
+      "size": [
+        0.45,
+        0.5,
+        0.032
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-sink:floor",
+      "display_name": "Home Shaker Sink Unit",
+      "model": "home:sink",
+      "x": 33.35,
+      "z": 139.15,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-stove:floor",
+      "display_name": "Home Enamel Cooker",
+      "model": "home:stove",
+      "x": 13.4,
+      "z": 140.8,
+      "size": [
+        0.6,
+        0.918,
+        0.634
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-kettle:floor",
+      "display_name": "Home Kettle",
+      "model": "home:kettle",
+      "x": 16.25,
+      "z": 140.8,
+      "size": [
+        0.217,
+        0.201,
+        0.162
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-toaster:floor",
+      "display_name": "Home Toaster",
+      "model": "home:toaster",
+      "x": 19.1,
+      "z": 140.8,
+      "size": [
+        0.25,
+        0.16,
+        0.169
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-door_casing:floor",
+      "display_name": "Profiled White Home Casing",
+      "model": "home:door_casing",
+      "x": 21.95,
+      "z": 140.8,
+      "size": [
+        1.58,
+        2.18,
+        0.054
       ],
       "solid": false,
       "components": [

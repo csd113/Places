@@ -1487,7 +1487,7 @@
       "source": "file",
       "surface": "wall",
       "model": "environment/home/textures/walls/wallpaper_pattern_01.png",
-      "description": "Off-white wallpaper with one very subtle repeating motif on a 25 cm cell."
+      "description": "Quiet sage sprigs on warm cream paper, a 25 cm cell."
     },
     {
       "id": "home:tex_wall_paint_offwhite_01",
@@ -1586,7 +1586,7 @@
       "source": "file",
       "surface": "floor",
       "model": "environment/home/textures/floors/tile_home_01.png",
-      "description": "Simple 15 cm off-white floor tile with a fine grout line."
+      "description": "Warm 30 cm domestic ceramic with quiet mineral flecks and visible fine grout."
     },
     {
       "id": "home:tex_ceiling_white_01",
@@ -1784,7 +1784,7 @@
       "tile_metres": 1.2,
       "specular": 0.24,
       "shine": 0.3,
-      "description": "Simple kitchen/bathroom tile; a restrained glazed response."
+      "description": "30 cm warm ceramic at a 1.2 m repeat, matching the Home concept kitchen."
     },
     {
       "id": "home:ceiling_white_01",
@@ -1868,7 +1868,7 @@
       "color": "#d8d3c8",
       "category": "Furniture",
       "solid": true,
-      "description": "Off-white shaker base cabinet with a laminate countertop; 0.6 m wide so a run tiles cleanly."
+      "description": "Real Shaker rails and recessed panels, upper drawer, standoff bar pulls, recessed kick and 40 mm laminate edge."
     },
     {
       "id": "home:cabinet_wall",
@@ -1886,7 +1886,7 @@
       "color": "#ddd8ce",
       "category": "Furniture",
       "solid": true,
-      "description": "Off-white wall cabinet with two doors and a slim carcass; mounts above the base cabinet."
+      "description": "Matching cream Shaker wall cabinet with real panel recesses and bar pulls."
     },
     {
       "id": "mannequin",
@@ -2037,13 +2037,14 @@
       "source": "file",
       "model": "environment/home/props/models/ball_light.glb",
       "size": [
-        0.2,
+        0.38,
         0.8,
-        0.2
+        0.38
       ],
       "color": "#e6e2d8",
       "category": "Decorative",
-      "solid": false
+      "solid": false,
+      "description": "380 mm faceted opal globe with dark cord and ceiling rose."
     },
     {
       "id": "home:wall_switch",
@@ -4657,6 +4658,486 @@
       "asset_type": "decal",
       "source": "file",
       "model": "environment/pool/decals/lane_01.png"
+    },
+    {
+      "id": "home:sofa",
+      "display_name": "Cream Upholstered Sofa",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/sofa.glb",
+      "size": [
+        2,
+        0.9,
+        0.9
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Three separate cushions, square arms and timber feet."
+    },
+    {
+      "id": "home:armchair",
+      "display_name": "Cream Upholstered Armchair",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/armchair.glb",
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Companion domestic armchair with a separate seat and back."
+    },
+    {
+      "id": "home:coffee_table",
+      "display_name": "Timber Shelf Coffee Table",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/coffee_table.glb",
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Low timber table with real aprons and a lower magazine shelf."
+    },
+    {
+      "id": "home:dining_table",
+      "display_name": "Timber Dining Table",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/dining_table.glb",
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Four-leg timber table with thick slab and jointed aprons."
+    },
+    {
+      "id": "home:dining_chair",
+      "display_name": "Timber Dining Chair",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/dining_chair.glb",
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Domestic side chair with broad timber back slats."
+    },
+    {
+      "id": "home:tv_console",
+      "display_name": "Low Timber CRT Console",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/tv_console.glb",
+      "size": [
+        1.55,
+        0.55,
+        0.45
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Cupboard doors and a divided receiver/book cubby."
+    },
+    {
+      "id": "home:bookshelf",
+      "display_name": "Domestic Bookcase",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/bookshelf.glb",
+      "size": [
+        1,
+        1.8,
+        0.35
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Open timber bookcase with four populated shelves."
+    },
+    {
+      "id": "home:rug",
+      "display_name": "Cream Pile Rug",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/rug.glb",
+      "size": [
+        2,
+        0.02,
+        1.4
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Plain loop-pile rug with bound edge."
+    },
+    {
+      "id": "home:floor_lamp",
+      "display_name": "Linen Floor Lamp",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/floor_lamp.glb",
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Warm faceted linen shade on a slender metal stem."
+    },
+    {
+      "id": "home:mug",
+      "display_name": "Ceramic Coffee Mug",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/mug.glb",
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Open ceramic mug with a genuine handle aperture and coffee surface."
+    },
+    {
+      "id": "home:book_stack",
+      "display_name": "Two Stacked Books",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/book_stack.glb",
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two fitted clothbound books with visible page blocks."
+    },
+    {
+      "id": "home:cushion",
+      "display_name": "Checked Throw Cushion",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/cushion.glb",
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Checked woven cloth on a bevelled cushion."
+    },
+    {
+      "id": "home:outlet",
+      "display_name": "Domestic Wall Outlet",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/outlet.glb",
+      "size": [
+        0.085,
+        0.12,
+        0.014
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two sockets, ivory cover and recessed apertures."
+    },
+    {
+      "id": "home:cabinet_strip",
+      "display_name": "Under-Cabinet Strip",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/cabinet_strip.glb",
+      "size": [
+        0.55,
+        0.026,
+        0.07
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Slim housing and emissive warm diffuser; illumination is map-owned."
+    },
+    {
+      "id": "home:landscape_frame",
+      "display_name": "Small Framed Landscape",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/landscape_frame.glb",
+      "size": [
+        0.45,
+        0.5,
+        0.032
+      ],
+      "color": "#d7c9ae",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Timber frame, cream mount and fitted low-poly landscape."
+    },
+    {
+      "id": "home:sink",
+      "display_name": "Home Shaker Sink Unit",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/sink.glb",
+      "size": [
+        0.6,
+        1.1,
+        0.6
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Matching cabinet and open folded-metal basin with a raised tap."
+    },
+    {
+      "id": "home:stove",
+      "display_name": "Home Enamel Cooker",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/stove.glb",
+      "size": [
+        0.6,
+        0.918,
+        0.634
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Cream enamel, metal deck, burner rings and recessed oven window."
+    },
+    {
+      "id": "home:tex_backsplash_01",
+      "display_name": "Home Ceramic Backsplash Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/backsplash_01.png"
+    },
+    {
+      "id": "home:backsplash_01",
+      "display_name": "Home Ceramic Backsplash",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_backsplash_01",
+      "tile_metres": 1.2,
+      "specular": 0.14,
+      "shine": 0.24
+    },
+    {
+      "id": "home:kettle",
+      "display_name": "Home Kettle",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/kettle.glb",
+      "size": [
+        0.217,
+        0.201,
+        0.162
+      ],
+      "color": "#c8c4b6",
+      "category": "Appliances",
+      "solid": false
+    },
+    {
+      "id": "home:toaster",
+      "display_name": "Home Toaster",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/toaster.glb",
+      "size": [
+        0.25,
+        0.16,
+        0.169
+      ],
+      "color": "#c8c4b6",
+      "category": "Appliances",
+      "solid": false
+    },
+    {
+      "id": "home:tex_wall_paint_warm_01",
+      "display_name": "Home Concept Wall Paint Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/wall_paint_warm_01.png",
+      "description": "Plain painted off-white wall: a roller-stipple micro-texture, no pattern."
+    },
+    {
+      "id": "home:wall_paint_warm_01",
+      "display_name": "Home Concept Wall Paint Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_wall_paint_warm_01",
+      "tile_metres": 2.0,
+      "specular": 0.1,
+      "shine": 0.22,
+      "description": "Home-only refined finish; shared original retained for other environments."
+    },
+    {
+      "id": "home:tex_hardwood_oak_warm_01",
+      "display_name": "Home Concept Hardwood Oak Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+      "description": "Finished oak floorboards, 20 cm planks, warm and clean."
+    },
+    {
+      "id": "home:hardwood_oak_warm_01",
+      "display_name": "Home Concept Hardwood Oak Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_hardwood_oak_warm_01",
+      "tile_metres": 1.6,
+      "specular": 0.22,
+      "shine": 0.32,
+      "description": "Home-only refined finish; shared original retained for other environments."
+    },
+    {
+      "id": "home:tex_ceiling_warm_01",
+      "display_name": "Home Concept Ceiling Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "ceiling",
+      "model": "environment/home/textures/ceilings/ceiling_warm_01.png",
+      "description": "Flat white painted ceiling, near-flat with a faint roller variation."
+    },
+    {
+      "id": "home:ceiling_warm_01",
+      "display_name": "Home Concept Ceiling Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_warm_01",
+      "tile_metres": 2.0,
+      "specular": 0.0,
+      "shine": 0.1,
+      "description": "Home-only refined finish; shared original retained for other environments."
+    },
+    {
+      "id": "home:tex_ceiling_plaster_warm_01",
+      "display_name": "Home Concept Ceiling Plaster Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "ceiling",
+      "model": "environment/home/textures/ceilings/ceiling_plaster_warm_01.png",
+      "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture."
+    },
+    {
+      "id": "home:ceiling_plaster_warm_01",
+      "display_name": "Home Concept Ceiling Plaster Warm 01",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_plaster_warm_01",
+      "tile_metres": 2.0,
+      "specular": 0.05,
+      "shine": 0.14,
+      "description": "Home-only refined finish; shared original retained for other environments."
+    },
+    {
+      "id": "home:door_casing",
+      "display_name": "Profiled White Home Casing",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/door_casing.glb",
+      "size": [
+        1.58,
+        2.18,
+        0.054
+      ],
+      "color": "#eee8da",
+      "category": "Architectural",
+      "solid": false
     }
   ]
 }

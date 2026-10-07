@@ -66,3 +66,24 @@ full 900×546 pixels are preserved inside a transparent 1024×1024 PNG; High
 quality displays it without downscaling. The painting is 1.800×1.092 m, with
 a 50 mm timber border. See [the asset specification](../../../docs/ASSET_SPECIFICATION.md#72-framed-hanging-paintings)
 for the paired placement contract.
+
+## October 2026 concept reconstruction
+
+The immutable sheets guide cream upholstery, Shaker cabinetry, narrow warm
+timber boards and domestic ceramic. The playable demo now uses local Home
+sofa/armchair, coffee/dining tables, slat chairs, console, populated shelf,
+bound rug, linen lamp, sink and cooker. New mug, books, cushions, kettle,
+toaster, outlets, framed landscapes, cabinet strips and profiled casing are
+built and placed. Existing core families remain available unchanged.
+
+Four local surface variants (`wall_paint_warm_01`, `hardwood_oak_warm_01`,
+`ceiling_warm_01`, `ceiling_plaster_warm_01`) preserve shared originals used
+elsewhere. `backsplash_01` adds 15 cm ceramic in a 1.2 m repeat. Floor tile
+is 30 cm; wallpaper has restrained sage sprigs. New/rebuilt prop imagery
+keeps 1024² masters and fitted 256² native PNGs, embedded in the GLBs.
+
+See the [matched native comparison and complete coverage inventory](../../../docs/style-upgrade-20261007/home/README.md)
+and [asset contracts](../../../docs/ASSET_SPECIFICATION.md#89-home-concept-furniture-and-static-domestic-fittings).
+`tools/levels/refine_home.py` reapplies tagged demo dressing; it preserves the
+existing routes, interactions, stairs and loft. The reference's outdoor
+balcony/sliding glazing remains a documented architectural omission.

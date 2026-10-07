@@ -1,0 +1,18 @@
+{
+  "non_home_asset_bytes": "identical (ignoring .DS_Store)",
+  "non_home_catalog_entries": "identical",
+  "immutable_home_sheets": "identical",
+  "demo_entities_routes_interactions": "identical",
+  "demo_original_architecture": "material references only",
+  "zoo_existing_non_home_placements": "identical",
+  "additional_demo_static_placements": 29,
+  "home_flush_fill_fixtures": 0,
+  "new_home_prop_families": 20,
+  "replacement_home_fill_globes": 8,
+  "cpu_fallback_vertices": 99974,
+  "non_home_files_compared": 353,
+  "non_home_catalog_entries_compared": 260,
+  "native_png_hashes": "24 matched primary captures PASS",
+  "final_native_source_hashes": "PASS",
+  "settings_match": "PASS"
+}

@@ -193,6 +193,8 @@ def switch(p):
 
 def crt(p):
     t=atlas(p,('screen','bezel','body','panel'))
+    body_slot = p.material('crt_body')
+    p.begin_material(body_slot)
     # Full closed tapered rear case, front moulding and rounded glass lens.
     loft(p,[section(-.23,0,.260,.36,.32),section(-.185,0,.260,.41,.36),
             section(.130,0,.270,.55,.42),section(.195,0,.270,.55,.42)],t.uv('body', inset=1))
@@ -202,6 +204,7 @@ def crt(p):
     # Screen-surround solid sits in front of cabinet; lens is proud of its recess.
     loft(p,[section(.193,-.025,.289,.475,.343),section(.209,-.025,.289,.459,.327)],t.uv('bezel', inset=1))
     lens_start = len(p.mesh.positions)
+    p.begin_material(p.material('crt_screen', emissive=(1.0, .93, .86), strength=.25))
     loft(p,[section(.2095,-.025,.294,.404,.277),section(.218,-.025,.294,.393,.267),
             section(.224,-.025,.294,.33,.218)],t.uv('screen', inset=1),color=(230,238,238))
     u0,v0,u1,v1 = t.uv('screen', inset=2)
@@ -210,6 +213,7 @@ def crt(p):
         p.mesh.uvs[i]=(u0+(x+.025+.202)/.404*(u1-u0), v0+(1-(y-.294+.1385)/.277)*(v1-v0)*.75)
         p.mesh.colors[i]=(230,238,238,255)
     # Lower control panel keeps the source's speaker marks and legends.
+    p.begin_material(body_slot)
     padded_box(p,(0,.092,.208),(.485,.052,.020),t.uv('panel', inset=1),bevel=.004)
     for x,r in ((.130,.016),(.193,.012)):
         solid_cylinder(p,(x,.091,.216),r,.014,segments=10,axis='z',uv=t.uv('bezel', inset=1),color=WHITE)

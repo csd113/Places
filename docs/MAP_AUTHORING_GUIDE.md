@@ -2586,7 +2586,7 @@ for a level that wants them.
 | `home:hardwood_oak_01` | floor | Primary hardwood: a finished warm oak, 20 cm planks | `tile_metres: 1.6`, a restrained satin sheen |
 | `home:hardwood_walnut_02` | floor | Secondary hardwood: darker walnut, 15 cm planks | A genuinely different floor, not a tint |
 | `home:carpet_cream_01` | floor | Clean beige/cream carpet | Matte (`shine: 0.06`), no baked dirt |
-| `home:tile_home_01` | floor | Kitchen / bathroom / utility tile | 15 cm tiles at a 1.2 m repeat |
+| `home:tile_home_01` | floor | Kitchen / bathroom / utility tile | 30 cm tiles at a 1.2 m repeat |
 | `home:ceiling_white_01` | ceiling | Flat white residential ceiling | Near-flat painted finish |
 | `home:ceiling_plaster_01` | ceiling | Lightly textured plaster ceiling | A fine stipple, not a popcorn ceiling |
 | `home:baseboard_wood_01` | wall | Wood skirting; also fine on rail trim | Fine horizontal grain; 0.5 m repeat |
@@ -2599,7 +2599,28 @@ The fixture is `home:ceiling_light_round` (see
 cabinets are the `home:cabinet_base` / `home:cabinet_wall` props. Generic
 `core:` props (`core:couch`, `core:bed`, `core:table`, `core:lamp`, `core:rug`,
 `core:fridge`, `core:stove`, `core:sink`, `core:bookshelf`, `core:tv`,
-`core:plant`) are already domestic and need no Home variant.
+`core:plant`) remain available. The Home concept reconstruction uses local
+`home:sofa`, `home:armchair`, `home:coffee_table`, `home:dining_table`,
+`home:dining_chair`, `home:tv_console`, `home:bookshelf`, `home:rug`,
+`home:floor_lamp`, `home:sink` and `home:stove` variants to match its cream,
+timber and enamel palette without changing shared core artwork. Static
+`home:mug`, `home:book_stack`, `home:cushion`, `home:outlet`,
+`home:cabinet_strip`, `home:landscape_frame`, `home:kettle`, `home:toaster`
+and `home:door_casing`
+fill depicted gaps. `home:backsplash_01` is a 15 cm ceramic wall material.
+These use the ordinary prop/surface contracts; their fitted atlas layouts
+and master/native sizes are recorded in ASSET_SPECIFICATION.md §8.9.
+
+`tools/levels/refine_home.py` is the idempotent Home-only demo dressing
+source. Prop y remains floor-relative, so a coffee mug on the new 0.46 m
+table uses y=0.46 even though the room floor is at -0.9 m. Cabinet strips
+mount at y=1.424 and own small warm line lights. They do not acquire switch
+behaviour. Warm paint, oak and two ceiling variants use local `_warm_01`
+materials, preserving the original shared images. The backsplash front is
+at z=3.231; outlet backs sit at z=3.230, meeting the tile face within 1 mm.
+The existing encounter entities, interactive switches and doors,
+stair support and loft structure are preserved. The current connected Home
+is a vaulted loft rather than the concept's outdoor residential balcony.
 
 **Adding a future theme (e.g. `hotel`)** — no engine change:
 

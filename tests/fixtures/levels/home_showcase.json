@@ -351,7 +351,7 @@
   ],
   "props": [
     {
-      "model": "core:couch",
+      "model": "home:sofa",
       "x": 2.6,
       "y": 0.0,
       "z": 0.6,
@@ -364,25 +364,42 @@
       "solid": true
     },
     {
-      "model": "core:table",
+      "model": "home:coffee_table",
       "x": 2.6,
       "y": 0.0,
       "z": 1.9,
       "rotation_degrees": 0.0,
       "size": [
         1.4,
-        0.75,
+        0.46,
         0.8
       ],
       "solid": true
     },
     {
-      "model": "core:lamp",
+      "model": "home:floor_lamp",
       "x": 0.7,
       "y": 0.0,
       "z": 0.7,
       "rotation_degrees": 0.0,
-      "solid": false
+      "solid": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "intensity": 0.6,
+          "range": 3,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ]
+        }
+      ]
     },
     {
       "model": "core:plant",
@@ -393,7 +410,7 @@
       "solid": false
     },
     {
-      "model": "core:rug",
+      "model": "home:rug",
       "x": 4.5,
       "y": 0.0,
       "z": 3.3,
@@ -460,7 +477,7 @@
       "comment": "An upper cabinet 0.55 m above the 0.9 m walkable counter cannot be solid to a 1.8 m player; the base cabinets already block the floor. occludes stays true, so baked lighting and the artwork are unchanged."
     },
     {
-      "model": "core:sink",
+      "model": "home:sink",
       "x": 7.55,
       "y": 0.0,
       "z": 4.7,
@@ -474,7 +491,7 @@
       "comment": "The 0.90 m deck/rim plane is the standable approximation: the 0.40 x 0.31 m basin cannot admit a 0.6 m player disc, so the rim is treated as continuous support, and the faucet post above the deck is decorative and non-blocking."
     },
     {
-      "model": "core:stove",
+      "model": "home:stove",
       "x": 7.55,
       "y": 0.0,
       "z": 6.3,
@@ -513,7 +530,7 @@
       "solid": true
     },
     {
-      "model": "core:bookshelf",
+      "model": "home:bookshelf",
       "x": 3.6,
       "y": 0.0,
       "z": 7.75,
@@ -526,15 +543,32 @@
       "solid": true
     },
     {
-      "model": "core:lamp",
+      "model": "home:floor_lamp",
       "x": 5.4,
       "y": 0.0,
       "z": 5.0,
       "rotation_degrees": 0.0,
-      "solid": false
+      "solid": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "intensity": 0.6,
+          "range": 3,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ]
+        }
+      ]
     },
     {
-      "model": "core:chair",
+      "model": "home:dining_chair",
       "x": 3.0,
       "y": 0.0,
       "z": 5.6,
@@ -545,6 +579,20 @@
         0.5
       ],
       "solid": true
+    },
+    {
+      "model": "home:mug",
+      "x": 2.4,
+      "z": 1.9,
+      "y": 0.46,
+      "solid": false
+    },
+    {
+      "model": "home:book_stack",
+      "x": 2.8,
+      "z": 1.9,
+      "y": 0.46,
+      "solid": false
     }
   ]
 }

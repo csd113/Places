@@ -931,6 +931,50 @@ bake never sees the cube and the level contributes collision and nothing else.
 
 ---
 
+### 8.9 Home concept furniture and static domestic fittings
+
+The October 2026 Home reconstruction uses the existing prop class, with no
+new runtime image type. Its authoritative sheets remain immutable:
+`assets/environment/home/Home Environment Asset Sheet.png` and
+`Places_ Warm Low-Poly Home Asset Sheet.png`. The former establishes cream
+upholstery and a practical kitchen; the latter adds the low timber console,
+shelf coffee table, checked cushions, books, mug and sunset CRT programme.
+
+All new Home models retain a square 1024² `*_master.png` and one square,
+opaque 256² native atlas beside their GLB. The master is downsampled once with
+Lanczos by `tools/textures/author_home.py`. GLBs embed the native image;
+ordinary prop builds load it rather than paint replacements. High/Medium
+keep that native atlas and Low uses the existing 128² upload policy.
+
+The four regions are row-major quadrants. Cabinets use body/door/counter/
+metal; sofas use body/seat/back/wood; other new static fittings use main/
+secondary/detail/dark. The CRT keeps screen/bezel/body/panel and fits its
+screen image in the upper 75% of the screen quadrant. Its standalone city
+art is retained under `props/art/city_dusk_01.png`; it is screen artwork, not
+a world sky or an exterior backdrop. The opal globe retains orb/cord/rose
+quadrants and its ceiling-contact top at 0.8 m; its revised 380 mm diameter
+is recorded in the catalog. Switch node names and the toggle clip are
+unchanged. Tableware, floor-plant and bed imagery/geometry are retained.
+
+Models face +Z, are horizontally centred and have their contact plane at
+y=0. Wall outlets and small landscapes have real stock depth; place their
+back on the wall face and rotate +Z toward the room. Cabinet doors use real
+recesses and thin construction joints. Lamps/strip diffusers use GLB emissive
+groups, while their illumination is authored as ordinary map-owned lights.
+All new fitted art is opaque and clamped, with UVs within 0..1. The ordinary
+1500-triangle art limit applies; every rebuilt/new Home model is below 800.
+
+The backsplash is an ordinary 1024² opaque periodic wall surface: eight
+15 cm tiles in a 1.2 m world repeat. The revised floor tile has four 30 cm
+tiles in the same repeat. Oak remains eight 20 cm boards over 1.6 m; walnut
+has eight 15 cm boards over 1.2 m. Patterned paper has restrained sage sprigs
+on a 25 cm cell. `wall_paint_warm_01`, `hardwood_oak_warm_01`,
+`ceiling_warm_01` and `ceiling_plaster_warm_01` are local Home variants;
+the earlier shared paint/oak/ceiling sources remain byte-identical.
+Shared cedar, door-paint, timber-trim and flush-fixture
+sources remain intact. Validation uses the standard catalog, source/embedded
+pixel match, prop bounds/UV/topology, surface seam and native-render checks.
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is

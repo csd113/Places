@@ -3405,8 +3405,37 @@ static SWEEP: &[ModelCandidate] = &[
 /// own fixtures while the glowing faces are unchanged.
 #[test]
 fn the_demo_exit_sign_and_ball_light_really_illuminate() {
-    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+    let mut level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
         .expect("the shipped demo parses");
+    let scene_lighting = LevelLighting::bake(&level);
+    let mut scene_pendant_off = level.clone();
+    for prop in &mut scene_pendant_off.props {
+        if prop.id.as_deref() == Some("kitchen_pendant") {
+            for light in &mut prop.lights {
+                light.enabled = false;
+            }
+        }
+    }
+    let scene_pendant_off_lighting = LevelLighting::bake(&scene_pendant_off);
+    let scene_near_orb = scene_lighting.sample(56.0, 4.1, 7.6);
+    let scene_near_orb_off = scene_pendant_off_lighting.sample(56.0, 4.1, 7.6);
+    assert!(
+        scene_near_orb.r > scene_near_orb_off.r + 0.02,
+        "the authored scene retains the pendant's own illumination with all other lights active: {scene_near_orb:?} vs {scene_near_orb_off:?}"
+    );
+    // Isolate the two sources this regression measures. Other domestic lights
+    // must neither substitute for the pendant nor saturate its CPU sample;
+    // all authored geometry and occlusion remain present.
+    for prop in &mut level.props {
+        if !matches!(
+            prop.id.as_deref(),
+            Some("corridor_exit_sign" | "kitchen_pendant")
+        ) {
+            for light in &mut prop.lights {
+                light.enabled = false;
+            }
+        }
+    }
     let lighting = LevelLighting::bake(&level);
     // The exit sign hangs at (52.6, 13.0) with its green face toward -X; the
     // emitter sits 0.058 m in front of the face at world y 1.70. Sample half a
@@ -3416,19 +3445,31 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
         exit.g > exit.r && exit.g > exit.b,
         "the exit sign casts green: {exit:?}"
     );
-    // The pendant hangs over the kitchen table (56.0, 7.6); its point light is
-    // 0.02 m below the orb underside at world y 3.553. Sample the tabletop.
-    let pendant = lighting.sample(56.0, -0.14, 7.6);
+    // Sample 25 cm above the 750 mm dining plane, clear of the planter and
+    // the coarse tabletop occlusion cells, to measure the pendant's pool.
+    let (table_x, table_y, table_z) = (56.35, 0.10, 7.6);
+    let pendant = lighting.sample(table_x, table_y, table_z);
 
     let mut dark = level.clone();
     for prop in &mut dark.props {
-        for light in &mut prop.lights {
-            light.enabled = false;
+        if prop.id.as_deref() == Some("corridor_exit_sign") {
+            for light in &mut prop.lights {
+                light.enabled = false;
+            }
         }
     }
     let dark_lighting = LevelLighting::bake(&dark);
     let exit_dark = dark_lighting.sample(52.0, 1.0, 13.0);
-    let pendant_dark = dark_lighting.sample(56.0, -0.14, 7.6);
+    let mut pendant_off = level.clone();
+    for prop in &mut pendant_off.props {
+        if prop.id.as_deref() == Some("kitchen_pendant") {
+            for light in &mut prop.lights {
+                light.enabled = false;
+            }
+        }
+    }
+    let pendant_dark_lighting = LevelLighting::bake(&pendant_off);
+    let pendant_dark = pendant_dark_lighting.sample(table_x, table_y, table_z);
     assert!(
         exit.g > exit_dark.g + 0.02,
         "the sign's light adds green to the room: {exit:?} vs {exit_dark:?}"
@@ -3451,22 +3492,29 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     // every upward ray.
     let sign_front = lighting.sample(52.0, 1.7, 13.0);
     let sign_behind = lighting.sample(53.2, 1.7, 13.0);
+    let sign_front_dark = dark_lighting.sample(52.0, 1.7, 13.0);
+    let sign_behind_dark = dark_lighting.sample(53.2, 1.7, 13.0);
+    // Compare the sign's own contribution: unrelated warm Home fill can
+    // legitimately make the room behind it brighter than the corridor.
     assert!(
-        sign_front.g > sign_behind.g + 0.02,
-        "the sign lights the side its face looks into: {sign_front:?} vs {sign_behind:?}"
+        sign_front.g - sign_front_dark.g > sign_behind.g - sign_behind_dark.g + 0.02,
+        "the sign's own light favours its face: {sign_front:?} - {sign_front_dark:?} vs {sign_behind:?} - {sign_behind_dark:?}"
     );
-    let lamp_below = lighting.sample(56.0, 3.0, 7.6);
-    let lamp_above = lighting.sample(56.0, 4.1, 7.6);
+    // Preserve the authored scene's below/above contrast check, including its
+    // surrounding domestic fill. The source-only check below is separate.
+    let lamp_below = scene_lighting.sample(56.0, 3.0, 7.6);
+    let lamp_above = scene_lighting.sample(56.0, 4.1, 7.6);
     assert!(
         lamp_below.r > lamp_above.r + 0.02,
         "the lamp hangs below its orb: {lamp_below:?} vs {lamp_above:?}"
     );
     // Above the orb the light is the lamp's own, unblocked by its housing: the
     // same point loses it entirely when the authored light is disabled.
-    let lamp_above_dark = dark_lighting.sample(56.0, 4.1, 7.6);
+    let lamp_above_source = lighting.sample(56.0, 4.1, 7.6);
+    let lamp_above_dark = pendant_dark_lighting.sample(56.0, 4.1, 7.6);
     assert!(
-        lamp_above.r > lamp_above_dark.r + 0.02,
-        "the orb must not block its own light upward: {lamp_above:?} vs {lamp_above_dark:?}"
+        lamp_above_source.r > lamp_above_dark.r + 0.02,
+        "the orb must not block its own light upward: {lamp_above_source:?} vs {lamp_above_dark:?}"
     );
 
     // The contribution survives the player quality tiers: every profile bakes
@@ -3474,7 +3522,13 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     // (and its finer prop-occlusion grid) still shows both pools.
     let soft = LevelLighting::bake_with(&level, crate::quality::QualityLevel::High.bake_config());
     let soft_exit = soft.sample(52.0, 1.0, 13.0);
-    let soft_pendant = soft.sample(56.0, -0.14, 7.6);
+    let soft_pendant = soft.sample(table_x, table_y, table_z);
+    let soft_pendant_off =
+        LevelLighting::bake_with(&pendant_off, crate::quality::QualityLevel::High.bake_config());
+    assert!(
+        soft_pendant.r > soft_pendant_off.sample(table_x, table_y, table_z).r + 0.02,
+        "High retains the pendant's own pool: {soft_pendant:?}"
+    );
     assert!(
         soft_exit.g > soft_exit.r && soft_exit.g > soft_exit.b,
         "High still bakes the sign green: {soft_exit:?}"
