@@ -5754,6 +5754,13 @@ PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
   the clear-aisle rule; the hall grows a row (and its fixture grid) as content
   grows; animated displays are placed in a reserved lane so a route can never be
   blocked by an exhibit.
+* **Baked within budget.** The continuous hall uses flat ownership cells at
+  most 16 × 18 m so its floor and ceiling charts pack into the existing eight
+  page High budget. Shared cell borders are open, with narrow checker intent
+  strips; the exterior shell remains enclosed apart from its authored exit.
+  The basin fits within one cell. Thin snow attachments and icicles mount on
+  the display wall, and all three string spans hang from the ceiling with their
+  own amber sources. These mounts preserve each model's native size.
 * **A real cache.** Model inspection (rest bounds, clip metadata and the sampled
   animation envelope) is cached under `cache/zoo_inspection.json`, keyed per
   model by path, file size and mtime plus the tool's cache version. A changed
@@ -6454,6 +6461,25 @@ with `--require-current`, then capture native High/Medium/Low views and the
 Winter traversal scripts. The static snow validation report records geometry,
 collision, native views and draw cost; do not treat a software preview as a
 substitute for the compiled native load.
+
+### Winter string-light modules
+
+`winter:string_lights_short`, `winter:string_lights_medium` and
+`winter:string_lights_long` are ordinary non-solid emissive GLB props. Their
+attachment-centre spans are 2.8, 4.0 and 6.6 m, containing 3, 5 and 7 bulbs.
+Use `tools/props/string_lights.py` for the exact shared local attachment and
+bulb coordinates; place the base at `attachment_world_y - attachment_height`,
+then subtract the local floor to obtain prop `y`. Repeat modules at supports,
+keeping their native scale to preserve bulb size. Yaw rotates both the wire
+and its prop-owned lights through the existing placement transform.
+
+Author the module's `lights` array from the shared helper: explicit `point`
+sources outside the glass, amber `[1,.60,.20]`, smooth finite range. Winter
+uses .32 intensity/4.5 m range overhead and .10/3 m at rails. `occludes:false`
+avoids coarse cable boxes in the vertex fallback; prepared transport still
+sees the actual opaque triangles. All sources bake into the normal package
+variants and illuminate architectural and static-model receivers. There are
+no runtime light updates or extra lightmap layers.
 
 ## Known Implementation Caveats
 

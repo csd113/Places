@@ -4720,6 +4720,772 @@
       "z": -30.5,
       "y": -0.008,
       "rotation_degrees": 25
+    },
+    {
+      "id": "home_1_string",
+      "model": "winter:string_lights_short",
+      "x": 12.5,
+      "z": -23.35,
+      "y": 2.39,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "home_2_string",
+      "model": "winter:string_lights_short",
+      "x": -12.5,
+      "z": 10.65,
+      "y": 2.39,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "lodge_porch_string",
+      "model": "winter:string_lights_long",
+      "x": -11.5,
+      "z": -7.78,
+      "y": 2.03,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "lodge_rail_string_0",
+      "model": "winter:string_lights_short",
+      "x": -13.575,
+      "z": -7.55,
+      "y": 1.17,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "lodge_rail_string_1",
+      "model": "winter:string_lights_short",
+      "x": -8.475,
+      "z": -7.55,
+      "y": 1.17,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.7,
+            0.0175,
+            0
+          ],
+          "intensity": 0.1,
+          "range": 3.0,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "string_post_0_-1",
+      "model": "outdoor:house_02_porch_post",
+      "x": -3.3,
+      "z": -3.6,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "string_post_0_1",
+      "model": "outdoor:house_02_porch_post",
+      "x": 3.3,
+      "z": -3.6,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "square_string_0",
+      "model": "winter:string_lights_long",
+      "x": 0,
+      "z": -3.6,
+      "y": 2.4,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "string_post_1_-1",
+      "model": "outdoor:house_02_porch_post",
+      "x": -3.3,
+      "z": 3.8,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "string_post_1_1",
+      "model": "outdoor:house_02_porch_post",
+      "x": 3.3,
+      "z": 3.8,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "square_string_1",
+      "model": "winter:string_lights_long",
+      "x": 0,
+      "z": 3.8,
+      "y": 2.4,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.825,
+            0.005,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.65,
+            0.08,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            2.475,
+            0.205,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "string_post_2_-1",
+      "model": "outdoor:house_02_porch_post",
+      "x": -2.0,
+      "z": -8.0,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "string_post_2_1",
+      "model": "outdoor:house_02_porch_post",
+      "x": 2.0,
+      "z": -8.0,
+      "scale": 1.35,
+      "solid": true,
+      "size": [
+        0.14,
+        2.3,
+        0.14
+      ]
+    },
+    {
+      "id": "path_string",
+      "model": "winter:string_lights_medium",
+      "x": 0,
+      "z": -8.0,
+      "y": 2.52,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -1.333333,
+            0.104444,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.666667,
+            0.011111,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            -0.02,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            0.666667,
+            0.011111,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        },
+        {
+          "shape": "point",
+          "offset": [
+            1.333333,
+            0.104444,
+            0
+          ],
+          "intensity": 0.32,
+          "range": 4.5,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ],
+          "falloff": "smooth"
+        }
+      ]
     }
   ],
   "ceiling_lights": [
@@ -5493,6 +6259,74 @@
         -11.7,
         2.38,
         10.58
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_string_bracket_-1",
+      "min": [
+        11.045,
+        2.725,
+        -23.57
+      ],
+      "max": [
+        11.155,
+        2.795,
+        -23.32
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_1_string_bracket_1",
+      "min": [
+        13.845,
+        2.725,
+        -23.57
+      ],
+      "max": [
+        13.955,
+        2.795,
+        -23.32
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_string_bracket_-1",
+      "min": [
+        -13.955,
+        2.725,
+        10.43
+      ],
+      "max": [
+        -13.845,
+        2.795,
+        10.68
+      ],
+      "material": "home:handrail_wood_01",
+      "faces": "outward",
+      "solid": false,
+      "occludes": false
+    },
+    {
+      "id": "home_2_string_bracket_1",
+      "min": [
+        -11.155,
+        2.725,
+        10.43
+      ],
+      "max": [
+        -11.045,
+        2.795,
+        10.68
       ],
       "material": "home:handrail_wood_01",
       "faces": "outward",

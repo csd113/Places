@@ -10,6 +10,10 @@ import json
 import math
 from pathlib import Path
 import random
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'props'))
+from string_lights import SPANS, attachment_height, lights
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'assets/levels/winter.json'
@@ -373,6 +377,38 @@ def build_level() -> dict:
         ('drift_wall', 21.7, 12, 90), ('drift_fence', 3.5, -30.5, 25),
     )):
         prop('winter:'+model, x, z, f'landscape_drift_{j}', y=-.008, yaw=yaw)
+
+    # A few warm destinations, leaving the forest/pond and most facades cold.
+    # Source offsets and cable anchors are shared with the GLB authoring tool.
+    def string(variant, x, z, identity, anchor_y, intensity=.32, radius=4.5):
+        mounted('string_lights_'+variant, x, z, identity,
+                anchor_y-attachment_height(variant), occludes=False,
+                lights=lights(variant, intensity, radius))
+
+    # Small timber brackets project from the fascia past the snowy door hood.
+    # The glass stays clear of the snow/hood and its hanging icicle roots.
+    for i in (1, 2):
+        x, z, floor, _ = HOMES[i]
+        for side in (-1, 1):
+            anchor = x+4.5+side*1.4
+            box(f'home_{i}_string_bracket_{side}', [anchor-.055, floor+2.725, z+6+.43],
+                [anchor+.055, floor+2.795, z+6+.68], 'home:handrail_wood_01', solid=False)
+        string('short', x+4.5, z+6+.65, f'home_{i}_string', floor+2.76)
+    # Lodge spans hang between the existing awning posts and below the two
+    # front rails. Keep the gap above the ramp open and the icicle line clear.
+    string('long', -11.5, -7.78, 'lodge_porch_string', 3.25)
+    for i, x in enumerate((-13.575, -8.475)):
+        string('short', x, -7.55, f'lodge_rail_string_{i}', 1.54, .10, 3.0)
+
+    # Ordinary narrow timber posts support the square and one path crossing.
+    # Their bases sit outside the packed walking lines and seating footprints.
+    for i, (variant, x, z) in enumerate((('long', 0, -3.6), ('long', 0, 3.8),
+                                         ('medium', 0, -8.0))):
+        span = SPANS[variant][0]
+        for side in (-1, 1):
+            prop('outdoor:house_02_porch_post', x+side*span/2, z,
+                 f'string_post_{i}_{side}', scale=1.35, solid=True, size=[.14, 2.3, .14])
+        string(variant, x, z, f'square_string_{i}' if i < 2 else 'path_string', 3.02)
     return level
 
 

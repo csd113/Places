@@ -1,0 +1,361 @@
+{
+  "summary": {
+    "animated_models": 10,
+    "clips": 29,
+    "embedded_pngs": 167,
+    "errors": 0,
+    "maps": 36,
+    "materials": 56,
+    "models": 165,
+    "standalone_pngs": 174
+  },
+  "models": [
+    {
+      "animations": [],
+      "authored_normal_vertices": 0,
+      "bounds": [
+        [
+          -3.325000047683716,
+          0.0,
+          -0.03897114470601082
+        ],
+        [
+          3.325000047683716,
+          0.6449999809265137,
+          0.03897114470601082
+        ]
+      ],
+      "bytes": 59880,
+      "catalog_size": [
+        6.6499999999999995,
+        0.645,
+        0.09
+      ],
+      "category": "Lighting",
+      "clip_metadata": null,
+      "code_references": [],
+      "coincident_quads": [],
+      "dimensions": [
+        6.650000095367432,
+        0.6449999809265137,
+        0.07794228941202164
+      ],
+      "duplicate_faces": 0,
+      "errors": [],
+      "file": "assets/environment/winter/props/models/string_lights_long.glb",
+      "format": "GLB 2.0",
+      "geometry_sha256": "d36ac5fee0246ed570de11f3eb9d9de09a0d09315269eaba24570928f4d7d1d2",
+      "id": "winter:string_lights_long",
+      "images": [
+        {
+          "alpha_range": [
+            255,
+            255
+          ],
+          "bytes": 10929,
+          "decoded_bytes": 65536,
+          "equivalent_pixel_sources": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "height": 128,
+          "index": 0,
+          "name": "winter_string_lights_long_diffuse",
+          "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+          "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+          "source_pngs": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "used": true,
+          "width": 128
+        }
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ],
+      "materials": [
+        {
+          "doubleSided": true,
+          "name": "dark_cable",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        },
+        {
+          "doubleSided": true,
+          "emissiveFactor": [
+            1.0,
+            0.56,
+            0.16
+          ],
+          "name": "warm_bulb",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        }
+      ],
+      "review": [],
+      "sha256": "571664bb51dea614d4c128d63a29d509948a28110e78fc2251eefa09ddb32546",
+      "size_matches_catalog": true,
+      "skins": [],
+      "topology": {
+        "boundary_edges": 0,
+        "components": 24,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 760
+      },
+      "transforms": [],
+      "triangles": 760,
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0,
+      "vertices": 1752,
+      "zero_uv_area_faces": 0
+    },
+    {
+      "animations": [],
+      "authored_normal_vertices": 0,
+      "bounds": [
+        [
+          -2.0250000953674316,
+          0.0,
+          -0.03897114470601082
+        ],
+        [
+          2.0250000953674316,
+          0.5249999761581421,
+          0.03897114470601082
+        ]
+      ],
+      "bytes": 47124,
+      "catalog_size": [
+        4.05,
+        0.525,
+        0.09
+      ],
+      "category": "Lighting",
+      "clip_metadata": null,
+      "code_references": [],
+      "coincident_quads": [],
+      "dimensions": [
+        4.050000190734863,
+        0.5249999761581421,
+        0.07794228941202164
+      ],
+      "duplicate_faces": 0,
+      "errors": [],
+      "file": "assets/environment/winter/props/models/string_lights_medium.glb",
+      "format": "GLB 2.0",
+      "geometry_sha256": "eaaad591f67085f7c36ef897a8c46f6e90aaa0465ebbfadcb91076d6d7284b6a",
+      "id": "winter:string_lights_medium",
+      "images": [
+        {
+          "alpha_range": [
+            255,
+            255
+          ],
+          "bytes": 10929,
+          "decoded_bytes": 65536,
+          "equivalent_pixel_sources": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "height": 128,
+          "index": 0,
+          "name": "winter_string_lights_medium_diffuse",
+          "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+          "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+          "source_pngs": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "used": true,
+          "width": 128
+        }
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ],
+      "materials": [
+        {
+          "doubleSided": true,
+          "name": "dark_cable",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        },
+        {
+          "doubleSided": true,
+          "emissiveFactor": [
+            1.0,
+            0.56,
+            0.16
+          ],
+          "name": "warm_bulb",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        }
+      ],
+      "review": [],
+      "sha256": "46b47e1a0553b2a23144e978b56bbe6e0f4072c83b1500179daac829584b30d8",
+      "size_matches_catalog": true,
+      "skins": [],
+      "topology": {
+        "boundary_edges": 0,
+        "components": 18,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 552
+      },
+      "transforms": [],
+      "triangles": 552,
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0,
+      "vertices": 1272,
+      "zero_uv_area_faces": 0
+    },
+    {
+      "animations": [],
+      "authored_normal_vertices": 0,
+      "bounds": [
+        [
+          -1.4249999523162842,
+          0.0,
+          -0.03897114470601082
+        ],
+        [
+          1.4249999523162842,
+          0.39500001072883606,
+          0.03897114470601082
+        ]
+      ],
+      "bytes": 34344,
+      "catalog_size": [
+        2.8499999999999996,
+        0.3950000000000001,
+        0.09
+      ],
+      "category": "Lighting",
+      "clip_metadata": null,
+      "code_references": [
+        "src/static_prop_lighting_tests.rs"
+      ],
+      "coincident_quads": [],
+      "dimensions": [
+        2.8499999046325684,
+        0.39500001072883606,
+        0.07794228941202164
+      ],
+      "duplicate_faces": 0,
+      "errors": [],
+      "file": "assets/environment/winter/props/models/string_lights_short.glb",
+      "format": "GLB 2.0",
+      "geometry_sha256": "26d0417113972a60bc9bd6524511252d909261d080f8e91363ce18eb52fde0ba",
+      "id": "winter:string_lights_short",
+      "images": [
+        {
+          "alpha_range": [
+            255,
+            255
+          ],
+          "bytes": 10929,
+          "decoded_bytes": 65536,
+          "equivalent_pixel_sources": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "height": 128,
+          "index": 0,
+          "name": "winter_string_lights_short_diffuse",
+          "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+          "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+          "source_pngs": [
+            "assets/environment/home/props/models/ball_light.png",
+            "assets/environment/winter/props/models/string_lights.png"
+          ],
+          "used": true,
+          "width": 128
+        }
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ],
+      "materials": [
+        {
+          "doubleSided": true,
+          "name": "dark_cable",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        },
+        {
+          "doubleSided": true,
+          "emissiveFactor": [
+            1.0,
+            0.56,
+            0.16
+          ],
+          "name": "warm_bulb",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          }
+        }
+      ],
+      "review": [],
+      "sha256": "0c38eaeb93328f19d8a05e9ea1874f1d5669c838cc33e5d9870c0272f7f3da18",
+      "size_matches_catalog": true,
+      "skins": [],
+      "topology": {
+        "boundary_edges": 0,
+        "components": 12,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 344
+      },
+      "transforms": [],
+      "triangles": 344,
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0,
+      "vertices": 792,
+      "zero_uv_area_faces": 0
+    }
+  ]
+}

@@ -48,6 +48,8 @@ OUTPUT_PATH = ASSETS_DIR / "levels" / "model_zoo.json"
 CACHE_DIR = APP_ROOT / "cache"
 CACHE_PATH = CACHE_DIR / "zoo_inspection.json"
 ENTITIES_DIR = Path(__file__).resolve().parent.parent / "entities"
+sys.path.insert(0, str(APP_ROOT / "tools" / "props"))
+from string_lights import lights as string_sources
 
 # Bump when the inspection's meaning changes (bounds method, envelope sampling,
 # clip metadata), so no stale cache can hide an updated model.
@@ -69,10 +71,29 @@ WALL_MOUNTS = {
     "core:tv": 1.30,
     "home:wall_switch": 1.20,
     "home:cabinet_wall": 1.45,
+    # Thin snow attachments and hanging icicles belong on the display wall;
+    # allocating a full floor bay to each wastes the showroom's atlas budget.
+    "winter:snow_door_overhang": 2.3,
+    "winter:snow_awning": 2.3,
+    "winter:snow_stair_edge": 0.3,
+    "winter:snow_ledge": 1.4,
+    "winter:snow_roof_edge": 2.5,
+    "winter:snow_porch_edge": 0.5,
+    "winter:snow_roof_slope": 2.5,
+    "winter:snow_rail_top": 1.1,
+    "winter:snow_post_cap": 1.1,
+    "winter:icicle_short": 2.3,
+    "winter:icicle_medium": 2.3,
+    "winter:icicle_long": 2.3,
+    "winter:icicle_cluster_mixed": 2.3,
+    "winter:icicle_cluster_sparse": 2.3,
 }
 CEILING_MOUNTS = {
     "home:ball_light",
     "core:exit_sign",
+    "winter:string_lights_short",
+    "winter:string_lights_medium",
+    "winter:string_lights_long",
 }
 TABLE_TOP = {
     "home:knife",
@@ -635,6 +656,31 @@ def light_grid(plan: Dict) -> List[Dict]:
     return lights
 
 
+def hall_rooms(plan: Dict) -> List[Dict]:
+    """Keep floor and ceiling charts compact within the shared atlas budget.
+
+    These cells describe one continuous, flat hall. No interior walls are
+    added. The basin stays within the last west cell, avoiding region skirts.
+    """
+    columns = max(1, math.ceil(plan["width"] / 16.0))
+    rows = max(1, math.ceil(plan["depth"] / 18.0))
+    xs = [round(plan["width"] * index / columns, 3) for index in range(columns + 1)]
+    zs = [round(plan["depth"] * index / rows, 3) for index in range(rows + 1)]
+    return [
+        {
+            "x": x0,
+            "z": z0,
+            "width": round(x1 - x0, 3),
+            "depth": round(z1 - z0, 3),
+            "height": plan["height"],
+            "material": "core:pool_tile_deck_01",
+            "ceiling_material": "core:pool_ceiling_01",
+        }
+        for z0, z1 in zip(zs, zs[1:])
+        for x0, x1 in zip(xs, xs[1:])
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Layout
 # ---------------------------------------------------------------------------
@@ -850,6 +896,9 @@ def place_ceiling_items(layout: Layout, displays: Sequence[Dict]) -> Dict[str, D
         fields: Dict = {"y": round(plan["height"] - height, 3)}
         if entry["id"] in PROP_LIGHTS:
             fields["lights"] = [PROP_LIGHTS[entry["id"]]]
+        elif entry["id"].startswith("winter:string_lights_"):
+            fields["lights"] = string_sources(entry["id"].removeprefix("winter:string_lights_"))
+            fields["occludes"] = False
         placement = layout.add_prop(entry, "ceiling", x, z, **fields)
         placed[f"{entry['id']}:ceiling"] = placement
     return placed
@@ -1232,8 +1281,37 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
             ],
         },
     ]
-    # The exit passage opens onto the void; annotate it for the checker.
-    intent = [
+    rooms = hall_rooms(plan)
+    # Only the internal ownership boundaries are open: the outer shell stays
+    # enclosed. Keep checker annotations on those specific shared borders.
+    intent = []
+    for x in sorted({room["x"] for room in rooms} - {0.0}):
+        intent.append({
+            "check": "missing-wall", "x": x - 0.3, "z": 0.0,
+            "width": 0.6, "depth": depth,
+            "note": "An open internal chart boundary in the continuous showroom hall.",
+        })
+    for z in sorted({room["z"] for room in rooms} - {0.0}):
+        intent.append({
+            "check": "missing-wall", "x": 0.0, "z": z - 0.3,
+            "width": width, "depth": 0.6,
+            "note": "An open internal chart boundary in the continuous showroom hall.",
+        })
+    # The leak flood fill can leave through the real exit, then travel along
+    # the void beside either adjacent ownership cell. Bound its annotation to
+    # those cells on the exit wall, leaving every other outside edge checked.
+    for room in rooms:
+        if room["x"] + room["width"] != width:
+            continue
+        if room["z"] > depth * 0.5 + 4.0 or room["z"] + room["depth"] < depth * 0.5 - 4.0:
+            continue
+        intent.append({
+            "check": "room-leak", "x": width - 1.0, "z": room["z"] - 2.5,
+            "width": 4.0, "depth": room["depth"] + 5.0,
+            "note": "This chart cell reaches the showroom's authored exit passage into the void.",
+        })
+    # Preserve the original annotation at the doorway itself.
+    intent += [
         {
             "check": "room-leak",
             "x": width - 1.0,
@@ -1261,17 +1339,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
             "floor": "core:pool_tile_deck_01",
             "ceiling": "core:pool_ceiling_01",
         },
-        "rooms": [
-            {
-                "x": 0.0,
-                "z": 0.0,
-                "width": round(width, 3),
-                "depth": round(depth, 3),
-                "height": height,
-                "material": "core:pool_tile_deck_01",
-                "ceiling_material": "core:pool_ceiling_01",
-            }
-        ],
+        "rooms": rooms,
         "walls": walls,
         "floor_regions": layout.floor_regions,
         "water": layout.water,
@@ -1351,7 +1419,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"[zoo] workers: {workers} ({note})")
         print(f"[zoo] catalogue placeables: {len(entries)} {classes}")
         print(
-            f"[zoo] hall {level['rooms'][0]['width']} x {level['rooms'][0]['depth']} x "
+            f"[zoo] hall {max(r['x'] + r['width'] for r in level['rooms'])} x "
+            f"{max(r['z'] + r['depth'] for r in level['rooms'])} x "
             f"{level['rooms'][0]['height']} m, {len(level['props'])} placements, "
             f"{len(level['ceiling_lights'])} fixtures, {len(level['routes'])} route(s)"
         )

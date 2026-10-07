@@ -86,8 +86,33 @@ under-rail space, the forest spine and pond approaches remain usable.
 
 ### Remaining environment passes
 
-Weather, aurora and string lights remain separate passes. Existing stars and
+Weather and aurora remain separate passes. Existing stars and
 warm lamps remain unchanged; frozen water is described below.
+
+### String-light kit
+
+`winter:string_lights_short`, `string_lights_medium`, `string_lights_long`
+provide 2.8/4.0/6.6 m between attachment centres, .15/.28/.40 m sag and
+3/5/7 amber bulbs. Bounds are `[2.85,.395,.09]`, `[4.05,.525,.09]`,
+`[6.65,.645,.09]`; native bulb diameter is 9 cm and height 14 cm. The two
+clips are at local X = ±span/2, Y = sag+.22. Base Y=0 is the lowest bulb
+underside. Keep native scale; repeat spans on real supports instead of
+stretching bulbs. `tools/props/string_lights.py` shares these anchors and
+source offsets between the mesh builder and map author.
+
+The opaque 128² sibling `string_lights.png` reuses the committed ball-light
+atlas unchanged. Cable/socket materials remain dark; the glass material emits
+amber at strength 1.0. Each bulb also owns one static point 2 cm below its
+glass so it can light the environment without self-shadowing. Overhead lights
+use .32 intensity, 4.5 m range; rails use .10, 3 m. No transparent glow cards
+or new shaders are used. The standard compiler bakes all sources, and existing
+emission bloom supplies a small optional halo.
+
+Winter uses eight spans (38 new sources): two cottage fascias, one sheltered
+lodge span, two porch rails, two square spans and one path crossing.
+Six narrow existing timber posts support the square/path. The forest spine,
+pond perimeter and rear building faces remain cold. All cable spans are
+non-solid; supports stand outside the packed route.
 
 ### Validation
 

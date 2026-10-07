@@ -1,0 +1,10 @@
+{
+  "charts": 130935,
+  "pages": 5,
+  "receiver_texels": 1810132,
+  "one_sample_axes": 150388,
+  "world_axis_ratio_over_100": 629,
+  "error_count": 0,
+  "errors": [],
+  "interpretation": "One-sample axes and elongated charts are budget/pathology diagnostics, not automatic errors"
+}

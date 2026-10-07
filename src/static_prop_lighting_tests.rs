@@ -180,6 +180,80 @@ fn mean(values: &[f32]) -> f32 {
 }
 
 #[test]
+fn winter_string_bulbs_bake_warm_prop_illumination_and_respect_opaque_walls() {
+    let winter = LevelDef::from_json(include_str!("../assets/levels/winter.json"))
+        .expect("the authored Winter source parses");
+    let mut string = winter
+        .props
+        .iter()
+        .find(|prop| prop.model == "winter:string_lights_short")
+        .expect("Winter uses the short string")
+        .clone();
+    string.x = 1.5;
+    string.z = 3.0;
+    string.y = 2.1;
+    let mut open = scene(STUMP, "", 0.0);
+    open.ceiling_lights.clear();
+    open.props.push(string);
+    let mut off = open.clone();
+    for prop in &mut off.props {
+        for light in &mut prop.lights {
+            light.enabled = false;
+        }
+    }
+    let mut blocked = open.clone();
+    blocked.walls = scene(
+        STUMP,
+        r#"{"x":2.9,"z":0,"width":0.25,"depth":6,"height":3}"#,
+        0.0,
+    )
+    .walls;
+    for quality in [QualityLevel::Medium, QualityLevel::High] {
+        let lit = build(&open, quality, LightmapMode::On);
+        let dark = build(&off, quality, LightmapMode::On);
+        let shadow = build(&blocked, quality, LightmapMode::On);
+        let top = mean(&samples(&lit, "showcase_stump_seat.glb", Vec3::Y));
+        let unlit = mean(&samples(&dark, "showcase_stump_seat.glb", Vec3::Y));
+        let hidden = mean(&samples(&shadow, "showcase_stump_seat.glb", Vec3::Y));
+        assert!(
+            top > unlit + 0.01,
+            "real bulbs must light nearby props: {top} vs {unlit}"
+        );
+        assert!(
+            hidden < top * 0.5,
+            "wall must block bulb light: {hidden} vs {top}"
+        );
+        let atlas = lit.lightmaps.as_ref().unwrap();
+        let batch = receiver_batch(&lit, "showcase_stump_seat.glb");
+        let triangle = batch
+            .indices
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .find(|indices| {
+                indices
+                    .map_indices(&batch.vertices)
+                    .iter()
+                    .all(|vertex| vertex.normal[1] > 0.65)
+            })
+            .expect("the stump has a top face");
+        let rgb = sample(atlas, triangle.map_indices(&batch.vertices));
+        assert!(
+            rgb[0] > rgb[2] * 1.3,
+            "received illumination is amber: {rgb:?}"
+        );
+        let bulb_batch = receiver_batch(&dark, "string_lights_short.glb");
+        assert!(
+            bulb_batch
+                .submeshes
+                .iter()
+                .any(|part| part.emission.is_emissive()),
+            "disabled physical lights retain their visible emission"
+        );
+    }
+}
+
+#[test]
 fn static_stumps_and_pond_rocks_receive_shadows_from_architecture() {
     for (model, suffix) in [
         (STUMP, "showcase_stump_seat.glb"),

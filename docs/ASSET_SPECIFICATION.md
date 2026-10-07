@@ -827,6 +827,23 @@ this PNG on a shallow non-solid backing. `ground_surface: "ice"` controls
 traction independently of the PNG's opaque alpha and the material's visual sheen.
 Validate with the standard texture budget/seam checks and native pond views.
 
+### Winter string lights
+
+The three `winter:string_lights_{short,medium,long}` props share the committed
+128² opaque `environment/winter/props/models/string_lights.png`, copied
+losslessly from the existing home ball-light source. Its unchanged three-cell
+layout is glass, cable, clip (`Texture.auto`), with normalized fitted UVs and
+no tiling. All GLBs embed equivalent pixels. Glass uses a separate amber
+emissive material (strength 1.0); cable and sockets have zero emission.
+No billboard halo, alpha blend or generated raster is needed.
+
+Attachment centres span 2.8/4.0/6.6 m along local X, with .15/.28/.40 m sag.
+Their origin is the lowest bulb underside, centered X/Z; +Z is front. The
+9 cm diameter bulbs remain the same size across all three meshes. The map
+builder shares the bulb/attachment coordinates with the mesh authoring tool
+and authors one existing point source 2 cm below each bulb, outside its opaque
+glass. Model emission alone does not illuminate the environment.
+
 ### 8.8 Model geometry conventions (for context)
 
 * 1 model unit = 1 metre; +Y up; +Z is the model's front at

@@ -1,0 +1,40 @@
+{
+  "world_committed": {
+    "bloom": true,
+    "characters": 19,
+    "current_level_id": "model_zoo",
+    "dynamic_objects": 1,
+    "interactables": 177,
+    "lighting": "high",
+    "lightmaps": "full",
+    "player_position": [
+      24.600000381469727,
+      1.600000023841858,
+      130.6999969482422
+    ],
+    "quality": "high",
+    "reflections": "full",
+    "renderer_level_id": "model_zoo",
+    "renderer_lighting": "high",
+    "renderer_lightmaps": "full",
+    "renderer_quality": "high",
+    "routes": 10,
+    "triggers": 0,
+    "use_low_quality_lighting": false,
+    "walls": 863,
+    "window_focused": true
+  },
+  "package_sha256": "0fe2329f21d1663b3a4b07c46c4c7706c4c24ccf45d1095f90f9f7bc19b7659c",
+  "view": {
+    "spawn": [
+      24.6,
+      130.7,
+      180
+    ],
+    "camera": [
+      180,
+      40
+    ]
+  },
+  "exit": 0
+}

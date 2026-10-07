@@ -170,6 +170,31 @@
     "camera": [-69, 19]
   },
   {
+    "name": "string-square",
+    "spawn": [0, 7, 0],
+    "camera": [0, 12]
+  },
+  {
+    "name": "string-cottage",
+    "spawn": [12.5, -20.2, 0],
+    "camera": [0, 12]
+  },
+  {
+    "name": "string-porch",
+    "spawn": [-11.5, -5.2, 0],
+    "camera": [0, 16]
+  },
+  {
+    "name": "string-rail",
+    "spawn": [-13.5, -6.5, 0],
+    "camera": [0, -8]
+  },
+  {
+    "name": "string-path",
+    "spawn": [0, -4.8, 0],
+    "camera": [0, 16]
+  },
+  {
     "name": "ice-close",
     "spawn": [
       9,

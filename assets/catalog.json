@@ -4417,6 +4417,57 @@
       "color": "#f4f8ff",
       "category": "Winter",
       "solid": false
+    },
+    {
+      "id": "winter:string_lights_short",
+      "display_name": "Winter String Lights Short",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/string_lights_short.glb",
+      "size": [
+        2.8499999999999996,
+        0.3950000000000001,
+        0.09
+      ],
+      "color": "#ffc878",
+      "category": "Lighting",
+      "solid": false
+    },
+    {
+      "id": "winter:string_lights_medium",
+      "display_name": "Winter String Lights Medium",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/string_lights_medium.glb",
+      "size": [
+        4.05,
+        0.525,
+        0.09
+      ],
+      "color": "#ffc878",
+      "category": "Lighting",
+      "solid": false
+    },
+    {
+      "id": "winter:string_lights_long",
+      "display_name": "Winter String Lights Long",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/string_lights_long.glb",
+      "size": [
+        6.6499999999999995,
+        0.645,
+        0.09
+      ],
+      "color": "#ffc878",
+      "category": "Lighting",
+      "solid": false
     }
   ]
 }

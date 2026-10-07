@@ -55,6 +55,13 @@ def inspections_for(catalog: dict) -> dict:
     }
 
 
+def hall_extents(level: dict) -> tuple[float, float]:
+    return (
+        max(room["x"] + room["width"] for room in level["rooms"]),
+        max(room["z"] + room["depth"] for room in level["rooms"]),
+    )
+
+
 class ZooGeneratorFixtureTests(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = zoo.load_catalog()
@@ -103,17 +110,17 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         for identity in base_ids:
             self.assertIn(identity, grown_ids)
         # The room grew or stayed the same; it never shrank.
-        base_room = base_level["rooms"][0]
-        grown_room = grown_level["rooms"][0]
-        self.assertGreaterEqual(grown_room["width"], base_room["width"])
-        self.assertGreaterEqual(grown_room["depth"], base_room["depth"])
+        base_width, base_depth = hall_extents(base_level)
+        grown_width, grown_depth = hall_extents(grown_level)
+        self.assertGreaterEqual(grown_width, base_width)
+        self.assertGreaterEqual(grown_depth, base_depth)
         self.assertGreaterEqual(
             len(grown_level["ceiling_lights"]), len(base_level["ceiling_lights"])
         )
 
     def test_layout_expands_when_the_floor_rows_fill(self):
         base_level = self.level_for(self.catalog)
-        base_depth = base_level["rooms"][0]["depth"]
+        base_depth = hall_extents(base_level)[1]
 
         grown = copy.deepcopy(self.catalog)
         template = next(
@@ -128,7 +135,7 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
 
         grown_level = self.level_for(grown)
         self.assertGreater(
-            grown_level["rooms"][0]["depth"],
+            hall_extents(grown_level)[1],
             base_depth,
             "forty new floor displays must expand the hall, not overlap",
         )
@@ -137,6 +144,31 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
             len(grown_level["ceiling_lights"]),
             len(base_level["ceiling_lights"]),
         )
+
+    def test_chart_cells_cover_one_flat_hall_without_splitting_the_basin(self):
+        level = self.level_for(self.catalog)
+        width, depth = hall_extents(level)
+        rooms = level["rooms"]
+        self.assertAlmostEqual(sum(r["width"] * r["depth"] for r in rooms), width * depth)
+        for index, room in enumerate(rooms):
+            self.assertLessEqual(room["width"], 16)
+            self.assertLessEqual(room["depth"], 18)
+            self.assertEqual(room.get("floor_y", 0), 0)
+            self.assertEqual(room["material"], "core:pool_tile_deck_01")
+            for other in rooms[index + 1:]:
+                overlap_x = min(room["x"] + room["width"], other["x"] + other["width"]) - max(room["x"], other["x"])
+                overlap_z = min(room["z"] + room["depth"], other["z"] + other["depth"]) - max(room["z"], other["z"])
+                self.assertTrue(overlap_x < 0.0001 or overlap_z < 0.0001)
+        for region in level["floor_regions"]:
+            self.assertTrue(any(
+                room["x"] <= region["x"] and room["z"] <= region["z"]
+                and room["x"] + room["width"] >= region["x"] + region["width"]
+                and room["z"] + room["depth"] >= region["z"] + region["depth"]
+                for room in rooms
+            ), "the basin must not introduce artificial rims at chart borders")
+        strings = [p for p in level["props"] if p["model"].startswith("winter:string_lights_")]
+        self.assertEqual(len(strings), 3)
+        self.assertEqual(sum(len(p["lights"]) for p in strings), 15)
 
     def test_tall_exhibits_clear_the_ceiling_at_native_scale(self):
         level = self.level_for(self.catalog)
