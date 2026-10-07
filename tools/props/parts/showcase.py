@@ -191,6 +191,8 @@ def build_road_gate(p):
 
 
 def build_campfire(p):
+    # Preserve this authored GLB's original material JSON byte ordering.
+    p.mesh.texture_first_materials = True
     tex = _atlas(p)
     uv = tex.uv('body', inset=2)
     stone = p.material('campfire_stone')

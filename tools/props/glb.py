@@ -485,10 +485,11 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
     materials_json: List[Dict[str, Any]] = []
     uses_emissive_strength = False
     for index, entry in enumerate(materials):
-        pbr: Dict[str, Any] = {
-            "metallicFactor": 0.0,
-            "roughnessFactor": 1.0,
-        }
+        # Older authored exports can retain their texture-first JSON ordering
+        # without changing the current layout used by the Winter kit.
+        texture_first = getattr(mesh, "texture_first_materials", False) and entry.get("use_texture", True)
+        pbr: Dict[str, Any] = {"baseColorTexture": {"index": 0}} if texture_first else {}
+        pbr.update({"metallicFactor": 0.0, "roughnessFactor": 1.0})
         if entry.get("use_texture", True):
             pbr["baseColorTexture"] = {"index": 0}
         if entry.get("color") is not None:

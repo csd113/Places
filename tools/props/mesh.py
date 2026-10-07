@@ -58,6 +58,9 @@ class Mesh:
     """Triangle soup with positions, vertex colours, UVs and 16-bit indices."""
 
     def __init__(self) -> None:
+        # Opt in only for existing exports whose saved PBR property order predates
+        # the untextured-material writer. This changes serialization, not shading.
+        self.texture_first_materials = False
         self.positions: list[tuple[float, float, float]] = []
         self.colors: list[tuple[int, int, int]] = []
         self.uvs: list[tuple[float, float]] = []

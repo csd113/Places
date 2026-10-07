@@ -2455,7 +2455,11 @@
       "y": 1.104,
       "z": 10.0,
       "rotation_degrees": 90.0,
-      "size": [1.9, 1.192, 0.06],
+      "size": [
+        1.9,
+        1.192,
+        0.06
+      ],
       "solid": false,
       "components": [
         {
