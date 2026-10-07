@@ -65,7 +65,8 @@ python3 tools/levels/build_outdoor_fixture.py --check
 python3 tools/levels/build_outdoor_route.py --check
 python3 tools/levels/build_lantern_hollow.py --check
 python3 tools/levels/build_lighting_quality.py --check
-python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow
+python3 tools/levels/build_winter.py --check
+python3 -m unittest tests.test_showcase_assets tests.test_ghost_surface tests.test_lantern_hollow tests.test_weather tests.test_winter tests.test_winter_assets tests.test_string_lights
 cargo test --lib showcase_audit
 cargo test --lib static_prop_lighting_tests
 cargo test --lib bundled_static_models_fit_medium_and_full_atlas_plans -- --ignored
@@ -73,17 +74,20 @@ cargo run --quiet --release --bin places-compile -- build assets/levels/places_d
 cargo run --quiet --release --bin places-compile -- build assets/levels/model_zoo.json --workers 12
 cargo run --quiet --release --bin places-compile -- build assets/levels/lantern_hollow.json --workers 12
 cargo run --quiet --release --bin places-compile -- build assets/levels/movement_test.json --workers 12
+cargo run --quiet --release --bin places-compile -- build assets/levels/winter.json --workers 12
 cargo run --quiet --release --bin places-compile -- verify assets/levels/places_demo.json --package assets/levels/places_demo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/model_zoo.json --package assets/levels/model_zoo.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/lantern_hollow.json --package assets/levels/lantern_hollow.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- verify assets/levels/movement_test.json --package assets/levels/movement_test.placesmap --require-current
+cargo run --quiet --release --bin places-compile -- verify assets/levels/winter.json --package assets/levels/winter.placesmap --require-current
 cargo run --quiet --release --bin places-compile -- validate assets/levels/lantern_hollow.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/places_demo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/model_zoo.placesmap
 cargo run --quiet --release --bin places-compile -- validate assets/levels/movement_test.placesmap
+cargo run --quiet --release --bin places-compile -- validate assets/levels/winter.placesmap
 python3 -m unittest tests.test_package
 python3 -m unittest tests.test_packaging tests.test_glb_accessors tests.test_asset_audit
-python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness tests.test_compiler_bench
 python3 -m unittest tests.test_geometry_repair
 cargo test --lib render::wgpu::renderer::low_lighting_tests -- --ignored --test-threads=1
 python3 -m unittest tests.test_compiled_build
@@ -91,10 +95,10 @@ python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
 
-The four `places-compile build` steps are the incremental gate: a current
+The five `places-compile build` steps are the incremental gate: a current
 package is reused (`rebuilt: false`, bytes untouched), and a source or
 fingerprint change publishes an atomically replaced package before `validate`
-checks it. Snapshot the four `.placesmap` hashes when a change could affect the
+checks it. Snapshot the five `.placesmap` hashes when a change could affect the
 compiler, so a silent rewrite is visible in the evidence. The
 `verify … --require-current` steps are the staleness gate: a package whose
 source, asset identities or variants changed after its build fails the run
@@ -169,9 +173,13 @@ possible file writes under `target/`.
 
 Expected, understood output noise:
 
-- Texture checking currently emits 39 soft-budget warnings for artwork above
-  256 pixels; these are accepted shipped source sizes within the 1024-pixel
-  hard limit, documented in [ASSET_SPECIFICATION.md](ASSET_SPECIFICATION.md).
+- Texture checking currently emits 60 advisories: 51 source-size notices, one
+  intentional non-power-of-two diagnostic sheet and eight catalog textures
+  without procedural painter-manifest entries. These
+  are accepted committed artwork (including the file-backed snow, ice and
+  aurora), within the class-specific hard limits documented in
+  [ASSET_SPECIFICATION.md](ASSET_SPECIFICATION.md). Ordinary PNGs retain the
+  1024-pixel limit; sky panoramas use their separate 2048×1024 contract.
 - The package suite intentionally exercises an invalid catalog and prints
   `FAIL core:couch: duplicate logical asset id` / `1 error(s), 0 warning(s)`
   after its successful unittest summary. This is the negative fixture in

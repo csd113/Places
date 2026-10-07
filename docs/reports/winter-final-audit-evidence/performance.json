@@ -1,0 +1,887 @@
+{
+  "renderer": "Apple M2 Pro / Metal / 1920x1080 drawable",
+  "measured_frames": 14400,
+  "warmup_frames": 2880,
+  "ready_presentations": 17280,
+  "ready_not_presented": 0,
+  "instrumentation": "Completed whole-frame GPU work; weather trace disabled in timing runs. ABBA on/off/off/on order; 120 warmup + 600 measured frames per run, three qualities, both modes.",
+  "limitations": "Host pacing jitter and unrelated host activity remain; measurements do not isolate weather GPU cost or prove an art-speedup.",
+  "groups": [
+    {
+      "mode": "calm",
+      "quality": "high",
+      "repeats": [
+        {
+          "label": "high-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.0271916666666665,
+            "median": 1.704,
+            "p95": 3.272,
+            "max": 14.363
+          },
+          "render_ms": {
+            "mean": 1.9394566666666666,
+            "median": 1.6155,
+            "p95": 3.192,
+            "max": 14.257
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.582563333333333,
+            "median": 4.327999999999999,
+            "p95": 12.207,
+            "max": 19.549
+          },
+          "render_ms": {
+            "mean": 5.346556666666666,
+            "median": 4.0835,
+            "p95": 12.006,
+            "max": 19.443
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.2579116666666668,
+            "median": 1.763,
+            "p95": 4.078,
+            "max": 18.899
+          },
+          "render_ms": {
+            "mean": 2.1602633333333334,
+            "median": 1.6684999999999999,
+            "p95": 3.828,
+            "max": 18.831
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.454298333333333,
+            "median": 4.3545,
+            "p95": 12.621,
+            "max": 22.097
+          },
+          "render_ms": {
+            "mean": 5.263921666666667,
+            "median": 4.177,
+            "p95": 12.475,
+            "max": 21.89
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.740745,
+          "median": 3.0395000000000003,
+          "p95": 9.055,
+          "maximum": 22.097
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.6016891666666666,
+          "median": 2.916,
+          "p95": 8.947,
+          "maximum": 21.89
+        },
+        "minimum_draw_calls": 293
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.9202375,
+          "median": 3.273,
+          "p95": 9.353,
+          "maximum": 19.549
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.75341,
+          "median": 3.0835,
+          "p95": 9.162,
+          "maximum": 19.443
+        },
+        "minimum_draw_calls": 292
+      },
+      "mean_frame_delta_ms": -0.17949249999999983,
+      "mean_render_delta_ms": -0.15172083333333353
+    },
+    {
+      "mode": "calm",
+      "quality": "medium",
+      "repeats": [
+        {
+          "label": "medium-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.471455,
+            "median": 2.2165,
+            "p95": 4.335,
+            "max": 16.523
+          },
+          "render_ms": {
+            "mean": 2.35128,
+            "median": 2.0965,
+            "p95": 4.152,
+            "max": 16.379
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 1.7657633333333334,
+            "median": 1.4645000000000001,
+            "p95": 2.567,
+            "max": 28.939
+          },
+          "render_ms": {
+            "mean": 1.6688166666666666,
+            "median": 1.3675000000000002,
+            "p95": 2.482,
+            "max": 28.789
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.168141666666667,
+            "median": 3.5709999999999997,
+            "p95": 12.967,
+            "max": 18.081
+          },
+          "render_ms": {
+            "mean": 4.936673333333333,
+            "median": 3.324,
+            "p95": 12.719,
+            "max": 17.716
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.335428333333333,
+            "median": 2.053,
+            "p95": 4.159,
+            "max": 17.397
+          },
+          "render_ms": {
+            "mean": 2.2373583333333333,
+            "median": 1.944,
+            "p95": 4.089,
+            "max": 17.319
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 2.4034416666666667,
+          "median": 2.1494999999999997,
+          "p95": 4.288,
+          "maximum": 17.397
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 2.2943191666666665,
+          "median": 2.03,
+          "p95": 4.148,
+          "maximum": 17.319
+        },
+        "minimum_draw_calls": 293
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.4669525,
+          "median": 2.965,
+          "p95": 8.71,
+          "maximum": 28.939
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.302745,
+          "median": 2.7755,
+          "p95": 8.563,
+          "maximum": 28.789
+        },
+        "minimum_draw_calls": 292
+      },
+      "mean_frame_delta_ms": -1.0635108333333334,
+      "mean_render_delta_ms": -1.0084258333333334
+    },
+    {
+      "mode": "calm",
+      "quality": "low",
+      "repeats": [
+        {
+          "label": "low-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 4.486875,
+            "median": 3.0825,
+            "p95": 13.335,
+            "max": 21.576
+          },
+          "render_ms": {
+            "mean": 4.337095,
+            "median": 2.9285,
+            "p95": 13.112,
+            "max": 21.466
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 4.251185,
+            "median": 2.944,
+            "p95": 12.592,
+            "max": 20.094
+          },
+          "render_ms": {
+            "mean": 4.091275,
+            "median": 2.797,
+            "p95": 12.416,
+            "max": 19.819
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.6689866666666666,
+            "median": 2.088,
+            "p95": 8.147,
+            "max": 16.879
+          },
+          "render_ms": {
+            "mean": 2.57542,
+            "median": 1.9795,
+            "p95": 8.027,
+            "max": 16.821
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 4.79506,
+            "median": 3.1029999999999998,
+            "p95": 13.356,
+            "max": 21.37
+          },
+          "render_ms": {
+            "mean": 4.63843,
+            "median": 2.9455,
+            "p95": 13.118,
+            "max": 21.198
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 4.6409675,
+          "median": 3.09,
+          "p95": 13.351,
+          "maximum": 21.576
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 4.4877625,
+          "median": 2.9364999999999997,
+          "p95": 13.118,
+          "maximum": 21.466
+        },
+        "minimum_draw_calls": 294
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.4600858333333333,
+          "median": 2.659,
+          "p95": 8.604,
+          "maximum": 20.094
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.3333475,
+          "median": 2.5425,
+          "p95": 8.436,
+          "maximum": 19.819
+        },
+        "minimum_draw_calls": 293
+      },
+      "mean_frame_delta_ms": 1.180881666666667,
+      "mean_render_delta_ms": 1.1544149999999997
+    },
+    {
+      "mode": "severe",
+      "quality": "high",
+      "repeats": [
+        {
+          "label": "high-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 3.1884483333333336,
+            "median": 2.3725,
+            "p95": 7.946,
+            "max": 16.72
+          },
+          "render_ms": {
+            "mean": 3.08604,
+            "median": 2.2865,
+            "p95": 7.62,
+            "max": 16.569
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.7988933333333335,
+            "median": 1.866,
+            "p95": 8.202,
+            "max": 16.398
+          },
+          "render_ms": {
+            "mean": 2.6855583333333333,
+            "median": 1.7515,
+            "p95": 8.037,
+            "max": 16.219
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.84055,
+            "median": 4.471,
+            "p95": 11.637,
+            "max": 19.766
+          },
+          "render_ms": {
+            "mean": 5.602428333333333,
+            "median": 4.218,
+            "p95": 11.45,
+            "max": 19.572
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "high-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 3.0235216666666664,
+            "median": 2.373,
+            "p95": 6.176,
+            "max": 18.936
+          },
+          "render_ms": {
+            "mean": 2.932255,
+            "median": 2.292,
+            "p95": 6.016,
+            "max": 18.773
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.105985,
+          "median": 2.373,
+          "p95": 7.044,
+          "maximum": 18.936
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.0091475,
+          "median": 2.29,
+          "p95": 6.854,
+          "maximum": 18.773
+        },
+        "minimum_draw_calls": 293
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 4.319721666666666,
+          "median": 3.8914999999999997,
+          "p95": 10.777,
+          "maximum": 19.766
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 4.143993333333333,
+          "median": 3.725,
+          "p95": 10.533,
+          "maximum": 19.572
+        },
+        "minimum_draw_calls": 292
+      },
+      "mean_frame_delta_ms": -1.2137366666666662,
+      "mean_render_delta_ms": -1.1348458333333333
+    },
+    {
+      "mode": "severe",
+      "quality": "medium",
+      "repeats": [
+        {
+          "label": "medium-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.77597,
+            "median": 4.7835,
+            "p95": 12.994,
+            "max": 17.486
+          },
+          "render_ms": {
+            "mean": 5.58254,
+            "median": 4.5775,
+            "p95": 12.817,
+            "max": 17.355
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 1.826,
+            "median": 1.4649999999999999,
+            "p95": 3.111,
+            "max": 21.92
+          },
+          "render_ms": {
+            "mean": 1.7290033333333332,
+            "median": 1.3755,
+            "p95": 3.039,
+            "max": 21.81
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.890675,
+            "median": 1.5165,
+            "p95": 8.28,
+            "max": 19.037
+          },
+          "render_ms": {
+            "mean": 2.7826583333333335,
+            "median": 1.4085,
+            "p95": 8.141,
+            "max": 18.944
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "medium-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 5.923055,
+            "median": 4.8805,
+            "p95": 13.298,
+            "max": 18.534
+          },
+          "render_ms": {
+            "mean": 5.70809,
+            "median": 4.671,
+            "p95": 13.076,
+            "max": 18.381
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 5.8495125,
+          "median": 4.834,
+          "p95": 13.271,
+          "maximum": 18.534
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 5.645315,
+          "median": 4.612,
+          "p95": 13.035,
+          "maximum": 18.381
+        },
+        "minimum_draw_calls": 293
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 2.3583375,
+          "median": 1.483,
+          "p95": 8.085,
+          "maximum": 21.92
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 2.2558308333333335,
+          "median": 1.386,
+          "p95": 7.906,
+          "maximum": 21.81
+        },
+        "minimum_draw_calls": 292
+      },
+      "mean_frame_delta_ms": 3.491175,
+      "mean_render_delta_ms": 3.3894841666666666
+    },
+    {
+      "mode": "severe",
+      "quality": "low",
+      "repeats": [
+        {
+          "label": "low-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.2874433333333335,
+            "median": 1.8185,
+            "p95": 4.093,
+            "max": 16.819
+          },
+          "render_ms": {
+            "mean": 2.225826666666667,
+            "median": 1.755,
+            "p95": 4.011,
+            "max": 16.767
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.257235,
+            "median": 1.8530000000000002,
+            "p95": 4.594,
+            "max": 19.167
+          },
+          "render_ms": {
+            "mean": 2.169035,
+            "median": 1.759,
+            "p95": 4.538,
+            "max": 19.109
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-off-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 4.51857,
+            "median": 3.0075,
+            "p95": 13.602,
+            "max": 19.71
+          },
+          "render_ms": {
+            "mean": 4.362986666666667,
+            "median": 2.848,
+            "p95": 13.455,
+            "max": 19.44
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        },
+        {
+          "label": "low-square-on-perf",
+          "exit": 0,
+          "capture": null,
+          "frame_rows": 600,
+          "frame_ms": {
+            "mean": 2.160651666666667,
+            "median": 1.754,
+            "p95": 3.613,
+            "max": 14.221
+          },
+          "render_ms": {
+            "mean": 2.095728333333333,
+            "median": 1.691,
+            "p95": 3.498,
+            "max": 14.134
+          },
+          "snow_rows": 0,
+          "snow_sync_us": null,
+          "snow_submitted": null,
+          "snow_sheltered": null,
+          "coverage": null,
+          "capacity_growth": 0,
+          "ready_presentations": 720,
+          "ready_not_presented": 0
+        }
+      ],
+      "on": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 2.2240475,
+          "median": 1.78,
+          "p95": 3.735,
+          "maximum": 16.819
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 2.1607775,
+          "median": 1.717,
+          "p95": 3.648,
+          "maximum": 16.767
+        },
+        "minimum_draw_calls": 294
+      },
+      "off": {
+        "frame_ms": {
+          "samples": 1200,
+          "mean": 3.3879025,
+          "median": 2.6605,
+          "p95": 8.659,
+          "maximum": 19.71
+        },
+        "render_ms": {
+          "samples": 1200,
+          "mean": 3.2660108333333335,
+          "median": 2.556,
+          "p95": 8.507,
+          "maximum": 19.44
+        },
+        "minimum_draw_calls": 293
+      },
+      "mean_frame_delta_ms": -1.1638549999999999,
+      "mean_render_delta_ms": -1.1052333333333335
+    }
+  ]
+}

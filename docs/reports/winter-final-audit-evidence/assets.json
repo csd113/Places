@@ -1,0 +1,1048 @@
+{
+  "inventory_summary": {
+    "animated_models": 10,
+    "clips": 29,
+    "embedded_pngs": 168,
+    "errors": 0,
+    "maps": 37,
+    "materials": 57,
+    "models": 166,
+    "standalone_pngs": 182
+  },
+  "winter_models": [
+    {
+      "id": "winter:boulder_snow",
+      "file": "assets/environment/winter/props/models/boulder_snow.glb",
+      "sha256": "63f4cf99527d25f97fabdefa434d8d5c89efa9b8aec3057441f152a75f447f65",
+      "triangles": 116,
+      "vertices": 276,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 2,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 116
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:drift_fence",
+      "file": "assets/environment/winter/props/models/drift_fence.glb",
+      "sha256": "be1b59adf75a4c994ebf861f9f79a90cd52869e0fb49b96d7ace478d793720dc",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:drift_large",
+      "file": "assets/environment/winter/props/models/drift_large.glb",
+      "sha256": "c2910d8f1bb22f13b61cae349645aa0fab6be513e08303b64930d9af8881e391",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:drift_medium",
+      "file": "assets/environment/winter/props/models/drift_medium.glb",
+      "sha256": "afcab9c0acd9e9e380d9f358e167e41ecf9ef0c175221b5dd62f27c1f63b3cd6",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:drift_small",
+      "file": "assets/environment/winter/props/models/drift_small.glb",
+      "sha256": "f5ea57e5c9f5c4d90d663e05e5fdd6410362133f4ed9f902c26b5b46b680b9e9",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:drift_wall",
+      "file": "assets/environment/winter/props/models/drift_wall.glb",
+      "sha256": "23a766d7dd0420f6252f92ba5f5969c6e84af455bc7e0e3010458a9850745ce1",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:fence_post_snow",
+      "file": "assets/environment/winter/props/models/fence_post_snow.glb",
+      "sha256": "efe1011fc186cb9d3efc4a063791d9674c5c10c411c84af58c257d8dfe57b101",
+      "triangles": 94,
+      "vertices": 202,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 3,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 94
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:icicle_cluster_mixed",
+      "file": "assets/environment/winter/props/models/icicle_cluster_mixed.glb",
+      "sha256": "d3d1979823d7bd66c3a2a7a965926d9bdb0a8ea11af3953f769fd57e8ae52432",
+      "triangles": 56,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 7,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 56
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [
+        0
+      ],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:icicle_cluster_sparse",
+      "file": "assets/environment/winter/props/models/icicle_cluster_sparse.glb",
+      "sha256": "5e1336f902bb716a9dfb5eede8ae0c154e17795725c7c29175afa73667df29ba",
+      "triangles": 24,
+      "vertices": 72,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 3,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 24
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [
+        0
+      ],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:icicle_long",
+      "file": "assets/environment/winter/props/models/icicle_long.glb",
+      "sha256": "403c680875115312a2a8bedf7b6d90f0cfee081d31cca8274037509c2eaada98",
+      "triangles": 8,
+      "vertices": 24,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 8
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [
+        0
+      ],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:icicle_medium",
+      "file": "assets/environment/winter/props/models/icicle_medium.glb",
+      "sha256": "bac8f97a91bac203184f260f352a9617691563bec2c7b9bed94fc933533b8307",
+      "triangles": 8,
+      "vertices": 24,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 8
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [
+        0
+      ],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:icicle_short",
+      "file": "assets/environment/winter/props/models/icicle_short.glb",
+      "sha256": "e328c055df0f652659ef3c1c8c2d431213b4954f6259d491f0dc3691574ee5e8",
+      "triangles": 8,
+      "vertices": 24,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 8
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [
+        0
+      ],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:mound_irregular",
+      "file": "assets/environment/winter/props/models/mound_irregular.glb",
+      "sha256": "353e73ad35fe11351f7ce79dcbfe93d51da2c7a5889f01fa813cd735c206c5b7",
+      "triangles": 72,
+      "vertices": 168,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 72
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:railing_snow_corner",
+      "file": "assets/environment/winter/props/models/railing_snow_corner.glb",
+      "sha256": "9347143f9b767949b999cb312c73b5cba5e82ac12cbfbe6e0db7a9d34bfe4a4e",
+      "triangles": 244,
+      "vertices": 524,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 6,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 244
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:railing_snow_end",
+      "file": "assets/environment/winter/props/models/railing_snow_end.glb",
+      "sha256": "af15f949b2bd64e0554796b43bbfbeae439c816d43c2cd8c32f7d5a95648e0be",
+      "triangles": 318,
+      "vertices": 722,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 9,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 4,
+        "triangles": 318
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:railing_snow_straight",
+      "file": "assets/environment/winter/props/models/railing_snow_straight.glb",
+      "sha256": "e4acc865a07ae0b6bb52f2d9824a3d9179ad0e9345f67cc90156b0f5dcc45028",
+      "triangles": 336,
+      "vertices": 716,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 13,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 336
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:rock_face_snow",
+      "file": "assets/environment/winter/props/models/rock_face_snow.glb",
+      "sha256": "bddfc9b03f79442fa247b68c463f2f12b5b33baf2dd22ca34b3b17da53b50607",
+      "triangles": 76,
+      "vertices": 180,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 2,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 76
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_awning",
+      "file": "assets/environment/winter/props/models/snow_awning.glb",
+      "sha256": "a95c2414de9b2e869241b04155e31f550898e3a239d7e5a77f81a2c04726110a",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_door_overhang",
+      "file": "assets/environment/winter/props/models/snow_door_overhang.glb",
+      "sha256": "1214f4bd66ca068be22245243e668f04314568dfbe1682c0d471d7938ec48afa",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_ledge",
+      "file": "assets/environment/winter/props/models/snow_ledge.glb",
+      "sha256": "12050cb1df01352263235520296acc3190875ff991e63d55a67081c292545259",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_porch_edge",
+      "file": "assets/environment/winter/props/models/snow_porch_edge.glb",
+      "sha256": "b4ae6438158b925889c1c36d644476caf139ae1f3c840e2a4c6250f518d8ad62",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_post_cap",
+      "file": "assets/environment/winter/props/models/snow_post_cap.glb",
+      "sha256": "eda52d74184d38c80df245426aa6b22ab81a163cd3840e0161ee268bf3616a7e",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_rail_top",
+      "file": "assets/environment/winter/props/models/snow_rail_top.glb",
+      "sha256": "91c106f79d6175cd7163c163517662b57242ac4fe7f988b775b6f84e9787f45e",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_roof_edge",
+      "file": "assets/environment/winter/props/models/snow_roof_edge.glb",
+      "sha256": "be2be793abc52990f4e8fede9cd57875edfa4b029d9052cd99f3744c27cc358b",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_roof_slope",
+      "file": "assets/environment/winter/props/models/snow_roof_slope.glb",
+      "sha256": "2c4c06895e1d4cb56eda5571fc0d8767df0755269e6a23f98b354cdbfe880195",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:snow_stair_edge",
+      "file": "assets/environment/winter/props/models/snow_stair_edge.glb",
+      "sha256": "be938624537f3e1319936a46a49da0db50af09e5f5ab806e873fffe6b661a8af",
+      "triangles": 66,
+      "vertices": 138,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 1,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 66
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:string_lights_long",
+      "file": "assets/environment/winter/props/models/string_lights_long.glb",
+      "sha256": "571664bb51dea614d4c128d63a29d509948a28110e78fc2251eefa09ddb32546",
+      "triangles": 760,
+      "vertices": 1752,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 24,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 760
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:string_lights_medium",
+      "file": "assets/environment/winter/props/models/string_lights_medium.glb",
+      "sha256": "46b47e1a0553b2a23144e978b56bbe6e0f4072c83b1500179daac829584b30d8",
+      "triangles": 552,
+      "vertices": 1272,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 18,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 552
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:string_lights_short",
+      "file": "assets/environment/winter/props/models/string_lights_short.glb",
+      "sha256": "0c38eaeb93328f19d8a05e9ea1874f1d5669c838cc33e5d9870c0272f7f3da18",
+      "triangles": 344,
+      "vertices": 792,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 0,
+        "components": 12,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 0,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 344
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:tree_snow_01",
+      "file": "assets/environment/winter/props/models/tree_snow_01.glb",
+      "sha256": "0f4ef186efe16b74b6f9c61ca8d2cc6d9b056e2a4e22ec09a2710f4e7e3fffdd",
+      "triangles": 1238,
+      "vertices": 2648,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 228,
+        "components": 125,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 48,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 1238
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    },
+    {
+      "id": "winter:tree_snow_02",
+      "file": "assets/environment/winter/props/models/tree_snow_02.glb",
+      "sha256": "020f36bfa8b6426c38927abe6be0cb0bdc494c5d3badc055708ec93d7c087a82",
+      "triangles": 1442,
+      "vertices": 3124,
+      "size_matches_catalog": true,
+      "duplicate_faces": 0,
+      "topology": {
+        "boundary_edges": 228,
+        "components": 142,
+        "contradictory_components": 0,
+        "degenerate": 0,
+        "flipped_triangles": 48,
+        "inconsistent_edges": 0,
+        "nonmanifold_edges": 0,
+        "triangles": 1442
+      },
+      "errors": [],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ],
+      "unused_accessors": [],
+      "unused_materials": [],
+      "unused_primitive_vertices": 0
+    }
+  ],
+  "winter_model_count": 31,
+  "winter_unique_triangles": 6650,
+  "textures": [
+    {
+      "file": "assets/core/textures/effects/snowflake_01.png",
+      "sha256": "3e9d4e48f54b5bb5f0bd8fbcb4d0a60ff70882e2ceb18ebc72197f8ef7eee587",
+      "width": 256,
+      "height": 256,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ]
+    },
+    {
+      "file": "assets/environment/winter/Winter Expansion Environment Concept Sheet.png",
+      "sha256": "484921678b5f56203f3790f7cb5f9b4a83ae8a8b0dfb48c76aadc43c11a45550",
+      "width": 1448,
+      "height": 1086,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": []
+    },
+    {
+      "file": "assets/environment/winter/props/models/snow_surface.png",
+      "sha256": "6110c6781b272234259a8946df47eba90b4caa25272a17e2e21d7d373c7322c8",
+      "width": 256,
+      "height": 256,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/winter.json"
+      ]
+    },
+    {
+      "file": "assets/environment/winter/props/models/string_lights.png",
+      "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+      "width": 128,
+      "height": 128,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": [
+        "assets/levels/model_zoo.json",
+        "assets/levels/places_demo.json",
+        "assets/levels/winter.json",
+        "tests/fixtures/levels/asset_polish_showcase.json",
+        "tests/fixtures/levels/capacity_dense.json",
+        "tests/fixtures/levels/lighting_quality.json",
+        "tests/fixtures/levels/prop_showcase.json"
+      ]
+    },
+    {
+      "file": "assets/environment/winter/textures/floors/ice_01.png",
+      "sha256": "20fb6e8f05d9d6ea1734dff397bf900f15d082b35def3c22cb65dd865e440cb3",
+      "width": 1024,
+      "height": 1024,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ]
+    },
+    {
+      "file": "assets/environment/winter/textures/floors/snow_01.png",
+      "sha256": "11f82e1ee39ce4221c9693066d124cd445808a1c7b57fdd7a766892b3461c469",
+      "width": 1024,
+      "height": 1024,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ]
+    },
+    {
+      "file": "assets/environment/winter/textures/sky/sky_aurora_01.png",
+      "sha256": "09d497bf440e54fc01e5345712fc3a0f8b028ea9265a938983997d996319835d",
+      "width": 2048,
+      "height": 1024,
+      "alpha_range": [
+        255,
+        255
+      ],
+      "maps": [
+        "assets/levels/winter.json"
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "id": "winter:snow_01",
+      "display_name": "Snow terrain",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "winter:tex_snow_01",
+      "tile_metres": 8,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "specular": 0,
+      "shine": 0,
+      "description": "Dedicated matte snow PNG; quiet cool variation, world-aligned seamless tiling."
+    },
+    {
+      "id": "winter:snow_packed_01",
+      "display_name": "Packed snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "winter:tex_snow_01",
+      "tile_metres": 5,
+      "tint": [
+        0.84,
+        0.89,
+        0.95
+      ],
+      "specular": 0,
+      "shine": 0,
+      "description": "Same snow albedo with restrained compaction tint on cleared circulation and treads."
+    },
+    {
+      "id": "winter:ice_01",
+      "display_name": "Frozen pond ice",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "winter:tex_ice_01",
+      "tile_metres": 8,
+      "tint": [
+        0.86,
+        0.93,
+        1
+      ],
+      "specular": 0.38,
+      "shine": 0.38,
+      "description": "Solid slippery blue-gray frozen water: restrained cracks and cloudy facets, translucent body and broad highlights; no mirror reflections.",
+      "alpha_mode": "blend",
+      "opacity": 0.84,
+      "ground_surface": "ice"
+    },
+    {
+      "id": "winter:ice_depth_01",
+      "display_name": "Ice depth backing",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "winter:tex_ice_01",
+      "tile_metres": 8,
+      "tint": [
+        0.34,
+        0.46,
+        0.58
+      ],
+      "specular": 0,
+      "shine": 0,
+      "description": "Opaque dark frozen-water depth beneath the translucent ice floor; visual only, ordinary traction."
+    }
+  ],
+  "duplicate_models": [],
+  "winter_same_geometry": [],
+  "winter_same_png_pixels": [
+    [
+      "assets/environment/home/props/models/ball_light.png",
+      "assets/environment/winter/props/models/string_lights.png"
+    ]
+  ],
+  "duplicate_png_disposition": "string_lights.png intentionally reuses the ball-light atlas at the documented model location; preserve both family inputs",
+  "unused_winter_models": [],
+  "non_runtime_concept": "assets/environment/winter/Winter Expansion Environment Concept Sheet.png retained as intentional authoring reference"
+}

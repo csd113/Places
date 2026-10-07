@@ -851,7 +851,9 @@ artwork is painted at build/load time. The exporter accepts
 
 The two evergreen loads are 1238 and 1442 triangles, explicitly reviewed above
 800 because each retains all 770 original triangles plus closed supported
-snow. Every other winter model is below 500 triangles. Tree dimensions remain
+snow. Every other static snow-kit model is below 500 triangles; the separate
+string-light kit uses 344/552/760 triangles for short/medium/long spans.
+Tree dimensions remain
 3.2 × 6.8 × 3.2 m; the level retains the original narrow trunk collider.
 Snow on rocks and rails increases their visual envelope only. Their collision
 sizes must remain those of the canonical bare structures.

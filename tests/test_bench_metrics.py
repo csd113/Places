@@ -15,6 +15,52 @@ from tools.bench.loading import (
     trace_metrics,
 )
 from tools.bench.lightmap_report import parse_logs
+from tools.bench.capture_snowfall import expected_budgets, validate_run
+
+
+class WinterNativeEvidenceTests(unittest.TestCase):
+    def test_rejects_occlusion_missing_world_frames_and_invalid_particle_evidence(self):
+        events = [dict(event='present', detail='ready')]
+        frames = [dict(total_vertices='100', visible_vertices='60', draw_calls='4',
+                       frame_ms='8', render_ms='7')]
+        snow = [dict(seconds='1', evaluated='700', submitted='100', sheltered='50',
+                     culled='550', capacity_growth='0', quad_screen_coverage='.01', sync_us='80')]
+        self.assertEqual(validate_run(events, frames, snow, {700})['ready_not_presented'], 0)
+        for bad_events, bad_frames, bad_snow in (
+            ([], frames, snow),
+            (events + [dict(event='surface_not_presented', detail='ready')], frames, snow),
+            (events, [], snow),
+            (events, [{**frames[0], 'draw_calls':'0'}], snow),
+            (events, [{**frames[0], 'frame_ms':'nan'}], snow),
+            (events, frames, []),
+            (events, frames, [{**snow[0], 'capacity_growth':'1'}]),
+            (events, frames, [{**snow[0], 'evaluated':'2049'}]),
+            (events, frames, [{**snow[0], 'culled':'549'}]),
+            (events, frames, snow + [{**snow[0], 'seconds':'.5'}]),
+            (events, frames, [{**snow[0], 'quad_screen_coverage':'inf'}]),
+        ):
+            with self.assertRaises(RuntimeError):
+                validate_run(bad_events, bad_frames, bad_snow, {700})
+
+    def test_completed_frame_campaign_and_live_quality_cycle_must_be_complete(self):
+        self.assertEqual(expected_budgets({'kind':'snow'}, ('high', 'medium', 'low')),
+                         {1400, 1050, 700})
+        self.assertEqual(expected_budgets({'count':1400, 'intensity':.7}, ('high',)), {980})
+        events = [dict(event='present', detail='ready')] * 720
+        frames = [dict(total_vertices='100', visible_vertices='60', draw_calls='4',
+                       frame_ms='8', render_ms='7')] * 600
+        self.assertEqual(validate_run(events, frames, [], {1400}, performance=True)
+                         ['ready_presentations'], 720)
+        with self.assertRaises(RuntimeError):
+            validate_run(events[:-1], frames, [], {1400}, performance=True)
+        with self.assertRaises(RuntimeError):
+            validate_run(events, frames[:-1], [], {1400}, performance=True)
+        snow = [dict(seconds=str(i), evaluated=str(n), submitted='0', sheltered='0',
+                     culled=str(n), capacity_growth='0', quad_screen_coverage='0', sync_us='1')
+                for i, n in enumerate((1400, 700, 1050, 1400))]
+        validate_run(events, frames, snow, {1400, 700, 1050}, cycle=True)
+        with self.assertRaises(RuntimeError):
+            validate_run(events, frames, snow[:2], {1400, 700, 1050}, cycle=True)
 
 
 def event(kind, at, request=1, detail=""):

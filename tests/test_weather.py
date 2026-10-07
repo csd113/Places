@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/assets'))
@@ -12,6 +13,28 @@ from tex import decode_png
 
 
 class WeatherTests(unittest.TestCase):
+    def test_non_winter_sources_and_packages_keep_their_climate_and_ground(self):
+        catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
+        for path in (ROOT / 'assets/levels').glob('*.json'):
+            if path.stem == 'winter':
+                continue
+            source = json.loads(path.read_text())
+            with zipfile.ZipFile(path.with_suffix('.placesmap')) as archive:
+                packaged = json.loads(archive.read('semantics.json'))
+            for level in (source, packaged):
+                self.assertIsNone(level.get('weather'), path)
+                sky = level.get('sky')
+                if sky:
+                    self.assertEqual(sky['texture'], 'outdoor:tex_sky_stars_01', path)
+                # Model Zoo intentionally exhibits the reusable winter props;
+                # its walkable ground and climate still use ordinary materials.
+                for key, value in level.items():
+                    if key != 'props':
+                        self.assertNotIn('winter:', json.dumps(value), (path, key))
+                materials = {asset_id for asset_id, _ in validate.level_ids(level)}
+                self.assertFalse(any(catalog.get(m, {}).get('ground_surface') == 'ice'
+                                     for m in materials), path)
+
     def test_weather_is_only_opted_in_by_winter(self):
         for path in (ROOT / 'assets/levels').glob('*.json'):
             level = json.loads(path.read_text())
