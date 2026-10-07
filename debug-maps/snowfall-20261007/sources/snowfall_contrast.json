@@ -1,0 +1,85 @@
+{
+  "format_version": 3,
+  "id": "snowfall_contrast",
+  "name": "Snowfall Contrast Review",
+  "author": "Places",
+  "spawn": {
+    "x": 0,
+    "z": 10,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:ceiling_white_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "weather": {
+    "kind": "snow"
+  },
+  "sky": {
+    "texture": "winter:tex_sky_aurora_01",
+    "brightness": 0.85,
+    "ambient": 0.24
+  },
+  "global_illuminators": [
+    {
+      "id": "white_review_fill",
+      "kind": "directional",
+      "direction": [
+        0.1,
+        -0.85,
+        -0.5
+      ],
+      "color": [
+        1,
+        1,
+        1
+      ],
+      "intensity": 2.4,
+      "cast_shadows": true,
+      "bake": true,
+      "angular_size_degrees": 0.5
+    }
+  ],
+  "rooms": [
+    {
+      "x": -18,
+      "z": -18,
+      "width": 36,
+      "depth": 36,
+      "height": 12,
+      "ceiling": {
+        "kind": "open"
+      },
+      "material": "home:ceiling_white_01"
+    }
+  ],
+  "void_walls": [
+    {
+      "id": "bright_backdrop",
+      "min": [
+        -6,
+        0,
+        -4
+      ],
+      "max": [
+        6,
+        4,
+        -3.8
+      ],
+      "material": "home:wall_paint_offwhite_01",
+      "solid": true,
+      "occludes": true
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": -18,
+      "z": -18,
+      "width": 36,
+      "depth": 36,
+      "note": "Deliberately open weather contrast review courtyard."
+    }
+  ]
+}

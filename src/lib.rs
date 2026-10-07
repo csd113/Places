@@ -55,6 +55,7 @@ mod surface_audit;
 #[cfg(test)]
 mod test_support;
 pub mod ui;
+pub mod weather;
 #[cfg(test)]
 mod zoo_audit;
 

@@ -1434,6 +1434,27 @@
       "description": "Ambient steam: a soft white-grey puff at low opacity, no tint, no emission and no reflection. The default material for `effects[]` steam plumes."
     },
     {
+      "id": "core:tex_snowflake_01",
+      "display_name": "Snow Granule Texture",
+      "asset_class": "core",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/effects/snowflake_01.png",
+      "description": "Full-UV weather flake with white centre, blue-grey rim and transparent margins."
+    },
+    {
+      "id": "core:snowflake_01",
+      "display_name": "Snowfall",
+      "asset_class": "core",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_snowflake_01",
+      "tile_metres": 1.0,
+      "alpha_mode": "blend",
+      "opacity": 1.0,
+      "description": "Reusable snow weather billboard sheet; no emission or reflection."
+    },
+    {
       "id": "core:tex_white_01",
       "display_name": "Untextured White Sheet",
       "asset_class": "core",

@@ -2386,7 +2386,13 @@ impl WgpuRenderer {
         };
         self.fixture_sheets = fixture_sheets;
         self.material_animations = animations;
-        self.animation_seconds = 0.0;
+        // Snow seeds must retain their world phase across live quality changes.
+        // Other scenes preserve their established reset behavior.
+        if self.effects.snow().is_none()
+            || self.level_id.as_deref() != Some(loaded.level.id.as_str())
+        {
+            self.animation_seconds = 0.0;
+        }
         self.dynamic_lighting = Some(build.lighting.clone());
         self.dynamic_field.clone_from(&build.probes);
         // The GPU side of the previous level's dynamic scene dies with it. The
@@ -3058,6 +3064,9 @@ impl WgpuRenderer {
                 &self.queue,
                 &self.effects,
                 [frame.eye.x, frame.eye.y, frame.eye.z],
+                frame.view_projection,
+                &frame.frustum,
+                self.quality,
             );
         }
         let _ensure_post_targets_status = self.ensure_post_targets();

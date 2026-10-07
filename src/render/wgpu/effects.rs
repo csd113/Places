@@ -6,9 +6,8 @@
 //! module owns exactly three GPU things:
 //!
 //! * **one vertex/index buffer pair, sized once to the level budget** — the
-//!   scene's worst case is fixed by the level schema
-//!   ([`MAX_EFFECT_VERTICES_PER_LEVEL`] vertices, [`MAX_EFFECT_INDICES_PER_LEVEL`]
-//!   indices), so a level load allocates once and a frame only writes the
+//!   scene reserves its actual steam plus weather budget once, bounded by
+//!   the two schema caps; a frame only writes the
 //!   *used* vertex range with `Queue::write_buffer`;
 //! * **one uploaded sheet per distinct effect material**, resolved through the
 //!   shared [`TextureCache`] exactly like a prop or fixture sheet (the cache's
@@ -21,7 +20,8 @@
 //!
 //! Nothing here is created per frame: [`WgpuEffects::sync`] rewrites the
 //! vertex buffer's used range and the encode draws the scene's fixed,
-//! material-contiguous index ranges.
+//! material-contiguous index ranges. Snow uses the same pipeline and buffers,
+//! but only uploads/draws flakes surviving its camera and shelter culling.
 
 use std::sync::Arc;
 
@@ -31,7 +31,7 @@ use super::world::{CAMERA_UNIFORM_SIZE, CameraUniform, camera_uniform_changed};
 use crate::quality::QualityLevel;
 use crate::render::common::effects::{
     EffectScene, EffectVertex, INDICES_PER_PARTICLE, MAX_EFFECT_INDICES_PER_LEVEL,
-    MAX_EFFECT_PARTICLES_PER_LEVEL, MAX_EFFECT_VERTICES_PER_LEVEL, VERTS_PER_PARTICLE,
+    MAX_EFFECT_VERTICES_PER_LEVEL, VERTS_PER_PARTICLE,
 };
 
 /// The effect shader source, committed beside this module.
@@ -283,10 +283,9 @@ pub struct EffectDrawTotals {
 
 /// The level's effect billboards on the GPU.
 ///
-/// Buffers are sized to the level schema's worst case once, at upload; the
-/// scene itself is immutable, so the material groups and the index buffer stay
-/// valid for the level's whole lifetime and every frame is one vertex-buffer
-/// write plus the draws.
+/// Buffers reserve the actual authored budget once. The index buffer remains
+/// fixed; material ranges are rebuilt in reserved scratch to reflect enabled
+/// steam and visible snow. Every nonempty frame is one vertex-buffer write.
 pub struct WgpuEffects {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -301,6 +300,7 @@ pub struct WgpuEffects {
     /// Vertices the last sync wrote.
     vertex_count: u32,
     stats: EffectGpuStats,
+    weather_trace: Option<std::fs::File>,
 }
 
 impl WgpuEffects {
@@ -308,8 +308,8 @@ impl WgpuEffects {
     ///
     /// The index pattern is the fixed per-particle quad pattern
     /// (`0 1 2 0 2 3` offset by four per particle); the vertex buffer is filled
-    /// per frame by [`Self::sync`]. Both buffers are sized once to the schema's
-    /// maximum, so no level can overrun them.
+    /// per frame by [`Self::sync`]. Both buffers reserve every authored particle,
+    /// including disabled steam, so no frame can overrun them.
     #[must_use]
     pub fn upload(
         device: &wgpu::Device,
@@ -319,8 +319,11 @@ impl WgpuEffects {
         level: QualityLevel,
     ) -> Self {
         let mut stats = EffectGpuStats {
-            emitters: scene.emitters().len(),
-            particles: scene.particle_count(),
+            emitters: scene
+                .emitters()
+                .len()
+                .saturating_add(usize::from(scene.snow().is_some())),
+            particles: scene.buffer_particles(),
             ..EffectGpuStats::default()
         };
         let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(scene.textures().len());
@@ -343,21 +346,35 @@ impl WgpuEffects {
             textures.push(texture);
         }
 
-        let vertex_bytes = u64::try_from(MAX_EFFECT_VERTICES_PER_LEVEL)
-            .unwrap_or(u64::MAX)
-            .saturating_mul(EFFECT_VERTEX_STRIDE)
-            .max(4);
+        let vertex_bytes = u64::try_from(
+            scene
+                .buffer_particles()
+                .saturating_mul(VERTS_PER_PARTICLE)
+                .min(MAX_EFFECT_VERTICES_PER_LEVEL.saturating_add(
+                    crate::weather::MAX_SNOW_PARTICLES.saturating_mul(VERTS_PER_PARTICLE),
+                )),
+        )
+        .unwrap_or(u64::MAX)
+        .saturating_mul(EFFECT_VERTEX_STRIDE)
+        .max(4);
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-effects-vertices"),
             size: vertex_bytes,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let indices = effect_quad_indices(MAX_EFFECT_PARTICLES_PER_LEVEL);
-        let index_bytes = u64::try_from(MAX_EFFECT_INDICES_PER_LEVEL)
-            .unwrap_or(u64::MAX)
-            .saturating_mul(u64::try_from(std::mem::size_of::<u16>()).unwrap_or(u64::MAX))
-            .max(4);
+        let indices = effect_quad_indices(scene.buffer_particles());
+        let index_bytes = u64::try_from(
+            scene
+                .buffer_particles()
+                .saturating_mul(INDICES_PER_PARTICLE)
+                .min(MAX_EFFECT_INDICES_PER_LEVEL.saturating_add(
+                    crate::weather::MAX_SNOW_PARTICLES.saturating_mul(INDICES_PER_PARTICLE),
+                )),
+        )
+        .unwrap_or(u64::MAX)
+        .saturating_mul(u64::try_from(std::mem::size_of::<u16>()).unwrap_or(u64::MAX))
+        .max(4);
         let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-effects-indices"),
             size: index_bytes,
@@ -368,7 +385,8 @@ impl WgpuEffects {
             queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&indices));
         }
 
-        let mut groups: Vec<EffectsGroupGpu> = Vec::with_capacity(scene.draw_groups().len());
+        let mut groups: Vec<EffectsGroupGpu> =
+            Vec::with_capacity(scene.draw_groups().len().saturating_add(1));
         let mut first_index = 0_u32;
         for group in scene.draw_groups() {
             let index_count = u32::try_from(group.index_count()).unwrap_or(u32::MAX);
@@ -385,12 +403,15 @@ impl WgpuEffects {
         Self {
             vertex_buffer,
             index_buffer,
-            vertices: Vec::with_capacity(MAX_EFFECT_VERTICES_PER_LEVEL),
+            vertices: Vec::with_capacity(
+                scene.buffer_particles().saturating_mul(VERTS_PER_PARTICLE),
+            ),
             groups,
             textures,
             index_count: first_index,
             vertex_count: 0,
             stats,
+            weather_trace: weather_trace(scene.snow().is_some()),
         }
     }
 
@@ -400,14 +421,96 @@ impl WgpuEffects {
     /// The caller runs this before encoding the frame; a still clock and a
     /// still camera still rewrite identical bytes, which is cheaper than the
     /// bookkeeping to prove otherwise for a bounded particle set.
-    pub fn sync(&mut self, queue: &wgpu::Queue, scene: &EffectScene, camera_position: [f32; 3]) {
-        let particles = scene.build_billboards(camera_position, &mut self.vertices);
+    pub fn sync(
+        &mut self,
+        queue: &wgpu::Queue,
+        scene: &EffectScene,
+        camera_position: [f32; 3],
+        projection: glam::Mat4,
+        frustum: &crate::spatial::Frustum,
+        quality: QualityLevel,
+    ) {
+        let started = self
+            .weather_trace
+            .as_ref()
+            .map(|_| std::time::Instant::now());
+        let capacity = self.vertices.capacity();
+        let group_capacity = self.groups.capacity();
+        let steam_particles = scene.build_billboards(camera_position, &mut self.vertices);
+        self.groups.clear();
+        let mut first_index = 0_u32;
+        for group in scene.draw_groups() {
+            let index_count = u32::try_from(group.index_count()).unwrap_or(u32::MAX);
+            self.groups.push(EffectsGroupGpu {
+                texture: group.texture,
+                first_index,
+                index_count,
+                vertex_count: u32::try_from(group.vertex_count()).unwrap_or(u32::MAX),
+            });
+            first_index = first_index.saturating_add(index_count);
+        }
+        let snow =
+            scene
+                .snow()
+                .map_or_else(crate::render::common::snow::SnowStats::default, |weather| {
+                    let stats = weather.append(
+                        scene.clock(),
+                        glam::Vec3::from_array(camera_position),
+                        started.map(|_| projection),
+                        frustum,
+                        quality,
+                        &mut self.vertices,
+                    );
+                    if stats.submitted > 0 {
+                        self.groups.push(EffectsGroupGpu {
+                            texture: weather.texture,
+                            first_index,
+                            index_count: u32::try_from(
+                                stats.submitted.saturating_mul(INDICES_PER_PARTICLE),
+                            )
+                            .unwrap_or(u32::MAX),
+                            vertex_count: u32::try_from(
+                                stats.submitted.saturating_mul(VERTS_PER_PARTICLE),
+                            )
+                            .unwrap_or(u32::MAX),
+                        });
+                    }
+                    stats
+                });
         self.vertex_count = u32::try_from(self.vertices.len()).unwrap_or(u32::MAX);
-        self.index_count = u32::try_from(particles)
-            .unwrap_or(u32::MAX)
-            .saturating_mul(u32::try_from(INDICES_PER_PARTICLE).unwrap_or(u32::MAX));
+        self.index_count = u32::try_from(
+            steam_particles
+                .saturating_add(snow.submitted)
+                .saturating_mul(INDICES_PER_PARTICLE),
+        )
+        .unwrap_or(u32::MAX);
         if !self.vertices.is_empty() {
             queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+        }
+        if let (Some(trace), Some(start)) = (self.weather_trace.as_mut(), started) {
+            use std::io::Write as _;
+            if writeln!(
+                trace,
+                "{:.6},{},{},{},{},{},{},{},{:.6},{},{:.3}",
+                scene.clock(),
+                camera_position[0],
+                camera_position[1],
+                camera_position[2],
+                snow.evaluated,
+                snow.submitted,
+                snow.sheltered,
+                snow.culled,
+                snow.coverage,
+                self.vertices
+                    .capacity()
+                    .saturating_sub(capacity)
+                    .saturating_add(self.groups.capacity().saturating_sub(group_capacity)),
+                start.elapsed().as_secs_f64() * 1_000_000.0_f64
+            )
+            .is_err()
+            {
+                self.weather_trace = None;
+            }
         }
     }
 
@@ -468,6 +571,28 @@ impl WgpuEffects {
     }
 }
 
+/// Optional bounded-run diagnostics. No trace file or timer in ordinary play.
+fn weather_trace(enabled: bool) -> Option<std::fs::File> {
+    use std::io::Write as _;
+    if !enabled || std::env::var("PLACES_BENCH").as_deref() != Ok("1") {
+        return None;
+    }
+    let path = std::env::var_os("PLACES_WEATHER_TRACE")?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .ok()?;
+    let empty = file.metadata().ok()?.len() == 0;
+    // Quality rebuilds open the replacement before dropping the old effect
+    // scene. Write immediately so both handles observe one ordered CSV stream.
+    let mut writer = file;
+    if empty {
+        writeln!(writer, "seconds,x,y,z,evaluated,submitted,sheltered,culled,quad_screen_coverage,capacity_growth,sync_us").ok()?;
+    }
+    Some(writer)
+}
+
 /// The fixed quad index pattern for `particles` billboards.
 ///
 /// Particle `n` owns vertices `4n .. 4n + 3` and indices `0 1 2 0 2 3` offset
@@ -504,7 +629,9 @@ mod tests {
     )]
 
     use super::*;
-    use crate::render::common::effects::MAX_EFFECT_INDICES_PER_LEVEL;
+    use crate::render::common::effects::{
+        MAX_EFFECT_INDICES_PER_LEVEL, MAX_EFFECT_PARTICLES_PER_LEVEL, MAX_EFFECT_VERTICES_PER_LEVEL,
+    };
 
     #[test]
     fn the_vertex_layout_matches_the_shader_locations() {

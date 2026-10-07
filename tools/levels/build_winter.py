@@ -35,6 +35,7 @@ def build_level() -> dict:
                      'ceiling': 'home:ceiling_white_01'},
         # Artwork is a background only; the existing cool fill and moon stay independent.
         'sky': {'texture': 'winter:tex_sky_aurora_01', 'brightness': .85, 'ambient': .24},
+        'weather': {'kind': 'snow'},
         'global_illuminators': [{'id': 'winter_moon', 'kind': 'directional',
             'direction': [-.36, -.8, -.48], 'color': [.58, .72, 1], 'intensity': .18,
             'cast_shadows': True, 'bake': True, 'angular_size_degrees': .5}],

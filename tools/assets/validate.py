@@ -824,6 +824,10 @@ def level_ids(level: dict):
             f"effects[{index}] material",
         )
 
+    weather = level.get("weather")
+    if isinstance(weather, dict):
+        yield str(weather.get("material", "core:snowflake_01")).strip(), "weather material"
+
 
 def validate_doors(level: dict, where: str, errors: list[str]) -> None:
     """Doors: count, finite geometry, positive dimensions and a legal kind.
@@ -868,6 +872,37 @@ def validate_doors(level: dict, where: str, errors: list[str]) -> None:
         obstruction = door.get("obstruction", "stop")
         if obstruction not in ("stop", "reverse"):
             errors.append(f"{where}: door {index} obstruction must be 'stop' or 'reverse'")
+
+
+def validate_weather(level: dict, where: str, errors: list[str]) -> None:
+    """Mirror the engine's bounded opt-in snow configuration."""
+    weather = level.get("weather")
+    if weather is None:
+        return
+    if not isinstance(weather, dict) or weather.get("kind") != "snow":
+        errors.append(f"{where}: weather must be an object with kind 'snow'")
+        return
+    allowed = {"kind", "count", "radius", "height", "wind", "size", "speed", "opacity", "material"}
+    if weather.keys() - allowed:
+        errors.append(f"{where}: unknown weather fields: {sorted(weather.keys() - allowed)}")
+    count = weather.get("count", 1400)
+    if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 2048:
+        errors.append(f"{where}: weather count must be 1..2048")
+    for key, default, low, high in (("radius", 16, 4, 32), ("height", 12, 4, 24), ("opacity", .85, 0, 1)):
+        value = weather.get(key, default)
+        if not is_finite_number(value) or not low <= value <= high:
+            errors.append(f"{where}: weather {key} must be finite and {low}..{high}")
+    for key, default, low, high in (("size", [.025, .075], .005, .15), ("speed", [.45, 1.05], .1, 2)):
+        value = weather.get(key, default)
+        if (not isinstance(value, list) or len(value) != 2 or not all(is_finite_number(v) for v in value)
+                or not low <= value[0] <= value[1] <= high):
+            errors.append(f"{where}: weather {key} must be an ordered range in {low}..{high}")
+    wind = weather.get("wind", [.18, .06])
+    if not isinstance(wind, list) or len(wind) != 2 or not all(is_finite_number(v) and abs(v) <= .5 for v in wind):
+        errors.append(f"{where}: weather wind must contain two finite components in -.5...5")
+    material = weather.get("material", "core:snowflake_01")
+    if not isinstance(material, str) or not _ASSET_ID.fullmatch(material.strip()):
+        errors.append(f"{where}: weather material must be a logical asset id")
 
 
 def validate_effects(level: dict, where: str, errors: list[str]) -> None:
@@ -2647,6 +2682,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_interactions(level, relative, errors)
             validate_doors(level, relative, errors)
             validate_effects(level, relative, errors)
+            validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
             validate_surface_shine(level, relative, errors)

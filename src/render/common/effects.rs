@@ -1,4 +1,4 @@
-//! Ambient effects: the bounded, stateless steam plume model.
+//! Ambient effects: bounded stateless steam and shared snow billboards.
 //!
 //! An effect is presentation-only level content: it never collides, never
 //! occludes baked light and is not part of the lighting bake. The neutral side
@@ -10,7 +10,10 @@
 //! alpha contract. The backend side (`src/render/wgpu/effects.rs`) owns the GPU
 //! buffers and pipeline for the billboards this module produces.
 //!
-//! Particle model
+//! Optional weather retains only deterministic seeds in [`super::snow::SnowScene`],
+//! using this same texture/vertex contract without becoming localized steam.
+//!
+//! Particle model (steam)
 //! --------------
 //! A particle has **no per-frame state**. Its world position, size and alpha at
 //! absolute animation clock `t` are a pure function of `t`, the emitter's
@@ -243,14 +246,15 @@ pub struct EffectUpdate {
 
 /// The level's resolved effect emitters and materials.
 ///
-/// Built once per level; the emitter and texture lists never grow afterwards,
-/// and every frame evaluation is a pure function of the clock.
+/// Built once per level; the emitter, snow seed and texture lists never grow
+/// afterwards. Poses are pure functions of the clock and camera volume.
 #[derive(Debug)]
 pub struct EffectScene {
     emitters: Vec<EffectEmitter>,
     textures: Vec<EffectTexture>,
     groups: Vec<EffectDrawGroup>,
     clock: f32,
+    snow: Option<super::snow::SnowScene>,
 }
 
 impl Default for EffectScene {
@@ -266,6 +270,7 @@ impl Default for EffectScene {
             textures: Vec::new(),
             groups: Vec::new(),
             clock: f32::NAN,
+            snow: None,
         }
     }
 }
@@ -325,6 +330,23 @@ impl EffectScene {
             emitter.seed = index_to_f32(index) * EMITTER_PHASE_STRIDE;
         }
         scene.rebuild_groups();
+        if let Some(weather) = &level.weather {
+            let config = weather.snowfall();
+            let disabled = std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+                && std::env::var("PLACES_BENCH_WEATHER_OFF").as_deref() == Ok("1");
+            if !disabled
+                && config.validate().is_ok()
+                && let Some(material) =
+                    resolve_effect_material(&mut scene.textures, materials, config.material.trim())
+            {
+                scene.snow = Some(super::snow::SnowScene::build(
+                    level,
+                    config,
+                    material.slot,
+                    material.opacity,
+                ));
+            }
+        }
         scene
     }
 
@@ -337,7 +359,7 @@ impl EffectScene {
     /// True when the level authors no drawable effect.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.emitters.is_empty()
+        self.emitters.is_empty() && self.snow.is_none()
     }
 
     /// The resolved emitters, in material-grouped order.
@@ -379,6 +401,29 @@ impl EffectScene {
         &self.groups
     }
 
+    /// All possible steam and snow particles, including disabled emitters.
+    #[must_use]
+    pub fn buffer_particles(&self) -> usize {
+        self.emitters.iter().fold(
+            self.snow.as_ref().map_or(0, super::snow::SnowScene::budget),
+            |total, emitter| total.saturating_add(emitter.count),
+        )
+    }
+
+    #[must_use]
+    pub const fn snow(&self) -> Option<&super::snow::SnowScene> {
+        self.snow.as_ref()
+    }
+
+    #[must_use]
+    pub const fn clock(&self) -> f32 {
+        if self.clock.is_finite() {
+            self.clock
+        } else {
+            0.0
+        }
+    }
+
     /// Total live particles across every enabled emitter.
     #[must_use]
     pub fn particle_count(&self) -> usize {
@@ -404,10 +449,11 @@ impl EffectScene {
     /// exercise "emitters gone, textures kept" independently of the loader.
     #[cfg(test)]
     pub fn clear(&mut self) {
-        if self.emitters.is_empty() {
+        if self.is_empty() {
             return;
         }
         self.emitters.clear();
+        self.snow = None;
         self.groups.clear();
     }
 
@@ -416,6 +462,7 @@ impl EffectScene {
     /// [`DynamicScene::clear_all`](crate::render::common::dynamic::DynamicScene::clear_all).
     pub fn clear_all(&mut self) {
         self.emitters.clear();
+        self.snow = None;
         self.textures.clear();
         self.groups.clear();
     }
@@ -456,10 +503,6 @@ impl EffectScene {
     /// face `camera_position`; the return value is the number of particles
     /// written. `out` is cleared first and never grows past the level budget.
     #[must_use]
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "bounded f32/vec3 billboard arithmetic"
-    )] // bounded f32/vec3 billboard arithmetic
     pub fn build_billboards(
         &self,
         camera_position: [f32; 3],
@@ -475,25 +518,9 @@ impl EffectScene {
             }
             for particle in 0..emitter.count {
                 let pose = particle_pose(emitter, self.clock, particle);
-                let (right, up) = billboard_basis(camera, pose.position);
-                let half = pose.size * 0.5;
-                let centre = Vec3::from_array(pose.position);
                 let tile = positive_or(emitter.tile_metres, 1.0);
                 let span = (pose.size / tile).clamp(0.0, MAX_UV_SPAN);
-                let alpha = pose.alpha.clamp(0.0, 1.0);
-                let corners = [
-                    (centre - right * half - up * half, [0.0, span]),
-                    (centre + right * half - up * half, [span, span]),
-                    (centre + right * half + up * half, [span, 0.0]),
-                    (centre - right * half + up * half, [0.0, 0.0]),
-                ];
-                for (corner, uv) in corners {
-                    out.push(EffectVertex {
-                        position: [corner.x, corner.y, corner.z],
-                        color: [1.0, 1.0, 1.0, alpha],
-                        uv,
-                    });
-                }
+                append_billboard(camera, pose, span, out);
                 written = written.saturating_add(1);
             }
         }
@@ -518,6 +545,34 @@ impl EffectScene {
                 }),
             }
         }
+    }
+}
+
+/// Shared world-space billboard geometry for steam and weather.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Bounded finite billboard geometry"
+)]
+pub(super) fn append_billboard(
+    camera: Vec3,
+    pose: EffectPose,
+    span: f32,
+    out: &mut Vec<EffectVertex>,
+) {
+    let (right, up) = billboard_basis(camera, pose.position);
+    let half = pose.size * 0.5;
+    let centre = Vec3::from_array(pose.position);
+    for (corner, uv) in [
+        (centre - right * half - up * half, [0.0, span]),
+        (centre + right * half - up * half, [span, span]),
+        (centre + right * half + up * half, [span, 0.0]),
+        (centre - right * half + up * half, [0.0, 0.0]),
+    ] {
+        out.push(EffectVertex {
+            position: corner.to_array(),
+            color: [1.0, 1.0, 1.0, pose.alpha.clamp(0.0, 1.0)],
+            uv,
+        });
     }
 }
 
@@ -1224,6 +1279,7 @@ mod tests {
             textures: Vec::new(),
             groups: Vec::new(),
             clock: f32::NAN,
+            snow: None,
         };
         let mut vertices = Vec::new();
         let _billboard_stats =

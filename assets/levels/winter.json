@@ -18,6 +18,9 @@
     "brightness": 0.85,
     "ambient": 0.24
   },
+  "weather": {
+    "kind": "snow"
+  },
   "global_illuminators": [
     {
       "id": "winter_moon",

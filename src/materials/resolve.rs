@@ -367,6 +367,9 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
                 .unwrap_or(crate::level::DEFAULT_STEAM_MATERIAL),
         );
     }
+    if let Some(weather) = &level.weather {
+        push(weather.snowfall().material.trim());
+    }
     push_architecture_materials(level, &mut push);
     ids
 }

@@ -311,6 +311,9 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_element_limits(level)?;
     validate_materials(level)?;
     validate_sky(level)?;
+    if let Some(weather) = &level.weather {
+        weather.snowfall().validate()?;
+    }
     validate_global_illuminators(level)?;
     validate_rooms(level)?;
     validate_surface_shine(level)?;

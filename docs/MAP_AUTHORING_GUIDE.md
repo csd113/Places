@@ -5551,6 +5551,53 @@ first's write:
       "actions": [ { "action": "enable", "target": "sauna_steam_a" } ] } ] }
 ```
 
+### Weather: light snow
+
+Weather is optional reusable level content. Add `"weather": {"kind": "snow"}`
+to any level for gentle camera-centred snowfall. Winter opts in normally; all
+other shipped Places keep no weather. No map-id check exists in the renderer.
+Unknown weather keys/kinds fail validation. The configuration travels in
+compiled semantics and its material/PNG travels through ordinary dependencies.
+
+| Field | Default | Contract |
+| --- | --- | --- |
+| `kind` | required | `"snow"` |
+| `count` | 1400 | 1–2048 seeds; High/Medium/Low evaluate 100%/75%/50% of a stable prefix |
+| `radius` | 16 | 4–32 m spherical draw range in a camera-local horizontal tile |
+| `height` | 12 | 4–24 m vertical tile, centred on camera Y |
+| `wind` | `[0.18, 0.06]` | finite world X/Z velocities, each −0.5…0.5 m/s |
+| `size` | `[0.025, 0.075]` | ordered size range, 0.005–0.15 m |
+| `speed` | `[0.45, 1.05]` | ordered downward speed range, 0.1–2 m/s |
+| `opacity` | 0.85 | finite 0–1 multiplier |
+| `material` | `core:snowflake_01` | catalog material with a full-UV flake PNG (§7.1a of the asset specification) |
+
+Flakes fall downward with independently seeded speed, size and sinusoidal drift.
+Their world positions stay fixed under camera translation until an invisible
+volume boundary wraps. Smooth near, radial and vertical fades suppress popping;
+only flakes inside the actual view frustum are uploaded. One depth-tested blend
+draw shares the existing ambient-effect pipeline. No lighting bake, particle
+spawn queue, per-frame seed/scratch allocation or map-wide particle simulation
+is added. The maximum steam plus snow budget is 10,240 quads, within `u16`
+indices; buffers reserve only the actual level budget, including disabled steam.
+
+All non-open room ceilings, including gables, automatically shelter their
+footprints below the ceiling. Authored occluding `void_walls` shelter below their
+top faces too, covering slab roofs/porches. A 0.35 m outer boundary fade prevents
+flakes appearing abruptly as drift crosses a footprint. Outdoor snow remains
+visible through an open doorway/window from indoors. This intentionally small
+shelter model does not trace arbitrary prop roofs, tree canopies or dynamic
+geometry; author a ceiling or roof slab when those need weather shelter.
+Snow is presentation only, without collision or accumulation. Ground clipping
+uses the world's existing depth buffer.
+
+Benchmark diagnostics: with `PLACES_BENCH=1`, `PLACES_WEATHER_TRACE=<csv>` records
+camera, evaluated/submitted/sheltered/culled counts, sum of projected quad areas
+as a screen fraction, scratch capacity growth and billboard-sync CPU µs.
+Coverage is an upper estimate before texture alpha/depth, not a hardware fragment
+counter. `PLACES_BENCH_WEATHER_OFF=1` disables only weather for same-binary A/B
+measurements. Both switches are inert in normal play. Use native camera movement
+and High/Medium/Low captures; CPU tests alone do not prove appearance.
+
 ### Solid glass
 
 A `glass` opening may also author `"solid": true`: the pane then blocks the

@@ -29,6 +29,7 @@ pub mod postprocess;
 pub mod probe_filter;
 pub mod props;
 pub mod reflections;
+pub mod snow;
 pub mod stats;
 pub mod view;
 pub mod water;

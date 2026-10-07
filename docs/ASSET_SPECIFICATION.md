@@ -598,6 +598,21 @@ part of the lighting bake. The RGB channels are sampled as authored and
 multiplied by the particle's alpha; keep the puff white-grey and place all of
 the shape in the alpha channel.
 
+### 7.1a Snow weather sheet
+
+`core:tex_snowflake_01` is a committed 256×256 square RGBA PNG at
+`assets/core/textures/effects/snowflake_01.png`. Preferred source size is
+256×256; ordinary hard limit is 1024 per edge. Full UV `0..1` fits one
+soft irregular granule to each camera-facing weather quad, independent of
+flake size and material tiling. All four edges must have zero alpha.
+The white centre and subdued blue-grey rim retain contrast on dark sky and
+pale ground. No directional orientation, emission, reflection or tiling is
+required. The shared effect sampler uses repeat; transparent margins avoid
+seams. Straight alpha is multiplied by weather fades and material opacity.
+The corresponding blend material is `core:snowflake_01`. The PNG is artwork
+from the built-in imagegen tool, downsampled with alpha preserved; the game
+never synthesizes it. See `src/render/common/snow.rs` for geometry and fades.
+
 ### 7.2 Framed hanging paintings
 
 Paintings pair a file-backed decal with a separate, shallow GLB frame. The

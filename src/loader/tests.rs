@@ -45,6 +45,7 @@ fn route_sampling_rejects_counts_that_lose_adjacent_float_indices() {
 fn test_validate_level_success() {
     let level = LevelDef {
         sky: None,
+        weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -122,6 +123,7 @@ fn test_validate_level_success() {
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
         sky: None,
+        weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -229,6 +231,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
         sky: None,
+        weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),
@@ -363,6 +366,7 @@ fn test_parse_materials_json() {
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
         sky: None,
+        weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
         effects: Vec::new(),

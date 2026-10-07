@@ -6333,6 +6333,9 @@ pub struct LevelDef {
     /// light, and it is a separate, explicit authoring choice.
     #[serde(default)]
     pub sky: Option<SkyDef>,
+    /// Optional presentation-only weather; omission preserves every existing default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weather: Option<crate::weather::WeatherDef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub global_illuminators: Vec<GlobalIlluminatorDef>,
     /// Optional regional fog volumes, in authoring order.
