@@ -1,0 +1,568 @@
+# PROMPT 4 — Warm String Lights
+
+/goal
+
+Create and integrate winter string lights for Places based on the attached concept art.
+
+These should provide the major warm-color contrast against the cold winter environment.
+
+## Asset
+
+Create reusable string-light assets containing:
+
+- dark cable/wire
+- warm bulbs
+- several useful lengths
+- sensible attachment/end points
+
+If appropriate, support repeated/modular placement rather than creating dozens of unique meshes.
+
+## Bulbs
+
+Each bulb should appear illuminated.
+
+Use:
+
+- emissive appearance
+- subtle glow
+- warm amber/yellow color
+
+Do not make bulbs enormous bloom blobs.
+
+## Actual lighting
+
+The bulbs should affect nearby environment lighting.
+
+Because Places uses baked lighting heavily, integrate static string lights with the existing map compiler/light baking system when appropriate.
+
+Nearby:
+
+- snow
+- railings
+- building walls
+- doorways
+- ground
+- props
+
+should visibly receive warm illumination.
+
+Avoid simply making the bulb texture bright while nearby surfaces remain unaffected.
+
+## Winter Place integration
+
+Add string lights selectively around:
+
+- building entrances
+- porches
+- paths
+- gathering areas
+- railings
+
+Do not cover the entire map with them.
+
+The environment should retain large cold/dark areas.
+
+## Audit
+
+Specifically inspect:
+
+- light leaking through walls
+- over-bright bulbs
+- blown-out snow
+- inconsistent baked lighting
+- light seams
+- excessive bake cost
+- excessive light counts
+
+Fix issues within scope.
+
+Commit separately.
+
+---
+
+# PROMPT 5 — Northern Lights Winter Sky
+
+/goal
+
+Create the Winter Place's northern-lights sky treatment.
+
+Use the attached concept art as the visual target.
+
+## Sky
+
+Create a nighttime winter sky featuring:
+
+- stars
+- deep blue night
+- stylized aurora borealis
+- green/cyan aurora as the dominant colors
+- restrained purple where appropriate
+
+The aurora should consist of broad readable bands rather than noisy photorealistic detail.
+
+It should remain visually compatible with the retro/low-poly Places aesthetic.
+
+## Integration
+
+Use the existing Places sky/skybox system.
+
+Do not introduce an unnecessarily expensive atmospheric renderer if the existing system can produce the result.
+
+If subtle animation is feasible through the existing rendering system without major complexity, gentle aurora movement is acceptable.
+
+Do not make fast or distracting motion.
+
+## Environmental illumination
+
+Ensure the Winter Place remains readable underneath the night sky.
+
+Use subtle cool ambient/moonlight-like illumination if necessary.
+
+Do not make the aurora itself unrealistically flood every surface with bright green light.
+
+Maintain the cold-blue environment + warm-local-light contrast.
+
+## Validation
+
+Inspect:
+
+- sky seams
+- horizon
+- exposure
+- banding
+- texture resolution
+- sky orientation
+- map transitions
+- interaction with fog
+- interaction with baked lighting
+
+Commit this pass separately.
+
+---
+
+# PROMPT 6 — Light Snowfall Weather
+
+/goal
+
+Implement a performant **light snowfall** environmental effect for Places and use it in the Winter Place.
+
+This is the calm winter-weather mode.
+
+## Effect
+
+Target:
+
+- gentle falling snow
+- varied flake sizes
+- slight wind
+- randomized movement
+- subtle depth
+- flakes visible against both dark and light backgrounds
+
+Do not create a dense storm.
+
+## Performance architecture
+
+Avoid spawning particles throughout the entire map.
+
+Prefer a player/camera-centered weather volume or another efficient technique appropriate to the existing wgpu architecture.
+
+Particles that cannot meaningfully affect the player's view should not consume substantial resources.
+
+Investigate existing particle/effect systems before adding new infrastructure.
+
+## Visual behavior
+
+Snow should:
+
+- move primarily downward
+- drift slightly horizontally
+- vary in speed
+- avoid looking like identical sprites falling in perfect lines
+- fade appropriately with distance
+- avoid obvious popping around the player
+
+## Interiors
+
+Determine the cleanest existing-engine-compatible way to avoid obvious snow falling through fully enclosed interiors.
+
+Do not build an enormous general-purpose weather framework unless necessary.
+
+## Configuration
+
+Expose the snowfall through the map/environment configuration in a reusable form rather than hard-coding it exclusively to the Winter Place.
+
+## Winter Place
+
+Enable light snowfall as the normal/default weather presentation.
+
+## Validation
+
+Measure/debug:
+
+- particle count
+- frame cost
+- overdraw
+- allocation behavior
+- movement with camera
+- indoor behavior
+- visual popping
+
+Test across relevant rendering quality settings.
+
+Commit separately.
+
+---
+
+# PROMPT 7 — Blizzard / Whiteout Weather
+
+/goal
+
+Build a second winter weather mode for Places: a **severe blizzard**.
+
+The attached concept shows the intended experience: visibility should become dramatically restricted so the player can see only a short distance through heavy blowing snow.
+
+Do NOT implement this simply by increasing the light-snow particle count.
+
+## Blizzard composition
+
+Combine appropriate techniques such as:
+
+- dense nearby snow
+- directional snow streaking
+- strong wind
+- distance fog
+- reduced distant contrast
+- atmospheric whitening
+- optional subtle screen-space snow veil/noise if compatible with the renderer
+
+Fog/visibility reduction should do most of the long-distance occlusion work.
+
+Do not brute-force the effect with enormous particle counts.
+
+## Desired appearance
+
+At severe intensity:
+
+- nearby geometry remains barely readable
+- distant trees disappear rapidly
+- distant buildings become silhouettes and vanish
+- warm lights glow through the storm
+- orientation becomes intentionally difficult
+- visibility may fall to only a few meters/feet at the harshest setting
+
+It must still look stylistically consistent with Places.
+
+## Configurability
+
+Implement reusable settings such as the project architecture permits:
+
+- snowfall intensity
+- wind direction
+- wind strength
+- visibility/fog distance
+- storm severity
+
+Avoid overengineering.
+
+## Winter Place testing
+
+Create a region, debug toggle, environmental trigger, or map configuration suitable for testing both:
+
+- normal light snowfall
+- heavy blizzard
+
+The final intended map presentation can later choose which mode it uses.
+
+## Performance
+
+The blizzard must remain practical on the game's supported desktop target.
+
+Profile:
+
+- particle count
+- GPU cost
+- overdraw
+- CPU update cost
+- memory/allocation behavior
+
+Reduce invisible or redundant work.
+
+## Interaction audit
+
+Check the blizzard with:
+
+- aurora sky
+- string lights
+- snow terrain
+- snowy trees
+- buildings
+- forest
+- frozen pond
+- enclosed areas
+
+Commit separately.
+
+---
+
+# PROMPT 8 — Winter Place Integration + Art Polish
+
+/goal
+
+Perform a full integration and environment-art pass on the new Places Winter Place now that its winter systems have been implemented.
+
+Do not treat this as another engine rewrite.
+
+The objective is to turn the collection of winter assets into a cohesive, believable, polished Place matching the attached concept sheet.
+
+## Review all completed systems
+
+Inspect together:
+
+- snowy evergreen
+- snow terrain
+- snowy rocks
+- snow drifts
+- snowy building entrances
+- snowy railings
+- icicles
+- frozen/slippery ice
+- string lights
+- warm baked illumination
+- northern lights
+- light snowfall
+- blizzard mode
+
+Look for mismatches that were not obvious when each system was developed independently.
+
+## Environment composition
+
+Improve:
+
+- terrain shape
+- paths
+- forest density
+- building placement
+- sightlines
+- silhouettes
+- environmental framing
+- pond composition
+- snow accumulation
+- entrances
+- warm-light focal areas
+- dark/cold negative space
+
+Avoid clutter.
+
+The Place should feel intentionally authored rather than like an asset showcase.
+
+## Snow placement
+
+Audit snow accumulation.
+
+Snow should logically appear on:
+
+- roofs
+- branches
+- rocks
+- railing tops
+- ledges
+- stairs
+- entrance awnings
+- ground
+- sheltered drifts
+
+Avoid:
+
+- snow underneath sealed roofs
+- floating snow
+- impossible accumulation
+- repeated identical snow piles
+- perfectly uniform coverage
+
+## Icicles
+
+Use them selectively.
+
+Vary:
+
+- length
+- grouping
+- spacing
+
+Avoid identical rows.
+
+## Lighting
+
+Perform a dedicated visual pass.
+
+The target is:
+
+**cold environment + warm human-made light.**
+
+Check:
+
+- string-light pools
+- windows
+- entrance lights
+- snow brightness
+- forest darkness
+- aurora readability
+- frozen pond visibility
+- harsh transitions
+- light leaking
+- lightmap seams
+- overexposure
+
+## Blizzard presentation
+
+Ensure the Winter Place remains compelling under severe weather.
+
+Warm lights should become useful navigation landmarks.
+
+Trees/buildings should fade naturally into the storm.
+
+## Collision / traversal
+
+Run through the completed level and inspect:
+
+- rocks
+- snow piles
+- railings
+- stairs
+- doorways
+- ice
+- shoreline
+- roofs/overhangs
+- narrow paths
+- forest props
+
+Fix obvious sticking, clipping, or unreachable areas.
+
+Do not change collision purely for cosmetic snow caps unless necessary.
+
+## Geometry audit
+
+Search specifically for:
+
+- z-fighting
+- overlapping surfaces
+- visible gaps
+- floating props
+- buried props
+- bad normals
+- incorrect winding
+- UV problems
+- snow clipping
+- icicles intersecting roofs incorrectly
+- seams in snow terrain
+
+Fix all clear defects.
+
+## Performance
+
+Profile the completed Winter Place.
+
+Look for regressions from:
+
+- snow particles
+- blizzard particles
+- transparent ice
+- string lights
+- light baking
+- repeated evergreen meshes
+- excessive snow-cap geometry
+- aurora rendering
+- unnecessary materials/draw calls
+
+Optimize without visibly damaging the intended art.
+
+## Final validation
+
+Run:
+
+- formatter
+- build/check
+- relevant tests
+- map compiler
+- Winter Place compile
+- actual game launch
+
+Walk the level in the real game.
+
+Validate both:
+
+1. calm snowfall
+2. heavy blizzard
+
+Document any remaining limitations instead of hiding them.
+
+Commit the polished integration separately.
+
+---
+
+# PROMPT 9 — Final Winter Asset/Engine Audit
+
+/goal
+
+Perform a final release-quality audit of the entire Places winter environment feature set.
+
+Do not add new features unless required to correct a discovered defect.
+
+Treat this as a certification pass.
+
+Audit:
+
+- asset organization
+- unused assets
+- duplicate assets
+- texture sizing
+- material consistency
+- model complexity
+- map compiler behavior
+- lighting
+- snow
+- ice physics
+- snowfall
+- blizzard
+- aurora
+- collision
+- performance
+- warnings
+- logs
+- error handling
+- configuration defaults
+- backwards compatibility with existing Places maps
+
+Verify that existing non-winter maps have not accidentally inherited:
+
+- snow
+- ice friction
+- winter sky
+- weather
+- altered lighting
+- winter textures
+
+Run the strongest practical project validation.
+
+Test the Winter Place in both calm and blizzard conditions.
+
+Clean up temporary assets and placeholders left over from development.
+
+Remove dead code introduced during experimentation.
+
+Do not remove intentional existing project functionality.
+
+At completion produce a concise report containing:
+
+- completed winter features
+- defects found
+- defects fixed
+- performance findings
+- test/build results
+- remaining known limitations
+- files substantially changed
+
+Commit the final audit/fixes separately.
+
+The finished result should leave Places with a reusable winter environment toolkit, not merely one hard-coded snowy map.
