@@ -39,7 +39,9 @@ in [hero-diagnostics-manifest.json](hero-diagnostics-manifest.json).
 Nonfinal views use identity post without bloom/grade/fog/emission/reflections,
 and suppress sky/decals/effects. Existing world/prop/actor draw routes, cutout and
 fade coverage remain; blended pixels still composite and are not an unambiguous
-per-fragment numeric readback. **Magenta means unavailable representation**,
+per-fragment numeric readback. Values label covered geometry; the cleared
+background is not diagnostic data. `depth` is covered-fragment device z, not a
+resolved depth-buffer readback. **Magenta means unavailable representation**,
 not invalid or corrupt lighting. Keep final images beside debug images.
 
 `[visual-diagnostic]` JSON records mode/meaning, requested and applied graphics,
@@ -103,7 +105,7 @@ encoding and the preserved comparison entity. PNGs are untouched native outputs.
 | [Contact albedo](diagnostics/native/view-albedo/contact.png), [vertex normal](diagnostics/native/view-vertex-normal/contact.png), [shading normal](diagnostics/native/view-world-normal/contact.png), [combined light](diagnostics/native/view-baked-light/contact.png), [atlas mean](diagnostics/native/view-lightmap-values/contact.png) | Cream PNGs and planar normals do not carry the visible diagonal cushion tones. Combined illumination and stored mean do. Direct transport already has a triangle-aligned discrepancy in the labeled offline seat projection. Stage 3 owns receiver/grid/visibility evidence; do not blame post or normal maps alone. |
 | [Entity albedo](diagnostics/native/view-albedo/entities.png), [combined light](diagnostics/native/view-baked-light/entities.png), [route state](diagnostics/native/view-lighting-state/entities.png), [actual payload log](diagnostics/native/view-lighting-state/entities.log) | Static chair uses atlas; spawned chair uses **Prepared**, with actual bounds-centre anchor `[6.7,.451,1.3]`, mean about `[.560,.569,.577]`, signed moment and contributor weights. The field is present. Static self-occlusion/contact and route policy remain distinct Stage 3/4 questions. The two placements are still .9 m apart. |
 | [High](baseline/high/window.png), [High atlas Off](diagnostics/native/atlas-off/window.png), [High Low-lighting override](diagnostics/native/low-lighting/window.png), [combined light](diagnostics/native/view-baked-light/window.png), [atlas mean](diagnostics/native/view-lightmap-values/window.png) | Exterior readability improves when the atlas is disabled while overall High resolution/filtering stays fixed. This isolates a lighting-route contribution that the original overall Low comparison could not. It does not prove missing sky, incorrect gamma, or an aperture leak. Stages 2/3 separate authored energy, transport/recovery and presentation. |
-| [Table final](diagnostics/native/plastic-final/plastic.png), [texture albedo](diagnostics/native/plastic-albedo/plastic.png), [combined light](diagnostics/native/plastic-baked-light/plastic.png), [roughness](diagnostics/native/view-roughness/plastic.png) | Whole table/plant and feet are correctly framed. Light-colored artwork becomes nearly black, with faint rim/leg detail; combined illumination is also very low. Source placement/visibility/recovery must be checked in Stage 3 before a material fix. This is severe underillumination, not a literally all-zero model. No full-white nonemissive model is shown. |
+| [Table final](diagnostics/native/plastic-final/plastic.png), [texture albedo](diagnostics/native/plastic-albedo/plastic.png), [combined light](diagnostics/native/plastic-baked-light/plastic.png), [roughness](diagnostics/native/view-roughness/plastic.png) | Whole table/plant and feet are correctly framed. Light-colored artwork becomes nearly black, with faint rim/leg detail; combined illumination is also very low. At the authored X/Z anchor the hall panel's horizontal footprint distance is 5.2 m, beyond its 5 m falloff range; this qualifies direct coverage at one point, not total support on the whole model. Establish legitimate source support/visibility in Stage 3 before claiming a transport or material defect. This is severe underillumination, not a literally all-zero model. No full-white nonemissive model is shown. |
 | [Independent Low filtering](diagnostics/native/filter-low/contact.png) / [Medium filtering](diagnostics/native/filter-medium/contact.png) / [High baseline](baseline/high/contact.png) | Requested/applied filtering changes while Full atlas and overall High remain. Atlas selection is a separate control. Avoid attributing overall Low brightness/pixelation to anisotropy alone. |
 | [Live endpoint comparisons](diagnostics/control-comparisons.json) | Low, Medium, returned High, returned Full atlas and returned High filtering match direct-launch PNGs byte for byte; camera/entity/state are preserved. No settled live-switch failure is demonstrated. Loading transients remain untested by ready-gated captures. |
 | [Depth](diagnostics/native/view-depth/window.png), [distance](diagnostics/native/view-distance/window.png), [atlas UV](diagnostics/native/view-chart-uv/contact.png) | Actual geometric depth and atlas addressing are available. Perspective depth is nonlinear; neither this UV grid nor a dark reveal proves a seam or leak. |
@@ -171,6 +173,20 @@ the window centre within 15 m, and the jamb wall at 3.5 m. The named
 the source centre**; it does not demonstrate a chair shadow. Six geometry queries
 cannot establish sampled shadow completeness or an AO field.
 
+[Table source coverage](checks/table-light-support.json) qualifies the dark close view.
+At the authored X/Z anchor the hall panel's horizontal footprint distance is 5.2 m
+and its smooth direct falloff is zero beyond the 5 m range. Broad-phase reach is
+still true because it adds the emitting shape's radius. The room panel has nonzero
+unoccluded falloff; its centre path is expected to cross the partition, but actual
+shape-tap visibility is not measured here. Other local sources have zero falloff
+at this point. This separates authored direct coverage from a proven baker failure;
+it does not establish whole-model, indirect or sky support.
+
+Finite rectangle/line sources and stratified visibility taps already exist. Ceiling
+falloff measures horizontal distance from the source footprint; visible tap fraction
+provides soft shadows. These are working capabilities to preserve and investigate
+for sampling quality, not missing source-area support.
+
 [Saved-package provenance](diagnostics/offline/saved-package-provenance.json)
 truthfully marks original source/material/solver fields as absent from that
 format. The live companion supplies those identities. [Build provenance](diagnostics/build-provenance.json)
@@ -178,3 +194,8 @@ records every compiled Rust/WGSL source hash and normal/feature binary hash;
 native manifests record the actual precommit Git revision plus working-diff,
 fixture/catalog/package/tool/camera hashes. Final commit source must match these
 hashes; captures are not relabeled as builds of a later commit.
+
+The [capture-tool provenance check](checks/capture-tool-provenance.json) confirms
+that its later hash difference is a module-docstring correction only. A supplemental
+[multi-view live Low control](checks/live-multiview-control.json) reproduces both
+entity and window direct-Low PNGs exactly without another gallery dump.

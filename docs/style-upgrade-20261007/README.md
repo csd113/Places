@@ -149,3 +149,10 @@ loop and draw/resource costs. GPU execution time is still unmeasured. Strict
 Clippy and focused tests pass; the three inherited stale-package discovery failures
 remain exact Stage 7 ledger items. Verified baseline/diagnostic implementation
 commits and CI links live in [the handoff receipt](../art-style/handoff.md).
+
+[Diagnostic implementation 2050fb2](https://github.com/csd113/Places/commit/2050fb23f1c6be75b0ee1b248b1a2623b36e37f7)
+is pushed; [its clean-source CI](https://github.com/csd113/Places/actions/runs/37728914254)
+passed. The final source check preserves existing rectangular/line emitter
+sampling and soft shadows, and distinguishes the table anchor's authored direct
+coverage from unresolved indirect/sky support. This remains baseline evidence,
+not a lighting improvement.

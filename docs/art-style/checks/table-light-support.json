@@ -1,0 +1,100 @@
+{
+  "reference_point": [
+    9.45,
+    0.46,
+    1.2
+  ],
+  "point_contract": "Authored table X/Z anchor at top surface y=.46 from the existing top-down caster hit. One point only, not the entire model or every receiver.",
+  "emitters": [
+    {
+      "emitter": 0,
+      "position": [
+        5.2,
+        2.79,
+        3.2
+      ],
+      "range_m": 6.0,
+      "shape": "rectangle",
+      "directional": true,
+      "horizontal_half_extents_m": [
+        0.6,
+        0.3
+      ],
+      "centre_distance_m": 5.243224198906622,
+      "falloff_distance_m": 4.026474885057647,
+      "broad_phase_reaches": true,
+      "smooth_falloff_before_visibility": 0.2533955932777513
+    },
+    {
+      "emitter": 1,
+      "position": [
+        9.3,
+        2.79,
+        6.7
+      ],
+      "range_m": 5.0,
+      "shape": "rectangle",
+      "directional": true,
+      "horizontal_half_extents_m": [
+        0.6,
+        0.3
+      ],
+      "centre_distance_m": 5.975064853204524,
+      "falloff_distance_m": 5.2,
+      "broad_phase_reaches": true,
+      "smooth_falloff_before_visibility": 0.0
+    },
+    {
+      "emitter": 2,
+      "position": [
+        1.1,
+        1.24,
+        1.1
+      ],
+      "range_m": 4.4,
+      "shape": "point",
+      "directional": false,
+      "horizontal_half_extents_m": [
+        0.0,
+        0.0
+      ],
+      "centre_distance_m": 8.386948193472998,
+      "falloff_distance_m": 8.386948193472998,
+      "broad_phase_reaches": false,
+      "smooth_falloff_before_visibility": 0.0
+    },
+    {
+      "emitter": 3,
+      "position": [
+        2.1,
+        0.86,
+        -2.2
+      ],
+      "range_m": 4.0,
+      "shape": "point",
+      "directional": false,
+      "horizontal_half_extents_m": [
+        0.0,
+        0.0
+      ],
+      "centre_distance_m": 8.108174887112389,
+      "falloff_distance_m": 8.108174887112389,
+      "broad_phase_reaches": false,
+      "smooth_falloff_before_visibility": 0.0
+    }
+  ],
+  "source_contract": {
+    "ceiling": "TransportEmitter::from_baked preserves the rectangular emitting shape. Ceiling falloff measures horizontal distance to its footprint; broad-phase reach adds shape bounding radius, but LightFalloff::factor returns zero at or beyond the authored range.",
+    "visibility": "Stratified finite-shape taps already provide a visible-fraction soft shadow.",
+    "sources": [
+      "src/lighting/transport.rs:TransportEmitter::from_baked/horizontal_distance/reaches/direct_with_visibility",
+      "src/lighting/tuning.rs:FIXTURE_HALF_WIDTH_M/FIXTURE_HALF_DEPTH_M",
+      "src/lighting/bake.rs:prepare_lights",
+      "src/lighting/light.rs:LightFalloff::factor",
+      "tests/fixtures/levels/art_style_hero.json",
+      "docs/art-style/diagnostics/offline/live-full-emitters.json",
+      "docs/art-style/diagnostics/offline/live-full-caster-rays.json"
+    ]
+  },
+  "conclusion": "The hall emitter has horizontal footprint distance 5.2 m at this point, beyond its 5 m falloff range. Its broad-phase reaches check is true, but direct falloff is zero. The room panel has nonzero unoccluded falloff; its centre path is expected to cross the solid partition (source geometry inference, not a measured tap visibility result). Other local sources have zero falloff here. This supports an authored direct-coverage limitation at one point, not proof that every table receiver is unsupported, nor a diagnosis of missing indirect/sky energy or corrupt lightmaps. Existing rectangular source sampling and soft shadows must be preserved."
+}

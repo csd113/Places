@@ -1,0 +1,29 @@
+{
+  "command": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/places-diagnostics",
+    "--manifest",
+    "docs/art-style/hero-diagnostics-manifest.json",
+    "--out",
+    "/tmp/places-stage1-live-multiview-original",
+    "--views",
+    "entities,window",
+    "--diagnostic",
+    "final",
+    "--quality-cycle",
+    "60:low",
+    "--capture-frame",
+    "61"
+  ],
+  "exit_code": 0,
+  "raw_outputs_preserved": "/tmp/places-stage1-live-multiview-original",
+  "initial_state": "high",
+  "settled_capture_state": "low",
+  "byte_identical_to_direct_low": {
+    "entities": true,
+    "window": true
+  },
+  "meaning": "Supplemental reusable multi-view live-control check; no code change, no duplicate gallery PNGs."
+}

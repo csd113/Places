@@ -61,8 +61,9 @@ and production world WGSL remain unchanged. Final built-source hashes agree.
 23 ignored; the same three level-discovery tests fail** on inherited stale local
 packages. Exact dependencies/current checks and Stage 7 resolution are in the
 ledger. They were not removed, hidden or repaired outside hero scope. No new
-source-test failure was observed. Clean-source baseline CI passed; new diagnostic
-commit CI must still be verified below before release.
+source-test failure was observed. Clean-source baseline CI passed;
+[diagnostic implementation CI](checks/implementation-ci.json) also passed.
+The final documentation-only receipt SHA/CI is verified in the completion handoff.
 
 Forced uninstrumented hero preparation is 4.872 s compiler / 4.89 s wall,
 659.1 MiB peak RSS; package 3,873,651 B, two Full pages/32 MiB, 5,347 charts,
@@ -75,7 +76,10 @@ display cadence, other hardware result or quality/performance improvement is
 claimed. Initial zero-counter measurements remain preserved and excluded.
 
 The expanded evidence places sofa triangular tones in stored illumination and
-physical direct transport; light-colored resin is severely underlit; the entity
+physical direct transport; light-colored resin is severely underlit. At its authored
+X/Z anchor the hall panel's horizontal footprint distance is 5.2 m, beyond its 5 m
+falloff range. This qualifies direct coverage at one point, not all model/indirect/sky
+support. Finite-shape sampling and soft shadows already exist. The entity
 field is genuinely prepared. Window opening/jamb queries remain coherent.
 No full-white nonemissive model, new physical leak or settled quality-switch
 failure is demonstrated. A ready-gated capture cannot exclude loading transients.
@@ -99,7 +103,11 @@ delegated workflow was used. These restrictions were reported before authoring.
   pushed to `origin/Art-style`; [baseline CI](https://github.com/csd113/Places/actions/runs/37723638291)
   passed in 21m14s.
 - Integrated diagnostics, final reports/journal and exact remote/CI verification:
-  pending final commit/push below. Native evidence retains its actual precommit
+  [implementation commit](https://github.com/csd113/Places/commit/2050fb23f1c6be75b0ee1b248b1a2623b36e37f7)
+  is pushed and exact remote SHA verified.
+  [Implementation CI](https://github.com/csd113/Places/actions/runs/37728914254)
+  **passed** (26m54s job); [machine receipt](checks/implementation-ci.json).
+  Native evidence retains its actual precommit
   Git/source/binary identities; it is not relabeled as a later-commit capture.
 
 The inherited `/usr/bin/caffeinate -di` PID **88945**, started 2026-10-07,
@@ -108,3 +116,11 @@ Custody record: `/tmp/places-art-style-queue-custody.json`. Final worker/job/pro
 checks and parent custody transfer follow push verification. Build artifacts stay
 for the unfinished serial queue; no `cargo clean`, branch/worktree/tag/release or
 Stage 2 work.
+
+The original audit/implementation work and evidence reviews are collected. Three
+subsequent read-only review requests remained `pending_init` after interruption
+and explicit stop messages; they have no write/Git/build/native authority. Their
+final controller state is reported at completion rather than claimed joined.
+At 05:23 UTC a separate interactive shell (PID 51870) opened `target/debug/places`
+(PID 62138), outside the Stage 1 capture launchers. It was left untouched; the
+final process check will distinguish this session from task-owned jobs.

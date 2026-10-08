@@ -136,8 +136,12 @@ physical direct transport, rather than its PNG or post alone. True offline chart
 show separate triangle grids on coplanar cushions. The additional resin-table
 view is severely underlit despite light-colored artwork; it retains faint detail
 and is not a literally all-black model. Its combined baked-light view is also
-dark. This warrants Stage 3 investigation of source placement, receiver support
-and reconstruction, rather than a replacement asset or guessed brightness patch.
+dark. At its authored X/Z anchor, the hall panel's horizontal footprint distance
+is 5.2 m, beyond its 5 m falloff range. The other distance-eligible room panel's
+centre path crosses the partition; actual tap visibility is not measured here.
+This qualifies direct source coverage at one point, not total indirect/sky support.
+Stage 3 must separate authored energy from processing loss; no asset replacement
+is justified. Finite panel shapes and sampled soft shadows already work.
 No nonemissive full-white model or new physical opening leak is demonstrated.
 
 [Diagnostic contracts, native galleries and labeled offline projections](diagnostics.md)
@@ -156,7 +160,9 @@ corrected: its actual sky is present with zero ambient. The original audit was r
 runtime specialist owned the feature selector/native receipts and the compiler
 specialist owned diagnostic provenance/export code in disjoint files. The lead
 integrated, built, tested, captured and remained the sole report/Git writer; the
-visual reviewer stayed read-only. All three reviewed the resulting real evidence.
+visual reviewer stayed read-only. The lead reconciled expanded native/offline
+evidence against source; the visual reviewer qualified the dark table and the compiler reviewer qualified
+the six caster queries.
 
 All seven immutable concept PNGs across Office, Pool, Home, Outdoors, Winter
 and the entity atlas were visually read; [reference inventory](reference-inventory.json)

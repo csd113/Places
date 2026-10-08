@@ -151,3 +151,13 @@ commits and pushes. The original reviewers were read-only; the later runtime/com
 owned disjoint diagnostic code. The lead remained sole integrator/report/Git
 owner. Final evidence reviews are read-only and workers have no build/native jobs.
 Final native/build/test process and inhibitor checks occur before custody release.
+
+The final documentation receipt adds the successful exact-SHA diagnostic CI
+[37728914254](https://github.com/csd113/Places/actions/runs/37728914254),
+[capture-tool hash qualification](checks/capture-tool-provenance.json), and a
+[two-view live Low control](checks/live-multiview-control.json) that byte-matches
+the direct Low images. No Rust, WGSL, fixture or executable capture logic changed
+after the implementation checks. [Table source support](checks/table-light-support.json)
+uses the actual rectangular ceiling footprint/horizontal falloff contract; it
+qualifies one point's direct coverage and does not diagnose the whole model.
+Finite-source sampling and soft shadows already exist.
