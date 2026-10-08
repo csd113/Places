@@ -1,0 +1,44 @@
+Starting incremental unchanged-r1
+Finished unchanged-r1: 0.332s; exact clean equality
+Starting incremental unchanged-r2
+Finished unchanged-r2: 0.327s; exact clean equality
+Starting incremental metadata-r1
+Finished metadata-r1: 0.751s; exact clean equality
+Starting incremental metadata-r2
+Finished metadata-r2: 0.747s; exact clean equality
+Starting incremental presentation-r1
+Finished presentation-r1: 0.761s; exact clean equality
+Starting incremental presentation-r2
+Finished presentation-r2: 0.757s; exact clean equality
+Starting incremental texture-r1
+Finished texture-r1: 9.957s; exact clean equality
+Starting incremental texture-r2
+Finished texture-r2: 9.976s; exact clean equality
+Starting incremental material-r1
+Finished material-r1: 9.839s; exact clean equality
+Starting incremental material-r2
+Finished material-r2: 9.859s; exact clean equality
+Starting incremental model-r1
+Finished model-r1: 9.973s; exact clean equality
+Starting incremental model-r2
+Finished model-r2: 10.072s; exact clean equality
+Starting incremental geometry-r1
+Finished geometry-r1: 10.120s; exact clean equality
+Starting incremental geometry-r2
+Finished geometry-r2: 10.091s; exact clean equality
+Starting incremental light-r1
+Finished light-r1: 10.067s; exact clean equality
+Starting incremental light-r2
+Finished light-r2: 10.090s; exact clean equality
+Starting incremental entity-r1
+Finished entity-r1: 10.123s; exact clean equality
+Starting incremental entity-r2
+Finished entity-r2: 10.179s; exact clean equality
+Starting incremental combined-r1
+Finished combined-r1: 10.166s; exact clean equality
+Starting incremental combined-r2
+Finished combined-r2: 10.360s; exact clean equality
+Starting incremental prop-r1
+Finished prop-r1: 10.194s; exact clean equality
+Starting incremental prop-r2
+Finished prop-r2: 10.200s; exact clean equality

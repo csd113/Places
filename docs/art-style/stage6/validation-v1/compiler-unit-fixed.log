@@ -1,0 +1,3 @@
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 34.84s
+     Running unittests src/lib.rs (target/debug/deps/places-db4822a0463dd4cf)

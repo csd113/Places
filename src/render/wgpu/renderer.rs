@@ -3567,6 +3567,9 @@ impl WgpuRenderer {
             totals.visible_vertices = totals
                 .visible_vertices
                 .saturating_add(decal_totals.visible_vertices);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(decal_totals.visible_indices);
             totals.texture_binds = totals
                 .texture_binds
                 .saturating_add(decal_totals.texture_binds);
@@ -3606,6 +3609,7 @@ impl WgpuRenderer {
         totals.visible_vertices = totals
             .visible_vertices
             .saturating_add(effect_totals.vertices);
+        totals.visible_indices = totals.visible_indices.saturating_add(effect_totals.indices);
         totals.texture_binds = totals
             .texture_binds
             .saturating_add(effect_totals.texture_binds);
@@ -3709,6 +3713,9 @@ impl WgpuRenderer {
                 totals.visible_vertices = totals
                     .visible_vertices
                     .saturating_add(decal_totals.visible_vertices);
+                totals.visible_indices = totals
+                    .visible_indices
+                    .saturating_add(decal_totals.visible_indices);
                 totals.texture_binds = totals
                     .texture_binds
                     .saturating_add(decal_totals.texture_binds);
@@ -4287,6 +4294,7 @@ impl WgpuRenderer {
         self.render_stats = RenderStats {
             total_vertices,
             visible_vertices: totals.visible_vertices,
+            visible_indices: totals.visible_indices,
             culled_vertices: total_vertices.saturating_sub(totals.visible_vertices),
             total_batches,
             visible_batches: totals.visible_batches,

@@ -1,0 +1,27 @@
+{
+  "command": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-diagnostics",
+    "--asset-root",
+    "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+    "--package",
+    "debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+    "--manifest",
+    "debug-maps/art-style-hero/milestones/stage5-transparency-v2/hero-manifest.json",
+    "--views",
+    "room,entities",
+    "--diagnostic",
+    "final",
+    "--out",
+    "docs/art-style/stage6/budgets/before"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 3.5206089169951156,
+  "started_utc": "2026-10-08T20:54:54.663247+00:00",
+  "finished_utc": "2026-10-08T20:54:58.183864+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

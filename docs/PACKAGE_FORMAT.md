@@ -23,6 +23,7 @@ A failed build leaves the previous package untouched.
 
 ```text
 manifest.json                     small JSON index: version, identity, entries, dependencies
+build-inputs.json                 optional compiler provenance (declared compiler-inputs entry)
 semantics.json                    the validated, authoring-prepared LevelDef
 blobs/<sha256>.mesh               static geometry (binary record)
 blobs/<sha256>.props              transformed static prop batches (binary record)
@@ -95,33 +96,53 @@ never triggers procedural geometry generation.
 * `dependencies` records the content identity of every model and texture a
   package reads from the installed asset bundle (`kind: "model"`/`"texture"`,
   root-relative path) or embeds itself (`kind: "embedded"`). A package whose
-  declared dependency is missing or has a different size is refused at load
-  with an error naming it (a truly asset-less install has nothing to check
+  declared dependency is missing or has a different size or SHA-256 is refused
+  at load with an error naming it (a truly asset-less install has nothing to check
   against and logs once, preserving the embedded-fallback boot).
   `places-compile validate` re-hashes every dependency and reports any content
-  difference.
+  difference. Models include every placed prop and every runtime spawn template,
+  including unused templates selectable by an override. GLBs embed their PNG
+  images under the existing importer contract, so the model hash covers that
+  runtime image closure. The player streams installed dependency hashes during
+  package-open, with an 8 KiB buffer; rendering does not hash them per frame.
 * `entries` must list every archive entry except `manifest.json` itself.
   Undeclared entries, duplicate declarations and declared-but-missing entries
   are errors.
-* `compiler_fingerprint` is a **developer rebuild identity** — source bytes,
-  dependency hashes, record versions, the variant list, the compiler version,
-  the geometry revision (`render::GEOMETRY_REVISION`, bumped whenever emitted
-  static geometry changes for an unchanged source), the lighting-model
-  fingerprint and the transport-solver fingerprint. It is
-  not a runtime validity check: a package whose fingerprint is stale still
-  loads if its records satisfy this contract. `places-compile verify` compares
-  the recorded fingerprint with the source and assets as they are now. A change
-  to offline preparation code that is not one of those identities (for example
-  the reflection-probe routing) still requires an explicit `--force` rebuild so
-  stale captures are never reused.
-* `lighting_fingerprint` is the **stage** identity of the illumination,
-  geometry, collision and probe preparation: the same inputs as
-  `compiler_fingerprint` but with every `ai`, `nav_agent` and `nav_obstacle`
-  component removed. When it matches the package being replaced, the compiler
-  reuses that package's prepared blobs and rebuilds only `semantics.json` and
-  the navigation record, so tuning an encounter or an AI behavior never
-  rebakes illumination. An absent field (an older package) simply prepares
-  everything.
+* `compiler_fingerprint` is a **developer rebuild identity**: exact source
+  and catalogue bytes, dependency hashes, record versions, requested variants,
+  geometry/light-model/solver revisions, installed compiler executable SHA-256
+  and reflection-capture mode. The executable is hashed once per process using
+  bounded streaming storage. A changed tool rebuilds automatically, including
+  preparation changes outside manually versioned subsystems. Runtime format
+  validity remains separate from this compiler identity.
+* `build-inputs.json` is an optional declared entry with role `compiler-inputs`:
+  revision 1, `source_sha256`, `catalog_sha256`, `tool_sha256` and
+  `capture_probes`. Older players ignore it under the existing format. Missing,
+  corrupt or incompatible provenance requires a full compiler rebuild; older
+  otherwise valid packages remain loadable with their compatible assets. New
+  packages also verify the recorded catalogue hash at player package-open; a
+  changed catalogue requires rebuilding. Legacy packages without this optional
+  record retain their established bundle contract.
+* `lighting_fingerprint` identifies prepared geometry, collision, lighting and
+  reflections. It retains source materials/images/models, physical environment
+  and fog, lights, entities, tool/capture identity, formats and quality. It
+  excludes display name/author, navigation/AI components and
+  `environment.presentation` (exposure, shoulder and grade after HDR capture).
+  A validated match reuses solved records and refreshes semantics, navigation,
+  provenance and atlas metadata; prepared texels and probes remain unchanged.
+  Every declared record is hash-verified before reuse. `--force` bypasses both
+  package and prepared caches. CLI output and JSON `cache_decisions` name each
+  hit, miss or bypass and its input/integrity reasons. Reuse reports may omit
+  preparation counts; inspect actual records rather than treating zeros as
+  removed content.
+
+Compiler builds require stable source and asset inputs while running. The queue
+serializes authoring and builds; persistent edits between runs invalidate the
+appropriate key. No concurrent edit-and-restore snapshot system is introduced.
+The player loads prepared packages, never a live transport bake. The public
+transient atlas helper's source/settings key requires immutable resolved inputs
+or an explicit cache clear; it is not the asset/map incremental cache. See the
+[Stage 6 contracts and audit](art-style/stage6/contracts.md).
 
 ## 3. Quality variants
 

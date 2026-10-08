@@ -1,0 +1,18 @@
+{
+  "command": [
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-tests",
+    "profile_hero_moving_caster_refresh",
+    "--ignored"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.4405102080199867,
+  "started_utc": "2026-10-08T21:01:05.137306+00:00",
+  "finished_utc": "2026-10-08T21:01:07.577824+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache",
+    "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+    "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+    "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+    "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-after-pair-1.json"
+  }
+}

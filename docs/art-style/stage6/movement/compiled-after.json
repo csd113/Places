@@ -1,0 +1,34 @@
+{
+  "movement": {
+    "collision_boxes": 64,
+    "frames": 284,
+    "radius_m": 0.30000001192092896,
+    "route_endpoints": [
+      [
+        9.099994659423828,
+        1.600000023841858,
+        4.199999809265137
+      ],
+      [
+        9.099994659423828,
+        1.600000023841858,
+        7.200011253356934
+      ],
+      [
+        9.099994659423828,
+        1.600000023841858,
+        4.199999809265137
+      ],
+      [
+        5.0,
+        1.600000023841858,
+        4.199999809265137
+      ]
+    ],
+    "runtime_chair_and_ghost_spawned": true,
+    "standing_height_m": 1.7999999523162842
+  },
+  "navigation_both_directions": true,
+  "navigation_cells": 5934,
+  "package": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap"
+}

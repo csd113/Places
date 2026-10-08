@@ -1,0 +1,26 @@
+{
+  "base_revision": "45b2e0ff8d472e6ab2e5aaa7442f1f6e79d731c1",
+  "source_identity": "source-input-identities.json",
+  "files": [
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage6-runtime-v2/libSDL3.0.dylib",
+      "sha256": "5fdf17e340d9123e3d57c60c4c3c41777d04fe233d09bcd00874de09281746ab",
+      "bytes": 2520816
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places",
+      "sha256": "7489f5eb25549c25c229fa317999321c20eb2aac93dbe883255539aca67c2926",
+      "bytes": 82571056
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "sha256": "751c5153d138534232deb60d8e710b87f34f227c7bbbd6644133b04136ee3935",
+      "bytes": 6809648
+    },
+    {
+      "path": "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-diagnostics",
+      "sha256": "a84419cf55c04b46540118e95929cc42d98aed5850342076ba16cea4c18d8ebf",
+      "bytes": 82620624
+    }
+  ]
+}

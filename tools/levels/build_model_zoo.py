@@ -565,7 +565,7 @@ HOME_APRON_DISPLAYS = (
     "home:floor_lamp", "home:mug", "home:book_stack", "home:cushion",
     "home:outlet", "home:cabinet_strip", "home:landscape_frame", "home:sink", "home:stove",
     "home:kettle", "home:toaster",
-    "home:door_casing",
+    "home:door_casing", "home:dining_chair_refined",
 )
 
 OUTDOOR_APRON_DISPLAYS = tuple('outdoor:' + name for name in (

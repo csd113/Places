@@ -222,6 +222,8 @@ pub fn capture_submission(totals: &super::world::WorldDrawTotals) -> serde_json:
         "draw_calls": totals.draw_calls,
         "frustum_visible_batches": totals.visible_batches,
         "frustum_visible_distinct_vertices": totals.visible_vertices,
+        "submitted_indices": totals.visible_indices,
+        "submitted_triangles": totals.visible_indices.checked_div(3).unwrap_or_default(),
         "texture_binds": totals.texture_binds,
         "material_binds": totals.material_binds,
         "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
@@ -240,6 +242,7 @@ mod tests {
             draw_calls: 7,
             visible_batches: 5,
             visible_vertices: 61,
+            visible_indices: 18,
             texture_binds: 3,
             material_binds: 4,
             opaque_draws: 2,
@@ -248,6 +251,14 @@ mod tests {
             emissive_visible: true,
         };
         let receipt = super::capture_submission(&totals);
+        assert_eq!(
+            receipt.get("submitted_indices"),
+            Some(&serde_json::json!(18_usize))
+        );
+        assert_eq!(
+            receipt.get("submitted_triangles"),
+            Some(&serde_json::json!(6_usize))
+        );
         assert_eq!(
             receipt
                 .get("draw_calls")

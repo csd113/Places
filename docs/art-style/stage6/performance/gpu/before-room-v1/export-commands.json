@@ -1,0 +1,64 @@
+[
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1.trace",
+      "--toc",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/toc.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/toc.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-gpu-intervals\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-gpu-intervals.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-gpu-intervals.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-current-allocated-size\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-current-allocated-size.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-current-allocated-size.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/inspect_metal_trace.py",
+      "--gpu",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-gpu-intervals.xml",
+      "--memory",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-current-allocated-size.xml",
+      "--out",
+      "docs/art-style/stage6/performance/gpu/before-room-v1/summary.json"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"process\": \"places (62043)\", \"window_seconds\": 6.0, \"scene_encoders\": 72, \"gpu_occupied_ms\": 93.214872, \"gpu_occupied_mean_per_frame_ms\": 1.294651, \"scene_gpu_span_mean_ms\": 1.0264478888888888, \"scene_gpu_span_median_ms\": 1.0509165, \"scene_gpu_span_p95_ms\": 1.209875, \"allocation_samples\": 864, \"metal_allocated_median_bytes\": 168960000.0, \"metal_allocated_peak_bytes\": 170868736, \"metal_allocated_time_median_bytes\": 163184640, \"metal_allocated_time_mean_bytes\": 163435241.99595758, \"method\": \"Union of active target GPU intervals / scene encoders; overlapping hardware channels counted once\"}\n",
+    "stderr": ""
+  }
+]

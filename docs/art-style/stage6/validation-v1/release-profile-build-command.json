@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--release",
+    "--lib",
+    "profile_hero_moving_caster_refresh",
+    "--no-run"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 198.4529492079746,
+  "started_utc": "2026-10-08T20:49:25.879756+00:00",
+  "finished_utc": "2026-10-08T20:52:44.333071+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  }
+}

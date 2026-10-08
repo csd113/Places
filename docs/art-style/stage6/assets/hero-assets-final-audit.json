@@ -1,0 +1,806 @@
+{
+  "chair_before": {
+    "format": "GLB 2.0",
+    "bytes": 79196,
+    "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+    "vertices": 432,
+    "triangles": 204,
+    "bounds": [
+      [
+        -0.25,
+        0.0,
+        -0.24500000476837158
+      ],
+      [
+        0.25,
+        0.9020000100135803,
+        0.24500000476837158
+      ]
+    ],
+    "dimensions": [
+      0.5,
+      0.9020000100135803,
+      0.49000000953674316
+    ],
+    "topology": {
+      "triangles": 204,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "duplicate_faces": 0,
+    "coincident_quads": [],
+    "zero_uv_area_faces": 0,
+    "unused_primitive_vertices": 0,
+    "authored_normal_vertices": 0,
+    "geometry_sha256": "248c04ac596445c96fd20fc43806a549c637d9e34eea328d69a971d3d6300bba",
+    "materials": [
+      {
+        "name": "home_dining_chair_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        },
+        "doubleSided": true
+      }
+    ],
+    "unused_materials": [],
+    "images": [
+      {
+        "width": 256,
+        "height": 256,
+        "bytes": 66182,
+        "decoded_bytes": 262144,
+        "sha256": "dd784045b3fb59c816805d0d1a20a449c78f921c54e40d2efb5645cb32af4ec3",
+        "pixel_sha256": "f6785e68fa526f9644a8c95509417417617a3dfa482741d1bfd3e4270e108a6e",
+        "alpha_range": [
+          255,
+          255
+        ],
+        "index": 0,
+        "name": "home_dining_chair_diffuse",
+        "used": true
+      }
+    ],
+    "transforms": [],
+    "skins": [],
+    "animations": [],
+    "clip_metadata": null,
+    "unused_accessors": [],
+    "errors": [],
+    "review": []
+  },
+  "models_after": {
+    "home:rug": {
+      "format": "GLB 2.0",
+      "bytes": 100980,
+      "sha256": "0171ad8df033958933da7e92311cd6f425b734a7feb519adf252ce4b1d93bd4f",
+      "vertices": 120,
+      "triangles": 56,
+      "bounds": [
+        [
+          -1.0,
+          0.0,
+          -0.699999988079071
+        ],
+        [
+          1.0,
+          0.019999999552965164,
+          0.699999988079071
+        ]
+      ],
+      "dimensions": [
+        2.0,
+        0.019999999552965164,
+        1.399999976158142
+      ],
+      "topology": {
+        "triangles": 56,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 2,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 0,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "e4c426d95e8de145e0913dfa45f4a0be2400a7c179eacb6b8c65e27ec584d1a6",
+      "materials": [
+        {
+          "name": "home_rug_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 96399,
+          "decoded_bytes": 262144,
+          "sha256": "59f06d4a8fc376f153da9a7637284bbb66868324f4aba29b5b13414592b6b251",
+          "pixel_sha256": "647ab3c8574eb12f1015e8edec662d0e235d154b6c3a8f98547c20fcfac2dab2",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_rug_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "home:cushion": {
+      "format": "GLB 2.0",
+      "bytes": 58564,
+      "sha256": "cc3af5ca5944b83ef56c7b3930d7f17a2ebd7116d2c7b4cd63a5a03a4a20c1ff",
+      "vertices": 96,
+      "triangles": 44,
+      "bounds": [
+        [
+          -0.16500000655651093,
+          0.0,
+          -0.057500001043081284
+        ],
+        [
+          0.16500000655651093,
+          0.3199999928474426,
+          0.057500001043081284
+        ]
+      ],
+      "dimensions": [
+        0.33000001311302185,
+        0.3199999928474426,
+        0.11500000208616257
+      ],
+      "topology": {
+        "triangles": 44,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 1,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 0,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "15e2bbdb1791d3d7af73c65c716d89846346d57b98a5155d445512feb0bf1e5d",
+      "materials": [
+        {
+          "name": "home_cushion_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 54601,
+          "decoded_bytes": 262144,
+          "sha256": "c2098cfaed18f50bc676e8fe9bb8b2e9acaa57f56dc6ed219f5854509b034f22",
+          "pixel_sha256": "667fdc9d7a87565e1479d8e580d597c2744bd599b500d85987b30420b6e854bf",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_cushion_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "home:plant_table": {
+      "format": "GLB 2.0",
+      "bytes": 27804,
+      "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61",
+      "vertices": 775,
+      "triangles": 376,
+      "bounds": [
+        [
+          -0.06499999761581421,
+          0.0,
+          -0.06499999761581421
+        ],
+        [
+          0.06499999761581421,
+          0.2804843485355377,
+          0.06499999761581421
+        ]
+      ],
+      "dimensions": [
+        0.12999999523162842,
+        0.2804843485355377,
+        0.12999999523162842
+      ],
+      "topology": {
+        "triangles": 376,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 9,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 112,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "9efc3d5b60ddce2eb83d59309491da5a98325fcab0a206a364af13aa8f7e2804",
+      "materials": [
+        {
+          "name": "home_plant_table_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 64,
+          "height": 64,
+          "bytes": 5459,
+          "decoded_bytes": 16384,
+          "sha256": "d6e6365f327465e047de7caa7e79a7b30eed28993d6ff5d147990d93b7da5ecc",
+          "pixel_sha256": "277aad7d109c3bede286abff1ea9a2a35f43c410e9a20792af8bfe9d5f2513ac",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_plant_table_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "core:plant": {
+      "format": "GLB 2.0",
+      "bytes": 178432,
+      "sha256": "0c32f16166d890eb433d008abc139a22651b1eb977abfbfd9233b3888d6167e8",
+      "vertices": 1168,
+      "triangles": 512,
+      "bounds": [
+        [
+          -0.19200000166893005,
+          0.0,
+          -0.19200000166893005
+        ],
+        [
+          0.19200000166893005,
+          0.9953814148902893,
+          0.19200000166893005
+        ]
+      ],
+      "dimensions": [
+        0.3840000033378601,
+        0.9953814148902893,
+        0.3840000033378601
+      ],
+      "topology": {
+        "triangles": 512,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 17,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 224,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "7e8506953146de6ab1ffcd3facc6f63c11a8b4015719b78b1525b759a8fbbc11",
+      "materials": [
+        {
+          "name": "core_plant_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 145864,
+          "decoded_bytes": 262144,
+          "sha256": "4d2f0e20baf33fe5c26a56c62167b1b1ba44754d3766775abeccd0e8a6639c35",
+          "pixel_sha256": "f03c81d0e2acfa2f2cd2581389033620c7b05e546f4af29e42e73cfd8a61bf0b",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "core_plant_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "home:landscape_frame": {
+      "format": "GLB 2.0",
+      "bytes": 53016,
+      "sha256": "25951b9b3069829b05cddc44043ed223813ac284aed15ab99b9289d0ed918ef5",
+      "vertices": 168,
+      "triangles": 84,
+      "bounds": [
+        [
+          -0.22499999403953552,
+          0.0,
+          -0.012000000104308128
+        ],
+        [
+          0.22499999403953552,
+          0.5,
+          0.017999999225139618
+        ]
+      ],
+      "dimensions": [
+        0.44999998807907104,
+        0.5,
+        0.029999999329447746
+      ],
+      "topology": {
+        "triangles": 84,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 7,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 0,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "c944eb3b12910d5116483dfe9e347243f76a56849bfd9e7dbaef0b60a14a10b5",
+      "materials": [
+        {
+          "name": "home_landscape_frame_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 47047,
+          "decoded_bytes": 262144,
+          "sha256": "2fffa02004c139e041e980d567bb018db2e475a42d54dacb27b760ebe479e750",
+          "pixel_sha256": "04fe555a7a0dac61cd08b13abffd563d3b78d8dd0ddb235a08b67c895e396622",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_landscape_frame_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "home:door_casing": {
+      "format": "GLB 2.0",
+      "bytes": 39416,
+      "sha256": "084e6155218091a898b4aee2092a79089378eba0c131b7a77bc1734730390099",
+      "vertices": 144,
+      "triangles": 72,
+      "bounds": [
+        [
+          -0.7900000214576721,
+          0.0,
+          -0.029999999329447746
+        ],
+        [
+          0.7900000214576721,
+          2.180000066757202,
+          0.024000000208616257
+        ]
+      ],
+      "dimensions": [
+        1.5800000429153442,
+        2.180000066757202,
+        0.053999999538064
+      ],
+      "topology": {
+        "triangles": 72,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 6,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 0,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "37f89f0acc1f0405626730d3cc8f97a631e6ee789cbd30547271904847d4989c",
+      "materials": [
+        {
+          "name": "home_door_casing_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 34117,
+          "decoded_bytes": 262144,
+          "sha256": "ececf463c4653c803eb0c4ba0cb27b712aeed3fbed970ce15c424271119467c5",
+          "pixel_sha256": "d8899ea304d647e167e851bb6b93e53f78ba084bfc1c939a0b7ccb6e9d5cea5a",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_door_casing_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    },
+    "home:dining_chair_refined": {
+      "format": "GLB 2.0",
+      "bytes": 87640,
+      "sha256": "bf57625d7891b4ced1f3b1a0c3b8a0e69a57ca64128b5e7250192fb739fc31d4",
+      "vertices": 752,
+      "triangles": 324,
+      "bounds": [
+        [
+          -0.25,
+          0.0,
+          -0.24500000476837158
+        ],
+        [
+          0.25,
+          0.9020000100135803,
+          0.24500000476837158
+        ]
+      ],
+      "dimensions": [
+        0.5,
+        0.9020000100135803,
+        0.49000000953674316
+      ],
+      "topology": {
+        "triangles": 324,
+        "degenerate": 0,
+        "boundary_edges": 0,
+        "nonmanifold_edges": 0,
+        "inconsistent_edges": 0,
+        "flipped_triangles": 0,
+        "components": 9,
+        "contradictory_components": 0
+      },
+      "duplicate_faces": 0,
+      "coincident_quads": [],
+      "zero_uv_area_faces": 0,
+      "unused_primitive_vertices": 0,
+      "authored_normal_vertices": 0,
+      "geometry_sha256": "5884be690588cef6d1ec642490e654aa0eda3543dc44691b89aa32fe87316715",
+      "materials": [
+        {
+          "name": "home_dining_chair_refined_mat",
+          "pbrMetallicRoughness": {
+            "baseColorTexture": {
+              "index": 0
+            },
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.0
+          },
+          "doubleSided": true
+        }
+      ],
+      "unused_materials": [],
+      "images": [
+        {
+          "width": 256,
+          "height": 256,
+          "bytes": 66182,
+          "decoded_bytes": 262144,
+          "sha256": "dd784045b3fb59c816805d0d1a20a449c78f921c54e40d2efb5645cb32af4ec3",
+          "pixel_sha256": "f6785e68fa526f9644a8c95509417417617a3dfa482741d1bfd3e4270e108a6e",
+          "alpha_range": [
+            255,
+            255
+          ],
+          "index": 0,
+          "name": "home_dining_chair_refined_diffuse",
+          "used": true
+        }
+      ],
+      "transforms": [],
+      "skins": [],
+      "animations": [],
+      "clip_metadata": null,
+      "unused_accessors": [],
+      "errors": [],
+      "review": []
+    }
+  },
+  "model_build_runs": [
+    {
+      "label": "new-refined-identity",
+      "command": "python3 tools/props/build.py --only home:dining_chair_refined --workers 1",
+      "wall_seconds": 0.16412270802538842,
+      "exit_code": 0,
+      "stdout": "prop                      tris  verts       tex      glb  notes\n---------------------------------------------------------------\nhome:dining_chair_refined   324    752   256x256    85.6k\n---------------------------------------------------------------\ntotal                      324                     85.6k  (1 props, 256.0 KiB decoded RGBA)\nbudget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB\n\n1 prop(s) OK\n",
+      "stderr": "",
+      "sha256": "bf57625d7891b4ced1f3b1a0c3b8a0e69a57ca64128b5e7250192fb739fc31d4"
+    },
+    {
+      "label": "unchanged-refined-identity",
+      "command": "python3 tools/props/build.py --only home:dining_chair_refined --workers 1",
+      "wall_seconds": 0.1662502089748159,
+      "exit_code": 0,
+      "stdout": "prop                      tris  verts       tex      glb  notes\n---------------------------------------------------------------\nhome:dining_chair_refined   324    752   256x256    85.6k\n---------------------------------------------------------------\ntotal                      324                     85.6k  (1 props, 256.0 KiB decoded RGBA)\nbudget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB\n\n1 prop(s) OK\n",
+      "stderr": "",
+      "sha256": "bf57625d7891b4ced1f3b1a0c3b8a0e69a57ca64128b5e7250192fb739fc31d4"
+    }
+  ],
+  "original_hero_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+  "refined_hero_sha256": "bca6f840a3c54dda6ecbff707a0c40f98e8cb6fd14258c97defa283b31f8710e",
+  "unchanged_png_count": 79,
+  "source_invariants": "All Stage5 transparency fields equal except name, main-room floor material, removal of only redundant living-room oak strip, six explicit prop collision sizes, static/template chair model references to separate reusable refined chair; six non-solid props and five baseboards added. Stage5 snow, water/ice, backing, practical, ghost timer/template/point unchanged.",
+  "chair_tangent_frame_faces_checked": 324,
+  "existing_foliage_swatch_uvs": {
+    "home:plant_table": 112,
+    "core:plant": 224
+  },
+  "casing_fit": "Existing 1.44m x 2.10m clear stock at 1.071428571 scale yields 1.542857m clear width; 0.05m vertical placement makes header underside2.30m.90mm baseboards cover lower50mm feet, with stock rear1mm clear of wall.",
+  "framed_art_mount": "Stock rear exactly1mm clear of west wall after1.25x scaling and90deg yaw.",
+  "stage5_base_source": "tests/fixtures/levels/art_style_hero_transparency.json",
+  "stage5_base_source_sha256": "a73c44e3ad362ba2c6dac4ce93bde4a77cfd573cfed17d33dbfbb61eaca327df",
+  "stage5_content_preservation": {
+    "snow_patch": [
+      {
+        "x": -0.6,
+        "z": -6.4,
+        "width": 3.1,
+        "depth": 2.8,
+        "material": "winter:snow_01"
+      }
+    ],
+    "floor_regions": "exact",
+    "void_walls": "exact",
+    "water": "exact",
+    "surfaces_practical": "exact",
+    "timers": "exact",
+    "spawn_templates": "ghost exact; comparison_chair model changes only to home:dining_chair_refined",
+    "spawn_points": "exact",
+    "presentation_sky_environment": "transparency defaults exact; night/aurora/storm variant sources remain immutable"
+  },
+  "immutable_hero_sources_sha256": {
+    "tests/fixtures/levels/art_style_hero_stage4_switchable.json": "b45b7794b6846a38a1a32dc7c09216ec91c9e0c41cad298732ce2d79da00735c",
+    "tests/fixtures/levels/art_style_hero_atmosphere.json": "c0500d91443249c56dd6e138bc705550387f6868009593eff59a0a6ae7c97466",
+    "tests/fixtures/levels/art_style_hero_stage4_entities.json": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+    "tests/fixtures/levels/art_style_hero.json": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+    "tests/fixtures/levels/art_style_hero_stage4_comparison.json": "4008225fe5bcab967e4b75c76695049bcc483f3a14b3018c5601d9682ed755b0",
+    "tests/fixtures/levels/art_style_hero_night.json": "914519438329ff6772b2613f93bb1b032077ce483b73fa3f7b39ceabef7015d0",
+    "tests/fixtures/levels/art_style_hero_aurora.json": "4a74cc4a1e8998fdb4621d22facfc60286ef4e9e2cb2e58863913708cdc434ad",
+    "tests/fixtures/levels/art_style_hero_transparency.json": "a73c44e3ad362ba2c6dac4ce93bde4a77cfd573cfed17d33dbfbb61eaca327df",
+    "tests/fixtures/levels/art_style_hero_stage4_movement.json": "3fb98e82819387dacfedfc5bba04c7a2751eb599e8b399e23bd925a23d73726b",
+    "tests/fixtures/levels/art_style_hero_storm.json": "cf68d3ba0541b0f805494f392cbab826da02429c98e0e09fb9013702e2b953a5"
+  },
+  "correction_history": [
+    {
+      "reason": "Initial fixture derived from original control instead of complete Stage5 additive transparency source, omitting Stage5 outdoor and ghost arrangements.",
+      "initial_audit": "/tmp/art-style-stage6-hero-assets-initial-original-control-audit.json",
+      "restored_fields": [
+        "floor_patches/winter:snow_01",
+        "floor_regions",
+        "void_walls",
+        "water",
+        "props/surfaces_practical",
+        "timers/coverage_ghost_spawn",
+        "spawn_templates/coverage_ghost",
+        "spawn_points/coverage_ghost_point"
+      ],
+      "source_recheck": "PASS against Stage5 transparency, preserving all other original controls."
+    },
+    {
+      "reason": "Nonhero shipped packages embed original dining_chair dependency identity; refined recipe/GLB isolated under new reusable asset instead of global replacement.",
+      "prior_audit": "/tmp/art-style-stage6-hero-assets-before-identity-split-audit.json",
+      "preserved_original_sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e"
+    }
+  ],
+  "original_model_restored": {
+    "format": "GLB 2.0",
+    "bytes": 79196,
+    "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+    "vertices": 432,
+    "triangles": 204,
+    "bounds": [
+      [
+        -0.25,
+        0.0,
+        -0.24500000476837158
+      ],
+      [
+        0.25,
+        0.9020000100135803,
+        0.24500000476837158
+      ]
+    ],
+    "dimensions": [
+      0.5,
+      0.9020000100135803,
+      0.49000000953674316
+    ],
+    "topology": {
+      "triangles": 204,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "duplicate_faces": 0,
+    "coincident_quads": [],
+    "zero_uv_area_faces": 0,
+    "unused_primitive_vertices": 0,
+    "authored_normal_vertices": 0,
+    "geometry_sha256": "248c04ac596445c96fd20fc43806a549c637d9e34eea328d69a971d3d6300bba",
+    "materials": [
+      {
+        "name": "home_dining_chair_mat",
+        "pbrMetallicRoughness": {
+          "baseColorTexture": {
+            "index": 0
+          },
+          "metallicFactor": 0.0,
+          "roughnessFactor": 1.0
+        },
+        "doubleSided": true
+      }
+    ],
+    "unused_materials": [],
+    "images": [
+      {
+        "width": 256,
+        "height": 256,
+        "bytes": 66182,
+        "decoded_bytes": 262144,
+        "sha256": "dd784045b3fb59c816805d0d1a20a449c78f921c54e40d2efb5645cb32af4ec3",
+        "pixel_sha256": "f6785e68fa526f9644a8c95509417417617a3dfa482741d1bfd3e4270e108a6e",
+        "alpha_range": [
+          255,
+          255
+        ],
+        "index": 0,
+        "name": "home_dining_chair_diffuse",
+        "used": true
+      }
+    ],
+    "transforms": [],
+    "skins": [],
+    "animations": [],
+    "clip_metadata": null,
+    "unused_accessors": [],
+    "errors": [],
+    "review": []
+  },
+  "refined_chair_identity_split": {
+    "reason": "Original chair model must retain byte identity for existing nonhero compiled packages; Stage7 owns later adoption.",
+    "original_sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+    "original_bytes": 79196,
+    "refined_id": "home:dining_chair_refined",
+    "refined_glb": "assets/environment/home/props/models/dining_chair_refined.glb",
+    "refined_glb_sha256": "bf57625d7891b4ced1f3b1a0c3b8a0e69a57ca64128b5e7250192fb739fc31d4",
+    "prior_refined_glb_sha256": "32eff5213d588d8ba480e4723a9a906da5c079f310fb31e24fc481a1bb863301",
+    "prior_refined_payload_preserved": "/tmp/art-style-stage6-chair-refined-pre-identity-split.glb",
+    "geometry_uv_color_index_material_image_equality": "exact",
+    "source_png": "assets/environment/home/props/models/dining_chair.png",
+    "source_png_unchanged": true,
+    "prior_audit": "/tmp/art-style-stage6-hero-assets-before-identity-split-audit.json"
+  }
+}

@@ -739,15 +739,12 @@ pub fn prepare_level_geometry_with_lightmaps(
         if let Some(plan_failure) = active_plan.failure() {
             build.lightmap_failure = Some(plan_failure);
         } else {
-            // The key covers the level definition, the lightmap config, the
-            // quality level, the *bake settings* (visibility taps and the
-            // prop-occlusion cell), the occluder set the bake actually uses and
-            // the light-model constants the equation evaluates with, so a prop
-            // model, a light, a shadow-quality constant or a lighting-model
-            // recalibration invalidates the cached atlas while a texture-only
-            // edit does not. The transport solver's own revision also enters the
-            // key through its fingerprint, so a solver change invalidates every
-            // cached atlas without invalidating an unchanged source.
+            // This transient key covers source/settings/solver inputs, not
+            // resolved catalog, PNG or GLB bytes. A caller retaining this cache
+            // must keep those inputs immutable or clear it after an asset edit.
+            // The compiler starts a fresh cache per build; its package/stage
+            // fingerprints cover resolved resources. The player consumes those
+            // prepared packages and verifies installed dependency hashes.
             let key = lightmap_content_key(level, &build.lighting, options);
             if let Some(cached) = cache.and_then(|lightmap_cache| lightmap_cache.get(&key)) {
                 build.lightmaps = Some(cached);
@@ -813,9 +810,13 @@ pub fn prepare_level_geometry_with_lightmaps(
     PreparedLightmapBuild { build, fill }
 }
 
-/// Preserve the historical atlas identity while refreshing only metadata after
-/// a display/navigation edit. A decoded prepared lighting record carries the
-/// same occluder fingerprint; no light transport needs to run again.
+/// Source/settings identity for a transient atlas cache and compiler metadata.
+///
+/// Resolved catalog, image and model bytes belong to the compiler's package
+/// identity, not this helper. Manual persistent-cache callers must retain
+/// immutable resolved inputs or clear the cache when those resources change.
+/// A decoded prepared lighting record lets the compiler refresh this metadata
+/// after a display/navigation edit without repeating transport.
 #[must_use]
 pub fn lightmap_content_key(
     level: &LevelDef,

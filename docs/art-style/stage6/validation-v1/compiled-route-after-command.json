@@ -1,0 +1,17 @@
+{
+  "command": [
+    "target/debug/deps/places-db4822a0463dd4cf",
+    "audit_compiled_hero_routes",
+    "--ignored"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.23914029099978507,
+  "started_utc": "2026-10-08T20:55:41.140908+00:00",
+  "finished_utc": "2026-10-08T20:55:41.380051+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache",
+    "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places",
+    "PLACES_HERO_ROUTE_PACKAGE": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+    "PLACES_HERO_ROUTE_OUT": "docs/art-style/stage6/movement/compiled-after.json"
+  }
+}

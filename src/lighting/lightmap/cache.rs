@@ -1,8 +1,10 @@
 //! The deterministic content key and the level lightmap memory cache.
 //!
-//! A lightmap is a pure function of the level's geometry and light definitions,
-//! the quality profile, the lightmap format and the transport solver revision.
-//! [`content_key`] reduces exactly those inputs to one stable string:
+//! A lightmap also depends on resolved material, image and model content.
+//! This transient helper reduces source/settings inputs to one stable string;
+//! manually retained caches require immutable resolved assets or explicit
+//! clearing after an asset edit. The compiler's package/stage fingerprints
+//! cover those resources, and player loading verifies their recorded hashes.
 //!
 //! ```text
 //! v<format>-<64-bit FNV-1a hash of>
@@ -122,8 +124,10 @@ impl LightmapCache {
 /// hand (tests, tooling). The renderer uses [`content_key_with_extra`] with
 /// [`crate::lighting::LevelLighting::occlusion_fingerprint`],
 /// [`crate::lighting::model_fingerprint`] and
-/// [`crate::lighting::transport::solver_fingerprint`], which is what makes a
-/// prop-model, lighting-model or solver change invalidate a cached atlas.
+/// [`crate::lighting::transport::solver_fingerprint`], which is what makes an
+/// authored occluder, lighting-model or solver change invalidate a cached atlas.
+/// Resolved catalog/image/model bytes are absent: callers manually retaining
+/// this transient cache must keep those inputs immutable or clear it.
 #[must_use]
 pub fn content_key(
     level: &crate::level::LevelDef,

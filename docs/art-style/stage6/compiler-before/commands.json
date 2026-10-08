@@ -1,0 +1,47 @@
+[
+  {
+    "case": "forced",
+    "command": [
+      "/usr/bin/time",
+      "-l",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-runtime-v1/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_transparency.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compiler-before/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--json",
+      "--force"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 10.351514916983433,
+    "started_utc": "2026-10-08T19:44:46.713768+00:00"
+  },
+  {
+    "case": "unchanged",
+    "command": [
+      "/usr/bin/time",
+      "-l",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-runtime-v1/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_transparency.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compiler-before/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.32206500007305294,
+    "started_utc": "2026-10-08T19:44:57.066937+00:00"
+  }
+]

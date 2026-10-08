@@ -1,0 +1,20 @@
+[
+  {
+    "label": "changed-source-final",
+    "command": "python3 tools/props/build.py --only home:dining_chair --workers 1",
+    "wall_seconds": 0.1832782500423491,
+    "exit_code": 0,
+    "stdout": "prop                      tris  verts       tex      glb  notes\n---------------------------------------------------------------\nhome:dining_chair          324    752   256x256    85.5k\n---------------------------------------------------------------\ntotal                      324                     85.5k  (1 props, 256.0 KiB decoded RGBA)\nbudget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB\n\n1 prop(s) OK\n",
+    "stderr": "",
+    "sha256": "32eff5213d588d8ba480e4723a9a906da5c079f310fb31e24fc481a1bb863301"
+  },
+  {
+    "label": "unchanged-source-final",
+    "command": "python3 tools/props/build.py --only home:dining_chair --workers 1",
+    "wall_seconds": 0.1730172090465203,
+    "exit_code": 0,
+    "stdout": "prop                      tris  verts       tex      glb  notes\n---------------------------------------------------------------\nhome:dining_chair          324    752   256x256    85.5k\n---------------------------------------------------------------\ntotal                      324                     85.5k  (1 props, 256.0 KiB decoded RGBA)\nbudget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB\n\n1 prop(s) OK\n",
+    "stderr": "",
+    "sha256": "32eff5213d588d8ba480e4723a9a906da5c079f310fb31e24fc481a1bb863301"
+  }
+]

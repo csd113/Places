@@ -14,6 +14,7 @@ The current workflow uses the following tools:
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
+| `scene_budget.py` | validates package/native identity and audits nonzero surface or final capture submissions against configurable warnings |
 | `compare_packages.py` | compares every compiled record byte, including all HDR lightmaps and probe mips |
 | `capture_compiler.py` | compares baseline and optimized packages through identical native renderer settings and authored animation frame |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
@@ -423,3 +424,36 @@ python3 tools/bench/capture_compiler.py --binary target/release/places \
   --after tools/bench/results/compiler-audit-20261003/optimized-final-native \
   --out debug-maps/compiler-audit-20261003/captures/native-comparison
 ```
+
+## Hero incremental inputs and quality paths
+
+The [Stage 6 contracts](../../docs/art-style/stage6/contracts.md) document source,
+resolved dependency, catalogue, tool and capture identity. `cache_decisions` in
+`places-compile --json` names package/prepared hits, misses and bypass reasons.
+`--force` remains the independent full path. Build a changed model from its real
+PNG/source before compiling: GLB embeds the runtime image.
+
+The incremental harness accepts `--source`, `--asset-root`, `--seed-package`,
+`--reference-once`, and cases `unchanged metadata presentation texture material
+model geometry light entity combined prop`. Texture/model cases require an
+explicit assets-relative `--texture-edit path=existing.png` or `--model-edit
+path=existing.glb`. It copies assets into isolated durable roots and never edits
+the installed files. Use `--expect-metadata-reuse --expect-presentation-reuse`
+for those two supported prepared-stage cases. Every timed output must equal the
+independent clean archive byte for byte, including baked lighting and probe mips.
+
+A fast hero development build uses `--variants medium --workers 12`; its native
+player must request Medium. Final visual validation uses `--variants
+off,medium,full --workers 12` and High/Full. Keep the output paths distinct;
+variant identities are enforced. Medium changes chart/filter/reflection quality,
+not correctness or content, and cannot stand in for the final High gallery.
+
+`capture_art_style_hero.py --move-script 'forward@0-1.35'` drives normal controls
+and preserves the view's state CSV. Invalid scripts are rejected. `--diagnostic
+final` on a visual-diagnostics build records actual capture submission counts even
+when window acquisition skips presentation. Those counts describe submitted
+ranges including occluded geometry. `scene_budget.py --package P --log L
+--limits limits.json --out NEW.json` verifies package entries and native
+manifest/variant identity before emitting warnings. It rejects empty telemetry,
+and uses the real final capture receipt when supplied. Neither captures nor
+zero-draw window summaries establish ordinary gameplay FPS or fragment overdraw.

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "tools/assets/validate.py",
+    "--quiet"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.849324333015829,
+  "started_utc": "2026-10-08T20:28:11.788581+00:00",
+  "finished_utc": "2026-10-08T20:28:16.637917+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

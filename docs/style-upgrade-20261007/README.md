@@ -368,3 +368,42 @@ surface, night and both corrected ghost controls replay byte for byte; weather
 differences remain confined to normal snowfall. The final seal/remote/exact-SHA CI
 and repository/caffeinate transfer are appended in the completion receipt after
 the publication gate.
+
+## 2026-10-08 — Art-style Stage 6: a furnished hero, dependable edits
+
+[Matched native gallery](../art-style/stage6/README.md) ·
+[Measured content and workflow costs](../art-style/stage6/performance.md) ·
+[Contracts](../art-style/stage6/contracts.md) ·
+[Validation and runnable milestone](../art-style/stage6/handoff.md)
+
+| Fresh Stage 5 control before | Stage 6 after, matched native High |
+| --- | --- |
+| ![Before living room](../art-style/stage6/before/refinement-control/room.png) | ![Oak, rug and domestic detail](../art-style/stage6/after/refined/room.png) |
+| ![Before paired chairs](../art-style/stage6/before/refinement-control/entities.png) | ![Refined chair silhouettes](../art-style/stage6/after/refined/entities.png) |
+
+Oak connects the room beneath a fitted rug. Bevelled chair edges, a cushion,
+plants, framed art and non-solid trim give the room scale and grounding while
+retaining the accepted lighting, ghost and water/ice/snow controls. Nine fixed
+views use the same cameras and settings. Concepts and original reusable assets
+remain unchanged; movement and compiled navigation keep the passage usable.
+The measured room rises from 38 draws/5,234 submitted triangles to 43/6,944;
+two atlas pages remain unchanged. Casing feet and the plant/lamp projection overlap
+remain visible reuse/composition compromises.
+
+Ordinary builds now collect all runtime spawn-template models automatically,
+pin catalogue/tool identity and explain cache decisions. Twenty-two individual
+and combined hero edits agree exactly with independent forced builds; native
+texture/light comparisons also agree. Unchanged/metadata/presentation work costs
+0.330/0.749/0.759 s; physical edits safely rebuild in roughly ten seconds. Clearly
+labelled Medium development builds take 2.574 s versus 9.982 s for all-quality
+validation. Lower quality is not substituted for the final native gallery.
+
+Three isolated moving-caster pairs reduce the receiver kernel median 34.6%
+while preserving conservative updates. GPU traces have different capture/surface
+submission contexts and establish no causal gameplay speedup. Warning budgets
+retain headroom without changing hard safety limits. The original baseline,
+22 prior accepted bundles and all seven concepts remain hash-verified.
+
+Publication and exact-SHA CI/custody receipts are appended after their identities
+exist. Nonhero adoption and the three inherited local discovery failures remain
+Stage 7; this stage preserves `target/` and does not start that stage.

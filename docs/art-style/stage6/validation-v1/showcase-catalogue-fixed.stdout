@@ -1,0 +1,5 @@
+
+running 1 test
+test render::tests::the_showcase_level_renders_every_core_prop_with_real_geometry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2148 filtered out; finished in 0.28s

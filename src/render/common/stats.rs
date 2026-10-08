@@ -65,6 +65,8 @@ pub struct RenderStats {
     pub total_vertices: usize,
     /// Vertices inside the batches that were actually submitted this frame.
     pub visible_vertices: usize,
+    /// Indices submitted by the base scene, including repeated indexed vertices.
+    pub visible_indices: usize,
     /// Vertices belonging to batches the frustum rejected this frame.
     pub culled_vertices: usize,
     /// Render batches the level is split into.

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--release",
+    "--lib",
+    "profile_hero_moving_caster_refresh",
+    "--",
+    "--ignored",
+    "--nocapture"
+  ],
+  "exit_code": 101,
+  "elapsed_seconds": 13.842949458980002,
+  "started_utc": "2026-10-08T19:48:31.993359+00:00",
+  "finished_utc": "2026-10-08T19:48:45.836348+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "",
+    "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+    "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+    "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before.json"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--workspace"
+  ],
+  "exit_code": 101,
+  "elapsed_seconds": 854.1220095839817,
+  "started_utc": "2026-10-08T20:38:50.417599+00:00",
+  "finished_utc": "2026-10-08T20:53:04.541615+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  }
+}

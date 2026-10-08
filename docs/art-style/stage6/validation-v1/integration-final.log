@@ -1,0 +1,5 @@
+error: no test target named `compiler` in default-run packages
+help: available test targets:
+    command_line
+    list_levels
+    macos_cpu_port

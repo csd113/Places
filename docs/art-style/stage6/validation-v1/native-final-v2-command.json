@@ -1,0 +1,21 @@
+{
+  "command": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places",
+    "--manifest",
+    "docs/art-style/stage6/hero-final-manifest.json",
+    "--views",
+    "room,surfaces",
+    "--out",
+    "docs/art-style/stage6/final-replay-v2"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 3.9544778750278056,
+  "started_utc": "2026-10-08T21:19:35.263941+00:00",
+  "finished_utc": "2026-10-08T21:19:39.218440+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

@@ -1,0 +1,66 @@
+[
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-object-label\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-object-label.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-object-label.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-application-command-buffer-submissions\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-application-command-buffer-submissions.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-before-room-v1-export/metal-application-command-buffer-submissions.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-after-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-object-label\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-after-room-v1-export/metal-object-label.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-after-room-v1-export/metal-object-label.xml\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "xcrun",
+      "xctrace",
+      "export",
+      "--input",
+      "debug-maps/art-style-hero/evidence/stage6-after-room-v1.trace",
+      "--xpath",
+      "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"metal-application-command-buffer-submissions\"]",
+      "--output",
+      "debug-maps/art-style-hero/evidence/stage6-after-room-v1-export/metal-application-command-buffer-submissions.xml"
+    ],
+    "exit_code": 0,
+    "stdout": "Finished export to the file: /Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-after-room-v1-export/metal-application-command-buffer-submissions.xml\n",
+    "stderr": ""
+  }
+]

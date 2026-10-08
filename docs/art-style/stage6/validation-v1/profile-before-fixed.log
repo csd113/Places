@@ -1,0 +1,5 @@
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 3m 38s
+     Running unittests src/lib.rs (target/release/deps/places-1fe08c6fe88cf7f9)
+Error: "package dependency 'environment/home/props/models/dining_chair.glb' is 87600 bytes, recorded 79196"
+error: test failed, to rerun pass `--lib`

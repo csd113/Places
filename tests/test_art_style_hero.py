@@ -26,7 +26,8 @@ class HeroCaptureContract(unittest.TestCase):
         log = "[renderer] wgpu | adapter: Apple M2 Pro\n[loading] committed art_style_hero\n"
         HERO.validate_native(log, "art_style_hero", None, [1280, 720])
         for invalid in (log.replace("art_style_hero", "places_demo"),
-                        log + "not a valid settings file", log.replace("[renderer]", "")):
+                        log + "not a valid settings file", log.replace("[renderer]", ""),
+                        log + "PLACES_MOVE_SCRIPT: ignored invalid script"):
             with self.assertRaises(ValueError):
                 HERO.validate_native(invalid, "art_style_hero", None, [1280, 720])
 

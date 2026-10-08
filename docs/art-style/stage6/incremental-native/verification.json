@@ -1,0 +1,12 @@
+[
+  {
+    "case": "texture",
+    "png_byte_equal": true,
+    "sha256": "3abea9134a32be677a771568701ca9097908bd3ea7c397d536a919d708b31ea3"
+  },
+  {
+    "case": "light",
+    "png_byte_equal": true,
+    "sha256": "1fbaa2dea97b919444307642643174b61531d40e566d298ffa9ee6253c238fb6"
+  }
+]

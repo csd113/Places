@@ -1,0 +1,138 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_refined.json",
+  "out": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 6632334,
+  "millis": 9876.784167,
+  "warnings": [],
+  "fingerprint": "8cb9efb055e6d32358f82c109a899ccfa545f7715943fa1718f36ba23562464f",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 21,
+      "mesh_vertices": 636,
+      "prop_batches": 21,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 2,
+      "wall_boxes": 64,
+      "navigation_cells": 2955,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 21,
+      "mesh_vertices": 502,
+      "prop_batches": 21,
+      "lightmap_pages": 2,
+      "lightmap_charts": 6874,
+      "irradiance_probes": 495,
+      "probe_points": 2,
+      "wall_boxes": 64,
+      "navigation_cells": 2955,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 21,
+      "mesh_vertices": 502,
+      "prop_batches": 21,
+      "lightmap_pages": 2,
+      "lightmap_charts": 6874,
+      "irradiance_probes": 495,
+      "probe_points": 2,
+      "wall_boxes": 64,
+      "navigation_cells": 2955,
+      "navigation_regions": 2
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 69.60862499999999
+    },
+    {
+      "phase": "compiler_tool_identity",
+      "millis": 20.587791000000003
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.419542
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.00029099999999999997
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.07358400000000001
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 0.866541
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000083
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 75.031125
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 37.738208
+    },
+    {
+      "phase": "capture_off",
+      "millis": 253.94054100000002
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1848.0644590000002
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 159.001584
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 6857.659041
+    },
+    {
+      "phase": "capture_full",
+      "millis": 161.577
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 209.215833
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 178.93070799999998
+    }
+  ],
+  "cache_decisions": [
+    {
+      "stage": "package",
+      "status": "bypass",
+      "reasons": [
+        "forced rebuild requested"
+      ]
+    },
+    {
+      "stage": "prepared_world",
+      "status": "bypass",
+      "reasons": [
+        "forced rebuild requested"
+      ]
+    }
+  ]
+}

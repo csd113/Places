@@ -1,0 +1,1463 @@
+[
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/catalogue-command.json",
+    "command": [
+      "python3",
+      "tools/assets/validate.py",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 4.849324333015829,
+    "started_utc": "2026-10-08T20:28:11.788581+00:00",
+    "finished_utc": "2026-10-08T20:28:16.637917+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/catalogue-display-contract-command.json",
+    "command": [
+      "python3",
+      "tools/levels/build_model_zoo.py",
+      "--workers",
+      "1",
+      "--quiet",
+      "--out",
+      "/tmp/places-stage6-zoo-catalogue-contract.json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.10734437499195337,
+    "started_utc": "2026-10-08T20:44:10.501201+00:00",
+    "finished_utc": "2026-10-08T20:44:10.608548+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/catalogue-display-fixed-command.json",
+    "command": [
+      "target/debug/deps/places-db4822a0463dd4cf",
+      "zoo_audit::the_zoo_displays_every_catalogued_placeable",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.019321084022521973,
+    "started_utc": "2026-10-08T20:46:29.606315+00:00",
+    "finished_utc": "2026-10-08T20:46:29.625637+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/catalogue-display-maintained-command.json",
+    "command": [
+      "python3",
+      "tools/levels/build_model_zoo.py",
+      "--workers",
+      "1",
+      "--quiet",
+      "--out",
+      "/tmp/places-stage6-zoo-catalogue-maintained.json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.06963929196354002,
+    "started_utc": "2026-10-08T20:45:18.432470+00:00",
+    "finished_utc": "2026-10-08T20:45:18.502112+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/catalogue-generator-check-command.json",
+    "command": [
+      "python3",
+      "tools/levels/build_model_zoo.py",
+      "--check",
+      "--workers",
+      "1",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.09609970799647272,
+    "started_utc": "2026-10-08T20:46:29.659427+00:00",
+    "finished_utc": "2026-10-08T20:46:29.755528+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-checkpoint-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 13.261352041969076,
+    "started_utc": "2026-10-08T19:53:29.081872+00:00",
+    "finished_utc": "2026-10-08T19:53:42.343260+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-final-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 8.264409290975891,
+    "started_utc": "2026-10-08T21:13:36.622124+00:00",
+    "finished_utc": "2026-10-08T21:13:44.886555+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-main-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 11.764504667022265,
+    "started_utc": "2026-10-08T20:06:34.721563+00:00",
+    "finished_utc": "2026-10-08T20:06:46.486096+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-release-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--release",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 15.843325333087705,
+    "started_utc": "2026-10-08T20:49:09.996099+00:00",
+    "finished_utc": "2026-10-08T20:49:25.839457+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-release-final-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--release",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 14.434913874953054,
+    "started_utc": "2026-10-08T21:17:43.378562+00:00",
+    "finished_utc": "2026-10-08T21:17:57.813520+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-stable-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 12.08249679103028,
+    "started_utc": "2026-10-08T20:32:55.018495+00:00",
+    "finished_utc": "2026-10-08T20:33:07.101020+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-stable-fixed-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 10.795994958956726,
+    "started_utc": "2026-10-08T20:34:10.015508+00:00",
+    "finished_utc": "2026-10-08T20:34:20.811528+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/clippy-stable-v2-command.json",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 11.603820916963741,
+    "started_utc": "2026-10-08T20:37:40.379335+00:00",
+    "finished_utc": "2026-10-08T20:37:51.983179+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/compile-costs-command.json",
+    "command": [
+      "python3",
+      "/tmp/places-stage6-compile-costs.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 31.009774292004295,
+    "started_utc": "2026-10-08T21:04:15.617806+00:00",
+    "finished_utc": "2026-10-08T21:04:46.627640+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/compiled-route-after-command.json",
+    "command": [
+      "target/debug/deps/places-db4822a0463dd4cf",
+      "audit_compiled_hero_routes",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.23914029099978507,
+    "started_utc": "2026-10-08T20:55:41.140908+00:00",
+    "finished_utc": "2026-10-08T20:55:41.380051+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places",
+      "PLACES_HERO_ROUTE_PACKAGE": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "PLACES_HERO_ROUTE_OUT": "docs/art-style/stage6/movement/compiled-after.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/compiled-route-before-command.json",
+    "command": [
+      "target/debug/deps/places-db4822a0463dd4cf",
+      "audit_compiled_hero_routes",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.23005745804402977,
+    "started_utc": "2026-10-08T20:55:40.881591+00:00",
+    "finished_utc": "2026-10-08T20:55:41.111650+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "PLACES_HERO_ROUTE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+      "PLACES_HERO_ROUTE_OUT": "docs/art-style/stage6/movement/compiled-before.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/compiler-unit-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "compiler::tests::performance",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 9.634568833047524,
+    "started_utc": "2026-10-08T20:04:05.298447+00:00",
+    "finished_utc": "2026-10-08T20:04:14.933038+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/compiler-unit-fixed-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "compiler::tests::performance",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 54.04697029199451,
+    "started_utc": "2026-10-08T20:04:46.114022+00:00",
+    "finished_utc": "2026-10-08T20:05:40.161327+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "",
+      "PLACES_COMPILER_TEST_EVIDENCE": "debug-maps/art-style-hero/evidence/stage6-compiler-unit"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/dev-native-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage6/hero-manifest.json",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/development.placesmap",
+      "--quality",
+      "medium",
+      "--views",
+      "room",
+      "--out",
+      "docs/art-style/stage6/development/medium"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.4129638329613954,
+    "started_utc": "2026-10-08T21:06:05.856910+00:00",
+    "finished_utc": "2026-10-08T21:06:07.269884+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/docs-final-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--doc"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.213598708040081,
+    "started_utc": "2026-10-08T20:55:10.010486+00:00",
+    "finished_utc": "2026-10-08T20:55:11.224090+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/gpu-after-command.json",
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage6-metal-profile-capture.py",
+      "after-room-v1",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "/Users/connordawkins/Documents/GitHub/Places",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "docs/art-style/stage6/hero-manifest.json",
+      "room"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 71.34555591701064,
+    "started_utc": "2026-10-08T21:01:48.292678+00:00",
+    "finished_utc": "2026-10-08T21:02:59.638375+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/gpu-capture-scene-scope-command.json",
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage6-capture-gpu-scene-scope.py"
+    ],
+    "exit_code": 1,
+    "elapsed_seconds": 0.2082893750630319,
+    "started_utc": "2026-10-08T21:07:58.615317+00:00",
+    "finished_utc": "2026-10-08T21:07:58.823608+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/gpu-capture-scene-scope-v2-command.json",
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage6-capture-gpu-scene-scope-v2.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.29491049994248897,
+    "started_utc": "2026-10-08T21:09:18.142141+00:00",
+    "finished_utc": "2026-10-08T21:09:18.437054+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-current-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+      "verify",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--require-current",
+      "--json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.0781492079840973,
+    "started_utc": "2026-10-08T20:53:24.432112+00:00",
+    "finished_utc": "2026-10-08T20:53:24.510263+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-current-final-v2-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "verify-current",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+      "--source",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets"
+    ],
+    "exit_code": 2,
+    "elapsed_seconds": 0.007920874981209636,
+    "started_utc": "2026-10-08T21:18:40.495315+00:00",
+    "finished_utc": "2026-10-08T21:18:40.503238+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-current-final-v3-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "verify",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--require-current",
+      "--json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.08012579195201397,
+    "started_utc": "2026-10-08T21:19:10.845114+00:00",
+    "finished_utc": "2026-10-08T21:19:10.925241+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-final-v2-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "exit_code": 1,
+    "elapsed_seconds": 0.4923005410237238,
+    "started_utc": "2026-10-08T21:18:39.970627+00:00",
+    "finished_utc": "2026-10-08T21:18:40.462933+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-final-v3-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 9.90765404200647,
+    "started_utc": "2026-10-08T21:19:00.902748+00:00",
+    "finished_utc": "2026-10-08T21:19:10.810426+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-game-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "game::tests::art_style",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 0.3044928340241313,
+    "started_utc": "2026-10-08T20:05:50.834833+00:00",
+    "finished_utc": "2026-10-08T20:05:51.139329+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-game-final-command.json",
+    "command": [
+      "target/debug/deps/places-db4822a0463dd4cf",
+      "game::tests::art_style",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.010858083027414978,
+    "started_utc": "2026-10-08T20:46:29.787562+00:00",
+    "finished_utc": "2026-10-08T20:46:29.798423+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-game-fixed-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "game::tests::art_style",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 11.021562583046034,
+    "started_utc": "2026-10-08T20:06:15.198495+00:00",
+    "finished_utc": "2026-10-08T20:06:26.220095+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-preparation-build-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "exit_code": 1,
+    "elapsed_seconds": 11.222933499957435,
+    "started_utc": "2026-10-08T20:52:01.657462+00:00",
+    "finished_utc": "2026-10-08T20:52:12.880422+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/hero-preparation-v2-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+      "build",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/assets",
+      "--out",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "--variants",
+      "off,medium,full",
+      "--workers",
+      "12",
+      "--force",
+      "--json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 9.894192165927961,
+    "started_utc": "2026-10-08T20:53:14.507435+00:00",
+    "finished_utc": "2026-10-08T20:53:24.401646+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/incremental-matrix-command.json",
+    "command": [
+      "python3",
+      "tools/bench/compiler_incremental.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+      "--source",
+      "tests/fixtures/levels/art_style_hero_refined.json",
+      "--out",
+      "debug-maps/art-style-hero/evidence/stage6-incremental-v1",
+      "--seed-package",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+      "--repeat",
+      "2",
+      "--reference-once",
+      "--workers",
+      "12",
+      "--variants",
+      "off,medium,full",
+      "--cases",
+      "unchanged",
+      "metadata",
+      "presentation",
+      "texture",
+      "material",
+      "model",
+      "geometry",
+      "light",
+      "entity",
+      "combined",
+      "prop",
+      "--expect-metadata-reuse",
+      "--expect-presentation-reuse",
+      "--texture-edit",
+      "environment/home/textures/walls/wall_paint_warm_01.png=/Users/connordawkins/Documents/GitHub/Places/assets/environment/home/textures/walls/wall_paint_offwhite_01.png",
+      "--model-edit",
+      "environment/home/props/models/dining_chair_refined.glb=/Users/connordawkins/Documents/GitHub/Places/assets/environment/home/props/models/dining_chair.glb"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 268.3598896668991,
+    "started_utc": "2026-10-08T20:56:12.833319+00:00",
+    "finished_utc": "2026-10-08T21:00:41.193696+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/integration-final-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--test",
+      "compiler",
+      "--test",
+      "command_line",
+      "--test",
+      "list_levels",
+      "--test",
+      "macos_cpu_port",
+      "--no-fail-fast"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 0.17416345898527652,
+    "started_utc": "2026-10-08T20:54:42.766532+00:00",
+    "finished_utc": "2026-10-08T20:54:42.940699+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/integration-final-v2-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--bin",
+      "places-compile",
+      "--test",
+      "command_line",
+      "--test",
+      "list_levels",
+      "--test",
+      "macos_cpu_port",
+      "--no-fail-fast"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 3.1514072080608457,
+    "started_utc": "2026-10-08T20:55:06.813941+00:00",
+    "finished_utc": "2026-10-08T20:55:09.965358+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/movement-native-after-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage6/movement/manifest.json",
+      "--move-script",
+      "forward@0-1.35",
+      "--out",
+      "docs/art-style/stage6/movement/native-after"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.5644859169842675,
+    "started_utc": "2026-10-08T21:06:03.258860+00:00",
+    "finished_utc": "2026-10-08T21:06:05.823354+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/movement-native-before-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "--package",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage6/movement/manifest.json",
+      "--move-script",
+      "forward@0-1.35",
+      "--out",
+      "docs/art-style/stage6/movement/native-before"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.662268624990247,
+    "started_utc": "2026-10-08T21:06:00.561405+00:00",
+    "finished_utc": "2026-10-08T21:06:03.223684+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-after-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage6/hero-manifest.json",
+      "--out",
+      "docs/art-style/stage6/after/refined"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 13.340213416027837,
+    "started_utc": "2026-10-08T20:53:24.539931+00:00",
+    "finished_utc": "2026-10-08T20:53:37.880172+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-budget-after-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-diagnostics",
+      "--manifest",
+      "docs/art-style/stage6/hero-manifest.json",
+      "--views",
+      "room,entities",
+      "--diagnostic",
+      "final",
+      "--out",
+      "docs/art-style/stage6/budgets/after"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.7928043340798467,
+    "started_utc": "2026-10-08T20:54:58.220088+00:00",
+    "finished_utc": "2026-10-08T20:55:01.012900+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-budget-before-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-diagnostics",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "--package",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2/hero-manifest.json",
+      "--views",
+      "room,entities",
+      "--diagnostic",
+      "final",
+      "--out",
+      "docs/art-style/stage6/budgets/before"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 3.5206089169951156,
+    "started_utc": "2026-10-08T20:54:54.663247+00:00",
+    "finished_utc": "2026-10-08T20:54:58.183864+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-final-v2-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places",
+      "--manifest",
+      "docs/art-style/stage6/hero-final-manifest.json",
+      "--views",
+      "room,surfaces",
+      "--out",
+      "docs/art-style/stage6/final-replay-v2"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 3.9544778750278056,
+    "started_utc": "2026-10-08T21:19:35.263941+00:00",
+    "finished_utc": "2026-10-08T21:19:39.218440+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-light-clean-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places",
+      "--manifest",
+      "docs/art-style/stage6/incremental-native/light-manifest.json",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-incremental-v1/light-r1-clean.placesmap",
+      "--views",
+      "room",
+      "--out",
+      "docs/art-style/stage6/incremental-native/light/clean"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.4761305829742923,
+    "started_utc": "2026-10-08T21:06:48.795564+00:00",
+    "finished_utc": "2026-10-08T21:06:50.271700+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-light-incremental-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places",
+      "--manifest",
+      "docs/art-style/stage6/incremental-native/light-manifest.json",
+      "--views",
+      "room",
+      "--out",
+      "docs/art-style/stage6/incremental-native/light/incremental"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.5310295410454273,
+    "started_utc": "2026-10-08T21:06:47.230966+00:00",
+    "finished_utc": "2026-10-08T21:06:48.762002+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-parity-before-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "--package",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2/assets/levels/art_style_hero.placesmap",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-v2/hero-manifest.json",
+      "--views",
+      "room,entities",
+      "--out",
+      "docs/art-style/stage6/runtime-parity/before-current"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.8737511669751257,
+    "started_utc": "2026-10-08T20:54:51.755545+00:00",
+    "finished_utc": "2026-10-08T20:54:54.629307+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-texture-clean-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/evidence/stage6-native-asset-roots/texture",
+      "--manifest",
+      "docs/art-style/stage6/incremental-native/texture-manifest.json",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-incremental-v1/texture-r1-clean.placesmap",
+      "--views",
+      "room",
+      "--out",
+      "docs/art-style/stage6/incremental-native/texture/clean"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.4873539579566568,
+    "started_utc": "2026-10-08T21:06:45.707180+00:00",
+    "finished_utc": "2026-10-08T21:06:47.194543+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/native-texture-incremental-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/evidence/stage6-native-asset-roots/texture",
+      "--manifest",
+      "docs/art-style/stage6/incremental-native/texture-manifest.json",
+      "--views",
+      "room",
+      "--out",
+      "docs/art-style/stage6/incremental-native/texture/incremental"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.5674346670275554,
+    "started_utc": "2026-10-08T21:06:44.104960+00:00",
+    "finished_utc": "2026-10-08T21:06:45.672403+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-after-pair-1-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.4405102080199867,
+    "started_utc": "2026-10-08T21:01:05.137306+00:00",
+    "finished_utc": "2026-10-08T21:01:07.577824+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-after-pair-1.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-after-pair-2-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.571807749918662,
+    "started_utc": "2026-10-08T21:01:09.869847+00:00",
+    "finished_utc": "2026-10-08T21:01:11.441660+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-after-pair-2.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-after-pair-3-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.5715787920635194,
+    "started_utc": "2026-10-08T21:01:13.729113+00:00",
+    "finished_utc": "2026-10-08T21:01:15.300697+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-after-pair-3.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--release",
+      "--lib",
+      "profile_hero_moving_caster_refresh",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 13.842949458980002,
+    "started_utc": "2026-10-08T19:48:31.993359+00:00",
+    "finished_utc": "2026-10-08T19:48:45.836348+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-fixed-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--release",
+      "--lib",
+      "profile_hero_moving_caster_refresh",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 219.8752752080327,
+    "started_utc": "2026-10-08T19:49:28.154469+00:00",
+    "finished_utc": "2026-10-08T19:53:08.031784+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-isolated-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-profile-before/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 3.380654125008732,
+    "started_utc": "2026-10-08T19:53:27.824848+00:00",
+    "finished_utc": "2026-10-08T19:53:31.205517+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-pair-1-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-profile-before/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.2654409169917926,
+    "started_utc": "2026-10-08T21:01:02.840631+00:00",
+    "finished_utc": "2026-10-08T21:01:05.106078+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before-pair-1.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-pair-2-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-profile-before/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.2287601249990985,
+    "started_utc": "2026-10-08T21:01:07.610151+00:00",
+    "finished_utc": "2026-10-08T21:01:09.838918+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before-pair-2.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-pair-3-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-profile-before/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.2261286670109257,
+    "started_utc": "2026-10-08T21:01:11.472144+00:00",
+    "finished_utc": "2026-10-08T21:01:13.698279+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before-pair-3.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/profile-before-valid-command.json",
+    "command": [
+      "debug-maps/art-style-hero/evidence/stage6-runtime-profile-before/places-tests",
+      "profile_hero_moving_caster_refresh",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.3017652080161497,
+    "started_utc": "2026-10-08T19:54:08.969525+00:00",
+    "finished_utc": "2026-10-08T19:54:11.271296+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache",
+      "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-original",
+      "PLACES_PROFILE_PACKAGE": "debug-maps/art-style-hero/milestones/stage5-original/assets/levels/art_style_hero.placesmap",
+      "PLACES_PROFILE_ASSETS": "debug-maps/art-style-hero/milestones/stage5-original/assets",
+      "PLACES_PROFILE_OUT": "docs/art-style/stage6/moving-caster-before-valid.json"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/provenance-final-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "compiler_input_provenance_corruption_and_absence_rebuild_safely"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 30.40660429210402,
+    "started_utc": "2026-10-08T21:13:06.158015+00:00",
+    "finished_utc": "2026-10-08T21:13:36.565333+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "",
+      "PLACES_COMPILER_TEST_EVIDENCE": "debug-maps/art-style-hero/evidence/stage6-provenance-final"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/python-all-v2-command.json",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_*hero.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.13523837504908442,
+    "started_utc": "2026-10-08T20:38:29.419104+00:00",
+    "finished_utc": "2026-10-08T20:38:29.554347+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/python-bench-capture-v3-command.json",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_compiler_bench.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.7751081669703126,
+    "started_utc": "2026-10-08T20:41:17.823857+00:00",
+    "finished_utc": "2026-10-08T20:41:18.598975+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/python-bench-command.json",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_compiler_bench.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.7465683330083266,
+    "started_utc": "2026-10-08T20:28:10.907287+00:00",
+    "finished_utc": "2026-10-08T20:28:11.653865+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/python-bench-v2-command.json",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_compiler_bench.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.7929650420555845,
+    "started_utc": "2026-10-08T20:38:29.604279+00:00",
+    "finished_utc": "2026-10-08T20:38:30.397248+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/python-hero-command.json",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_art_style_hero.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.05502695799805224,
+    "started_utc": "2026-10-08T20:28:11.702319+00:00",
+    "finished_utc": "2026-10-08T20:28:11.757351+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/release-diagnostics-build-command.json",
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--features",
+      "visual-diagnostics",
+      "--bin",
+      "places"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 101.80428929207847,
+    "started_utc": "2026-10-08T20:47:27.757146+00:00",
+    "finished_utc": "2026-10-08T20:49:09.561625+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/release-diagnostics-final-command.json",
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--features",
+      "visual-diagnostics",
+      "--bin",
+      "places"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 100.31226029107347,
+    "started_utc": "2026-10-08T21:16:02.923824+00:00",
+    "finished_utc": "2026-10-08T21:17:43.237079+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/release-native-build-command.json",
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--bin",
+      "places",
+      "--bin",
+      "places-compile"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 103.84002962498926,
+    "started_utc": "2026-10-08T20:45:43.733174+00:00",
+    "finished_utc": "2026-10-08T20:47:27.573411+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/release-native-final-command.json",
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--bin",
+      "places",
+      "--bin",
+      "places-compile"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 98.08156604203396,
+    "started_utc": "2026-10-08T21:14:24.665290+00:00",
+    "finished_utc": "2026-10-08T21:16:02.747550+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/release-profile-build-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--release",
+      "--lib",
+      "profile_hero_moving_caster_refresh",
+      "--no-run"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 198.4529492079746,
+    "started_utc": "2026-10-08T20:49:25.879756+00:00",
+    "finished_utc": "2026-10-08T20:52:44.333071+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/runtime-unit-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "package::world::dependency_tests",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 33.18450462492183,
+    "started_utc": "2026-10-08T20:38:02.967803+00:00",
+    "finished_utc": "2026-10-08T20:38:36.152375+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "",
+      "PLACES_COMPILER_TEST_EVIDENCE": "debug-maps/art-style-hero/evidence/stage6-runtime-unit"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/showcase-catalogue-fixed-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "the_showcase_level_renders_every_core_prop_with_real_geometry"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 17.378946291981265,
+    "started_utc": "2026-10-08T20:54:25.338488+00:00",
+    "finished_utc": "2026-10-08T20:54:42.718010+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/workspace-required-command.json",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace"
+    ],
+    "exit_code": 101,
+    "elapsed_seconds": 854.1220095839817,
+    "started_utc": "2026-10-08T20:38:50.417599+00:00",
+    "finished_utc": "2026-10-08T20:53:04.541615+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": ""
+    }
+  }
+]

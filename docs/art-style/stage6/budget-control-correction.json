@@ -1,0 +1,5 @@
+{
+  "rejected": "budget-refinement-before.json",
+  "reason": "Its window telemetry contains zero draws; inventory/storage values remain inspectable but scene submission counters cannot be accepted.",
+  "replacement": "Matched current diagnostic-final captures of the frozen Stage5 control and Stage6 hero provide actual encoded counts. No ordinary FPS/presented CPU claim."
+}

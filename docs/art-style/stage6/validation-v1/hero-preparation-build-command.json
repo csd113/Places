@@ -1,0 +1,24 @@
+{
+  "command": [
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+    "build",
+    "tests/fixtures/levels/art_style_hero_refined.json",
+    "--asset-root",
+    "/Users/connordawkins/Documents/GitHub/Places/assets",
+    "--out",
+    "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+    "--variants",
+    "off,medium,full",
+    "--workers",
+    "12",
+    "--force",
+    "--json"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 11.222933499957435,
+  "started_utc": "2026-10-08T20:52:01.657462+00:00",
+  "finished_utc": "2026-10-08T20:52:12.880422+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

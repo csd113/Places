@@ -163,5 +163,88 @@ class CompilerBenchTests(unittest.TestCase):
             module.edited_source(original, "unsupported")
 
 
+    def test_hero_incremental_inputs_change_intended_fields_and_assets_stay_separate(self):
+        spec = importlib.util.spec_from_file_location("compiler_incremental", ROOT / "tools/bench/compiler_incremental.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(ROOT / "tools/bench"))
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.path.pop(0)
+        hero = json.loads((ROOT / "tests/fixtures/levels/art_style_hero_transparency.json").read_text())
+        before = json.dumps(hero, sort_keys=True)
+        for case in ["presentation", "geometry", "entity", "combined"]:
+            changed = module.edited_source(hero, case)
+            self.assertNotEqual(changed, hero)
+            self.assertEqual(json.dumps(hero, sort_keys=True), before)
+        self.assertEqual(module.edited_source(hero, "texture"), hero)
+        self.assertEqual(module.edited_source(hero, "model"), hero)
+        self.assertNotEqual(module.edited_source(hero, "material")["defaults"]["wall"], hero["defaults"]["wall"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "assets"
+            root.mkdir()
+            target = root / "wall.png"
+            target.write_bytes(b"first")
+            replacement = Path(directory) / "replacement.png"
+            replacement.write_bytes(b"second")
+            relative, actual = module.asset_edit("wall.png=" + str(replacement), root, ".png")
+            self.assertEqual(relative, Path("wall.png"))
+            self.assertEqual(actual, replacement.resolve())
+            for value in ["../replacement.png=" + str(target), "wall.png=" + str(target),
+                          "wall.png=" + str(replacement.with_suffix(".glb"))]:
+                with self.assertRaises(ValueError):
+                    module.asset_edit(value, root, ".png")
+
+    def test_scene_budget_checks_identity_payloads_and_warning_thresholds(self):
+        import hashlib
+        spec = importlib.util.spec_from_file_location("scene_budget", ROOT / "tools/bench/scene_budget.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        metrics = dict(draw_calls=9, package_bytes=200)
+        self.assertEqual(module.warning_budgets(metrics, dict(draw_calls=10)), [])
+        self.assertEqual(module.warning_budgets(metrics, dict(draw_calls=8))[0]["observed"], 9)
+        for limits in [dict(other=5), dict(draw_calls=0), dict(draw_calls=True),
+                       dict(draw_calls=float("nan")), dict(draw_calls=float("inf"))]:
+            with self.assertRaises(ValueError):
+                module.warning_budgets(metrics, limits)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package, log = root / "hero.placesmap", root / "native.log"
+            data = b"prepared geometry"
+            manifest = dict(id="hero", variants=[dict(lightmap_quality="full", entries={})],
+                            entries=[dict(name="geometry.mesh", role="mesh", bytes=len(data),
+                                          sha256=hashlib.sha256(data).hexdigest())])
+            raw = json.dumps(manifest).encode()
+            def write(payload):
+                with zipfile.ZipFile(package, "w") as archive:
+                    archive.writestr("manifest.json", raw)
+                    archive.writestr("geometry.mesh", payload)
+            write(data)
+            identity = hashlib.sha256(raw).hexdigest()
+            native = dict(level="hero", total_vertices=20, visible_vertices=12, draw_calls=3,
+                          visible_indices=18, vbo_bytes=200, index_bytes=36, material_changes=2)
+            log.write_text("[loading] package identity level=hero variant=full sha256=" + identity
+                           + "\nBENCH_SUMMARY " + json.dumps(native) + "\n")
+            self.assertEqual(module.inspect(package, log)["metrics"]["submitted_triangles"], 6)
+            valid_log = log.read_text()
+            log.write_text(valid_log.replace('"draw_calls": 3', '"draw_calls": 0'))
+            with self.assertRaises(ValueError):
+                module.inspect(package, log)
+            capture = dict(event="capture", mode="final", level="hero",
+                           resident=dict(lightmaps="full"), capture_submission=dict(draw_calls=4,
+                               frustum_visible_distinct_vertices=15, material_binds=2,
+                               submitted_indices=24, submitted_triangles=8))
+            log.write_text(valid_log.replace('"draw_calls": 3', '"draw_calls": 0')
+                           + "[visual-diagnostic] " + json.dumps(capture) + "\n")
+            self.assertEqual(module.inspect(package, log)["metrics"]["submitted_triangles"], 8)
+            log.write_text(valid_log)
+            log.write_text(log.read_text().replace(identity, "0" * 64))
+            with self.assertRaises(ValueError):
+                module.inspect(package, log)
+            write(b"corrupt")
+            with self.assertRaises(ValueError):
+                module.inspect(package, log)
+
+
 if __name__ == "__main__":
     unittest.main()

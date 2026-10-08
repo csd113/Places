@@ -1,0 +1,38 @@
+{
+  "native": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+    "--out",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage6/performance/gpu/after-room-v1/native",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+    "--asset-root",
+    "/Users/connordawkins/Documents/GitHub/Places",
+    "--package",
+    "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+    "--views",
+    "room",
+    "--frames",
+    "720",
+    "--lighting-sequence",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage6/performance/gpu/after-room-v1/native-capture-sequence.json",
+    "--manifest",
+    "docs/art-style/stage6/hero-manifest.json"
+  ],
+  "trace": [
+    "xcrun",
+    "xctrace",
+    "record",
+    "--template",
+    "Metal System Trace",
+    "--time-limit",
+    "8s",
+    "--output",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-after-room-v1.trace",
+    "--attach",
+    "86979"
+  ],
+  "verified_owned_pid": 86979,
+  "native_wrapper_pid": 86975,
+  "method": "Native capture reuses encode_frame_into scene/post shaders and resident targets. Window acquisition unavailable; GPU timings include capture/copy/readback, not ordinary presented frames. Scratch PNGs removed after one untouched proof frame is retained."
+}

@@ -457,7 +457,7 @@ impl Bench {
             // Header row: column order must match `record_frame`.
             if let Err(error) = writeln!(
                 file,
-                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes"
+                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes,visible_indices"
             ) {
                 crate::logging::warn(format!("[bench] could not write CSV header: {error}"));
                 csv = None;
@@ -701,7 +701,7 @@ impl Bench {
         if let Some(file) = self.csv.as_mut()
             && let Err(error) = writeln!(
                 file,
-                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{},{},{},{},{}",
                 self.recorded,
                 timings.update_ms,
                 timings.render_ms,
@@ -719,6 +719,7 @@ impl Bench {
                 stats.texture_binds,
                 stats.material_changes,
                 stats.reflection_passes,
+                stats.visible_indices,
             )
         {
             crate::logging::warn(format!("[bench] could not write CSV frame: {error}"));
@@ -760,7 +761,7 @@ impl Bench {
         let last = self.frames.last().copied().unwrap_or_default();
         let level = std::env::var("PLACES_LEVEL").unwrap_or_default();
         println!(
-            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{}}}",
+            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{},\"visible_indices\":{}}}",
             self.frames.len(),
             self.reported_swap_interval
                 .map_or_else(|| "null".to_string(), |value| value.to_string()),
@@ -797,6 +798,7 @@ impl Bench {
             last.stats.texture_binds,
             last.stats.material_changes,
             last.stats.reflection_passes,
+            last.stats.visible_indices,
         );
         if let Some(file) = self.csv.as_mut()
             && let Err(error) = file.flush()

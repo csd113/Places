@@ -1452,6 +1452,8 @@ pub struct WorldDrawTotals {
     pub visible_batches: usize,
     /// Distinct vertices those ranges index.
     pub visible_vertices: usize,
+    /// Index elements in the submitted triangle-list draws.
+    pub visible_indices: usize,
     /// Texture bind-group changes applied (one per run of draws sharing a
     /// texture; zero for a world with no textures).
     pub texture_binds: usize,
@@ -1486,6 +1488,7 @@ impl WorldDrawTotals {
         self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
         self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
         self.visible_vertices = self.visible_vertices.saturating_add(other.visible_vertices);
+        self.visible_indices = self.visible_indices.saturating_add(other.visible_indices);
         self.texture_binds = self.texture_binds.saturating_add(other.texture_binds);
         self.material_binds = self.material_binds.saturating_add(other.material_binds);
         self.emissive_visible |= other.emissive_visible;
@@ -2120,6 +2123,7 @@ impl WorldPipeline {
             totals.visible_vertices = totals
                 .visible_vertices
                 .saturating_add(class.visible_vertices);
+            totals.visible_indices = totals.visible_indices.saturating_add(class.visible_indices);
             totals.texture_binds = totals.texture_binds.saturating_add(class.texture_binds);
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
@@ -2361,6 +2365,9 @@ impl WorldPipeline {
                     continue;
                 };
                 pass.draw_indexed(first_index..end, 0, 0..1);
+                totals.visible_indices = totals
+                    .visible_indices
+                    .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
                 totals.draw_calls = totals.draw_calls.saturating_add(1);
                 totals.visible_batches = totals.visible_batches.saturating_add(1);
             }
@@ -2488,6 +2495,9 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(first_index..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
         }
@@ -2533,6 +2543,7 @@ impl WorldPipeline {
             totals.visible_vertices = totals
                 .visible_vertices
                 .saturating_add(class.visible_vertices);
+            totals.visible_indices = totals.visible_indices.saturating_add(class.visible_indices);
             totals.texture_binds = totals.texture_binds.saturating_add(class.texture_binds);
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
@@ -2624,6 +2635,9 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(draw.index_start..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
             totals.visible_vertices = totals
@@ -2722,6 +2736,9 @@ impl WorldPipeline {
                 continue;
             };
             pass.draw_indexed(draw.index_start..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
             totals.visible_vertices = totals

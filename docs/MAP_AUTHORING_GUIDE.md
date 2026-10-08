@@ -3630,9 +3630,12 @@ Semantics:
   same floor footprint. Clearance for a *crouched* 0.9 m body is still clearance:
   a beam whose underside is at 1.0 m over a walkable floor is solid and a
   standing player bumps it.
-* The collision box is **axis-aligned and does not rotate**. For a 90°/270° rotated
-  solid prop, author the x/z-extents swapped.
-* Rotation does rotate the rendered model around Y.
+* Author collision `size` in the model's **local frame**. `rotation_degrees`
+  rotates its horizontal half-extents, then the collider uses the enclosing
+  world-axis-aligned box (`PropDef::solid_collider`). At 90°/270° the world x/z
+  extents swap automatically; do not swap the authored local size. Oblique
+  rotations conservatively enclose the rotated footprint.
+* Rotation also rotates the rendered model around Y.
 * The **placeholder box** (unknown id, missing model or over-budget model) uses the
   level `size` when authored, else the catalog `size`, × `scale`.
 * `props` are never tested against their render mesh for placement; intentional

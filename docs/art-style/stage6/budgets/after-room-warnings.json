@@ -1,0 +1,192 @@
+{
+  "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+  "package_sha256": "c694e0faca28958982331cc4d68751e44ccf49f546f19eacdfa84825dbc64e3c",
+  "native_log": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage6/budgets/after/room.log",
+  "variant": "full",
+  "metrics": {
+    "draw_calls": 43,
+    "visible_vertices": 28118,
+    "material_changes": 38,
+    "submitted_indices": 20832,
+    "submitted_triangles": 6944,
+    "package_bytes": 6632334,
+    "world_texture_resident_bytes": 75497456,
+    "cached_models": 21,
+    "source_model_triangles": 6188,
+    "source_prop_decoded_bytes": 5259264,
+    "lightmap_pages": 2,
+    "lightmap_charts": 6874,
+    "lightmap_resident_bytes": 33554432
+  },
+  "stored_roles": {
+    "irradiance": {
+      "stored_bytes": 59524,
+      "compressed_bytes": 18341
+    },
+    "probes": {
+      "stored_bytes": 2460864,
+      "compressed_bytes": 1332127
+    },
+    "lightmaps": {
+      "stored_bytes": 67109256,
+      "compressed_bytes": 4142179
+    },
+    "lightmaps-meta": {
+      "stored_bytes": 3076404,
+      "compressed_bytes": 247856
+    },
+    "collision": {
+      "stored_bytes": 2061,
+      "compressed_bytes": 703
+    },
+    "lighting": {
+      "stored_bytes": 131860,
+      "compressed_bytes": 48210
+    },
+    "props": {
+      "stored_bytes": 4336464,
+      "compressed_bytes": 798003
+    },
+    "probes-meta": {
+      "stored_bytes": 216,
+      "compressed_bytes": 190
+    },
+    "mesh": {
+      "stored_bytes": 121680,
+      "compressed_bytes": 28083
+    },
+    "navigation": {
+      "stored_bytes": 66074,
+      "compressed_bytes": 1107
+    },
+    "compiler-inputs": {
+      "stored_bytes": 284,
+      "compressed_bytes": 194
+    },
+    "semantics": {
+      "stored_bytes": 14283,
+      "compressed_bytes": 2933
+    }
+  },
+  "counter_source": "actual final native capture submission; surface telemetry may be zero",
+  "capture_resident": {
+    "active_plane": null,
+    "active_probe": 1,
+    "atlas": {
+      "bytes": 33554432,
+      "chart_texels": 246682,
+      "charts": 6874,
+      "format": "Rgba16Float irradiance+signed moment",
+      "page_edge": 1024,
+      "pages": 2
+    },
+    "characters": {
+      "characters": 1,
+      "draws": 2,
+      "meshes": 1,
+      "vertices": 3810
+    },
+    "contact_subjects": 1,
+    "dynamic": {
+      "draws": 1,
+      "meshes": 1,
+      "objects": 1,
+      "vertices": 752
+    },
+    "entity_uniform_bytes": 5632,
+    "filtering": "high",
+    "irradiance_field": {
+      "cell_m": 1.5,
+      "dims": [
+        9,
+        5,
+        11
+      ],
+      "native_marker_stride": 1,
+      "selected_direct_sidecar": true,
+      "selected_source_indices": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "serialized_bytes": 29762,
+      "slots": 495,
+      "valid": 221
+    },
+    "lighting_uniform": {
+      "fog_density": 0.009499999694526196,
+      "fog_region_count": 0,
+      "light_scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "lightmap_enabled": 1.0,
+      "page_count": 2,
+      "switchable_word": 393216
+    },
+    "lightmaps": "full",
+    "lightmaps_resident": true,
+    "movable_visibility": {
+      "casters": 1,
+      "meshes": 1,
+      "model_builds": 1,
+      "preparation_millis": 0.212583,
+      "triangles": 324
+    },
+    "movable_visibility_error": null,
+    "planar_resident": false,
+    "props": {
+      "chunks": 21,
+      "draws": 26,
+      "indices": 20316,
+      "texture_bytes": 7012324,
+      "vertices": 20316
+    },
+    "quality": "high",
+    "reflection_enabled": true,
+    "reflection_probes": [
+      {
+        "face_size": 64,
+        "mip_levels": 7,
+        "position": [
+          6.09999942779541,
+          1.0800000429153442,
+          -4.550000190734863
+        ]
+      },
+      {
+        "face_size": 64,
+        "mip_levels": 7,
+        "position": [
+          9.399998664855957,
+          2.5999999046325684,
+          9.149999618530273
+        ]
+      }
+    ],
+    "runtime_visibility_scene": true,
+    "world": {
+      "chunks": 1,
+      "draws": 21,
+      "index_bytes": 1524,
+      "indices": 762,
+      "vertex_bytes": 38152,
+      "vertices": 502
+    }
+  },
+  "scope": "Base scene submission; sky/emission/post/UI excluded from draws. Allocations are separate inventories, not total GPU memory. Transparency fragment overdraw is not measured.",
+  "warning_budgets": {
+    "draw_calls": 48,
+    "submitted_triangles": 8000,
+    "package_bytes": 8388608,
+    "world_texture_resident_bytes": 100663296,
+    "source_model_triangles": 8000,
+    "source_prop_decoded_bytes": 8388608,
+    "lightmap_pages": 3,
+    "lightmap_resident_bytes": 67108864
+  },
+  "warnings": []
+}

@@ -1,0 +1,188 @@
+{
+  "format_version": 1,
+  "level": "art_style_hero",
+  "source": "tests/fixtures/levels/art_style_hero_refined.json",
+  "package": "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+  "base_revision": "45b2e0ff8d472e6ab2e5aaa7442f1f6e79d731c1",
+  "settings": {
+    "bindings": {
+      "forward": "W",
+      "backward": "S",
+      "strafe_left": "A",
+      "strafe_right": "D",
+      "look_up": "UP",
+      "look_down": "DOWN",
+      "look_left": "LEFT",
+      "look_right": "RIGHT",
+      "jump": "SPACE",
+      "crouch": "C",
+      "interact": "E"
+    },
+    "look_speed_h": 90,
+    "look_speed_v": 60,
+    "walk_speed": 3,
+    "invert_look": false,
+    "mouse_sensitivity": 0.12,
+    "quality": "high",
+    "texture_filtering": "high",
+    "lightmaps": "full",
+    "reflections": "full",
+    "bloom": true,
+    "use_low_quality_lighting": false,
+    "vsync": false,
+    "fov_degrees": 60,
+    "window_mode": "windowed",
+    "window_width": 640,
+    "window_height": 360
+  },
+  "bake": {
+    "variants": [
+      "off",
+      "medium",
+      "full"
+    ],
+    "workers": 12,
+    "force_for_cold_measurement": true,
+    "algorithm": "unchanged normal compiler defaults; see package inspect for prepared settings"
+  },
+  "environment": {
+    "weather": "absent",
+    "sky": "outdoor:tex_sky_stars_01",
+    "sky_brightness": 1,
+    "sky_ambient": 0.22,
+    "global_illuminator": "hero_moon; source JSON is authoritative",
+    "fog": "no authored regions; normal engine atmosphere",
+    "animation": "authored ghost spawns at0.1s; normal idle at capture0.5s; animated bounds may vary slightly",
+    "seed": "no random authored events or weather"
+  },
+  "capture": {
+    "ready_world_seconds": 0.5,
+    "warmup_frames": 15,
+    "limit_frames": 2400,
+    "expected_drawable": [
+      1280,
+      720
+    ]
+  },
+  "views": [
+    {
+      "name": "room",
+      "spawn": [
+        7.1,
+        5.25,
+        0
+      ],
+      "camera": [
+        -46,
+        -8
+      ],
+      "purpose": "broad fluorescent and warm practical distribution, furnishing, carpet/wood boundary"
+    },
+    {
+      "name": "window",
+      "spawn": [
+        3.5,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        3
+      ],
+      "purpose": "glazed opening, reveals, garden and sky, interior/exterior balance"
+    },
+    {
+      "name": "hall",
+      "spawn": [
+        9.1,
+        1.9,
+        0
+      ],
+      "camera": [
+        174,
+        -8
+      ],
+      "purpose": "tile, painted passage boundary, plastic and metal response, connected-room consistency"
+    },
+    {
+      "name": "contact",
+      "spawn": [
+        5.3,
+        4.1,
+        0
+      ],
+      "camera": [
+        -48,
+        -28
+      ],
+      "purpose": "sofa/table feet, mug/books, static shadow and carpet/wood grounding"
+    },
+    {
+      "name": "entities",
+      "spawn": [
+        6.25,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "left static and right spawned identical Home chair: fixed static/entity lighting comparison"
+    },
+    {
+      "name": "corner",
+      "spawn": [
+        6.65,
+        4.7,
+        0
+      ],
+      "camera": [
+        137,
+        12
+      ],
+      "purpose": "ceiling/wall/floor junction and passage topology, same paint on adjoining slabs"
+    },
+    {
+      "name": "surfaces",
+      "spawn": [
+        5.95,
+        -1.45,
+        0
+      ],
+      "camera": [
+        0,
+        -24
+      ],
+      "purpose": "Matched snow, ice and water under cool sky and warm practicals"
+    },
+    {
+      "name": "night",
+      "spawn": [
+        9.7,
+        -6.4,
+        0
+      ],
+      "camera": [
+        -133,
+        0
+      ],
+      "purpose": "Exterior moon, sky, warm lamps and window to interior"
+    },
+    {
+      "name": "water",
+      "spawn": [
+        8,
+        -2.7,
+        0
+      ],
+      "camera": [
+        0,
+        -37
+      ],
+      "purpose": "Water surface, recessed illuminated tile bottom and transmission"
+    }
+  ],
+  "stage6_refinement": "Same Stage5 control cameras/settings/environment; optional refined chair, oak/rug, six decorative props and non-solid baseboards; corrected local furniture boxes.",
+  "final_tool_binding": "Final role/revision provenance guard; frozen accepted v1 cameras/settings unchanged."
+}

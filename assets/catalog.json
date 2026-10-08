@@ -4754,6 +4754,24 @@
       "description": "Domestic side chair with broad timber back slats."
     },
     {
+      "id": "home:dining_chair_refined",
+      "display_name": "Bevelled Timber Dining Chair",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/dining_chair_refined.glb",
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "color": "#d7c9ae",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Timber chair with rounded seat corners, bevelled rails and softened slat tops; original footprint and atlas retained."
+    },
+    {
       "id": "home:tv_console",
       "display_name": "Low Timber CRT Console",
       "asset_class": "environment",

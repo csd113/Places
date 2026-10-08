@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "clippy",
+    "--workspace",
+    "--all-targets",
+    "--all-features",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "exit_code": 101,
+  "elapsed_seconds": 11.764504667022265,
+  "started_utc": "2026-10-08T20:06:34.721563+00:00",
+  "finished_utc": "2026-10-08T20:06:46.486096+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  }
+}

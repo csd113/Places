@@ -1,0 +1,156 @@
+[
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/catalogue-display-fixed.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/catalogue-display-fixed.stdout",
+    "raw_sha256": "395013273f32cca60e09a0386276b2bc955fd7af1a800fd2da18c451419294f5",
+    "tracked_sha256": "4db8d0e405235af65c99d6ecf5a92bd41f644351c7083d9bfd7e52090bcef508",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/compiled-route-after.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/compiled-route-after.stdout",
+    "raw_sha256": "c75c714c940df7d95badf6ca579f9c57e5562a45f99be057931aa222d3fb1323",
+    "tracked_sha256": "d40c58c4e5f4cb69102edfc93b337c2a1c4690e393787a8cb4e45efaa93345f6",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/compiled-route-before.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/compiled-route-before.stdout",
+    "raw_sha256": "16bf2ecc127e0d3950991cfbc90418b44c649acb9658f061e2e2fdd01fcc2016",
+    "tracked_sha256": "04fd7c1454618c7d174b2a2256d8f8f1d565602d9f51fd1269aba5e25fbcc40d",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/compiler-unit-fixed.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/compiler-unit-fixed.stdout",
+    "raw_sha256": "65305f23ed27248ab83bb4829cea38f7f0111a6be96352fdf1effc878766b0f7",
+    "tracked_sha256": "df799b10b20f25a79e0ee0c07ab196236494d20cb9479887968b98182da36e85",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/docs-final.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/docs-final.stdout",
+    "raw_sha256": "df166913f47ff1f04202cae9b31df67ed272d692d99a0023a8117dc3029100dd",
+    "tracked_sha256": "48537503aca8cbeec335d46a2da57cd5800765bc0703600b35d4917848d3a5d5",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/hero-game-final.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/hero-game-final.stdout",
+    "raw_sha256": "d4a4d4dfd341ef1cae5c2150da81c4edbaf0ff3e71fc32db7357de8b0978363e",
+    "tracked_sha256": "d9a35a8309d5f06fcb37c62635c8b74b9324303be5e06efd1aa46725d9aa1544",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/hero-game-fixed.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/hero-game-fixed.stdout",
+    "raw_sha256": "5299bffe566aa4017fc66cbd9dc70daca5119ee0a9f371442df97fca74074f8b",
+    "tracked_sha256": "4555c2e390922c299a43d6df863247405283b8837f65542e2a8028c1a8cfd3e1",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/hero-game.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/hero-game.stdout",
+    "raw_sha256": "afaf101f34fe09acce7c000cc23e5e9abe06d26e8ea0d26911f112b700a1c13c",
+    "tracked_sha256": "5d710595b1ec02f1efdf15fb7ecd5e04bcf24cf179ac0364a8eacb61c19214be",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/integration-final-v2.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/integration-final-v2.stdout",
+    "raw_sha256": "5da39f2bc62414d85bf73c110d473d9a9d449c092925968925c472627113eca5",
+    "tracked_sha256": "2b97fbe5c9a000cbb39507d532639e3d21e04c1eb6e50989d84aa6ffb132be05",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-after-pair-1.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-after-pair-1.stdout",
+    "raw_sha256": "ff0b24db12098318d432c19fa2146963635f2cf23569b939aa64f81bceb185e0",
+    "tracked_sha256": "e3a8fcdb9d44b27cf2547e6361ca39bc71fb592a28814792a6b7277125650609",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-after-pair-2.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-after-pair-2.stdout",
+    "raw_sha256": "ee08482a9ea9a3940e38887c3f83e6c40f0315f35419e2f54602bd2472319765",
+    "tracked_sha256": "48792246d51b6bec50b53a85ba3fbc6322c9de6b8b5c0b04d9a331fa0d1f91cb",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-after-pair-3.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-after-pair-3.stdout",
+    "raw_sha256": "ee08482a9ea9a3940e38887c3f83e6c40f0315f35419e2f54602bd2472319765",
+    "tracked_sha256": "48792246d51b6bec50b53a85ba3fbc6322c9de6b8b5c0b04d9a331fa0d1f91cb",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-fixed.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-fixed.stdout",
+    "raw_sha256": "714d35a82acc216958d26137f3919477e9bd65df36138d51e7c33311ee8e9391",
+    "tracked_sha256": "8345db20d3e64ff16d377f6a246fc18dc1e612f628ed4a33d57d7ce53680954d",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-isolated.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-isolated.stdout",
+    "raw_sha256": "e1c0af232bcf10cf430cd0417be272c2384e0309cb6ba131ebad452666d2ac81",
+    "tracked_sha256": "dee811379cf0fa03c01789eadd6e86b6eeb53aa894c3b313c88478a354dea519",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-pair-1.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-pair-1.stdout",
+    "raw_sha256": "d21afa8ee0219e86009de9437e17d1fb3bfb22e1b78018db86d24395f1d7f811",
+    "tracked_sha256": "bdd09e153c7b282b573f28c1fbf487e286d1c5f8b3dc6554aa3b74b5231989df",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-pair-2.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-pair-2.stdout",
+    "raw_sha256": "97cbb8071669a782164ebf7682048539d07dfca003b8b38d56cc83c97323fc3b",
+    "tracked_sha256": "03efcf3be7572165e1d7c796641a89c82223c2123a23f75fd41ec98d9a8312a4",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-pair-3.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-pair-3.stdout",
+    "raw_sha256": "97cbb8071669a782164ebf7682048539d07dfca003b8b38d56cc83c97323fc3b",
+    "tracked_sha256": "03efcf3be7572165e1d7c796641a89c82223c2123a23f75fd41ec98d9a8312a4",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/profile-before-valid.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/profile-before-valid.stdout",
+    "raw_sha256": "c29fc0420b50449b256d584e7b6de7039eec971a694444cc7f0a8e94972e79e0",
+    "tracked_sha256": "610d3d6c7743bb458c5ab1265739ed8f2157362052af3d0b6ed5e9d40d9d1992",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/provenance-final.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/provenance-final.stdout",
+    "raw_sha256": "d3b52e8da93b84a1a67c59ba0c260452417d44ad54d8661cdff18788b9e684c6",
+    "tracked_sha256": "cc738c97b4c17ec81d58e6d87b5dcff9db0a88f86b3f14a32f16df40cf337815",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/runtime-unit.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/runtime-unit.stdout",
+    "raw_sha256": "d5a5ae448956e215e5478afaa353eb18508937ba48afcc5f926b221a40410ac7",
+    "tracked_sha256": "826c7b6f9d41606519599a04824754980703392a7acd5be7207abe28e844a5a8",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/showcase-catalogue-fixed.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/showcase-catalogue-fixed.stdout",
+    "raw_sha256": "8e592a8595a3253b2a09d19d2f25a82ed60b1dc9ea08e9034153d0947d9d709f",
+    "tracked_sha256": "4c811e58d4c4ba645aab8989ca4fee628c01955a401d4c688d07322c91986092",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  },
+  {
+    "tracked": "docs/art-style/stage6/validation-v1/workspace-required.stdout",
+    "raw": "debug-maps/art-style-hero/evidence/stage6-raw-text-v1/validation-v1/workspace-required.stdout",
+    "raw_sha256": "08efb54c012a18a0c157ae6c3fe571987dbd5ce207c163da9097c2a0bed6a78d",
+    "tracked_sha256": "170740a9498deb93a8a624304d4011ab36d97554365ead18a1ba8b358080cedd",
+    "transformation": "Trailing empty lines only; all result/error lines remain."
+  }
+]

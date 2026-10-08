@@ -205,6 +205,8 @@ pub struct DecalDrawTotals {
     pub visible_batches: usize,
     /// Distinct vertices those ranges index.
     pub visible_vertices: usize,
+    /// Index elements in the submitted triangle-list draws.
+    pub visible_indices: usize,
     /// Sheet bind-group changes applied (one per run of draws sharing a sheet).
     pub texture_binds: usize,
 }
@@ -691,6 +693,9 @@ impl WgpuDecals {
                 continue;
             };
             pass.draw_indexed(draw.index_start..end, 0, 0..1);
+            totals.visible_indices = totals
+                .visible_indices
+                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
             totals.visible_vertices = totals

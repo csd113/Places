@@ -1,0 +1,14 @@
+{
+  "command": [
+    "target/debug/deps/places-db4822a0463dd4cf",
+    "game::tests::art_style",
+    "--test-threads=1"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.010858083027414978,
+  "started_utc": "2026-10-08T20:46:29.787562+00:00",
+  "finished_utc": "2026-10-08T20:46:29.798423+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

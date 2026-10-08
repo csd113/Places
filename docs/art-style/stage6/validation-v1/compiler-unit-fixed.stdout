@@ -1,0 +1,14 @@
+
+running 10 tests
+test compiler::tests::performance::catalogue_bytes_and_each_referenced_image_class_are_build_inputs ... ok
+test compiler::tests::performance::changed_catalogue_invalidates_both_package_and_prepared_stage ... ok
+test compiler::tests::performance::compiler_input_provenance_corruption_and_absence_rebuild_safely ... ok
+test compiler::tests::performance::compiler_tool_and_capture_mode_identity_are_automatic_and_path_independent ... ok
+test compiler::tests::performance::corrupt_cached_lighting_rebuilds_both_unchanged_and_metadata_only_inputs ... ok
+test compiler::tests::performance::failed_source_and_invalid_worker_budget_preserve_last_valid_package ... ok
+test compiler::tests::performance::metadata_navigation_reuse_has_no_orphans_and_matches_clean_at_one_and_many_workers ... ok
+test compiler::tests::performance::presentation_reuse_matches_independent_full_archives_for_every_variant ... ok
+test compiler::tests::performance::runtime_only_model_bytes_and_new_template_paths_make_currency_stale ... ok
+test compiler::tests::performance::runtime_template_closure_covers_embedded_images_and_unused_overrides_once ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 2134 filtered out; finished in 16.92s

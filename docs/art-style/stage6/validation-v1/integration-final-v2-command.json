@@ -1,0 +1,23 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--workspace",
+    "--bin",
+    "places-compile",
+    "--test",
+    "command_line",
+    "--test",
+    "list_levels",
+    "--test",
+    "macos_cpu_port",
+    "--no-fail-fast"
+  ],
+  "exit_code": 101,
+  "elapsed_seconds": 3.1514072080608457,
+  "started_utc": "2026-10-08T20:55:06.813941+00:00",
+  "finished_utc": "2026-10-08T20:55:09.965358+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": ""
+  }
+}

@@ -1,0 +1,150 @@
+[
+  {
+    "view": {
+      "name": "room",
+      "spawn": [
+        7.1,
+        5.25,
+        0
+      ],
+      "camera": [
+        -46,
+        -8
+      ],
+      "purpose": "broad fluorescent and warm practical distribution, furnishing, carpet/wood boundary"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "7489f5eb25549c25c229fa317999321c20eb2aac93dbe883255539aca67c2926",
+      "package_sha256": "518629e17147ab07e742e1da231156590f5241e6b1fe2140ab62b556759193e7",
+      "source_sha256": "a73c44e3ad362ba2c6dac4ce93bde4a77cfd573cfed17d33dbfbb61eaca327df",
+      "camera_manifest_sha256": "c05a67385855d2282876264fe1743332921868c249a58f718b9eae1edda463bd",
+      "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+      "catalog_sha256": "c95042c5a095e751834c04e9a69dc43e33e5148c6dca19849a17ef5b02e7ad6e",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "git_revision": "45b2e0ff8d472e6ab2e5aaa7442f1f6e79d731c1",
+      "git_diff_sha256": "5695115b1c0466fa1d3dd3eeb11e4f5e3833d040fcedeb0e7d11ff926be0d9ad"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "move_script": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.3783547499915585,
+    "exit_code": 0,
+    "image_sha256": "0f7bca915868b7b710eeffd14c241d05d95bed16ea33a2865c666b2cebb6504f",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "entities",
+      "spawn": [
+        6.25,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        -15
+      ],
+      "purpose": "left static and right spawned identical Home chair: fixed static/entity lighting comparison"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "7489f5eb25549c25c229fa317999321c20eb2aac93dbe883255539aca67c2926",
+      "package_sha256": "518629e17147ab07e742e1da231156590f5241e6b1fe2140ab62b556759193e7",
+      "source_sha256": "a73c44e3ad362ba2c6dac4ce93bde4a77cfd573cfed17d33dbfbb61eaca327df",
+      "camera_manifest_sha256": "c05a67385855d2282876264fe1743332921868c249a58f718b9eae1edda463bd",
+      "capture_tool_sha256": "c966d5f75a5fb431e67f77c368204d26efccafaa99807b2f6b35e6b4af2e1583",
+      "catalog_sha256": "c95042c5a095e751834c04e9a69dc43e33e5148c6dca19849a17ef5b02e7ad6e",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+      "git_revision": "45b2e0ff8d472e6ab2e5aaa7442f1f6e79d731c1",
+      "git_diff_sha256": "5695115b1c0466fa1d3dd3eeb11e4f5e3833d040fcedeb0e7d11ff926be0d9ad"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "move_script": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.3340682910056785,
+    "exit_code": 0,
+    "image_sha256": "f7e3027948bfb2ab475cf43c70f767c97a0b82ebee86609a5da48522f88bf414",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

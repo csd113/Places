@@ -1,0 +1,134 @@
+[
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage1",
+    "revision": "94d22f04a83156a3fe8ad9d16ef6d22732dc9818",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage2",
+    "revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage3",
+    "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage3-controls",
+    "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+    "files": 49,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4",
+    "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-entities",
+    "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-switchable",
+    "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-movement",
+    "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+    "files": 45,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-comparison",
+    "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-v2",
+    "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-entities-v2",
+    "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+    "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-movement-v2",
+    "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+    "files": 45,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+    "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+    "files": 42,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-original",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind to implementation via build-provenance.json and source-publication.json",
+    "files": 41,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-control",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind to implementation via build-provenance.json and source-publication.json",
+    "files": 45,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-night",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind to implementation via build-provenance.json and source-publication.json",
+    "files": 45,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-aurora",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind to implementation via build-provenance.json and source-publication.json",
+    "files": 46,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-storm",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind to implementation via build-provenance.json and source-publication.json",
+    "files": 46,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-transparency-v2",
+    "revision": "Stage5 frozen precommit source on b00123f9605639d95f6c7640248bc4c5427a8126; bind via build-provenance.json and source-publication.json",
+    "files": 47,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-transparency-before-v2",
+    "revision": "Stage4 executable b00123f9605639d95f6c7640248bc4c5427a8126",
+    "files": 47,
+    "all_file_hashes_match": true
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-before-control-v2",
+    "revision": "b00123f9605639d95f6c7640248bc4c5427a8126; Stage4 executable, Stage5 additive control source copied/hash-verified",
+    "files": 45,
+    "all_file_hashes_match": true
+  }
+]

@@ -61,7 +61,8 @@ def validate_native(log: str, level: str, image: Path | None, expected: list[int
     if (f"[loading] committed {level}" not in log
             or "[renderer] wgpu | adapter:" not in log
             or "not a valid settings file" in log
-            or "initial level preparation failed" in log):
+            or "initial level preparation failed" in log
+            or "PLACES_MOVE_SCRIPT: ignored" in log):
         raise ValueError("Native hero failed to load with valid settings/renderer")
     if settings is not None:
         receipt = next((line for line in log.splitlines() if line.startswith("[settings]")), "")
@@ -100,6 +101,7 @@ def main() -> int:
     parser.add_argument("--lighting-sequence", type=Path, help="Bounded native model movement and multi-capture JSON; requires --frames and one view")
     parser.add_argument("--capture-frame", type=int, help="Ready frame to capture instead of the fixed half-second")
     parser.add_argument("--frames", type=int, default=0, help="Measure frames after 120 warmup frames")
+    parser.add_argument("--move-script", help="Existing held-control script; records actual player state")
     parser.add_argument("--play", action="store_true")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text())
@@ -177,6 +179,10 @@ def main() -> int:
                        PLACES_SPAWN=",".join(map(str, view["spawn"])),
                        PLACES_CAMERA=",".join(map(str, view["camera"])), PLACES_VERBOSE="1",
                        DYLD_LIBRARY_PATH=str(binary.parent))
+            if args.move_script:
+                env["PLACES_MOVE_SCRIPT"] = args.move_script
+                if out:
+                    env["PLACES_STATE_LOG"] = str(out / (view["name"] + "-state.csv"))
             if args.diagnostic:
                 env["PLACES_VISUAL_DIAGNOSTIC"] = args.diagnostic
             if args.entity_light_trace:
@@ -224,6 +230,7 @@ def main() -> int:
                 raise RuntimeError("Binary/package changed during capture")
             receipts.append(dict(view=view, settings=settings, identity=identity,
                                  diagnostic=args.diagnostic, quality_cycle=args.quality_cycle,
+                                 move_script=args.move_script,
                                  entity_light_trace=args.entity_light_trace,
                                  graphics_cycle=args.graphics_cycle, capture_frame=args.capture_frame,
                                  lighting_sequence=sequence, sequence_captures=sequence_captures,

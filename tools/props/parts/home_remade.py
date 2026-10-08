@@ -134,6 +134,40 @@ def dining_chair(p):
     p.add_note("domestic wooden side chair: tall rear stiles, two broad back slats, seat, front legs and stretchers")
 
 
+def dining_chair_refined(p):
+    t = load_atlas_from(p, ROOT / "dining_chair.png", ("main", "secondary", "detail", "dark"))
+
+    def stock_ring(x, y, z, width, depth):
+        return [(x + a * width / 2, y, z + b * depth / 2) for a, b in
+                ((-1, -.65), (-.65, -1), (.65, -1), (1, -.65),
+                 (1, .65), (.65, 1), (-.65, 1), (-1, .65))]
+
+    for x in (-.203, .203):
+        # The rear stock bends above the seat; the feet retain the floor contact.
+        loft(p, [stock_ring(x, 0, -.178, .05, .05),
+                 stock_ring(x, .43, -.178, .05, .05),
+                 stock_ring(x, .902, -.218, .05, .05)], t.uv("secondary", inset=2))
+        loft(p, [stock_ring(x - .015 if x < 0 else x + .015, 0, .222, .035, .035),
+                 stock_ring(x, .424, .204, .05, .05)], t.uv("secondary", inset=2))
+    padded_box(p, (0, .448, 0), (.50, .045, .49), t.uv("main", inset=2), bevel=.009)
+
+    def slat_ring(x, y, height):
+        return [(x, y + a * height / 2,
+                 -.178 - (y + a * height / 2 - .43) * (.04 / .472) + b * .045 / 2)
+                for a, b in ((-1, -.65), (-.65, -1), (.65, -1), (1, -.65),
+                             (1, .65), (.65, 1), (-.65, 1), (-1, .65))]
+
+    loft(p, [slat_ring(-.20, .64, .118), slat_ring(.20, .64, .118)],
+         t.uv("detail", inset=2))
+    # A shallow crown gives the broad upper slat a domestic silhouette.
+    loft(p, [slat_ring(-.20, .817, .098), slat_ring(-.14, .827, .13),
+             slat_ring(.14, .827, .13), slat_ring(.20, .817, .098)],
+         t.uv("detail", inset=2))
+    for x in (-.203, .203):
+        box(p, (x, .207, 0), (.025, .03, .395), t.uv("dark", inset=2))
+    p.add_note("domestic side chair: reclined chamfered rear stock, crowned back slat, eased seat and tapered front feet")
+
+
 def tv_console(p):
     t = atlas(p)
     for x in (-.65, .65):
@@ -300,6 +334,7 @@ PROPS = {
     "home:sofa": sofa, "home:armchair": sofa,
     "home:coffee_table": coffee_table, "home:dining_table": dining_table,
     "home:dining_chair": dining_chair, "home:tv_console": tv_console,
+    "home:dining_chair_refined": dining_chair_refined,
     "home:bookshelf": bookshelf, "home:rug": rug,
     "home:floor_lamp": floor_lamp, "home:mug": mug,
     "home:book_stack": book_stack, "home:cushion": cushion,

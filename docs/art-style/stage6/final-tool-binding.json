@@ -1,0 +1,43 @@
+{
+  "change": "Reject wrong compiler-inputs role and unsupported provenance revision before any reuse. Existing valid build behavior is unchanged.",
+  "measured_v1_package": "debug-maps/art-style-hero/evidence/stage6-compile-v1/art_style_hero.placesmap",
+  "final_v2_package": "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+  "package_bytes": 6632335,
+  "physical_entries_byte_identical": 32,
+  "changed_entries": [
+    "build-inputs.json",
+    "manifest.json"
+  ],
+  "v1_build_inputs": {
+    "capture_probes": true,
+    "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+    "revision": 1,
+    "source_sha256": "bca6f840a3c54dda6ecbff707a0c40f98e8cb6fd14258c97defa283b31f8710e",
+    "tool_sha256": "f16d863b90bea8f4cc8d6ac3544200732d3c40fb21b3ce7ebb77cbc8294e3d00"
+  },
+  "v2_build_inputs": {
+    "capture_probes": true,
+    "catalog_sha256": "27789ac9a59ec79decb5c95e63f6a4b0de3bbd5101f4ae3d2d45f177e82bee1f",
+    "revision": 1,
+    "source_sha256": "bca6f840a3c54dda6ecbff707a0c40f98e8cb6fd14258c97defa283b31f8710e",
+    "tool_sha256": "751c5153d138534232deb60d8e710b87f34f227c7bbbd6644133b04136ee3935"
+  },
+  "final_full_seconds": 9.90765404200647,
+  "native_replay_pending": false,
+  "native_replays": [
+    {
+      "view": "room",
+      "accepted": "docs/art-style/stage6/after/refined/room.png",
+      "final_replay": "docs/art-style/stage6/final-replay-v2/room.png",
+      "png_byte_equal": true,
+      "sha256": "ab243ac70f0658b56f4eac0d350e97bf42f4716b5faa6edbff41fb82d355ec0d"
+    },
+    {
+      "view": "surfaces",
+      "accepted": "docs/art-style/stage6/after/refined/surfaces.png",
+      "final_replay": "docs/art-style/stage6/final-replay-v2/surfaces.png",
+      "png_byte_equal": true,
+      "sha256": "bd0b97db2983e3338c798ff3f2b51ed226fc257ef33e0b6c28c7aac258e18b00"
+    }
+  ]
+}

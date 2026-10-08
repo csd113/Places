@@ -1,0 +1,16 @@
+{
+  "process": "places (86979)",
+  "window_seconds": 6.0,
+  "scene_encoders": 144,
+  "gpu_occupied_ms": 155.837216,
+  "gpu_occupied_mean_per_frame_ms": 1.082202888888889,
+  "scene_gpu_span_mean_ms": 1.3292644930555555,
+  "scene_gpu_span_median_ms": 1.111542,
+  "scene_gpu_span_p95_ms": 2.158709,
+  "allocation_samples": 864,
+  "metal_allocated_median_bytes": 182247424.0,
+  "metal_allocated_peak_bytes": 184156160,
+  "metal_allocated_time_median_bytes": 176472064,
+  "metal_allocated_time_mean_bytes": 176791447.97480005,
+  "method": "Union of active target GPU intervals / scene encoders; overlapping hardware channels counted once"
+}

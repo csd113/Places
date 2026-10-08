@@ -1009,6 +1009,18 @@ Shared cedar, door-paint, timber-trim and flush-fixture
 sources remain intact. Validation uses the standard catalog, source/embedded
 pixel match, prop bounds/UV/topology, surface seam and native-render checks.
 
+Stage 6 adds `home:dining_chair_refined` as a reusable optional chair. Its
+324 triangles and 752 exported vertices replace the original chair's 204/432
+for the refined hero only. Selective seat corners, rail bevels and softened
+slat tops retain the exact 0.50 × 0.902 × 0.49 m local bounds, floor-contact
+origin, +Z orientation and opaque 256² `dining_chair.png` atlas. The new GLB
+embeds that existing PNG; no master or runtime image is resized or replaced.
+Geometric flat normals follow the established exporter/importer contract;
+no normal-map/tangent feature is introduced. The original model and builder
+remain byte-identical for prepared maps awaiting Stage 7 adoption.
+[Audits and measured hero costs](art-style/stage6/README.md) record topology,
+UVs, collision and native acceptance.
+
 ### 8.10 Outdoors concept reconstruction
 
 The bare Outdoors kit uses the existing static-prop contract, with no new

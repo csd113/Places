@@ -1,0 +1,30 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_transparency.json",
+  "out": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compiler-before/art_style_hero.placesmap",
+  "rebuilt": false,
+  "reuse_reason": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compiler-before/art_style_hero.placesmap is current for this source and asset identity",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 6020347,
+  "millis": 307.829667,
+  "warnings": [],
+  "fingerprint": "fbc23955490599a3dd71996d303d3872ae2587ff7d2bee74c844a2c16d84dcfd",
+  "variant_stats": [],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 59.040958999999994
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.21862499999999999
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 248.5075
+    }
+  ]
+}

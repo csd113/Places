@@ -18,6 +18,7 @@ use crate::entities::components::StateValue;
 use crate::render::SCENE_NEAR_M;
 use crate::test_support::assert_exact;
 
+mod art_style;
 mod ice;
 mod movement_diagnostics;
 mod movement_performance;

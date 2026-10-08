@@ -1,0 +1,121 @@
+{
+  "report": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/report.json",
+  "runs": [
+    {
+      "label": "before-full",
+      "wall_seconds": 8.198252458008938,
+      "peak_rss_bytes": 734216192,
+      "cpu_seconds": 59.659231,
+      "effective_cores": 7.277066826811173,
+      "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/before-full.placesmap",
+      "command": [
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+        "build",
+        "tests/fixtures/levels/art_style_hero_transparency.json",
+        "--asset-root",
+        "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/before-full.placesmap",
+        "--variants",
+        "off,medium,full",
+        "--workers",
+        "12",
+        "--json",
+        "--force"
+      ]
+    },
+    {
+      "label": "after-full",
+      "wall_seconds": 10.04855524993036,
+      "peak_rss_bytes": 764674048,
+      "cpu_seconds": 78.10854400000001,
+      "effective_cores": 7.773111861084839,
+      "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/after-full.placesmap",
+      "command": [
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+        "build",
+        "tests/fixtures/levels/art_style_hero_refined.json",
+        "--asset-root",
+        "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/after-full.placesmap",
+        "--variants",
+        "off,medium,full",
+        "--workers",
+        "12",
+        "--json",
+        "--force"
+      ]
+    },
+    {
+      "label": "after-full-repeat",
+      "wall_seconds": 9.914716250030324,
+      "peak_rss_bytes": 762298368,
+      "cpu_seconds": 78.05534200000001,
+      "effective_cores": 7.872675327421628,
+      "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/after-full-repeat.placesmap",
+      "command": [
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+        "build",
+        "tests/fixtures/levels/art_style_hero_refined.json",
+        "--asset-root",
+        "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/after-full-repeat.placesmap",
+        "--variants",
+        "off,medium,full",
+        "--workers",
+        "12",
+        "--json",
+        "--force"
+      ]
+    },
+    {
+      "label": "development",
+      "wall_seconds": 2.5740872090682387,
+      "peak_rss_bytes": 598966272,
+      "cpu_seconds": 13.387596,
+      "effective_cores": 5.200910036317692,
+      "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/development.placesmap",
+      "command": [
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+        "build",
+        "tests/fixtures/levels/art_style_hero_refined.json",
+        "--asset-root",
+        "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/development.placesmap",
+        "--variants",
+        "medium",
+        "--workers",
+        "12",
+        "--json",
+        "--force"
+      ]
+    },
+    {
+      "label": "development-reuse",
+      "wall_seconds": 0.21647795906756073,
+      "peak_rss_bytes": 48463872,
+      "cpu_seconds": 0.206314,
+      "effective_cores": 0.9530485269200609,
+      "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/development.placesmap",
+      "command": [
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-runtime-v1/places-compile",
+        "build",
+        "tests/fixtures/levels/art_style_hero_refined.json",
+        "--asset-root",
+        "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "--out",
+        "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage6-compile-costs-v1/development.placesmap",
+        "--variants",
+        "medium",
+        "--workers",
+        "12",
+        "--json"
+      ]
+    }
+  ],
+  "after_full_archive_matches_visual_package": true,
+  "scope": "Forced full builds on warm OS filesystem; no cold filesystem/cache flush claimed"
+}

@@ -495,9 +495,9 @@ pub fn entity_spatial_lighting_with_visibility(
                 && visibility.transmittance(point, probe) > 0.0
         })
     };
-    let samples = positions.world.map(sample);
+    let samples = positions.world.map(|world| (world, sample(world)));
     let centre_sample = sample(positions.centre);
-    if centre_sample.is_none() && samples.iter().all(Option::is_none) {
+    if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
         let has_static_support = |point| {
             prepared
                 .sample_nonlocal_filtered_with_rooms(point, None, |probe, label| {
@@ -530,15 +530,12 @@ pub fn entity_spatial_lighting_with_visibility(
             *slot = EntityDirectLight::from_baked(light);
         }
     }
-    let anchors = positions.world.map(|world| {
-        let exact_sample = sample(world);
+    let anchors = samples.map(|(world, exact_sample)| {
         let texel = exact_sample
             .or_else(|| centre_sample.filter(|_| connected(world, positions.centre)))
             .or_else(|| {
-                positions
-                    .world
+                samples
                     .iter()
-                    .zip(samples)
                     .find_map(|(position, value)| value.filter(|_| connected(world, *position)))
             })
             .unwrap_or(crate::lighting::lightmap::LightmapTexel {

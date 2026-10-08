@@ -211,6 +211,95 @@ mod tests {
     use crate::gltf::{PropModel, PropSubmesh, PropVertex};
     use crate::materials::{AlphaMode, MaterialAlpha};
 
+    #[test]
+    #[ignore = "explicit preserved hero package and asset root required; isolated CPU profiling"]
+    fn profile_hero_moving_caster_refresh() -> Result<(), String> {
+        let package = std::env::var("PLACES_PROFILE_PACKAGE").map_err(|error| error.to_string())?;
+        let root = std::env::var("PLACES_PROFILE_ASSETS").map_err(|error| error.to_string())?;
+        let output = std::env::var("PLACES_PROFILE_OUT").map_err(|error| error.to_string())?;
+        let path = std::path::Path::new(&package);
+        let opened = crate::package::world::open(path)?;
+        let mut assets = crate::props::PropAssets::with_root(root);
+        let variant = crate::package::world::load_variant(
+            path,
+            &opened.manifest,
+            crate::quality::LightmapQuality::Full,
+            &mut assets,
+        )?;
+        let materials = crate::render::logical_materials(&opened.level);
+        let (transport, _) = super::super::light_transport::build_transport_scene(
+            &opened.level,
+            &variant.mesh,
+            &variant.props,
+            &materials,
+            &variant.lighting,
+            &[],
+        )
+        .ok_or("hero transport scene")?;
+        let asset = assets.resolve("environment/home/props/models/dining_chair.glb")?;
+        let mut dynamic = DynamicScene::new();
+        let mut ids = Vec::new();
+        for row in 0_u16..4 {
+            for column in 0_u16..8 {
+                ids.push(
+                    dynamic
+                        .spawn(
+                            &asset,
+                            [
+                                f32::from(column).mul_add(0.5, 1.7),
+                                0.0,
+                                f32::from(row).mul_add(0.6, 1.1),
+                            ],
+                            0.0,
+                            1.0,
+                            0.0,
+                        )
+                        .ok_or("hero chair spawn")?,
+                );
+            }
+        }
+        let moving = *ids.first().ok_or("moving caster")?;
+        let mut visibility = DynamicVisibility::new();
+        let mut cases = Vec::new();
+        for moving_case in [false, true] {
+            let mut samples = Vec::new();
+            for frame in 0_u16..240 {
+                if moving_case {
+                    let offset = if frame % 2 == 0 { 0.0125 } else { 0.0 };
+                    assert!(dynamic.set_transform(moving, [1.7, 0.0, 1.1 + offset], 0.0, 1.0));
+                }
+                let started = std::time::Instant::now();
+                let update = dynamic.update_with_visibility(
+                    0.0,
+                    Some(&variant.lighting),
+                    variant.irradiance.as_deref(),
+                    Some(&transport),
+                    Some(&mut visibility),
+                )?;
+                let _timed_update = std::hint::black_box(update);
+                if frame >= 40 {
+                    samples.push(started.elapsed().as_secs_f64() * 1_000.0_f64);
+                }
+            }
+            samples.sort_by(f64::total_cmp);
+            cases.push(serde_json::json!({
+                "moving": moving_case,
+                "samples": samples,
+                "visibility": visibility.stats(),
+            }));
+        }
+        let report = serde_json::json!({
+            "scope": "CPU DynamicScene::update_with_visibility only; no GPU, command dispatch, logging or frame pacing",
+            "package": package,
+            "cases": cases,
+        });
+        std::fs::write(
+            output,
+            serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())
+    }
+
     fn panel(alpha: MaterialAlpha) -> Arc<crate::props::LoadedPropAsset> {
         Arc::new(crate::props::LoadedPropAsset {
             model_path: "movable-panel".to_string(),

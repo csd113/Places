@@ -1,0 +1,23 @@
+{
+  "command": [
+    "python3",
+    "tools/bench/capture_art_style_hero.py",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage6-runtime-v1/places",
+    "--asset-root",
+    "/Users/connordawkins/Documents/GitHub/Places",
+    "--manifest",
+    "docs/art-style/stage6/incremental-native/light-manifest.json",
+    "--views",
+    "room",
+    "--out",
+    "docs/art-style/stage6/incremental-native/light/incremental"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.5310295410454273,
+  "started_utc": "2026-10-08T21:06:47.230966+00:00",
+  "finished_utc": "2026-10-08T21:06:48.762002+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

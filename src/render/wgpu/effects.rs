@@ -280,6 +280,8 @@ pub struct EffectDrawTotals {
     pub draws: usize,
     /// Vertices drawn.
     pub vertices: usize,
+    /// Index elements in the submitted triangle-list draws.
+    pub indices: usize,
     /// Texture bindings issued.
     pub texture_binds: usize,
 }
@@ -546,6 +548,9 @@ impl WgpuEffects {
                 0,
                 0..1,
             );
+            totals.indices = totals
+                .indices
+                .saturating_add(usize::try_from(group.index_count).unwrap_or(usize::MAX));
             totals.draws = totals.draws.saturating_add(1);
             totals.texture_binds = totals.texture_binds.saturating_add(1);
             totals.vertices = totals

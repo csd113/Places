@@ -35,6 +35,12 @@ use crate::package::{
 use crate::quality::LightmapQuality;
 use crate::render::{LevelMesh, PropMeshBatch};
 
+#[derive(Deserialize)]
+struct CatalogBuildInput {
+    revision: u32,
+    catalog_sha256: String,
+}
+
 /// The part of a package a discovery or material pass needs: the manifest and
 /// the validated semantic level.
 #[derive(Clone, Debug)]
@@ -136,7 +142,7 @@ pub const PROBE_POSITIONS_VERSION: u16 = 3;
 /// # Errors
 ///
 /// Returns an error when the archive, manifest, semantics or level validation
-/// fails, or the semantics entry's hash does not match the manifest.
+/// fails, or a declared semantics/resource hash does not match the manifest.
 pub fn open(path: &Path) -> Result<OpenedPackage, String> {
     let file = std::fs::File::open(path)
         .map_err(|error| format!("could not open {}: {error}", path.display()))?;
@@ -157,7 +163,15 @@ fn package_reader(bytes: &[u8]) -> Result<PackageReader<std::io::Cursor<&[u8]>>,
 }
 
 fn open_reader<R: std::io::Read + std::io::Seek>(
+    reader: PackageReader<R>,
+) -> Result<OpenedPackage, String> {
+    let root = crate::assets::resolve_asset_root();
+    open_reader_with_asset_root(reader, root.as_deref())
+}
+
+fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     mut reader: PackageReader<R>,
+    root: Option<&Path>,
 ) -> Result<OpenedPackage, String> {
     let manifest_bytes = reader.read_entry("manifest.json", crate::package::MAX_MANIFEST_BYTES)?;
     let names = reader.names().to_vec();
@@ -173,18 +187,76 @@ fn open_reader<R: std::io::Read + std::io::Seek>(
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     crate::loader::validate_level(&level)?;
-    check_dependencies(&manifest)?;
+    check_catalog_build_input(&mut reader, &manifest, root)?;
+    check_dependencies(&manifest, root)?;
     Ok(OpenedPackage { manifest, level })
+}
+
+/// Optional compiler provenance pins new packages to their prepared catalog.
+/// Older packages without this record retain their existing format contract.
+fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    manifest: &Manifest,
+    root: Option<&Path>,
+) -> Result<(), String> {
+    const NAME: &str = "build-inputs.json";
+    let Some(entry) = manifest.entry(NAME) else {
+        return Ok(());
+    };
+    if entry.role != "compiler-inputs" || entry.bytes > crate::package::MAX_MANIFEST_BYTES {
+        return Err(format!(
+            "package '{NAME}' has an invalid role or declared size"
+        ));
+    }
+    let bytes = read_named_entry(reader, manifest, NAME, crate::package::MAX_MANIFEST_BYTES)?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) != entry.bytes {
+        return Err(format!(
+            "package '{NAME}' length does not match its declared size"
+        ));
+    }
+    // Source, tool and capture fields govern developer rebuilds; runtime only
+    // consumes the catalog identity from this declared revision.
+    let inputs: CatalogBuildInput = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("package '{NAME}' is malformed: {error}"))?;
+    if inputs.revision != 1 {
+        return Err(format!(
+            "package '{NAME}' revision {} is unsupported; rebuild with places-compile",
+            inputs.revision
+        ));
+    }
+    if inputs.catalog_sha256.len() != 64
+        || !inputs
+            .catalog_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(format!("package '{NAME}' has an invalid catalog SHA-256"));
+    }
+    let Some(installed_root) = root else {
+        return Ok(());
+    };
+    let actual = crate::package::hash::sha256_file(&installed_root.join("catalog.json"))
+        .map_err(|error| format!("package catalog.json could not be verified: {error}"))?;
+    if actual != inputs.catalog_sha256 {
+        return Err(format!(
+            "package catalog.json SHA-256 changed (recorded {}, installed {actual}); \
+             rebuild this package against the installed catalog with places-compile",
+            inputs.catalog_sha256
+        ));
+    }
+    Ok(())
 }
 
 /// Enforces the declared dependency identities before a package is used.
 ///
 /// With an installed asset bundle, a declared model or texture must exist with
-/// exactly the recorded size; a substituted or resized resource is a load
-/// error naming the dependency. A truly asset-less install (the embedded
-/// fallback boot) has nothing to check against and logs once instead.
-fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
-    let Some(root) = crate::assets::resolve_asset_root() else {
+/// exactly the recorded size and SHA-256. The digest streams once during this
+/// package-open pass; frame rendering never rehashes assets. A substituted or
+/// resized resource is a load error naming the dependency. A truly asset-less
+/// install (the embedded fallback boot) has nothing to check against and logs
+/// once instead.
+fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), String> {
+    let Some(installed_root) = root else {
         crate::logging::warn_once(
             "package-dependencies-no-root",
             "[levels] no asset root: package dependency identities cannot be checked",
@@ -195,7 +267,7 @@ fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
         if dependency.kind == crate::package::DependencyKind::Embedded {
             continue;
         }
-        let path = root.join(&dependency.path);
+        let path = installed_root.join(&dependency.path);
         match std::fs::metadata(&path) {
             Ok(metadata) if metadata.len() == dependency.bytes => {}
             Ok(metadata) => {
@@ -212,6 +284,19 @@ fn check_dependencies(manifest: &Manifest) -> Result<(), String> {
                     dependency.path
                 ));
             }
+        }
+        let actual = crate::package::hash::sha256_file(&path).map_err(|error| {
+            format!(
+                "package dependency '{}' could not be verified: {error}",
+                dependency.path
+            )
+        })?;
+        if actual != dependency.sha256 {
+            return Err(format!(
+                "package dependency '{}' SHA-256 changed (recorded {}, installed {actual}); \
+                 rebuild this package against the installed assets with places-compile",
+                dependency.path, dependency.sha256
+            ));
         }
     }
     Ok(())
@@ -850,3 +935,7 @@ mod tests {
 #[cfg(test)]
 #[path = "world/irradiance_tests.rs"]
 mod irradiance_tests;
+
+#[cfg(test)]
+#[path = "world/dependency_tests.rs"]
+mod dependency_tests;

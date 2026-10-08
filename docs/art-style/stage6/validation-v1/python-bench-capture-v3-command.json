@@ -1,0 +1,19 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_compiler_bench.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.7751081669703126,
+  "started_utc": "2026-10-08T20:41:17.823857+00:00",
+  "finished_utc": "2026-10-08T20:41:18.598975+00:00",
+  "environment_overrides": {
+    "RUSTC_WRAPPER": "sccache"
+  }
+}

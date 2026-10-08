@@ -278,6 +278,14 @@ fn run(args: &[String]) -> Result<(), CliError> {
                     report.bytes,
                     report.millis
                 );
+                for decision in &report.cache_decisions {
+                    println!(
+                        "  cache {} {}: {}",
+                        decision.stage,
+                        decision.status,
+                        decision.reasons.join("; ")
+                    );
+                }
                 for variant in &report.variant_stats {
                     println!(
                         "  {}: {} range(s), {} vertices, {} prop batch(es), {} lightmap page(s)",
@@ -320,6 +328,14 @@ fn run(args: &[String]) -> Result<(), CliError> {
                                 report.source,
                                 report.out
                             );
+                            for decision in &report.cache_decisions {
+                                println!(
+                                    "  cache {} {}: {}",
+                                    decision.stage,
+                                    decision.status,
+                                    decision.reasons.join("; ")
+                                );
+                            }
                         }
                     }
                     Err((source, error)) => {

@@ -233,7 +233,9 @@
       "required_resolution": "Include resolved material/image and model transport inputs in the owning incremental dependency contract; preserve ordinary package currency and avoid hashing images per receiver/frame.",
       "final_verification": "Same-source texture-alpha/reflectance edits invalidate only affected live/offline lighting; unchanged inputs retain exact package and atlas identities; hero-only compile/visual validation.",
       "stage": 6,
-      "status": "open"
+      "status": "Stage6 resolved by verified cache ownership; hypothetical old live consumer no longer exists",
+      "resolution": "Runtime loading.rs installs prepared package variants, keyed by canonical manifestSHA andquality. Compiler transient LightmapCache starts fresh perbuild; only production renderer fallback uses Off/cacheNone. Public transient helper requires immutable resolved inputs or explicit clear after editing them. Updated docs/comments state this contract, without a second cache framework.",
+      "verification": "Stage6 contracts.md cache-owner audit and ten compiler tests; same-source architecturalPNG edits in hero matrix force rebake and agree exactly with clean lighting/probe output. DependencySHA/catalogue inputs guard prepared currency."
     },
     {
       "id": "geometry-check-split-face-centroid",
@@ -266,7 +268,9 @@
       "required_resolution": "Profile receiver visibility and upload work; reduce invalidation scope or redundant work only with measured benefit and unchanged hero occlusion/quality behavior.",
       "final_verification": "Matched native hero motion/door controls, cache correctness tests and comparable CPU/GPU measurements.",
       "stage": 6,
-      "status": "profiling lead"
+      "status": "Stage6 measured duplicate-query fix accepted; conservative cost remains a documented limit",
+      "resolution": "Three paired isolated DynamicScene lighting kernels on32 original chairs measure moving median8.311 to5.434ms with all32casters/one shared mesh retained. Reuse the existing support-anchor sample; no selective invalidation, shadow/visibility relaxation or whole-engine claim.",
+      "verification": "Focused/global visibility tests, complete library evidence plus corrected registration reruns, matched old/new player room/entities pixels exact; scoped CPU samples and native GPU context documented in Stage6 performance.md."
     },
     {
       "id": "stage5-environment-and-surface-adoption",
@@ -298,7 +302,25 @@
       "required_resolution": "Stage6 extend dependency discovery/currency to runtime spawn-template models and their needed assets, retaining stable compiler/cache contracts; Stage7 verify supported packages and runtime spawns.",
       "final_verification": "Fresh package dependency manifest includes runtime-only model identities; changing model bytes invalidates current status; isolated supported runtime spawn draws with no missing assets.",
       "stage": 6,
-      "status": "pipeline dependency audit required; Stage5 runnable support corrected"
+      "status": "resolved Stage6 automatic closure/currency; supported-map adoption remains Stage7",
+      "resolution": "collect_dependencies walks every runtime spawn template including unused overrides; embedded GLB image bytes participate in SHA closure. Same-size dependency/runtime catalogue checks reject stale installed inputs. Stage6 ordinary snapshot has no explicit runtime-asset additions; isolated ghost replay is verified in Stage6 handoff.",
+      "verification": "Stage6 ten compiler/five runtime contracts;22 hero incremental/full byte-identical outputs; normal native ghost capture; final dependency-only runnable replay receipt."
+    },
+    {
+      "id": "stage6-refined-chair-catalogue-adoption",
+      "affected_files": [
+        "assets/catalog.json",
+        "assets/levels/model_zoo.json",
+        "assets/levels/model_zoo.placesmap",
+        "tools/levels/build_model_zoo.py"
+      ],
+      "symbol_or_format": "additive home:dining_chair_refined registration + build-inputs v1",
+      "observed_failure": "New optional chair is registered with one generated Zoo apron display;217 old placements and all other source fields exact. Original chairGLB/generator and old bundled package remain intact. Zoo source/package currency is intentionally stale for this added display.",
+      "reason_for_deferral": "Stage6 catalogue test directly requires registration display; source-only maintenance avoids reflow. Stage7 owns all nonhero package rebuild/native adoption; no Zoo compile/bake/render here.",
+      "required_resolution": "Retain current historical package receipt; rebuild supportedZoo with finalcompiler/catalogue and verify newchair display during normal Stage7 compatibility checks. New packages require matching catalogue; later catalogue edits require affected packages to rebuild.",
+      "final_verification": "Generator --check; clean-source workspace tests; compiler verify --require-current and native supportedZoo representative view.",
+      "stage": 7,
+      "status": "open"
     }
   ]
 }
