@@ -1,0 +1,144 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/milestones/stage4-v2/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-transparency-before-manifest.json",
+      "--asset-root",
+      "debug-maps/art-style-hero/evidence/stage5-before-assets",
+      "--out",
+      "docs/art-style/stage5/before/transparency",
+      "--views",
+      "surfaces,water"
+    ],
+    "exit": 0,
+    "seconds": 2.8015842919703573
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-original-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/original"
+    ],
+    "exit": 0,
+    "seconds": 8.472947166999802
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-control-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/control",
+      "--views",
+      "surfaces,night,water"
+    ],
+    "exit": 0,
+    "seconds": 3.755526000051759
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-night-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/night",
+      "--views",
+      "surfaces,night,water,sky"
+    ],
+    "exit": 0,
+    "seconds": 4.893601290998049
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-aurora-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/aurora",
+      "--views",
+      "surfaces,sky,window"
+    ],
+    "exit": 0,
+    "seconds": 3.9484877079958096
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-storm-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/storm",
+      "--views",
+      "surfaces,sky,window"
+    ],
+    "exit": 0,
+    "seconds": 3.926257333951071
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      "--manifest",
+      "docs/art-style/stage5/hero-transparency-after-manifest.json",
+      "--asset-root",
+      ".",
+      "--out",
+      "docs/art-style/stage5/after/transparency",
+      "--views",
+      "surfaces,water"
+    ],
+    "exit": 0,
+    "seconds": 2.535365583957173
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--binary",
+      "debug-maps/art-style-hero/milestones/stage5-before-control/places",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage5-before-control/hero-manifest.json",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-before-control",
+      "--out",
+      "docs/art-style/stage5/snapshot-replay/before-control",
+      "--views",
+      "surfaces"
+    ],
+    "exit": 0,
+    "seconds": 4.321696458035149
+  }
+]

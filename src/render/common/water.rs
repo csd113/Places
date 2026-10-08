@@ -8,23 +8,19 @@
 //! geometry already owns the walls and the bottom, so no side or bottom face is
 //! emitted here.
 //!
-//! The surface is deliberately vertex-lit even on a lightmapped build: it
-//! carries the baked light of its own points in the vertex colour exactly like
-//! a prop or a fixture face (`LIGHTMAP_NONE`), which keeps it out of the
-//! lightmap atlas — the surface belongs to the volume, not to a room's chart.
-//! Its vertex alpha carries the volume's opacity while the catalog material
-//! stays `opacity: 1.0`, so one catalog material serves every level's water and
-//! the authored per-volume opacity is what blends. The blend classification is
-//! the existing material `alpha_mode: "blend"` path: a floor key lands in the
-//! sorted back-to-front translucent pass with depth writes off, and the
-//! renderer draws the pass two-sided, so the surface is visible from above and
-//! below the waterline without any new pipeline state.
+//! Medium/Full surfaces carry ordinary incident-HDR floor charts and material
+//! tint in their vertices; Low retains the sampled vertex-light fallback. This
+//! keeps water sheen, shadow reception and sky response on the same lighting
+//! contract as its basin. Vertex alpha carries the volume's authored opacity.
+//! The usual two-sided Blend pass sorts the surface with other transparent
+//! families and keeps depth writes off, preserving gameplay visibility.
 
 use crate::level::{MaterialRef, WaterShape, WaterVolumes};
 use crate::spatial::SpatialBuckets;
 
 use super::geometry::EmitContext;
-use super::{MaterialSlot, SurfaceKey, Vertex, count_to_f32, shade, tiled_uv};
+use super::{MaterialSlot, SurfaceKey, Vertex, count_to_f32, shade, stamp_lightmap_quad, tiled_uv};
+use crate::lighting::lightmap::PatchKind;
 
 /// Fan segments one circular water surface draws with.
 ///
@@ -71,27 +67,46 @@ pub fn emit_water(
                     [volume.x1, y, volume.z0],
                     [volume.x0, y, volume.z0],
                 ];
-                // The surface is never lightmapped, so the baked light rides
-                // in the vertex colour: tint × the light sampled at each
-                // corner, exactly like the vertex-lit floor path.
-                let colours = corners
-                    .map(|corner| shade(tint, context.lighting.sample(corner[0], y, corner[2])));
+                // Prepared charts use material-only tint. Low keeps incident
+                // light in vertex colour, like its floor fallback.
+                let colours = if context.vertex_colors_are_material_only() {
+                    [tint; 4]
+                } else {
+                    corners
+                        .map(|corner| shade(tint, context.lighting.sample(corner[0], y, corner[2])))
+                };
                 // World-space UVs at the material's tiling, like every floor
                 // sheet: a quad's UVs continue the pool deck's metre grid
                 // instead of restarting at each volume.
                 let uv = corners.map(|[x, _, z]| tiled_uv(x, z, tile));
                 scratch.clear();
                 add_water_quad(scratch, corners, colours, uv, volume.opacity);
+                stamp_lightmap_quad(
+                    context.lightmap,
+                    scratch,
+                    0,
+                    PatchKind::Floor,
+                    corners,
+                    context.lighting.room_index_at(
+                        f32::midpoint(volume.x0, volume.x1),
+                        f32::midpoint(volume.z0, volume.z1),
+                    ),
+                );
                 buckets.add_quads(key, scratch);
             }
             WaterShape::Circle => {
                 let (centre_x, centre_z) = volume.center();
                 let radius = volume.radius;
                 let centre = [centre_x, y, centre_z];
-                // The baked light of the rim (plus the centre for a smooth
-                // gradient) rides the vertex colour, exactly like the
-                // rectangle's corners.
-                let centre_colour = shade(tint, context.lighting.sample(centre_x, y, centre_z));
+                // The fan follows the rectangle's prepared/fallback contract.
+                let colour_at = |point: [f32; 3]| {
+                    if context.vertex_colors_are_material_only() {
+                        tint
+                    } else {
+                        shade(tint, context.lighting.sample(point[0], y, point[2]))
+                    }
+                };
+                let centre_colour = colour_at(centre);
                 let centre_uv = tiled_uv(centre_x, centre_z, tile);
                 let rim = disc_rim(centre_x, centre_z, radius, y, WATER_DISC_SEGMENTS);
                 scratch.clear();
@@ -99,15 +114,15 @@ pub fn emit_water(
                     let [current, next] = pair else {
                         continue;
                     };
-                    let current_colour =
-                        shade(tint, context.lighting.sample(current[0], y, current[2]));
-                    let next_colour = shade(tint, context.lighting.sample(next[0], y, next[2]));
+                    let current_colour = colour_at(*current);
+                    let next_colour = colour_at(*next);
                     let current_uv = tiled_uv(current[0], current[2], tile);
                     let next_uv = tiled_uv(next[0], next[2], tile);
                     // The fan triangle is `(centre, next, current)`: with the
                     // rim running counter-clockwise seen from above, its
                     // derived normal is `+Y`, the same front every floor
                     // emitter has.
+                    let first = scratch.len();
                     add_water_triangle(
                         scratch,
                         centre,
@@ -120,6 +135,14 @@ pub fn emit_water(
                         current_colour,
                         current_uv,
                         volume.opacity,
+                    );
+                    stamp_lightmap_quad(
+                        context.lightmap,
+                        scratch,
+                        first,
+                        PatchKind::Floor,
+                        [centre, *next, *current, *current],
+                        context.lighting.room_index_at(centre_x, centre_z),
                     );
                 }
                 buckets.add_quads(key, scratch);
@@ -182,11 +205,9 @@ fn add_water_quad(
 
 /// Writes one alpha-carrying triangle in the shared six-vertex run shape.
 ///
-/// The run repeats its last two vertices (`p0, p1, p2, p0, p1, p2`), which the
-/// index builder recognises as a triangle encoded in the quad form: its
-/// degenerate second triangle is dropped and the first is indexed normally, so
-/// a fan segment costs three distinct vertices like every other triangle in
-/// the mesh.
+/// The folded quad is (`p0, p1, p2, p0, p2, p2`), matching lightmap stamping's
+/// corner convention. Its degenerate second triangle is dropped by indexing;
+/// one fan segment keeps three distinct vertices and one coverage contribution.
 #[expect(
     clippy::too_many_arguments,
     reason = "one triangle's three points, colours and uvs"
@@ -214,7 +235,7 @@ fn add_water_triangle(
     vertices.push(vertex(p1, c1, uv1));
     vertices.push(vertex(p2, c2, uv2));
     vertices.push(vertex(p0, c0, uv0));
-    vertices.push(vertex(p1, c1, uv1));
+    vertices.push(vertex(p2, c2, uv2));
     vertices.push(vertex(p2, c2, uv2));
 }
 

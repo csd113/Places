@@ -727,8 +727,9 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
 /// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding;
 /// 4 = linear colour interpretation and flat fallback model attributes;
-/// 5 = inclusive receiver endpoints and consistent boundary-roof ownership.
-pub const GEOMETRY_REVISION: u32 = 5;
+/// 5 = inclusive receiver endpoints and consistent boundary-roof ownership;
+/// 6 = incident-HDR water floor charts and folded circular fan quads.
+pub const GEOMETRY_REVISION: u32 = 6;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

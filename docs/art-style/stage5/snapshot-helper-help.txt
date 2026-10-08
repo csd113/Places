@@ -1,0 +1,26 @@
+usage: snapshot_art_style_hero.py [-h] --out OUT --binary BINARY
+                                  --package PACKAGE --revision REVISION
+                                  [--diagnostics DIAGNOSTICS]
+                                  [--compiler COMPILER]
+                                  [--runtime-library RUNTIME_LIBRARY]
+                                  [--catalog CATALOG] [--manifest MANIFEST]
+
+Preserve one immutable local Art-style runnable milestone outside target.
+Copies the player, optional diagnostic player/compiler, hero package, source,
+camera manifest, catalog and hash-verified runtime dependencies. Never
+overwrites an existing snapshot and never compiles or captures another map.
+
+options:
+  -h, --help            show this help message and exit
+  --out OUT
+  --binary BINARY
+  --package PACKAGE
+  --revision REVISION   Verified implementation revision or explicit precommit
+                        base
+  --diagnostics DIAGNOSTICS
+  --compiler COMPILER
+  --runtime-library RUNTIME_LIBRARY
+                        Native shared library to preserve beside the player
+  --catalog CATALOG     Compatible catalog, including a preserved before-state
+                        catalog
+  --manifest MANIFEST

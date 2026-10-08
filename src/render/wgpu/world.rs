@@ -1562,9 +1562,24 @@ pub fn translucent_character_order(entries: &[(usize, glam::Vec3)], eye: glam::V
     order.into_iter().map(|(index, _)| index).collect()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TransparentItem {
+    World(u32),
+    Prop(usize),
+    Dynamic(usize),
+    Character(usize),
+}
+
+fn sort_transparency(items: &mut [(TransparentItem, [f32; 3])], eye: glam::Vec3) {
+    items.sort_by(|left, right| {
+        let distance = |point| glam::Vec3::from_array(point).distance_squared(eye);
+        distance(right.1).total_cmp(&distance(left.1))
+    });
+}
+
 /// One world pipeline variant's distinguishing state.
 ///
-/// The five material passes share the shader module, vertex layout, depth
+/// The six material passes share the shader module, vertex layout, depth
 /// format, winding and bind group layouts; only these fields differ.
 #[derive(Clone, Copy)]
 struct WorldPipelineVariant {
@@ -1616,7 +1631,7 @@ const TRANSLUCENT_BLEND: wgpu::BlendState = wgpu::BlendState {
 /// into the raw bloom source. The cut-out variant keeps the reference's
 /// `discard`.
 #[must_use]
-const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 5] {
+const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6] {
     [
         WorldPipelineVariant {
             label: "places-wgpu-world-opaque",
@@ -1651,6 +1666,14 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 5]
             fragment_entry: WORLD_EMISSION_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
             blend: None,
+            depth_write: false,
+            cull: None,
+        },
+        WorldPipelineVariant {
+            label: "places-wgpu-world-emission-blend",
+            fragment_entry: "fs_emission_blend",
+            fragment_entry_raw: "fs_emission_blend",
+            blend: Some(TRANSLUCENT_BLEND),
             depth_write: false,
             cull: None,
         },
@@ -1740,7 +1763,7 @@ fn build_world_pipeline(
 /// per-texture and per-material bind groups created once at upload survive a
 /// pipeline rebuild unchanged.
 ///
-/// Three scene variants and two emissive variants:
+/// Three scene variants and three emissive variants:
 ///
 /// * **opaque** — depth writes on, no blending, culling selected by the caller.
 /// * **cut-out** — the same state with the `fs_cutout` fragment entry point,
@@ -1748,12 +1771,14 @@ fn build_world_pipeline(
 /// * **translucent** — straight-alpha blending, depth writes off, two-sided.
 /// * **emission / emission-cutout** — the emissive term alone, depth writes off,
 ///   into the raw bloom source.
+/// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
     opaque: wgpu::RenderPipeline,
     cutout: wgpu::RenderPipeline,
     translucent: wgpu::RenderPipeline,
     emission: wgpu::RenderPipeline,
     emission_cutout: wgpu::RenderPipeline,
+    emission_blend: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
     /// The group-4 attached-light uniform. Created zeroed and written by
@@ -1895,6 +1920,7 @@ impl WorldPipeline {
             cutout_variant,
             translucent_variant,
             emission_variant,
+            emission_blend_variant,
             emission_cutout_variant,
         ] = world_pipeline_variants(cull_opaque);
         let build = |variant| {
@@ -1908,17 +1934,13 @@ impl WorldPipeline {
                 variant,
             )
         };
-        let opaque = build(opaque_variant);
-        let cutout = build(cutout_variant);
-        let translucent = build(translucent_variant);
-        let emission = build(emission_variant);
-        let emission_cutout = build(emission_cutout_variant);
         Self {
-            opaque,
-            cutout,
-            translucent,
-            emission,
-            emission_cutout,
+            opaque: build(opaque_variant),
+            cutout: build(cutout_variant),
+            translucent: build(translucent_variant),
+            emission: build(emission_variant),
+            emission_cutout: build(emission_cutout_variant),
+            emission_blend: build(emission_blend_variant),
             bind_group,
             camera_buffer,
             lights_buffer,
@@ -1949,7 +1971,8 @@ impl WorldPipeline {
     const fn emission_pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
         match pass {
             BatchPass::Cutout => &self.emission_cutout,
-            BatchPass::Opaque | BatchPass::Translucent => &self.emission,
+            BatchPass::Opaque => &self.emission,
+            BatchPass::Translucent => &self.emission_blend,
         }
     }
 
@@ -2066,12 +2089,10 @@ impl WorldPipeline {
         };
         let opaque = indices_of(BatchPass::Opaque);
         let cutout = indices_of(BatchPass::Cutout);
-        let translucent = translucent_order(&geometry.draws, inputs.frame.eye);
         let mut totals = WorldDrawTotals::default();
         for (indices, pass_kind) in [
             (opaque.as_slice(), BatchPass::Opaque),
             (cutout.as_slice(), BatchPass::Cutout),
-            (translucent.as_slice(), BatchPass::Translucent),
         ] {
             let class = self.encode_class(
                 pass,
@@ -2109,28 +2130,126 @@ impl WorldPipeline {
                 totals.absorb(self.encode_extra_class(pass, inputs, false, pass_kind));
             }
         }
-        if let Some(props) = inputs.props {
-            totals.absorb(self.encode_props(pass, inputs, props, false, BatchPass::Translucent));
-        }
-        // Blended dynamic primitives (a moving glass panel) draw after the
-        // sorted static translucent surfaces, with depth writes off and depth
-        // testing against the opaque pass.
-        if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(
-                pass,
-                inputs,
-                dynamic,
-                false,
-                BatchPass::Translucent,
-            ));
-        }
-        // Blended character submeshes (a fading ghost) follow the blended
-        // dynamic primitives, sorted back to front so several ghosts composite
-        // in the right order.
-        if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, false));
+        let transparent = self.encode_transparency(pass, inputs, false);
+        totals.translucent_draws = transparent.visible_batches;
+        totals.absorb(transparent);
+        totals
+    }
+
+    /// The scene and emission passes use one order across all transparent families.
+    /// Sorting remains per range/object; intersecting triangles need authored separation.
+    fn encode_transparency<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        emission_only: bool,
+    ) -> WorldDrawTotals {
+        let mut items = Self::transparent_items(inputs);
+        sort_transparency(&mut items, inputs.frame.eye);
+        let mut totals = WorldDrawTotals::default();
+        for (item, _) in items {
+            let submitted = match item {
+                TransparentItem::World(index) => self.encode_class(
+                    pass,
+                    inputs,
+                    &inputs.frame.frustum,
+                    &[index],
+                    BatchPass::Translucent,
+                    emission_only,
+                ),
+                TransparentItem::Prop(index) => {
+                    inputs.props.map_or_else(WorldDrawTotals::default, |props| {
+                        self.encode_props(
+                            pass,
+                            inputs,
+                            props,
+                            emission_only,
+                            BatchPass::Translucent,
+                            Some(index),
+                        )
+                    })
+                }
+                TransparentItem::Dynamic(index) => {
+                    inputs
+                        .dynamic
+                        .map_or_else(WorldDrawTotals::default, |dynamic| {
+                            self.encode_dynamic(
+                                pass,
+                                inputs,
+                                dynamic,
+                                emission_only,
+                                BatchPass::Translucent,
+                                Some(index),
+                            )
+                        })
+                }
+                TransparentItem::Character(index) => {
+                    self.bind_character_state(pass, emission_only, BatchPass::Translucent);
+                    inputs
+                        .characters
+                        .map_or_else(WorldDrawTotals::default, |characters| {
+                            Self::encode_character_submeshes(
+                                pass,
+                                inputs,
+                                characters,
+                                index,
+                                emission_only,
+                                BatchPass::Translucent,
+                            )
+                        })
+                }
+            };
+            totals.absorb(submitted);
         }
         totals
+    }
+
+    fn transparent_items(inputs: WorldEncodeInputs<'_>) -> Vec<(TransparentItem, [f32; 3])> {
+        let mut items = Vec::new();
+        for index in translucent_order(&inputs.geometry.draws, inputs.frame.eye) {
+            if let Some(draw) = usize::try_from(index)
+                .ok()
+                .and_then(|slot| inputs.geometry.draws.get(slot))
+            {
+                items.push((TransparentItem::World(index), draw.bounds.centre()));
+            }
+        }
+        if let Some(props) = inputs.props {
+            for (index, draw) in props
+                .draws()
+                .iter()
+                .enumerate()
+                .filter(|(_, draw)| draw.pass == BatchPass::Translucent && draw.index_count > 0)
+            {
+                items.push((TransparentItem::Prop(index), draw.bounds.centre()));
+            }
+        }
+        if let Some(dynamic) = inputs.dynamic {
+            for index in 0..dynamic.object_count() {
+                if (0..dynamic.submesh_count(index)).any(|submesh| {
+                    dynamic.submesh_pass(index, submesh) == Some(BatchPass::Translucent)
+                }) && let Some(bounds) = dynamic.world_bounds(index)
+                {
+                    items.push((TransparentItem::Dynamic(index), bounds.centre()));
+                }
+            }
+        }
+        if let Some(characters) = inputs.characters {
+            let entries: Vec<_> = (0..characters.character_count())
+                .filter(|index| characters.has_submesh_pass(*index, BatchPass::Translucent))
+                .filter_map(|index| {
+                    characters
+                        .world_bounds(index)
+                        .map(|bounds| (index, glam::Vec3::from_array(bounds.centre())))
+                })
+                .collect();
+            for index in translucent_character_order(&entries, inputs.frame.eye) {
+                if let Some(bounds) = characters.world_bounds(index) {
+                    items.push((TransparentItem::Character(index), bounds.centre()));
+                }
+            }
+        }
+        items
     }
 
     /// Encodes the opaque extras spliced after the static opaque class, in the
@@ -2144,10 +2263,10 @@ impl WorldPipeline {
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         if let Some(props) = inputs.props {
-            totals.absorb(self.encode_props(pass, inputs, props, emission_only, wanted));
+            totals.absorb(self.encode_props(pass, inputs, props, emission_only, wanted, None));
         }
         if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only, wanted));
+            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only, wanted, None));
         }
         if let Some(characters) = inputs.characters {
             totals.absorb(self.encode_characters(pass, inputs, characters, emission_only, wanted));
@@ -2163,8 +2282,7 @@ impl WorldPipeline {
     /// per-frame baked-light probe; the material and texture come from the
     /// shared mesh and the object's own material slots. `emission_only` is the
     /// emissive pass; `wanted` selects the alpha class, so a blended dynamic
-    /// primitive draws in the translucent pass after the static translucent
-    /// surfaces, with depth writes off.
+    /// primitive draws in the shared translucent order, with depth writes off.
     fn encode_dynamic<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2172,6 +2290,7 @@ impl WorldPipeline {
         dynamic: &'a super::dynamic::WgpuDynamic,
         emission_only: bool,
         wanted: BatchPass,
+        selected: Option<usize>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         if emission_only {
@@ -2181,7 +2300,9 @@ impl WorldPipeline {
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
-        for object in 0..dynamic.object_count() {
+        for object in (0..dynamic.object_count())
+            .filter(|object| selected.is_none_or(|index| index == *object))
+        {
             let Some(bounds) = dynamic.world_bounds(object) else {
                 continue;
             };
@@ -2200,7 +2321,10 @@ impl WorldPipeline {
                 if dynamic.submesh_pass(object, submesh) != Some(wanted) {
                     continue;
                 }
-                if emission_only && !dynamic.submesh_emissive(object, submesh) {
+                if emission_only
+                    && wanted != BatchPass::Translucent
+                    && !dynamic.submesh_emissive(object, submesh)
+                {
                     continue;
                 }
                 totals.emissive_visible |= dynamic.submesh_emissive(object, submesh);
@@ -2253,7 +2377,7 @@ impl WorldPipeline {
     /// buffer already holds the CPU-skinned model-space pose, so the shader
     /// path is exactly the prop path. `emission_only` is the emissive pass, and
     /// `wanted` filters the submesh's actual opaque/cutout alpha class; the translucent pass
-    /// enters through [`Self::encode_translucent_characters`].
+    /// enters through [`Self::encode_transparency`].
     fn encode_characters<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2272,46 +2396,6 @@ impl WorldPipeline {
                 character,
                 emission_only,
                 wanted,
-            ));
-        }
-        totals
-    }
-
-    /// Encodes the frame's translucent character submeshes, farthest first.
-    ///
-    /// Drawn after the blended dynamic primitives and the static translucent
-    /// class with depth writes off, depth-testing against the opaque pass. The
-    /// order is the squared camera distance to the character's world centre,
-    /// farthest first, with the entry index as the deterministic tie-break, so
-    /// several ghosts composite consistently.
-    fn encode_translucent_characters<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        inputs: WorldEncodeInputs<'a>,
-        characters: &'a super::character::WgpuCharacters,
-        emission_only: bool,
-    ) -> WorldDrawTotals {
-        let mut totals = WorldDrawTotals::default();
-        let entries: Vec<(usize, glam::Vec3)> = (0..characters.character_count())
-            .filter(|character| characters.has_submesh_pass(*character, BatchPass::Translucent))
-            .filter_map(|character| {
-                characters
-                    .world_bounds(character)
-                    .map(|bounds| (character, glam::Vec3::from_array(bounds.centre())))
-            })
-            .collect();
-        if entries.is_empty() {
-            return totals;
-        }
-        self.bind_character_state(pass, emission_only, BatchPass::Translucent);
-        for character in translucent_character_order(&entries, inputs.frame.eye) {
-            totals.absorb(Self::encode_character_submeshes(
-                pass,
-                inputs,
-                characters,
-                character,
-                emission_only,
-                BatchPass::Translucent,
             ));
         }
         totals
@@ -2364,7 +2448,10 @@ impl WorldPipeline {
             if characters.submesh_pass(character, submesh) != Some(wanted) {
                 continue;
             }
-            if emission_only && !characters.submesh_emissive(character, submesh) {
+            if emission_only
+                && wanted != BatchPass::Translucent
+                && !characters.submesh_emissive(character, submesh)
+            {
                 continue;
             }
             totals.emissive_visible |= characters.submesh_emissive(character, submesh);
@@ -2408,11 +2495,9 @@ impl WorldPipeline {
         totals
     }
 
-    /// The reference's `draw_emissive_body`: the same body without decals,
-    /// every stage drawing only the surfaces whose material emits, into the
-    /// bloom source with depth writes off and no blending. The fragment entry
-    /// points write the emissive term raw; fog, lightmaps, reflections and the
-    /// albedo never run there.
+    /// Draw emission without albedo, lightmaps or reflection colour. Fog and
+    /// storm transmission attenuate it once. Transparent surfaces share scene
+    /// order and coverage, including nonemitters that cover emission behind them.
     pub fn encode_emissive<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2430,12 +2515,10 @@ impl WorldPipeline {
         };
         let opaque = indices_of(BatchPass::Opaque);
         let cutout = indices_of(BatchPass::Cutout);
-        let translucent = translucent_order(&geometry.draws, inputs.frame.eye);
         let mut totals = WorldDrawTotals::default();
         for (indices, pass_kind) in [
             (opaque.as_slice(), BatchPass::Opaque),
             (cutout.as_slice(), BatchPass::Cutout),
-            (translucent.as_slice(), BatchPass::Translucent),
         ] {
             let class = self.encode_class(
                 pass,
@@ -2457,20 +2540,7 @@ impl WorldPipeline {
                 totals.absorb(self.encode_extra_class(pass, inputs, true, pass_kind));
             }
         }
-        if let Some(props) = inputs.props {
-            totals.absorb(self.encode_props(pass, inputs, props, true, BatchPass::Translucent));
-        }
-        // A blended dynamic primitive can still emit; its emissive draw joins
-        // the bloom source after the static translucent emission.
-        if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, true, BatchPass::Translucent));
-        }
-        // A translucent character's emissive submeshes join the bloom source
-        // here too, scaled by the instance opacity the shader applies, so a
-        // ghost's cyan core blooms through its fade instead of popping.
-        if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_translucent_characters(pass, inputs, characters, true));
-        }
+        totals.absorb(self.encode_transparency(pass, inputs, true));
         totals
     }
 
@@ -2489,6 +2559,7 @@ impl WorldPipeline {
         props: &'a super::props::WgpuProps,
         emission_only: bool,
         wanted: BatchPass,
+        selected: Option<usize>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         let mut bound_pipeline: Option<BatchPass> = None;
@@ -2498,31 +2569,19 @@ impl WorldPipeline {
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
-        let mut translucent: Vec<_> = if wanted == BatchPass::Translucent {
-            props
-                .draws()
-                .iter()
-                .filter(|draw| draw.pass == wanted)
-                .collect()
-        } else {
-            Vec::new()
-        };
-        translucent.sort_by(|left, right| {
-            let distance = |draw: &super::props::PropDraw| {
-                glam::Vec3::from_array(draw.bounds.centre()).distance_squared(inputs.frame.eye)
-            };
-            distance(right).total_cmp(&distance(left))
-        });
         for draw in props
             .draws()
             .iter()
-            .filter(|draw| wanted != BatchPass::Translucent && draw.pass == wanted)
-            .chain(translucent)
+            .enumerate()
+            .filter(|(index, draw)| {
+                draw.pass == wanted && selected.is_none_or(|chosen| chosen == *index)
+            })
+            .map(|(_, draw)| draw)
         {
             if draw.index_count == 0 {
                 continue;
             }
-            if emission_only && !draw.emissive {
+            if emission_only && wanted != BatchPass::Translucent && !draw.emissive {
                 continue;
             }
             if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
@@ -2625,7 +2684,10 @@ impl WorldPipeline {
             {
                 continue;
             }
-            if emission_only && !materials.is_emissive(material_slot) {
+            if emission_only
+                && pass_kind != BatchPass::Translucent
+                && !materials.is_emissive(material_slot)
+            {
                 continue;
             }
             if bound_material != Some(material_slot) {
@@ -3972,9 +4034,15 @@ mod tests {
     }
 
     #[test]
-    fn the_five_pipelines_declare_the_reference_material_states() {
-        let [opaque, cutout, translucent, emission, emission_cutout] =
-            world_pipeline_variants(true);
+    fn the_six_pipelines_preserve_depth_and_coverage_contracts() {
+        let [
+            opaque,
+            cutout,
+            translucent,
+            emission,
+            emission_blend,
+            emission_cutout,
+        ] = world_pipeline_variants(true);
 
         assert_eq!(opaque.label, "places-wgpu-world-opaque");
         assert_eq!(opaque.fragment_entry, WORLD_FRAGMENT_ENTRY);
@@ -4010,6 +4078,9 @@ mod tests {
             assert!(variant.blend.is_none(), "the emissive pass does not blend");
             assert_eq!(variant.cull, None, "the reference never culls");
         }
+        assert_eq!(emission_blend.blend, Some(TRANSLUCENT_BLEND));
+        assert!(!emission_blend.depth_write);
+        assert_eq!(emission_blend.fragment_entry, "fs_emission_blend");
         assert_eq!(WORLD_EMISSION_FRAGMENT_ENTRY, "fs_emission");
         assert_eq!(WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY, "fs_emission_cutout");
     }
@@ -4279,7 +4350,7 @@ mod tests {
             "shade() must fold the instance opacity into the fragment alpha"
         );
         assert!(
-            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"),
+            WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * transmission"),
             "the emissive term must fade with the instance opacity"
         );
     }
@@ -4558,6 +4629,54 @@ mod tests {
             !emissive.contains("dynamic_light_term"),
             "the emissive pass must not sum the attached lights"
         );
+    }
+
+    #[test]
+    fn transparency_sorts_across_families_and_stably_keeps_ties() {
+        let mut items = [
+            (TransparentItem::Dynamic(2), [0.0, 0.0, -2.0]),
+            (TransparentItem::World(3), [0.0, 0.0, -8.0]),
+            (TransparentItem::Character(1), [0.0, 0.0, -4.0]),
+            (TransparentItem::Prop(0), [0.0, 0.0, -6.0]),
+            (TransparentItem::World(5), [0.0, 0.0, -4.0]),
+        ];
+        sort_transparency(&mut items, glam::Vec3::ZERO);
+        assert_eq!(
+            items.map(|(item, _)| item),
+            [
+                TransparentItem::World(3),
+                TransparentItem::Prop(0),
+                TransparentItem::Character(1),
+                TransparentItem::World(5),
+                TransparentItem::Dynamic(2)
+            ]
+        );
+        sort_transparency(&mut items, glam::Vec3::new(0.0, 0.0, -10.0));
+        assert_eq!(
+            items.map(|(item, _)| item),
+            [
+                TransparentItem::Dynamic(2),
+                TransparentItem::Character(1),
+                TransparentItem::World(5),
+                TransparentItem::Prop(0),
+                TransparentItem::World(3)
+            ]
+        );
+    }
+
+    #[test]
+    fn blended_bloom_uses_coverage_once_and_dark_glass_attenuates_it() {
+        let emission = 4.0_f32;
+        let texture_alpha = 0.5_f32;
+        let material_opacity = 0.8_f32;
+        let instance_opacity = 0.25_f32;
+        let coverage = texture_alpha * material_opacity * instance_opacity;
+        assert!((emission * coverage - 0.4).abs() < 1.0e-6);
+        let through_glass = emission * coverage * (1.0 - 0.3_f32);
+        assert!((through_glass - 0.28).abs() < 1.0e-6);
+        assert!(WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * transmission, alpha"));
+        assert!(WORLD_SHADER_SRC.contains("return emissive_only(in, false);"));
+        assert!(!WORLD_SHADER_SRC.contains("surface_emission(in, base.rgb) * environment.opacity"));
     }
 
     #[test]
@@ -5276,7 +5395,9 @@ mod tests {
             "let density = global_density + layer_density;",
             "var fog_amount = density * distance;",
             "fog_amount = 1.0 - exp(-fog_amount * fog_amount);",
-            "return mix(color, srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));",
+            "return vec4<f32>(srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));",
+            "let fog = atmosphere(world_position);",
+            "return mix(color, fog.rgb, fog.a);",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
@@ -5331,9 +5452,11 @@ mod tests {
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
-        // `fogged` reads the camera exactly once, for the distance. Regional
+        // `atmosphere` reads the camera exactly once, for distance. Regional
         // membership never consults the eye.
-        let start = WORLD_SHADER_SRC.find("fn fogged").expect("fogged exists");
+        let start = WORLD_SHADER_SRC
+            .find("fn atmosphere")
+            .expect("atmosphere exists");
         let tail = WORLD_SHADER_SRC
             .get(start..)
             .expect("fogged starts on a UTF-8 boundary");
@@ -5347,7 +5470,7 @@ mod tests {
         assert_eq!(
             body.matches("camera.position").count(),
             1,
-            "the only camera read in fogged() is the view distance"
+            "the only camera read in atmosphere() is view distance"
         );
         assert!(body.contains("length(camera.position - world_position)"));
     }

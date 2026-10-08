@@ -1,0 +1,25 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--test",
+      "macos_cpu_port"
+    ],
+    "exit": 0,
+    "seconds": 0.5563691660063341,
+    "log": "docs/art-style/stage5/validation-final/remaining-0.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--doc"
+    ],
+    "exit": 0,
+    "seconds": 1.4039160419488326,
+    "log": "docs/art-style/stage5/validation-final/remaining-1.log"
+  }
+]

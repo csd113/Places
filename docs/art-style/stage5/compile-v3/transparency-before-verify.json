@@ -1,0 +1,8 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_transparency.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-transparency-before/art_style_hero.placesmap",
+  "package_fingerprint": "965d1f5e33367b38e01099c0605e9277b72a24075b33ebe4185ed4d4467f8eb1",
+  "current_fingerprint": "965d1f5e33367b38e01099c0605e9277b72a24075b33ebe4185ed4d4467f8eb1",
+  "current": true,
+  "differences": []
+}

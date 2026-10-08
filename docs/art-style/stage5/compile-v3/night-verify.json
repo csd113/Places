@@ -1,0 +1,8 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_night.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-night/art_style_hero.placesmap",
+  "package_fingerprint": "da72e4924a3376c9f2464c100eb370aa24a3087efd0ca64c3b84f8cf3aae7a99",
+  "current_fingerprint": "da72e4924a3376c9f2464c100eb370aa24a3087efd0ca64c3b84f8cf3aae7a99",
+  "current": true,
+  "differences": []
+}

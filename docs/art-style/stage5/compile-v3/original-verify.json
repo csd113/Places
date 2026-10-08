@@ -1,0 +1,8 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-original/art_style_hero.placesmap",
+  "package_fingerprint": "c82f35ba733528cc175c0934d000a4eb35de273cae867824b26ffd890c9f6ed9",
+  "current_fingerprint": "c82f35ba733528cc175c0934d000a4eb35de273cae867824b26ffd890c9f6ed9",
+  "current": true,
+  "differences": []
+}

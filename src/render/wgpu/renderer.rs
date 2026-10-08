@@ -3377,9 +3377,11 @@ impl WgpuRenderer {
         if self.drawable_size.is_empty() {
             return false;
         }
+        let settings = self.presentation_settings();
         let Some(post) = self.post.as_mut() else {
             return false;
         };
+        post.upload_settings(&self.queue, settings);
         let stats = post.ensure(&self.device, self.quality, self.drawable_size);
         if stats.created {
             logging::info(format!(
@@ -3393,6 +3395,14 @@ impl WgpuRenderer {
             ));
         }
         post.is_ready()
+    }
+
+    fn presentation_settings(&self) -> PostSettings {
+        if self.visual_diagnostic_active() {
+            PostSettings::DIAGNOSTIC
+        } else {
+            PostSettings::from_level(self.installed_level.as_ref()).with_bloom(self.bloom_requested)
+        }
     }
 
     /// Encodes one complete frame into `target`: the offscreen scene pass with
@@ -3411,11 +3421,7 @@ impl WgpuRenderer {
         let Some(post) = self.post.as_ref().filter(|post| post.is_ready()) else {
             return self.encode_direct(encoder, target, frame);
         };
-        let settings = if self.visual_diagnostic_active() {
-            PostSettings::for_level(QualityLevel::Low)
-        } else {
-            PostSettings::for_level(self.quality).with_bloom(self.bloom_requested)
-        };
+        let settings = self.presentation_settings();
         let mut totals = WorldDrawTotals::default();
         {
             let Some(scene_view) = post.scene_view() else {
@@ -4434,6 +4440,9 @@ impl WgpuRenderer {
                 "culling": self.culling, "bloom_requested": self.bloom_requested,
                 "bloom_allowed": self.bloom_requested && !self.visual_diagnostic_active(),
                 "diagnostic_identity_post": self.visual_diagnostic_active(),
+                "display_encoding": if self.visual_diagnostic_active() {
+                    "mapped diagnostic values treated as linear; one sRGB encoding; no exposure, shoulder, grade or bloom"
+                } else { "linear HDR + bloom, fixed exposure, hue-preserving shoulder, sRGB, display grade" },
                 "sky_decals_effects_suppressed": self.visual_diagnostic_active()},
             "unavailable": {"decomposition": "direct/indirect/filter/fill remain offline solver exports",
                 "shadow_ao": "no standalone payload", "metallic": "no material shader input",

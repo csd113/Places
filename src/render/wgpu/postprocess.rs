@@ -170,7 +170,7 @@ impl BlurParams {
         let width = dimension_f32(source.width).max(1.0);
         let height = dimension_f32(source.height).max(1.0);
         let texel = if horizontal {
-            [1.0 / width, 0.0, 0.0, 0.0]
+            [1.0 / width, 0.0, 1.0, 0.0]
         } else {
             [0.0, 1.0 / height, 0.0, 0.0]
         };
@@ -183,67 +183,24 @@ const POST_PARAMS_SIZE: u64 = super::buffer_element_bytes::<PostParams>();
 /// Bytes one [`BlurParams`] occupies.
 const BLUR_PARAMS_SIZE: u64 = super::buffer_element_bytes::<BlurParams>();
 
-/// The six parameter sets the engine can produce: the three quality levels
-/// with bloom off and on.
-///
-/// This is the whole space of [`PostSettings`] (`PostSettings::for_level` plus
-/// [`PostSettings::with_bloom`]), so one static uniform per entry covers every
-/// frame without a buffer write. Level-major order keeps each level's two slots
-/// adjacent.
-const RESOLVE_VARIANTS: [PostSettings; 6] = [
-    PostSettings::for_level(QualityLevel::Low).with_bloom(false),
-    PostSettings::for_level(QualityLevel::Low).with_bloom(true),
-    PostSettings::for_level(QualityLevel::Medium).with_bloom(false),
-    PostSettings::for_level(QualityLevel::Medium).with_bloom(true),
+/// Bloom-off/on uniforms, updated only when authored presentation changes.
+const RESOLVE_VARIANTS: [PostSettings; 2] = [
     PostSettings::for_level(QualityLevel::High).with_bloom(false),
     PostSettings::for_level(QualityLevel::High).with_bloom(true),
 ];
 
-/// Index of High's bloom-off slot in [`RESOLVE_VARIANTS`].
-const HIGH_RESOLVE_SLOT: usize = 4;
-
-/// Which fullscreen pass one frame's resolve selection records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ResolvePath {
-    /// The settings are the identity: the plain scene copy, not a no-op
-    /// resolve.
     PresentCopy,
-    /// The resolve, with the uniform slot that carries these settings.
     Resolve(usize),
 }
 
-/// The uniform slot that carries exactly these settings, if any.
-#[must_use]
-// authored constants compared for identity, not measurements
-fn settings_slot(settings: PostSettings) -> Option<usize> {
-    RESOLVE_VARIANTS
-        .iter()
-        .position(|variant| *variant == settings)
-}
-
-/// The pass [`PostProcess::encode_resolve`] records for one frame.
-///
-/// The identity check is the neutral [`PostSettings::is_identity`], not a
-/// re-derivation; a bloom frame whose emissive stage did not run uses the same
-/// settings with the strength cleared, which is exactly the reference's
-/// `(0.0, scene)` fallback.
-#[must_use]
 fn resolve_path(settings: PostSettings, bloom_enabled: bool) -> ResolvePath {
     if settings.is_identity() {
-        return ResolvePath::PresentCopy;
-    }
-    let effective = if bloom_enabled && settings.blooms() {
-        settings
+        ResolvePath::PresentCopy
     } else {
-        settings.with_bloom(false)
-    };
-    ResolvePath::Resolve(settings_slot(effective).unwrap_or_else(|| {
-        logging::warn_once(
-            "wgpu-post-settings-unmatched",
-            "[wgpu] post settings are outside the level-derived set; using High",
-        );
-        HIGH_RESOLVE_SLOT.saturating_add(usize::from(effective.blooms()))
-    }))
+        ResolvePath::Resolve(usize::from(bloom_enabled && settings.blooms()))
+    }
 }
 
 /// The target sizes one `ensure` computes for a level and drawable.
@@ -519,6 +476,7 @@ pub struct PostProcess {
     quad_buffer: wgpu::Buffer,
     /// One uniform per [`RESOLVE_VARIANTS`] entry, in the same order.
     post_uniforms: Vec<wgpu::Buffer>,
+    uploaded_settings: [PostSettings; 2],
     surface_format: wgpu::TextureFormat,
     targets: Option<PostTargets>,
 }
@@ -567,8 +525,29 @@ impl PostProcess {
             ),
             quad_buffer,
             post_uniforms,
+            uploaded_settings: RESOLVE_VARIANTS,
             surface_format,
             targets: None,
+        }
+    }
+
+    /// A still level writes nothing; an authored change updates two 32-byte slots.
+    pub fn upload_settings(&mut self, queue: &wgpu::Queue, settings: PostSettings) {
+        let next = [settings.with_bloom(false), settings.with_bloom(true)];
+        for ((buffer, previous), value) in self
+            .post_uniforms
+            .iter()
+            .zip(&mut self.uploaded_settings)
+            .zip(next)
+        {
+            if *previous != value {
+                queue.write_buffer(
+                    buffer,
+                    0,
+                    bytemuck::bytes_of(&PostParams::from_settings(value)),
+                );
+                *previous = value;
+            }
         }
     }
 
@@ -1121,7 +1100,7 @@ fn create_uniform_buffer<T: Pod>(device: &wgpu::Device, label: &str, value: &T) 
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some(label),
         contents: bytemuck::bytes_of(value),
-        usage: wgpu::BufferUsages::UNIFORM,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     })
 }
 
@@ -1275,13 +1254,13 @@ mod tests {
     fn the_blur_steps_one_source_texel() {
         // Pass 1 reads the scene-sized emissive image, horizontally.
         let horizontal = BlurParams::step(DrawableSize::new(960, 544), true);
-        assert_eq!(horizontal.texel, [1.0 / 960.0, 0.0, 0.0, 0.0]);
+        assert_eq!(horizontal.texel, [1.0 / 960.0, 0.0, 1.0, 0.0]);
         // Pass 2 reads quarter-size buffer A, vertically.
         let vertical = BlurParams::step(DrawableSize::new(240, 136), false);
         assert_eq!(vertical.texel, [0.0, 1.0 / 136.0, 0.0, 0.0]);
         // A degenerate source still steps by a whole texel, never by zero.
         let degenerate = BlurParams::step(DrawableSize::new(0, 0), true);
-        assert_eq!(degenerate.texel, [1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(degenerate.texel, [1.0, 0.0, 1.0, 0.0]);
     }
 
     #[test]
@@ -1316,7 +1295,7 @@ mod tests {
         for token in [
             "if (post.bloom_strength > 0.0) {",
             "color = max(color * post.exposure, vec3<f32>(0.0));",
-            "vec3<f32>(post.tone_knee)",
+            "let peak = max(color.r, max(color.g, color.b));",
             "max(1.0 - post.tone_knee, 1.0e-3)",
             "vec3<f32>(0.2126, 0.7152, 0.0722)",
             "mix(vec3<f32>(luma), color, post.grade_saturation)",
@@ -1376,42 +1355,29 @@ mod tests {
     }
 
     #[test]
-    fn identity_settings_take_the_present_copy() {
-        let high_off = PostSettings::for_level(QualityLevel::High).with_bloom(false);
-        let high_on = PostSettings::for_level(QualityLevel::High).with_bloom(true);
-        let medium_off = PostSettings::for_level(QualityLevel::Medium).with_bloom(false);
-        let medium_on = PostSettings::for_level(QualityLevel::Medium).with_bloom(true);
-        let low_off = PostSettings::for_level(QualityLevel::Low).with_bloom(false);
-        let low_on = PostSettings::for_level(QualityLevel::Low).with_bloom(true);
-        // Low without bloom is the neutral type's identity, so it must take the
-        // plain copy no matter what the caller believes about bloom.
-        assert!(low_off.is_identity());
-        assert_eq!(resolve_path(low_off, false), ResolvePath::PresentCopy);
-        assert_eq!(resolve_path(low_off, true), ResolvePath::PresentCopy);
-        // High is never an identity: it resolves, with the bloom term gated by
-        // the caller's bloom state.
-        assert_eq!(resolve_path(high_off, false), ResolvePath::Resolve(4));
-        assert_eq!(resolve_path(high_on, true), ResolvePath::Resolve(5));
-        assert_eq!(resolve_path(high_on, false), ResolvePath::Resolve(4));
-        // Medium always resolves too: the tone shoulder alone needs the pass.
-        assert_eq!(resolve_path(medium_off, false), ResolvePath::Resolve(2));
-        assert_eq!(resolve_path(medium_on, true), ResolvePath::Resolve(3));
-        // Low with bloom resolves; without a valid bloom image it falls back to
-        // the strength-zero Low parameters, exactly the reference's `(0.0, scene)`.
-        assert_eq!(resolve_path(low_on, true), ResolvePath::Resolve(1));
-        assert_eq!(resolve_path(low_on, false), ResolvePath::Resolve(0));
-        // The six slots really are the level/bloom combinations, in order.
-        assert_eq!(settings_slot(low_off), Some(0));
-        assert_eq!(settings_slot(low_on), Some(1));
-        assert_eq!(settings_slot(medium_off), Some(2));
-        assert_eq!(settings_slot(medium_on), Some(3));
-        assert_eq!(settings_slot(high_off), Some(4));
-        assert_eq!(settings_slot(high_on), Some(5));
+    fn diagnostics_bypass_presentation_and_authored_settings_select_bloom_slots() {
         assert_eq!(
-            HIGH_RESOLVE_SLOT,
-            settings_slot(high_off).unwrap_or(usize::MAX),
-            "the fallback slot must be High's bloom-off slot"
+            resolve_path(PostSettings::DIAGNOSTIC, true),
+            ResolvePath::PresentCopy
         );
+        for quality in [QualityLevel::Low, QualityLevel::Medium, QualityLevel::High] {
+            let settings = PostSettings {
+                exposure: 1.25,
+                ..PostSettings::for_level(quality)
+            };
+            assert_eq!(
+                resolve_path(settings.with_bloom(false), true),
+                ResolvePath::Resolve(0)
+            );
+            assert_eq!(
+                resolve_path(settings.with_bloom(true), false),
+                ResolvePath::Resolve(0)
+            );
+            assert_eq!(
+                resolve_path(settings.with_bloom(true), true),
+                ResolvePath::Resolve(1)
+            );
+        }
     }
 
     #[test]
@@ -1444,6 +1410,40 @@ mod tests {
         for channel in clamped {
             assert_eq!(channel, 1.0);
         }
+    }
+
+    #[test]
+    fn highlight_shoulder_preserves_chroma_midtones_and_hdr_order() {
+        let map = |color: [f32; 3]| {
+            let peak = color.into_iter().fold(0.0_f32, f32::max);
+            let scale = tone_shoulder(peak, 0.75) / peak.max(1.0e-6);
+            color.map(|channel| channel * scale)
+        };
+        assert_eq!(map([0.6, 0.3, 0.15]), [0.6, 0.3, 0.15]);
+        let bright = map([4.0, 2.0, 1.0]);
+        assert!(bright[0] < 1.0 && bright[0] > 0.95);
+        assert!((bright[0] / bright[1] - 2.0).abs() < 1.0e-6);
+        assert!((bright[0] / bright[2] - 4.0).abs() < 1.0e-6);
+        assert!(map([8.0; 3])[0] > map([2.0; 3])[0]);
+        assert_eq!(map([0.0; 3]), [0.0; 3]);
+        assert!((tone_shoulder(0.751, 0.75) - 0.751).abs() < 0.00001);
+    }
+
+    #[test]
+    fn bloom_soft_knee_rejects_dim_emission_without_clipping_bright_energy() {
+        let extracted = |peak: f32| {
+            let soft = (peak - 0.5).clamp(0.0, 1.0);
+            (peak - 1.0).max(soft * soft * 0.5)
+        };
+        assert_eq!(extracted(0.0), 0.0);
+        assert_eq!(extracted(0.5), 0.0);
+        assert_eq!(extracted(1.0), 0.125);
+        assert_eq!(extracted(2.0), 1.0);
+        assert_eq!(extracted(8.0), 7.0);
+        assert!(
+            WGSL.contains("if (blur.texel.z < 0.5) { return color; }"),
+            "the second blur must not extract a second time"
+        );
     }
 
     #[test]

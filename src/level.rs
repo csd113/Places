@@ -559,6 +559,10 @@ pub struct WaterVolumeDef {
     /// [`DEFAULT_WATER_OPACITY`]; an authored value overrides the material.
     #[serde(default)]
     pub opacity: Option<f32>,
+    /// Additional absorption per vertical metre. Zero preserves the authored
+    /// surface opacity; positive values reduce basin transmission with depth.
+    #[serde(default)]
+    pub attenuation_per_metre: f32,
     /// Whether the player swims in this volume. `false` keeps it decorative:
     /// the surface draws and the player walks or falls through it normally.
     #[serde(default = "default_true")]
@@ -6045,6 +6049,10 @@ pub struct SkyDef {
     /// was: an escaping ray contributes nothing.
     #[serde(default)]
     pub ambient: f32,
+    /// Linear radiance colour of the diffuse dome, independent of artwork brightness.
+    /// Omission preserves the established cool sky colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient_color: Option<[f32; 3]>,
 }
 
 /// One-to-one brightness: the sheet is the authored exposure.
@@ -6339,6 +6347,9 @@ pub struct LevelDef {
     /// light, and it is a separate, explicit authoring choice.
     #[serde(default)]
     pub sky: Option<SkyDef>,
+    /// Fixed authored display presentation and global atmosphere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<crate::environment::EnvironmentDef>,
     /// Optional presentation-only weather; omission preserves every existing default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weather: Option<crate::weather::WeatherDef>,
@@ -9670,7 +9681,14 @@ impl WaterVolumes {
                 surface_y,
                 bottom_y,
                 material: def.material.clone(),
-                opacity: def.opacity(),
+                opacity: if def.attenuation_per_metre > 0.0 {
+                    (1.0 - def.opacity()).mul_add(
+                        -(-def.attenuation_per_metre * (surface_y - bottom_y)).exp(),
+                        1.0,
+                    )
+                } else {
+                    def.opacity()
+                },
                 swimming: def.swimming,
                 enabled: true,
             });

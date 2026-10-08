@@ -311,3 +311,52 @@ Six original views and the closed door replay byte for byte; tiny control-view
 differences remain inside animated cat bounds. All 14 milestone bundles and all
 seven original concepts hash-verify. The final completion receipt records the
 exact seal/push/CI identity and explicit custody release after that gate.
+
+## 2026-10-08 — Art-style Stage 5: warm highlights, readable water
+
+[Matched native gallery](../art-style/stage5/README.md) ·
+[Presentation/environment contracts](../art-style/stage5/contracts.md) ·
+[Measured costs](../art-style/stage5/performance.md) ·
+[Validation and runnable bundles](../art-style/stage5/handoff.md)
+
+| Stage 4 before, matched native camera | Stage 5 after |
+| --- | --- |
+| ![Warm room before](../art-style/stage5/before/original/room.png) | ![Warm room with controlled highlights](../art-style/stage5/after/original/room.png) |
+| ![Corrected surface baseline](../art-style/stage5/before/control-corrected/surfaces.png) | ![Prepared water and distinct ice/snow](../art-style/stage5/after/control/surfaces.png) |
+| ![Translucent ghost before](../art-style/stage5/before/transparency/surfaces.png) | ![Covered ghost emission](../art-style/stage5/after/transparency/surfaces.png) |
+
+The room retains its soft lighting, furniture colour and contact shading. The
+lantern keeps warm orange highlights instead of whitening; water becomes cooler
+with readable basin tiles, while ice retains its cracked sheet and snow stays
+diffuse and opaque. Correct coverage reduces ghost glow. Bloom-on/off changes
+0.81% of the lantern-view pixels and leaves the water-only camera byte-identical.
+These are modest presentation/surface gains on the accepted lighting foundation;
+sharp texture detail and small silhouettes still differ from the concept softness.
+
+Authored fixed exposure, sky radiance colour and global/regional distance/height
+atmosphere make a cool night arrangement with warm practicals. Existing aurora,
+calm snowfall and sheltered severe snow are checked in the same hero. Those
+intentional environment views are labelled separately from matched improvements.
+Mapped diagnostics bypass presentation effects with explicit sRGB encoding;
+normal final matches the ordinary player. Both six-pair quality cycles restore
+their High endpoints pixel for pixel without restarting.
+
+The cost report rejects zero-draw window timings. Actual native capture GPU work
+costs 0.897 ms before /0.963 ms after per encoded scene, including copy/readback;
+bloom-off costs 0.831 ms. Ordinary presented-frame CPU cost remains unmeasured
+while surface acquisition is unavailable. No speedup or universal budget is claimed.
+Post attachments and atlas page storage remain unchanged; the additive control
+gains one water chart and a second bounded reflection payload.
+
+Original Stage 1 captures, all fourteen prior runnable bundles and all seven
+concept PNGs remain unchanged. New compatible bundles replay the fixed views
+exactly, with only small normal snow-animation differences in weather views.
+Incomplete Stage 5 preparation bundles are preserved and explicitly rejected;
+corrected controls use full dependencies and real runtime ghost assets. Automatic
+spawn-template dependency traversal is a Stage 6 pipeline item. Nonhero adoption,
+existing stale discovery packages and broader compatibility remain Stage 7.
+
+The handoff records implementation publication and snapshot provenance. Final
+seal/push/exact-SHA CI and explicit repository/caffeinate custody release are
+recorded after the gate in the durable completion receipt. Stage 6 is not started
+by Stage 5, and the unfinished queue retains `target/`.

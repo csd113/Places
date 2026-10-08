@@ -1,0 +1,77 @@
+[
+  {
+    "view": "room",
+    "before": "docs/art-style/stage5/before/original/room.png",
+    "after": "docs/art-style/stage5/after/original/room.png",
+    "before_sha256": "86318a4d94aeeee5a22d13ddf47fc2a5c5487c702ea825e10aa73d2dd5e2c0b0",
+    "after_sha256": "d6f8a9f5b5abce09cf57bbb88b8cbdea6224b5115c738d886f844faee870d68a",
+    "changed_pixels": 12450,
+    "mean_absolute_display_byte_change": 0.19581597222222222,
+    "max_display_byte_change": 108
+  },
+  {
+    "view": "window",
+    "before": "docs/art-style/stage5/before/original/window.png",
+    "after": "docs/art-style/stage5/after/original/window.png",
+    "before_sha256": "3c8dcaf1ee630fd0f12e3872a4c17c88d44eaad27f35e59fd9ac304410a6ac92",
+    "after_sha256": "5ad7004a4ba6cd2ae97c78c3fb707880c7a58a8cc27302c24b0e5178f1abe0ea",
+    "changed_pixels": 11454,
+    "mean_absolute_display_byte_change": 0.14952039930555555,
+    "max_display_byte_change": 108
+  },
+  {
+    "view": "hall",
+    "before": "docs/art-style/stage5/before/original/hall.png",
+    "after": "docs/art-style/stage5/after/original/hall.png",
+    "before_sha256": "312a5d4c1deebc7f8efdc10dd62c2d5965d5ec4925e9aa0ef667c6b5c3012be7",
+    "after_sha256": "586475f2024692d534a24bc310fae3dfd77b994143e5a46dd224d8ae995e84fb",
+    "changed_pixels": 5847,
+    "mean_absolute_display_byte_change": 0.09040473090277777,
+    "max_display_byte_change": 39
+  },
+  {
+    "view": "contact",
+    "before": "docs/art-style/stage5/before/original/contact.png",
+    "after": "docs/art-style/stage5/after/original/contact.png",
+    "before_sha256": "891afddb0debd057010516cbd342f7b37043079dc0e6947ffb9a81dbf582efc0",
+    "after_sha256": "20634c4e71915c467934d564fc3770728f1979603ea065f6fcece57996b72e4b",
+    "changed_pixels": 7416,
+    "mean_absolute_display_byte_change": 0.08202293113425926,
+    "max_display_byte_change": 101
+  },
+  {
+    "view": "entities",
+    "before": "docs/art-style/stage5/before/original/entities.png",
+    "after": "docs/art-style/stage5/after/original/entities.png",
+    "before_sha256": "980777a865453dacaacffc8cd44c64d94149686af87782aea4ff1075335b6372",
+    "after_sha256": "0abe2857618273feeb7162ba759cfc72fc8bb13d5c25593b13cec5338531a4fd",
+    "changed_pixels": 2130,
+    "mean_absolute_display_byte_change": 0.04500072337962963,
+    "max_display_byte_change": 99
+  },
+  {
+    "view": "corner",
+    "before": "docs/art-style/stage5/before/original/corner.png",
+    "after": "docs/art-style/stage5/after/original/corner.png",
+    "before_sha256": "4b85a43226f9bf4bcfc6ee5bd7ebef27f7b6f55f0323e43daedf5175397723b7",
+    "after_sha256": "b2dffae060680ff77297162ab968e694a47d6eea8d83cd5def8e720648dac59f",
+    "changed_pixels": 1,
+    "mean_absolute_display_byte_change": 3.616898148148148e-07,
+    "max_display_byte_change": 1
+  },
+  {
+    "comparison": "final-original",
+    "identical_pixels": true,
+    "max_byte_difference": 0
+  },
+  {
+    "comparison": "final-control",
+    "identical_pixels": true,
+    "max_byte_difference": 0
+  },
+  {
+    "comparison": "before-bundle-replay",
+    "identical_pixels": false,
+    "max_byte_difference": 130
+  }
+]

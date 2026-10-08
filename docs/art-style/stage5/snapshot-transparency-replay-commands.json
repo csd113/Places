@@ -1,0 +1,42 @@
+[
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-transparency",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--out",
+      "docs/art-style/stage5/snapshot-replay/transparency-v2",
+      "--binary",
+      "debug-maps/art-style-hero/milestones/stage5-transparency/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-transparency",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage5-transparency/hero-manifest.json",
+      "--package",
+      "debug-maps/art-style-hero/milestones/stage5-transparency/assets/levels/art_style_hero.placesmap",
+      "--views",
+      "surfaces"
+    ],
+    "exit": 0
+  },
+  {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage5-transparency-before",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--out",
+      "docs/art-style/stage5/snapshot-replay/transparency-before-v2",
+      "--binary",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-before/places",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-before",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-before/hero-manifest.json",
+      "--package",
+      "debug-maps/art-style-hero/milestones/stage5-transparency-before/assets/levels/art_style_hero.placesmap",
+      "--views",
+      "surfaces"
+    ],
+    "exit": 0
+  }
+]

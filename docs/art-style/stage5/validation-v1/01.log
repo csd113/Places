@@ -1,0 +1,13 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: multiply and add expressions may be calculated more efficiently and accurately
+     --> src/render/tests.rs:10093:20
+      |
+10093 |     let expected = 1.0 - (1.0 - 0.37) * (-0.4 * original.depth()).exp();
+      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `f32::mul_add((1.0 - 0.37), -(-0.4 * original.depth()).exp(), 1.0)`
+      |
+      = note: the performance gain from `mul_add` may vary depending on the target architecture
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+      = note: `-D clippy::suboptimal-flops` implied by `-D clippy::nursery`
+      = help: to override `-D clippy::nursery` add `#[allow(clippy::suboptimal_flops)]`
+
+error: could not compile `places` (lib test) due to 1 previous error

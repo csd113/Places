@@ -1,0 +1,54 @@
+[
+  {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 1.7986782090738416,
+    "log": "docs/art-style/stage5/validation-final/00.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0,
+    "seconds": 10.615605667000636,
+    "log": "docs/art-style/stage5/validation-final/01.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--release",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0,
+    "seconds": 15.926351374946535,
+    "log": "docs/art-style/stage5/validation-final/02.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace"
+    ],
+    "exit": 101,
+    "seconds": 869.7131466249702,
+    "log": "docs/art-style/stage5/validation-final/03.log"
+  }
+]

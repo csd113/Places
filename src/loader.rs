@@ -311,6 +311,9 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_element_limits(level)?;
     validate_materials(level)?;
     validate_sky(level)?;
+    if let Some(environment) = level.environment {
+        environment.validate()?;
+    }
     if let Some(weather) = &level.weather {
         weather.snowfall().validate()?;
         if weather.snowfall().storm_severity > 0.0
@@ -528,6 +531,13 @@ fn validate_sky(level: &LevelDef) -> Result<(), String> {
         return Ok(());
     };
     let id = sky.texture.trim();
+    if sky.ambient_color.is_some_and(|color| {
+        color
+            .iter()
+            .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(channel))
+    }) {
+        return Err("sky ambient_color must have finite linear channels in 0..=1".into());
+    }
     if id.is_empty() {
         return Err("sky names no texture".to_string());
     }
@@ -1029,6 +1039,13 @@ fn validate_water_contract(i: usize, volume: &crate::level::WaterVolumeDef) -> R
     {
         return Err(format!(
             "Water volume {i} opacity must be a finite number between 0.0 and 1.0"
+        ));
+    }
+    if !volume.attenuation_per_metre.is_finite()
+        || !(0.0..=16.0).contains(&volume.attenuation_per_metre)
+    {
+        return Err(format!(
+            "Water volume {i} attenuation_per_metre must be finite in 0..=16"
         ));
     }
     if let Some(bottom) = volume.bottom_y

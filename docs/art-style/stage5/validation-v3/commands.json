@@ -1,0 +1,66 @@
+[
+  {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 1.3001291659893468,
+    "log": "docs/art-style/stage5/validation-v3/00.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0,
+    "seconds": 7.827098791021854,
+    "log": "docs/art-style/stage5/validation-v3/01.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--release",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0,
+    "seconds": 13.783536958042532,
+    "log": "docs/art-style/stage5/validation-v3/02.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace"
+    ],
+    "exit": 101,
+    "seconds": 844.9804430829827,
+    "log": "docs/art-style/stage5/validation-v3/03.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--test",
+      "macos_cpu_port"
+    ],
+    "exit": 0,
+    "seconds": 0.7091852499870583,
+    "log": "docs/art-style/stage5/validation-v3/04.log"
+  }
+]

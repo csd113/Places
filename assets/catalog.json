@@ -1355,7 +1355,9 @@
       "shine": 0.7,
       "alpha_mode": "blend",
       "opacity": 1.0,
-      "description": "Translucent pool water for authored water volumes: the volume's own opacity rides in the surface's vertex alpha, so the material stays fully opaque (opacity 1.0) and one material serves every pool. Modest sheen only; water never reflects as a mirror."
+      "description": "Translucent pool water: volume opacity carries coverage, incident-HDR surface charts receive lighting, and restrained rough probe highlights accompany depth-attenuated basin lighting.",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.3
     },
     {
       "id": "core:tex_pool_water_01",
@@ -3906,9 +3908,9 @@
         1,
         1
       ],
-      "specular": 0,
-      "shine": 0,
-      "description": "Dedicated matte snow PNG; quiet cool variation, world-aligned seamless tiling."
+      "specular": 0.08,
+      "shine": 0.12,
+      "description": "Dedicated snow PNG with broad diffuse response and restrained soft sheen; cool shadows come from authored sky lighting."
     },
     {
       "id": "winter:snow_packed_01",
@@ -3945,11 +3947,13 @@
         1
       ],
       "specular": 0.38,
-      "shine": 0.38,
+      "shine": 0.55,
       "description": "Solid slippery blue-gray frozen water: restrained cracks and cloudy facets, translucent body and broad highlights; no mirror reflections.",
       "alpha_mode": "blend",
       "opacity": 0.84,
-      "ground_surface": "ice"
+      "ground_surface": "ice",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.28
     },
     {
       "id": "winter:ice_depth_01",

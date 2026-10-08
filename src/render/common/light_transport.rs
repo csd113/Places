@@ -686,7 +686,9 @@ fn sky_radiance(level: &LevelDef) -> [f32; 3] {
     } else {
         0.0
     };
-    crate::lighting::SKY_AMBIENT_COLOR.map(|channel| channel * ambient)
+    sky.ambient_color
+        .unwrap_or(crate::lighting::SKY_AMBIENT_COLOR)
+        .map(|channel| channel * ambient)
 }
 
 /// Appends every architecture range's triangles to the transport scene.
@@ -1105,6 +1107,38 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    fn authored_sky_colour_enters_incident_energy_once_and_ignores_presentation() {
+        let mut level = LevelDef::from_json(include_str!(
+            "../../../tests/fixtures/levels/art_style_hero.json"
+        ))
+        .expect("hero");
+        if let Some(sky) = level.sky.as_mut() {
+            sky.ambient_color = Some([0.2, 0.4, 0.8]);
+            sky.ambient = 0.25;
+        }
+        assert_eq!(sky_radiance(&level), [0.05, 0.1, 0.2]);
+        level.environment = Some(crate::environment::EnvironmentDef {
+            presentation: crate::environment::PresentationDef {
+                exposure: 4.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        if let Some(sky) = level.sky.as_mut() {
+            sky.brightness = 4.0;
+        }
+        assert_eq!(
+            sky_radiance(&level),
+            [0.05, 0.1, 0.2],
+            "exposure/background never scale stored incident energy"
+        );
+        if let Some(sky) = level.sky.as_mut() {
+            sky.ambient = 0.0;
+        }
+        assert_eq!(sky_radiance(&level), [0.0; 3]);
+    }
 
     fn spatial_fixture() -> (LevelLighting, crate::lighting::probes::ProbeField) {
         let level = LevelDef::from_json(

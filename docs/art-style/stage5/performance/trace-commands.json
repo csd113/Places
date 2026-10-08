@@ -1,0 +1,41 @@
+[
+  {
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage5-metal-profile.py",
+      "before-control",
+      "debug-maps/art-style-hero/milestones/stage4-v2/places",
+      "debug-maps/art-style-hero/evidence/stage5-before-assets",
+      "debug-maps/art-style-hero/evidence/stage5-before-control-v2/art_style_hero.placesmap",
+      "docs/art-style/stage5/hero-control-before-corrected-manifest.json",
+      "surfaces"
+    ],
+    "exit": 0
+  },
+  {
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage5-metal-profile.py",
+      "after-control",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      ".",
+      "debug-maps/art-style-hero/evidence/stage5-control/art_style_hero.placesmap",
+      "docs/art-style/stage5/hero-control-manifest.json",
+      "surfaces"
+    ],
+    "exit": 0
+  },
+  {
+    "command": [
+      "python3",
+      "debug-maps/art-style-hero/evidence/stage5-metal-profile.py",
+      "after-control-no-bloom",
+      "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+      ".",
+      "debug-maps/art-style-hero/evidence/stage5-control/art_style_hero.placesmap",
+      "docs/art-style/stage5/hero-control-manifest.json",
+      "surfaces"
+    ],
+    "exit": 0
+  }
+]

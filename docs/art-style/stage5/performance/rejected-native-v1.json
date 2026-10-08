@@ -1,0 +1,11 @@
+{
+  "cases": [
+    "before-control",
+    "after-control",
+    "after-control-no-bloom",
+    "night"
+  ],
+  "coordinator_stopped": true,
+  "native_children_joined": true,
+  "reason": "Native surface did not render scene draws; telemetry showed zero vertices/batches/draws. Timings excluded from acceptance. No shader speedup or engine defect inferred. No remaining invalid-run owned process."
+}

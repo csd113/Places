@@ -1,0 +1,28 @@
+[
+  {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 1.2524307089624926,
+    "log": "docs/art-style/stage5/validation-v1/00.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 101,
+    "seconds": 14.50868674996309,
+    "log": "docs/art-style/stage5/validation-v1/01.log"
+  }
+]

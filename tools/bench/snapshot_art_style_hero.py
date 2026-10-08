@@ -33,6 +33,10 @@ def main() -> int:
     parser.add_argument('--compiler', type=Path)
     parser.add_argument('--runtime-library', type=Path, action='append', default=[],
                         help='Native shared library to preserve beside the player')
+    parser.add_argument('--runtime-asset', type=Path, action='append', default=[],
+                        help='Additional assets-relative file needed by runtime-only spawns')
+    parser.add_argument('--catalog', type=Path, default=ROOT/'assets/catalog.json',
+                        help='Compatible catalog, including a preserved before-state catalog')
     parser.add_argument('--manifest', type=Path, default=ROOT/'docs/art-style/hero-manifest.json')
     args = parser.parse_args()
     out = args.out.resolve()
@@ -42,6 +46,12 @@ def main() -> int:
         package_manifest = json.loads(archive.read('manifest.json'))
     cameras = json.loads(args.manifest.read_text())
     dependencies = package_manifest['dependencies']
+    extra_assets = []
+    for relative in args.runtime_asset:
+        source = (ROOT/'assets'/relative).resolve()
+        if not source.is_relative_to((ROOT/'assets').resolve()) or not source.is_file():
+            parser.error('Runtime asset must be a real file within assets/: '+str(relative))
+        extra_assets.append(source.relative_to((ROOT/'assets').resolve()))
     for dependency in dependencies:
         source = ROOT/'assets'/dependency['path']
         if source.stat().st_size != dependency['bytes'] or digest(source) != dependency['sha256']:
@@ -49,7 +59,7 @@ def main() -> int:
     out.mkdir(parents=True)
     copies = [('places', args.binary), ('assets/levels/'+args.package.name, args.package),
               ('hero-source.json', ROOT/cameras['source']), ('hero-manifest.original.json', args.manifest),
-              ('assets/catalog.json', ROOT/'assets/catalog.json'),
+              ('assets/catalog.json', args.catalog),
               ('capture_art_style_hero.py', ROOT/'tools/bench/capture_art_style_hero.py')]
     if args.diagnostics:
         copies.append(('places-diagnostics', args.diagnostics))
@@ -57,6 +67,8 @@ def main() -> int:
         copies.append(('places-compile', args.compiler))
     copies.extend((library.name, library) for library in args.runtime_library)
     copies.extend(('assets/'+dependency['path'], ROOT/'assets'/dependency['path']) for dependency in dependencies)
+    copies.extend(('assets/'+str(relative), ROOT/'assets'/relative) for relative in extra_assets
+                  if all(name != 'assets/'+str(relative) for name, _ in copies))
     # Embedded fallbacks remain in the player; keep their real source files too.
     for relative in ['core/textures/white_01.png', 'core/textures/missing_01.png']:
         source = ROOT/'assets'/relative
@@ -76,6 +88,7 @@ def main() -> int:
                       sha256=digest(replay_path)))
     quoted_out = shlex.quote(str(out))
     receipt = dict(stage_revision=args.revision,
+                   additional_runtime_assets=[str(relative) for relative in extra_assets],
                    source_checkout_head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                    package_compiler_fingerprint=package_manifest['compiler_fingerprint'],
                    files=files, runtime_asset_root=str(out),

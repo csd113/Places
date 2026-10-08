@@ -1,0 +1,221 @@
+[
+  {
+    "view": {
+      "name": "surfaces",
+      "spawn": [
+        5.95,
+        -1.45,
+        0
+      ],
+      "camera": [
+        0,
+        -24
+      ],
+      "purpose": "Matched snow, ice and water under cool sky and warm practicals"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "3fb6e1716527538cfad20852b5be224887ac51aaf9b35cd0c33aa6d242b42c4e",
+      "package_sha256": "b43309b50516ebf54a06f4c60219732b891d7e7a95710e896ac9cafa3de7ac01",
+      "source_sha256": "cf68d3ba0541b0f805494f392cbab826da02429c98e0e09fb9013702e2b953a5",
+      "camera_manifest_sha256": "4e9ef410a65197d986ba53096a1feaed4e5202ed802de74607a0f54823e812e6",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "c95042c5a095e751834c04e9a69dc43e33e5148c6dca19849a17ef5b02e7ad6e",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "b00123f9605639d95f6c7640248bc4c5427a8126",
+      "git_diff_sha256": "f16c95673f87cbb87805e7b2599cfdb63fc3231b999d58ef9f9b1e1bdf9aed9b"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.2680211659753695,
+    "exit_code": 0,
+    "image_sha256": "4345b373fd9d562e6990b913847911be5328b22b00b0ac4678cbba7d61ae69ec",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "sky",
+      "spawn": [
+        9.7,
+        -6.4,
+        0
+      ],
+      "camera": [
+        -133,
+        32
+      ],
+      "purpose": "native open sky / aurora and weather control"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "3fb6e1716527538cfad20852b5be224887ac51aaf9b35cd0c33aa6d242b42c4e",
+      "package_sha256": "b43309b50516ebf54a06f4c60219732b891d7e7a95710e896ac9cafa3de7ac01",
+      "source_sha256": "cf68d3ba0541b0f805494f392cbab826da02429c98e0e09fb9013702e2b953a5",
+      "camera_manifest_sha256": "4e9ef410a65197d986ba53096a1feaed4e5202ed802de74607a0f54823e812e6",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "c95042c5a095e751834c04e9a69dc43e33e5148c6dca19849a17ef5b02e7ad6e",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "b00123f9605639d95f6c7640248bc4c5427a8126",
+      "git_diff_sha256": "f16c95673f87cbb87805e7b2599cfdb63fc3231b999d58ef9f9b1e1bdf9aed9b"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.2068508750526235,
+    "exit_code": 0,
+    "image_sha256": "bd2b4cf20ed7bd147785980c8d377c9d3aec596b5abd51338056eabaef3f9062",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "window",
+      "spawn": [
+        3.5,
+        3.5,
+        0
+      ],
+      "camera": [
+        0,
+        3
+      ],
+      "purpose": "glazed opening, reveals, garden and sky, interior/exterior balance"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "3fb6e1716527538cfad20852b5be224887ac51aaf9b35cd0c33aa6d242b42c4e",
+      "package_sha256": "b43309b50516ebf54a06f4c60219732b891d7e7a95710e896ac9cafa3de7ac01",
+      "source_sha256": "cf68d3ba0541b0f805494f392cbab826da02429c98e0e09fb9013702e2b953a5",
+      "camera_manifest_sha256": "4e9ef410a65197d986ba53096a1feaed4e5202ed802de74607a0f54823e812e6",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "c95042c5a095e751834c04e9a69dc43e33e5148c6dca19849a17ef5b02e7ad6e",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "b00123f9605639d95f6c7640248bc4c5427a8126",
+      "git_diff_sha256": "f16c95673f87cbb87805e7b2599cfdb63fc3231b999d58ef9f9b1e1bdf9aed9b"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "lighting_sequence_input": null,
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.3145207080524415,
+    "exit_code": 0,
+    "image_sha256": "e4a412c3b0997dab8d3010e02ebd07ce3bd76e436aaf0beea2fed8c85b71efc4",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

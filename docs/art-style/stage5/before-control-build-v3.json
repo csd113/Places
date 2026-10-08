@@ -1,0 +1,124 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_atmosphere.json",
+  "out": "debug-maps/art-style-hero/evidence/stage5-before-control/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 5433183,
+  "millis": 7612.40175,
+  "warnings": [
+    "dependency 'environment/pool/textures/floors/pool_tile_basin_01.png' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'environment/pool/textures/water/pool_water_01.png' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'environment/winter/textures/floors/ice_01.png' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'environment/winter/textures/floors/ice_01.png' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'environment/winter/textures/floors/snow_01.png' could not be read (No such file or directory (os error 2)); not recorded"
+  ],
+  "fingerprint": "d73671a26521960ed15bac4ac2756567d796084a649facf66bd10f5a350e0977",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 21,
+      "mesh_vertices": 596,
+      "prop_batches": 16,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 64,
+      "navigation_cells": 3074,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 21,
+      "mesh_vertices": 456,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5597,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 64,
+      "navigation_cells": 3074,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 21,
+      "mesh_vertices": 456,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5597,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 64,
+      "navigation_cells": 3074,
+      "navigation_regions": 2
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 39.734208
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.365917
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.000042
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.055958
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 0.996125
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000042
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 55.071208000000006
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 29.334083
+    },
+    {
+      "phase": "capture_off",
+      "millis": 164.700875
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1463.788
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 104.55537500000001
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 5301.263417
+    },
+    {
+      "phase": "capture_full",
+      "millis": 109.24275
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 196.659125
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 143.186417
+    }
+  ]
+}

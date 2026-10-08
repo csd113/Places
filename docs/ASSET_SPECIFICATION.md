@@ -1435,6 +1435,11 @@ Authoring consequences:
 
 ## 17. Texture filtering and wrapping
 
+Stage 5 preserves every existing PNG/model/UV/alpha contract. Reusable catalogue
+water and ice gain restrained probe reflection; snow gains broad weak specular
+response. Prepared water charts and optional vertical-depth transmission are
+renderer/level controls, not texture changes. See [Stage 5 contracts](art-style/stage5/contracts.md).
+
 Filtering and wrapping are chosen by the **texture's role**, not by the asset.
 Colour fitting and mip generation average decoded linear RGB with alpha-weighted
 coverage, then store sRGB bytes; numeric maps use raw channel averages. Colour

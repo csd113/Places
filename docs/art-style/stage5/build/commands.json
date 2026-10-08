@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--bin",
+      "places",
+      "--bin",
+      "places-compile"
+    ],
+    "exit": 0,
+    "seconds": 103.09618729201611,
+    "log": "docs/art-style/stage5/build/0.log",
+    "timing": "contended validation/build preparation; excluded from performance claims"
+  },
+  {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--features",
+      "visual-diagnostics",
+      "--bin",
+      "places"
+    ],
+    "exit": 0,
+    "seconds": 101.52700754196849,
+    "log": "docs/art-style/stage5/build/1.log",
+    "timing": "contended validation/build preparation; excluded from performance claims"
+  }
+]

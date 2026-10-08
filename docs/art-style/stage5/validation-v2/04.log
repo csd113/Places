@@ -1,0 +1,28 @@
+   Compiling places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [optimized + debuginfo] target(s) in 21.01s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 21 tests
+test render::common::postprocess::tests::a_tiny_scene_still_gets_a_one_texel_target ... ok
+test render::common::postprocess::tests::the_tone_knee_leaves_the_common_range_alone ... ok
+test render::common::postprocess::tests::bloom_is_an_independent_choice_on_every_level ... ok
+test render::common::postprocess::tests::bloom_targets_are_a_quarter_of_the_scene ... ok
+test render::common::postprocess::tests::quality_never_changes_exposure_curve_or_grade ... ok
+test render::wgpu::postprocess::tests::diagnostics_bypass_presentation_and_authored_settings_select_bloom_slots ... ok
+test render::wgpu::postprocess::tests::highlight_shoulder_preserves_chroma_midtones_and_hdr_order ... ok
+test render::wgpu::postprocess::tests::bloom_soft_knee_rejects_dim_emission_without_clipping_bright_energy ... ok
+test render::wgpu::postprocess::tests::resolve_maths_mirror_the_shader ... ok
+test render::wgpu::postprocess::tests::the_blur_steps_one_source_texel ... ok
+test render::wgpu::postprocess::tests::the_bloom_chain_retains_linear_hdr ... ok
+test render::wgpu::postprocess::tests::the_default_stats_are_an_empty_uncreated_set ... ok
+test render::wgpu::postprocess::tests::target_sizes_follow_the_level_and_never_upscale ... ok
+test render::wgpu::postprocess::tests::the_present_quad_is_the_reference_data ... ok
+test render::wgpu::postprocess::tests::the_present_wgsl_is_the_reference_copy ... ok
+test render::wgpu::postprocess::tests::the_blur_kernel_is_the_reference_five_tap ... ok
+test render::wgpu::postprocess::tests::the_scene_target_retains_linear_hdr ... ok
+test render::wgpu::postprocess::tests::the_resolve_wgsl_is_the_reference_expression ... ok
+test render::wgpu::postprocess::tests::the_uniform_layouts_are_aligned_slots ... ok
+test render::wgpu::postprocess::tests::the_wgsl_declares_the_bindings_the_layouts_use ... ok
+test render::common::postprocess::tests::authored_presentation_reaches_resolve_once ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 2120 filtered out; finished in 0.00s

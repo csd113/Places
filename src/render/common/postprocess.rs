@@ -5,13 +5,13 @@
 //! this policy.
 
 use super::view::{BLOOM_SCALE_DIVISOR, DrawableSize};
-use crate::quality::{QualityLevel, QualityProfile};
+use crate::quality::QualityLevel;
 
 /// Resolve-stage settings for one frame.
 ///
-/// Built from the quality level ([`PostSettings::for_level`]) plus the
-/// player's independent bloom choice ([`PostSettings::with_bloom`]) rather than
-/// from level data: post-processing is a presentation choice, not content.
+/// Authored by the level ([`PostSettings::from_level`]) plus the player's
+/// independent bloom choice ([`PostSettings::with_bloom`]). Quality presets
+/// preserve the same display transform.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PostSettings {
     /// Linear exposure multiplier applied before the tone curve.
@@ -33,59 +33,44 @@ pub struct PostSettings {
 /// Under one, so a fixture glows instead of blooming across the room. Applied
 /// by [`PostSettings::with_bloom`] to every level: bloom is an independent
 /// player preference, so `Low + Bloom On` is as valid as `High + Bloom On`.
-pub const BLOOM_STRENGTH: f32 = 0.42;
+pub const BLOOM_STRENGTH: f32 = 0.22;
 
 impl PostSettings {
-    /// The settings one quality level runs with.
-    ///
-    /// High gets the complete restrained stack: a shoulder at 0.75 and a grade
-    /// that is barely a tint. Medium keeps the shoulder — it is part of the
-    /// resolve pass the offscreen path already pays for — and drops the two
-    /// effects that need extra per-pixel work. Low presents the scene
-    /// unfiltered by level effects: no shoulder and no grade. Bloom is *not*
-    /// part of this: the player decides it separately, in Settings.
+    /// Every quality shares the same authored display transform. Presets change
+    /// scene resolution and lighting resources, never display exposure or grade.
     #[must_use]
-    pub const fn for_level(level: QualityLevel) -> Self {
-        match level {
-            QualityLevel::High => Self::for_profile(QualityProfile::Full),
-            QualityLevel::Medium => Self {
-                exposure: 1.0,
-                tone_knee: 0.75,
-                bloom_strength: 0.0,
-                grade_saturation: 1.0,
-                grade_contrast: 1.0,
-            },
-            QualityLevel::Low => Self::for_profile(QualityProfile::Low),
+    pub const fn for_level(_level: QualityLevel) -> Self {
+        Self {
+            exposure: 1.0,
+            tone_knee: 0.75,
+            bloom_strength: 0.0,
+            grade_saturation: 1.03,
+            grade_contrast: 1.02,
         }
     }
 
-    /// The profile-owned settings one validated profile runs with.
-    ///
-    /// This is the delegation boundary [`Self::for_level`] uses for Low and
-    /// High; Medium has no profile arm because its only difference from Full is
-    /// the grade, which is not part of the profile budget.
-    const fn for_profile(profile: QualityProfile) -> Self {
-        match profile {
-            QualityProfile::Full => Self {
-                exposure: 1.0,
-                tone_knee: 0.75,
-                bloom_strength: 0.0,
-                grade_saturation: 1.03,
-                grade_contrast: 1.02,
-            },
-            // Low presents the scene unfiltered by level effects: no exposure,
-            // no shoulder and no grade. With bloom off, the resolve stage is the
-            // identity and the renderer uses the plain copy quad instead of it,
-            // which keeps Low exactly as cheap as the plain copy presentation
-            // while the world shader keeps the fog (part of the image, not an
-            // extra pass). With bloom on, the resolve pass runs to add it.
-            QualityProfile::Low => Self {
-                exposure: 1.0,
-                tone_knee: 1.0,
-                bloom_strength: 0.0,
-                grade_saturation: 1.0,
-                grade_contrast: 1.0,
-            },
+    /// Diagnostic display encoding without exposure, tone, grade or bloom.
+    pub const DIAGNOSTIC: Self = Self {
+        exposure: 1.0,
+        tone_knee: 1.0,
+        bloom_strength: 0.0,
+        grade_saturation: 1.0,
+        grade_contrast: 1.0,
+    };
+
+    /// Validated level controls reach all static and entity draw families once.
+    #[must_use]
+    pub fn from_level(level: Option<&crate::level::LevelDef>) -> Self {
+        let authored = level
+            .and_then(|value| value.environment)
+            .unwrap_or_default()
+            .presentation;
+        Self {
+            exposure: authored.exposure,
+            tone_knee: authored.tone_knee,
+            bloom_strength: 0.0,
+            grade_saturation: authored.saturation,
+            grade_contrast: authored.contrast,
         }
     }
 
@@ -158,47 +143,31 @@ mod tests {
         );
     }
 
-    /// The three levels resolve the documented tone/grade stack, and Low and
-    /// High match the validated profile values exactly.
     #[test]
-    fn the_tone_and_grade_stack_is_the_documented_low_medium_high_mapping() {
-        let low = PostSettings::for_level(QualityLevel::Low);
-        let medium = PostSettings::for_level(QualityLevel::Medium);
-        let high = PostSettings::for_level(QualityLevel::High);
+    fn quality_never_changes_exposure_curve_or_grade() {
+        let expected = PostSettings::for_level(QualityLevel::High);
+        for quality in [QualityLevel::Low, QualityLevel::Medium, QualityLevel::High] {
+            assert_eq!(PostSettings::for_level(quality), expected);
+            assert!(!PostSettings::for_level(quality).is_identity());
+        }
+        assert!(PostSettings::DIAGNOSTIC.is_identity());
+    }
 
-        assert_eq!(low.tone_knee, 1.0);
-        assert_eq!(medium.tone_knee, 0.75);
-        assert_eq!(high.tone_knee, 0.75);
-
-        assert_eq!(low.grade_saturation, 1.0);
-        assert_eq!(low.grade_contrast, 1.0);
-        assert_eq!(medium.grade_saturation, 1.0);
-        assert_eq!(medium.grade_contrast, 1.0);
-        assert_eq!(high.grade_saturation, 1.03);
-        assert_eq!(high.grade_contrast, 1.02);
-
-        // Exposure never varies; the levels differ in shoulder and grade only.
-        assert_eq!(low.exposure, 1.0);
-        assert_eq!(medium.exposure, 1.0);
-        assert_eq!(high.exposure, 1.0);
-
-        // Low and High delegate to the validated profile values.
-        assert_eq!(
-            low,
-            PostSettings::for_profile(QualityProfile::Low),
-            "Low delegates to the profile"
-        );
-        assert_eq!(
-            high,
-            PostSettings::for_profile(QualityProfile::Full),
-            "High delegates to the profile"
-        );
-
-        // Low without bloom is the plain copy presentation; Medium keeps the
-        // shoulder, so it always resolves.
-        assert!(low.is_identity());
-        assert!(!medium.is_identity());
-        assert!(!high.is_identity());
+    #[test]
+    fn authored_presentation_reaches_resolve_once() -> Result<(), serde_json::Error> {
+        let mut level: crate::level::LevelDef = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/levels/art_style_hero.json"
+        ))?;
+        let mut controls = crate::environment::EnvironmentDef::default();
+        controls.presentation.exposure = 1.25;
+        controls.presentation.saturation = 0.97;
+        level.environment = Some(controls);
+        let settings = PostSettings::from_level(Some(&level));
+        assert_eq!(settings.exposure, 1.25);
+        assert_eq!(settings.grade_saturation, 0.97);
+        assert_eq!(settings.tone_knee, controls.presentation.tone_knee);
+        assert_eq!(settings.bloom_strength, 0.0);
+        Ok(())
     }
 
     #[test]
@@ -214,8 +183,8 @@ mod tests {
         assert!(!low.blooms());
         assert!(!high.is_identity(), "High still exposes and grades");
         assert!(
-            low.is_identity(),
-            "Low without bloom is the plain copy presentation"
+            !low.is_identity(),
+            "Low retains the shared display transform"
         );
 
         // Bloom on is valid on every level and changes only the bloom term.
@@ -232,8 +201,8 @@ mod tests {
         assert_eq!(high_bloom.exposure, high.exposure);
         assert_eq!(high_bloom.grade_contrast, high.grade_contrast);
         assert_eq!(
-            low_bloom.grade_saturation, 1.0,
-            "Low still leaves colour alone"
+            low_bloom.grade_saturation, high.grade_saturation,
+            "Low shares the same grade"
         );
 
         // Bloom off never pays for the stage.

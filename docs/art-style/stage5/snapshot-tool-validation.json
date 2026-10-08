@@ -1,0 +1,24 @@
+{
+  "syntax": "AST parse PASS",
+  "command": [
+    "python3",
+    "tools/bench/snapshot_art_style_hero.py",
+    "--out",
+    "/tmp/places-stage5-invalid-runtime-asset",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+    "--package",
+    "debug-maps/art-style-hero/evidence/stage5-control/art_style_hero.placesmap",
+    "--manifest",
+    "docs/art-style/stage5/hero-control-manifest.json",
+    "--revision",
+    "validation-only",
+    "--runtime-asset",
+    "../../Cargo.toml"
+  ],
+  "exit": 2,
+  "expected": "reject outside-assets file before output creation",
+  "output_created": false,
+  "stderr": "usage: snapshot_art_style_hero.py [-h] --out OUT --binary BINARY\n                                  --package PACKAGE --revision REVISION\n                                  [--diagnostics DIAGNOSTICS]\n                                  [--compiler COMPILER]\n                                  [--runtime-library RUNTIME_LIBRARY]\n                                  [--runtime-asset RUNTIME_ASSET]\n                                  [--catalog CATALOG] [--manifest MANIFEST]\nsnapshot_art_style_hero.py: error: Runtime asset must be a real file within assets/: ../../Cargo.toml\n",
+  "positive_contract": "Both ghost-v2 bundles preserve two explicit runtime assets and replay accepted captures exactly"
+}

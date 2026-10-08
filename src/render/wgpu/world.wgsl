@@ -558,9 +558,8 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
 // static cubemap baked at load. Both are weighted by the authored strength (the
 // material's `specular × strength`), a Fresnel term and the gloss.
 //
-// The reflection targets are raw (non-sRGB) textures holding the same display
-// space this shader assembles, so a sample is used directly — exactly like the
-// reference read its RGBA8 attachments and cubemap.
+// Reflection targets store unexposed linear HDR radiance; sampling never
+// re-applies tone mapping, exposure or display conversion.
 fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32> {
     if (material.reflection_mode == 0u) {
         return vec3<f32>(0.0);
@@ -633,7 +632,7 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
 // sum: the greatest effective contribution wins, ties keep the lowest authoring
 // index, the global density is added to the winner, and the mixed-to colour is
 // the winner's colour (else the global one). The one place fog is evaluated.
-fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+fn atmosphere(world_position: vec3<f32>) -> vec4<f32> {
     let distance = length(camera.position - world_position);
     let below = max(0.0, environment.fog_reference_y - world_position.y);
     let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
@@ -674,7 +673,12 @@ fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
     let density = global_density + layer_density;
     var fog_amount = density * distance;
     fog_amount = 1.0 - exp(-fog_amount * fog_amount);
-    return mix(color, srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));
+    return vec4<f32>(srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));
+}
+
+fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    let fog = atmosphere(world_position);
+    return mix(color, fog.rgb, fog.a);
 }
 
 // The emissive term, in linear light: `mix(u_emission_color, v_color.rgb,
@@ -764,17 +768,27 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     }
     // The per-instance opacity scales the emission so a faded ghost does not
     // keep its full bloom; the attached-light term is deliberately absent here.
-    return vec4<f32>(surface_emission(in, base.rgb) * environment.opacity * storm_transmission(camera.position, in.world_position), 1.0);
+    let transmission = (1.0 - atmosphere(in.world_position).a) * storm_transmission(camera.position, in.world_position);
+    return vec4<f32>(surface_emission(in, base.rgb) * transmission, alpha);
 }
 
 @fragment
 fn fs_emission(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
-    return emissive_only(in, false);
+    let emission = emissive_only(in, false);
+    return vec4<f32>(emission.rgb, 1.0);
 }
 
 @fragment
 fn fs_emission_cutout(in: VsOut, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
-    return emissive_only(in, true);
+    let emission = emissive_only(in, true);
+    return vec4<f32>(emission.rgb, 1.0);
+}
+
+// Straight-alpha bloom composition uses the same coverage as the scene. A
+// non-emitting translucent pane attenuates emission already drawn behind it.
+@fragment
+fn fs_emission_blend(in: VsOut) -> @location(0) vec4<f32> {
+    return emissive_only(in, false);
 }
 
 // Read weather directly from uniform storage. Passing the complete shelter

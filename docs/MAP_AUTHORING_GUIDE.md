@@ -125,7 +125,7 @@ Authoritative paths:
 | Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
-| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (post-processing and the global atmosphere are engine-global; level-authored regional fog volumes add to the atmosphere — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-a-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
 | Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
@@ -1413,8 +1413,18 @@ own air.
 | `surface_y` | number | **yes** | — | World Y of the free surface, like a fixture's `y` — not relative to the floor. |
 | `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom, sampled inside the rectangle or the disc's own interior. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
 | `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
-| `opacity` | number | no | `0.62` | `0.0..=1.0`; the surface's vertex alpha. The material itself stays opaque, so one material serves every volume's opacity. |
+| `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
+| `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Transmission is `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)`. Zero retains exact existing coverage. This stylized vertical-depth approximation changes visual coverage only, not swimming/collision; it is not screen-space thickness or refraction. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
+
+Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
+shadows, sky and practical-light sheen. Low keeps its vertex-light fallback.
+Circular fans use one upward triangle plus a folded degenerate quad triangle;
+coverage is applied once. Water and ice reuse bounded probe reflections with
+Fresnel/gloss controls. All transparent world, prop, movable and character ranges
+share stable back-to-front centre sorting, straight alpha and no depth writes.
+Intersecting triangles and large coalesced ranges still require authored
+separation. No refraction, ray tracing or new reflection pass is introduced.
 
 How it behaves:
 
@@ -2263,33 +2273,47 @@ Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_
 `core:glass_sign_flicker_01` (the same sheet, meant for `animated_emissions`), and
 `core:grille_vent_01` (cut-out).
 
-### Post-processing and grading are engine-global
+### Authored presentation and global atmosphere
 
-Bloom, the tone shoulder and the colour grade are **not level properties**. They
-are built from the quality level (`src/render/common/postprocess.rs`) and there is
-no level key, material field or room field that authors them. Two consequences are
-still useful to a map author:
+Optional `environment` controls the final image without changing stored light:
 
-* **Bloom follows emission, not brightness.** Only a surface whose material (or
-  fixture face) emits blooms; a brightly lit wall never does, because the bloom pass
-  draws the emissive term alone. If a fixture should glow, author emission on it.
-* `High` draws the level resolve (tone shoulder and grade); `Medium` keeps the
-  shoulder and leaves colour alone; `Low` presents the scene unfiltered and keeps
-  only the fog, which lives in the world shader.
-* Bloom is a **player setting** (Settings → Graphics → Bloom, default on), not a
-  level term, so every level can bloom. The default `Low` presents unfiltered
-  only when Bloom is off.
+```json
+"environment": {
+  "presentation": {"exposure": 1.0, "tone_knee": 0.75,
+                   "saturation": 1.03, "contrast": 1.02},
+  "fog": {"color": [0.60, 0.63, 0.68], "density": 0.0095,
+          "reference_y": 2.0, "height_gain": 0.045}
+}
+```
 
-### Fog: a global atmosphere plus level-authored regions
+Omission or an empty object retains these defaults. Unknown nested controls are
+rejected. Exposure is a fixed linear multiplier (0.125–8), never automatic;
+`tone_knee` (0.25–0.95) starts a smooth rational highlight shoulder. One shared
+RGB scale preserves highlight hue. Saturation and contrast (0.8–1.2) are
+restrained display-space adjustments after one sRGB conversion. Every quality
+preset shares these controls for static surfaces and entities; Low/Medium now
+retain the High default presentation. Quality still changes scene resolution,
+lighting and resource budgets. HUD composition remains outside the scene curve.
 
-Every level carries the **global atmosphere** (`src/render/common/atmosphere.rs`,
-`FogState::SHIPPED`): a squared-exponential distance term with a height gradient,
-applied in the world fragment shader after lighting, emission and reflection and
-before the display conversion. It is depth, not weather — the shipped density gives
-about 4 % at 20 m, 15 % at 40 m and 63 % at the 100 m far plane, a little denser
-near the floor, and it never turns a room smoky. The global constants are not
-level-authorable; a level that authors nothing is byte-identical to the historical
-renderer.
+Bloom is the independent player preference. Only material/fixture emission
+enters its linear HDR source. A soft threshold starts at 0.5 HDR and strength
+0.22 limits the halo: brightly lit walls never bloom. Coverage, fog and storm
+transmission also attenuate emission; transparent nonemitters attenuate bloom
+behind them. No exposure or tone curve is stored in lightmaps, probes or
+reflection targets. Development diagnostic modes bypass exposure, tone, grade,
+bloom, world fog, sky, decals and effects; their explicitly mapped linear values
+receive one sRGB encoding. `final` uses the normal image path.
+
+### Fog: authored global atmosphere plus level-authored regions
+
+`environment.fog` supplies the existing squared-exponential distance haze and
+bounded height gain before presentation. `color` is display sRGB (three 0–1
+channels), decoded once before mixing with HDR light. `density` is finite
+0–0.5 per metre; `reference_y` is finite world metres (−10000–10000), and
+`height_gain` is finite 0–1 per metre below the reference. Defaults retain the
+established global atmosphere. This haze is separate from weather extinction;
+severe snow keeps its own shelter-aware sightline transmission and fog colour.
+The infinite sky retains its background treatment and existing storm blend.
 
 On top of it a level may author `fog_regions`: world-space boxes that thicken the
 air **inside** them, per fragment. They are the supported way to build mist over a
@@ -6514,15 +6538,22 @@ A level may declare one sky background:
   number of faint stars in the upper half — no moon, no glow, no horizon.
 * `brightness` (`0.0..=4.0`, default 1.0) scales the sheet at draw time. It is
   a visual control, not an exposure: the authored art is the look.
-* **The sky is a background, not a light.** A solid ceiling always covers it,
-  and a level without a `sky` keeps the historical clear-colour background
-  exactly (§5). The one environment term is `ambient`.
+* The sky texture supplies the background, while `ambient` and optional
+  `ambient_color` supply escaping-ray illumination. A solid ceiling covers the
+  background and blocks these rays. A level without `sky` retains its clear
+  colour and zero sky radiance.
 * `ambient` (`0.0..=1.0`, default 0.0) is the radiance an escaping ray sees in
   the **prepared lightmap solve** (Medium/High): a faint cool dome fill for an
   exterior with no fixtures, directional — upward faces receive it, downward
   faces almost none. `0.0` leaves the solve bit-identical to a level with no
-  sky. The Low-quality vertex-lit path keeps its own historical `0.10` ambient
-  floor and does not read `ambient`.
+  sky. Optional `ambient_color` is a finite **linear radiance** RGB in 0–1,
+  default `[0.42, 0.52, 0.72]`; incident sky equals this colour × `ambient`.
+  The same transport feeds static atlases and entity probes, including bounced
+  contributions. Runtime never adds that ambient a second time. Low's existing
+  vertex fallback keeps its own historical `0.10` ambient floor and does not
+  reproduce the prepared sky distribution. Background `brightness` and final
+  exposure are independent of stored energy; optional moon/global illuminators
+  retain their visibility/cosine paths.
 * The sky is never captured into reflection probes or the planar mirror, and it
   is not fogged: it is an infinite background. It *is* a package dependency:
   editing the sheet invalidates a compiled package like any surface texture.

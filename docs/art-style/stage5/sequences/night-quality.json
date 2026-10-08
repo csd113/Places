@@ -1,0 +1,30 @@
+[
+  {
+    "frame": 120,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/initial-high.png"
+  },
+  {
+    "frame": 300,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/high-low.png"
+  },
+  {
+    "frame": 480,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/low-medium.png"
+  },
+  {
+    "frame": 660,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/medium-high.png"
+  },
+  {
+    "frame": 840,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/high-medium.png"
+  },
+  {
+    "frame": 1020,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/medium-low.png"
+  },
+  {
+    "frame": 1200,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/quality/night/captures/low-high.png"
+  }
+]

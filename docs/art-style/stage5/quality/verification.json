@@ -1,0 +1,26 @@
+[
+  {
+    "environment": "original",
+    "endpoint": "medium-high",
+    "same_pixels_as_initial_high": true,
+    "max_byte_difference": 0
+  },
+  {
+    "environment": "original",
+    "endpoint": "low-high",
+    "same_pixels_as_initial_high": true,
+    "max_byte_difference": 0
+  },
+  {
+    "environment": "night",
+    "endpoint": "medium-high",
+    "same_pixels_as_initial_high": true,
+    "max_byte_difference": 0
+  },
+  {
+    "environment": "night",
+    "endpoint": "low-high",
+    "same_pixels_as_initial_high": true,
+    "max_byte_difference": 0
+  }
+]

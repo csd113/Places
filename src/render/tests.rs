@@ -5071,7 +5071,6 @@ fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
 
 #[test]
 fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
-    let level = shipped_demo();
     let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
     let lightmaps = build
@@ -5092,24 +5091,9 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
 
     let mut surface_vertices = 0usize;
     let mut vertex_lit_vertices = 0usize;
-    // A water surface is deliberately vertex-lit on every build: its quad
-    // carries its baked light in the vertex colour and stays out of the atlas.
-    let water = logical_materials(&level)
-        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
-        .expect("the demo's water material resolves");
     for range in &build.mesh.ranges {
         for vertex in &range.vertices {
             match range.key.kind {
-                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-                    if range.key.material == water =>
-                {
-                    assert!(
-                        !vertex.is_lightmapped(),
-                        "a water volume draws vertex-lit by design"
-                    );
-                    assert_eq!(vertex.lightmap, [0, 0]);
-                    vertex_lit_vertices += 1;
-                }
                 SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
                     assert!(
                         vertex.is_lightmapped(),
@@ -6382,51 +6366,21 @@ fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
 }
 
 #[test]
-fn the_post_process_fallback_is_the_historical_presentation() {
+fn every_quality_uses_the_same_authored_presentation() {
     use super::common::postprocess::PostSettings;
-
-    // Low's level settings are the identity, so with bloom off the renderer
-    // presents the scene with the plain copy quad instead of resolving it.
-    // That is what keeps Low as cheap as the historical presentation; Bloom On
-    // (an independent player choice) makes Low pay for exactly the bloom
-    // resolve.
-    let low = PostSettings::for_level(crate::quality::QualityLevel::Low);
-    assert!(low.is_identity(), "Low without bloom can skip the resolve");
-    assert!(!low.blooms());
-    assert!(
-        low.with_bloom(true).blooms(),
-        "Low + Bloom On must run the bloom path"
-    );
-    // Medium keeps the tone shoulder but not the grade: it always resolves and
-    // its grade terms are the identity.
-    let medium = PostSettings::for_level(crate::quality::QualityLevel::Medium);
-    assert!(!medium.is_identity(), "Medium always resolves the shoulder");
-    assert!(medium.tone_knee < 1.0, "Medium keeps the tone shoulder");
-    assert!(
-        medium.grade_saturation == 1.0 && medium.grade_contrast == 1.0,
-        "only High grades"
-    );
     let high = PostSettings::for_level(crate::quality::QualityLevel::High);
-    assert!(!high.is_identity(), "High always resolves");
-    assert!(
-        !high.blooms(),
-        "bloom is a separate setting, not part of the level"
-    );
-    assert!(
-        high.with_bloom(true).blooms(),
-        "High + Bloom On runs the bloom path"
-    );
-    assert!(high.bloom_strength < 1.0, "bloom stays restrained");
-    assert!(
-        high.grade_saturation >= 1.0 && high.grade_saturation < 1.1,
-        "the grade is a trim, not a look: {}",
-        high.grade_saturation
-    );
-    assert!(
-        (0.5..1.0).contains(&high.tone_knee),
-        "the tone shoulder must leave the common range untouched: {}",
-        high.tone_knee
-    );
+    for quality in [
+        crate::quality::QualityLevel::Low,
+        crate::quality::QualityLevel::Medium,
+        crate::quality::QualityLevel::High,
+    ] {
+        let settings = PostSettings::for_level(quality);
+        assert_eq!(settings, high);
+        assert!(!settings.is_identity());
+        assert!(!settings.blooms());
+        assert!(settings.with_bloom(true).blooms());
+    }
+    assert!(PostSettings::DIAGNOSTIC.is_identity());
 }
 
 #[test]
@@ -10060,4 +10014,69 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
             .iter()
             .all(|value| (*value - 0.05).abs() < 1.0e-6)
     );
+}
+
+#[test]
+fn water_floor_charts_preserve_coverage_and_material_only_colour() {
+    for shape in ["rect", "circle"] {
+        let mut level = water_test_level(Some(0.37), None);
+        if shape == "circle" {
+            level.water[0].shape = crate::level::WaterShape::Circle;
+            level.water[0].radius = Some(3.0);
+        }
+        let lighting = LevelLighting::bake(&level);
+        let materials = logical_materials(&level);
+        let water = materials
+            .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+            .expect("water material");
+        let catalog = crate::loader::PropCatalog::load_default();
+        let mut plan = crate::lighting::lightmap::LightmapPlan::new(
+            crate::quality::QualityLevel::High.lightmap_config(),
+        );
+        let mesh = common::geometry::build_level_geometry_mesh_with_lightmaps(
+            &level,
+            &catalog,
+            &[],
+            &lighting,
+            &materials,
+            Some(&mut plan),
+        );
+        let surface = mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Floor, water));
+        assert_ne!(surface.len(), 0);
+        for vertex in surface {
+            assert!(
+                vertex.lightmap_page < LIGHTMAP_NONE,
+                "{shape} surface must receive prepared incident light"
+            );
+            assert_exact(vertex.color[3], 0.37);
+            assert_eq!(
+                [vertex.color[0], vertex.color[1], vertex.color[2]],
+                materials.entry(water).expect("water entry").tint
+            );
+            assert!(vertex.normal[1] > 0.9);
+        }
+    }
+}
+
+#[test]
+fn water_depth_attenuation_preserves_gameplay_and_zero_default() {
+    let level = water_test_level(Some(0.37), None);
+    let baseline = crate::level::WaterVolumes::from_level(&level);
+    let original = &baseline.volumes()[0];
+    assert_exact(original.opacity, 0.37);
+    let mut authored = level;
+    authored.water[0].attenuation_per_metre = 0.4;
+    let resolved = crate::level::WaterVolumes::from_level(&authored);
+    let attenuated = &resolved.volumes()[0];
+    assert_eq!(
+        [attenuated.x0, attenuated.x1, attenuated.z0, attenuated.z1],
+        [original.x0, original.x1, original.z0, original.z1]
+    );
+    assert_exact(attenuated.bottom_y, original.bottom_y);
+    assert_eq!(attenuated.swimming, original.swimming);
+    let expected = (1.0_f32 - 0.37).mul_add(-(-0.4 * original.depth()).exp(), 1.0);
+    assert!((attenuated.opacity - expected).abs() < 1.0e-6);
+    assert!(attenuated.opacity > original.opacity && attenuated.opacity < 1.0);
+    authored.water[0].attenuation_per_metre = -0.1;
+    assert!(crate::loader::validate_level(&authored).is_err());
 }

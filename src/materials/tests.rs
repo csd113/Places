@@ -52,7 +52,9 @@ fn ice_traction_is_a_validated_material_property_separate_from_visual_response()
     let ice = table.entry_of("winter:ice_01").expect("ice material");
     assert_eq!(ice.ground_surface, GroundSurface::Ice);
     assert_eq!(ice.alpha.mode, AlphaMode::Blend);
-    assert_eq!(ice.reflection.mode, ReflectionMode::None);
+    assert_eq!(ice.reflection.mode, ReflectionMode::Probe);
+    assert_eq!(ice.reflection.strength, 0.28);
+    assert_eq!(ice.alpha.opacity, 0.84);
     assert_eq!(
         table
             .entry_of("winter:snow_01")

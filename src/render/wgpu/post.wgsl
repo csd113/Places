@@ -34,8 +34,8 @@ struct PostParams {
 };
 
 struct BlurParams {
-    // One texel of the *source*, `xy`; `zw` is unused padding so the struct is
-    // one 16-byte uniform slot.
+    // One source texel in xy; z enables extraction on the first blur only.
+    // One 16-byte uniform slot.
     texel: vec4<f32>,
 };
 
@@ -111,7 +111,7 @@ fn fs_present(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(srgb_to_linear(color), 1.0);
 }
 
-// The reference's bloom blur, unchanged:
+// The reference's five-tap bloom blur with one threshold extraction:
 //
 //     vec2 step0 = u_texel * 1.0;
 //     vec2 step1 = u_texel * 2.0;
@@ -124,15 +124,24 @@ fn fs_present(in: QuadOut) -> @location(0) vec4<f32> {
 // image into the quarter-size buffer A (so the down-sample and the horizontal
 // blur are one pass), pass 2 reads buffer A vertically into buffer B. The
 // Source and target are linear RGBA16F; no transfer function is applied.
+// Threshold emission before the first blur; ordinary surfaces cannot enter this
+// target. The soft knee starts at 0.5 and reaches its linear tail at 1.5 HDR.
+fn bloom_source(uv: vec2<f32>) -> vec3<f32> {
+    let color = textureSample(source_texture, source_sampler, uv).rgb;
+    if (blur.texel.z < 0.5) { return color; }
+    let peak = max(color.r, max(color.g, color.b));
+    let soft = clamp(peak - 0.5, 0.0, 1.0);
+    let contribution = max(peak - 1.0, soft * soft * 0.5);
+    return color * contribution / max(peak, 1.0e-6);
+}
+
 @fragment
 fn fs_blur(in: QuadOut) -> @location(0) vec4<f32> {
     let step0 = blur.texel.xy * 1.0;
     let step1 = blur.texel.xy * 2.0;
-    var sum = textureSample(source_texture, source_sampler, in.uv).rgb * 0.375;
-    sum += (textureSample(source_texture, source_sampler, in.uv + step0).rgb
-        + textureSample(source_texture, source_sampler, in.uv - step0).rgb) * 0.25;
-    sum += (textureSample(source_texture, source_sampler, in.uv + step1).rgb
-        + textureSample(source_texture, source_sampler, in.uv - step1).rgb) * 0.0625;
+    var sum = bloom_source(in.uv) * 0.375;
+    sum += (bloom_source(in.uv + step0) + bloom_source(in.uv - step0)) * 0.25;
+    sum += (bloom_source(in.uv + step1) + bloom_source(in.uv - step1)) * 0.0625;
     return vec4<f32>(sum, 1.0);
 }
 
@@ -144,9 +153,12 @@ fn resolve_color(in: QuadOut) -> vec3<f32> {
         color += textureSample(bloom_texture, bloom_sampler, in.uv).rgb * post.bloom_strength;
     }
     color = max(color * post.exposure, vec3<f32>(0.0));
-    let above = max(color - vec3<f32>(post.tone_knee), vec3<f32>(0.0));
+    // One common RGB scale preserves highlight hue instead of whitening channels.
+    let peak = max(color.r, max(color.g, color.b));
+    let above = max(peak - post.tone_knee, 0.0);
     let span = max(1.0 - post.tone_knee, 1.0e-3);
-    color = min(color, vec3<f32>(post.tone_knee)) + span * (above / (above + span));
+    let mapped = min(peak, post.tone_knee) + span * (above / (above + span));
+    color *= mapped / max(peak, 1.0e-6);
     color = linear_to_srgb(color);
     let luma = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
     color = mix(vec3<f32>(luma), color, post.grade_saturation);
@@ -163,7 +175,7 @@ fn fs_resolve(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(srgb_to_linear(resolve_color(in)), 1.0);
 }
 
-// Identity Low presentation still needs the one linear-to-display conversion.
+// Diagnostic identity presentation retains one linear-to-display conversion.
 @fragment
 fn fs_linear_present_raw(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(linear_to_srgb(max(textureSample(source_texture, source_sampler, in.uv).rgb, vec3<f32>(0.0))), 1.0);

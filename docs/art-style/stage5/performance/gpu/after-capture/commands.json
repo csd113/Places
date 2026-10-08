@@ -1,0 +1,38 @@
+{
+  "native": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+    "--out",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/performance/gpu/after-capture/native",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage5-runtime-v1/places",
+    "--asset-root",
+    ".",
+    "--package",
+    "debug-maps/art-style-hero/evidence/stage5-control/art_style_hero.placesmap",
+    "--views",
+    "surfaces",
+    "--frames",
+    "720",
+    "--lighting-sequence",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage5/performance/gpu/after-capture/native-capture-sequence.json",
+    "--manifest",
+    "docs/art-style/stage5/hero-control-manifest.json"
+  ],
+  "trace": [
+    "xcrun",
+    "xctrace",
+    "record",
+    "--template",
+    "Metal System Trace",
+    "--time-limit",
+    "8s",
+    "--output",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-after-capture.trace",
+    "--attach",
+    "45385"
+  ],
+  "verified_owned_pid": 45385,
+  "native_wrapper_pid": 45379,
+  "method": "Native capture reuses encode_frame_into scene/post shaders and resident targets. Window acquisition unavailable; GPU timings include capture/copy/readback, not ordinary presented frames. Scratch PNGs removed after one untouched proof frame is retained."
+}

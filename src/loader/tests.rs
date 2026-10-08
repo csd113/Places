@@ -45,6 +45,7 @@ fn route_sampling_rejects_counts_that_lose_adjacent_float_indices() {
 fn test_validate_level_success() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
@@ -123,6 +124,7 @@ fn test_validate_level_success() {
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
@@ -231,6 +233,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
@@ -366,6 +369,7 @@ fn test_parse_materials_json() {
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
         sky: None,
+        environment: None,
         weather: None,
         global_illuminators: Vec::new(),
         doors: Vec::new(),
@@ -4851,8 +4855,8 @@ fn the_geometry_revision_is_part_of_both_build_fingerprints() {
 
     // The shipped revision is the one the fix introduced, not a placeholder.
     assert_eq!(
-        revision, 5,
-        "inclusive receiver endpoints and consistent boundary-roof ownership are geometry revision 5"
+        revision, 6,
+        "water incident-HDR charts extend the seam and roof contracts at geometry revision 6"
     );
 }
 
@@ -5673,4 +5677,85 @@ fn display_metadata_reuse_keeps_every_physical_dependency_in_the_stage_key() {
         .expect("algorithm version key"),
         original
     );
+}
+
+#[test]
+fn environment_defaults_authored_controls_and_validation_are_explicit() {
+    let base = include_str!("../../tests/fixtures/levels/art_style_hero.json");
+    let mut json: serde_json::Value = serde_json::from_str(base).expect("hero JSON");
+    let legacy = LevelDef::from_json(base).expect("legacy defaults");
+    assert!(legacy.environment.is_none());
+    json["environment"] = serde_json::json!({});
+    let defaulted: LevelDef = serde_json::from_value(json.clone()).expect("default environment");
+    validate_level(&defaulted).expect("compatible default environment");
+    assert_eq!(
+        defaulted.environment,
+        Some(crate::environment::EnvironmentDef::default())
+    );
+    let historical_fog = crate::render::LevelFog::from_level(&legacy);
+    assert_eq!(
+        historical_fog,
+        crate::render::LevelFog::from_level(&defaulted)
+    );
+    for (field, value) in [
+        ("exposure", 0.0_f64),
+        ("exposure", 8.01_f64),
+        ("tone_knee", 1.0_f64),
+        ("saturation", 2.0_f64),
+        ("contrast", -1.0_f64),
+    ] {
+        json["environment"] = serde_json::json!({"presentation":{field:value}});
+        let invalid: LevelDef = serde_json::from_value(json.clone()).expect("numeric JSON");
+        assert!(
+            validate_level(&invalid)
+                .expect_err("reject authored presentation")
+                .contains(field)
+        );
+    }
+    for fog in [
+        serde_json::json!({"density":-0.1_f64}),
+        serde_json::json!({"color":[1.1_f64,0.0_f64,0.0_f64]}),
+        serde_json::json!({"height_gain":2.0_f64}),
+    ] {
+        json["environment"] = serde_json::json!({"fog":fog});
+        let invalid: LevelDef = serde_json::from_value(json.clone()).expect("numeric JSON");
+        assert!(validate_level(&invalid).is_err());
+    }
+    json["environment"] = serde_json::json!({"auto_exposure":true});
+    assert!(
+        serde_json::from_value::<LevelDef>(json).is_err(),
+        "unknown authoring controls must not silently disappear"
+    );
+}
+
+#[test]
+fn environment_roundtrip_preserves_exposure_fog_and_sky_colour() {
+    let mut json: serde_json::Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/levels/art_style_hero.json"
+    ))
+    .expect("hero JSON");
+    json["environment"] = serde_json::json!({"presentation":{"exposure":1.25_f64,"saturation":1.0_f64},"fog":{"color":[0.12_f64,0.18_f64,0.3_f64],"density":0.02_f64,"height_gain":0.1_f64}});
+    json["sky"]["ambient_color"] = serde_json::json!([0.2_f64, 0.35_f64, 0.7_f64]);
+    let level: LevelDef = serde_json::from_value(json.clone()).expect("authored controls");
+    validate_level(&level).expect("authored controls validate");
+    let replay = LevelDef::from_json(&serde_json::to_string(&level).expect("serialize"))
+        .expect("replay controls");
+    assert_eq!(replay.environment, level.environment);
+    assert_eq!(
+        replay.sky.as_ref().expect("sky").ambient_color,
+        Some([0.2, 0.35, 0.7])
+    );
+    let fog = crate::render::LevelFog::from_level(&replay);
+    assert_eq!(fog.global.color, [0.12, 0.18, 0.3]);
+    assert_exact(fog.global.density, 0.02);
+    assert_exact(
+        replay
+            .environment
+            .expect("environment")
+            .presentation
+            .exposure,
+        1.25,
+    );
+    json["sky"]["ambient_color"] = serde_json::json!([0.2_f64, 1.1_f64, 0.7_f64]);
+    assert!(validate_level(&serde_json::from_value(json).expect("bad sky colour")).is_err());
 }

@@ -202,7 +202,8 @@
       "required_resolution": "Stage5 evaluate bloom coverage, cross-family alpha ordering, exposure/shoulder and targeted AA using hero evidence, preserving texture-quality independence.",
       "final_verification": "Matched native hero silhouette/transparency/emission controls and coherent attachment/resolve sample counts; no screenshot-specific corrections.",
       "stage": 5,
-      "status": "open"
+      "status": "Stage5 bloom coverage/global family ordering/exposure resolved; single-sample silhouettes and tiny alpha mips remain documented limitations",
+      "resolution": "Stage5 uses straight coverage for emission, nonemitting transparent occlusion, shared world/prop/dynamic/character ordering, fixed quality-independent presentation and hue-preserving highlights. No AA/alpha-mip architecture is justified by this bounded stage; low-resolution silhouettes remain visible."
     },
     {
       "id": "normal-detail-model-support",
@@ -266,6 +267,38 @@
       "final_verification": "Matched native hero motion/door controls, cache correctness tests and comparable CPU/GPU measurements.",
       "stage": 6,
       "status": "profiling lead"
+    },
+    {
+      "id": "stage5-environment-and-surface-adoption",
+      "affected_files": [
+        "assets/catalog.json",
+        "src/environment.rs",
+        "src/level.rs",
+        "src/render/common/water.rs",
+        "src/render/common/mod.rs"
+      ],
+      "symbol_or_format": "optional environment / sky.ambient_color / water.attenuation_per_metre / geometry revision6",
+      "observed_failure": "No nonhero validation performed. Catalogue water/ice/snow scalar response and geometry revision6 deliberately stale older prepared package identities. Default fog and High presentation persist; Low/Medium now share that transform.",
+      "reason_for_deferral": "Stages1\u20136 compile/bake/render only hero; preserve existing map content and earlier runnable bundles.",
+      "required_resolution": "Stage7 refresh supported packages, verify compatibility of optional defaults, adopt authored environment controls only as needed and retain surface/gameplay contracts.",
+      "final_verification": "Supported package currency, full clean-source gates and representative normal native map checks without a full concept-refinement campaign.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "runtime-spawn-package-dependencies",
+      "affected_files": [
+        "src/compiler.rs",
+        "tools/bench/snapshot_art_style_hero.py",
+        "tests/fixtures/levels/art_style_hero_transparency.json"
+      ],
+      "symbol_or_format": "compiler::collect_dependencies; spawn_templates model/texture dependencies",
+      "observed_failure": "Verified-current Stage5 translucent package has no sheet-ghost GLB dependency because collector walks level.props only. Package-dependency-only snapshot replay cannot draw the runtime spawn. Repository-backed genuine captures include the real model.",
+      "reason_for_deferral": "Direct Stage5 runnable gap repaired via reusable explicit --runtime-asset snapshot option and hash-verified corrected before/after bundles. Automatic dependency discovery belongs to the subsequent measured pipeline work; no hero shader or transport workaround.",
+      "required_resolution": "Stage6 extend dependency discovery/currency to runtime spawn-template models and their needed assets, retaining stable compiler/cache contracts; Stage7 verify supported packages and runtime spawns.",
+      "final_verification": "Fresh package dependency manifest includes runtime-only model identities; changing model bytes invalidates current status; isolated supported runtime spawn draws with no missing assets.",
+      "stage": 6,
+      "status": "pipeline dependency audit required; Stage5 runnable support corrected"
     }
   ]
 }

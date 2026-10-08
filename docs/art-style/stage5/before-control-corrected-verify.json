@@ -1,0 +1,8 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_atmosphere.json",
+  "package": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage5-before-control-v2/art_style_hero.placesmap",
+  "package_fingerprint": "b81bdbb12a0c84d1b4b2e4a7a062f21478c60af251f63a3b680501707cf5f544",
+  "current_fingerprint": "b81bdbb12a0c84d1b4b2e4a7a062f21478c60af251f63a3b680501707cf5f544",
+  "current": true,
+  "differences": []
+}

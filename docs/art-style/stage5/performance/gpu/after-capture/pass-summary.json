@@ -1,0 +1,62 @@
+{
+  "case": "after-capture",
+  "scope": "Instrumented native capture reuses ordinary scene/post encoder; window acquisition unavailable or intermittent. Includes readback/copy/driver work; normalization counts encoded scenes, not presented frames. Categories may overlap and must not be summed as total GPU occupancy. Fog/transparency shader cost is inside scene/emission, not isolated. One sequential sample per case; no speedup claim.",
+  "base": {
+    "process": "places (45385)",
+    "window_seconds": 6.0,
+    "scene_encoders": 110,
+    "gpu_occupied_ms": 105.918831,
+    "gpu_occupied_mean_per_frame_ms": 0.9628984636363637,
+    "scene_gpu_span_mean_ms": 0.6992643636363637,
+    "scene_gpu_span_median_ms": 0.7587505,
+    "scene_gpu_span_p95_ms": 0.792708,
+    "allocation_samples": 1320,
+    "metal_allocated_median_bytes": 168304640.0,
+    "metal_allocated_peak_bytes": 170213376,
+    "metal_allocated_time_median_bytes": 162529280,
+    "metal_allocated_time_mean_bytes": 162838794.9441488,
+    "method": "Union of active target GPU intervals / scene encoders; overlapping hardware channels counted once"
+  },
+  "passes": {
+    "places-wgpu-scene": {
+      "encoder_count": 110,
+      "active_union_ms": 76.476456,
+      "active_union_per_encoded_scene_ms": 0.6952405090909091
+    },
+    "driver/internal": {
+      "encoder_count": 220,
+      "active_union_ms": 6.821287,
+      "active_union_per_encoded_scene_ms": 0.062011699999999996
+    },
+    "places-wgpu-emissive": {
+      "encoder_count": 110,
+      "active_union_ms": 9.36403,
+      "active_union_per_encoded_scene_ms": 0.08512754545454546
+    },
+    "places-wgpu-bloom-h": {
+      "encoder_count": 110,
+      "active_union_ms": 4.704794,
+      "active_union_per_encoded_scene_ms": 0.04277085454545454
+    },
+    "places-wgpu-bloom-v": {
+      "encoder_count": 110,
+      "active_union_ms": 4.508913,
+      "active_union_per_encoded_scene_ms": 0.04099011818181818
+    },
+    "places-wgpu-resolve": {
+      "encoder_count": 110,
+      "active_union_ms": 10.288344,
+      "active_union_per_encoded_scene_ms": 0.0935304
+    },
+    "places-wgpu-presented-raw": {
+      "encoder_count": 110,
+      "active_union_ms": 6.2615,
+      "active_union_per_encoded_scene_ms": 0.05692272727272727
+    },
+    "places-wgpu-capture-copy": {
+      "encoder_count": 110,
+      "active_union_ms": 5.635744,
+      "active_union_per_encoded_scene_ms": 0.05123403636363636
+    }
+  }
+}

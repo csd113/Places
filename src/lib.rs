@@ -11,6 +11,7 @@ pub mod display;
 pub mod door;
 pub mod entities;
 pub mod entity;
+pub mod environment;
 #[cfg(test)]
 mod fog_void_audit;
 pub mod font;

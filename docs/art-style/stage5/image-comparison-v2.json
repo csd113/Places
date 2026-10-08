@@ -1,0 +1,80 @@
+[
+  {
+    "before": "docs/art-style/stage5/before/control-corrected/surfaces.png",
+    "after": "docs/art-style/stage5/after/control/surfaces.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": false,
+    "files_identical": false,
+    "changed_pixels": 133427,
+    "mean_absolute_display_byte_difference": 1.7774971064814815,
+    "maximum_display_byte_difference": 99
+  },
+  {
+    "before": "docs/art-style/stage5/before/control-corrected/night.png",
+    "after": "docs/art-style/stage5/after/control/night.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": false,
+    "files_identical": false,
+    "changed_pixels": 54465,
+    "mean_absolute_display_byte_difference": 0.5340639467592593,
+    "maximum_display_byte_difference": 113
+  },
+  {
+    "before": "docs/art-style/stage5/before/control-corrected/water.png",
+    "after": "docs/art-style/stage5/after/control/water.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": false,
+    "files_identical": false,
+    "changed_pixels": 252350,
+    "mean_absolute_display_byte_difference": 5.107924262152778,
+    "maximum_display_byte_difference": 53
+  },
+  {
+    "before": "docs/art-style/stage5/after/control/surfaces.png",
+    "after": "docs/art-style/stage5/after/control-no-bloom/surfaces.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": false,
+    "files_identical": false,
+    "changed_pixels": 7419,
+    "mean_absolute_display_byte_difference": 0.015969328703703704,
+    "maximum_display_byte_difference": 32
+  },
+  {
+    "before": "docs/art-style/stage5/after/control/water.png",
+    "after": "docs/art-style/stage5/after/control-no-bloom/water.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": true,
+    "files_identical": true,
+    "changed_pixels": 0,
+    "mean_absolute_display_byte_difference": 0.0,
+    "maximum_display_byte_difference": 0
+  },
+  {
+    "before": "docs/art-style/stage5/before/control-corrected/surfaces.png",
+    "after": "docs/art-style/stage5/snapshot-replay/before-control-v2/surfaces.png",
+    "dimensions": [
+      1280,
+      720
+    ],
+    "pixels_identical": true,
+    "files_identical": true,
+    "changed_pixels": 0,
+    "mean_absolute_display_byte_difference": 0.0,
+    "maximum_display_byte_difference": 0
+  }
+]

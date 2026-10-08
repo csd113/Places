@@ -1,0 +1,7 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/places-4d06d8c90f45374a)
+
+running 1 test
+test render::wgpu::world::tests::transparency_sorts_across_families_and_stably_keeps_ties ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2140 filtered out; finished in 0.00s
