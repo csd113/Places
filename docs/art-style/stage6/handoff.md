@@ -150,3 +150,37 @@ exist. The exact final seal/remote/CI result and explicit repository/caffeinate
 custody transfer are written after the gate to
 `debug-maps/art-style-hero/evidence/stage6-completion.json` and
 `/tmp/places-art-style-stage6-completion.json`. Stage 7 is not started here.
+
+
+## Verified implementation and runnable milestone
+
+[Implementation daa9642](https://github.com/csd113/Places/commit/daa9642fbe2e9cae91d95f667bcf50e1fefe585b)
+is pushed and remote-verified. [Source publication](source-publication.json) binds
+all 219 frozen Rust/WGSL/Cargo inputs to that commit. Final normal player,
+diagnostic player, compiler and SDL identities are preserved in
+[runtime v2 identities](runtime-build-identities-v2.json).
+
+The new `debug-maps/art-style-hero/milestones/stage6` bundle is outside `target/`:
+52 files /199,369,304 bytes, exact implementation revision, compatible catalogue,
+all dependency-hashed assets, source, settings, cameras and native SDL.
+[Snapshot receipt](stage6-snapshot.json) and [verification](snapshot-verification.json)
+confirm all hashes and byte-identical isolated room and ghost/surface replays.
+No `--runtime-asset` was supplied; ordinary compiler traversal discovered the ghost.
+This is a macOS Metal bundle, not a cross-platform release. Nothing overwrites
+prior milestones or failed historical candidates.
+
+From the repository root:
+
+```sh
+DYLD_LIBRARY_PATH="$PWD/debug-maps/art-style-hero/milestones/stage6" \
+python3 tools/bench/capture_art_style_hero.py \
+  --asset-root debug-maps/art-style-hero/milestones/stage6 \
+  --manifest debug-maps/art-style-hero/milestones/stage6/hero-manifest.json \
+  --binary debug-maps/art-style-hero/milestones/stage6/places --play --views room
+```
+
+Replace `--play --views room` with `--views room,surfaces --out NEW_OUTPUT_DIRECTORY`
+for fixed native replay. The receipt also preserves absolute launch/replay commands.
+Final documentation seal and exact-SHA CI must complete before the durable
+completion receipt releases ownership. The implementation push's initial workflow
+is not substituted for the final seal's gate.

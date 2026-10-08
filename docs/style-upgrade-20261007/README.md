@@ -407,3 +407,12 @@ retain headroom without changing hard safety limits. The original baseline,
 Publication and exact-SHA CI/custody receipts are appended after their identities
 exist. Nonhero adoption and the three inherited local discovery failures remain
 Stage 7; this stage preserves `target/` and does not start that stage.
+
+
+[Stage 6 implementation daa9642](https://github.com/csd113/Places/commit/daa9642fbe2e9cae91d95f667bcf50e1fefe585b)
+is pushed and remote-verified. [Source publication](../art-style/stage6/source-publication.json)
+binds 219 frozen build inputs. A [52-file runnable milestone](../art-style/stage6/stage6-snapshot.json)
+preserves compiler/player/SDL, compatible catalogue and automatically collected
+runtime assets without manual ghost exceptions. Isolated room and surface/ghost
+replays match accepted native PNGs exactly. Final seal/push/exact-SHA CI and custody
+release are recorded after that gate in the durable completion receipt.

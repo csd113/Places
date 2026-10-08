@@ -1446,6 +1446,60 @@
     }
   },
   {
+    "receipt": "docs/art-style/stage6/validation-v1/snapshot-create-command.json",
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "debug-maps/art-style-hero/milestones/stage6",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage6-compile-v2/art_style_hero.placesmap",
+      "--revision",
+      "daa9642fbe2e9cae91d95f667bcf50e1fefe585b",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage6-runtime-v2/libSDL3.0.dylib",
+      "--manifest",
+      "docs/art-style/stage6/hero-final-manifest.json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.24378350004553795,
+    "started_utc": "2026-10-08T21:21:47.960301+00:00",
+    "finished_utc": "2026-10-08T21:21:48.204088+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
+    "receipt": "docs/art-style/stage6/validation-v1/snapshot-replay-command.json",
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--asset-root",
+      "debug-maps/art-style-hero/milestones/stage6",
+      "--manifest",
+      "debug-maps/art-style-hero/milestones/stage6/hero-manifest.json",
+      "--binary",
+      "debug-maps/art-style-hero/milestones/stage6/places",
+      "--views",
+      "room,surfaces",
+      "--out",
+      "docs/art-style/stage6/snapshot-replay"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 5.736550000030547,
+    "started_utc": "2026-10-08T21:22:03.774663+00:00",
+    "finished_utc": "2026-10-08T21:22:09.511228+00:00",
+    "environment_overrides": {
+      "RUSTC_WRAPPER": "sccache"
+    }
+  },
+  {
     "receipt": "docs/art-style/stage6/validation-v1/workspace-required-command.json",
     "command": [
       "cargo",

@@ -97,5 +97,10 @@ ordinary presented-frame CPU/FPS and fragment overdraw remain unmeasured.
 Static atlases under moving actors, skinned shadow proxies and the remaining
 conservative 32-receiver refresh cost remain documented approximations.
 
-Publication, preserved runnable launch and exact-SHA CI identities are appended
-in the handoff after they exist.
+[Implementation daa9642](https://github.com/csd113/Places/commit/daa9642fbe2e9cae91d95f667bcf50e1fefe585b) is pushed and remote-verified.
+[Source publication](source-publication.json) binds all 219 frozen Rust/WGSL/Cargo
+inputs to that revision. The [52-file runnable milestone](stage6-snapshot.json)
+uses automatic dependencies without runtime-asset exceptions; isolated room and
+ghost/surface replays match accepted native PNGs exactly. [Handoff](handoff.md)
+contains launch instructions. Final seal/remote/exact-SHA CI and explicit custody
+release are recorded after the gate in the durable completion receipt.

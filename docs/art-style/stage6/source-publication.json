@@ -1,0 +1,13 @@
+{
+  "implementation_revision": "daa9642fbe2e9cae91d95f667bcf50e1fefe585b",
+  "implementation_url": "https://github.com/csd113/Places/commit/daa9642fbe2e9cae91d95f667bcf50e1fefe585b",
+  "input_manifest": "docs/art-style/stage6/source-input-identities.json",
+  "all_frozen_source_inputs_match_implementation": true,
+  "frozen_source_input_count": 219,
+  "final_binary_identities": "docs/art-style/stage6/runtime-build-identities-v2.json",
+  "final_package_binding": "docs/art-style/stage6/final-tool-binding.json",
+  "snapshot_revision": "daa9642fbe2e9cae91d95f667bcf50e1fefe585b",
+  "snapshot_files": 52,
+  "snapshot_hash_and_native_verification": "docs/art-style/stage6/snapshot-verification.json",
+  "measured_v1_artifacts_preserved": true
+}
