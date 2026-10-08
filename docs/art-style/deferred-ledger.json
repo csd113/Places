@@ -74,7 +74,9 @@
       "required_resolution": "Document separate lighting receiver representation, bounce reflectance and draw-time albedo under the chosen color contract.",
       "final_verification": "Read against implementation and focused neutral/colored transport controls.",
       "stage": 2,
-      "status": "open"
+      "status": "resolved in Stage2",
+      "resolution": "ASSET_SPECIFICATION \u00a7\u00a716\u201318 and stage2/contracts.md now separate linear bounce reflectance, stored receiver-independent irradiance, material factors and display presentation. Architecture excludes receiver vertex shading; model sheets clamp and decode sRGB.",
+      "verification": "Stage2 focused reflectance/conversion tests and required library suite pass; matched native albedo/final hero views are retained."
     },
     {
       "id": "documentation-renderer-limits",
@@ -115,7 +117,7 @@
         "assets/levels/winter.json"
       ],
       "symbol_or_format": "source/packages/benchmark reference ledger",
-      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid.",
+      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked.",
       "reason_for_deferral": "Stages1\u20136 compile/bake and visually accept only the hero. Stage7 owns supported-map compatibility/regression, not broad concept refinement.",
       "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
       "final_verification": "Normal compiler currency/integrity, targeted supported-map native compatibility checks, assets and final desktop gate; detailed visual acceptance remains the hero.",
@@ -131,12 +133,12 @@
         "docs/art-style/diagnostics/performance-summary.json"
       ],
       "symbol_or_format": "present_frame / acquire_frame / record_render_stats",
-      "observed_failure": "Initial background sample has zero draws and cannot establish FPS. Later normal-build sample successfully submits all 360/360 frames in six fixed quality/view runs; CPU/event-loop timings and counters are retained. No GPU timestamps or physical display cadence measured.",
+      "observed_failure": "Initial background sample has zero draws and cannot establish FPS. Later normal-build sample successfully submits all 360/360 frames in six fixed quality/view runs; CPU/event-loop timings and counters are retained. No GPU timestamps or physical display cadence measured. Stage2 six sequential final samples also submit360/360 frames; CPU/frame/RSS deltas retained in stage2/performance-summary.json. Empty model alpha-class phantom-vertex accounting is corrected; no GPU-time claim.",
       "reason_for_deferral": "No engine rewrite is justified to turn unavailable surface submissions into apparently fast frames.",
       "required_resolution": "Retain the valid submitted-frame baseline; repeat after meaningful renderer changes under identical settings. Obtain GPU time with a supported profiler before selecting GPU budgets.",
       "final_verification": "Nonzero scene counters and bounded CSV plus actual applied/present state; distinguish CPU submission/event loop from GPU execution/display cadence.",
       "stage": 2,
-      "status": "partially resolved in Stage1; GPU profiling remains open"
+      "status": "CPU/counter baseline and repeat resolved in Stage2; GPU profiling remains open"
     },
     {
       "id": "hero-open-garden-warning",
@@ -165,6 +167,56 @@
       "final_verification": "Fixed-camera same-process cycle, presented-frame evidence plus requested/applied/resource identities; no unrelated map capture.",
       "stage": 4,
       "status": "open"
+    },
+    {
+      "id": "model-scalar-adoption",
+      "affected_files": [
+        "tools/props/parts/home_remade.py",
+        "tools/props/parts/pool_remade.py",
+        "tools/props/parts/winter.py",
+        "assets/environment/home/props/models",
+        "assets/environment/pool/props/models",
+        "assets/environment/winter/props/models"
+      ],
+      "symbol_or_format": "Mesh.material roughness/metallic; glTF scalar material response",
+      "observed_failure": "Legacy toolkit exports explicitly author roughness1/metal0, so furnishings remain matte despite newly shared scalar support. No shared GLB metadata/PNG is changed in Stage2.",
+      "reason_for_deferral": "Shared asset metadata would stale non-hero package dependencies; preserve completed asset passes and restrict map validation to hero.",
+      "required_resolution": "Intentionally adopt restrained scalar highlights by material family in the owning builders, preserve atlas/geometry contracts, export changed assets and migrate affected packages together.",
+      "final_verification": "Toolkit scalar tests, GLB loader/material round trips, supported-package dependency currency and native category/static/movable/entity checks.",
+      "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "presentation-alpha-and-aa",
+      "affected_files": [
+        "src/render/wgpu/world.wgsl",
+        "src/render/wgpu/world.rs",
+        "src/render/wgpu/postprocess.rs",
+        "docs/art-style/stage2/contracts.md"
+      ],
+      "symbol_or_format": "emissive_only / family transparency ordering / single-sample presentation",
+      "observed_failure": "Scene blending is linear and MASK/BLEND classes now agree across mesh paths. Emissive-only BLEND returns alpha1, transparency sorts within families, no edge/temporal AA exists, and Low/Medium upsampling retains jagged silhouettes. Tiny alpha-test mips do not preserve coverage by a dedicated algorithm.",
+      "reason_for_deferral": "Stage2 fixes material classification and HDR compatibility; no evidence warrants a new temporal architecture during foundation work.",
+      "required_resolution": "Stage5 evaluate bloom coverage, cross-family alpha ordering, exposure/shoulder and targeted AA using hero evidence, preserving texture-quality independence.",
+      "final_verification": "Matched native hero silhouette/transparency/emission controls and coherent attachment/resolve sample counts; no screenshot-specific corrections.",
+      "stage": 5,
+      "status": "open"
+    },
+    {
+      "id": "normal-detail-model-support",
+      "affected_files": [
+        "src/gltf.rs",
+        "src/render/wgpu/character.rs",
+        "src/render/wgpu/dynamic.rs",
+        "docs/art-style/stage2/contracts.md"
+      ],
+      "symbol_or_format": "glTF normalTexture and model tangent import",
+      "observed_failure": "Architectural numeric normal maps have verified UV frames/handedness. glTF normalTexture remains unsupported. Source normals are preserved or geometric-flat; JSON placement exposes positive uniform scale, while retained node/pose/runtime matrices support non-uniform transforms.",
+      "reason_for_deferral": "Stage2 establishes supported attribute/transform conventions and deterministic non-uniform tests; no hero model requires imported tangent-space detail.",
+      "required_resolution": "Only introduce model normal-map/tangent authoring if later measured art needs justify it; extend the asset specification and all mesh routes together.",
+      "final_verification": "Authored tangent/handedness transform tests and genuine hero static/movable/entity controls if supported feature is added.",
+      "stage": 7,
+      "status": "documented limitation; adoption conditional"
     }
   ]
 }

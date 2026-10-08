@@ -1986,19 +1986,28 @@ fn real_props_are_lit_per_vertex_and_stay_batched() {
         "instances across the room must not be uniformly lit: {min}..{max}"
     );
 
-    // Every vertex carries its model colour multiplied by the bake sampled
-    // at its own transformed world position. Instances are concatenated in
-    // placement order and each contributes the model's whole vertex array,
-    // so the model index wraps once per instance.
+    // Flat missing-NORMAL models contribute triangle corners; authored normals
+    // preserve the indexed source layout. Neither path may alter source UVs.
     let asset = assets
         .resolve("environment/office/props/models/chair.glb")
         .expect("chair loads");
     let model = &asset.model;
+    let flat = model.vertices.iter().any(|vertex| vertex.normal.is_none());
+    let per_instance = if flat {
+        model.indices.len()
+    } else {
+        model.vertices.len()
+    };
+    assert_eq!(vertices.len(), per_instance * 10);
     for (vertex_index, vertex) in vertices.iter().enumerate() {
-        // Instances contribute the model's own vertex array in order, so the
-        // model's index list is not needed to line a submitted vertex up
-        // with the vertex it came from.
-        let source = model.vertices[vertex_index % model.vertices.len()];
+        let corner = vertex_index % per_instance;
+        let source_index = if flat {
+            usize::from(model.indices[corner])
+        } else {
+            corner
+        };
+        let source = model.vertices[source_index];
+        assert_eq!(vertex.uv, source.uv);
         let light = lighting.sample(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
         for channel in 0..3 {
             let expected = source.color[channel] * light.channel(channel);
@@ -2630,7 +2639,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     let total_vertices: usize = batches.iter().map(|batch| batch.vertices.len()).sum();
     let total_indices: usize = batches.iter().map(|batch| batch.indices.len()).sum();
     // Cross-check the expansion: every placed instance contributes exactly
-    // one copy of its model's distinct vertices and one copy of its index
+    // the appropriate indexed or flat-triangle vertex layout and one index
     // list. The decoded asset is shared, so the cache only holds one copy
     // per model (proving instance reuse).
     let mut expected_vertices = 0usize;
@@ -2639,7 +2648,11 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
         let entry = catalog.get(&prop.model);
         let path = entry.model.expect("stress props come from the catalogue");
         let model = &assets.resolve(&path).expect("model loads").model;
-        expected_vertices += model.vertices.len();
+        expected_vertices += if model.vertices.iter().any(|vertex| vertex.normal.is_none()) {
+            model.indices.len()
+        } else {
+            model.vertices.len()
+        };
         expected_indices += model.indices.len();
     }
     assert_eq!(total_vertices, expected_vertices);
@@ -6081,6 +6094,7 @@ fn runtime_emissive_model() -> crate::gltf::PropModel {
         indices: vec![0, 1, 2],
         textures: Vec::new(),
         submeshes: vec![PropSubmesh {
+            response: crate::materials::MaterialResponse::NONE,
             alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: None,

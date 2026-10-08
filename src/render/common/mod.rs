@@ -71,7 +71,7 @@ pub use mesh::{
     dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
-pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_cube};
+pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_hdr_cube};
 pub use props::{PropMeshBatch, PropSubmeshBatch};
 
 /// Near and far plane of the scene projection, in metres.
@@ -256,9 +256,9 @@ const LIGHT_FACE_PROBE_M: f32 = crate::lighting::WALL_FACE_PROBE_M;
 /// Multiplies one shaded colour by the baked illumination colour, per channel.
 fn shade(base: [f32; 3], light: LightColor) -> [f32; 3] {
     [
-        (base[0] * light.r).clamp(0.0, 1.0),
-        (base[1] * light.g).clamp(0.0, 1.0),
-        (base[2] * light.b).clamp(0.0, 1.0),
+        (base[0] * light.r).max(0.0),
+        (base[1] * light.g).max(0.0),
+        (base[2] * light.b).max(0.0),
     ]
 }
 
@@ -724,8 +724,9 @@ const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 /// It is folded into both compiler fingerprints so a stale mesh and the
 /// lightmaps baked against it are rebuilt instead of reused. 1 =
 /// pre-cap-coincidence, 2 = coplanar cap ownership by the earliest authored
-/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding.
-pub const GEOMETRY_REVISION: u32 = 3;
+/// wall; 3 = endpoint-centred atlas UVs and reflected static-model winding;
+/// 4 = linear colour interpretation and flat fallback model attributes.
+pub const GEOMETRY_REVISION: u32 = 4;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

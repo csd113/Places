@@ -1,7 +1,7 @@
 //! Post-processing: the offscreen scene target, the emissive pass, the two
 //! bloom blurs, the resolve and the plain present copy.
 //!
-//! The world renders into an RGBA8 scene texture, which these passes turn
+//! The world renders into a linear RGBA16F scene texture, which these passes turn
 //! into a display image:
 //!
 //! ```text
@@ -15,13 +15,10 @@
 //! rebuilds the targets only when their size changes and the `encode_*` methods
 //! only append passes to the renderer's encoder.
 //!
-//! Colour space: every target here is raw `Rgba8Unorm` holding the reference's
-//! display-space values — scene, presented, emissive and both blur buffers —
-//! exactly like the reference's RGBA8 attachments. The world shader writes
-//! display values directly; only the final copy to the sRGB surface converts
-//! (`srgb_to_linear` in the present entry point). The presented image is the
-//! drawable, so the resolve and the HUD run at default-framebuffer resolution
-//! exactly like the reference.
+//! Scene, emission and blur targets remain linear HDR. Resolve applies exposure
+//! and the existing shoulder before sRGB encoding into the RGBA8 presented
+//! image. The HUD blends over that display image; the final surface copy
+//! preserves its bytes. Identity resolve still encodes linear scene colour.
 //!
 //! The resolve's five parameters are authored constants
 //! ([`PostSettings`]). The engine can only produce the three quality levels
@@ -60,21 +57,17 @@ pub const POST_BLUR_FRAGMENT_ENTRY: &str = "fs_blur";
 /// Vertex attribute location of the quad's `(x, y)` pair.
 pub const POST_ATTRIB_CORNER: u32 = 0;
 
-/// The scene target's format, and therefore the world pipeline format the
-/// scene pass must be built for.
-///
-/// Raw (non-sRGB), like the reference's RGBA8 scene target: the world shader
-/// writes display-space values directly, so hardware alpha blending, filtering
-/// and the resolve all operate in the space OpenGL did.
-pub const SCENE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Encoded display image; the UI blends in this space.
+pub const PRESENTED_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// The emissive target's format, and therefore the world emissive pipeline
-/// format: raw `Rgba8Unorm`, so `fs_emission`'s display-space output is stored
-/// with no transfer function, exactly like the reference's RGBA8 bloom source.
-pub const EMISSIVE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Linear HDR scene colour.
+pub const SCENE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
-/// Both blur targets' format: raw `Rgba8Unorm`, the same display space.
-pub const BLOOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Linear HDR emission, independent of environmental illumination.
+pub const EMISSIVE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
+/// Linear HDR blur targets, preserving emission energy above one.
+pub const BLOOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 /// Vertices in [`PRESENT_QUAD`]: two triangles.
 pub const QUAD_VERTEX_COUNT: u32 = 6;
@@ -336,11 +329,11 @@ impl PostLayouts {
 /// The blur always writes [`BLOOM_FORMAT`]. The resolve pipeline is raw (it
 /// writes the display-space presented image), while the present copy comes in
 /// two forms: the *raw* form writes the presented image again, and the
-/// *surface* form writes the sRGB surface with the one display-to-linear
-/// encode.
+/// *surface* form decodes display values before the hardware encode.
 struct PostPipelines {
     resolve_raw: wgpu::RenderPipeline,
     present_raw: wgpu::RenderPipeline,
+    linear_present_raw: wgpu::RenderPipeline,
     present: wgpu::RenderPipeline,
     blur: wgpu::RenderPipeline,
 }
@@ -364,7 +357,7 @@ impl PostPipelines {
                 &shader,
                 &layouts.resolve,
                 POST_RESOLVE_RAW_FRAGMENT_ENTRY,
-                SCENE_FORMAT,
+                PRESENTED_FORMAT,
             ),
             present_raw: build_pass_pipeline(
                 device,
@@ -372,7 +365,15 @@ impl PostPipelines {
                 &shader,
                 &layouts.present,
                 POST_PRESENT_RAW_FRAGMENT_ENTRY,
-                SCENE_FORMAT,
+                PRESENTED_FORMAT,
+            ),
+            linear_present_raw: build_pass_pipeline(
+                device,
+                "places-wgpu-linear-present-raw",
+                &shader,
+                &layouts.present,
+                "fs_linear_present_raw",
+                PRESENTED_FORMAT,
             ),
             present: build_pass_pipeline(
                 device,
@@ -531,7 +532,7 @@ impl PostProcess {
         if !surface_format_is_srgb(surface_format) {
             logging::warn_once(
                 "wgpu-post-surface-format",
-                "[wgpu] the surface format is not sRGB; the resolve and present passes assume the hardware encodes their output",
+                "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
             );
         }
         let layouts = PostLayouts::new(device);
@@ -587,7 +588,7 @@ impl PostProcess {
         if !surface_format_is_srgb(surface_format) {
             logging::warn_once(
                 "wgpu-post-surface-format",
-                "[wgpu] the surface format is not sRGB; the resolve and present passes assume the hardware encodes their output",
+                "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
             );
         }
         self.surface_format = surface_format;
@@ -727,11 +728,11 @@ impl PostProcess {
     ///
     /// The choice is [`PostSettings::is_identity`], exactly like the
     /// reference's `post.settings().is_identity()` branch: the identity path
-    /// copies the scene straight into the presented image, byte-identical.
+    /// encodes the linear scene into the presented image without grading.
     /// Otherwise the resolve adds the bloom image when `bloom_enabled` and the
     /// settings bloom, then applies exposure, the tone shoulder and the grade —
-    /// all in the display space the reference used. The presented image is
-    /// encoded once by [`Self::encode_present_to`].
+    /// in linear light, then encodes and applies the display grade. The final
+    /// surface copy preserves those encoded values.
     pub fn encode_resolve(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -747,7 +748,7 @@ impl PostProcess {
                 encoder,
                 "places-wgpu-present",
                 target,
-                &self.pipelines.present_raw,
+                &self.pipelines.linear_present_raw,
                 &targets.present_bind,
                 &self.quad_buffer,
             ),
@@ -1009,7 +1010,7 @@ impl PostProcess {
             device,
             "places-wgpu-presented",
             presented_size,
-            SCENE_FORMAT,
+            PRESENTED_FORMAT,
             attachment,
         );
         let present_bind = self.present_bind(device, &scene_view);
@@ -1159,21 +1160,21 @@ mod tests {
     }
 
     #[test]
-    fn the_scene_target_is_raw_display_space() {
-        assert_eq!(SCENE_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
+    fn the_scene_target_retains_linear_hdr() {
+        assert_eq!(SCENE_FORMAT, wgpu::TextureFormat::Rgba16Float);
         assert!(
             !SCENE_FORMAT.is_srgb(),
-            "the world shader writes the reference's display values directly"
+            "the world shader writes linear radiance directly"
         );
     }
 
     #[test]
-    fn the_bloom_chain_is_raw_display_space() {
-        assert_eq!(EMISSIVE_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
-        assert_eq!(BLOOM_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
+    fn the_bloom_chain_retains_linear_hdr() {
+        assert_eq!(EMISSIVE_FORMAT, wgpu::TextureFormat::Rgba16Float);
+        assert_eq!(BLOOM_FORMAT, wgpu::TextureFormat::Rgba16Float);
         assert!(
             !EMISSIVE_FORMAT.is_srgb() && !BLOOM_FORMAT.is_srgb(),
-            "the emissive and blur targets are raw like the reference's RGBA8 chain"
+            "emission and blur preserve linear HDR energy"
         );
         assert!(
             DEPTH_FORMAT.has_depth_aspect(),
@@ -1314,13 +1315,13 @@ mod tests {
     fn the_resolve_wgsl_is_the_reference_expression() {
         for token in [
             "if (post.bloom_strength > 0.0) {",
-            "color *= post.exposure;",
+            "color = max(color * post.exposure, vec3<f32>(0.0));",
             "vec3<f32>(post.tone_knee)",
             "max(1.0 - post.tone_knee, 1.0e-3)",
             "vec3<f32>(0.2126, 0.7152, 0.0722)",
             "mix(vec3<f32>(luma), color, post.grade_saturation)",
             "clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0))",
-            "return vec4<f32>(srgb_to_linear(color), 1.0);",
+            "color = linear_to_srgb(color);",
         ] {
             assert!(
                 WGSL.contains(token),

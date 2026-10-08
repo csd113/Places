@@ -9,7 +9,8 @@ High views with byte-identical PNGs. The completed asset passes remain intact.
 [Dependency plan and visual criteria](gap-plan.md) ·
 [Costs and measurement limits](performance.md) ·
 [Exact deferred ledger](deferred-ledger.json) · [Validation](validation.md) ·
-[Development diagnostics and expanded evidence](diagnostics.md)
+[Development diagnostics and expanded evidence](diagnostics.md) ·
+[2026-10-08 Stage 2 colour/material milestone](stage2/README.md)
 
 ## Matched native evidence
 

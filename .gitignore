@@ -30,3 +30,6 @@ levels/*.placesmap
 
 # Reproducible Art-style hero packages and isolated native state.
 /debug-maps/art-style-hero/evidence/
+
+# Immutable local queue milestone binaries, packages and verified asset bundles.
+/debug-maps/art-style-hero/milestones/

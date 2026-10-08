@@ -308,6 +308,23 @@ pub fn write_rgba8_cube_with_mips(edge: u32, levels: &[[Vec<u8>; 6]]) -> Result<
     encode_levels(&TexelFormat::RGBA8, edge, 0, 6, &level_slices)
 }
 
+/// Encodes a linear HDR reflection cube, including its roughness mip chain.
+///
+/// # Errors
+/// Returns an error for invalid dimensions, face lengths or payload bounds.
+pub fn write_rgba16f_cube_with_mips(edge: u32, levels: &[[Vec<u8>; 6]]) -> Result<Vec<u8>, String> {
+    if edge == 0 || edge > MAX_EDGE || !edge.is_multiple_of(2) {
+        return Err(format!(
+            "KTX2 cube edge {edge} must be positive, even and at most {MAX_EDGE}"
+        ));
+    }
+    if levels.is_empty() {
+        return Err("KTX2 mip chain has no levels".to_string());
+    }
+    let slices: Vec<&[Vec<u8>]> = levels.iter().map(<[Vec<u8>; 6]>::as_slice).collect();
+    encode_levels(&TexelFormat::RGBA16F, edge, 0, 6, &slices)
+}
+
 /// Encodes a 2D array of equally sized RGBA16F images as one KTX2 file.
 ///
 /// Every layer is one tightly packed `edge` x `edge` image of little-endian

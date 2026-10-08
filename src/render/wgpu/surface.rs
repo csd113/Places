@@ -10,6 +10,22 @@
 
 use sdl3::video::Window;
 
+/// Direct non-sRGB 8-bit surfaces need a shader display encode. HDR targets
+/// retain linear energy; sRGB surfaces encode in hardware.
+pub const fn target_is_raw_display(format: wgpu::TextureFormat) -> bool {
+    matches!(
+        format,
+        wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm
+    )
+}
+
+pub fn color_target_constants(format: wgpu::TextureFormat) -> [(&'static str, f64); 1] {
+    [(
+        "display_target",
+        f64::from(u8::from(target_is_raw_display(format))),
+    )]
+}
+
 /// The one native desktop backend this build targets.
 ///
 /// On a platform Places does not ship a desktop build for, this is
@@ -108,10 +124,7 @@ const PREFERRED_SURFACE_FORMATS: [wgpu::TextureFormat; 2] = [
 /// never blocked on a hard-coded format. `None` means the surface is
 /// incompatible with the adapter.
 ///
-/// A non-sRGB fallback cannot honour the display-space contract the fragment
-/// stage is built on (it writes linear values expecting the hardware to encode
-/// them), so [`surface_format_is_srgb`] reports it and the renderer logs one
-/// warning instead of presenting silently wrong colours.
+/// Raw 8-bit fallback surfaces receive software-encoded RGB.
 #[must_use]
 pub fn select_surface_format(
     capabilities: &wgpu::SurfaceCapabilities,
@@ -125,13 +138,7 @@ pub fn select_surface_format(
 
 /// True when a surface format stores sRGB-encoded values.
 ///
-/// The world shader's display-space assembly assumes the *surface* decodes the
-/// shader's output: the surface-facing entry points convert once with
-/// `srgb_to_linear` and rely on the hardware encode. (The capture read-back
-/// does not depend on this: the post path copies the raw presented image into a
-/// raw capture texture.) An adapter that offers only a linear format cannot
-/// present the reference's display values without a shader variant, which the
-/// renderer does not build.
+/// Linear world output relies on hardware encoding for these formats.
 #[must_use]
 pub fn surface_format_is_srgb(format: wgpu::TextureFormat) -> bool {
     format.is_srgb()
@@ -209,38 +216,19 @@ pub const fn present_mode_label(mode: wgpu::PresentMode) -> &'static str {
 /// has none) and no separate depth format anywhere.
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-/// What the clear pass writes into a **raw** (non-sRGB) colour target.
-///
-/// The reference renderer clears its non-sRGB framebuffer to the raw display
-/// value `(0.08, 0.08, 0.09)` and then composites, blends, grades and reads
-/// that value back in display space. Every wgpu offscreen colour target is raw
-/// `Rgba8Unorm` for exactly that reason, so the scene, planar and probe clears
-/// write the raw value too — the same bytes the reference's targets hold.
-/// Clearing with [`CLEAR_COLOR_SRGB`] instead would decode differently from the
-/// geometry's display-space values and show as a clear-colour-shaped hole where
-/// no geometry covers the target.
-///
-/// The world has no background or sky: this clear colour shows wherever no
-/// geometry covers the frame.
+/// Linear form of the authored background sRGB `(0.08, 0.08, 0.09)`.
 pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: 0.08,
-    g: 0.08,
-    b: 0.09,
+    r: 0.007_194_4,
+    g: 0.007_194_4,
+    b: 0.008_540_382,
     a: 1.0,
 };
 
-/// The same background for an **sRGB** surface target (the direct fallback and
-/// the capture copy).
-///
-/// A written value on an sRGB attachment is linear and the hardware encodes
-/// it, so presenting the reference's raw `(0.08, 0.08, 0.09)` background
-/// requires the linear form (`srgb_to_linear(0.08) = 0.0071944`,
-/// `srgb_to_linear(0.09) = 0.0085404`, IEC 61966-2-1). Only the surface-format
-/// paths use it: they must present the same background the raw targets hold.
+/// Linear clear for an sRGB surface; hardware encodes it once.
 pub const CLEAR_COLOR_SRGB: wgpu::Color = wgpu::Color {
     r: 0.007_194_4,
     g: 0.007_194_4,
-    b: 0.008_540_4,
+    b: 0.008_540_382,
     a: 1.0,
 };
 
@@ -296,6 +284,31 @@ impl SurfaceStatus {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn target_encoding_keeps_hdr_linear_and_encodes_only_raw_display() {
+        for format in [
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
+            wgpu::TextureFormat::Rgba16Float,
+        ] {
+            assert!(!super::target_is_raw_display(format));
+            assert_eq!(
+                super::color_target_constants(format),
+                [("display_target", 0.0_f64)]
+            );
+        }
+        for format in [
+            wgpu::TextureFormat::Rgba8Unorm,
+            wgpu::TextureFormat::Bgra8Unorm,
+        ] {
+            assert!(super::target_is_raw_display(format));
+            assert_eq!(
+                super::color_target_constants(format),
+                [("display_target", 1.0_f64)]
+            );
+        }
+    }
+
     use super::*;
 
     fn capabilities(
@@ -405,8 +418,8 @@ mod tests {
         let raw = [CLEAR_COLOR.r, CLEAR_COLOR.g, CLEAR_COLOR.b];
         for (actual, display) in raw.iter().zip(REFERENCE_CLEAR_DISPLAY.iter()) {
             assert!(
-                (actual - display).abs() < f64::EPSILON,
-                "raw clear {actual} must be the reference display value {display}"
+                (actual - srgb_to_linear(*display)).abs() < 1.0e-8_f64,
+                "HDR clear {actual} must decode authored display value {display}"
             );
         }
         // The sRGB surface takes the linear form so the hardware encode lands

@@ -21,7 +21,7 @@ use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::LevelLightmaps;
 use crate::materials::MaterialTable;
 use crate::package::collision::{CompiledCollision, read_collision};
-use crate::package::ktx2::{self, Ktx2Rgba8};
+use crate::package::ktx2::{self, Ktx2Rgba16f};
 use crate::package::lighting::read_lighting;
 use crate::package::lightmaps::read_lightmaps;
 use crate::package::manifest::{Manifest, ProbePayload, Variant};
@@ -127,8 +127,9 @@ pub struct ProbePositions {
 /// Version of the probe positions record.
 ///
 /// Version 2 added the prefiltered mip chain; there is no reader for an older
-/// record: a version-1 package is superseded and must be rebuilt.
-pub const PROBE_POSITIONS_VERSION: u16 = 2;
+/// record: a version-1 package is superseded and must be rebuilt. Version 3
+/// stores linear HDR cubes; version 2 RGBA8 display cubes decode at load.
+pub const PROBE_POSITIONS_VERSION: u16 = 3;
 
 /// Opens a package and reads its manifest and semantics.
 ///
@@ -433,14 +434,13 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
 
 /// Validates one positions record against the manifest payload it belongs to.
 ///
-/// The reader accepts the current record version only: a package prepared
-/// before the offline mip chain carries version 1 and is superseded, not
-/// adapted.
+/// HDR v3 and legacy display v2 mip chains are supported. Version 1 lacks
+/// a prepared chain and is superseded. Legacy display texels decode at load.
 fn validate_positions_record(
     positions: &ProbePositions,
     payload: &ProbePayload,
 ) -> Result<(), String> {
-    if positions.record_version != PROBE_POSITIONS_VERSION {
+    if positions.record_version != PROBE_POSITIONS_VERSION && positions.record_version != 2 {
         return Err(format!(
             "probe positions record version {} is not supported",
             positions.record_version
@@ -463,9 +463,43 @@ fn validate_positions_record(
     Ok(())
 }
 
+/// Legacy RGBA8 probes stored display RGB. Decode once into the current
+/// binary16 working representation; new compiler output is always HDR.
+pub(crate) fn read_probe_image(bytes: &[u8]) -> Result<Ktx2Rgba16f, String> {
+    if let Ok(image) = ktx2::read_rgba16f(bytes) {
+        return Ok(image);
+    }
+    let image = ktx2::read_rgba8(bytes)?;
+    let levels = image
+        .levels
+        .iter()
+        .map(|level| {
+            let mut output = Vec::with_capacity(level.len().saturating_mul(2));
+            for pixel in level.as_chunks::<4>().0 {
+                let [red, green, blue, alpha] = *pixel;
+                for channel in [
+                    crate::materials::color::decode_byte(red),
+                    crate::materials::color::decode_byte(green),
+                    crate::materials::color::decode_byte(blue),
+                    f32::from(alpha) / 255.0,
+                ] {
+                    output.extend_from_slice(&ktx2::f32_to_f16_bits(channel).to_le_bytes());
+                }
+            }
+            output
+        })
+        .collect();
+    Ok(Ktx2Rgba16f {
+        edge: image.edge,
+        layers: image.layers,
+        faces: image.faces,
+        levels,
+    })
+}
+
 /// Splits a decoded cube KTX2 into its full mip chain of six face buffers.
 fn split_cube(bytes: &[u8], face_edge: u32, levels: u32) -> Result<Vec<[Vec<u8>; 6]>, String> {
-    let image: Ktx2Rgba8 = ktx2::read_rgba8(bytes)?;
+    let image = read_probe_image(bytes)?;
     if image.faces != 6 || image.layers != 0 || image.edge != face_edge {
         return Err("probe cubemap shape does not match its payload".to_string());
     }
@@ -475,7 +509,7 @@ fn split_cube(bytes: &[u8], face_edge: u32, levels: u32) -> Result<Vec<[Vec<u8>;
 /// Checks the decoded chain's level count and per-level byte length and splits
 /// every level into six face buffers.
 fn split_cube_levels(
-    image: &Ktx2Rgba8,
+    image: &Ktx2Rgba16f,
     face_edge: u32,
     levels: u32,
 ) -> Result<Vec<[Vec<u8>; 6]>, String> {
@@ -499,7 +533,7 @@ fn split_cube_levels(
                 usize::try_from(level_edge)
                     .map_err(|error| format!("probe face edge is too large: {error}"))?,
             )
-            .and_then(|value| value.checked_mul(4))
+            .and_then(|value| value.checked_mul(8))
             .ok_or_else(|| "probe face size overflows".to_string())?;
         if data.len() != face_bytes.saturating_mul(6) {
             return Err(format!(
@@ -657,7 +691,11 @@ mod tests {
         std::array::from_fn(|_| {
             let mut face = Vec::with_capacity(bytes);
             for _ in 0..bytes / 4 {
-                face.extend_from_slice(&colour);
+                for channel in colour {
+                    face.extend_from_slice(
+                        &ktx2::f32_to_f16_bits(f32::from(channel)).to_le_bytes(),
+                    );
+                }
             }
             face
         })
@@ -690,7 +728,7 @@ mod tests {
             solid_faces(8, [1, 2, 3, 255]),
             solid_faces(4, [4, 5, 6, 255]),
         ];
-        let bytes = ktx2::write_rgba8_cube_with_mips(8, &chain).expect("encode");
+        let bytes = ktx2::write_rgba16f_cube_with_mips(8, &chain).expect("encode");
         let split = split_cube(&bytes, 8, 2).expect("split");
         assert_eq!(split.len(), 2);
         assert_eq!(split[0], chain[0]);
@@ -703,7 +741,7 @@ mod tests {
             solid_faces(8, [1, 2, 3, 255]),
             solid_faces(4, [4, 5, 6, 255]),
         ];
-        let bytes = ktx2::write_rgba8_cube_with_mips(8, &chain).expect("encode");
+        let bytes = ktx2::write_rgba16f_cube_with_mips(8, &chain).expect("encode");
         // The payload claims a chain the cube does not carry.
         assert!(split_cube(&bytes, 8, 1).is_err(), "too few levels claimed");
         assert!(
@@ -714,17 +752,40 @@ mod tests {
 
     #[test]
     fn a_wrong_level_byte_length_is_refused() {
-        let image = Ktx2Rgba8 {
+        let image = Ktx2Rgba16f {
             edge: 4,
             layers: 0,
             faces: 6,
-            levels: vec![vec![0; 4 * 4 * 4 * 6], vec![0; 3]],
+            levels: vec![vec![0; 4 * 4 * 8 * 6], vec![0; 3]],
         };
         let error = split_cube_levels(&image, 4, 2).expect_err("level 1 is too short");
         assert!(
             error.contains("level 1"),
             "the message names the level: {error}"
         );
+    }
+
+    #[test]
+    fn legacy_display_probe_decodes_rgb_once_and_keeps_numeric_alpha() {
+        let faces = std::array::from_fn(|_| [128, 64, 255, 128].repeat(16));
+        let bytes = ktx2::write_rgba8_cube_with_mips(4, &[faces]).expect("legacy cube");
+        let decoded = read_probe_image(&bytes).expect("legacy decode");
+        let expected = [
+            crate::materials::color::decode_byte(128),
+            crate::materials::color::decode_byte(64),
+            1.0,
+            128.0 / 255.0,
+        ];
+        for pixel in decoded.levels[0].as_chunks::<8>().0 {
+            for (pair, value) in pixel.as_chunks::<2>().0.iter().zip(expected) {
+                let actual = ktx2::f16_bits_to_f32(u16::from_le_bytes(*pair));
+                assert!((actual - value).abs() < 0.0003);
+            }
+        }
+        let payload = payload(4, 1, 1);
+        let mut record = positions(4, 1, vec![[0.0; 3]]);
+        record.record_version = 2;
+        validate_positions_record(&record, &payload).expect("legacy positions");
     }
 
     #[test]

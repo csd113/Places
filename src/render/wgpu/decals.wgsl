@@ -1,13 +1,10 @@
+override display_target: bool = false;
+
 // Decals: the reference's local surface markings, drawn as the last scene pass
 // with a depth bias.
 //
-// The reference's decal program is its shared world vertex stage plus
-// `DECAL_FRAGMENT_SHADER_SRC`: an unlit texture multiply with an alpha cut-out,
-// no fog, no lightmap, no sheen and no reflection. Its decal sheets are plain
-// (raw `Rgba8Unorm`) textures, so the sample is already the display-space value
-// the reference multiplied; this shader keeps that display space for the raw
-// scene target, and only the surface-facing entry point converts with
-// `srgb_to_linear`, exactly like `world.wgsl`.
+// sRGB sheets decode at sampling and multiply linear vertex factors.
+// Straight alpha stays numeric; HDR targets retain the linear product.
 
 struct Camera {
     // Clip-space view-projection; wgpu depth range (z in [0, 1]).
@@ -69,14 +66,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
 }
 
 // The IEC 61966-2-1 transfer functions, the same two `world.wgsl` carries.
-// Only `srgb_to_linear` runs here, on the finished product: an sRGB texel
-// format would pre-decode the sheet and change the reference's multiply.
-fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
-    let low = c * 12.92;
-    let high = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
-    return select(high, low, c <= vec3<f32>(0.0031308));
-}
-
+// Decode authored fog/storm display colours before linear mixing.
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     let low = c / 12.92;
     let high = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
@@ -100,8 +90,8 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     let alpha = base.a * in.color.a;
-    // One conversion, on the display-space product.
-    return vec4<f32>(srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
+    // Base RGB is already linear; numeric alpha stays unchanged.
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
 }
 
 // The same fragment for a raw (non-sRGB) scene or reflection target: the
@@ -113,7 +103,7 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     let alpha = base.a * in.color.a;
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
 }
 
 // A soft-edged decal (a path-to-grass feather strip): the same texture
@@ -127,8 +117,8 @@ fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
     if (alpha == 0.0) {
         discard;
     }
-    // One conversion, on the display-space product.
-    return vec4<f32>(srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
+    // Base RGB is already linear; numeric alpha stays unchanged.
+    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
 }
 
 // The blended fragment for a raw (non-sRGB) scene target.
@@ -139,12 +129,21 @@ fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
     if (alpha == 0.0) {
         discard;
     }
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)), alpha);
 }
 
 // Read weather directly from uniform storage. Passing the complete shelter
 // array by value makes Metal copy it into thread-private memory per fragment.
 fn storm_density() -> f32 { return camera.storm.color_density.a; }
-fn storm_color() -> vec3<f32> { return camera.storm.color_density.rgb; }
+fn storm_color() -> vec3<f32> { return srgb_to_linear(camera.storm.color_density.rgb); }
 fn storm_count() -> u32 { return camera.storm.count.x; }
 fn storm_shelter(index: u32) -> StormShelter { return camera.storm.shelters[index]; }
+
+fn target_color(color: vec3<f32>) -> vec3<f32> {
+    if (display_target) { return linear_to_srgb(color); }
+    return color;
+}
+
+fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
+    return select(1.055 * pow(max(color, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3<f32>(0.0031308));
+}

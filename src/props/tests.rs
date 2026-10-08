@@ -361,6 +361,7 @@ fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
             })
             .collect(),
         submeshes: vec![PropSubmesh {
+            response: crate::materials::MaterialResponse::NONE,
             alpha: crate::materials::MaterialAlpha::OPAQUE,
             material: 0,
             texture: (!textures.is_empty()).then_some(0u16),

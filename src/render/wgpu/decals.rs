@@ -97,10 +97,8 @@ const BLEND_DECAL_STATE: wgpu::BlendState = wgpu::BlendState {
 
 /// The format every decal sheet uploads as.
 ///
-/// Raw display space, exactly like the reference's plain `GL_RGBA` decal sheets
-/// and every other texture: the fragment multiplies the raw authored bytes and
-/// writes display-space targets directly, converting only for the sRGB surface.
-pub const DECAL_SHEET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Authored sRGB colour; sampling decodes RGB before linear shading.
+pub const DECAL_SHEET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
 /// Maps the reference's `glPolygonOffset(factor, units)` onto wgpu's depth bias.
 ///
@@ -364,7 +362,10 @@ fn build_decal_pipeline(
                 (true, true) => DECAL_BLEND_ENTRY,
                 (true, false) => DECAL_BLEND_ENTRY_RAW,
             }),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants: &super::surface::color_target_constants(format),
+                ..Default::default()
+            },
             targets: &[Some(wgpu::ColorTargetState {
                 format,
                 // Cut-out decals are opaque-with-discard: the reference never
@@ -1004,82 +1005,14 @@ fn write_mip(queue: &wgpu::Queue, texture: &wgpu::Texture, level: u32, image: &R
 ///
 /// Deterministic and display-space: the raw 8-bit channels are averaged without
 /// a gamma conversion, which is what the reference's `glGenerateMipmap` did to
-/// its non-sRGB decal sheet. Odd dimensions follow the same clamped block
-/// bounds `texture.rs` uses.
+/// its decal sheet. Colour uses coverage-weighted linear-light averaging,
+/// including all pixels at odd edges.
 fn halve(source: &RawImage) -> RawImage {
-    let width = (source.width / 2).max(1);
-    let height = (source.height / 2).max(1);
-    let Some(length) = buffer_len(width, height) else {
-        return RawImage::new(1, 1, vec![255, 255, 255, 255]);
-    };
-    let mut rgba = vec![0u8; length];
-    for out_y in 0..height {
-        let y0 = out_y.saturating_mul(2);
-        let y1 = y0.saturating_add(2).min(source.height.max(1));
-        for out_x in 0..width {
-            let x0 = out_x.saturating_mul(2);
-            let x1 = x0.saturating_add(2).min(source.width.max(1));
-            let mut sums = [0u32; 4];
-            let mut count = 0u32;
-            for y in y0..y1 {
-                for x in x0..x1 {
-                    let Some(texel) = texel(source, x, y) else {
-                        continue;
-                    };
-                    for (sum, channel) in sums.iter_mut().zip(texel) {
-                        *sum = sum.saturating_add(u32::from(channel));
-                    }
-                    count = count.saturating_add(1);
-                }
-            }
-            if count == 0 {
-                continue;
-            }
-            let Some(offset) = texel_offset(out_x, out_y, width) else {
-                continue;
-            };
-            for (index, sum) in sums.iter().enumerate() {
-                let rounded = sum
-                    .saturating_add(count / 2)
-                    .checked_div(count)
-                    .unwrap_or(0)
-                    .min(u32::from(u8::MAX));
-                let value = u8::try_from(rounded).unwrap_or(u8::MAX);
-                if let Some(slot) = rgba.get_mut(offset.saturating_add(index)) {
-                    *slot = value;
-                }
-            }
-        }
-    }
-    RawImage::new(width, height, rgba)
-}
-
-/// Byte length of an RGBA8 buffer, or `None` on overflow.
-fn buffer_len(width: u32, height: u32) -> Option<usize> {
-    usize::try_from(width)
-        .ok()?
-        .checked_mul(usize::try_from(height).ok()?)?
-        .checked_mul(std::mem::size_of::<u32>())
-}
-
-/// Byte offset of texel `(x, y)` in a tightly packed RGBA8 buffer.
-fn texel_offset(x: u32, y: u32, width: u32) -> Option<usize> {
-    let row = usize::try_from(y)
-        .ok()?
-        .checked_mul(usize::try_from(width).ok()?)?
-        .checked_mul(std::mem::size_of::<u32>())?;
-    let column = usize::try_from(x)
-        .ok()?
-        .checked_mul(std::mem::size_of::<u32>())?;
-    row.checked_add(column)
-}
-
-/// The four channels of one texel, or `None` outside the image.
-fn texel(source: &RawImage, x: u32, y: u32) -> Option<[u8; 4]> {
-    let offset = texel_offset(x, y, source.width)?;
-    let end = offset.checked_add(std::mem::size_of::<u32>())?;
-    let slice = source.rgba.get(offset..end)?;
-    <[u8; 4]>::try_from(slice).ok()
+    crate::materials::color::resize_color(
+        source,
+        (source.width / 2).max(1),
+        (source.height / 2).max(1),
+    )
 }
 
 #[cfg(test)]
@@ -1098,7 +1031,6 @@ mod tests {
     use super::*;
     use crate::render::DECAL_ALPHA_CUTOFF;
     use crate::render::common::decals::{decal_uv_rect, decal_uv_rect_full};
-    use crate::render::common::dequantize_unit;
     use crate::render::common::mesh::{
         LIGHTMAP_NONE, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE, SurfaceKey,
     };
@@ -1236,11 +1168,11 @@ mod tests {
         assert!(DECAL_SHADER_SRC.contains("if (base.a < 0.5)"));
         assert!(!DECAL_SHADER_SRC.contains("if (alpha <"));
         assert!(DECAL_SHADER_SRC.contains("discard"));
-        // The display-space product is converted exactly once, for the sRGB
-        // target.
-        assert!(DECAL_SHADER_SRC.contains(
-            "srgb_to_linear(storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb))"
-        ));
+        // The decoded sheet multiplies a linear vertex factor.
+        assert!(
+            DECAL_SHADER_SRC
+                .contains("storm_fog(camera.position, in.world_position, base.rgb * in.color.rgb)")
+        );
         assert!(DECAL_SHADER_SRC.contains("if (storm_density() == 0.0) { return color; }"));
         assert!((0.0..1.0).contains(&DECAL_ALPHA_CUTOFF));
         // The shader's cut-off and the Rust constant cannot drift apart.
@@ -1258,11 +1190,10 @@ mod tests {
     }
 
     #[test]
-    fn decal_sheets_sample_display_space_bytes_like_the_reference() {
-        // The reference's decal sheets are non-sRGB `GL_RGBA`; an sRGB texel
-        // format would pre-decode the sheet and darken the multiply.
-        assert_eq!(DECAL_SHEET_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
-        assert!(!DECAL_SHEET_FORMAT.is_srgb());
+    fn decal_sheets_decode_authored_srgb_before_linear_shading() {
+        // Data masks stay raw; colour sheets decode before the light product.
+        assert_eq!(DECAL_SHEET_FORMAT, wgpu::TextureFormat::Rgba8UnormSrgb);
+        assert!(DECAL_SHEET_FORMAT.is_srgb());
     }
 
     // -------------------------------------------------------------- sheets
@@ -1380,10 +1311,10 @@ mod tests {
         let gpu = WorldVertex::from(&vertex);
         assert_eq!(gpu.position, [1.5, 2.25, -3.5]);
         assert_eq!(gpu.uv, [0.25, 0.75]);
-        // The shared quantiser and the decal's constant vertex alpha.
-        assert_eq!(gpu.color, [128, 0, 255, 255]);
+        // Floating colour factors and the decal's constant vertex alpha.
+        assert_eq!(gpu.color, [0.5, 0.0, 1.0, 1.0]);
         assert_eq!(gpu.lightmap_page, f32::from(LIGHTMAP_NONE));
-        assert_eq!(dequantize_unit(gpu.color[0]), 128.0 / 255.0);
+        assert_eq!(gpu.color[0], 0.5);
 
         let converted = world_vertices(&[vertex]);
         assert_eq!(converted, vec![gpu]);
@@ -1406,13 +1337,12 @@ mod tests {
         let image = RawImage::new(2, 2, vec![0, 0, 0, 0, 2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6]);
         let half = halve(&image);
         assert_eq!((half.width, half.height), (1, 1));
-        assert_eq!(half.rgba, vec![3, 3, 3, 3]);
+        assert_eq!(half.rgba, vec![5, 5, 5, 3]);
 
-        // An odd source edge follows the same block rule `texture.rs` uses: a
-        // 3x1 image halves to one texel averaging its first two columns.
+        // The odd edge contributes all three columns; RGB is coverage weighted.
         let odd = RawImage::new(3, 1, vec![0, 0, 0, 0, 4, 4, 4, 4, 8, 8, 8, 8]);
         let odd_half = halve(&odd);
         assert_eq!((odd_half.width, odd_half.height), (1, 1));
-        assert_eq!(odd_half.rgba, vec![2, 2, 2, 2]);
+        assert_eq!(odd_half.rgba, vec![7, 7, 7, 4]);
     }
 }

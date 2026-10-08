@@ -7,8 +7,7 @@
 //! batches, and the level's material table.
 //!
 //! Diffuse albedo per surface is the material's authored tint multiplied by the
-//! texture's sampled colour at the triangle's centre, in the renderer's working
-//! display space. A prop vertex already carries its material's `baseColorFactor`
+//! texture's sampled colour at the triangle's centre, in linear light. A prop vertex already carries its material's `baseColorFactor`
 //! in its vertex colour, so a prop triangle's albedo is that colour times its
 //! submesh texture. This is the receiving side of the transport equation: the
 //! albedo modulates what a bounce *emits*, and it is never baked into the stored
@@ -135,6 +134,7 @@ pub fn build_transport_scene(
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EntityLighting {
     pub prepared: Option<crate::lighting::lightmap::LightmapTexel>,
+    /// Legacy field name; values are linear HDR, never encoded display RGB.
     pub display: [f32; 3],
     pub source: EntityLightingSource,
 }
@@ -150,8 +150,7 @@ pub enum EntityLightingSource {
 }
 
 /// Sample at the transformed model-bounds centre, in metres, Y up.
-/// A failed lookup uses the existing authored environment model, bounded to
-/// its display range. No brightness floor is applied to valid baked energy.
+/// A failed lookup uses the existing linear authored environment model. No brightness floor is applied to valid baked energy.
 #[must_use]
 pub fn entity_lighting(
     lighting: &LevelLighting,
@@ -189,13 +188,13 @@ pub fn entity_lighting(
             let light = lighting.sample(p[0], p[1], p[2]);
             [light.r, light.g, light.b].map(|v| {
                 if v.is_finite() {
-                    v.clamp(0.0, 1.0)
+                    v.max(0.0)
                 } else {
                     crate::lighting::AMBIENT_LEVEL
                 }
             })
         },
-        |t| crate::lighting::transport::soft_clip(t.irradiance),
+        |t| t.irradiance,
     );
     EntityLighting {
         prepared,
@@ -204,7 +203,7 @@ pub fn entity_lighting(
     }
 }
 
-/// Isotropic display value used by compatibility tests.
+/// Isotropic linear light used by compatibility tests.
 #[cfg(test)]
 #[must_use]
 pub fn moving_object_light(
@@ -276,7 +275,7 @@ fn append_architecture_triangles(
             ) else {
                 continue;
             };
-            let albedo = triangle_albedo(material, va, vb, vc, None);
+            let albedo = material;
             match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
                 Some(triangle) => {
                     let corners = [va.pos, vb.pos, vc.pos];
@@ -312,9 +311,8 @@ fn append_prop_triangles(
     for batch in batches {
         let first = triangles.len();
         for submesh in &batch.submeshes {
-            // Static batches support MASK; BLEND is an opaque fallback on
-            // this draw route, so it must retain its existing solid behavior.
-            let transmissive = submesh.alpha.mode == AlphaMode::Cutout;
+            // The draw alpha contract also determines whether rays can pass.
+            let transmissive = submesh.alpha.mode != AlphaMode::Opaque;
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
             let count = usize::try_from(submesh.index_count).unwrap_or(usize::MAX);
             let end = start.saturating_add(count);
@@ -445,9 +443,9 @@ fn triangle_albedo(
     texture: Option<&RawImage>,
 ) -> [f32; 3] {
     let mut base = [
-        material_albedo[0] * a.color[0],
-        material_albedo[1] * a.color[1],
-        material_albedo[2] * a.color[2],
+        material_albedo[0] * ((a.color[0] + b.color[0] + c.color[0]) / 3.0),
+        material_albedo[1] * ((a.color[1] + b.color[1] + c.color[1]) / 3.0),
+        material_albedo[2] * ((a.color[2] + b.color[2] + c.color[2]) / 3.0),
     ];
     if let Some(image) = texture {
         let centroid = [
@@ -513,9 +511,9 @@ pub fn mean_texture_color(image: &RawImage) -> [f32; 3] {
             .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
             && a > 0
         {
-            sum[0] += f32::from(r) / 255.0;
-            sum[1] += f32::from(g) / 255.0;
-            sum[2] += f32::from(b) / 255.0;
+            sum[0] += crate::materials::color::decode_byte(r);
+            sum[1] += crate::materials::color::decode_byte(g);
+            sum[2] += crate::materials::color::decode_byte(b);
             count = count.saturating_add(1);
         }
         index = index.saturating_add(stride);
@@ -528,7 +526,7 @@ pub fn mean_texture_color(image: &RawImage) -> [f32; 3] {
     [sum[0] / divisor, sum[1] / divisor, sum[2] / divisor]
 }
 
-/// Nearest-texel sample of one texture, wrapping on both axes.
+/// Nearest-texel sample of a GLB sheet, clamped like the runtime sampler.
 #[must_use]
 pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
     if image.width == 0 || image.height == 0 {
@@ -537,12 +535,12 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
     let width = usize::try_from(image.width).unwrap_or(1).max(1);
     let height = usize::try_from(image.height).unwrap_or(1).max(1);
     let u_coordinate = if uv[0].is_finite() {
-        uv[0].rem_euclid(1.0)
+        uv[0].clamp(0.0, 1.0)
     } else {
         0.0
     };
     let v_coordinate = if uv[1].is_finite() {
-        uv[1].rem_euclid(1.0)
+        uv[1].clamp(0.0, 1.0)
     } else {
         0.0
     };
@@ -579,9 +577,9 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
         .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
     {
         Some([r, g, b, _]) => [
-            f32::from(r) / 255.0,
-            f32::from(g) / 255.0,
-            f32::from(b) / 255.0,
+            crate::materials::color::decode_byte(r),
+            crate::materials::color::decode_byte(g),
+            crate::materials::color::decode_byte(b),
         ],
         _ => [1.0; 3],
     }
@@ -606,6 +604,7 @@ mod tests {
                 model: "alpha-contract".to_owned(),
                 textures: Vec::new(),
                 submeshes: vec![crate::render::PropSubmeshBatch {
+                    response: crate::materials::MaterialResponse::NONE,
                     texture: None,
                     emission: crate::materials::MaterialEmission::NONE,
                     alpha: crate::materials::MaterialAlpha {
@@ -635,13 +634,38 @@ mod tests {
             let scene = TransportScene::new(triangles, Vec::new()).expect("scene");
             assert_eq!(
                 scene.occluded([0.0, 1.0, -1.0], [0.0, 1.0, 1.0]),
-                mode != AlphaMode::Cutout
+                mode == AlphaMode::Opaque
             );
             assert_eq!(
                 scene.probe_is_clear([0.0, 1.0, 0.0]),
-                mode == AlphaMode::Cutout
+                mode != AlphaMode::Opaque
             );
         }
+    }
+
+    #[test]
+    fn architecture_bounce_albedo_excludes_vertex_tint_and_lighting() {
+        let level = pane_level("core:wallpaper_yellow_01");
+        let materials = crate::render::logical_materials(&level);
+        let material = materials
+            .index_of("core:wallpaper_yellow_01")
+            .expect("material");
+        let mut mesh = pane_mesh(material);
+        let expected = material_albedo(&materials, material);
+        for vertex in &mut mesh.ranges.first_mut().expect("one pane").vertices {
+            vertex.color = [0.01, 0.3, 4.0, 1.0];
+        }
+        let mut triangles = Vec::new();
+        append_architecture_triangles(
+            &mesh,
+            &materials,
+            &WaterVolumes::new(),
+            &mut triangles,
+            &mut TransportSceneStats::default(),
+            &mut Vec::new(),
+        );
+        assert_eq!(triangles.len(), 2);
+        assert!(triangles.iter().all(|triangle| triangle.albedo == expected));
     }
 
     #[test]
@@ -649,7 +673,7 @@ mod tests {
         let image = RawImage::new(2, 2, [0, 128, 255, 255].repeat(4));
         let mean = mean_texture_color(&image);
         assert!((mean[0] - 0.0).abs() < 1e-6);
-        assert!((mean[1] - (128.0 / 255.0)).abs() < 1e-6);
+        assert!((mean[1] - crate::materials::color::decode_byte(128)).abs() < 1e-6);
         assert!((mean[2] - 1.0).abs() < 1e-6);
         let sample = sample_texture(&image, [0.75, 0.25]);
         for (actual, expected) in sample.iter().zip(mean.iter()) {
@@ -658,7 +682,7 @@ mod tests {
     }
 
     #[test]
-    fn a_wrapping_sample_stays_inside_the_texture() {
+    fn a_prop_sample_clamps_to_the_runtime_sheet_edges() {
         let image = RawImage::new(
             2,
             2,
@@ -667,7 +691,7 @@ mod tests {
             ],
         );
         let sample = sample_texture(&image, [1.25, -0.25]);
-        assert!(sample.iter().all(|value| (0.0..=1.0).contains(value)));
+        assert_eq!(sample, [0.0, 1.0, 0.0]);
     }
 
     use crate::level::LevelDef;

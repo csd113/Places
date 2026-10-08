@@ -25,24 +25,19 @@
 //! decision too, because a capture must suppress reflection sampling exactly
 //! like the reference's `reflection_capture` flag.
 //!
-//! Colour space: the targets are raw `Rgba8Unorm`, the same convention as the
-//! scene and presented images, so the world fragment stage's display-space
-//! values are captured and sampled back unchanged — exactly what the reference
-//! read from its RGBA8 attachments and cubemaps.
+//! Captures and prefiltered mip chains use linear RGBA16F radiance. They have
+//! no exposure, display curve or sRGB encode, and sampling returns linear HDR.
 
 use crate::quality::ReflectionQuality;
 use crate::render::common::reflections::{ReflectionPlane, mirror_matrix, planar_target_size};
 use crate::render::common::view::{DrawableSize, MAX_REFLECTION_PROBES};
-use crate::render::common::{MAX_PROBE_MIPS, mip_levels_for, prefilter_cube};
+use crate::render::common::{MAX_PROBE_MIPS, mip_levels_for, prefilter_hdr_cube};
 use crate::spatial::{DepthRange, Frustum};
 
 /// The format every reflection target uses.
 ///
-/// Raw (non-sRGB), exactly like the reference's RGBA8 attachments and cubemap:
-/// the capture pipelines write the shader's display-space output directly, so
-/// hardware filtering, mip selection and the sample sites all operate on the
-/// reference's own values, and blending inside a capture behaves as GL did.
-pub const REFLECTION_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+/// Linear HDR capture/storage, shared by cubemaps and planar images.
+pub const REFLECTION_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 /// Cube face edge, in texels, at Reflections Full.
 pub const PROBE_FACE_SIZE_FULL: u32 = 64;
@@ -342,9 +337,9 @@ impl ProbeCube {
         &self.texture
     }
 
-    /// Writes one RGBA8 face into one mip level of the resident cubemap.
+    /// Writes one linear RGBA16F face into one resident cubemap mip.
     ///
-    /// `rgba` must hold exactly `edge * edge * 4` bytes for `edge` the level's
+    /// `rgba` must hold exactly `edge * edge * 8` bytes for `edge` the level's
     /// edge (`face_size >> level`); a shorter buffer, a level past the resident
     /// chain, or a face index past six is ignored rather than letting wgpu
     /// validate the write.
@@ -358,7 +353,7 @@ impl ProbeCube {
         let expected = usize::try_from(level_edge)
             .unwrap_or(usize::MAX)
             .saturating_mul(usize::try_from(level_edge).unwrap_or(usize::MAX))
-            .saturating_mul(4);
+            .saturating_mul(8);
         if face >= 6 || rgba.len() != expected {
             return;
         }
@@ -376,7 +371,7 @@ impl ProbeCube {
             rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(level_edge.saturating_mul(4)),
+                bytes_per_row: Some(level_edge.saturating_mul(8)),
                 rows_per_image: Some(level_edge),
             },
             wgpu::Extent3d {
@@ -439,7 +434,7 @@ impl ProbeFaceReadback {
     ///
     /// Returns an error when the face buffers do not match `face_size`.
     pub fn packaged_mips(&self) -> Result<Vec<[Vec<u8>; 6]>, String> {
-        prefilter_cube(
+        prefilter_hdr_cube(
             self.face_size,
             &self.faces,
             Self::packaged_mip_levels(self.face_size),
@@ -674,7 +669,7 @@ mod tests {
     #[test]
     fn a_packaged_chain_covers_every_packaged_level() {
         let edge = 8;
-        let bytes = usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 4;
+        let bytes = usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 8;
         let faces: [Vec<u8>; 6] = std::array::from_fn(|_| vec![9_u8; bytes]);
         let readback = ProbeFaceReadback {
             position: [0.0, 0.0, 0.0],
@@ -691,7 +686,7 @@ mod tests {
         for mip_faces in &chain {
             for face in mip_faces {
                 let expected_bytes =
-                    usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 4;
+                    usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 8;
                 assert_eq!(face.len(), expected_bytes);
             }
             expected /= 2;
@@ -826,8 +821,8 @@ mod tests {
     }
 
     #[test]
-    fn the_reflection_format_is_raw_display_space() {
-        assert_eq!(REFLECTION_FORMAT, wgpu::TextureFormat::Rgba8Unorm);
+    fn the_reflection_format_preserves_linear_hdr() {
+        assert_eq!(REFLECTION_FORMAT, wgpu::TextureFormat::Rgba16Float);
         assert!(!REFLECTION_FORMAT.is_srgb());
         assert_eq!(REFLECTION_DEPTH_FORMAT, super::super::surface::DEPTH_FORMAT);
     }
@@ -846,7 +841,7 @@ mod tests {
     /// Ignored by default: it needs a real adapter. Run with:
     ///
     /// ```text
-    /// cargo test --all-features --bin places -- --ignored the_cube_round_trip
+    /// cargo test --lib --all-features the_cube_round_trip -- --ignored
     /// ```
     #[test]
     #[ignore = "requires a GPU adapter"]
@@ -881,7 +876,7 @@ mod tests {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: REFLECTION_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
@@ -973,7 +968,7 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
                 module: &fill_shader,
                 entry_point: Some("fs"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+                targets: &[Some(REFLECTION_FORMAT.into())],
             }),
             multiview_mask: None,
             cache: None,

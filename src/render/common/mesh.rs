@@ -129,9 +129,9 @@ impl Vertex {
 /// level, an over-bright hand-authored shade) must stay at the closest legal
 /// value instead of flipping to the opposite end of the range.
 ///
-/// The wgpu world vertex declares `Unorm8x4`, so a surface sees exactly
-/// `byte / 255`.
+/// Legacy byte fixture codec; the production GPU vertex now retains float RGB.
 #[must_use]
+#[cfg(test)]
 pub const fn quantize_unit(value: f32) -> u8 {
     if value.is_nan() {
         // An undefined shade must not become a bright one.

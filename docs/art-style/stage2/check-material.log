@@ -1,0 +1,17 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: associated functions `plain_emissive` and `plain_with_alpha` are never used
+   --> src/render/wgpu/material.rs:964:12
+    |
+956 | impl GpuMaterial {
+    | ---------------- associated functions in this implementation
+...
+964 |     pub fn plain_emissive(
+    |            ^^^^^^^^^^^^^^
+...
+990 |     pub fn plain_with_alpha(
+    |            ^^^^^^^^^^^^^^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: could not compile `places` (lib) due to 1 previous error

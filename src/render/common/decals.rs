@@ -288,14 +288,15 @@ pub fn relight_blend_decals(
             let sample =
                 unit_normal.mul_add(glam::Vec3::splat(probe), glam::Vec3::from(vertex.pos));
             let room = lighting.room_index_at_height(sample.x, sample.y, sample.z);
-            let Some(display) = field.sample_display(sample.to_array(), room) else {
+            let Some(texel) = field.sample(sample.to_array(), room) else {
                 continue;
             };
+            let display = texel.light_at(unit_normal.to_array());
             let tint = super::decal_tint_for_normal(unit_normal.to_array());
             vertex.color = [
-                tint[0].mul_add(display[0], 0.0).clamp(0.0, 1.0),
-                tint[1].mul_add(display[1], 0.0).clamp(0.0, 1.0),
-                tint[2].mul_add(display[2], 0.0).clamp(0.0, 1.0),
+                tint[0].mul_add(display[0], 0.0),
+                tint[1].mul_add(display[1], 0.0),
+                tint[2].mul_add(display[2], 0.0),
                 vertex.color[3],
             ];
         }

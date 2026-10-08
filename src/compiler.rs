@@ -482,7 +482,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
         .iter()
         .any(|variant| !variant.entries.probes.is_empty())
     {
-        required.push("probes-rgba8".to_string());
+        required.push("probes-hdr".to_string());
     }
     let manifest = Manifest {
         package_format: FORMAT_VERSION,
@@ -850,7 +850,7 @@ fn probe_payload(
         let chain = probe.packaged_mips()?;
         cubemaps.push(insert_blob(
             blobs,
-            crate::package::ktx2::write_rgba8_cube_with_mips(face_edge, &chain)?,
+            crate::package::ktx2::write_rgba16f_cube_with_mips(face_edge, &chain)?,
             ".probe.ktx2",
             "probes",
         ));
@@ -969,7 +969,7 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     for probe in &variant.entries.probes {
         for cubemap in &probe.cubemaps {
             let cube_bytes = reader.read_blob(cubemap, crate::package::MAX_ENTRY_BYTES)?;
-            let image = crate::package::ktx2::read_rgba8(&cube_bytes)?;
+            let image = crate::package::world::read_probe_image(&cube_bytes)?;
             if image.faces != 6
                 || image.layers != 0
                 || image.edge != probe.face_edge
@@ -2056,12 +2056,17 @@ mod tests {
         std::array::from_fn(|face| {
             let mut out = Vec::with_capacity(bytes);
             for texel in 0..bytes / 4 {
-                out.extend_from_slice(&[
+                for value in [
                     u8::try_from((texel + face * 13) % 256).unwrap(),
                     u8::try_from((texel * 3 + face) % 256).unwrap(),
                     u8::try_from((texel * 7 + face * 5) % 256).unwrap(),
                     255,
-                ]);
+                ] {
+                    out.extend_from_slice(
+                        &crate::package::ktx2::f32_to_f16_bits(f32::from(value) / 64.0)
+                            .to_le_bytes(),
+                    );
+                }
             }
             out
         })
@@ -2095,18 +2100,18 @@ mod tests {
             record.record_version,
             crate::package::world::PROBE_POSITIONS_VERSION
         );
-        assert_eq!(record.record_version, 2);
+        assert_eq!(record.record_version, 3);
         assert_eq!(record.face_edge, edge);
         assert_eq!(record.levels, levels);
         assert_eq!(record.points, points);
 
         let (cube_bytes, _) = blobs.get(&payload.cubemaps[0]).expect("cube blob");
-        let image = crate::package::ktx2::read_rgba8(cube_bytes).expect("decode");
+        let image = crate::package::ktx2::read_rgba16f(cube_bytes).expect("decode");
         assert_eq!(image.faces, 6);
         assert_eq!(image.layers, 0);
         assert_eq!(image.edge, edge);
         assert_eq!(u32::try_from(image.levels.len()).unwrap(), levels);
-        let base_bytes = usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 4;
+        let base_bytes = usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 8;
         let decoded_base: Vec<Vec<u8>> = image.levels[0]
             .chunks_exact(base_bytes)
             .map(<[u8]>::to_vec)
@@ -2116,7 +2121,7 @@ mod tests {
         for level in &image.levels {
             assert_eq!(
                 level.len(),
-                usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 4 * 6
+                usize::try_from(expected).unwrap() * usize::try_from(expected).unwrap() * 8 * 6
             );
             expected /= 2;
         }

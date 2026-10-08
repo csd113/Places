@@ -156,3 +156,36 @@ passed. The final source check preserves existing rectangular/line emitter
 sampling and soft shadows, and distinguishes the table anchor's authored direct
 coverage from unresolved indirect/sky support. This remains baseline evidence,
 not a lighting improvement.
+
+## 2026-10-08 — Art-style Stage 2: colour that survives the pipeline
+
+[Matched native gallery and material distinctions](../art-style/stage2/README.md) ·
+[Authoring/bake/shading/display contracts](../art-style/stage2/contracts.md) ·
+[Measured costs and validation](../art-style/stage2/handoff.md)
+
+| Original Stage 1 / Stage 2 before | Stage 2 after, matched native High |
+| --- | --- |
+| ![Hero room before colour corrections](../art-style/stage2/before/high/room.png) | ![Hero room after linear colour/HDR corrections](../art-style/stage2/after/sealed-high/room.png) |
+| ![Hall before](../art-style/stage2/before/high/hall.png) | ![Hall after](../art-style/stage2/after/sealed-high/hall.png) |
+
+Pale walls, upholstery, oak and the tiled passage are more legible under the same
+lights and exposure. The warm lamp pool and dark night window remain. Source art,
+models, cameras and map topology are untouched: sRGB textures now decode once,
+bake/material sums retain linear HDR, and presentation owns display conversion.
+Colour mips preserve energy/coverage; normals and scalar/alpha materials follow
+one convention across static and entity mesh routes. Carpet stays matte, and
+plastic, ceramic, paint and cool metal retain restrained existing distinctions.
+
+The six original before images match Stage 1 byte for byte, and independently
+rebuilt Stage 2 galleries match each other. Sofa receiver seams and the ungrounded
+spawned chair remain visible for their owning lighting stages. Fine plastic panel
+noise, single-sample silhouettes and lower-preset upsampling are explicit limits,
+not hidden by asset or exposure corrections. The HDR package and frame targets
+cost more memory; shader/GPU execution time is not inferred from CPU submission.
+
+Original and intermediate native galleries are immutable. Local runnable milestone
+bundles preserve matching binaries, packages, source, camera/settings, assets and
+SDL outside target; Stage 1 replay reproduces its original room. This entry joins
+the existing chronological story for the eventual seven-stage comparison, without
+creating a video or replacing the initial pixels. Verified implementation, remote
+commit and CI links are recorded in [the Stage 2 handoff](../art-style/stage2/handoff.md).

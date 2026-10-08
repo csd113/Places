@@ -735,21 +735,22 @@ normal runtime texture         256x256 native
 
 * The loader reads `pbrMetallicRoughness.baseColorTexture` and
   `baseColorFactor`, `emissiveFactor`, `emissiveTexture`,
-  `KHR_materials_emissive_strength`, `alphaMode` and `alphaCutoff`. It ignores
-  `metallicFactor`, `roughnessFactor`, `normalTexture`, `occlusionTexture`,
-  `metallicRoughnessTexture`, `doubleSided` and samplers.
-* **Props draw opaque unless the material declares `alphaMode: "MASK"`.** A
+  `KHR_materials_emissive_strength`, `alphaMode`, `alphaCutoff`, and scalar
+  `metallicFactor`/`roughnessFactor`. Scalar response is the existing compact
+  sheen model, not a full glTF PBR implementation. Omitted controls preserve
+  the matte legacy response (roughness 1, metal 0). It ignores `normalTexture`,
+  `occlusionTexture`, `metallicRoughnessTexture`, `doubleSided` and samplers.
+* **Props default opaque; `alphaMode: "MASK"` selects cutout.** A
   masked primitive becomes the engine's alpha-tested cutout pass at the
   authored `alphaCutoff` (glTF default 0.5); this is what grass tufts and tree
   leaf cards use. The toolkit writes full opacity into every prop sheet unless
   the builder opts in with `p.set_texture(size, alpha=True)` and
   `p.material(..., alpha_mode="mask")`.
 * **`alphaMode: "BLEND"` is the blended-material contract.** The importer reads
-  it as a real translucent material and only the routes with a translucent
-  pass draw it: skinned characters (a fading sheet-ghost entity) and dynamic
-  objects. The static prop batch pass still draws opaque and cut-out batches
-  only, so a blended model placed as static architecture is a mistake — author
-  it as an entity. A glTF `baseColorFactor` alpha is folded into the vertex
+  it as a real translucent material. Static props, skinned characters and
+  dynamic objects draw it through their translucent passes. Sorting remains per draw family; intersecting transparent
+  families need careful placement. MASK uses the cutout pass on every route.
+  A glTF `baseColorFactor` alpha is folded into the vertex
   colours by the importer, so the blend contract itself carries opacity `1.0`;
   per-instance fade is a runtime component, not an asset property.
 * An emissive material is one slot of a model and lights nothing by itself
@@ -1404,15 +1405,15 @@ why a surface sheet must be square.
 | Animated images | not supported; an APNG would decode as its first frame at best |
 | Grayscale | supported (expanded to RGB with alpha 255) |
 | Indexed/palette | supported (the decoder expands the palette) |
-| Colour space | **no gamma or ICC handling.** No `GL_SRGB` upload, no transfer function, no gamma chunk written or read. Sampled texels are combined in display space. |
+| Colour space | Colour PNG RGB is sRGB; sampled through `Rgba8UnormSrgb`. Normal maps and emission masks are numeric `Rgba8Unorm`. The resource role decides interpretation; PNG gamma/ICC metadata is ignored. Lighting and material arithmetic use linear HDR. |
 | Premultiplied alpha | not used; alpha is treated as straight coverage |
 | Metadata | ignored (non-pixel chunks are not read; the decoder keeps only pixels) |
 
 Authoring consequences:
 
-* Keep values in the display-space range the material system expects; the
-  material tint and baked lighting multiply the texel and there is no gamma
-  step to recover from an over-bright or over-dark authoring pass.
+* Paint albedo and emissive colour in ordinary sRGB. Do not paint a display
+  curve, exposure correction or baked illumination into the source. Material
+  factors, light colours and emission intensity are linear numeric values.
 * RGB is sufficient for any sheet whose material is `opaque`: the decoder
   expands it with alpha 255. RGBA is only needed where alpha is actually read
   (`cutout`, `blend`, decal cut-outs).
@@ -1424,7 +1425,12 @@ Authoring consequences:
 
 ## 17. Texture filtering and wrapping
 
-Filtering and wrapping are chosen by the **texture's role**, not by the asset:
+Filtering and wrapping are chosen by the **texture's role**, not by the asset.
+Colour fitting and mip generation average decoded linear RGB with alpha-weighted
+coverage, then store sRGB bytes; numeric maps use raw channel averages. Colour
+odd-edge reductions include every source texel. Alpha remains straight coverage.
+Texture-size budgets and the independent Texture Filtering setting do not
+change when Lightmaps is changed:
 
 | Role | Wrap | Mipmaps | Filtering |
 |---|---|---|---|
@@ -1436,7 +1442,7 @@ Filtering and wrapping are chosen by the **texture's role**, not by the asset:
 | White fallback sheet (`core:tex_white_01`) | `CLAMP_TO_EDGE` | no | nearest |
 | HUD font atlas | `CLAMP_TO_EDGE` | no | nearest |
 | Lightmap atlas page | `CLAMP_TO_EDGE` | no | linear |
-| Reflection probe cubemap | `CLAMP_TO_EDGE` | no | linear |
+| Reflection probe cubemap | `CLAMP_TO_EDGE` | prepared roughness mip chain | linear + explicit roughness LOD |
 
 Consequences for artists:
 
@@ -1458,31 +1464,39 @@ Consequences for artists:
 
 ## 18. Material tinting and baked lighting
 
-The default surface shading is a multiply chain in display space:
+The world shader accumulates linear HDR:
 
 ```
-lit = texture.rgb × vertex_color.rgb × light
-vertex_color = material tint × face shade
+linear_albedo = srgb_decode(texture.rgb) × vertex_color.rgb
+linear_scene = linear_albedo × linear_light + sheen + reflection + emission
 ```
 
-* `light` is the baked lightmap texel (or the vertex-lit fallback).
-* The **bake never samples the albedo**; it stores lighting only. The albedo
-  is multiplied in at draw time.
-* Emission is **added**, not multiplied into the bake:
-  `color = lit + sheen + reflection + emission`.
+* Atlas vertices carry linear material tint and the legacy architectural face
+  shade. Vertex-lit vertices additionally carry their linear lighting without
+  byte quantization. Atlas/probe irradiance remains linear HDR until shading.
+* The transport solver samples **linear albedo reflectance** for diffuse
+  bounces. Architectural reflectance is tint times mean decoded texture; it
+  excludes baked lighting and the artistic face shade. Model reflectance uses
+  the primitive's linear base factor times its clamped sheet sample. Stored
+  lightmap/probe irradiance excludes the receiving surface's albedo.
+* Material emission is additive linear radiance: sRGB emissive colour sheets
+  decode at sampling, RGB masks are numeric, and intensity multiplies before
+  accumulation. Emission does not create a light; author a light separately.
+* Scene, emission, blur and reflection resources use `Rgba16Float`. Presentation
+  owns exposure (currently the existing quality defaults), shoulder and sRGB
+  encoding. No presentation curve is baked into illumination or texture data.
+* Paint texture colour once. Where tint is authored, a pale neutral source
+  remains useful; no tint leaves the full source colour. Do not compensate for
+  the renderer with brighter assets or per-model light multipliers.
 
-Authoring consequences:
-
-* Where a material authors a tint, paint the source **pale and near-neutral**
-  so `texture × tint × light` lands in range. The office wallpaper, panels and
-  ceiling are authored this way.
-* Where a material authors no tint, the source carries the full colour (the
-  carpet is the reference case).
-* Because there is no gamma handling, do not compensate for an sRGB workflow
-  when painting; author the values as they should appear.
-* A surface's brightness in a dark room comes from the lightmap, not from
-  baking light into the albedo. Do not paint illumination into a surface
-  texture; the same sheet is reused in differently lit rooms.
+Low-poly mesh normal conventions: absent NORMAL means a flat geometric normal
+per triangle, including the vertex-lit fallback. Explicit normals preserve the
+asset's smooth/hard-edge choices. Normals use inverse-transpose transforms;
+tangents use the ordinary transform and are orthogonalized against the normal.
+Mirrored UVs carry handedness. Architectural normal maps use numeric tangent
+space with the source UV frame. glTF normal-map textures are not yet imported.
+See [the Stage 2 contract](art-style/stage2/contracts.md) for storage versions,
+legacy behavior, sampling details and precise remaining limits.
 
 ---
 

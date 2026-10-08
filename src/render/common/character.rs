@@ -2107,6 +2107,42 @@ impl CharacterAnimator {
         }
     }
 
+    /// Transform an authored normal with the same weighted pose as positions.
+    /// The inverse transpose of the blended linear transform preserves its
+    /// orthogonality under joint rotation and non-uniform scale.
+    #[must_use]
+    pub fn skin_normal(&self, joints: [u16; 4], weights: [f32; 4], normal: [f32; 3]) -> [f32; 3] {
+        let mut blended = Mat4::ZERO;
+        let mut total = 0.0_f32;
+        for (slot, weight) in joints.iter().zip(weights.iter()) {
+            if *weight > 0.0
+                && let Some(delta) = self.deltas.get(usize::from(*slot))
+            {
+                // Matrix products are finite floating-point pose arithmetic.
+                #[expect(
+                    clippy::arithmetic_side_effects,
+                    reason = "glam matrix arithmetic has no integer overflow or panic path"
+                )]
+                {
+                    blended += *delta * *weight;
+                }
+                total += *weight;
+            }
+        }
+        if total <= 0.0 {
+            return normal;
+        }
+        if blended.determinant().abs() <= 1.0e-12 {
+            return [0.0; 3];
+        }
+        blended
+            .inverse()
+            .transpose()
+            .transform_vector3(Vec3::from_array(normal))
+            .normalize_or_zero()
+            .to_array()
+    }
+
     /// Buffer capacities, for the no-allocation regression test.
     #[must_use]
     pub const fn allocation_probe(&self) -> [usize; 5] {
@@ -2839,6 +2875,24 @@ mod tests {
 
     fn snapshot(state: LocomotionState, speed: f32) -> LocomotionSnapshot {
         LocomotionSnapshot { state, speed }
+    }
+
+    #[test]
+    fn skinned_normals_follow_the_inverse_transpose_of_the_weighted_pose() {
+        let model = rigged_model(Vec::new());
+        let mut animator = CharacterAnimator::new(&model).unwrap();
+        let transform = Mat4::from_rotation_y(0.7) * Mat4::from_scale(Vec3::new(2.0, 0.5, 1.5));
+        animator.deltas = vec![transform];
+        let normal = Vec3::new(1.0, 1.0, 0.0).normalize();
+        let tangent = Vec3::new(1.0, -1.0, 0.0).normalize();
+        let posed =
+            Vec3::from_array(animator.skin_normal([0; 4], [0.5, 0.5, 0.0, 0.0], normal.to_array()));
+        assert!(posed.dot(transform.transform_vector3(tangent)).abs() < 1.0e-6);
+        animator.deltas = vec![Mat4::ZERO];
+        assert_eq!(
+            animator.skin_normal([0; 4], [1.0, 0.0, 0.0, 0.0], normal.to_array()),
+            [0.0; 3]
+        );
     }
 
     #[test]

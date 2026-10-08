@@ -130,13 +130,34 @@ If the offscreen targets cannot be created (a first frame, or a failed target), 
 
 ## 3. Colour space
 
-The shipped pipeline has no gamma handling of its own. Every texture uploads as raw `Rgba8Unorm`, sampling returns the authored display-space values, and the world, decal and UI shaders assemble in that same display space. The single conversion is the sRGB surface: the sRGB entry points apply the IEC 61966-2-1 transfer functions once, at the final copy, so the presented byte equals the value the shader computed.
+The renderer works in linear HDR. Colour PNGs upload as `Rgba8UnormSrgb`;
+hardware decodes RGB before filtering. Normal maps and emission masks upload
+as numeric `Rgba8Unorm`. Alpha is straight coverage and never gamma-converted.
+CPU albedo sampling uses the same IEC sRGB decode. Material tint, glTF base
+factors, vertex colour, light colour and irradiance are linear numeric values.
 
-This is deliberate; the shipped artwork, the material tints and every lighting constant were calibrated together in that space. A shader-only "decode both factors, multiply, re-encode" pair is algebraically an identity and cannot change a single multiply; the place a linear pipeline genuinely differs is where the CPU bake **adds** terms (room baseline + directional pool + bounce fill + doorway blend). Summing those in linear space would darken every fixture pool by roughly 17–28 % on the shipped constants and compress the channel ratios that make the coloured rooms read as coloured. The contract is: everything up to the presented target is display-space, and the sRGB surface performs the one conversion when the surface format is sRGB. A linear-only surface format is warned about and presented without that encode (§1.4).
+The shared world shader multiplies linear albedo by linear light, then adds
+sheen, reflection and emission before linear fog mixing. Scene, emission,
+blur, planar and probe images are `Rgba16Float`; there is no baked or material
+soft clip and no unlit bypass. The CPU vertex fallback retains its historical
+light distribution equations, interpreted as linear factors, and no longer
+clips the uploaded vertex colour to bytes. Prepared irradiance remains HDR.
 
-The world shader has raw and sRGB entry points (`fs_main`/`fs_main_raw`, `fs_cutout`/`fs_cutout_raw`, plus the emissive variants): the raw entry points write the display-space assembly straight to a raw target, the sRGB entry points convert for the surface paths. The unlit bypass keeps a direct sample byte-exact: when the vertex colour is white, the light factor is ≥ 1 and the sheen is zero, the sampled base colour is written unchanged. Alpha never passes through the transfer functions: it is the straight scalar product `texel.a × vertex.a × opacity`.
+Resolve adds bloom and applies the existing exposure and shoulder in linear
+light, then encodes sRGB and applies the existing display grade. The presented
+`Rgba8Unorm` image and HUD hold display values. Copying this image to an sRGB
+surface decodes before the hardware encode, preserving the already encoded
+bytes; raw 8-bit surfaces copy them directly. Identity Low resolve still
+encodes the linear scene. Direct world/decal/sky/effect drawing uses linear
+output on sRGB surfaces and software encoding on raw RGBA8/BGRA8 fallbacks.
+Native screenshot readback copies the presented bytes without another curve.
 
-Clear and background values: raw targets clear to the reference display value `(0.08, 0.08, 0.09)` (`CLEAR_COLOR`); the sRGB surface paths use `CLEAR_COLOR_SRGB`, the linear form of the same value through the same IEC curve, so the presented background is identical. Scene, planar and probe clears all use the raw value.
+Clear colours are the linear decode of authored sRGB `(0.08,0.08,0.09)`.
+Fog/storm display colours decode before linear mixing. Light and material
+numeric factors do not decode. [Stage 2 contracts](art-style/stage2/contracts.md)
+record the full authoring/compiler/bake/runtime/presentation boundary, defaults
+and remaining unsupported cases. Stage 5 owns presentation tuning; Stage 2
+retains its existing constants without screenshot-specific exposure changes.
 
 **The sky pass** is the one optional thing drawn between the clear and the world: a level that declares `sky` gets one fullscreen triangle (`sky.wgsl`) after the colour clear and before any world body draw, sampling an equirectangular 2:1 sheet by view direction (repeat in U, clamp at the poles). It writes no depth and tests depth `Always`, so the world body — a solid ceiling included — always covers it; it is not submitted at all when the level declares no sky, which is what keeps the historical clear as the background. The sky is a separate pipeline per target convention (`SCENE_FORMAT` raw, the surface format sRGB) and is deliberately absent from the reflection and planar captures. Its one contribution to baked lighting is the level's `sky.ambient`, resolved in the transport solve rather than in this pass.
 
@@ -179,20 +200,20 @@ The world build asks for the atlas build (`LightmapMode::On`) or the vertex-lit 
 
 The renderer-neutral `Vertex` (72 bytes) carries the full surface description: `pos`, `color` (material factor × baked light in the vertex-lit build, material factor in the atlas build), `uv` (world-space tiling UV from `tiled_uv`), `normal`, `tangent`, `handedness`, `lightmap` (atlas UV in 16-bit fixed point) and `lightmap_page` (byte; `LIGHTMAP_NONE` = 255 when unlightmapped).
 
-`render::wgpu::world::WorldVertex` is `#[repr(C)]` + `bytemuck::Pod`, 64 bytes with explicit tail padding:
+`render::wgpu::world::WorldVertex` is `#[repr(C)]` + `bytemuck::Pod`, 76 bytes with explicit tail padding:
 
 | attribute | location | format | offset |
 |---|---|---|---|
 | position | 0 | `Float32x3` | 0 |
 | normal | 1 | `Float32x3` | 12 |
 | uv | 2 | `Float32x2` | 24 |
-| color | 3 | `Unorm8x4` | 32 |
-| lightmap_uv | 6 | `Unorm16x2` | 36 |
-| lightmap_page | 7 | `Float32` | 40 |
-| tangent | 4 | `Float32x3` | 44 |
-| handedness | 5 | `Float32` | 56 |
+| color | 3 | `Float32x4` | 32 |
+| lightmap_uv | 6 | `Unorm16x2` | 48 |
+| lightmap_page | 7 | `Float32` | 52 |
+| tangent | 4 | `Float32x3` | 56 |
+| handedness | 5 | `Float32` | 68 |
 
-One interleaved vertex buffer, stride 64, step mode `Vertex`. `WORLD_VERTEX_STRIDE` and the `WORLD_ATTRIB_*` constants name the contract, and unit tests pin `size_of`, every `offset_of!` and every attribute. The colour is quantised to a byte through the neutral `quantize_unit`; `lightmap_uv` uploads as `Unorm16x2` so the hardware expands it exactly as a normalised 16-bit attribute; `lightmap_page` is the plain page byte carried as a float (`0`/`1` select a page, `255` is `LIGHTMAP_NONE`). There is no light index or material index on the GPU; a material is a draw-level binding.
+One interleaved vertex buffer, stride 76, step mode `Vertex`. `WORLD_VERTEX_STRIDE` and the `WORLD_ATTRIB_*` constants name the contract, and unit tests pin `size_of`, every `offset_of!` and every attribute. The colour remains linear `Float32x4`, preserving HDR vertex light; `lightmap_uv` uploads as `Unorm16x2` so the hardware expands it exactly as a normalised 16-bit attribute; `lightmap_page` is the plain page byte carried as a float (`0`/`1` select a page, `255` is `LIGHTMAP_NONE`). There is no light index or material index on the GPU; a material is a draw-level binding.
 
 Indices are `IndexFormat::Uint16`. The neutral `MeshPacker` chunks the draw set so an index never exceeds 65 536 vertices; a range larger than one chunk is split and each placement becomes its own draw, so no base-vertex offset is ever needed, there is no conversion to `Uint32`, and therefore no overflow case. The benchmark's indexing/vertex-layout submission switches are accepted and ignored: the renderer always submits indexed 16-bit geometry.
 
@@ -297,7 +318,9 @@ CPU mip chains), then creates and writes GPU textures serially on the caller's
 thread. Matching content, semantic, class and quality reuse resident entries.
 
 
-Both classes upload raw `Rgba8Unorm` (base colour: authored display values sampled raw; normal maps, masks and data: numeric values never gamma-converted) with `TEXTURE_BINDING | COPY_DST`. No compression, no texture arrays, no view formats and no other format is created; every texture is `TextureDimension::D2`, one sample, one array layer. Because both classes upload raw, filtering, blending and mip selection happen in the same display space the shader assembles in; the sRGB surface is the single conversion point.
+Colour uploads use `Rgba8UnormSrgb`; numeric normal maps/masks use
+`Rgba8Unorm`. Both have `TEXTURE_BINDING | COPY_DST`, four bytes per texel,
+one sample and one array layer. Semantic participates in cache identity.
 
 ### 5.3 Upload, mips and samplers
 
@@ -316,7 +339,11 @@ queue.write_texture(
 
 `Queue::write_texture` stages the copy internally and does **not** require the 256-byte row alignment that `CommandEncoder::copy_buffer_to_texture` imposes, so no padding is applied and none is needed. One texture allocation per entry; every mip level is written before the texture is used. `row_bytes(width) = width * 4` for RGBA8; tests pin the 96x64 diagnostic's 384-byte rows (not 256-aligned) as the case that proves no padding assumption slipped in. Uploaded dimensions are exactly the fitted image's dimensions; nothing is forced square or power-of-two, and the fallback's 2x2 sheet is a one-level upload.
 
-Mip policy: `mip_level_count = floor(log2(max(width, height))) + 1`, stopping at 1x1 (1024x1024 → 11 levels, 2x2 → 2, 1x1 → 1, 96x64 → 7, 3x3 → 2). The fallback sheet is the one deliberate exception: exactly one level. No level is ever allocated and left uninitialized: `GpuTexture::upload` writes level 0 and each successive level in the same call, and `TextureMeta` records the allocated count and the resident bytes. CPU mip generation is deterministic and display-space: `halve_image` averages blocks of up to 2x2 source texels rounding to nearest, the output extent floors (`max(1, edge / 2)`) so an odd edge's final unpaired row/column is dropped (3x3 → 1x1 averages the top-left 2x2 block, not all nine texels; a constant image stays constant), alpha is averaged the same way and preserved, and no gamma conversion is applied — a deliberate parity choice, not a claim about ideal filtering. Unit tests cover exact 2x2 averages, odd edges, 1x1 idempotence, constant chains, non-square/odd dimensions and the resident byte count. The measured driver-filter consequence is in §15.
+Mip policy: `mip_level_count = floor(log2(max(width, height))) + 1`, stopping at 1x1 (1024x1024 → 11 levels, 2x2 → 2, 1x1 → 1, 96x64 → 7, 3x3 → 2). The fallback sheet is the one deliberate exception: exactly one level. No level is ever allocated and left uninitialized: `GpuTexture::upload` writes level 0 and each successive level in the same call, and `TextureMeta` records the allocated count and the resident bytes. CPU colour fitting/mips deterministically decode RGB, average linear energy
+weighted by alpha, average coverage separately and encode back to sRGB storage.
+Odd-edge colour reductions include all source rows/columns. Numeric data keeps
+the raw channel box filter. Tests pin black/white averaging to 188 for colour
+and 128 for data, hidden transparent RGB isolation, dimensions and bytes.
 
 Nine shared samplers are created once with the device; every field is set explicitly (`compare` is always `None`, `lod_min_clamp` 0, `lod_max_clamp` 32 so the chain is never cut short). The six world policies all filter `Linear`/`Linear`/`Linear` — every level of the player's **Texture Filtering** setting is trilinear, no level disables mips and none falls back to point sampling — and differ only in the requested anisotropy (Low 4x, Medium 8x, High 16x):
 
@@ -334,7 +361,7 @@ Places bakes tiling into the vertex UV (`tiled_uv` divides world coordinates by 
 
 ### 5.4 Fallback, bind groups and diagnostics
 
-The fallback is the committed `assets/core/textures/white_01.png`. The wgpu module embeds its own copy of the bytes (a backend may not import its sibling) and `src/render/tests.rs` pins the two to identical pixels. It is decoded with the normal decoder, uploaded as a raw `Rgba8Unorm` texture with exactly one mip level, and bound with the clamped nearest sampler; a corrupted install degrades to a generated 2x2 white fill, never a failed start. It is a dedicated resource, not a cache entry, used for an architectural draw whose material key is `MATERIAL_NONE`, a material index outside the resolved table, and the fixture luminous faces, material-less housings and prop-fallback boxes that reach the world pass.
+The fallback is the committed `assets/core/textures/white_01.png`. The wgpu module embeds its own copy of the bytes (a backend may not import its sibling) and `src/render/tests.rs` pins the two to identical pixels. It is decoded with the normal decoder, uploaded as an `Rgba8UnormSrgb` texture with exactly one mip level, and bound with the clamped nearest sampler; a corrupted install degrades to a generated 2x2 white fill, never a failed start. It is a dedicated resource, not a cache entry, used for an architectural draw whose material key is `MATERIAL_NONE`, a material index outside the resolved table, and the fixture luminous faces, material-less housings and prop-fallback boxes that reach the world pass.
 
 A material whose *authored* texture is missing or fails to decode is a different case: the engine's resolver degrades the whole material to the 64x64 magenta/black diagnostic texture (`core:tex_missing`) and logs the error. The cache uploads that diagnostic like any other texture, and the load-time line reports those draws in its `missing` count so a broken asset is visible, not silent. The white fallback and the magenta diagnostic stay distinct.
 
@@ -347,7 +374,7 @@ One diagnostic line per level load (never per frame):
 0 missing of 105 draws (145402504 bytes resident, max edge 1024px, high filtering)
 ```
 
-`unique` counts distinct base textures the draw set uses, `uploaded` the GPU uploads this load performed, `cache hits` the lookups answered without uploading, `fallbacks` the draws sampling the fallback sheet and `missing` the draws sampling the diagnostic pattern. `RenderStats::texture_binds` reports the frame's texture bind-group changes. Known limitations, all understood: the fallback is a solid colour so its clamp/nearest policy is unobservable; a non-sRGB surface format would skip the final encode (§1.4); extreme minification differs by the class in §15.
+`unique` counts distinct base textures the draw set uses, `uploaded` the GPU uploads this load performed, `cache hits` the lookups answered without uploading, `fallbacks` the draws sampling the fallback sheet and `missing` the draws sampling the diagnostic pattern. `RenderStats::texture_binds` reports the frame's texture bind-group changes. Known limitations, all understood: the fallback is a solid colour so its clamp/nearest policy is unobservable; raw 8-bit surfaces use the software encoding/copy path (§3); extreme minification differs by the class in §15.
 
 ## 6. Materials and the surface response
 
@@ -618,8 +645,8 @@ planar merger to join them across doorway subtraction cuts. Invisible wall
 texels cannot darken the ceiling edge, and doorway cuts do not create
 unnecessary chart boundaries across the room.
 
-Probes for the `off` variant and the fallback remain the historical
-display-space model; see §7.3.
+The `off` variant and fallback retain the historical distribution equations
+as linear numeric lighting factors; see §7.3.
 
 ### 7.1.2 Irradiance field for moving objects
 
@@ -630,32 +657,12 @@ compiler solves it from the same transport pass as the atlas. Moving objects
 and characters read it at runtime
 with a trilinear interpolation restricted to the sample's own room, so light
 does not bleed through floors, ceilings or full-height walls; an unresolvable
-position falls back to the vertex-lit sample instead of going black. The GPU
-receives the sampled display value through the per-object `light_scale`
-uniform — no per-frame bake and no ray is cast at runtime.
-
-The resolution rule (`moving_object_light`, shared by the character and
-dynamic-object paths) is:
-
-* A position in **no room** has no prepared probe of its own — every probe is
-  labelled with the room it occupies — so it reads the vertex-lit environment
-  sample: the ambient floor plus the fixture pools it is inside. A roomless
-  object therefore never reads a neighbouring room's probe through the gap
-  between the rooms, which the raw field would otherwise allow because a
-  roomless sample cannot filter by room.
-* A position the field **cannot resolve** falls back to that same vertex-lit
-  sample.
-* A **resolved** position takes the prepared field, floored per channel at the
-  room's own authored baseline (`LevelLighting::baseline_in_room`). The
-  prepared solve deliberately carries no global `0.10` ambient floor, and its
-  baseline fill is gated by the local emitter support (§7.1.1), so between two
-  fixtures a room's field can be far below the environment the level was
-  authored with — the shipped night route's entities measured 0-5/255 where
-  the same objects are 39-45/255 under the vertex-lit preset. The floor is a
-  floor, not an addition: the field's fixture light still wins wherever it is
-  brighter, a lit pool is never double counted, and the object stays
-  environment-dependent. With no prepared field (the `off` variant) the rule
-  is exactly the historical vertex-lit sample, so Low's look is unchanged.
+position falls back to the vertex-lit sample instead of going black. The GPU receives the sampled HDR irradiance and direction moment through the
+per-object environment, reconstructing light at the material's world normal.
+Sampling is at the transformed model-bounds centre. Invalid, roomless or
+unresolved queries use the historical authored linear fallback; a valid dark
+probe has no ambient floor or per-model brightness correction. Stage 4 owns
+probe coverage, contact and major entity transport improvements.
 
 ### 7.1.3 Changeable lights
 
@@ -753,7 +760,8 @@ A `LightSource` is a shape (`Point`, `Rect`, `Line` — a line is a thin rect), 
 
 ### 7.3 The vertex-lit equation (preserved `off` variant and fallback)
 
-This is the historical display-space model. It is still the exact contract of
+These are the historical distribution equations, interpreted as linear numeric
+light factors. They remain the contract of
 the `off` variant and of every build that falls back after a plan/fill failure,
 and its unit tests remain the vertex-lit parity gate. The prepared HDR atlas
 does **not** use it.
@@ -952,7 +960,7 @@ The backend (`src/render/wgpu/effects.rs`) allocates **one vertex/index buffer p
 
 **Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`src/render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`src/render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
 
-A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into the fragment alpha and the emissive term — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` rewrites a character's environment only when its transform **or** its opacity changed, so a still, settled character writes nothing while a fading one rewrites one uniform. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in a second, sorted back-to-front character pass after the blended dynamic primitives, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh keeps the historical opaque treatment, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
+A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into the fragment alpha and the emissive term — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync` rewrites a character's environment only when its transform **or** its opacity changed, so a still, settled character writes nothing while a fading one rewrites one uniform. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in a second, sorted back-to-front character pass after the blended dynamic primitives, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh uses the same cutout pipeline as static and movable content, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
 
 Up to `MAX_CHARACTERS` (128) characters are drawn per level. Each owns one CPU-skinned vertex buffer and one group-3 environment, both sized by its own model's bounded vertex count, so the budget is a per-frame skinning bound rather than one fixed GPU allocation; a level that places more keeps the extras in the static prop batch in their bind pose and reports the budget.
 
@@ -996,7 +1004,7 @@ Both constants are defined once in `src/render/common/decals.rs` and applied in 
 
 On top of the global term a level may author up to 16 **regional fog volumes** (`fog_regions`, `src/render/common/atmosphere.rs`). The group-3 uniform carries a count word and a fixed `array<FogRegion, 16>` (64 bytes per entry: box minimum + horizontal falloff, box maximum + fade-to-zero height, mix colour + density, ground-layer base); the fragment loop is bounded by the count and evaluates each region from the **fragment's** world position, never from camera membership. A region contributes `density * horizontal_edge * vertical_layer`; the greatest contribution wins (ties keep the lowest authoring index), the global density is added to the winner and the winner's colour is mixed towards. Densities never sum. The count is a uniform value, so the quality preset (Low 2 / Medium 8 / High 16) changes only the uploaded prefix — switching presets recovers the dropped regions with no rebuild. A level with no regions packs a zero count and a zeroed array: the global path is bit-identical to the historical one.
 
-**Bloom and resolve.** The scene is drawn into an offscreen colour+depth target and resolved into the display image by one fullscreen pass. Bloom is drawn from the world's **emissive term alone** — never from brightness — so a brightly lit wall cannot glow. The emissive pass shares the scene's depth (an emissive draw that did not survive produces no pass), followed by a quarter-size two-pass 5-tap blur. The resolve adds bloom, exposure, a tone shoulder that leaves everything below 0.75 untouched, and a subtle grade; it is the only place a scene pixel becomes a display pixel. Bloom is a **player setting** (Settings → Graphics → Bloom, plus the `PLACES_NO_BLOOM=1` startup override), not part of the quality level, so `High + Bloom Off` and `Low + Bloom On` are both valid. With Bloom off no emissive or blur pass is submitted and the bloom targets are left allocated but unused; with `Low` plus Bloom off the resolve stage is the identity and presents the scene with the plain copy quad. The resolve and HUD run at the drawable's resolution at every level; the scene target is the level-sized one (§12). The emissive and blur targets remain raw display space.
+**Bloom and resolve.** The scene is drawn into an offscreen colour+depth target and resolved into the display image by one fullscreen pass. Bloom is drawn from the world's **emissive term alone** — never from brightness — so a brightly lit wall cannot glow. The emissive pass shares the scene's depth (an emissive draw that did not survive produces no pass), followed by a quarter-size two-pass 5-tap blur. The resolve adds bloom, exposure, a tone shoulder that leaves everything below 0.75 untouched, and a subtle grade; it is the only place a scene pixel becomes a display pixel. Bloom is a **player setting** (Settings → Graphics → Bloom, plus the `PLACES_NO_BLOOM=1` startup override), not part of the quality level, so `High + Bloom Off` and `Low + Bloom On` are both valid. With Bloom off no emissive or blur pass is submitted and the bloom targets are left allocated but unused; with `Low` plus Bloom off the resolve uses the encoding-only quad. The resolve and HUD run at the drawable's resolution at every level; the scene target is the level-sized one (§12). The emissive and blur targets remain linear HDR.
 
 **HUD.** The renderer-owned UI pass (`ui.wgsl`) draws into the raw presented target over the resolved image, at the drawable's resolution, with depth testing off and straight-alpha blending, so semi-transparent panels blend in display space. The layout is authored against a 480×272 reference canvas and scaled by `UiViewport`; the presented target is copied to the sRGB surface with one encode afterwards.
 
@@ -1196,18 +1204,18 @@ The still-true bounded differences of the current renderer, all measured against
 - **Minified texture sampling.** Flat, near-1:1 surfaces are byte-identical; the residue appears where textures are minified. The deterministic CPU box mip chain rounds half-up; a driver-generated chain rounds implementation-defined. Measured on an isolated capture: truncation mean 0.700 with a −0.38 signed bias, half-up 0.509 with +0.24, half-even 0.419 with +0.09. Half-even fits that one driver more closely, but choosing a rounding rule for every backend from one measurement would not be backend-neutral, so the documented deterministic half-up chain is kept.
 - **High-contrast raster edges.** One-to-six-pixel coverage ties at silhouettes (the largest is a near-horizontal window-frame edge, bounded by the Low upscale). The canonical maximum single-pixel difference of 163 comes from this class.
 - **Bloom halos on emissive faces.** The canonical population above the 8/255 threshold includes soft emissive/bloom brightness-envelope differences at fluorescent panels and pool lights; they are not displaced geometry or missing features.
-- **A non-sRGB surface format** would present without the final encode (§1.4); the verification host selects `Bgra8UnormSrgb`.
+- **Raw 8-bit fallback surfaces** use software world encoding and display-image copying (§3); the verification host selects `Bgra8UnormSrgb`.
 - **The direct-to-surface fallback** blends the UI on the sRGB surface; it is a first-frame/failure path only.
 
 ## 16. Tests and regression coverage
 
 The renderer's contracts are covered by in-crate tests, most of which run without a GPU because they pin CPU-side layouts, mirrors of the shader maths and pipeline state:
 
-- **Geometry:** the 72-byte neutral vertex, the 64-byte `WorldVertex` and every offset, the clip correction (near → 0, far → 1, midpoint → 0.5, `w` preserved, no mirroring), winding direction, culling, depth compare.
+- **Geometry:** the 72-byte neutral vertex, the 76-byte `WorldVertex` and every offset, the clip correction (near → 0, far → 1, midpoint → 0.5, `w` preserved, no mirroring), winding direction, culling, depth compare.
 - **Camera:** the 80-byte uniform layout, the write predicate, the sRGB clear colours against the reference display value.
-- **Textures:** key semantics, exact 2x2 and odd-edge mip averages, 1x1 idempotence, constant chains, resident bytes, sampler policies, wrap selection, the fallback's committed pixels, raw display-space sampling.
-- **Materials:** resolution rules, the 80-byte uniform and its flags, the display-space colour maths against every authored texel byte, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
-- **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. The rework adds: the directional ceiling pool's row profile (brightest beneath the fixture), the scalar-per-channel screen with colour-scaled caps, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the bounded MaxRects allocator and its over-budget rejection, The Pit baking within the four-page budget at both profiles, a distant room leaving a lit room's light unchanged, light-order stability, baseboard/threshold non-participation.
+- **Textures:** key semantics, exact 2x2 and odd-edge mip averages, 1x1 idempotence, constant chains, resident bytes, sampler policies, wrap selection, the fallback's committed pixels, semantic sRGB/data sampling.
+- **Materials:** resolution rules, the 80-byte uniform and its flags, linear color conversions and HDR accumulation, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
+- **Lighting:** the sheen equation (CPU mirror), linear assembly order, absence of pre-presentation clipping, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. The rework adds: the directional ceiling pool's row profile (brightest beneath the fixture), the scalar-per-channel screen with colour-scaled caps, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the bounded MaxRects allocator and its over-budget rejection, The Pit baking within the four-page budget at both profiles, a distant room leaving a lit room's light unchanged, light-order stability, baseboard/threshold non-participation.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
 - **Characters:** the skinning delta maths against a synthetic two-bone rig, bind-pose bounds, joint/weight parsing and malformed-skin rejection, blend-weight convergence, distance-driven walking phase, frame-rate-independent playback at 30/60/144 fps, clip name mapping and LINEAR/STEP sampling, crossfades, orthonormal finite matrices across state switches, and no per-frame reallocation.
 - **Water:** one translucent floor quad per authored volume at its surface height, the volume's opacity in the vertex alpha, no lightmap page, the `blend` material in the sorted translucent pass, and back-to-front ordering shared with the other translucent surfaces.

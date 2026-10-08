@@ -1,0 +1,31 @@
+{
+  "first_and_final_native_images_byte_identical": {
+    "room": true,
+    "window": true,
+    "hall": true,
+    "contact": true,
+    "entities": true,
+    "corner": true
+  },
+  "package_sha256": "b38a022a2762251ab49e475de494791ecf1cae24a30060e0be90edacc85aa1cd",
+  "note": "Independent first and final hero bakes and normal-player builds; fixed Stage1 cameras/settings, unchanged assets/source.",
+  "stage2_before_matches_original_stage1": {
+    "room": true,
+    "window": true,
+    "hall": true,
+    "contact": true,
+    "entities": true,
+    "corner": true
+  },
+  "diagnostic_final_entities_matches_normal": true,
+  "preserved_stage1_snapshot_replay_room_matches_original": true,
+  "counter_corrected_sealed_images_match_prior_final": {
+    "room": true,
+    "window": true,
+    "hall": true,
+    "contact": true,
+    "entities": true,
+    "corner": true
+  },
+  "sealed_diagnostic_final_equals_normal": true
+}

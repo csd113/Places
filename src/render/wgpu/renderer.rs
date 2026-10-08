@@ -21,7 +21,7 @@
 //! it from the shared Places camera with depth testing and indexed draws; the
 //! material path resolves each draw's state, binds normal maps and runs the
 //! opaque, cut-out and translucent passes with their alpha states and depth
-//! ordering, with WGSL assembling display-space material colour and
+//! ordering, with WGSL assembling linear HDR material colour and
 //! preparing the material normal. The surface/device path is independent of
 //! that content.
 //!
@@ -44,7 +44,7 @@ use super::environment::{
 };
 use super::lightmap::{LightmapAtlas, needs_upload_fallback};
 use super::material::{WorldMaterialInputs, WorldMaterials, material_bind_group_layout};
-use super::postprocess::{EMISSIVE_FORMAT, PostProcess, SCENE_FORMAT};
+use super::postprocess::{EMISSIVE_FORMAT, PRESENTED_FORMAT, PostProcess, SCENE_FORMAT};
 use super::props::{PropUpload, WgpuProps};
 use super::reflections::{
     CaptureFrame, ProbeCube, ReflectionTargets, planar_size_for, planar_view_projection,
@@ -1004,15 +1004,9 @@ impl WgpuRenderer {
             self.drawable_size.width,
             self.drawable_size.height
         ));
-        // The world fragment stage assembles display-space colour, converts it
-        // to linear, and relies on an sRGB target encoding it. An adapter that
-        // offers only a linear format would present the linear values raw; that
-        // is a visible colour difference, so it is reported rather than passed
-        // over. (No shipping desktop adapter is known to hit this.)
         if !surface::surface_format_is_srgb(self.config.format) {
             logging::warn(format!(
-                "[wgpu] surface format {:?} is not sRGB; the world shader writes display-space values \
-                 and they will be presented as if linear (the display-space colour contract cannot be honoured)",
+                "[wgpu] surface format {:?} uses encoded display copying; direct raw 8-bit drawing uses software sRGB encoding",
                 self.config.format
             ));
         }
@@ -3421,7 +3415,18 @@ impl WgpuRenderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(CLEAR_COLOR_SRGB),
+                    load: wgpu::LoadOp::Clear(
+                        if super::surface::target_is_raw_display(self.config.format) {
+                            wgpu::Color {
+                                r: 0.08,
+                                g: 0.08,
+                                b: 0.09,
+                                a: 1.0,
+                            }
+                        } else {
+                            CLEAR_COLOR_SRGB
+                        },
+                    ),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -3663,7 +3668,7 @@ impl WgpuRenderer {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         if !ui_vertices.is_empty() {
-            self.ensure_ui_pipeline(SCENE_FORMAT);
+            self.ensure_ui_pipeline(PRESENTED_FORMAT);
             if self.fatal.is_some() {
                 return;
             }
@@ -4182,7 +4187,7 @@ impl WgpuRenderer {
             "frame": {"drawable": [self.drawable_size.width, self.drawable_size.height],
                 "scene_size": self.post.as_ref().and_then(PostProcess::diagnostic_scene_size)
                     .map(|size| [size.width, size.height]),
-                "scene_format": "Rgba8Unorm raw display", "base_color_format": "Rgba8Unorm raw authored display",
+                "scene_format": "Rgba16Float linear HDR", "base_color_format": "Rgba8UnormSrgb decoded to linear",
                 "world_uploaded_selector": self.world_pipeline.as_ref().and_then(WorldPipeline::uploaded_visual_selector),
                 "scene_uploaded_selector": self.scene_pipeline.as_ref().and_then(WorldPipeline::uploaded_visual_selector),
                 "culling": self.culling, "bloom_requested": self.bloom_requested,
@@ -4350,7 +4355,7 @@ impl WgpuRenderer {
             .and_then(PostProcess::presented_view)
             .is_some();
         let format = if post_presented {
-            SCENE_FORMAT
+            PRESENTED_FORMAT
         } else {
             capture_format(pipeline.format())
         };
@@ -4388,7 +4393,7 @@ impl WgpuRenderer {
                 .cloned();
             if let Some(presented_size) = presented {
                 if !self.last_ui.is_empty() {
-                    self.ensure_ui_pipeline(SCENE_FORMAT);
+                    self.ensure_ui_pipeline(PRESENTED_FORMAT);
                     let presented_drawable = self.presented_drawable();
                     if let Some(ui) = self.ui.as_mut() {
                         let ui_vertices = std::mem::take(&mut self.last_ui);
@@ -4735,7 +4740,7 @@ fn upload_probe_chain(
         let expected = usize::try_from(edge)
             .unwrap_or(usize::MAX)
             .saturating_mul(usize::try_from(edge).unwrap_or(usize::MAX))
-            .saturating_mul(4);
+            .saturating_mul(8);
         for (face, data) in faces.iter().enumerate() {
             if data.len() != expected {
                 return Err(format!(
@@ -4769,7 +4774,7 @@ fn read_back_cube_face(
 ) -> Result<Vec<u8>, String> {
     let level_edge = probe_mip_edge(face_size, level)
         .ok_or_else(|| format!("probe has no mip level {level}"))?;
-    let unpadded_bytes_per_row = level_edge.saturating_mul(4);
+    let unpadded_bytes_per_row = level_edge.saturating_mul(8);
     let padded_bytes_per_row = unpadded_bytes_per_row
         .div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
         .saturating_mul(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
@@ -5299,7 +5304,7 @@ mod tests {
         );
         let levels = ProbeFaceReadback::packaged_mip_levels(face_size);
         let mut chain: Vec<[Vec<u8>; 6]> = Vec::new();
-        let mut colours: Vec<[u8; 4]> = Vec::new();
+        let mut colours: Vec<[u8; 8]> = Vec::new();
         for level in 0..levels {
             let edge = probe_mip_edge(face_size, level).expect("a level edge");
             let colour = [
@@ -5308,10 +5313,16 @@ mod tests {
                 200 - u8::try_from(level).unwrap() * 30,
                 255,
             ];
-            colours.push(colour);
+            let encoded_colour: [u8; 8] = colour
+                .into_iter()
+                .flat_map(|v| crate::package::ktx2::f32_to_f16_bits(f32::from(v)).to_le_bytes())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            colours.push(encoded_colour);
             let mut face = Vec::new();
             for _ in 0..edge * edge {
-                face.extend_from_slice(&colour);
+                face.extend_from_slice(&encoded_colour);
             }
             chain.push(std::array::from_fn(|_| face.clone()));
         }
@@ -5333,10 +5344,10 @@ mod tests {
                 .expect("read back");
                 assert_eq!(
                     data.len(),
-                    usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 4
+                    usize::try_from(edge).unwrap() * usize::try_from(edge).unwrap() * 8
                 );
                 assert!(
-                    data.as_chunks::<4>().0.iter().all(|px| px == colour),
+                    data.as_chunks::<8>().0.iter().all(|px| px == colour),
                     "level {level} face {face} must read back its uploaded colour"
                 );
             }

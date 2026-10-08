@@ -61,6 +61,8 @@ class Mesh:
         # Opt in only for existing exports whose saved PBR property order predates
         # the untextured-material writer. This changes serialization, not shading.
         self.texture_first_materials = False
+        self.roughness = 1.0
+        self.metallic = 0.0
         self.positions: list[tuple[float, float, float]] = []
         self.colors: list[tuple[int, int, int]] = []
         self.uvs: list[tuple[float, float]] = []
@@ -587,7 +589,7 @@ class Mesh:
 
     def material(self, name: str, emissive=None, strength: float = 1.0, color=None,
                  alpha_mode: str | None = None, alpha_cutoff: float | None = None,
-                 use_texture: bool = True) -> int:
+                 use_texture: bool = True, roughness: float = 1.0, metallic: float = 0.0) -> int:
         """Registers (or returns) a material slot.
 
         ``emissive`` is an RGB triple in 0..1, ``strength`` the
@@ -607,6 +609,8 @@ class Mesh:
         cutoff = None if mode is None else (0.5 if alpha_cutoff is None else float(alpha_cutoff))
         if cutoff is not None and not 0.0 <= cutoff <= 1.0:
             raise ValueError(f"material {name!r} alpha_cutoff must be in 0..=1")
+        if not 0.0 <= roughness <= 1.0 or not 0.0 <= metallic <= 1.0:
+            raise ValueError("roughness and metallic must be in 0..=1")
         slot = {
             "name": str(name),
             "emissive": None if emissive is None else tuple(float(value) for value in emissive),
@@ -615,6 +619,7 @@ class Mesh:
             "alpha_mode": mode,
             "alpha_cutoff": cutoff,
             "use_texture": bool(use_texture),
+            "roughness": float(roughness), "metallic": float(metallic),
         }
         for index, existing in enumerate(self.materials):
             if existing["name"] == slot["name"]:

@@ -1,3 +1,5 @@
+override display_target: bool = false;
+
 // Night sky: the level's data-driven background, drawn as one fullscreen
 // background pass before the world body.
 //
@@ -8,10 +10,8 @@
 // a light: nothing here contributes illumination, and a solid ceiling always
 // covers it because the world body draws over this pass with depth testing on.
 //
-// Display space is the first-order constraint, exactly like the decal stage:
-// the sheet is a plain non-sRGB texture of authored display values, the raw
-// scene target takes the product directly, and only the sRGB surface entry
-// point converts with `srgb_to_linear`.
+// The sRGB sheet decodes at sampling, and brightness multiplies linear RGB.
+// Storm display colour decodes before mixing into the linear HDR background.
 
 struct Sky {
     // Inverse clip-space view-projection; wgpu depth range (z in [0, 1]).
@@ -75,7 +75,7 @@ fn sky_uv(ndc: vec2<f32>) -> vec2<f32> {
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(srgb_to_linear(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a)), 1.0);
+    return vec4<f32>(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a), 1.0);
 }
 
 // The raw (non-sRGB) scene-target entry point: the authored value written
@@ -83,5 +83,14 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
 @fragment
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
     let base = textureSample(sky_texture, sky_sampler, sky_uv(in.ndc));
-    return vec4<f32>(mix(base.rgb * sky.params.x, sky.storm.rgb, sky.storm.a), 1.0);
+    return vec4<f32>(target_color(mix(base.rgb * sky.params.x, srgb_to_linear(sky.storm.rgb), sky.storm.a)), 1.0);
+}
+
+fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
+    return select(1.055 * pow(max(color, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3<f32>(0.0031308));
+}
+
+fn target_color(color: vec3<f32>) -> vec3<f32> {
+    if (display_target) { return linear_to_srgb(color); }
+    return color;
 }

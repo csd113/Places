@@ -1,0 +1,67 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: this could be a `const fn`
+    --> src/render/wgpu/world.rs:1417:5
+     |
+1417 | /     fn record_object_vertices(&mut self, before_draws: usize, vertices: usize) {
+1418 | |         if self.draw_calls > before_draws {
+1419 | |             self.visible_vertices = self.visible_vertices.saturating_add(vertices);
+1420 | |         }
+1421 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#missing_const_for_fn
+     = note: `-D clippy::missing-const-for-fn` implied by `-D clippy::nursery`
+     = help: to override `-D clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+     |
+1417 |     const fn record_object_vertices(&mut self, before_draws: usize, vertices: usize) {
+     |     +++++
+
+error: could not compile `places` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: items after a test module
+   --> src/package/props.rs:62:1
+    |
+ 62 | mod legacy_tests {
+    | ^^^^^^^^^^^^^^^^
+...
+ 93 | const MAX_MODEL_PATH: u64 = 1024;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 99 | pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+147 | pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+175 | fn read_batch(reader: &mut Reader<'_>, version: u16) -> Result<PropMeshBatch, String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+252 | fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatch, String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+311 | const fn alpha_mode_code(alpha: MaterialAlpha) -> u8 {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 | fn write_optional_slot(writer: &mut Writer, slot: Option<u32>) -> Result<(), String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+344 | fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#items_after_test_module
+    = note: `-D clippy::items-after-test-module` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::items_after_test_module)]`
+    = help: move the items to before the test module was defined
+
+error: useless use of `vec!`
+   --> src/package/world.rs:770:45
+    |
+770 |         let faces = std::array::from_fn(|_| vec![128, 64, 255, 128].repeat(16));
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^ help: you can use an array directly: `[128, 64, 255, 128]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#useless_vec
+    = note: `-D clippy::useless-vec` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::useless_vec)]`
+
+error: could not compile `places` (lib test) due to 3 previous errors

@@ -566,8 +566,8 @@ fn the_tone_map_preserves_the_calibrated_range_and_compresses_highlights() {
 #[test]
 fn the_solver_fingerprint_is_stable_and_distinct_from_the_lighting_model() {
     assert_eq!(
-        SOLVER_REVISION, 11,
-        "chart-consistent reconstruction and directional sources are solver revision 11"
+        SOLVER_REVISION, 12,
+        "chart-consistent reconstruction and directional sources are solver revision 12"
     );
     let first = solver_fingerprint();
     assert_eq!(

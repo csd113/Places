@@ -1,0 +1,460 @@
+{
+  "package_format": 1,
+  "id": "art_style_hero",
+  "name": "Art Style Hero — room, hall and garden",
+  "author": "Places",
+  "created_by": "places-compile 0.8.0",
+  "compiler_fingerprint": "594d1101edb3304e75a0f17112278881b7bfd2f135bc0a9e50a58d2adeebfefd",
+  "lighting_fingerprint": "1a9ba4236e52aa6625aa67bdb8827d1913574fcde77255cd70cc2b8d916cbc3f",
+  "required_capabilities": [
+    "geometry",
+    "props",
+    "lighting",
+    "collision",
+    "navigation",
+    "lightmaps-hdr",
+    "irradiance-probes",
+    "probes-hdr"
+  ],
+  "dependencies": [
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/armchair.glb",
+      "sha256": "67a3ba40ac0aa463cf78da9a2196568618900eaa38a5880c1125001f9bd1521d",
+      "bytes": 83636
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/book_stack.glb",
+      "sha256": "ecd7ca1e98b44c329a4fcb744b1e8c2347a2fb372c2a860314f9743eee5e0b90",
+      "bytes": 45556
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/bookshelf.glb",
+      "sha256": "6ff87c5e35a89d14e7f6d75fb0ccbe94a785ab0f8844e15467aefab2cf98b85a",
+      "bytes": 80748
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/coffee_table.glb",
+      "sha256": "ba72cc5618015e8541ca4343b4cedd20784adaf98661eb02bfba353bf882eeb6",
+      "bytes": 77644
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/crt_tv.glb",
+      "sha256": "598653c413852f290a021bfd3cda30adfbcccd515fa5055e82234cff09f688d1",
+      "bytes": 91380
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/dining_chair.glb",
+      "sha256": "661c64e5deaf96ec13630443eef41ba49af5a6347d79df291786bb76ed28c20e",
+      "bytes": 79196
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/floor_lamp.glb",
+      "sha256": "28cc32163e3d64ac41e7209275fb02b10b2696a9128cbb61048026e92408e1c3",
+      "bytes": 50452
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/mug.glb",
+      "sha256": "5d6cdebcbfe2aad546981fc7f5558e8372ca9b4f9dc49e5853ad90af8ae24632",
+      "bytes": 61088
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/plant_table.glb",
+      "sha256": "b53511d1db0bd1d230c1b537ff99ee4a07b65f43d6e3eb0ac09fb08ca876ed61",
+      "bytes": 27804
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/sofa.glb",
+      "sha256": "9ab95deac810c7482415cc81fb6ffab6796615fd776159f4b0c6796700ee8471",
+      "bytes": 93892
+    },
+    {
+      "kind": "model",
+      "path": "environment/home/props/models/tv_console.glb",
+      "sha256": "fde5b404d834dce5d0332e6c25b5eab10aa87b5f6e6a15d87dfd12c288e35ff1",
+      "bytes": 88424
+    },
+    {
+      "kind": "model",
+      "path": "environment/outdoor/props/models/bush_low.glb",
+      "sha256": "00b4bec4b73ff2ceeda576adb7f90e4d9b42030aedcfeddb9f8178f5808df4c9",
+      "bytes": 69528
+    },
+    {
+      "kind": "model",
+      "path": "environment/outdoor/props/models/fence_two_rail.glb",
+      "sha256": "855df209a6259cec57af96692f4990a8002e735c21fe6f02b14d9f9e2054d879",
+      "bytes": 46100
+    },
+    {
+      "kind": "model",
+      "path": "environment/outdoor/props/models/lamp_stand.glb",
+      "sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+      "bytes": 42872
+    },
+    {
+      "kind": "model",
+      "path": "environment/outdoor/props/models/tree_02.glb",
+      "sha256": "e34552825e5724db460974b323524faa640c1c8e5cf0156c79fad03d658604b5",
+      "bytes": 107492
+    },
+    {
+      "kind": "model",
+      "path": "environment/pool/props/models/pool_table.glb",
+      "sha256": "f1dda462dfa61ae0b0d95a4313f06035e825f095bd0983e32068dce9f91cc81a",
+      "bytes": 23788
+    },
+    {
+      "kind": "texture",
+      "path": "core/textures/glass/glass_clear_01.png",
+      "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+      "bytes": 765441
+    },
+    {
+      "kind": "texture",
+      "path": "core/textures/normals/normal_brushed_01.png",
+      "sha256": "561a3869339fc7f5eb143d842ce7cae585ec1476ad1886b2b84c529d0d95dc4a",
+      "bytes": 1512724
+    },
+    {
+      "kind": "texture",
+      "path": "core/textures/normals/normal_panel_01.png",
+      "sha256": "d26e318babc7aa46b28c5b1893986dc0edbfa0ba00a0088fb5cc5f94a9bb5a86",
+      "bytes": 898836
+    },
+    {
+      "kind": "texture",
+      "path": "core/textures/walls/metal_panel_01.png",
+      "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+      "bytes": 1319516
+    },
+    {
+      "kind": "texture",
+      "path": "core/textures/walls/plastic_panel_01.png",
+      "sha256": "994b0579e467d6927cf0899095add34714c59f0f7b0a49c426bc246024030e57",
+      "bytes": 1830911
+    },
+    {
+      "kind": "texture",
+      "path": "environment/home/textures/ceilings/ceiling_warm_01.png",
+      "sha256": "56949a52b1e5d28226cd015388dab88553391972cb8f5d0165c4e05bf62dde4b",
+      "bytes": 1447919
+    },
+    {
+      "kind": "texture",
+      "path": "environment/home/textures/floors/carpet_cream_01.png",
+      "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+      "bytes": 1709152
+    },
+    {
+      "kind": "texture",
+      "path": "environment/home/textures/floors/hardwood_oak_warm_01.png",
+      "sha256": "87401587e9b81109a636f163582cbeb3509cab3c6b5eb68b98d03efd1ee72f4a",
+      "bytes": 36008
+    },
+    {
+      "kind": "texture",
+      "path": "environment/home/textures/floors/tile_home_01.png",
+      "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+      "bytes": 20411
+    },
+    {
+      "kind": "texture",
+      "path": "environment/home/textures/walls/wall_paint_warm_01.png",
+      "sha256": "7eb3e3d9bc2d7ece33099a4467f04ed1b191951da192290f4559ece64126ba6c",
+      "bytes": 1644246
+    },
+    {
+      "kind": "texture",
+      "path": "environment/office/textures/lights/fluorescent_panel_01.png",
+      "sha256": "55db5b8b8ee11f740f3413ba864f538a1d44a32812d4e7b27e082b3cbc97a358",
+      "bytes": 749982
+    },
+    {
+      "kind": "texture",
+      "path": "environment/outdoor/textures/ground/grass_ground_01.png",
+      "sha256": "41ac64043cd745009cd148a3b2f11fcc39d1c2b2657e6499631621a237dd7340",
+      "bytes": 211963
+    },
+    {
+      "kind": "texture",
+      "path": "environment/outdoor/textures/sky/sky_stars_01.png",
+      "sha256": "eb7e03e373a9bd15ee505750281e699d3c204f35193bfc051100395e501d9075",
+      "bytes": 3540
+    }
+  ],
+  "entries": [
+    {
+      "name": "blobs/0186c3807129e2f888440ead3892cafd63590c1ace06258d6acf04f50c703f4d.lighting",
+      "role": "lighting",
+      "bytes": 33241,
+      "sha256": "0186c3807129e2f888440ead3892cafd63590c1ace06258d6acf04f50c703f4d"
+    },
+    {
+      "name": "blobs/13a027637b8dea59d61ead362ba950a110472241c8a79c2180bc923202351c40.navigation",
+      "role": "navigation",
+      "bytes": 66074,
+      "sha256": "13a027637b8dea59d61ead362ba950a110472241c8a79c2180bc923202351c40"
+    },
+    {
+      "name": "blobs/471bfa8f4760fde02218ec2262d99e953b093be6b1b9f3cd6e8d3450d8c44546.probe.ktx2",
+      "role": "probes",
+      "bytes": 147676,
+      "sha256": "471bfa8f4760fde02218ec2262d99e953b093be6b1b9f3cd6e8d3450d8c44546"
+    },
+    {
+      "name": "blobs/4c2e6a5a52bb7bc9331fe4cf1f276316e597f52cc8f47aaf7d84efbae0790bc1.probes.json",
+      "role": "probes-meta",
+      "bytes": 78,
+      "sha256": "4c2e6a5a52bb7bc9331fe4cf1f276316e597f52cc8f47aaf7d84efbae0790bc1"
+    },
+    {
+      "name": "blobs/51ab751148f5d8ee6b35be5a3a09a23bf7f754c638ebd4ca14203f9b953b178f.props",
+      "role": "props",
+      "bytes": 1131279,
+      "sha256": "51ab751148f5d8ee6b35be5a3a09a23bf7f754c638ebd4ca14203f9b953b178f"
+    },
+    {
+      "name": "blobs/6ada75c5e886ae7e37e3bb45cc89e7f0e2e73509e5fe25e61ba58f3f8f13a3f8.probe.ktx2",
+      "role": "probes",
+      "bytes": 262468,
+      "sha256": "6ada75c5e886ae7e37e3bb45cc89e7f0e2e73509e5fe25e61ba58f3f8f13a3f8"
+    },
+    {
+      "name": "blobs/6d3fd3f5cea33da5b68ea7764a9d5ba41b9d268bc0efb60b08cd666ede1642e9.lighting",
+      "role": "lighting",
+      "bytes": 29638,
+      "sha256": "6d3fd3f5cea33da5b68ea7764a9d5ba41b9d268bc0efb60b08cd666ede1642e9"
+    },
+    {
+      "name": "blobs/7132cd5e6ade287faf3f169ada559ae36a6b8c1a0e03a06c0389275604d89b11.props",
+      "role": "props",
+      "bytes": 1131279,
+      "sha256": "7132cd5e6ade287faf3f169ada559ae36a6b8c1a0e03a06c0389275604d89b11"
+    },
+    {
+      "name": "blobs/733af6d71064bd0684ff0e7bf747ea9b87f5e82d217e1cc5427dc3702911442d.probe.ktx2",
+      "role": "probes",
+      "bytes": 147676,
+      "sha256": "733af6d71064bd0684ff0e7bf747ea9b87f5e82d217e1cc5427dc3702911442d"
+    },
+    {
+      "name": "blobs/77cbd310bfa6c37284f2f0aa3d150c8554365db9ef237555b4546ea82152c2db.irradiance",
+      "role": "irradiance",
+      "bytes": 17858,
+      "sha256": "77cbd310bfa6c37284f2f0aa3d150c8554365db9ef237555b4546ea82152c2db"
+    },
+    {
+      "name": "blobs/7c238d803ac3a9351c7549e10eb1820dbc2600217a52b61a14279319e63fdb79.lightmaps.ktx2",
+      "role": "lightmaps",
+      "bytes": 33554628,
+      "sha256": "7c238d803ac3a9351c7549e10eb1820dbc2600217a52b61a14279319e63fdb79"
+    },
+    {
+      "name": "blobs/8854e7dfdd058445e6a0ef8e70aff0fa47483cf7d84fbb84e25b57c31f62faa1.mesh",
+      "role": "mesh",
+      "bytes": 29512,
+      "sha256": "8854e7dfdd058445e6a0ef8e70aff0fa47483cf7d84fbb84e25b57c31f62faa1"
+    },
+    {
+      "name": "blobs/8be9398fb86ae627f3f70a51836df38a3ff26f40b7a9cb18c383e9a291472c13.lightmaps.ktx2",
+      "role": "lightmaps",
+      "bytes": 33554628,
+      "sha256": "8be9398fb86ae627f3f70a51836df38a3ff26f40b7a9cb18c383e9a291472c13"
+    },
+    {
+      "name": "blobs/933830b2db16539cb4668375a72bbf3949ab50f464481da8fcc852bae33f926c.mesh",
+      "role": "mesh",
+      "bytes": 21070,
+      "sha256": "933830b2db16539cb4668375a72bbf3949ab50f464481da8fcc852bae33f926c"
+    },
+    {
+      "name": "blobs/a07032d25281cf180e1eb76952c99e2fb74c495c6b1a833993cf13efc9ee1281.lightmaps.json",
+      "role": "lightmaps-meta",
+      "bytes": 1189629,
+      "sha256": "a07032d25281cf180e1eb76952c99e2fb74c495c6b1a833993cf13efc9ee1281"
+    },
+    {
+      "name": "blobs/ab1305b2a6a829a344bc810ada8f85391a360248ae29249107d7dfe702c73629.lightmaps.json",
+      "role": "lightmaps-meta",
+      "bytes": 1190004,
+      "sha256": "ab1305b2a6a829a344bc810ada8f85391a360248ae29249107d7dfe702c73629"
+    },
+    {
+      "name": "blobs/b8d01f4adac68105d7f272a103279b7e34710bfc3fb3f4d45d4c6f3dd189b86c.collision",
+      "role": "collision",
+      "bytes": 760,
+      "sha256": "b8d01f4adac68105d7f272a103279b7e34710bfc3fb3f4d45d4c6f3dd189b86c"
+    },
+    {
+      "name": "blobs/caab6c34da5ed6a192bd9fb45a7cbcbad81ec367e47ba727f7076d1f909f9479.probe.ktx2",
+      "role": "probes",
+      "bytes": 147676,
+      "sha256": "caab6c34da5ed6a192bd9fb45a7cbcbad81ec367e47ba727f7076d1f909f9479"
+    },
+    {
+      "name": "blobs/cc77a316778eaa3e665a92df8d24339070edb0a6059cd3d533cabcd750f832aa.mesh",
+      "role": "mesh",
+      "bytes": 21070,
+      "sha256": "cc77a316778eaa3e665a92df8d24339070edb0a6059cd3d533cabcd750f832aa"
+    },
+    {
+      "name": "blobs/df93004b7e8a1ab01963986328a6bc03a388186adcbc0f4ca5f73f1883a46e6f.irradiance",
+      "role": "irradiance",
+      "bytes": 17858,
+      "sha256": "df93004b7e8a1ab01963986328a6bc03a388186adcbc0f4ca5f73f1883a46e6f"
+    },
+    {
+      "name": "blobs/e3c53556bb8144bbc491413eaf802c249a390abf9b57de1a3fa4fe5d0c5ece9c.lighting",
+      "role": "lighting",
+      "bytes": 32053,
+      "sha256": "e3c53556bb8144bbc491413eaf802c249a390abf9b57de1a3fa4fe5d0c5ece9c"
+    },
+    {
+      "name": "blobs/e75d789b6f1f12750d3147ac5f190b777eb7443800bf3ed7e16dec78304e287a.probe.ktx2",
+      "role": "probes",
+      "bytes": 262468,
+      "sha256": "e75d789b6f1f12750d3147ac5f190b777eb7443800bf3ed7e16dec78304e287a"
+    },
+    {
+      "name": "blobs/e8be3cf4e623ab265bff30aa523c4cfaf3bb4c29f5edf8e9c6c778db2aa04ae8.props",
+      "role": "props",
+      "bytes": 1131279,
+      "sha256": "e8be3cf4e623ab265bff30aa523c4cfaf3bb4c29f5edf8e9c6c778db2aa04ae8"
+    },
+    {
+      "name": "blobs/f8ce9d0bdc2d06b103d52a71b60031cc3501545ef9000cbd5867d06746eeccc2.probes.json",
+      "role": "probes-meta",
+      "bytes": 78,
+      "sha256": "f8ce9d0bdc2d06b103d52a71b60031cc3501545ef9000cbd5867d06746eeccc2"
+    },
+    {
+      "name": "blobs/fd99089e437b054370afbf51406f5e9c7b8968458086d0cf00b43a005ebe42e4.probe.ktx2",
+      "role": "probes",
+      "bytes": 262468,
+      "sha256": "fd99089e437b054370afbf51406f5e9c7b8968458086d0cf00b43a005ebe42e4"
+    },
+    {
+      "name": "semantics.json",
+      "role": "semantics",
+      "bytes": 9420,
+      "sha256": "8c4ff65ee3003b129e9880919bc1d4b731ebf46521ba48c8f6814dbba6aeb1b6"
+    }
+  ],
+  "variants": [
+    {
+      "lightmap_quality": "off",
+      "quality_profile": "low",
+      "lightmap_failure": null,
+      "entries": {
+        "mesh": "blobs/8854e7dfdd058445e6a0ef8e70aff0fa47483cf7d84fbb84e25b57c31f62faa1.mesh",
+        "props": "blobs/e8be3cf4e623ab265bff30aa523c4cfaf3bb4c29f5edf8e9c6c778db2aa04ae8.props",
+        "lighting": "blobs/6d3fd3f5cea33da5b68ea7764a9d5ba41b9d268bc0efb60b08cd666ede1642e9.lighting",
+        "collision": "blobs/b8d01f4adac68105d7f272a103279b7e34710bfc3fb3f4d45d4c6f3dd189b86c.collision",
+        "navigation": "blobs/13a027637b8dea59d61ead362ba950a110472241c8a79c2180bc923202351c40.navigation",
+        "lightmaps": null,
+        "lightmaps_meta": null,
+        "irradiance": null,
+        "probes": [
+          {
+            "face_edge": 64,
+            "levels": 7,
+            "count": 1,
+            "cubemaps": [
+              "blobs/e75d789b6f1f12750d3147ac5f190b777eb7443800bf3ed7e16dec78304e287a.probe.ktx2"
+            ],
+            "positions": "blobs/4c2e6a5a52bb7bc9331fe4cf1f276316e597f52cc8f47aaf7d84efbae0790bc1.probes.json"
+          },
+          {
+            "face_edge": 48,
+            "levels": 6,
+            "count": 1,
+            "cubemaps": [
+              "blobs/caab6c34da5ed6a192bd9fb45a7cbcbad81ec367e47ba727f7076d1f909f9479.probe.ktx2"
+            ],
+            "positions": "blobs/f8ce9d0bdc2d06b103d52a71b60031cc3501545ef9000cbd5867d06746eeccc2.probes.json"
+          }
+        ]
+      }
+    },
+    {
+      "lightmap_quality": "medium",
+      "quality_profile": "full",
+      "lightmap_failure": null,
+      "entries": {
+        "mesh": "blobs/933830b2db16539cb4668375a72bbf3949ab50f464481da8fcc852bae33f926c.mesh",
+        "props": "blobs/7132cd5e6ade287faf3f169ada559ae36a6b8c1a0e03a06c0389275604d89b11.props",
+        "lighting": "blobs/e3c53556bb8144bbc491413eaf802c249a390abf9b57de1a3fa4fe5d0c5ece9c.lighting",
+        "collision": "blobs/b8d01f4adac68105d7f272a103279b7e34710bfc3fb3f4d45d4c6f3dd189b86c.collision",
+        "navigation": "blobs/13a027637b8dea59d61ead362ba950a110472241c8a79c2180bc923202351c40.navigation",
+        "lightmaps": "blobs/7c238d803ac3a9351c7549e10eb1820dbc2600217a52b61a14279319e63fdb79.lightmaps.ktx2",
+        "lightmaps_meta": "blobs/a07032d25281cf180e1eb76952c99e2fb74c495c6b1a833993cf13efc9ee1281.lightmaps.json",
+        "irradiance": "blobs/df93004b7e8a1ab01963986328a6bc03a388186adcbc0f4ca5f73f1883a46e6f.irradiance",
+        "probes": [
+          {
+            "face_edge": 64,
+            "levels": 7,
+            "count": 1,
+            "cubemaps": [
+              "blobs/fd99089e437b054370afbf51406f5e9c7b8968458086d0cf00b43a005ebe42e4.probe.ktx2"
+            ],
+            "positions": "blobs/4c2e6a5a52bb7bc9331fe4cf1f276316e597f52cc8f47aaf7d84efbae0790bc1.probes.json"
+          },
+          {
+            "face_edge": 48,
+            "levels": 6,
+            "count": 1,
+            "cubemaps": [
+              "blobs/471bfa8f4760fde02218ec2262d99e953b093be6b1b9f3cd6e8d3450d8c44546.probe.ktx2"
+            ],
+            "positions": "blobs/f8ce9d0bdc2d06b103d52a71b60031cc3501545ef9000cbd5867d06746eeccc2.probes.json"
+          }
+        ]
+      }
+    },
+    {
+      "lightmap_quality": "full",
+      "quality_profile": "full",
+      "lightmap_failure": null,
+      "entries": {
+        "mesh": "blobs/cc77a316778eaa3e665a92df8d24339070edb0a6059cd3d533cabcd750f832aa.mesh",
+        "props": "blobs/51ab751148f5d8ee6b35be5a3a09a23bf7f754c638ebd4ca14203f9b953b178f.props",
+        "lighting": "blobs/0186c3807129e2f888440ead3892cafd63590c1ace06258d6acf04f50c703f4d.lighting",
+        "collision": "blobs/b8d01f4adac68105d7f272a103279b7e34710bfc3fb3f4d45d4c6f3dd189b86c.collision",
+        "navigation": "blobs/13a027637b8dea59d61ead362ba950a110472241c8a79c2180bc923202351c40.navigation",
+        "lightmaps": "blobs/8be9398fb86ae627f3f70a51836df38a3ff26f40b7a9cb18c383e9a291472c13.lightmaps.ktx2",
+        "lightmaps_meta": "blobs/ab1305b2a6a829a344bc810ada8f85391a360248ae29249107d7dfe702c73629.lightmaps.json",
+        "irradiance": "blobs/77cbd310bfa6c37284f2f0aa3d150c8554365db9ef237555b4546ea82152c2db.irradiance",
+        "probes": [
+          {
+            "face_edge": 64,
+            "levels": 7,
+            "count": 1,
+            "cubemaps": [
+              "blobs/6ada75c5e886ae7e37e3bb45cc89e7f0e2e73509e5fe25e61ba58f3f8f13a3f8.probe.ktx2"
+            ],
+            "positions": "blobs/4c2e6a5a52bb7bc9331fe4cf1f276316e597f52cc8f47aaf7d84efbae0790bc1.probes.json"
+          },
+          {
+            "face_edge": 48,
+            "levels": 6,
+            "count": 1,
+            "cubemaps": [
+              "blobs/733af6d71064bd0684ff0e7bf747ea9b87f5e82d217e1cc5427dc3702911442d.probe.ktx2"
+            ],
+            "positions": "blobs/f8ce9d0bdc2d06b103d52a71b60031cc3501545ef9000cbd5867d06746eeccc2.probes.json"
+          }
+        ]
+      }
+    }
+  ]
+}

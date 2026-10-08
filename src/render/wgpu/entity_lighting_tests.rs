@@ -115,6 +115,7 @@ fn triangle() -> Arc<LoadedPropAsset> {
                 .to_vec(),
             indices: vec![0, 1, 2],
             submeshes: vec![PropSubmesh {
+                response: crate::materials::MaterialResponse::NONE,
                 material: 0,
                 texture: None,
                 emission: crate::materials::MaterialEmission::NONE,

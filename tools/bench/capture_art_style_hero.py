@@ -86,6 +86,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, help="New output directory, required except --play")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--package", type=Path)
+    parser.add_argument("--asset-root", type=Path, default=ROOT, help="Runtime root containing assets; supports preserved milestone snapshots")
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--views", help="Comma-separated manifest camera names")
     parser.add_argument("--quality", choices=("low", "medium", "high"), default="high")
@@ -108,6 +109,9 @@ def main() -> int:
     if (args.frames < 0 or (args.play and args.frames) or (not args.play and not args.out)
             or (args.capture_frame is not None and args.capture_frame < 1)):
         parser.error("Use --out for evidence, nonnegative --frames, or --play")
+    asset_root = args.asset_root.resolve()
+    if not (asset_root / "assets/catalog.json").is_file():
+        parser.error("Asset root must contain assets/catalog.json")
     binary = args.binary.resolve()
     package = (args.package or ROOT / manifest["package"]).resolve()
     if not binary.is_file() or not package.is_file():
@@ -121,7 +125,8 @@ def main() -> int:
                     source_sha256=digest(ROOT / manifest["source"]),
                     camera_manifest_sha256=digest(args.manifest),
                     capture_tool_sha256=digest(Path(__file__)),
-                    catalog_sha256=digest(ROOT / "assets/catalog.json"),
+                    catalog_sha256=digest(asset_root / "assets/catalog.json"),
+                    asset_root=str(asset_root),
                     git_revision=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
                                                          text=True).strip(),
                     git_diff_sha256=hashlib.sha256(subprocess.check_output(
@@ -131,7 +136,7 @@ def main() -> int:
         root = Path(staging)
         payload = root / "assets"
         payload.mkdir()
-        for item in (ROOT / "assets").iterdir():
+        for item in (asset_root / "assets").iterdir():
             if item.name != "levels":
                 (payload / item.name).symlink_to(item.resolve(), target_is_directory=item.is_dir())
         bundled = payload / "levels"

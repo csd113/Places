@@ -20,7 +20,7 @@
 //!   bounds_max  f32 x 3
 //!   submesh_count u32
 //!   submeshes   submesh_count x submesh
-//!   vertices    u32 count, then count x 69-byte vertex
+//!   vertices    u32 count, then count x 69-byte neutral vertex
 //!   indices     u32 count, then count x u16
 //! ```
 //!
@@ -31,6 +31,8 @@
 //!   alpha_cutoff f32
 //!   emission     f32 x 3 colour, f32 intensity
 //!   emission_mask u8 (0 = none, 1 = Some) + u16 slot when present
+//!   specular     f32 x 3 (linear)
+//!   roughness    f32
 //!   first_index  u32
 //!   index_count  u32
 //! ```
@@ -49,8 +51,9 @@ use super::{MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PROP_SUBMESHES};
 ///
 /// Version 2 added the per-submesh alpha contract (glTF `MASK` foliage draws
 /// through the cutout pass); version 3 adds the blended mode (a model
-/// authoring `alphaMode: "BLEND"`). An older record is refused and rebuilt.
-pub const PROPS_RECORD_VERSION: u16 = 3;
+/// authoring `alphaMode: "BLEND"`); version 4 adds scalar material response.
+/// Version 3 is read with the explicit matte legacy default; older records are refused.
+pub const PROPS_RECORD_VERSION: u16 = 4;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -86,6 +89,8 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
             writer.f32_3(submesh.emission.color);
             writer.f32(submesh.emission.intensity);
             write_optional_slot(&mut writer, submesh.emission.mask)?;
+            writer.f32_3(submesh.response.specular);
+            writer.f32(submesh.response.roughness);
             writer.u32(submesh.first_index);
             writer.u32(submesh.index_count);
         }
@@ -114,7 +119,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if version != PROPS_RECORD_VERSION {
+    if version != PROPS_RECORD_VERSION && version != 3 {
         return Err(format!(
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
@@ -125,7 +130,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
     )?;
     let mut batches = Vec::with_capacity(count);
     for _ in 0..count {
-        batches.push(read_batch(&mut reader)?);
+        batches.push(read_batch(&mut reader, version)?);
     }
     if !reader.is_empty() {
         return Err(format!(
@@ -136,7 +141,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
     Ok(batches)
 }
 
-fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
+fn read_batch(reader: &mut Reader<'_>, version: u16) -> Result<PropMeshBatch, String> {
     let model = reader.str(MAX_MODEL_PATH)?;
     if model.is_empty() {
         return Err("prop batch has an empty model path".to_string());
@@ -164,7 +169,7 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
     )?;
     let mut submeshes = Vec::with_capacity(submesh_count);
     for _ in 0..submesh_count {
-        submeshes.push(read_submesh(reader)?);
+        submeshes.push(read_submesh(reader, version)?);
     }
     let vertex_count = u64::from(reader.u32()?);
     if vertex_count == 0 || vertex_count > MAX_PROP_BATCH_VERTICES {
@@ -213,7 +218,7 @@ fn read_batch(reader: &mut Reader<'_>) -> Result<PropMeshBatch, String> {
     })
 }
 
-fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
+fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatch, String> {
     let texture = read_optional_slot(reader)?
         .map(u16::try_from)
         .transpose()
@@ -236,7 +241,24 @@ fn read_submesh(reader: &mut Reader<'_>) -> Result<PropSubmeshBatch, String> {
     if !finite3(color) || !intensity.is_finite() || !alpha_cutoff.is_finite() {
         return Err("prop submesh has a non-finite emission or alpha".to_string());
     }
+    let (specular, roughness) = if version >= 4 {
+        (reader.f32_3()?, reader.f32()?)
+    } else {
+        ([0.0; 3], 1.0)
+    };
+    if !finite3(specular)
+        || !roughness.is_finite()
+        || specular.iter().any(|v| !(0.0..=1.0).contains(v))
+        || !(0.0..=1.0).contains(&roughness)
+    {
+        return Err("prop submesh has invalid scalar response".to_string());
+    }
     Ok(PropSubmeshBatch {
+        response: crate::materials::MaterialResponse {
+            specular,
+            roughness,
+            ..crate::materials::MaterialResponse::NONE
+        },
         texture,
         emission: MaterialEmission {
             color,
@@ -293,5 +315,36 @@ fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
         0 => Ok(None),
         1 => Ok(Some(u32::from(reader.u16()?))),
         other => Err(format!("invalid optional slot marker {other}")),
+    }
+}
+
+#[cfg(test)]
+mod legacy_tests {
+    use super::*;
+
+    #[test]
+    fn legacy_v3_submesh_keeps_alpha_emission_and_explicit_matte_response() -> Result<(), String> {
+        let mut writer = Writer::new();
+        write_optional_slot(&mut writer, Some(2))?;
+        writer.u8(alpha_mode_code(MaterialAlpha::blend(1.0)));
+        writer.f32(0.35);
+        writer.f32_3([0.5, 0.25, 0.125]);
+        writer.f32(2.0);
+        write_optional_slot(&mut writer, Some(1))?;
+        writer.u32(6);
+        writer.u32(3);
+        let bytes = writer.into_bytes();
+        let mut reader = Reader::new(&bytes);
+        let decoded = read_submesh(&mut reader, 3)?;
+        assert!(reader.is_empty());
+        assert_eq!(decoded.texture, Some(2));
+        assert_eq!(decoded.alpha.mode, crate::materials::AlphaMode::Blend);
+        assert_eq!(decoded.emission.color, [0.5, 0.25, 0.125]);
+        assert_eq!(decoded.emission.intensity.to_bits(), 2.0_f32.to_bits());
+        assert_eq!(decoded.emission.mask, Some(1));
+        assert_eq!(decoded.response.specular, [0.0; 3]);
+        assert_eq!(decoded.response.roughness.to_bits(), 1.0_f32.to_bits());
+        assert_eq!((decoded.first_index, decoded.index_count), (6, 3));
+        Ok(())
     }
 }

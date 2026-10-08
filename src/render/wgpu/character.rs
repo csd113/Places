@@ -62,10 +62,7 @@ struct CharacterMeshGpu {
 /// unit-testable without a device.
 #[must_use]
 const fn character_submesh_pass(alpha: crate::materials::MaterialAlpha) -> BatchPass {
-    match BatchPass::of(alpha) {
-        BatchPass::Cutout | BatchPass::Opaque => BatchPass::Opaque,
-        BatchPass::Translucent => BatchPass::Translucent,
-    }
+    BatchPass::of(alpha)
 }
 
 /// One primitive of a character model.
@@ -338,13 +335,18 @@ impl WgpuCharacters {
             let mask_texture = mask
                 .and_then(|index| textures.get(index).cloned())
                 .unwrap_or_else(|| ctx.cache.fallback());
-            value.materials.push(GpuMaterial::plain_emissive(
+            value.materials.push(GpuMaterial::model_with_alpha(
                 ctx.device,
                 ctx.queue,
                 ctx.material_layout,
                 ctx.cache,
                 &mask_texture,
-                record,
+                super::material::ModelMaterial {
+                    emission: record,
+                    alpha: source.alpha,
+                    response: source.response,
+                    response_enabled: ctx.level.draws_surface_response(),
+                },
             ));
             materials.push(value.materials.len().saturating_sub(1));
             emissive.push(record.is_emissive());
@@ -389,9 +391,11 @@ impl WgpuCharacters {
                 .animator()
                 .skin_position(joints, weights, vertex.pos);
             let albedo = character.albedo().get(index).copied().unwrap_or([1.0; 4]);
-            out.push(WorldVertex::from(character_vertex(
-                albedo, vertex.uv, position,
-            )));
+            let mut posed = character_vertex(albedo, vertex.uv, position);
+            posed.normal = vertex.normal.map_or([0.0; 3], |normal| {
+                character.animator().skin_normal(joints, weights, normal)
+            });
+            out.push(WorldVertex::from(posed));
         }
     }
 
@@ -655,7 +659,7 @@ mod tests {
                 mode: AlphaMode::Cutout,
                 ..MaterialAlpha::OPAQUE
             }),
-            BatchPass::Opaque
+            BatchPass::Cutout
         );
     }
 }

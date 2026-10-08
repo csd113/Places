@@ -159,7 +159,10 @@ impl SkyPipeline {
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: Some(entry),
-                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &super::surface::color_target_constants(format),
+                        ..Default::default()
+                    },
                     targets: &[Some(wgpu::ColorTargetState {
                         format,
                         blend: None,

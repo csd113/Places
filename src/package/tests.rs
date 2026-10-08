@@ -866,7 +866,9 @@ fn prop_records_round_trip_every_alpha_mode() {
     .expect("prop fixture parses");
     let build = build_level_build(&level, crate::quality::LightmapQuality::Off);
     let mut batch = build.batches[0].clone();
-    let template = batch.submeshes[0].clone();
+    let mut template = batch.submeshes[0].clone();
+    template.response.specular = [0.3, 0.2, 0.1];
+    template.response.roughness = 0.25;
     batch.submeshes = vec![
         crate::render::PropSubmeshBatch {
             alpha: crate::materials::MaterialAlpha::OPAQUE,
@@ -887,6 +889,14 @@ fn prop_records_round_trip_every_alpha_mode() {
     ];
     let bytes = super::props::write_props(&[batch]).expect("props encode");
     let decoded = super::props::read_props(&bytes).expect("props decode");
+    assert!(
+        decoded[0]
+            .submeshes
+            .iter()
+            .all(|submesh| submesh.response.specular.map(f32::to_bits)
+                == [0.3_f32, 0.2, 0.1].map(f32::to_bits)
+                && submesh.response.roughness.to_bits() == 0.25_f32.to_bits())
+    );
     let modes: Vec<_> = decoded[0].submeshes.iter().map(|s| s.alpha.mode).collect();
     assert_eq!(
         modes,

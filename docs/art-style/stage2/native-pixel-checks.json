@@ -1,0 +1,128 @@
+[
+  {
+    "view": "contact",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 921135,
+    "before_display_mean_rgb": [
+      84.11118598090277,
+      78.66996961805556,
+      69.11154622395833
+    ],
+    "after_display_mean_rgb": [
+      135.18405598958333,
+      126.08988932291666,
+      110.85761176215277
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  },
+  {
+    "view": "corner",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 921600,
+    "before_display_mean_rgb": [
+      91.74168511284722,
+      91.16694661458334,
+      88.28501193576389
+    ],
+    "after_display_mean_rgb": [
+      157.32419162326389,
+      154.68190755208335,
+      148.2472927517361
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  },
+  {
+    "view": "entities",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 920868,
+    "before_display_mean_rgb": [
+      81.09569010416666,
+      78.82932183159723,
+      73.65692274305556
+    ],
+    "after_display_mean_rgb": [
+      139.7959516059028,
+      134.82736545138889,
+      124.768798828125
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  },
+  {
+    "view": "hall",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 921594,
+    "before_display_mean_rgb": [
+      60.82294921875,
+      60.99418619791667,
+      59.551826171875
+    ],
+    "after_display_mean_rgb": [
+      124.79733832465278,
+      123.34601019965278,
+      118.70860460069444
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  },
+  {
+    "view": "room",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 921271,
+    "before_display_mean_rgb": [
+      85.56777886284722,
+      81.72146050347222,
+      74.46298394097222
+    ],
+    "after_display_mean_rgb": [
+      140.00073459201388,
+      133.03420681423611,
+      121.2123068576389
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  },
+  {
+    "view": "window",
+    "size": [
+      1280,
+      720
+    ],
+    "changed_pixels": 920778,
+    "before_display_mean_rgb": [
+      70.98293619791667,
+      68.50590277777778,
+      63.39609592013889
+    ],
+    "after_display_mean_rgb": [
+      132.10133355034722,
+      128.11735243055554,
+      119.32270073784723
+    ],
+    "before_all_channels_255_pixels": 0,
+    "after_all_channels_255_pixels": 0,
+    "scope": "native byte statistics; not an art-quality score or reconstructed HDR luminance"
+  }
+]

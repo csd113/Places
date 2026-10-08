@@ -714,6 +714,6 @@ mod tests {
         assert!(UI_SHADER_SRC.contains("_padding: f32"));
         // `WORLD_VERTEX_STRIDE` is the layout the UI pipeline binds, so the
         // camera and the vertex structs are the shared ones, not local copies.
-        assert_eq!(WORLD_VERTEX_STRIDE, 64);
+        assert_eq!(WORLD_VERTEX_STRIDE, 76);
     }
 }

@@ -143,13 +143,13 @@ impl VisualDiagnosticMode {
                 "sampled authored base PNG RGB only; excludes tint, lighting and post; source tint is not recoverable from vertex-lit static colors"
             }
             Self::VertexNormal => {
-                "uploaded interpolated world normal, normalized; RGB=(N+1)/2; actor imports may use a placeholder normal"
+                "uploaded interpolated world normal, normalized; RGB=(N+1)/2; missing source normals use geometric shading in world-normal mode"
             }
             Self::WorldNormal => {
                 "actual oriented shading normal including normal map and posed actor geometric derivative; RGB=(N+1)/2"
             }
             Self::BakedLight => {
-                "combined baked diffuse reconstructed at actual shading normal before soft clipping, material and dynamic lights; RGB=max(value,0)/(1+max(value,0)); entity fallback uses a display light factor rather than HDR; static vertex-lit coefficients unavailable"
+                "combined linear HDR baked diffuse reconstructed at actual shading normal before material and dynamic lights; RGB=max(value,0)/(1+max(value,0)); entity fallback uses authored linear lighting; static vertex-lit coefficients unavailable"
             }
             Self::LightmapValues => {
                 "combined atlas irradiance RGB planes plus enabled switchable groups, before normal reconstruction; RGB=max(HDR,0)/(1+max(HDR,0)); actors and vertex fallback unavailable"
@@ -179,7 +179,7 @@ const DIAGNOSTIC_HOOK: &str = "
     let visual_mode = u32(camera._padding);
     if (visual_mode != 0u) {
         var visual_result: Shaded;
-        visual_result.color = visual_diagnostic_color(in, base_display, normal, visual_mode);
+        visual_result.color = visual_diagnostic_color(in, base_linear, normal, visual_mode);
         visual_result.alpha = alpha;
         return visual_result;
     }";

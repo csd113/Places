@@ -6,12 +6,10 @@
 // fragment entry point quotes the reference GLSL it reproduces. Two backend
 // conventions differ and are spelled out where they are applied:
 //
-// * Colour space. The scene target is raw `Rgba8Unorm`, exactly like the
-//   reference's RGBA8 scene: the world shader writes display-space values
-//   directly, so the bloom add, exposure, tone and grade all land on the same
-//   values the reference used. Only the write to the sRGB surface converts
-//   (`srgb_to_linear`); the plain present copy does the same. The emissive and
-//   blur targets are raw too, so the blur kernel runs on display values.
+// * Colour space. Scene, emission and blur images hold linear HDR radiance.
+//   Resolve adds bloom and applies exposure/shoulder before sRGB encoding.
+//   The presented RGBA8 image holds encoded display values for the HUD and
+//   readback; the surface copy preserves them through hardware encoding.
 // * Coordinates. The reference's quad carries `(x, y)` in `[0, 1]` as both the
 //   `present_matrix` input and the texture coordinate, on a bottom-up
 //   framebuffer. WebGPU clips y-up but its framebuffer and texture rows are
@@ -95,8 +93,7 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     return select(high, low, c <= vec3<f32>(0.04045));
 }
 
-// The scene copied straight into the raw presented image: no conversion, the
-// reference's identity copy.
+// Copy an already encoded presented image without another conversion.
 @fragment
 fn fs_present_raw(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(textureSample(source_texture, source_sampler, in.uv).rgb, 1.0);
@@ -107,7 +104,7 @@ fn fs_present_raw(in: QuadOut) -> @location(0) vec4<f32> {
 //     gl_FragColor = vec4(texture2D(u_scene, v_uv).rgb, 1.0);
 //
 // The presented image is raw display space and the surface is sRGB, so the one
-// conversion here is the output encode.
+// decode here cancels the hardware encode and preserves display bytes.
 @fragment
 fn fs_present(in: QuadOut) -> @location(0) vec4<f32> {
     let color = textureSample(source_texture, source_sampler, in.uv).rgb;
@@ -126,7 +123,7 @@ fn fs_present(in: QuadOut) -> @location(0) vec4<f32> {
 // `u_texel` is one texel of the *source*: pass 1 reads the scene-sized emissive
 // image into the quarter-size buffer A (so the down-sample and the horizontal
 // blur are one pass), pass 2 reads buffer A vertically into buffer B. The
-// source and target are raw RGBA8, so no transfer function is applied.
+// Source and target are linear RGBA16F; no transfer function is applied.
 @fragment
 fn fs_blur(in: QuadOut) -> @location(0) vec4<f32> {
     let step0 = blur.texel.xy * 1.0;
@@ -139,53 +136,35 @@ fn fs_blur(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(sum, 1.0);
 }
 
-// The reference's resolve, unchanged, in display space:
-//
-//     vec3 color = texture2D(u_scene, v_uv).rgb;
-//     if (u_bloom_strength > 0.0) {
-//         color += texture2D(u_bloom, v_uv).rgb * u_bloom_strength;
-//     }
-//     color *= u_exposure;
-//     // Soft shoulder: identity at and below the knee, asymptotic to white above.
-//     vec3 above = max(color - u_tone_knee, vec3(0.0));
-//     float span = max(1.0 - u_tone_knee, 1.0e-3);
-//     color = min(color, vec3(u_tone_knee)) + span * (above / (above + span));
-//     float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
-//     color = mix(vec3(luma), color, u_grade_saturation);
-//     color = clamp((color - 0.5) * u_grade_contrast + 0.5, 0.0, 1.0);
-//     gl_FragColor = vec4(color, 1.0);
-//
-// The one conversion is at the output (`srgb_to_linear`, because the resolve
-// target is an sRGB surface); every knob between scene and surface lands on the
-// reference's raw display-space values.
-@fragment
-fn fs_resolve_raw(in: QuadOut) -> @location(0) vec4<f32> {
+// Exposure and the existing shoulder operate on linear HDR scene radiance.
+// The grade remains a presentation-space choice. It is never stored in lightmaps.
+fn resolve_color(in: QuadOut) -> vec3<f32> {
     var color = textureSample(source_texture, source_sampler, in.uv).rgb;
     if (post.bloom_strength > 0.0) {
         color += textureSample(bloom_texture, bloom_sampler, in.uv).rgb * post.bloom_strength;
     }
-    color *= post.exposure;
+    color = max(color * post.exposure, vec3<f32>(0.0));
     let above = max(color - vec3<f32>(post.tone_knee), vec3<f32>(0.0));
     let span = max(1.0 - post.tone_knee, 1.0e-3);
     color = min(color, vec3<f32>(post.tone_knee)) + span * (above / (above + span));
+    color = linear_to_srgb(color);
     let luma = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
     color = mix(vec3<f32>(luma), color, post.grade_saturation);
-    color = clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0));
-    return vec4<f32>(color, 1.0);
+    return clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+@fragment
+fn fs_resolve_raw(in: QuadOut) -> @location(0) vec4<f32> {
+    return vec4<f32>(resolve_color(in), 1.0);
 }
 
 @fragment
 fn fs_resolve(in: QuadOut) -> @location(0) vec4<f32> {
-    var color = textureSample(source_texture, source_sampler, in.uv).rgb;
-    if (post.bloom_strength > 0.0) {
-        color += textureSample(bloom_texture, bloom_sampler, in.uv).rgb * post.bloom_strength;
-    }
-    color *= post.exposure;
-    let above = max(color - vec3<f32>(post.tone_knee), vec3<f32>(0.0));
-    let span = max(1.0 - post.tone_knee, 1.0e-3);
-    color = min(color, vec3<f32>(post.tone_knee)) + span * (above / (above + span));
-    let luma = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
-    color = mix(vec3<f32>(luma), color, post.grade_saturation);
-    color = clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0));
-    return vec4<f32>(srgb_to_linear(color), 1.0);
+    return vec4<f32>(srgb_to_linear(resolve_color(in)), 1.0);
+}
+
+// Identity Low presentation still needs the one linear-to-display conversion.
+@fragment
+fn fs_linear_present_raw(in: QuadOut) -> @location(0) vec4<f32> {
+    return vec4<f32>(linear_to_srgb(max(textureSample(source_texture, source_sampler, in.uv).rgb, vec3<f32>(0.0))), 1.0);
 }

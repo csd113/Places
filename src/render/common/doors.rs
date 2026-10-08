@@ -545,6 +545,7 @@ impl MeshBuilder {
                 continue;
             }
             submeshes.push(PropSubmesh {
+                response: crate::materials::MaterialResponse::NONE,
                 material: *slot,
                 texture: Some(*slot),
                 emission: MaterialEmission::NONE,

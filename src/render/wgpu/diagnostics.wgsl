@@ -56,7 +56,7 @@ fn visual_baked(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     }
     return visual_hdr(hdr * environment.light_scale);
 }
-fn visual_diagnostic_color(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode: u32) -> vec3<f32> {
+fn visual_diagnostic_display(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode: u32) -> vec3<f32> {
     // Derivatives evaluated before varying availability branches.
     let grid_width = max(fwidth(in.lightmap_uv * 16.0), vec2<f32>(0.002));
     switch mode {
@@ -90,4 +90,11 @@ fn visual_diagnostic_color(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode: 
         }
         default: { return visual_unavailable(); }
     }
+}
+
+// Numeric debug colours retain their byte meaning through the HDR/present path.
+// Albedo is already linear and is encoded only by presentation.
+fn visual_diagnostic_color(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode: u32) -> vec3<f32> {
+    if (mode == 1u) { return base; }
+    return srgb_to_linear(visual_diagnostic_display(in, base, normal, mode));
 }

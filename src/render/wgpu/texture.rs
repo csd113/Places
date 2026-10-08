@@ -3,11 +3,9 @@
 //! The engine hands this module decoded [`RawImage`] data with a source/content
 //! identity. The cache owns GPU textures, mip chains, views and shared samplers.
 //!
-//! Base-colour images upload as raw `Rgba8Unorm` display values. Filtering,
-//! blending and CPU mip generation operate on those raw channels; the final
-//! surface path performs the display encoding. Normal maps and masks also use
-//! raw channels, with a separate data semantic. CPU mips use deterministic box
-//! averaging without a gamma conversion.
+//! Colour images upload as `Rgba8UnormSrgb`, decoded by hardware before filtering.
+//! CPU fitting and mips average linear light with coverage-weighted RGB, then
+//! store sRGB bytes. Normal maps and masks remain raw `Rgba8Unorm` numeric data.
 //!
 //! Texture Filtering selects shared Low/Medium/High world samplers requesting
 //! 4x/8x/16x anisotropy with linear magnification, minification and mip filtering.
@@ -58,16 +56,9 @@ const FALLBACK_TEXTURE_KEY: &str = "core:tex_white_01";
 /// covers numeric data (material normal maps, masks), whose cache key and
 /// format the variant pins.
 ///
-/// Both upload raw `Rgba8Unorm`: the reference has no sRGB anywhere, so it
-/// filters, blends and mips authored bytes in display space. Sampling an sRGB
-/// copy made the hardware decode each filtered blend and the shader re-encode
-/// it — a convexity bias measured as a broad +1 display level on minified
-/// surfaces — so the textures stay raw. The exact per-texel decode/encode
-/// round trip itself is proven exact by
-/// `the_srgb_sample_round_trip_is_measured_on_this_adapter`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TextureSemantic {
-    /// Authored colour: 8-bit RGBA display values, sampled as authored.
+    /// Authored sRGB bytes; sampling returns linear RGB and raw alpha.
     BaseColorDisplay,
     /// Numeric data (a normal map, a mask, a lightmap). Also sampled raw.
     DataLinear,
@@ -76,15 +67,12 @@ pub enum TextureSemantic {
 impl TextureSemantic {
     /// The wgpu format this semantic uploads as.
     ///
-    /// Both are raw `Rgba8Unorm`: the colour targets are display-space, so
-    /// their source textures must be too, and numeric data is never
-    /// colour-encoded. The one display-to-surface conversion is the world
-    /// fragment stage's `srgb_to_linear` at the sRGB surface, exactly where
-    /// the reference's presentation happened.
+    /// Colour decodes at sampling; numeric textures never undergo a transfer function.
     #[must_use]
     pub const fn format(self) -> wgpu::TextureFormat {
         match self {
-            Self::BaseColorDisplay | Self::DataLinear => wgpu::TextureFormat::Rgba8Unorm,
+            Self::BaseColorDisplay => wgpu::TextureFormat::Rgba8UnormSrgb,
+            Self::DataLinear => wgpu::TextureFormat::Rgba8Unorm,
         }
     }
 }
@@ -647,8 +635,22 @@ impl PreparedTexture {
     ///
     /// Pure CPU work with no shared state, so it is safe to run on a worker
     /// thread; the result is byte-identical whether it runs there or serially.
-    fn prepare(image: &RawImage, level: QualityLevel, class: TextureClass) -> Self {
-        let fitted = fit_image(image, level, class);
+    fn prepare(
+        image: &RawImage,
+        level: QualityLevel,
+        class: TextureClass,
+        semantic: TextureSemantic,
+    ) -> Self {
+        let fit = fit_image(image, level, class);
+        let fitted = if semantic == TextureSemantic::BaseColorDisplay
+            && (fit.width != image.width || fit.height != image.height)
+        {
+            std::borrow::Cow::Owned(crate::materials::color::resize_color(
+                image, fit.width, fit.height,
+            ))
+        } else {
+            fit
+        };
         let width = fitted.width;
         let height = fitted.height;
         let mip_levels = mip_level_count(width, height);
@@ -660,7 +662,15 @@ impl PreparedTexture {
             let Some(parent) = levels.last() else {
                 break;
             };
-            let half = halve_image(parent);
+            let half = if semantic == TextureSemantic::BaseColorDisplay {
+                crate::materials::color::resize_color(
+                    parent,
+                    (parent.width / 2).max(1),
+                    (parent.height / 2).max(1),
+                )
+            } else {
+                halve_image(parent)
+            };
             resident_bytes = resident_bytes.saturating_add(level_bytes(half.width, half.height));
             levels.push(half);
         }
@@ -809,6 +819,7 @@ fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<Prepar
                         request.image,
                         request.key.level,
                         request.key.class,
+                        request.key.semantic,
                     );
                     if let Ok(mut locked_slots) = shared_slots.lock()
                         && let Some(slot) = locked_slots.get_mut(index)
@@ -1129,7 +1140,12 @@ impl TextureCache {
             // panicked, which `thread::scope` would have propagated) falls back
             // to the identical serial preparation rather than failing.
             let prepared_texture = slot.unwrap_or_else(|| {
-                PreparedTexture::prepare(request.image, request.key.level, request.key.class)
+                PreparedTexture::prepare(
+                    request.image,
+                    request.key.level,
+                    request.key.class,
+                    request.key.semantic,
+                )
             });
             let texture = Arc::new(GpuTexture::upload_prepared(
                 device,
@@ -1186,7 +1202,7 @@ impl TextureCache {
         if let Some(texture) = self.get(&key, origin).map(Arc::clone) {
             return (CacheOutcome::Reused, texture);
         }
-        let prepared = PreparedTexture::prepare(image, key.level, key.class);
+        let prepared = PreparedTexture::prepare(image, key.level, key.class, key.semantic);
         let texture = Arc::new(GpuTexture::upload_prepared(
             device,
             queue,
@@ -1275,9 +1291,8 @@ fn level_bytes(width: u32, height: u32) -> u64 {
 /// Box-filters an image to half its size, rounding to the nearest channel
 /// value and clamping at the edges for odd dimensions.
 ///
-/// Deterministic and display-space: it averages the raw 8-bit channels without
-/// any gamma conversion, which is exactly what the OpenGL reference's
-/// `glGenerateMipmap` does to a non-sRGB `GL_RGBA` texture. Every output texel
+/// Numeric-data box filter. Colour uses the separate linear-light filter.
+/// Every output texel
 /// is the average of its 2x2 source block (fewer texels at an odd edge), so a
 /// power-of-two source produces the exact successive averages the reference
 /// generates. Alpha is averaged the same way and never discarded.
@@ -1463,26 +1478,32 @@ mod tests {
     // ------------------------------------------------------ colour semantics
 
     #[test]
-    fn every_semantic_samples_raw_display_space() {
-        // The reference has no sRGB textures, so neither does the port. The
-        // one display-to-surface conversion is the shader's `srgb_to_linear`
-        // at the final sRGB surface.
+    fn semantic_selects_decode_independently_of_quality() {
         assert_eq!(
             TextureSemantic::BaseColorDisplay.format(),
-            wgpu::TextureFormat::Rgba8Unorm
+            wgpu::TextureFormat::Rgba8UnormSrgb
         );
         assert_eq!(
             TextureSemantic::DataLinear.format(),
             wgpu::TextureFormat::Rgba8Unorm
         );
-        assert!(
-            !TextureSemantic::BaseColorDisplay.format().is_srgb(),
-            "authored colour is sampled as display bytes, exactly like the reference"
-        );
-        assert!(
-            !TextureSemantic::DataLinear.format().is_srgb(),
-            "a normal map or mask must never receive an sRGB decode"
-        );
+        for level in QualityLevel::ALL {
+            let image = RawImage::new(2, 1, vec![0, 0, 0, 255, 255, 255, 255, 255]);
+            let color = PreparedTexture::prepare(
+                &image,
+                level,
+                TextureClass::Prop,
+                TextureSemantic::BaseColorDisplay,
+            );
+            let data = PreparedTexture::prepare(
+                &image,
+                level,
+                TextureClass::Prop,
+                TextureSemantic::DataLinear,
+            );
+            assert_eq!(color.levels.last().unwrap().rgba, vec![188, 188, 188, 255]);
+            assert_eq!(data.levels.last().unwrap().rgba, vec![128, 128, 128, 255]);
+        }
     }
 
     #[test]
@@ -1729,7 +1750,8 @@ mod tests {
                 TextureClass::Prop,
                 TextureClass::EmissionMask,
             ] {
-                let prepared = PreparedTexture::prepare(&source, level, class);
+                let prepared =
+                    PreparedTexture::prepare(&source, level, class, TextureSemantic::DataLinear);
                 let fitted = fit_image(&source, level, class).into_owned();
                 let mut expected = vec![fitted.clone()];
                 for _ in 1..mip_level_count(fitted.width, fitted.height) {
@@ -1782,8 +1804,12 @@ mod tests {
         let prepared = prepare_textures(&refs);
         assert_eq!(prepared.len(), requests.len());
         for (slot, request) in prepared.iter().zip(&requests) {
-            let serial =
-                PreparedTexture::prepare(request.image, request.key.level, request.key.class);
+            let serial = PreparedTexture::prepare(
+                request.image,
+                request.key.level,
+                request.key.class,
+                request.key.semantic,
+            );
             let prepared_slot = slot.as_ref().expect("every request has a prepared slot");
             assert_eq!(prepared_slot.width, serial.width);
             assert_eq!(prepared_slot.height, serial.height);
@@ -2139,14 +2165,14 @@ mod tests {
     /// This measurement was taken while the minified-surface colour residue
     /// was under investigation. The result (0 error for all 256 bytes on
     /// Apple/Metal) ruled the per-texel round trip out as the cause and pointed
-    /// at *blending* decoded values: the pipeline now samples raw
-    /// `Rgba8Unorm`, and this test stays as the adapter-level contract that
-    /// keeps the decision a measurement rather than a guess.
+    /// at filtering in the former display pipeline. Colour now samples
+    /// `Rgba8UnormSrgb` into linear light; this remains the adapter-level
+    /// transfer-function contract.
     ///
     /// Ignored by default: it needs a real adapter. Run with:
     ///
     /// ```text
-    /// cargo test --all-features --bin places -- --ignored the_srgb_sample_round_trip
+    /// cargo test --lib --all-features the_srgb_sample_round_trip -- --ignored
     /// ```
     #[test]
     #[ignore = "requires a GPU adapter"]

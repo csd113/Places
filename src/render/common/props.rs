@@ -23,6 +23,8 @@ use crate::materials::{MaterialAlpha, MaterialEmission};
 /// the range of the batch's index buffer it draws.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropSubmeshBatch {
+    /// Shared scalar material response for every mesh route.
+    pub response: crate::materials::MaterialResponse,
     /// Index into [`PropMeshBatch::textures`], or `None` for an untextured
     /// material (the renderer draws it through the shared white sheet with the
     /// material's `baseColorFactor` already baked into the vertex colours).
@@ -98,6 +100,8 @@ struct BatchBuilder {
 }
 
 struct PrimitiveBuilder {
+    /// Shared scalar material response for every mesh route.
+    response: crate::materials::MaterialResponse,
     texture: Option<u16>,
     emission: MaterialEmission,
     alpha: MaterialAlpha,
@@ -117,6 +121,7 @@ impl BatchBuilder {
                 .submeshes
                 .iter()
                 .map(|submesh| PrimitiveBuilder {
+                    response: submesh.response,
                     texture: submesh.texture,
                     emission: submesh.emission,
                     alpha: submesh.alpha,
@@ -132,13 +137,11 @@ impl BatchBuilder {
     }
 
     /// Whether one more instance of `model` fits this batch's 16-bit offsets.
-    const fn has_room_for(&self, model: &crate::gltf::PropModel, lightmapped: bool) -> bool {
-        let count = if lightmapped {
-            model.indices.len()
-        } else {
-            model.vertices.len()
-        };
-        self.vertices.len().saturating_add(count) <= crate::spatial::MAX_INDEX_VERTICES
+    fn has_room_for(&self, model: &crate::gltf::PropModel, lightmapped: bool) -> bool {
+        self.vertices
+            .len()
+            .saturating_add(instance_vertex_count(model, lightmapped))
+            <= crate::spatial::MAX_INDEX_VERTICES
     }
 
     /// Transforms and appends one instance. The caller must have checked
@@ -151,6 +154,54 @@ impl BatchBuilder {
         defer_lighting: bool,
     ) {
         let model = &asset.model;
+        if model.vertices.iter().any(|v| v.normal.is_none()) {
+            // Missing NORMAL means flat triangles, including the vertex-lit
+            // fallback. Shared corners must not average across hard edges.
+            let normal_matrix = transform.inverse().transpose();
+            for (slot, submesh) in model.submeshes.iter().enumerate() {
+                let Some(primitive) = self.primitives.get_mut(slot) else {
+                    continue;
+                };
+                let start = usize::try_from(submesh.first_index).unwrap_or(0);
+                let count = usize::try_from(submesh.index_count).unwrap_or(0);
+                let Some(indices) = model.indices.get(start..start.saturating_add(count)) else {
+                    continue;
+                };
+                for &[index_a, index_b, index_c] in indices.as_chunks::<3>().0 {
+                    let (Some(a), Some(b), Some(c)) = (
+                        model.vertices.get(usize::from(index_a)),
+                        model.vertices.get(usize::from(index_b)),
+                        model.vertices.get(usize::from(index_c)),
+                    ) else {
+                        continue;
+                    };
+                    let base = u16::try_from(self.vertices.len()).unwrap_or(0);
+                    let Some(frames) =
+                        model_triangle_vertices([a, b, c], transform, &normal_matrix)
+                    else {
+                        continue;
+                    };
+                    for mut vertex in frames {
+                        if !defer_lighting {
+                            let [position_x, position_y, position_z] = vertex.pos;
+                            let light = lighting
+                                .sample(position_x, position_y, position_z)
+                                .plus(lighting.global_surface_light(vertex.pos, vertex.normal));
+                            let [red, green, blue, alpha] = vertex.color;
+                            vertex.color = [red * light.r, green * light.g, blue * light.b, alpha];
+                        }
+                        self.vertices.push(vertex);
+                    }
+                    primitive.indices.extend([
+                        base,
+                        base.saturating_add(1),
+                        base.saturating_add(2),
+                    ]);
+                    self.index_count = self.index_count.saturating_add(3);
+                }
+            }
+            return;
+        }
         if defer_lighting {
             // Budget/fallback discovery only. These temporary static vertices
             // are replaced by real surface receivers before a valid build leaves
@@ -260,6 +311,7 @@ impl BatchBuilder {
             let index_count = u32::try_from(primitive.indices.len()).unwrap_or(0);
             indices.extend_from_slice(&primitive.indices);
             submeshes.push(PropSubmeshBatch {
+                response: primitive.response,
                 texture: primitive.texture,
                 emission: primitive.emission,
                 alpha: primitive.alpha,
@@ -449,15 +501,21 @@ fn resolve_prop_instances_inner<'a>(
                 defer_static_lighting && !asset.model.is_animatable(),
             );
         }
-        busy_vertices = busy_vertices.saturating_add(if lightmapped {
-            asset.model.indices.len()
-        } else {
-            asset.model.vertices.len()
-        });
+        busy_vertices =
+            busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
     }
 
     let batches = builders.into_iter().map(BatchBuilder::finish).collect();
     (batches, fallbacks)
+}
+
+/// Flat triangles and atlas receivers need independent corners at hard edges.
+fn instance_vertex_count(model: &crate::gltf::PropModel, lightmapped: bool) -> usize {
+    if lightmapped || model.vertices.iter().any(|vertex| vertex.normal.is_none()) {
+        model.indices.len()
+    } else {
+        model.vertices.len()
+    }
 }
 
 /// Derives a stable UV tangent frame for each actual triangle while retaining
@@ -575,6 +633,11 @@ fn append_instance_vertices(
                 vertex.color[3],
             ],
             uv: vertex.uv,
+            normal: if vertex.normal.is_some() {
+                normal.to_array()
+            } else {
+                [0.0; 3]
+            },
             ..Vertex::UNLIT
         });
     }
@@ -631,6 +694,54 @@ mod lighting_reuse_tests {
         LevelLighting, LevelSurfaces, append_instance_vertices, lighting_sources,
         resolve_prop_fallbacks, resolve_prop_instances,
     };
+
+    #[test]
+    fn triangle_attributes_preserve_flat_normals_uvs_and_mirrored_handedness() -> Result<(), String>
+    {
+        let source = [
+            crate::gltf::PropVertex {
+                pos: [0.0, 0.0, 0.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [0.0, 0.0],
+            },
+            crate::gltf::PropVertex {
+                pos: [1.0, 0.0, 0.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [1.0, 0.0],
+            },
+            crate::gltf::PropVertex {
+                pos: [0.0, 1.0, 1.0],
+                normal: None,
+                color: [1.0; 4],
+                uv: [0.0, -1.0],
+            },
+        ];
+        let transform = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(2.0, 0.5, 1.5),
+            glam::Quat::from_rotation_y(0.7),
+            glam::Vec3::new(3.0, 1.0, 2.0),
+        );
+        let actual = super::model_triangle_vertices(
+            [&source[0], &source[1], &source[2]],
+            &transform,
+            &transform.inverse().transpose(),
+        )
+        .ok_or("non-degenerate triangle")?;
+        let positions =
+            source.map(|vertex| transform.transform_point3(glam::Vec3::from_array(vertex.pos)));
+        let expected = (positions[1] - positions[0])
+            .cross(positions[2] - positions[0])
+            .normalize();
+        for (vertex, original) in actual.iter().zip(&source) {
+            assert!(glam::Vec3::from_array(vertex.normal).distance(expected) < 1.0e-6);
+            assert_eq!(vertex.uv, original.uv);
+            assert_eq!(vertex.handedness, -1.0);
+            assert!(glam::Vec3::from_array(vertex.tangent).dot(expected).abs() < 1.0e-6);
+        }
+        Ok(())
+    }
 
     #[test]
     fn deferred_static_lighting_preserves_geometry_budgets_and_animated_colours()

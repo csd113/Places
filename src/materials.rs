@@ -47,6 +47,7 @@
 //! ```
 
 mod builtin;
+pub mod color;
 mod decal;
 mod emission;
 mod ground;

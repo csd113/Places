@@ -23,7 +23,7 @@
 //!   `DataLinear` semantic, with the reference's white fallback and fetch gate;
 //! * opaque, cut-out and translucent draws are submitted in the reference's
 //!   order, translucent draws sorted back to front per frame;
-//! * the WGSL reproduces the reference's display-space material multiply.
+//! * the WGSL evaluates material and light in linear HDR.
 //!
 //! Lighting is the reference's:
 //!
@@ -31,12 +31,11 @@
 //!   light in the vertex colour, so the uploaded colour carries every room
 //!   baseline, fixture pool, opening blend and static-occluder shadow the bake
 //!   produced; the lightmap-atlas build instead reconstructs the light from the
-//!   prepared HDR layer pairs at the material normal, tone-maps it and leaves
+//!   prepared HDR layer pairs at the material normal and leaves
 //!   the vertex colour at the unlit material factor;
 //! * the camera uniform carries the world-space eye, the fragment stage
 //!   computes the reference's view-dependent sheen, and `lit + sheen` is
-//!   assembled in display space before the single conversion to the sRGB
-//!   target. See `docs/RENDERER.md`.
+//!   accumulated in linear HDR before the presentation stage. See `docs/RENDERER.md`.
 //!
 //! Props, dynamics, fixture emission, decals, the reflection captures and the
 //! planar mirror extend the same upload and shader; see the world shader's own
@@ -81,7 +80,6 @@ use crate::render::common::materials::{
 };
 use crate::render::common::mesh::{
     LevelMesh, LevelMeshRange, MaterialIndex, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
-    quantize_unit,
 };
 use crate::render::common::view::DrawableSize;
 use crate::render::common::{DynamicLightSet, MAX_DYNAMIC_LIGHTS};
@@ -100,7 +98,7 @@ pub const WORLD_FRAGMENT_ENTRY: &str = "fs_main";
 /// Name of the alpha-tested world fragment entry point for the sRGB surface.
 pub const WORLD_CUTOUT_FRAGMENT_ENTRY: &str = "fs_cutout";
 /// Name of the opaque and translucent entry point for a raw (non-sRGB) scene or
-/// reflection target, which writes display-space values directly.
+/// reflection target, which writes linear HDR values.
 pub const WORLD_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
 /// Name of the alpha-tested entry point for a raw target.
 pub const WORLD_CUTOUT_FRAGMENT_ENTRY_RAW: &str = "fs_cutout_raw";
@@ -156,8 +154,8 @@ pub struct WorldVertex {
     pub normal: [f32; 3],
     /// World-space tiling UV, one repeat per material tiling period.
     pub uv: [f32; 2],
-    /// Material-only RGBA shade, quantised exactly like the reference upload.
-    pub color: [u8; 4],
+    /// Linear RGBA factor, including HDR lighting in the vertex-lit fallback.
+    pub color: [f32; 4],
     /// Lightmap atlas UV in 16-bit fixed point, or zero for an unlightmapped
     /// vertex (whose page byte is `LIGHTMAP_NONE`).
     pub lightmap_uv: [u16; 2],
@@ -178,12 +176,7 @@ impl From<&Vertex> for WorldVertex {
             position: vertex.pos,
             normal: vertex.normal,
             uv: vertex.uv,
-            color: [
-                quantize_unit(vertex.color[0]),
-                quantize_unit(vertex.color[1]),
-                quantize_unit(vertex.color[2]),
-                quantize_unit(vertex.color[3]),
-            ],
+            color: vertex.color,
             lightmap_uv: vertex.lightmap,
             lightmap_page: f32::from(vertex.lightmap_page),
             tangent: vertex.tangent,
@@ -203,7 +196,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_ar
     WORLD_ATTRIB_POSITION => Float32x3,
     WORLD_ATTRIB_NORMAL => Float32x3,
     WORLD_ATTRIB_UV => Float32x2,
-    WORLD_ATTRIB_COLOR => Unorm8x4,
+    WORLD_ATTRIB_COLOR => Float32x4,
     WORLD_ATTRIB_LIGHTMAP_UV => Unorm16x2,
     WORLD_ATTRIB_LIGHTMAP_PAGE => Float32,
     WORLD_ATTRIB_TANGENT => Float32x3,
@@ -522,6 +515,8 @@ pub struct EnvironmentUniform {
     /// Signed linear first moment; reserved w is zero.
     pub entity_moment: [f32; 4],
     pub storm: crate::render::common::storm::StormUniform,
+    /// Padded columns of the inverse-transpose model matrix.
+    pub normal_model: [[f32; 4]; 3],
 }
 
 impl EnvironmentUniform {
@@ -548,6 +543,11 @@ impl EnvironmentUniform {
             planar_matrix: Mat4::IDENTITY.to_cols_array_2d(),
             planar_plane: [0.0, 0.0, 1.0, 0.0],
             model: Mat4::IDENTITY.to_cols_array_2d(),
+            normal_model: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ],
             opacity: 1.0,
             tail_padding: [0.0; 3],
             fog_region_count: 0,
@@ -651,8 +651,16 @@ impl EnvironmentUniform {
 
     /// The same environment with an object transform installed (dynamic path).
     #[must_use]
-    pub const fn with_model(mut self, model: Mat4) -> Self {
+    pub fn with_model(mut self, model: Mat4) -> Self {
         self.model = model.to_cols_array_2d();
+        let inverse = if model.determinant().abs() > 1.0e-12 {
+            model.inverse().transpose()
+        } else {
+            Mat4::IDENTITY
+        };
+        let columns = inverse.to_cols_array_2d();
+        let [x, y, z, _translation] = columns;
+        self.normal_model = [x, y, z];
         self
     }
 
@@ -1405,6 +1413,13 @@ pub struct WorldDrawTotals {
 }
 
 impl WorldDrawTotals {
+    /// Count an object's indexed buffer only for an alpha class that submitted it.
+    const fn record_object_vertices(&mut self, before_draws: usize, vertices: usize) {
+        if self.draw_calls > before_draws {
+            self.visible_vertices = self.visible_vertices.saturating_add(vertices);
+        }
+    }
+
     /// Folds another pass segment's counters in.
     ///
     /// The per-pass counters (`opaque_draws`, `cutout_draws`,
@@ -1643,7 +1658,10 @@ fn build_world_pipeline(
         fragment: Some(wgpu::FragmentState {
             module: shader,
             entry_point: Some(fragment_entry),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants: &super::surface::color_target_constants(format),
+                ..Default::default()
+            },
             targets: &[Some(wgpu::ColorTargetState {
                 format,
                 blend: variant.blend,
@@ -2029,12 +2047,13 @@ impl WorldPipeline {
             totals.emissive_visible |= class.emissive_visible;
             // The reference body order: static opaque, then props, then the
             // dynamic objects, then the characters, then the remaining static
-            // classes. Props, dynamic objects and characters are opaque and
-            // follow the same pipeline, so they splice in after the opaque
-            // class.
-            if pass_kind == BatchPass::Opaque {
-                totals.absorb(self.encode_opaque_extras(pass, inputs, false));
+            // classes. Model draws join their matching opaque/cutout class.
+            if pass_kind != BatchPass::Translucent {
+                totals.absorb(self.encode_extra_class(pass, inputs, false, pass_kind));
             }
+        }
+        if let Some(props) = inputs.props {
+            totals.absorb(self.encode_props(pass, inputs, props, false, BatchPass::Translucent));
         }
         // Blended dynamic primitives (a moving glass panel) draw after the
         // sorted static translucent surfaces, with depth writes off and depth
@@ -2059,33 +2078,22 @@ impl WorldPipeline {
 
     /// Encodes the opaque extras spliced after the static opaque class, in the
     /// reference body order: props, then dynamic objects, then characters.
-    fn encode_opaque_extras<'a>(
+    fn encode_extra_class<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         emission_only: bool,
+        wanted: BatchPass,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         if let Some(props) = inputs.props {
-            totals.absorb(self.encode_props(pass, inputs, props, emission_only));
+            totals.absorb(self.encode_props(pass, inputs, props, emission_only, wanted));
         }
         if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(
-                pass,
-                inputs,
-                dynamic,
-                emission_only,
-                BatchPass::Opaque,
-            ));
+            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only, wanted));
         }
         if let Some(characters) = inputs.characters {
-            totals.absorb(self.encode_characters(
-                pass,
-                inputs,
-                characters,
-                emission_only,
-                BatchPass::Opaque,
-            ));
+            totals.absorb(self.encode_characters(pass, inputs, characters, emission_only, wanted));
         }
         totals
     }
@@ -2130,6 +2138,7 @@ impl WorldPipeline {
             let mut bound_texture: Option<usize> = None;
             let mut bound_material: Option<usize> = None;
             let mut bound_geometry: Option<(usize, usize)> = None;
+            let before_draws = totals.draw_calls;
             for submesh in 0..dynamic.submesh_count(object) {
                 if dynamic.submesh_pass(object, submesh) != Some(wanted) {
                     continue;
@@ -2174,9 +2183,7 @@ impl WorldPipeline {
                 totals.draw_calls = totals.draw_calls.saturating_add(1);
                 totals.visible_batches = totals.visible_batches.saturating_add(1);
             }
-            totals.visible_vertices = totals
-                .visible_vertices
-                .saturating_add(dynamic.object_vertex_count(object));
+            totals.record_object_vertices(before_draws, dynamic.object_vertex_count(object));
         }
         totals
     }
@@ -2188,9 +2195,7 @@ impl WorldPipeline {
     /// which carries the placement matrix and the instance opacity; its vertex
     /// buffer already holds the CPU-skinned model-space pose, so the shader
     /// path is exactly the prop path. `emission_only` is the emissive pass, and
-    /// `wanted` filters the submesh's alpha class: the opaque call keeps
-    /// [`BatchPass::Opaque`] (which is also where a cut-out character submesh
-    /// lands, preserving its historical treatment), and the translucent pass
+    /// `wanted` filters the submesh's actual opaque/cutout alpha class; the translucent pass
     /// enters through [`Self::encode_translucent_characters`].
     fn encode_characters<'a>(
         &'a self,
@@ -2342,9 +2347,7 @@ impl WorldPipeline {
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
         }
-        totals.visible_vertices = totals
-            .visible_vertices
-            .saturating_add(characters.character_vertex_count(character));
+        totals.record_object_vertices(0, characters.character_vertex_count(character));
         totals
     }
 
@@ -2393,9 +2396,12 @@ impl WorldPipeline {
             totals.texture_binds = totals.texture_binds.saturating_add(class.texture_binds);
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
-            if pass_kind == BatchPass::Opaque {
-                totals.absorb(self.encode_opaque_extras(pass, inputs, true));
+            if pass_kind != BatchPass::Translucent {
+                totals.absorb(self.encode_extra_class(pass, inputs, true, pass_kind));
             }
+        }
+        if let Some(props) = inputs.props {
+            totals.absorb(self.encode_props(pass, inputs, props, true, BatchPass::Translucent));
         }
         // A blended dynamic primitive can still emit; its emissive draw joins
         // the bloom source after the static translucent emission.
@@ -2425,6 +2431,7 @@ impl WorldPipeline {
         inputs: WorldEncodeInputs<'a>,
         props: &'a super::props::WgpuProps,
         emission_only: bool,
+        wanted: BatchPass,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         let mut bound_pipeline: Option<BatchPass> = None;
@@ -2434,7 +2441,27 @@ impl WorldPipeline {
         let mut bound_chunk: Option<usize> = None;
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
-        for draw in props.draws() {
+        let mut translucent: Vec<_> = if wanted == BatchPass::Translucent {
+            props
+                .draws()
+                .iter()
+                .filter(|draw| draw.pass == wanted)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        translucent.sort_by(|left, right| {
+            let distance = |draw: &super::props::PropDraw| {
+                glam::Vec3::from_array(draw.bounds.centre()).distance_squared(inputs.frame.eye)
+            };
+            distance(right).total_cmp(&distance(left))
+        });
+        for draw in props
+            .draws()
+            .iter()
+            .filter(|draw| wanted != BatchPass::Translucent && draw.pass == wanted)
+            .chain(translucent)
+        {
             if draw.index_count == 0 {
                 continue;
             }
@@ -2716,35 +2743,77 @@ mod tests {
         0.5 * ((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))
     }
 
+    #[test]
+    fn normal_transform_is_perpendicular_after_rotation_and_nonuniform_scale() {
+        let model = Mat4::from_rotation_y(0.7) * Mat4::from_scale(glam::Vec3::new(2.0, 0.5, 1.5));
+        let environment = EnvironmentUniform::new(
+            [1.0; 3],
+            false,
+            crate::render::common::atmosphere::FogState::SHIPPED,
+        )
+        .with_model(model);
+        let [x, y, z] = environment.normal_model;
+        let normal_matrix = glam::Mat3::from_cols(
+            glam::Vec3::from_slice(&x[..3]),
+            glam::Vec3::from_slice(&y[..3]),
+            glam::Vec3::from_slice(&z[..3]),
+        );
+        let source_normal = glam::Vec3::new(1.0, 1.0, 0.0).normalize();
+        let source_tangent = glam::Vec3::new(1.0, -1.0, 0.0).normalize();
+        let actual = (normal_matrix * source_normal).normalize();
+        let tangent = model.transform_vector3(source_tangent).normalize();
+        assert!(actual.dot(tangent).abs() < 1.0e-6);
+        assert!(
+            model
+                .transform_vector3(source_normal)
+                .normalize()
+                .dot(tangent)
+                .abs()
+                > 0.5
+        );
+        assert_eq!(std::mem::offset_of!(EnvironmentUniform, normal_model), 2848);
+    }
+
+    #[test]
+    fn empty_model_alpha_classes_do_not_count_object_vertices() {
+        let mut totals = WorldDrawTotals::default();
+        totals.record_object_vertices(0, 432);
+        assert_eq!(totals.visible_vertices, 0);
+        totals.draw_calls = 1;
+        totals.record_object_vertices(0, 432);
+        totals.record_object_vertices(1, 432);
+        assert_eq!(totals.visible_vertices, 432);
+    }
+
     // ------------------------------------------------------------- layout
 
     #[test]
-    fn the_world_vertex_is_sixty_four_bytes_with_the_declared_attributes() {
-        assert_eq!(std::mem::size_of::<WorldVertex>(), 64);
-        assert_eq!(WORLD_VERTEX_STRIDE, 64);
+    fn the_world_vertex_preserves_linear_hdr_with_the_declared_attributes() {
+        assert_eq!(std::mem::size_of::<WorldVertex>(), 76);
+        assert_eq!(WORLD_VERTEX_STRIDE, 76);
         assert_eq!(std::mem::offset_of!(WorldVertex, position), 0);
         assert_eq!(std::mem::offset_of!(WorldVertex, normal), 12);
         assert_eq!(std::mem::offset_of!(WorldVertex, uv), 24);
         assert_eq!(std::mem::offset_of!(WorldVertex, color), 32);
-        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_uv), 36);
-        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_page), 40);
-        assert_eq!(std::mem::offset_of!(WorldVertex, tangent), 44);
-        assert_eq!(std::mem::offset_of!(WorldVertex, handedness), 56);
-        assert_eq!(std::mem::offset_of!(WorldVertex, padding), 60);
+        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_uv), 48);
+        assert_eq!(std::mem::offset_of!(WorldVertex, lightmap_page), 52);
+        assert_eq!(std::mem::offset_of!(WorldVertex, tangent), 56);
+        assert_eq!(std::mem::offset_of!(WorldVertex, handedness), 68);
+        assert_eq!(std::mem::offset_of!(WorldVertex, padding), 72);
 
         let layout = world_vertex_layout();
-        assert_eq!(layout.array_stride, 64);
+        assert_eq!(layout.array_stride, 76);
         assert_eq!(layout.step_mode, wgpu::VertexStepMode::Vertex);
         assert_eq!(layout.attributes.len(), 8);
         let attributes: [(u32, wgpu::VertexFormat, u64); 8] = [
             (WORLD_ATTRIB_POSITION, wgpu::VertexFormat::Float32x3, 0),
             (WORLD_ATTRIB_NORMAL, wgpu::VertexFormat::Float32x3, 12),
             (WORLD_ATTRIB_UV, wgpu::VertexFormat::Float32x2, 24),
-            (WORLD_ATTRIB_COLOR, wgpu::VertexFormat::Unorm8x4, 32),
-            (WORLD_ATTRIB_LIGHTMAP_UV, wgpu::VertexFormat::Unorm16x2, 36),
-            (WORLD_ATTRIB_LIGHTMAP_PAGE, wgpu::VertexFormat::Float32, 40),
-            (WORLD_ATTRIB_TANGENT, wgpu::VertexFormat::Float32x3, 44),
-            (WORLD_ATTRIB_HANDEDNESS, wgpu::VertexFormat::Float32, 56),
+            (WORLD_ATTRIB_COLOR, wgpu::VertexFormat::Float32x4, 32),
+            (WORLD_ATTRIB_LIGHTMAP_UV, wgpu::VertexFormat::Unorm16x2, 48),
+            (WORLD_ATTRIB_LIGHTMAP_PAGE, wgpu::VertexFormat::Float32, 52),
+            (WORLD_ATTRIB_TANGENT, wgpu::VertexFormat::Float32x3, 56),
+            (WORLD_ATTRIB_HANDEDNESS, wgpu::VertexFormat::Float32, 68),
         ];
         for (attribute, (location, format, offset)) in layout.attributes.iter().zip(attributes) {
             assert_eq!(attribute.shader_location, location);
@@ -2776,10 +2845,8 @@ mod tests {
         assert_eq!(world.uv, vertex.uv);
         assert_eq!(world.tangent, vertex.tangent);
         assert_eq!(world.handedness, vertex.handedness);
-        // The colour is the reference's normalised byte, not the exact float:
-        // 0.1 -> 26, 0.2 -> 51, 0.3 -> 77, 1.0 -> 255 (round to nearest).
-        assert_eq!(world.color, [26, 51, 77, 255]);
-        assert_eq!(world.color, vertex.color.map(quantize_unit));
+        // Linear factors and vertex illumination retain their full range.
+        assert_eq!(world.color, vertex.color);
         // The lightmap address is carried exactly: the UV comes from the
         // vertex's 16-bit fixed point and the page byte becomes the float the
         // shader's `step(254.5, page)` test compares against.
@@ -3746,24 +3813,23 @@ mod tests {
     }
 
     #[test]
-    fn the_world_shader_reproduces_the_reference_material_math() {
+    fn the_world_shader_uses_shared_material_response_math() {
         // Every input and target is raw display space (the reference's own
         // framebuffer convention), so the only transfer function is the one
         // conversion at the sRGB surface.
-        assert!(!WORLD_SHADER_SRC.contains("fn linear_to_srgb("));
+        assert!(WORLD_SHADER_SRC.contains("fn target_color("));
         assert!(WORLD_SHADER_SRC.contains("fn srgb_to_linear("));
         // The fragment assembles the reference's
         // `lit + sheen + reflection + emission`, then fog, in display space and
         // converts once, after every display-space term.
-        assert!(WORLD_SHADER_SRC.contains("fn lit_display("));
+        assert!(WORLD_SHADER_SRC.contains("fn lit_linear("));
         assert!(
-            WORLD_SHADER_SRC
-                .contains("return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);"),
-            "the sRGB entry points convert once, after the display-space assembly"
+            WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
+            "the sRGB surface receives linear RGB"
         );
         assert!(
             WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"),
-            "the raw entry points write the reference's display-space values directly"
+            "linear HDR targets retain the assembled radiance"
         );
         assert!(
             WORLD_SHADER_SRC.contains("lit + sheen + reflection + emission"),
@@ -3909,108 +3975,38 @@ mod tests {
 
     // ------------------------------------------------- material colour space
 
-    /// One channel of the IEC 61966-2-1 decode, exactly the WGSL
-    /// `srgb_to_linear`.
-    fn srgb_to_linear(value: f32) -> f32 {
-        if value <= 0.04045 {
-            value / 12.92
-        } else {
-            ((value + 0.055) / 1.055).powf(2.4)
-        }
-    }
-
-    /// One channel of the IEC 61966-2-1 encode, exactly the WGSL
-    /// `linear_to_srgb`.
-    fn linear_to_srgb(value: f32) -> f32 {
-        if value <= 0.003_130_8 {
-            value * 12.92
-        } else {
-            1.055 * value.powf(1.0 / 2.4) - 0.055
-        }
-    }
-
     #[test]
-    fn the_world_shader_samples_display_space_and_converts_once() {
+    fn the_world_shader_assembles_linear_light_and_only_encodes_raw_display_targets() {
         // The base texture is raw display space (no sRGB decode), so the
         // fragment is assembled in the reference's framebuffer space and the
         // sRGB surface converts exactly once, at the output.
         assert!(
-            WORLD_SHADER_SRC.contains("let base_display = base.rgb;"),
+            WORLD_SHADER_SRC.contains("let base_linear = base.rgb;"),
             "authored texels must be sampled as display values"
         );
         assert!(
-            !WORLD_SHADER_SRC.contains("fn linear_to_srgb("),
+            WORLD_SHADER_SRC.contains("fn target_color("),
             "no encode may exist inside the world assembly"
         );
-        assert!(
-            WORLD_SHADER_SRC
-                .contains("return vec4<f32>(srgb_to_linear(shaded.color), shaded.alpha);")
-        );
+        assert!(WORLD_SHADER_SRC.contains("return vec4<f32>(shaded.color, shaded.alpha);"));
         for needle in ["c / 12.92", "0.04045", "pow((c + 0.055) / 1.055"] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
     }
 
     #[test]
-    fn the_display_space_material_multiply_matches_the_reference_values() {
-        // `display` is the authored texel, `factor` the material vertex colour.
-        // Both renderers compute `display * factor` in raw display space, so
-        // the port's product is the reference's product by construction. The
-        // linear-space product — what an sRGB texture plus a decode-then-
-        // multiply port would produce — demonstrably differs and is pinned so
-        // the raw sampling cannot be removed without a failure.
-        let cases: [(f32, f32); 8] = [
-            (1.0, 1.0),
-            (1.0, 0.5),
-            (1.0, 0.25),
-            (0.5, 1.0),
-            (0.5, 0.5),
-            (0.5, 0.25),
-            (0.0, 0.5),
-            (0.25, 0.75),
-        ];
-        for (display, factor) in cases {
-            let reference = display * factor;
-            let port = display * factor;
-            assert!(
-                (port - reference).abs() < f32::EPSILON,
-                "{display} x {factor}: reference {reference}, port {port}"
-            );
-
-            let linear_space = linear_to_srgb(srgb_to_linear(display) * factor);
-            if (0.15..=0.85).contains(&display) && factor <= 0.6 {
-                assert!(
-                    (linear_space - reference).abs() > 0.05,
-                    "the linear-space product must differ from the reference \
-                     for {display} x {factor}: {linear_space} vs {reference}"
-                );
-            }
-        }
+    fn authored_midgrey_is_decoded_before_the_linear_factor() {
+        let texture = crate::materials::color::decode_byte(128);
+        assert!((texture - 0.215_860_5).abs() < 1.0e-6);
+        let result = crate::materials::color::linear_to_srgb(texture * 0.5);
+        assert!((result - 0.362_249_14).abs() < 1.0e-6);
+        assert!(result > 128.0 / 255.0 * 0.5);
     }
 
     #[test]
-    fn the_display_space_product_rounds_to_the_reference_byte() {
-        // The reference writes `texel x vertex_colour` to an 8-bit non-sRGB
-        // framebuffer: the stored byte is `round(255 * display x factor)`.
-        // With raw textures the port computes the same float product and the
-        // same rounding, so its byte is the reference's byte exactly for every
-        // authored texel byte and a grid of vertex colours.
-        let mut checked = 0usize;
-        for texel in 0..=255u8 {
-            let authored = f32::from(texel) / 255.0;
-            for factor_byte in [0u8, 1, 17, 64, 128, 191, 254, 255] {
-                let factor = f32::from(factor_byte) / 255.0;
-                let reference_byte = (authored * factor * 255.0).round();
-                let product = authored * factor;
-                let port_byte = (product * 255.0).round();
-                assert_eq!(
-                    port_byte, reference_byte,
-                    "texel {texel} x factor {factor_byte}: reference {reference_byte}, port {port_byte}"
-                );
-                checked = checked.saturating_add(1);
-            }
-        }
-        assert_eq!(checked, 256 * 8);
+    fn vertex_illumination_and_alpha_retain_their_numeric_range() {
+        let vertex = Vertex::new([0.0; 3], [2.0, 4.0, 0.005, 0.25], [0.0; 2]);
+        assert_eq!(WorldVertex::from(vertex).color, [2.0, 4.0, 0.005, 0.25]);
     }
 
     #[test]
@@ -4082,7 +4078,7 @@ mod tests {
             "environment.lightmap_switchable & 0xFu",
             "(environment.lightmap_switchable >> 8u) & 0xFu",
             "pages * 2u * (group + 1u) + page * 2u",
-            "return soft_clip(hdr) * environment.light_scale;",
+            "return hdr * environment.light_scale;",
             "return vec3<f32>(1.0) * environment.light_scale;",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
@@ -4098,7 +4094,7 @@ mod tests {
         // the sheen.
         assert!(
             WORLD_SHADER_SRC
-                .contains("base_display * vertex_color * light * (1.0 - emission_vertex)")
+                .contains("base_linear * vertex_color * light * (1.0 - emission_vertex)")
         );
         assert!(
             WORLD_SHADER_SRC
@@ -4122,47 +4118,23 @@ mod tests {
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(2)"));
     }
 
-    /// The CPU mirror of the shader's tone map, checked against the transport
-    /// implementation the bake calibrates with.
+    /// Material evaluation must receive unclipped irradiance.
     #[test]
-    fn the_soft_clip_matches_the_transport_tone_map() {
-        for needle in [
-            "fn soft_clip_channel(x: f32) -> f32",
-            "fn soft_clip(color: vec3<f32>) -> vec3<f32>",
-            "if (x <= 0.8)",
-            "0.8 + shoulder * (1.0 - exp(-(x - 0.8) / shoulder))",
-        ] {
-            assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
-        }
-        // Below the knee the value passes through; above it the exponential
-        // shoulder compresses towards one, C1-continuous at the knee.
-        let knee = crate::lighting::transport::soft_clip_channel(0.8);
-        assert!((knee - 0.8).abs() < 1.0e-6);
-        for value in [0.0_f32, 0.25, 0.5, 0.8, 1.0, 2.0, 16.0] {
-            let expected = crate::lighting::transport::soft_clip_channel(value);
-            let mirrored = soft_clip_channel(value);
-            assert!(
-                (mirrored - expected).abs() < 1.0e-6,
-                "soft clip at {value}: shader mirror {mirrored}, transport {expected}"
-            );
-            assert!(mirrored <= 1.0, "the shoulder compresses towards one");
-        }
-        assert!(soft_clip_channel(2.0) < 1.0);
-        // The shader's knee is the transport constant it mirrors.
-        assert!(
-            WORLD_SHADER_SRC.contains(&format!(
-                "if (x <= {})",
-                crate::lighting::transport::SOFT_KNEE
-            )),
-            "the shader knee must be the transport knee"
-        );
+    fn light_is_not_display_mapped_before_albedo() {
+        assert!(!WORLD_SHADER_SRC.contains("fn soft_clip("));
+        assert!(WORLD_SHADER_SRC.contains("return hdr * environment.light_scale;"));
+        let texture = crate::materials::color::decode_byte(128);
+        let linear = texture * 4.0;
+        assert!(linear > 0.8);
+        assert!((linear - 0.863_442).abs() < 1.0e-5);
+        assert!(crate::materials::color::linear_to_srgb(linear) > 0.93);
     }
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2896);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 2848);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 2896);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4309,7 +4281,7 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, entity_moment),
             1264
         );
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2848);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2896);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(
@@ -4721,16 +4693,6 @@ mod tests {
             .expect("GPU work completes before test read-back");
     }
 
-    /// The CPU mirror of the shader's `soft_clip` tone map, for the light-seam
-    /// tests. The transport's own implementation is the numeric reference.
-    fn soft_clip_channel(value: f32) -> f32 {
-        if value <= 0.8 {
-            return value.max(0.0);
-        }
-        let shoulder = 0.2;
-        0.8 + shoulder * (1.0 - (-(value - 0.8) / shoulder).exp())
-    }
-
     /// The CPU mirror of the shader's `decode_lightmap` over the layer array:
     /// the irradiance plane at `layer` and the direction-moment plane after it,
     /// with `k = I.r + I.g + I.b` and
@@ -4813,8 +4775,7 @@ mod tests {
                 hdr = std::array::from_fn(|channel| hdr[channel] + contribution[channel]);
             }
         }
-        let clipped = hdr.map(soft_clip_channel);
-        std::array::from_fn(|channel| clipped[channel] * scale[channel])
+        std::array::from_fn(|channel| hdr[channel] * scale[channel])
     }
 
     #[test]
@@ -4938,19 +4899,18 @@ mod tests {
             [2.0; 3]
         );
 
-        // The display tone map compresses a genuine highlight below one, and
-        // the mirror is the transport implementation's numeric response.
+        // Highlights retain HDR energy until presentation.
         let bright: Vec<[f32; 4]> = vec![[2.0, 2.0, 2.0, 0.5], [0.0, 0.0, 0.0, 0.5]];
-        let expected = crate::lighting::transport::soft_clip([2.0; 3]);
+        let expected = [2.0; 3];
         let actual = surface_light_mirror(true, 0.0, 1, 0, 0, up, &bright, unit);
         close(actual, expected);
-        assert!(actual[0] > 0.8 && actual[0] < 1.0, "{actual:?}");
+        assert!(actual[0] == 2.0, "{actual:?}");
 
         // The shader source contains the exact expressions the mirror encodes.
         assert!(WORLD_SHADER_SRC.contains("step(254.5, in.lightmap_page)"));
         assert!(WORLD_SHADER_SRC.contains("let page = u32(in.lightmap_page + 0.5);"));
         assert!(WORLD_SHADER_SRC.contains("pages * 2u * (group + 1u) + page * 2u"));
-        assert!(WORLD_SHADER_SRC.contains("soft_clip(hdr)"));
+        assert!(WORLD_SHADER_SRC.contains("return hdr * environment.light_scale;"));
     }
 
     /// The runtime-side regression for the octahedral-seam artifact: two
@@ -5186,45 +5146,18 @@ mod tests {
     }
 
     #[test]
-    fn the_display_space_assembly_adds_the_sheen_before_one_conversion() {
-        // The reference computes `lit + sheen` in display space and writes it to
-        // a non-sRGB framebuffer. The port adds the sheen there too; only the
-        // sRGB surface converts the finished sum.
-        let display = 0.5_f32;
-        let factor = 0.5_f32;
-        let light = 1.0_f32;
-        let sheen_value = 0.2_f32;
-
-        let reference_display = display * factor * light + sheen_value;
-        let port_display = display * factor * light + sheen_value;
-        assert!(
-            (port_display - reference_display).abs() < f32::EPSILON,
-            "display-space assembly: reference {reference_display}, port {port_display}"
-        );
-
-        // The wrong order — converting the sheen to linear and adding it after
-        // a decode — demonstrably changes the presented pixel.
-        let linear_sheen = srgb_to_linear(sheen_value);
-        let wrong_display = linear_to_srgb(srgb_to_linear(display * factor * light) + linear_sheen);
-        assert!(
-            (wrong_display - reference_display).abs() > 0.01,
-            "linear-space sheen addition must differ: {wrong_display} vs {reference_display}"
-        );
+    fn sheen_and_emission_accumulate_in_linear_energy() {
+        let albedo = crate::materials::color::decode_byte(128);
+        let energy = albedo * 0.5 + 0.2 + 2.0;
+        assert!(energy > 2.3);
+        assert!(WORLD_SHADER_SRC.contains("lit + sheen + reflection + emission"));
+        assert!(!WORLD_SHADER_SRC.contains("srgb_to_linear(shaded.color)"));
     }
 
     #[test]
-    fn the_unlit_bypass_survives_only_for_a_white_vertex_unit_light_and_no_sheen() {
-        // The unlit bypass: a raw base-texture sample for an all-white vertex
-        // colour with the unit light and no sheen.
-        assert!(WORLD_SHADER_SRC.contains("all(in.color.rgb >= vec3<f32>(1.0))"));
-        assert!(WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
-        assert!(WORLD_SHADER_SRC.contains("all(sheen == vec3<f32>(0.0))"));
-        assert!(WORLD_SHADER_SRC.contains("color = base_display;"));
-        // The bypass must also reject a level whose global density is zero but
-        // whose regions are live: the raw sample is only exact with no fog at
-        // all.
-        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_density == 0.0"));
-        assert!(WORLD_SHADER_SRC.contains("&& environment.fog_region_count == 0u"));
+    fn bright_irradiance_cannot_trigger_an_unlit_bypass() {
+        assert!(!WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
+        assert!(!WORLD_SHADER_SRC.contains("color = base_linear;"));
     }
 
     // ------------------------------------------------------------------- fog
@@ -5266,7 +5199,7 @@ mod tests {
             "let density = global_density + layer_density;",
             "var fog_amount = density * distance;",
             "fog_amount = 1.0 - exp(-fog_amount * fog_amount);",
-            "return mix(color, layer_color, clamp(fog_amount, 0.0, 1.0));",
+            "return mix(color, srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }

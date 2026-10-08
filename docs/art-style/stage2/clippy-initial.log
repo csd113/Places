@@ -1,0 +1,184 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: multiply and add expressions may be calculated more efficiently and accurately
+   --> src/gltf.rs:678:9
+    |
+678 |         (0.04 * (1.0 - metallic) + 0.55 * metallic * channel) * (1.0 - roughness)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `f32::mul_add((0.55 * metallic), channel, 0.04 * (1.0 - metallic))`
+    |
+    = note: the performance gain from `mul_add` may vary depending on the target architecture
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+    = note: `-D clippy::suboptimal-flops` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::suboptimal_flops)]`
+
+error: this function has too many lines (101/100)
+    --> src/gltf.rs:1072:5
+     |
+1072 | /     fn read_primitive(
+1073 | |         &mut self,
+1074 | |         primitive: &serde_json::Value,
+1075 | |         request: &PrimitiveRequest<'_>,
+1076 | |     ) -> Result<usize, GltfError> {
+     | |_________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+     = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+     = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: multiply and add expressions may be calculated more efficiently and accurately
+  --> src/materials/color.rs:22:9
+   |
+22 |         1.055 * value.powf(1.0 / 2.4) - 0.055
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `1.055f32.mul_add(value.powf(1.0 / 2.4), -0.055)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+
+error: this could be a `const fn`
+  --> src/materials/color.rs:38:1
+   |
+38 | / fn byte(value: f32) -> u8 {
+39 | |     value.clamp(0.0, 1.0).mul_add(255.0, 0.5) as u8
+40 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#missing_const_for_fn
+   = note: `-D clippy::missing-const-for-fn` implied by `-D clippy::nursery`
+   = help: to override `-D clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+   |
+38 | const fn byte(value: f32) -> u8 {
+   | +++++
+
+error: first doc comment paragraph is too long
+  --> src/materials/color.rs:42:1
+   |
+42 | / /// Box-filter colour in linear light, weighting RGB by straight alpha.
+43 | | /// The output remains sRGB RGBA8; the GPU decodes it once at sampling.
+44 | | /// A zero-alpha block has zero RGB, preventing hidden colours bleeding out.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_long_first_doc_paragraph
+   = note: `-D clippy::too-long-first-doc-paragraph` implied by `-D clippy::nursery`
+   = help: to override `-D clippy::nursery` add `#[allow(clippy::too_long_first_doc_paragraph)]`
+help: add an empty line
+   |
+42 | /// Box-filter colour in linear light, weighting RGB by straight alpha.
+43 + ///
+   |
+
+error: `width` is shadowed
+  --> src/materials/color.rs:47:9
+   |
+47 |     let width = width.max(1);
+   |         ^^^^^
+   |
+note: previous binding is here
+  --> src/materials/color.rs:46:40
+   |
+46 | pub fn resize_color(source: &RawImage, width: u32, height: u32) -> RawImage {
+   |                                        ^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+   = note: requested on the command line with `-D clippy::shadow-reuse`
+
+error: `height` is shadowed
+  --> src/materials/color.rs:48:9
+   |
+48 |     let height = height.max(1);
+   |         ^^^^^^
+   |
+note: previous binding is here
+  --> src/materials/color.rs:46:52
+   |
+46 | pub fn resize_color(source: &RawImage, width: u32, height: u32) -> RawImage {
+   |                                                    ^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/materials/color.rs:55:18
+   |
+55 |         let y0 = y.saturating_mul(source.height) / height;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+   = note: requested on the command line with `-D clippy::arithmetic-side-effects`
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/materials/color.rs:56:18
+   |
+56 |         let y1 = y.saturating_add(1).saturating_mul(source.height) / height;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/materials/color.rs:58:22
+   |
+58 |             let x0 = x.saturating_mul(source.width) / width;
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/materials/color.rs:59:22
+   |
+59 |             let x1 = x.saturating_add(1).saturating_mul(source.width) / width;
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: multiply and add expressions may be calculated more efficiently and accurately
+  --> src/materials/color.rs:71:25
+   |
+71 |                         *channel += lut.get(usize::from(*value)).copied().unwrap_or(0.0) * weight;
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `*channel = f32::mul_add(lut.get(usize::from(*value)).copied().unwrap_or(0.0), weight, *channel)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+    --> src/render/common/character.rs:2119:17
+     |
+2119 |                 blended += *delta * *weight;
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: this function has too many arguments (9/7)
+   --> src/render/wgpu/material.rs:958:5
+    |
+958 | /     pub fn model_with_alpha(
+959 | |         device: &wgpu::Device, queue: &wgpu::Queue, layout: &wgpu::BindGroupLayout,
+960 | |         cache: &TextureCache, emission_texture: &Arc<GpuTexture>, record: EmissionRecord,
+961 | |         alpha: crate::materials::MaterialAlpha, response: crate::materials::MaterialResponse,
+962 | |         response_enabled: bool,
+963 | |     ) -> Self {
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::too_many_arguments)]`
+
+error: very complex type used. Consider factoring parts into `type` definitions
+   --> src/render/wgpu/props.rs:109:17
+    |
+109 |     identities: Vec<(usize, [f32; 3], Option<usize>, u32, crate::materials::MaterialResponse)>,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#type_complexity
+    = note: `-D clippy::type-complexity` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::type_complexity)]`
+
+error: could not compile `places` (lib) due to 15 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: `colour` is shadowed
+    --> src/render/wgpu/renderer.rs:5311:17
+     |
+5311 | ...   let colour: [u8; 8] = colour.into_iter().flat_map(|v| crate::package::ktx2::f32_to_f16_bits(f32::from(v)).to_le_bytes()).col...
+     |           ^^^^^^
+     |
+note: previous binding is here
+    --> src/render/wgpu/renderer.rs:5305:17
+     |
+5305 |             let colour = [
+     |                 ^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: could not compile `places` (lib test) due to 16 previous errors

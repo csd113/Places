@@ -166,6 +166,8 @@ pub struct DynamicId(u32);
 /// normal material property, not a special case.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicSubmesh {
+    /// Shared scalar material response for every mesh route.
+    pub response: crate::materials::MaterialResponse,
     /// Index into [`DynamicMesh::textures`], or `None` for an untextured
     /// material (drawn through the shared white sheet).
     pub texture: Option<u16>,
@@ -249,6 +251,7 @@ impl DynamicMesh {
             .iter()
             .map(|vertex| Vertex {
                 pos: vertex.pos,
+                normal: vertex.normal.unwrap_or([0.0; 3]),
                 color: vertex.color,
                 uv: vertex.uv,
                 // A dynamic vertex is never lightmapped: the atlas channel is
@@ -264,6 +267,7 @@ impl DynamicMesh {
             .enumerate()
             .filter(|(_, submesh)| submesh.index_count > 0)
             .map(|(index, submesh)| DynamicSubmesh {
+                response: submesh.response,
                 texture: submesh.texture,
                 emission: submesh.emission,
                 alpha: alphas.get(index).copied().unwrap_or(MaterialAlpha::OPAQUE),
@@ -1362,6 +1366,7 @@ mod tests {
             indices: vec![0, 1, 2],
             textures: Vec::new(),
             submeshes: vec![PropSubmesh {
+                response: crate::materials::MaterialResponse::NONE,
                 alpha: crate::materials::MaterialAlpha::OPAQUE,
                 material: 0,
                 texture: None,
@@ -1380,6 +1385,27 @@ mod tests {
             model_path: "core/test_triangle.glb".to_string(),
             model: synthetic_model(emission),
         })
+    }
+
+    #[test]
+    fn model_space_normals_and_scalar_response_survive_dynamic_upload_input() {
+        let mut asset = LoadedPropAsset {
+            model_path: "core/test_triangle.glb".to_string(),
+            model: synthetic_model(MaterialEmission::NONE),
+        };
+        asset.model.vertices[0].normal = Some([0.0, 1.0, 0.0]);
+        asset.model.submeshes[0].response = crate::materials::MaterialResponse {
+            specular: [0.03; 3],
+            roughness: 0.25,
+            ..crate::materials::MaterialResponse::NONE
+        };
+        let mesh = DynamicMesh::from_asset(&asset).unwrap();
+        assert_eq!(mesh.vertices[0].normal, [0.0, 1.0, 0.0]);
+        assert_eq!(mesh.vertices[1].normal, [0.0; 3]);
+        assert_eq!(
+            mesh.submeshes[0].response,
+            asset.model.submeshes[0].response
+        );
     }
 
     // ------------------------------------------------ representation boundary

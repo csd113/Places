@@ -104,9 +104,17 @@ pub struct WgpuProps {
 /// The caller owns the batch cursor and retains this builder until every batch
 /// has been visited. Material identities persist across calls, so splitting the
 /// upload cannot change deduplication, ordering, or accounting.
+type PropMaterialIdentity = (
+    usize,
+    [f32; 3],
+    Option<usize>,
+    crate::materials::MaterialAlpha,
+    crate::materials::MaterialResponse,
+);
+
 pub struct PropUpload {
     props: WgpuProps,
-    identities: Vec<(usize, [f32; 3], Option<usize>, u32)>,
+    identities: Vec<PropMaterialIdentity>,
     skip_models: Vec<String>,
     image_keys: std::collections::HashMap<(String, usize), ImageIdentity>,
     level: QualityLevel,
@@ -250,8 +258,7 @@ impl PropUpload {
             // The cutoff is part of the material identity: two primitives that
             // share a sheet and emission but discard at different alpha levels
             // need different uniforms.
-            let cutoff = submesh.alpha.cutoff.to_bits();
-            let identity = (texture, record.color, mask, cutoff);
+            let identity = (texture, record.color, mask, submesh.alpha, submesh.response);
             let material = identities
                 .iter()
                 .position(|existing| *existing == identity)
@@ -259,14 +266,18 @@ impl PropUpload {
                     let mask_texture = mask
                         .and_then(|index| textures.get(index).cloned())
                         .unwrap_or_else(|| cache.fallback());
-                    let gpu = GpuMaterial::plain_with_alpha(
+                    let gpu = GpuMaterial::model_with_alpha(
                         device,
                         queue,
                         material_layout,
                         cache,
                         &mask_texture,
-                        record,
-                        submesh.alpha,
+                        super::material::ModelMaterial {
+                            emission: record,
+                            alpha: submesh.alpha,
+                            response: submesh.response,
+                            response_enabled: level.draws_surface_response(),
+                        },
                     );
                     materials.push(gpu);
                     identities.push(identity);
@@ -282,11 +293,7 @@ impl PropUpload {
                 bounds: batch.bounds,
                 texture,
                 material,
-                pass: if submesh.alpha.is_cutout() {
-                    BatchPass::Cutout
-                } else {
-                    BatchPass::Opaque
-                },
+                pass: BatchPass::of(submesh.alpha),
                 emissive: record.is_emissive(),
             });
         }
@@ -442,6 +449,6 @@ mod tests {
             f32::from(crate::render::common::mesh::LIGHTMAP_NONE)
         );
         assert_eq!(world.lightmap_uv, [0, 0]);
-        assert_eq!(world.color[3], 255);
+        assert_eq!(world.color[3], 1.0);
     }
 }

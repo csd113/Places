@@ -246,7 +246,9 @@ pub fn solver_fingerprint() -> u64 {
 ///   faces share visibility-guarded cache/filter samples; direct shadow edges
 ///   use adaptive footprint coverage; global directional light joins transport;
 ///   gather rays respect geometric horizons and opaque front-face radiance.
-pub const SOLVER_REVISION: u64 = 11;
+/// - 12: diffuse bounce reflectance decodes sRGB once, excluding architectural
+///   receiver shade, and model sheets use clamped UVs and centroid factors.
+pub const SOLVER_REVISION: u64 = 12;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;

@@ -1869,6 +1869,16 @@ sauna through a second `sauna` door whose floor is flush on both sides.
 
 ## 11. Materials
 
+Colour PNGs are authored sRGB; material tint/base factors, light colour and
+intensity are linear values. Bake and runtime shading retain linear HDR, and
+presentation alone applies exposure and display encoding. Normal maps and
+emission masks are numeric data. Changing Lightmaps does not change texture
+size, mips or the independently selected Texture Filtering policy. See
+[Asset specification §§16–18](ASSET_SPECIFICATION.md#16-formats-and-colour) and
+[Stage 2 contracts](art-style/stage2/contracts.md). No map-specific brightness
+compensation is needed or supported by this contract.
+
+
 A level names a **material**, never a file path. The full resolution chain is:
 
 ```text

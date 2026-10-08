@@ -2358,3 +2358,30 @@ fn surface_normals_skin_with_weighted_inverse_transpose_and_normalize_after_blen
     assert!(actual.distance(expected) < 1.0e-5);
     assert_eq!(morphs[0].normal, vec![[0.875, 0.0, 0.0]]);
 }
+
+#[test]
+fn scalar_response_has_compatible_defaults_and_rejects_invalid_controls() {
+    assert_eq!(
+        imported_response(None, [1.0; 4]).expect("valid scalar response"),
+        crate::materials::MaterialResponse {
+            roughness: 1.0,
+            ..crate::materials::MaterialResponse::NONE
+        }
+    );
+    let glossy = serde_json::json!({"roughnessFactor": 0.25_f64, "metallicFactor": 0.0_f64});
+    let wood =
+        imported_response(Some(&glossy), [0.5, 0.25, 0.1, 1.0]).expect("valid scalar response");
+    assert_eq!(wood.roughness, 0.25);
+    assert_eq!(wood.specular, [0.03; 3]);
+    let metallic = serde_json::json!({"roughnessFactor": 0.25_f64, "metallicFactor": 1.0_f64});
+    let metal =
+        imported_response(Some(&metallic), [0.5, 0.25, 0.1, 1.0]).expect("valid scalar response");
+    assert!(metal.specular[0] > metal.specular[1] && metal.specular[1] > metal.specular[2]);
+    for bad in [
+        serde_json::json!({"roughnessFactor": -0.01_f64}),
+        serde_json::json!({"metallicFactor": 1.01_f64}),
+        serde_json::json!({"roughnessFactor": "rough"}),
+    ] {
+        assert!(imported_response(Some(&bad), [1.0; 4]).is_err());
+    }
+}

@@ -44,6 +44,8 @@ struct DynamicMeshGpu {
 /// One primitive of a dynamic model.
 #[derive(Clone, Copy)]
 struct DynamicSubmeshGpu {
+    /// Shared scalar material response for every mesh route.
+    response: crate::materials::MaterialResponse,
     /// Index into [`DynamicMeshGpu::textures`].
     texture: usize,
     /// This primitive's own emission, before any object override.
@@ -173,6 +175,7 @@ impl WgpuDynamic {
                 .submeshes
                 .iter()
                 .map(|submesh| DynamicSubmeshGpu {
+                    response: submesh.response,
                     texture: submesh.texture.map_or(white, usize::from).min(white),
                     emission: submesh.emission,
                     alpha: submesh.alpha,
@@ -222,14 +225,18 @@ impl WgpuDynamic {
                     .and_then(|index| mesh.textures.get(index).cloned());
                 let record = EmissionRecord::material(emission, mask_texture.is_some());
                 let mask = mask_texture.unwrap_or_else(|| ctx.cache.fallback());
-                value.materials.push(GpuMaterial::plain_with_alpha(
+                value.materials.push(GpuMaterial::model_with_alpha(
                     ctx.device,
                     ctx.queue,
                     ctx.material_layout,
                     ctx.cache,
                     &mask,
-                    record,
-                    submesh.alpha,
+                    super::material::ModelMaterial {
+                        emission: record,
+                        alpha: submesh.alpha,
+                        response: submesh.response,
+                        response_enabled: ctx.level.draws_surface_response(),
+                    },
                 ));
                 materials.push(value.materials.len().saturating_sub(1));
                 emissive.push(record.is_emissive());
