@@ -9,7 +9,7 @@
     "yaw_degrees": -30
   },
   "defaults": {
-    "wall": "outdoor:house_siding_01",
+    "wall": "winter:stone_masonry_01",
     "floor": "winter:snow_01",
     "ceiling": "home:ceiling_white_01"
   },
@@ -606,7 +606,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0.6,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "north": "home:wall_paint_offwhite_01"
       },
@@ -623,7 +623,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         },
         {
@@ -632,7 +632,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         }
       ]
@@ -643,7 +643,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0.6,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "south": "home:wall_paint_offwhite_01"
       }
@@ -654,7 +654,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0.6,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
       }
@@ -665,7 +665,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0.6,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
       }
@@ -676,7 +676,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "north": "home:wall_paint_offwhite_01"
       },
@@ -693,7 +693,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         },
         {
@@ -702,7 +702,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         }
       ]
@@ -713,7 +713,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "south": "home:wall_paint_offwhite_01"
       }
@@ -724,7 +724,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
       }
@@ -735,7 +735,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
       }
@@ -746,7 +746,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "north": "home:wall_paint_offwhite_01"
       },
@@ -763,7 +763,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         },
         {
@@ -772,7 +772,7 @@
           "width": 1.1,
           "height": 1,
           "sill": 1,
-          "glass": "core:glass_window_clear_01",
+          "glass": "winter:window_amber_01",
           "solid": true
         }
       ]
@@ -783,7 +783,7 @@
       "width": 9,
       "depth": 0.3,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "south": "home:wall_paint_offwhite_01"
       }
@@ -794,7 +794,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "east": "home:wall_paint_offwhite_01"
       }
@@ -805,7 +805,7 @@
       "width": 0.3,
       "depth": 5.44,
       "y": 0,
-      "material": "outdoor:house_siding_01",
+      "material": "winter:stone_masonry_01",
       "faces": {
         "west": "home:wall_paint_offwhite_01"
       }
@@ -1051,34 +1051,9 @@
   "props": [
     {
       "id": "home_0_doorway",
-      "model": "outdoor:house_02_wall_doorway",
+      "model": "winter:entrance_frame",
       "x": -11.5,
-      "z": -9.95,
-      "y": 0.36
-    },
-    {
-      "id": "home_0_trim_0_0",
-      "model": "outdoor:house_02_corner_trim",
-      "x": -16,
-      "z": -16
-    },
-    {
-      "id": "home_0_trim_0_6",
-      "model": "outdoor:house_02_corner_trim",
-      "x": -16,
-      "z": -10
-    },
-    {
-      "id": "home_0_trim_9_0",
-      "model": "outdoor:house_02_corner_trim",
-      "x": -7,
-      "z": -16
-    },
-    {
-      "id": "home_0_trim_9_6",
-      "model": "outdoor:house_02_corner_trim",
-      "x": -7,
-      "z": -10
+      "z": -9.92
     },
     {
       "id": "home_0_roof_0_front",
@@ -1171,7 +1146,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_0_lamp_1_1",
@@ -1196,7 +1172,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_0_couch",
@@ -1248,34 +1225,9 @@
     },
     {
       "id": "home_1_doorway",
-      "model": "outdoor:house_01_wall_doorway",
+      "model": "winter:entrance_frame",
       "x": 12.5,
-      "z": -23.95,
-      "y": -0.24
-    },
-    {
-      "id": "home_1_trim_0_0",
-      "model": "outdoor:house_01_corner_trim",
-      "x": 8,
-      "z": -30
-    },
-    {
-      "id": "home_1_trim_0_6",
-      "model": "outdoor:house_01_corner_trim",
-      "x": 8,
-      "z": -24
-    },
-    {
-      "id": "home_1_trim_9_0",
-      "model": "outdoor:house_01_corner_trim",
-      "x": 17,
-      "z": -30
-    },
-    {
-      "id": "home_1_trim_9_6",
-      "model": "outdoor:house_01_corner_trim",
-      "x": 17,
-      "z": -24
+      "z": -23.92
     },
     {
       "id": "home_1_roof_0_front",
@@ -1368,7 +1320,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_1_lamp_1_1",
@@ -1393,7 +1346,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_1_couch",
@@ -1445,34 +1399,9 @@
     },
     {
       "id": "home_2_doorway",
-      "model": "outdoor:house_04_wall_doorway",
+      "model": "winter:entrance_frame",
       "x": -12.5,
-      "z": 10.05,
-      "y": -0.24
-    },
-    {
-      "id": "home_2_trim_0_0",
-      "model": "outdoor:house_04_corner_trim",
-      "x": -17,
-      "z": 4
-    },
-    {
-      "id": "home_2_trim_0_6",
-      "model": "outdoor:house_04_corner_trim",
-      "x": -17,
-      "z": 10
-    },
-    {
-      "id": "home_2_trim_9_0",
-      "model": "outdoor:house_04_corner_trim",
-      "x": -8,
-      "z": 4
-    },
-    {
-      "id": "home_2_trim_9_6",
-      "model": "outdoor:house_04_corner_trim",
-      "x": -8,
-      "z": 10
+      "z": 10.08
     },
     {
       "id": "home_2_roof_0_front",
@@ -1565,7 +1494,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_2_lamp_1_1",
@@ -1590,7 +1520,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "home_2_couch",
@@ -1688,7 +1619,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "path_lamp_1",
@@ -1712,7 +1644,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "path_lamp_2",
@@ -1736,7 +1669,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "path_lamp_3",
@@ -1760,7 +1694,8 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "forest_rest_lamp",
@@ -1784,26 +1719,28 @@
           ],
           "falloff": "smooth"
         }
-      ]
+      ],
+      "occludes": false
     },
     {
       "id": "square_lamp_0",
-      "model": "outdoor:streetlight",
+      "model": "winter:timber_lantern",
       "x": -3.8,
       "z": -3,
       "solid": true,
       "size": [
-        0.16,
-        6.4,
-        0.16
+        0.155,
+        2.6,
+        0.155
       ],
+      "occludes": false,
       "lights": [
         {
           "shape": "point",
           "offset": [
             0,
-            6.05,
-            0.43
+            2.6,
+            0.12
           ],
           "intensity": 1.5,
           "range": 14,
@@ -1818,22 +1755,23 @@
     },
     {
       "id": "square_lamp_1",
-      "model": "outdoor:streetlight",
+      "model": "winter:timber_lantern",
       "x": 13.8,
       "z": -21.8,
       "solid": true,
       "size": [
-        0.16,
-        6.4,
-        0.16
+        0.155,
+        2.6,
+        0.155
       ],
+      "occludes": false,
       "lights": [
         {
           "shape": "point",
           "offset": [
             0,
-            6.05,
-            0.43
+            2.6,
+            0.12
           ],
           "intensity": 1.5,
           "range": 14,
@@ -2746,6 +2684,318 @@
         5,
         2.2
       ],
+      "occludes": false
+    },
+    {
+      "id": "path_wall_-1_0",
+      "model": "winter:stone_wall_snow",
+      "x": -2.35,
+      "z": -14.4,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_-1_1",
+      "model": "winter:stone_wall_snow",
+      "x": -2.35,
+      "z": -11.9,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_-1_2",
+      "model": "winter:stone_wall_snow",
+      "x": -2.35,
+      "z": -26.5,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_-1_3",
+      "model": "winter:stone_wall_snow",
+      "x": -2.35,
+      "z": -29.0,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_pier_-1_0",
+      "model": "winter:masonry_pier_snow",
+      "x": -2.35,
+      "z": -16.2,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "path_pier_-1_1",
+      "model": "winter:masonry_pier_snow",
+      "x": -2.35,
+      "z": -10.2,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "path_pier_lantern_-1",
+      "model": "outdoor:lamp_fence",
+      "x": -2.35,
+      "z": -10.2,
+      "y": 1.151,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.18,
+            0
+          ],
+          "intensity": 0.4,
+          "range": 4,
+          "color": [
+            1,
+            0.81,
+            0.55
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "path_wall_1_0",
+      "model": "winter:stone_wall_snow",
+      "x": 2.35,
+      "z": -14.4,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_1_1",
+      "model": "winter:stone_wall_snow",
+      "x": 2.35,
+      "z": -11.9,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_1_2",
+      "model": "winter:stone_wall_snow",
+      "x": 2.35,
+      "z": -26.5,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_wall_1_3",
+      "model": "winter:stone_wall_snow",
+      "x": 2.35,
+      "z": -29.0,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.5,
+        0.98,
+        2.4
+      ]
+    },
+    {
+      "id": "path_pier_1_0",
+      "model": "winter:masonry_pier_snow",
+      "x": 2.35,
+      "z": -16.2,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "path_pier_1_1",
+      "model": "winter:masonry_pier_snow",
+      "x": 2.35,
+      "z": -10.2,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "path_pier_lantern_1",
+      "model": "outdoor:lamp_fence",
+      "x": 2.35,
+      "z": -10.2,
+      "y": 1.151,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.18,
+            0
+          ],
+          "intensity": 0.4,
+          "range": 4,
+          "color": [
+            1,
+            0.81,
+            0.55
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "square_pier_0",
+      "model": "winter:masonry_pier_snow",
+      "x": -3.7,
+      "z": -5.5,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "square_pier_1",
+      "model": "winter:masonry_pier_snow",
+      "x": 3.7,
+      "z": -5.5,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "square_pier_2",
+      "model": "winter:masonry_pier_snow",
+      "x": -3.7,
+      "z": 5.7,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "square_pier_3",
+      "model": "winter:masonry_pier_snow",
+      "x": 3.7,
+      "z": 5.7,
+      "solid": true,
+      "size": [
+        0.65,
+        1.16,
+        0.65
+      ]
+    },
+    {
+      "id": "pond_fragment_0",
+      "model": "winter:ice_fragment",
+      "x": 9.6,
+      "z": -15.3,
+      "y": -0.006,
+      "rotation_degrees": 14,
+      "scale": 0.75
+    },
+    {
+      "id": "pond_fragment_1",
+      "model": "winter:ice_fragment",
+      "x": 14.8,
+      "z": -5.3,
+      "y": -0.006,
+      "rotation_degrees": 70,
+      "scale": 0.65
+    },
+    {
+      "id": "pond_fragment_2",
+      "model": "winter:ice_fragment",
+      "x": 6.7,
+      "z": -13.5,
+      "y": -0.006,
+      "rotation_degrees": 34,
+      "scale": 0.5
+    },
+    {
+      "id": "distant_ridge_0",
+      "model": "outdoor:boundary_ridge",
+      "x": -17,
+      "z": -45,
+      "scale": 1.15,
+      "occludes": false
+    },
+    {
+      "id": "distant_ridge_1",
+      "model": "outdoor:boundary_ridge",
+      "x": 6,
+      "z": -46,
+      "scale": 1.2,
+      "occludes": false
+    },
+    {
+      "id": "distant_ridge_2",
+      "model": "outdoor:boundary_ridge",
+      "x": 25,
+      "z": -31,
+      "rotation_degrees": 90,
+      "occludes": false
+    },
+    {
+      "id": "distant_ridge_3",
+      "model": "outdoor:boundary_ridge",
+      "x": -27,
+      "z": -28,
+      "rotation_degrees": 90,
+      "scale": 1.05,
       "occludes": false
     },
     {
@@ -3726,6 +3976,20 @@
       "y": 3.516
     },
     {
+      "id": "home_0_window_0",
+      "model": "winter:window_frame",
+      "x": -14.35,
+      "z": -9.91,
+      "y": 0.95
+    },
+    {
+      "id": "home_0_window_1",
+      "model": "winter:window_frame",
+      "x": -8.65,
+      "z": -9.91,
+      "y": 0.95
+    },
+    {
       "id": "home_0_side_drift",
       "model": "winter:drift_medium",
       "x": -16.68,
@@ -3810,6 +4074,13 @@
       "y": 2.355
     },
     {
+      "id": "home_1_window_0",
+      "model": "winter:window_frame",
+      "x": 9.65,
+      "z": -23.91,
+      "y": 0.95
+    },
+    {
       "id": "home_1_snow_sill_0",
       "model": "winter:snow_ledge",
       "x": 9.65,
@@ -3822,6 +4093,13 @@
       "x": 9.87,
       "z": -23.76,
       "y": 0.775
+    },
+    {
+      "id": "home_1_window_1",
+      "model": "winter:window_frame",
+      "x": 15.35,
+      "z": -23.91,
+      "y": 0.95
     },
     {
       "id": "home_1_snow_sill_1",
@@ -3839,18 +4117,18 @@
       "scale": 0.8
     },
     {
-      "id": "home_1_door_snow",
-      "model": "winter:snow_door_overhang",
+      "id": "home_1_door_hood",
+      "model": "winter:door_hood_snow",
       "x": 12.5,
-      "z": -23.695,
-      "y": 2.372
+      "z": -23.66,
+      "y": 2.2
     },
     {
       "id": "home_1_door_icicles",
       "model": "winter:icicle_cluster_sparse",
       "x": 12.5,
-      "z": -23.45,
-      "y": 1.935
+      "z": -23.27,
+      "y": 2.155
     },
     {
       "id": "home_1_wall_drift_0",
@@ -3954,6 +4232,13 @@
       "y": 2.355
     },
     {
+      "id": "home_2_window_0",
+      "model": "winter:window_frame",
+      "x": -15.35,
+      "z": 10.09,
+      "y": 0.95
+    },
+    {
       "id": "home_2_snow_sill_0",
       "model": "winter:snow_ledge",
       "x": -15.35,
@@ -3966,6 +4251,13 @@
       "x": -15.13,
       "z": 10.24,
       "y": 0.775
+    },
+    {
+      "id": "home_2_window_1",
+      "model": "winter:window_frame",
+      "x": -9.65,
+      "z": 10.09,
+      "y": 0.95
     },
     {
       "id": "home_2_snow_sill_1",
@@ -3983,18 +4275,18 @@
       "scale": 0.8
     },
     {
-      "id": "home_2_door_snow",
-      "model": "winter:snow_door_overhang",
+      "id": "home_2_door_hood",
+      "model": "winter:door_hood_snow",
       "x": -12.5,
-      "z": 10.305,
-      "y": 2.372
+      "z": 10.34,
+      "y": 2.2
     },
     {
       "id": "home_2_door_icicles",
       "model": "winter:icicle_cluster_sparse",
       "x": -12.5,
-      "z": 10.55,
-      "y": 1.935
+      "z": 10.73,
+      "y": 2.155
     },
     {
       "id": "home_2_wall_drift_0",
@@ -4420,7 +4712,7 @@
       "id": "home_1_string",
       "model": "winter:string_lights_short",
       "x": 12.5,
-      "z": -23.35,
+      "z": -23.14,
       "y": 2.39,
       "occludes": false,
       "lights": [
@@ -4478,7 +4770,7 @@
       "id": "home_2_string",
       "model": "winter:string_lights_short",
       "x": -12.5,
-      "z": 10.65,
+      "z": 10.86,
       "y": 2.39,
       "occludes": false,
       "lights": [
@@ -5248,6 +5540,8 @@
       "kind": "interior",
       "frame_depth": 0.7,
       "frame_center": 0.2,
+      "material": "winter:timber_01",
+      "frame_material": "winter:timber_01",
       "components": [
         {
           "component": "interactable",
@@ -5279,6 +5573,8 @@
       "kind": "interior",
       "frame_depth": 0.7,
       "frame_center": 0.2,
+      "material": "winter:timber_01",
+      "frame_material": "winter:timber_01",
       "components": [
         {
           "component": "interactable",
@@ -5310,6 +5606,8 @@
       "kind": "interior",
       "frame_depth": 0.7,
       "frame_center": 0.2,
+      "material": "winter:timber_01",
+      "frame_material": "winter:timber_01",
       "components": [
         {
           "component": "interactable",
@@ -5703,7 +6001,7 @@
         0.64,
         -15.8
       ],
-      "material": "outdoor:showcase_asphalt",
+      "material": "winter:stone_masonry_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -5720,7 +6018,7 @@
         0.64,
         -9.96
       ],
-      "material": "outdoor:showcase_asphalt",
+      "material": "winter:stone_masonry_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -5737,7 +6035,7 @@
         0.635,
         -10.16
       ],
-      "material": "outdoor:showcase_asphalt",
+      "material": "winter:stone_masonry_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -5754,7 +6052,7 @@
         0.635,
         -10.16
       ],
-      "material": "outdoor:showcase_asphalt",
+      "material": "winter:stone_masonry_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -5771,7 +6069,7 @@
         3.42,
         -15.55
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5788,7 +6086,7 @@
         3.42,
         -9.55
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5805,7 +6103,7 @@
         2.82,
         -29.55
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5822,7 +6120,7 @@
         2.82,
         -23.55
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5839,7 +6137,7 @@
         2.82,
         4.45
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5856,7 +6154,7 @@
         2.82,
         10.45
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5873,7 +6171,7 @@
         3.51,
         -7.45
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": true,
       "occludes": true
@@ -5896,652 +6194,6 @@
       "occludes": false
     },
     {
-      "id": "home_0_sill_0",
-      "min": [
-        -14.95,
-        1.54,
-        -9.985
-      ],
-      "max": [
-        -13.75,
-        1.6099999999999999,
-        -9.73
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_0_jamb_-1",
-      "min": [
-        -14.945,
-        1.6,
-        -9.995
-      ],
-      "max": [
-        -14.855,
-        2.6,
-        -9.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_0_jamb_1",
-      "min": [
-        -13.844999999999999,
-        1.6,
-        -9.995
-      ],
-      "max": [
-        -13.754999999999999,
-        2.6,
-        -9.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_0_rail_0",
-      "min": [
-        -14.879999999999999,
-        1.5650000000000002,
-        -9.988
-      ],
-      "max": [
-        -13.82,
-        1.635,
-        -9.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_0_rail_1",
-      "min": [
-        -14.879999999999999,
-        2.565,
-        -9.988
-      ],
-      "max": [
-        -13.82,
-        2.6350000000000002,
-        -9.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_0_mullion",
-      "min": [
-        -14.375,
-        1.6179999999999999,
-        -9.982
-      ],
-      "max": [
-        -14.325,
-        2.59,
-        -9.932
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_sill_1",
-      "min": [
-        -9.25,
-        1.54,
-        -9.985
-      ],
-      "max": [
-        -8.05,
-        1.6099999999999999,
-        -9.73
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_1_jamb_-1",
-      "min": [
-        -9.245000000000001,
-        1.6,
-        -9.995
-      ],
-      "max": [
-        -9.155000000000001,
-        2.6,
-        -9.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_1_jamb_1",
-      "min": [
-        -8.145,
-        1.6,
-        -9.995
-      ],
-      "max": [
-        -8.055,
-        2.6,
-        -9.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_1_rail_0",
-      "min": [
-        -9.18,
-        1.5650000000000002,
-        -9.988
-      ],
-      "max": [
-        -8.120000000000001,
-        1.635,
-        -9.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_1_rail_1",
-      "min": [
-        -9.18,
-        2.565,
-        -9.988
-      ],
-      "max": [
-        -8.120000000000001,
-        2.6350000000000002,
-        -9.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_0_window_1_mullion",
-      "min": [
-        -8.675,
-        1.6179999999999999,
-        -9.982
-      ],
-      "max": [
-        -8.625,
-        2.59,
-        -9.932
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_sill_0",
-      "min": [
-        9.05,
-        0.94,
-        -23.985
-      ],
-      "max": [
-        10.25,
-        1.01,
-        -23.73
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_0_jamb_-1",
-      "min": [
-        9.055,
-        1,
-        -23.995
-      ],
-      "max": [
-        9.145,
-        2,
-        -23.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_0_jamb_1",
-      "min": [
-        10.155000000000001,
-        1,
-        -23.995
-      ],
-      "max": [
-        10.245000000000001,
-        2,
-        -23.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_0_rail_0",
-      "min": [
-        9.120000000000001,
-        0.965,
-        -23.988
-      ],
-      "max": [
-        10.18,
-        1.035,
-        -23.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_0_rail_1",
-      "min": [
-        9.120000000000001,
-        1.965,
-        -23.988
-      ],
-      "max": [
-        10.18,
-        2.035,
-        -23.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_0_mullion",
-      "min": [
-        9.625,
-        1.018,
-        -23.982
-      ],
-      "max": [
-        9.675,
-        1.99,
-        -23.932
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_sill_1",
-      "min": [
-        14.75,
-        0.94,
-        -23.985
-      ],
-      "max": [
-        15.95,
-        1.01,
-        -23.73
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_1_jamb_-1",
-      "min": [
-        14.754999999999999,
-        1,
-        -23.995
-      ],
-      "max": [
-        14.844999999999999,
-        2,
-        -23.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_1_jamb_1",
-      "min": [
-        15.855,
-        1,
-        -23.995
-      ],
-      "max": [
-        15.945,
-        2,
-        -23.925
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_1_rail_0",
-      "min": [
-        14.82,
-        0.965,
-        -23.988
-      ],
-      "max": [
-        15.879999999999999,
-        1.035,
-        -23.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_1_rail_1",
-      "min": [
-        14.82,
-        1.965,
-        -23.988
-      ],
-      "max": [
-        15.879999999999999,
-        2.035,
-        -23.918
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_window_1_mullion",
-      "min": [
-        15.325,
-        1.018,
-        -23.982
-      ],
-      "max": [
-        15.375,
-        1.99,
-        -23.932
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_1_door_hood",
-      "min": [
-        11.7,
-        2.28,
-        -23.97
-      ],
-      "max": [
-        13.3,
-        2.38,
-        -23.42
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_sill_0",
-      "min": [
-        -15.95,
-        0.94,
-        10.015
-      ],
-      "max": [
-        -14.75,
-        1.01,
-        10.27
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_0_jamb_-1",
-      "min": [
-        -15.945,
-        1,
-        10.005
-      ],
-      "max": [
-        -15.855,
-        2,
-        10.075
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_0_jamb_1",
-      "min": [
-        -14.844999999999999,
-        1,
-        10.005
-      ],
-      "max": [
-        -14.754999999999999,
-        2,
-        10.075
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_0_rail_0",
-      "min": [
-        -15.879999999999999,
-        0.965,
-        10.012
-      ],
-      "max": [
-        -14.82,
-        1.035,
-        10.082
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_0_rail_1",
-      "min": [
-        -15.879999999999999,
-        1.965,
-        10.012
-      ],
-      "max": [
-        -14.82,
-        2.035,
-        10.082
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_0_mullion",
-      "min": [
-        -15.375,
-        1.018,
-        10.018
-      ],
-      "max": [
-        -15.325,
-        1.99,
-        10.068
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_sill_1",
-      "min": [
-        -10.25,
-        0.94,
-        10.015
-      ],
-      "max": [
-        -9.05,
-        1.01,
-        10.27
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_1_jamb_-1",
-      "min": [
-        -10.245000000000001,
-        1,
-        10.005
-      ],
-      "max": [
-        -10.155000000000001,
-        2,
-        10.075
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_1_jamb_1",
-      "min": [
-        -9.145,
-        1,
-        10.005
-      ],
-      "max": [
-        -9.055,
-        2,
-        10.075
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_1_rail_0",
-      "min": [
-        -10.18,
-        0.965,
-        10.012
-      ],
-      "max": [
-        -9.120000000000001,
-        1.035,
-        10.082
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_1_rail_1",
-      "min": [
-        -10.18,
-        1.965,
-        10.012
-      ],
-      "max": [
-        -9.120000000000001,
-        2.035,
-        10.082
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_window_1_mullion",
-      "min": [
-        -9.675,
-        1.018,
-        10.018
-      ],
-      "max": [
-        -9.625,
-        1.99,
-        10.068
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
-      "id": "home_2_door_hood",
-      "min": [
-        -13.3,
-        2.28,
-        10.03
-      ],
-      "max": [
-        -11.7,
-        2.38,
-        10.58
-      ],
-      "material": "home:handrail_wood_01",
-      "faces": "outward",
-      "solid": false,
-      "occludes": false
-    },
-    {
       "id": "home_1_string_bracket_-1",
       "min": [
         11.045,
@@ -6551,9 +6203,9 @@
       "max": [
         11.155,
         2.795,
-        -23.32
+        -23.11
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -6568,9 +6220,9 @@
       "max": [
         13.955,
         2.795,
-        -23.32
+        -23.11
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -6585,9 +6237,9 @@
       "max": [
         -13.845,
         2.795,
-        10.68
+        10.89
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -6602,9 +6254,9 @@
       "max": [
         -11.045,
         2.795,
-        10.68
+        10.89
       ],
-      "material": "home:handrail_wood_01",
+      "material": "winter:timber_01",
       "faces": "outward",
       "solid": false,
       "occludes": false
@@ -6617,7 +6269,7 @@
       "y": 0.6,
       "length": 2.85,
       "height": 1.05,
-      "material": "home:handrail_wood_01"
+      "material": "winter:timber_01"
     },
     {
       "x": -10.85,
@@ -6625,7 +6277,7 @@
       "y": 0.6,
       "length": 2.85,
       "height": 1.05,
-      "material": "home:handrail_wood_01"
+      "material": "winter:timber_01"
     },
     {
       "x": 16.8,
@@ -6633,7 +6285,7 @@
       "length": 10,
       "rotation_degrees": 270,
       "height": 1.05,
-      "material": "home:handrail_wood_01"
+      "material": "winter:timber_01"
     }
   ],
   "stairs": [
@@ -6646,8 +6298,8 @@
       "rise": 0.6,
       "steps": 3,
       "material": "winter:snow_packed_01",
-      "riser_material": "home:handrail_wood_01",
-      "side_material": "home:handrail_wood_01"
+      "riser_material": "winter:stone_masonry_01",
+      "side_material": "winter:stone_masonry_01"
     }
   ],
   "ramps": [

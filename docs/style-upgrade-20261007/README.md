@@ -66,3 +66,26 @@ traversal, encounters and completed Pool/Home work remain intact.
 
 Commit subject: `rebuild outdoors assets toward concept art`; the task handoff
 records the exact pushed SHA and CI. Winter follows this entry.
+
+## 2026-10-08 — Winter
+
+[Detailed comparison, object coverage and validation](winter/README.md) ·
+[Immutable concept](../../assets/environment/winter/Winter%20Expansion%20Environment%20Concept%20Sheet.png)
+
+| Before | After |
+| --- | --- |
+| ![Winter before, native High](winter/before/cottage.png) | ![Winter after, native High](winter/after/cottage.png) |
+
+The starting settlement used plain shared siding, primitive opening trim,
+fine snow artwork and snow variants of the preceding bare landscape kit.
+Winter now has mineral courses, deep timber frames, braced snowy entrance
+hoods, stone approaches/piers, timber lanterns and fractured ice. Connected
+evergreen coats and supported rock crowns preserve the completed Outdoors
+bases exactly; asymmetric banks and broad faceted PNGs strengthen the snow.
+All seven missing static families are built and placed in Winter and Zoo.
+Sky/aurora/weather, door controls and original traversal geometry remain.
+The full distant village/church and the illustration's softer tree/roof forms
+remain documented gaps; actual severe views retain the intended whiteout.
+
+Commit subject: `rebuild winter assets toward concept art`; the handoff records
+its exact pushed SHA and CI. Parent integration and the Art-style queue follow.

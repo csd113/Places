@@ -32,7 +32,7 @@ def build_level() -> dict:
     level = {
         'format_version': 3, 'id': 'winter', 'name': 'Winter', 'author': 'Places',
         'spawn': {'x': 0, 'z': 12, 'yaw_degrees': -30},
-        'defaults': {'wall': 'outdoor:house_siding_01', 'floor': 'winter:snow_01',
+        'defaults': {'wall': 'winter:stone_masonry_01', 'floor': 'winter:snow_01',
                      'ceiling': 'home:ceiling_white_01'},
         # Artwork is a background only; the existing cool fill and moon stay independent.
         'sky': {'texture': 'winter:tex_sky_aurora_01', 'brightness': .85, 'ambient': .24},
@@ -65,7 +65,8 @@ def build_level() -> dict:
                    'range': radius, 'color': [1, .81, .55], 'falloff': 'smooth'}]
         prop(model, x, z, identity, y=y, yaw=yaw, lights=lights,
              solid=model == 'outdoor:streetlight',
-             size=[.16, 6.4, .16] if model == 'outdoor:streetlight' else None)
+             size=[.16, 6.4, .16] if model == 'outdoor:streetlight' else None,
+             occludes=False)
 
     def region(x, z, w, d, h, material='winter:snow_01'):
         level['floor_regions'].append({'x': x, 'z': z, 'width': w, 'depth': d,
@@ -89,18 +90,18 @@ def build_level() -> dict:
             'comment': ('Raised lodge' if i == 0 else f'Cottage {i}') + ': shared shingle roof with separate modeled snow caps.'})
         openings = [{'kind': 'door', 'offset': 3.93, 'width': 1.14, 'height': 2.15}]
         openings += [{'kind': 'window', 'offset': dx, 'width': 1.1, 'height': 1,
-                      'sill': 1, 'glass': 'core:glass_window_clear_01', 'solid': True}
+                      'sill': 1, 'glass': 'winter:window_amber_01', 'solid': True}
                      for dx in (1.1, 6.8)]
         level['walls'] += [
             {'x': x, 'z': front - .3, 'width': 9, 'depth': .3, 'y': floor,
-             'material': 'outdoor:house_siding_01', 'faces': {'north': 'home:wall_paint_offwhite_01'},
+             'material': 'winter:stone_masonry_01', 'faces': {'north': 'home:wall_paint_offwhite_01'},
              'openings': openings},
             {'x': x, 'z': z, 'width': 9, 'depth': .3, 'y': floor,
-             'material': 'outdoor:house_siding_01', 'faces': {'south': 'home:wall_paint_offwhite_01'}},
+             'material': 'winter:stone_masonry_01', 'faces': {'south': 'home:wall_paint_offwhite_01'}},
             {'x': x, 'z': z + .28, 'width': .3, 'depth': 5.44, 'y': floor,
-             'material': 'outdoor:house_siding_01', 'faces': {'east': 'home:wall_paint_offwhite_01'}},
+             'material': 'winter:stone_masonry_01', 'faces': {'east': 'home:wall_paint_offwhite_01'}},
             {'x': x + 8.7, 'z': z + .28, 'width': .3, 'depth': 5.44, 'y': floor,
-             'material': 'outdoor:house_siding_01', 'faces': {'west': 'home:wall_paint_offwhite_01'}},
+             'material': 'winter:stone_masonry_01', 'faces': {'west': 'home:wall_paint_offwhite_01'}},
         ]
         if floor:
             # The raised room's floor is not a vertical foundation. Close the
@@ -110,20 +111,18 @@ def build_level() -> dict:
                 box(f'home_{i}_foundation_{j}',
                     [x-.06, -.12, edge-.04 if j == 0 else edge],
                     [x+9.06, floor+.04, edge+.2 if j == 0 else front+.04],
-                    'outdoor:showcase_asphalt', solid=False)
+                    'winter:stone_masonry_01', solid=False)
             for j, edge in enumerate((x, x+8.84)):
                 box(f'home_{i}_foundation_side_{j}',
                     [edge-.04 if j == 0 else edge, -.14, z+.16],
                     [edge+.16 if j == 0 else x+9.04, floor+.035, front-.16],
-                    'outdoor:showcase_asphalt', solid=False)
-        prop(f'outdoor:house_{family}_wall_doorway', cx, front + .05, f'home_{i}_doorway', y=floor - .24)
-        for dx in (0, 9):
-            for dz in (0, 6):
-                prop(f'outdoor:house_{family}_corner_trim', x + dx, z + dz, f'home_{i}_trim_{dx}_{dz}')
+                    'winter:stone_masonry_01', solid=False)
+        prop('winter:entrance_frame', cx, front + .08, f'home_{i}_doorway')
         level['doors'].append({'id': f'home_{i}_door', 'x': cx - .55, 'z': front - .15,
             'width': 1.1, 'height': 2.15, 'thickness': .045, 'open_direction': 'left',
             'swing_degrees': 90, 'open_speed_degrees': 100, 'initial_state': 'open',
             'kind': 'interior', 'frame_depth': .7, 'frame_center': .2,
+            'material': 'winter:timber_01', 'frame_material': 'winter:timber_01',
             'components': [{'component': 'interactable', 'prompt': 'Lodge door' if i == 0 else 'Cottage door'}],
             'bindings': [{'on': 'interact', 'actions': [{'action': 'toggle'}]}]})
         # Two 1.4x kit bays span 9.52 m. Measured slopes meet at the ridge,
@@ -142,7 +141,7 @@ def build_level() -> dict:
         # rests on the actual roof above, rather than whitening these boxes.
         for j, edge in enumerate((z, front)):
             box(f'home_{i}_eave_{j}', [x - .4, floor + 2.7, edge - .45],
-                [x + 9.4, floor + 2.82, edge + .45], 'home:handrail_wood_01')
+                [x + 9.4, floor + 2.82, edge + .45], 'winter:timber_01')
         for dx in (-1.1, 1.1):
             lamp('outdoor:lamp_wall', cx + dx, front + .4, f'home_{i}_lamp_{dx}', y=floor + 1.79)
         level['ceiling_lights'].append({'id': f'home_{i}_light', 'fixture': 'home:ceiling_light_round',
@@ -207,15 +206,15 @@ def build_level() -> dict:
     region(-15, -10, 7, 2.4, .6, 'home:hardwood_oak_01')
     level['stairs'].append({'x': -17.4, 'z': -9.6, 'width': 2.4, 'depth': 1.2,
         'offset_y': 0, 'rise': .6, 'steps': 3, 'material': 'winter:snow_packed_01',
-        'riser_material': 'home:handrail_wood_01', 'side_material': 'home:handrail_wood_01'})
+        'riser_material': 'winter:stone_masonry_01', 'side_material': 'winter:stone_masonry_01'})
     level['ramps'].append({'x': -12.1, 'z': -7.6, 'width': 1.2, 'depth': 3,
         'offset_y': .6, 'rise': -.6, 'material': 'winter:snow_packed_01',
         'edge_material': 'winter:snow_01'})
     for x, length in ((-15, 2.85), (-10.85, 2.85)):
         level['guardrails'].append({'x': x, 'z': -7.65, 'y': .6, 'length': length,
-            'height': 1.05, 'material': 'home:handrail_wood_01'})
+            'height': 1.05, 'material': 'winter:timber_01'})
     # Sheltered terrace has a supported roof and a 2.7 m clear ceiling.
-    box('lodge_awning', [-15.2, 3.33, -10.05], [-7.8, 3.51, -7.45], 'home:handrail_wood_01')
+    box('lodge_awning', [-15.2, 3.33, -10.05], [-7.8, 3.51, -7.45], 'winter:timber_01')
     for x in (-14.8, -8.2):
         prop('outdoor:house_02_porch_post', x, -7.85, f'porch_post_{x}', scale=1.187,
              solid=True, size=[.14, 2.3, .14])
@@ -235,7 +234,7 @@ def build_level() -> dict:
             region(x, z, width, .6, 0)
     # A pond railing leaves the west/south shore open for walking onto ice.
     level['guardrails'].append({'x': 16.8, 'z': -15, 'length': 10, 'rotation_degrees': 270,
-        'height': 1.05, 'material': 'home:handrail_wood_01'})
+        'height': 1.05, 'material': 'winter:timber_01'})
     for i, (x, z) in enumerate(((-3.5, 2.5), (4, -2), (2.8, -21), (-12.5, 14.4))):
         lamp('outdoor:lamp_stand', x, z, f'path_lamp_{i}')
     # A single modest beacon marks the forest resting place in severe weather.
@@ -243,7 +242,10 @@ def build_level() -> dict:
     lamp('outdoor:lamp_stand', -2.8, -32.6, 'forest_rest_lamp')
     level['props'][-1]['lights'][0].update(intensity=.42, range=4.5)
     for i, (x, z) in enumerate(((-3.8, -3), (13.8, -21.8))):
-        lamp('outdoor:streetlight', x, z, f'square_lamp_{i}')
+        prop('winter:timber_lantern', x, z, f'square_lamp_{i}', solid=True,
+             size=[.155, 2.6, .155], occludes=False,
+             lights=[{'shape': 'point', 'offset': [0, 2.60, .12], 'intensity': 1.5,
+                      'range': 14, 'color': [1, .81, .55], 'falloff': 'smooth'}])
     for i, (x, z) in enumerate(((7, -18), (18.8, -10), (5, -5), (-6, -25), (-5, 6))):
         prop('winter:boulder_snow' if i != 3 else 'outdoor:showcase_boulder', x, z, f'boulder_{i}', yaw=i * 47,
              scale=1 + (i % 3) * .18, solid=True, size=[1.4, .85, 1.3])
@@ -259,6 +261,28 @@ def build_level() -> dict:
         for i in range(13):
             prop('winter:rock_face_snow' if i % 3 else 'outdoor:showcase_rock_face', -23 + i * 3.8, z, f'boundary_{side}_{i}',
                  yaw=yaw, solid=True, size=[4, 5, 2.2], occludes=False)
+
+    # Reference masonry edges and lantern piers flank circulation. All solid
+    # boxes stay outside the existing path, ramp and pond approach footprints.
+    for side in (-1, 1):
+        for j, z in enumerate((-14.4, -11.9, -26.5, -29.0)):
+            prop('winter:stone_wall_snow', side*2.35, z, f'path_wall_{side}_{j}',
+                 yaw=90, solid=True, size=[.5, .98, 2.4])
+        for j, z in enumerate((-16.2, -10.2)):
+            prop('winter:masonry_pier_snow', side*2.35, z, f'path_pier_{side}_{j}',
+                 solid=True, size=[.65, 1.16, .65])
+            if j == 1:
+                prop('outdoor:lamp_fence', side*2.35, z, f'path_pier_lantern_{side}', y=1.151,
+                     occludes=False, lights=[{'shape':'point', 'offset':[0,.18,0],
+                     'intensity':.4, 'range':4, 'color':[1,.81,.55], 'falloff':'smooth'}])
+    for j, (x,z) in enumerate(((-3.7,-5.5),(3.7,-5.5),(-3.7,5.7),(3.7,5.7))):
+        prop('winter:masonry_pier_snow', x, z, f'square_pier_{j}',
+             solid=True, size=[.65,1.16,.65])
+    for j, (x,z,yaw,scale) in enumerate(((9.6,-15.3,14,.75),(14.8,-5.3,70,.65),(6.7,-13.5,34,.5))):
+        prop('winter:ice_fragment', x, z, f'pond_fragment_{j}', y=-.006, yaw=yaw, scale=scale)
+    # Reuse the reconstructed real distant geology behind containment.
+    for j, (x,z,yaw,scale) in enumerate(((-17,-45,0,1.15),(6,-46,0,1.2),(25,-31,90,1),(-27,-28,90,1.05))):
+        prop('outdoor:boundary_ridge', x, z, f'distant_ridge_{j}', yaw=yaw, scale=scale, occludes=False)
 
     # Snow variants retain every canonical base vertex, UV, colour and material.
     # Exposed perimeter trees carry more snow; sheltered trees have a lighter load.
@@ -330,37 +354,15 @@ def build_level() -> dict:
                 icicles('icicle_cluster_sparse' if j % 2 else 'icicle_cluster_mixed',
                         cx+dx, front+.60, f'home_{i}_eave_icicles_{j}', floor+2.7)
         for j, dx in enumerate((1.65, 7.35)):
-            # A shallow timber window sill seats the snow; neither affects collision.
-            box(f'home_{i}_sill_{j}', [x+dx-.6, floor+.94, front+.015],
-                [x+dx+.6, floor+1.01, front+.27], 'home:handrail_wood_01', solid=False)
+            mounted('window_frame', x+dx, front+.09, f'home_{i}_window_{j}', floor+.95)
             # The lodge windows are beneath the sealed awning; they stay dry.
             if i:
                 mounted('snow_ledge', x+dx, front+.14, f'home_{i}_snow_sill_{j}', floor+1.002)
                 icicles('icicle_short', x+dx+(.22 if j == 0 else -.3), front+.24,
                         f'home_{i}_sill_icicle_{j}', floor+.94, scale=.8 if j else 1)
-            # Real timber surrounds and a mullion articulate the glazed hole.
-            # Projecting rails lap into the jambs; their ends are buried and
-            # their faces have distinct planes. Mullion ends tuck into rails.
-            wx = x+dx
-            for side in (-1, 1):
-                box(f'home_{i}_window_{j}_jamb_{side}',
-                    [wx+side*.55-.045, floor+1, front+.005],
-                    [wx+side*.55+.045, floor+2, front+.075],
-                    'home:handrail_wood_01', solid=False)
-            for row, height in enumerate((1, 2)):
-                box(f'home_{i}_window_{j}_rail_{row}',
-                    [wx-.53, floor+height-.035, front+.012],
-                    [wx+.53, floor+height+.035, front+.082],
-                    'home:handrail_wood_01', solid=False)
-            box(f'home_{i}_window_{j}_mullion',
-                [wx-.025, floor+1.018, front+.018],
-                [wx+.025, floor+1.99, front+.068],
-                'home:handrail_wood_01', solid=False)
         if i:
-            box(f'home_{i}_door_hood', [cx-.8, floor+2.28, front+.03],
-                [cx+.8, floor+2.38, front+.58], 'home:handrail_wood_01', solid=False)
-            mounted('snow_door_overhang', cx, front+.305, f'home_{i}_door_snow', floor+2.372)
-            icicles('icicle_cluster_sparse', cx, front+.55, f'home_{i}_door_icicles', floor+2.28)
+            mounted('door_hood_snow', cx, front+.34, f'home_{i}_door_hood', floor+2.20)
+            icicles('icicle_cluster_sparse', cx, front+.73, f'home_{i}_door_icicles', floor+2.50)
         # Building bases: asymmetric outside banks, away from openings/paths.
         for j, dx in enumerate((.9, 8.1) if i else ()):
             mounted('drift_wall', x+dx, front+(.31 if j == 0 else .20), f'home_{i}_wall_drift_{j}', -.008,
@@ -452,8 +454,8 @@ def build_level() -> dict:
         for side in (-1, 1):
             anchor = x+4.5+side*1.4
             box(f'home_{i}_string_bracket_{side}', [anchor-.055, floor+2.725, z+6+.43],
-                [anchor+.055, floor+2.795, z+6+.68], 'home:handrail_wood_01', solid=False)
-        string('short', x+4.5, z+6+.65, f'home_{i}_string', floor+2.76)
+                [anchor+.055, floor+2.795, z+6+.89], 'winter:timber_01', solid=False)
+        string('short', x+4.5, z+6+.86, f'home_{i}_string', floor+2.76)
     # Lodge spans hang between the existing awning posts and below the two
     # front rails. Keep the gap above the ramp open and the icicle line clear.
     string('long', -11.5, -7.78, 'lodge_porch_string', 3.25)

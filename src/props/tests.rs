@@ -236,8 +236,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // Halloween creatures (a carved candle pumpkin at 1498 triangles, a
     // painted sheet ghost at 1270, and a 94-joint pumpkin-head skeleton at
     // 2278, all under the 3000-triangle skinned-character ceiling).
-    // Winter evergreens preserve all 770 canonical triangles and add closed,
-    // separately supported snow clumps: 1238/1442 triangles, both under 1500.
+    // Winter evergreens preserve all 708 canonical triangles and add closed,
+    // supported bough coats: 1284/1380 triangles, both under 1500.
     let detailed_props = [
         "spooner-man",
         "mannequin",

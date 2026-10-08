@@ -6584,6 +6584,15 @@ are documented in `assets/environment/winter/README.md` and
 resolver, lighting bake and map compiler; this kit adds no runtime geometry
 or image generation, weather or movement features.
 
+The October 8 reconstruction adds seven village static families in
+`tools/props/parts/winter_village.py`: snow-capped coursed walls/piers, a timber
+lantern, open masonry entrance frame, braced door hood, deep window frame and
+ice fragments. Their explicit scene colliders cover only solid stone/post
+bodies; ice fragments and front dressings are non-solid. The frame must leave
+the existing 1.14 × 2.15 m doorway open. Use the hood's exposed projecting nose
+for snow, keeping its sheltered back bare. Stone/wood surface variants are
+Winter-local; the completed Outdoors bases and files remain unchanged.
+
 Preserve `outdoor:tree_03` as the canonical evergreen. The two winter GLBs
 retain all base records and add a separate snow mesh; do not tint the tree
 white or refit the base. Preserve original tree/rock/rail collision sizes.

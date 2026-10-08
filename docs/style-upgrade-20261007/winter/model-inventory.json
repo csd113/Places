@@ -1,0 +1,2035 @@
+[
+  {
+    "id": "winter:boulder_snow",
+    "classification": "remade",
+    "reason": "Reconciled current grounded bare boulder, crown follows actual shoulder intersections.",
+    "triangles_before": 116,
+    "triangles_after": 108,
+    "vertices_after": 252,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 108
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_boulder_snow_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "5912366f9c9d4deca91aa8a6aaf1774c8ebf5aa7a631a074e0e8b07b1e937c14",
+    "dimensions": [
+      1.399999976158142,
+      0.9700000286102295,
+      1.2999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:door_hood_snow",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 166,
+    "vertices_after": 370,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 166
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_door_hood_snow_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "1762f89b7c9e98dc0b6bdd44e5abd2c856e973ee51d46bdb1527d99cb7a1ceba",
+    "dimensions": [
+      1.940000057220459,
+      0.550000011920929,
+      0.8999999761581421
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:drift_fence",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_drift_fence_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "8e48b7dfe4d8525793ff6f2bafa8664565e56a2b59eec6f1328b2f9249727d23",
+    "dimensions": [
+      1.7999999523162842,
+      0.3799999952316284,
+      0.699999988079071
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:drift_large",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_drift_large_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "1c4fc79bac4dca995b00d807093aa1240ca2dce9457a829261b99369e03c0a9d",
+    "dimensions": [
+      4.400000095367432,
+      0.8999999761581421,
+      2.799999952316284
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:drift_medium",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_drift_medium_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 8,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "062aa52a3003ce307590d0f1d8e60f26d9ffa06fe6b16865d8fabf8aaf876668",
+    "dimensions": [
+      2.4000000953674316,
+      0.550000011920929,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:drift_small",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_drift_small_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 5,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "897480d97bd5d59819d6d017a22ecfadc3f276935b88392ba7aaeb8c3ddd844a",
+    "dimensions": [
+      1.2000000476837158,
+      0.2800000011920929,
+      0.800000011920929
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:drift_wall",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_drift_wall_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 5,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "705fde131badbe9419fd620c7e953f8270da3007db74e6db63c17f401654012d",
+    "dimensions": [
+      3.0,
+      0.6499999761581421,
+      1.100000023841858
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:entrance_frame",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 252,
+    "vertices_after": 504,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 21,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 252
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_entrance_frame_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "7e761753f5238a6cb0c7269d88ddd5e02f89fc6eac78cb6567216791e0827bda",
+    "dimensions": [
+      1.7400000095367432,
+      2.4200000762939453,
+      0.3400000035762787
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:fence_post_snow",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 94,
+    "triangles_after": 94,
+    "vertices_after": 202,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 94
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 23651,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/fence_post.png",
+          "assets/environment/outdoor/props/models/showcase_wood.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_fence_post_snow_diffuse",
+        "pixel_sha256": "76959ca3bc4c330f4c8f643d8799aa8d05211de11f06df24526106ba3eabcdc9",
+        "sha256": "e98bd470262a8fb1b5914b01b5e6f06258ec28bfd0898a288095d57ebd3f0474",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "efe1011fc186cb9d3efc4a063791d9674c5c10c411c84af58c257d8dfe57b101",
+    "dimensions": [
+      0.1599999964237213,
+      1.1260000467300415,
+      0.1599999964237213
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:ice_fragment",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 24,
+    "vertices_after": 60,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 114849,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/ice_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_ice_fragment_diffuse",
+        "pixel_sha256": "ad6db1c112d25d4426910e5e2956965511d979caf3959de674b8a86d211c671c",
+        "sha256": "3c3a4622a2a51b3b9b9764dce0480723a20f25356243bbe329de3cd0153b368f",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "42c4e647ea89920edd684d8b2993982c9a8900ceec6814da96242e9079e6e606",
+    "dimensions": [
+      1.100000023841858,
+      0.07500000298023224,
+      0.800000011920929
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:icicle_cluster_mixed",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 56,
+    "triangles_after": 56,
+    "vertices_after": 168,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 56
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_icicle_cluster_mixed_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "9909473b152b8f19ff26609a3a74eb1888e63c8b284854f74d0f71d838001c79",
+    "dimensions": [
+      1.2000000476837158,
+      0.6499999761581421,
+      0.12999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:icicle_cluster_sparse",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "vertices_after": 72,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_icicle_cluster_sparse_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 5,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "004ce5c2c29f4e27b13f66429756b382228256443735c78fb06130c80893c940",
+    "dimensions": [
+      1.2000000476837158,
+      0.36000001430511475,
+      0.10000000149011612
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:icicle_long",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "vertices_after": 24,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_icicle_long_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "06cd50755d1da5bf390cca9c396693c313c5b9684bedd230996804d75fe5d888",
+    "dimensions": [
+      0.12999999523162842,
+      0.6499999761581421,
+      0.12999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:icicle_medium",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "vertices_after": 24,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_icicle_medium_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "7e7e5d6dec3f76c3b053a271d788a2b192e905f1e64646eed60d72bed4bba710",
+    "dimensions": [
+      0.10000000149011612,
+      0.36000001430511475,
+      0.10000000149011612
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:icicle_short",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "vertices_after": 24,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_icicle_short_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 5,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "f876bb97377734dee0cf6453935a17d75ec2b3832e671d0599a4922d65381a46",
+    "dimensions": [
+      0.07000000029802322,
+      0.18000000715255737,
+      0.07000000029802322
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:masonry_pier_snow",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 210,
+    "vertices_after": 426,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 13,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 210
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_masonry_pier_snow_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 8,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "84879d7f26be99ce8cb74d9b55ae797ee7e075a9d5be15671e145495fe74f1b0",
+    "dimensions": [
+      0.6499999761581421,
+      1.25,
+      0.6499999761581421
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:mound_irregular",
+    "classification": "remade",
+    "reason": "Rebuilt closed unequal ten-segment banks with offset crowns and lower triangle count; fitted new snow PNG.",
+    "triangles_before": 72,
+    "triangles_after": 60,
+    "vertices_after": 140,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 60
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_mound_irregular_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "22782679feec122818119abbe1bc2c60f9bc71e02d60a0fc24a04997ec7f3eae",
+    "dimensions": [
+      2.0999999046325684,
+      0.75,
+      1.899999976158142
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:railing_snow_corner",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 244,
+    "triangles_after": 244,
+    "vertices_after": 524,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 6,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 244
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_railing_snow_corner_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "9347143f9b767949b999cb312c73b5cba5e82ac12cbfbe6e0db7a9d34bfe4a4e",
+    "dimensions": [
+      0.30000001192092896,
+      1.1239999532699585,
+      0.30000001192092896
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:railing_snow_end",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 318,
+    "triangles_after": 318,
+    "vertices_after": 722,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 9,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 4,
+      "triangles": 318
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_railing_snow_end_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "af15f949b2bd64e0554796b43bbfbeae439c816d43c2cd8c32f7d5a95648e0be",
+    "dimensions": [
+      0.30000001192092896,
+      1.1260000467300415,
+      0.1599999964237213
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:railing_snow_straight",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 336,
+    "triangles_after": 336,
+    "vertices_after": 716,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 13,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 336
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_railing_snow_straight_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "e4acc865a07ae0b6bb52f2d9824a3d9179ad0e9345f67cc90156b0f5dcc45028",
+    "dimensions": [
+      1.7999999523162842,
+      1.1160000562667847,
+      0.1599999964237213
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:rock_face_snow",
+    "classification": "remade",
+    "reason": "Reconciled current broken rock face and atlas, supported inset thick crown.",
+    "triangles_before": 76,
+    "triangles_after": 96,
+    "vertices_after": 222,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 96
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_rock_face_snow_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 36,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "5d96d54c27037ff429ae0f98ec792b0db98838687b80dd80d5e438edafc0d5a7",
+    "dimensions": [
+      4.0,
+      5.159999847412109,
+      2.200000047683716
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_awning",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_awning_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "1534098feaf5f54bc7981bc97651b2c01e428dadf3365d3e02987d0724236ffb",
+    "dimensions": [
+      2.4000000953674316,
+      0.18000000715255737,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_door_overhang",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_door_overhang_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "c4675fc89eded069ee5ea905a0460c27264c30ef7212951112457629c70c1188",
+    "dimensions": [
+      1.600000023841858,
+      0.14000000059604645,
+      0.550000011920929
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_ledge",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_ledge_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "dc243fb6c4d374dba05e82bc9c8f2eb425dd458edd5757bb90f21ac0fb0e634d",
+    "dimensions": [
+      1.2000000476837158,
+      0.10000000149011612,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_porch_edge",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_porch_edge_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "ed2b1188393efdc650699b382adeba488ee2155bbf925b05ef0cc39f9ba76630",
+    "dimensions": [
+      1.7999999523162842,
+      0.10000000149011612,
+      0.30000001192092896
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_post_cap",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_post_cap_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 10,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "01678ed161fc8f3d0d9fdcc80807f8c2f5a136d7e86caf31ae8b5b0f25cf7fed",
+    "dimensions": [
+      0.11999999731779099,
+      0.08500000089406967,
+      0.11999999731779099
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_rail_top",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_rail_top_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 12,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "6979a07b019f780b878c9e3e2c7ceac2c64c213745c28c183c5fc720fb6919f5",
+    "dimensions": [
+      1.2000000476837158,
+      0.07500000298023224,
+      0.10999999940395355
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_roof_edge",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_roof_edge_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 12,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "1d217c368a8e2f350150a5a468026d833ce80cb45636f739663ecb77481624c0",
+    "dimensions": [
+      2.4000000953674316,
+      0.1599999964237213,
+      0.36000001430511475
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_roof_slope",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_roof_slope_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 12,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "ed3f6661c42463b36584ce0c9dc4a715a85c6b983aa0a6605accf081a924a4f6",
+    "dimensions": [
+      3.4000000953674316,
+      1.3746154308319092,
+      2.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:snow_stair_edge",
+    "classification": "retextured",
+    "reason": "Supported sealed geometry retained; new authored snow atlas replaces fine/noisy old source.",
+    "triangles_before": 66,
+    "triangles_after": 66,
+    "vertices_after": 138,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 66
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 79582,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/snow_surface.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_snow_stair_edge_diffuse",
+        "pixel_sha256": "bdd392d762969f5c698893b1e217abbb5fff0a916f3cae1bd8fda11a811a1af2",
+        "sha256": "8f98d55173901e5c6c2b3397bbffe6e7a00ac201051b1fabe5a6dc3adbfc3d84",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "35471ae0b7cd4b27294593041b16390ac42ab150ac7c4700aaf65cac3e7e3077",
+    "dimensions": [
+      0.3799999952316284,
+      0.08500000089406967,
+      0.800000011920929
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:stone_wall_snow",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 222,
+    "vertices_after": 450,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 222
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_stone_wall_snow_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 8,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "17666aab0734d8aac8e2580fcf41566b9b20a883519d406b57a351d832623384",
+    "dimensions": [
+      2.4000000953674316,
+      1.100000023841858,
+      0.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:string_lights_long",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 760,
+    "triangles_after": 760,
+    "vertices_after": 1752,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 24,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 760
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 10929,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_string_lights_long_diffuse",
+        "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+        "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+        "source_pngs": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "571664bb51dea614d4c128d63a29d509948a28110e78fc2251eefa09ddb32546",
+    "dimensions": [
+      6.650000095367432,
+      0.6449999809265137,
+      0.07794228941202164
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:string_lights_medium",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 552,
+    "triangles_after": 552,
+    "vertices_after": 1272,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 18,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 552
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 10929,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_string_lights_medium_diffuse",
+        "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+        "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+        "source_pngs": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "46b47e1a0553b2a23144e978b56bbe6e0f4072c83b1500179daac829584b30d8",
+    "dimensions": [
+      4.050000190734863,
+      0.5249999761581421,
+      0.07794228941202164
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:string_lights_short",
+    "classification": "retained",
+    "reason": "Sound canonical timber/rail snow construction or fitted string bulbs; no geometry or artwork change.",
+    "triangles_before": 344,
+    "triangles_after": 344,
+    "vertices_after": 792,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 12,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 344
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 10929,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "winter_string_lights_short_diffuse",
+        "pixel_sha256": "fc95089fddda2d0804ef6a3b36b1e60b4cb5a6a43b3cd88ce1ce5c501d21a68b",
+        "sha256": "966ad8a2b784c214121d7b30ea66d4d341c9fe500ac697cae4a2918948157fc7",
+        "source_pngs": [
+          "assets/environment/winter/props/models/string_lights.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "winter_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "0c38eaeb93328f19d8a05e9ea1874f1d5669c838cc33e5d9870c0272f7f3da18",
+    "dimensions": [
+      2.8499999046325684,
+      0.39500001072883606,
+      0.07794228941202164
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:timber_lantern",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 224,
+    "vertices_after": 532,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 12,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 224
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_timber_lantern_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "e1990100b3136b47f54b882aa2a1a78e20c2876c27da4561866c56a4377fa221",
+    "dimensions": [
+      0.6499999761581421,
+      3.200000047683716,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:tree_snow_01",
+    "classification": "remade",
+    "reason": "Connected closed snow coats over all 708 exact current evergreen base triangles; bare undersides and selected tiers remain.",
+    "triangles_before": 1238,
+    "triangles_after": 1284,
+    "vertices_after": 3240,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 32,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 1284
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 58803,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/tree_03.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_tree_snow_01_diffuse",
+        "pixel_sha256": "79f25214a7a46124be24adaa8a7da5e9ef32a201db15fa32245a0a5a170e80fa",
+        "sha256": "ae2dff36aa7c7f5ea17ddabfa38e1947e7291d17b6da3b7968f0d1f3b95cf045",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 26,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "4b205d41e696a6221656a9800aae33436f4ed386a8ae46c7b415ba4a33d6d8e9",
+    "dimensions": [
+      3.200000047683716,
+      6.800000190734863,
+      3.200000047683716
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:tree_snow_02",
+    "classification": "remade",
+    "reason": "Heavier supported bough coats over exact current canonical evergreen; separate dark material.",
+    "triangles_before": 1442,
+    "triangles_after": 1380,
+    "vertices_after": 3504,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 34,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 1380
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 58803,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/tree_03.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_tree_snow_02_diffuse",
+        "pixel_sha256": "79f25214a7a46124be24adaa8a7da5e9ef32a201db15fa32245a0a5a170e80fa",
+        "sha256": "ae2dff36aa7c7f5ea17ddabfa38e1947e7291d17b6da3b7968f0d1f3b95cf045",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 35,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "4b4f692620ecb1e4f4faa465c154aaac752c160cfd432491644b392023e044c8",
+    "dimensions": [
+      3.200000047683716,
+      6.800000190734863,
+      3.200000047683716
+    ],
+    "errors": []
+  },
+  {
+    "id": "winter:window_frame",
+    "classification": "new",
+    "reason": "Missing concept village construction or frozen-water detail, built and placed in actual Winter and Zoo.",
+    "triangles_before": null,
+    "triangles_after": 84,
+    "vertices_after": 168,
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 84
+    },
+    "duplicate_faces": 0,
+    "unused_vertices": 0,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 69245,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/winter/props/models/village_materials.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "winter_window_frame_diffuse",
+        "pixel_sha256": "bdfab3ba60538d9f0a0b248608847c25b12f3dcfb887a9cfb391624fc195625b",
+        "sha256": "44cbed498a6bd94e3afa9f609ac4217e4f8616897e7147197e90494ed9c9a95e",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "winter_placements": 6,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "3c834d09518af80c1e30a8dde039f5021b4ddbede9c4395845b6b7866b467f5d",
+    "dimensions": [
+      1.2599999904632568,
+      1.159999966621399,
+      0.20999999344348907
+    ],
+    "errors": []
+  }
+]

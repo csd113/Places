@@ -1,0 +1,925 @@
+[
+  {
+    "id": "core:bed",
+    "classification": "retained",
+    "reason": "Existing functional domestic interior stock; no corresponding replacement is established by the exterior concept sheet.",
+    "placements_before": 3,
+    "placements_after": 3,
+    "sha256": "216c96a022437fa9803ba6ac75692efd86aac846837d7ef8e231718c1e36dbbe",
+    "triangles": 750,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 90435,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/core/props/models/bed.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_bed_diffuse",
+        "pixel_sha256": "88413287ade62a9d766e69511c5ab741970d3679646dcf21773a975157fe550f",
+        "sha256": "f5a6051300b4dd6971c8c5219bcc5034f7eb275ed0d7b6ed91a1da5418db1a56",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "core:bookshelf",
+    "classification": "retained",
+    "reason": "Existing functional domestic interior stock; no corresponding replacement is established by the exterior concept sheet.",
+    "placements_before": 3,
+    "placements_after": 3,
+    "sha256": "aed1eef856d16655c52c61881c0046f714a1802a702fd71cb1072a80d4e6cc50",
+    "triangles": 612,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 97165,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/core/props/models/bookshelf.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_bookshelf_diffuse",
+        "pixel_sha256": "fce4d53d8459b2e085d12efc5d253413dd7fff9eda7d6830fc4317a5d228b91f",
+        "sha256": "3430fa93e3d26a8815dfd7483a38d0f71a8e7103a5c0ded2e213766298f85fd9",
+        "source_pngs": [
+          "assets/core/props/models/bookshelf.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "core:couch",
+    "classification": "retained",
+    "reason": "Existing functional domestic interior stock; no corresponding replacement is established by the exterior concept sheet.",
+    "placements_before": 3,
+    "placements_after": 3,
+    "sha256": "9ee5073c0b064129bd6460e524456ca03d64e4504cef38bc6b061e1448125c35",
+    "triangles": 544,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 148064,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/core/props/models/couch.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_couch_diffuse",
+        "pixel_sha256": "4169f9a61a6f989626dbbfcd8a217be40779b554292478ed406c3d188de2192d",
+        "sha256": "6ab7b0319614a8944dbab2bf83cc673a0437b6e904933bed9193e6eb2c9a4aa1",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "core:table",
+    "classification": "retained",
+    "reason": "Existing functional domestic interior stock; no corresponding replacement is established by the exterior concept sheet.",
+    "placements_before": 3,
+    "placements_after": 3,
+    "sha256": "574b1a1d8900d4f2c86c3e0e2469dc4f17c79a3538285d6ab42260df4f64dd8b",
+    "triangles": 340,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 108639,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/core/props/models/table.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "core_table_diffuse",
+        "pixel_sha256": "cadb7929aa412a2e2e005e44d6552c8bb3cd00d829e4f2ba5b9e2b026b656c4a",
+        "sha256": "c0db48c631d14d9beb930634ff5aacbe92a94fcb122332469ecc19add7cd925d",
+        "source_pngs": [
+          "assets/core/props/models/table.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:boundary_ridge",
+    "classification": "retained",
+    "reason": "Current faceted geology retained and placed four times behind Winter containment, matching the missing mountain layer.",
+    "placements_before": 0,
+    "placements_after": 4,
+    "sha256": "184b59a85cb81a215e3d84a048e4798809489fdbfdb64fb55b8f6a9b21c3d372",
+    "triangles": 68,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_boundary_ridge_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_01_corner_trim",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 4,
+    "placements_after": 0,
+    "sha256": "92bda4eaa4537403b18f2ae3649c472dc92193be81c39092d97530cf0affaa8b",
+    "triangles": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11348,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_01_corner_trim_diffuse",
+        "pixel_sha256": "e9d025887179c721e54ba01b1334ecccf14cfb71eef856d0394f3d2ded02ac2b",
+        "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_01_gable",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "46d0d51d7ece53834e61c256ca537c88736252fb266219192e863450b4c7a132",
+    "triangles": 32,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_gable_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_01_roof_ridge",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "3f4632cb71fdfe4d20e6f43f0cc276d62c47b5559b1a4d8084ff9b47410302c7",
+    "triangles": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11348,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_01_roof_ridge_diffuse",
+        "pixel_sha256": "e9d025887179c721e54ba01b1334ecccf14cfb71eef856d0394f3d2ded02ac2b",
+        "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_01_roof_slope",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 4,
+    "placements_after": 4,
+    "sha256": "46627e5d44f3d1bb324ebbfbe243549e66157c6122e5dbcb4c4cf869176fa37f",
+    "triangles": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_roof_slope_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_01_wall_doorway",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 1,
+    "placements_after": 0,
+    "sha256": "f2ce7480152438bb7ad9e122f05581f0fdcd7f20c54a01c860c420ac292174a7",
+    "triangles": 138,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_wall_doorway_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_corner_trim",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 4,
+    "placements_after": 0,
+    "sha256": "31372acf63a9e6d7b284c8da60808a0e52e36cd867bf40ea9fd994c2a8581f49",
+    "triangles": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_corner_trim_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_gable",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "081fb996d201c03c9ad6e16812fc391aad8e778c7312dd84e6c07e3c7ac1cba7",
+    "triangles": 56,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_gable_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_porch_post",
+    "classification": "retained",
+    "reason": "Completed stock supports the existing covered lodge deck; dimensions/collision and fitted source retained, with correct dry sheltered region.",
+    "placements_before": 8,
+    "placements_after": 8,
+    "sha256": "530160d349bbf4c82e0335422f5d8f1c78c3bb4a94bb4963b8ab33433b191601",
+    "triangles": 40,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_porch_post_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_roof_ridge",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "763d974bec94ee58f5145a59548907bb77f95330a881b3d4b9bc159d1ee7a834",
+    "triangles": 20,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_roof_ridge_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_roof_slope",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 4,
+    "placements_after": 4,
+    "sha256": "00e936bddfa88a2c2686dde4b94277e8055ebc8eff89ce21bf5d086e29273846",
+    "triangles": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_roof_slope_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_02_wall_doorway",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 1,
+    "placements_after": 0,
+    "sha256": "777d4b79dfe8b031624be43d7c3d673563a250f2bdd6fe5740caa67276abcec0",
+    "triangles": 132,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_wall_doorway_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_04_corner_trim",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 4,
+    "placements_after": 0,
+    "sha256": "b66aeca95611874e432dc70f973cb4106d39b4128bf5de86d043ba5606934507",
+    "triangles": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13925,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_04_corner_trim_diffuse",
+        "pixel_sha256": "bffeb74ba49fbb7aeb6c2905820341354e69443339c106bf1494267cce56d8e6",
+        "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_04_gable",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "56d9694b01407a3dd75dc7ed0949bcbe21ce2068f3b0324de4dbaca8924bfbcc",
+    "triangles": 44,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_gable_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_04_roof_ridge",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 2,
+    "placements_after": 2,
+    "sha256": "4efc49dafcb9dbf7fdd157d857665a4b39aafc9930b28d5f70bfb8e535aa7c54",
+    "triangles": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13925,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_04_roof_ridge_diffuse",
+        "pixel_sha256": "bffeb74ba49fbb7aeb6c2905820341354e69443339c106bf1494267cce56d8e6",
+        "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_04_roof_slope",
+    "classification": "retained",
+    "reason": "Sound shared pitched architecture supports matching snow shells; visible fascias/ridges and fitted UVs retained. Snow covers the broad roof faces.",
+    "placements_before": 4,
+    "placements_after": 4,
+    "sha256": "cca80829c29481a84d675aee0a728a688ddef22c8f31807ffb97a906e92ad38a",
+    "triangles": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_roof_slope_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:house_04_wall_doorway",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Shared siding/trim construction is replaced in Winter by actual mineral walls, coursed entrance frame and timber window stock; original file remains for Outdoors.",
+    "placements_before": 1,
+    "placements_after": 0,
+    "sha256": "83772a889fade3326a29816a335d119581669bf1bae14ebf1a549348c4cc3250",
+    "triangles": 138,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_wall_doorway_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:lamp_fence",
+    "classification": "retained",
+    "reason": "Completed Outdoors tapered-pane/hood lantern matches the depicted fixture construction. Existing light strengths retained; coarse self-occlusion corrected in Winter placements.",
+    "placements_before": 0,
+    "placements_after": 2,
+    "sha256": "9cc99dc811ed7f43bdae83925990a8808561d15504b3086e86bdc5fe667c226a",
+    "triangles": 176,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_fence_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:lamp_stand",
+    "classification": "retained",
+    "reason": "Completed Outdoors tapered-pane/hood lantern matches the depicted fixture construction. Existing light strengths retained; coarse self-occlusion corrected in Winter placements.",
+    "placements_before": 5,
+    "placements_after": 5,
+    "sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+    "triangles": 208,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_stand_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:lamp_wall",
+    "classification": "retained",
+    "reason": "Completed Outdoors tapered-pane/hood lantern matches the depicted fixture construction. Existing light strengths retained; coarse self-occlusion corrected in Winter placements.",
+    "placements_before": 6,
+    "placements_after": 6,
+    "sha256": "d4f393ccfc284b81ca6ffbe1efc928d216869c22bf968e97ebbef529ce75156b",
+    "triangles": 212,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_wall_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:showcase_boulder",
+    "classification": "retained",
+    "reason": "Sound completed shared construction retained; its fitted PNGs and geometry remain exact.",
+    "placements_before": 1,
+    "placements_after": 1,
+    "sha256": "ed7b065ec5e668839e3a43b71610c5a8b9514994dd23583d66b786dcc977efdd",
+    "triangles": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_showcase_boulder_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:showcase_rock_face",
+    "classification": "retained",
+    "reason": "Sound completed shared construction retained; its fitted PNGs and geometry remain exact.",
+    "placements_before": 22,
+    "placements_after": 22,
+    "sha256": "8829b47e771b20654a618c1093f658b3b7b8624dcad83dff4a6d000986faf8f5",
+    "triangles": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_showcase_rock_face_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:showcase_stump_seat",
+    "classification": "retained",
+    "reason": "Existing static forest resting pocket retained; no speculative new seating family added.",
+    "placements_before": 3,
+    "placements_after": 3,
+    "sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf",
+    "triangles": 96,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 23651,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/fence_post.png",
+          "assets/environment/outdoor/props/models/showcase_wood.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_stump_seat_diffuse",
+        "pixel_sha256": "76959ca3bc4c330f4c8f643d8799aa8d05211de11f06df24526106ba3eabcdc9",
+        "sha256": "e98bd470262a8fb1b5914b01b5e6f06258ec28bfd0898a288095d57ebd3f0474",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "unchanged": true
+  },
+  {
+    "id": "outdoor:streetlight",
+    "classification": "replaced in Winter; shared file retained",
+    "reason": "Tall metal square fixture replaced in Winter by the new shorter braced timber lantern; source file remains unchanged.",
+    "placements_before": 2,
+    "placements_after": 0,
+    "sha256": "6661025d1a940135fb62ee7ffe4dcd158b3cb776646da7904b6290cf26e627ba",
+    "triangles": 256,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_streetlight_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "unchanged": true
+  }
+]

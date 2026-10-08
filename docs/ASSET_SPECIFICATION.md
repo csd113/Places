@@ -834,6 +834,28 @@ The atlas is embedded by `tools/props/parts/duck_remade.py` during export.
 
 ### 8.7 Winter static snow kit
 
+The October 8 concept reconstruction preserves the current bare Outdoors
+evergreen/rock/rail records and adds closed supported snow. Evergreen snow
+coats connected upward bough surfaces with sealed rims, rather than scattered
+triangular patches. The imported base and its atlas remain exact. The preceding
+canonical generation remains in the chronological review archives; normal
+builders now use the reconstructed bare kit. No Outdoors file is rewritten.
+
+New Winter architecture uses the existing static prop class: square opaque
+`village_materials_master.png` (1024²) and `village_materials.png` (256²),
+with fitted stone/wood/metal/amber row-major quadrants. Geometry and this new
+layout are authored together. Stone is cropped within one generated masonry
+block; actual model courses own construction joints. Timber and cast metal
+reuse authored material pixels; pane emission is confined to the amber slot.
+Snow caps use the committed white binding, with real thickness and sealed
+undersides. All models have +Z fronts, centred X/Z and base-contact Y=0.
+Ground/wall PNGs remain square, opaque and periodic. `snow_01`, `ice_01`,
+`stone_masonry_01` and `timber_01` retain 1024² source masters; model snow
+and fitted atlas derivatives are Lanczos 256². Stone repeats at 2.4 m and
+four timber boards at 1.2 m. Packed snow remains a matte 5 m repeat.
+The existing ice opacity, traction, response and sky/weather contracts remain.
+See the Winter journal for generated-source provenance and exact derivatives.
+
 Winter uses the existing surface/model classes, with no new shader or raster
 contract. `winter:tex_snow_01` is an opaque, seamless 1024² floor sheet at
 `environment/winter/textures/floors/snow_01.png`. Snow and packed snow share
@@ -848,15 +870,16 @@ are closed and outward-wound, with no blend materials.
 
 `tools/props/parts/winter.py` imports the committed canonical evergreen,
 rocks and railing meshes verbatim: original vertex positions, indices, UVs,
-colours, atlas layout and MASK foliage remain unchanged. It adds a separate
+colours and atlas layout remain unchanged. The current evergreen has opaque
+grouped needle lobes. It adds a separate
 `snow_accumulation` mesh/material. This material samples the existing committed
 white sheet through the supported untextured-material path; the original
 embedded atlas and equivalent outdoor standalone PNG stay intact. No snow
 artwork is painted at build/load time. The exporter accepts
 `material(..., use_texture=False)` for that existing runtime contract.
 
-The two evergreen loads are 1238 and 1442 triangles, explicitly reviewed above
-800 because each retains all 770 original triangles plus closed supported
+The two evergreen loads are 1284 and 1380 triangles, explicitly reviewed above
+800 because each retains all 708 original triangles plus closed supported
 snow. Every other static snow-kit model is below 500 triangles; the separate
 string-light kit uses 344/552/760 triangles for short/medium/long spans.
 Tree dimensions remain
@@ -1016,14 +1039,13 @@ variation into mips. Path feathers retain 2:1 edge and square end/corner
 roles, blended alpha, original direction and 256×128/128² native sheets;
 masters are 1024×512/512². Normal texture builds load committed images.
 
-Winter's currently shipped snow variants retain the previous canonical
-bare evergreen/rock geometry and textures. They are intentionally unchanged
-in the serial Outdoors pass. Its follow-up must reconcile the new bare kit
-with the snow-support/canonical-identity checks before regenerating snow
-models; the original complete bases remain in the preserved before review
-copy and preceding commit. `tree_03_snow_base.png` preserves the exact prior
-evergreen atlas used by the shipped snow GLBs, keeping their embedded images
-backed by an actual PNG. This pass does not rebuild Winter content.
+At the end of the serial Outdoors pass, Winter's snow variants retained the
+preceding canonical bare evergreen/rock geometry and textures. The October 8
+Winter reconstruction (§8.7) now reconciles the current bare kit and regenerates
+supported snow variants; the canonical identity/support checks pass. Original
+complete bases remain in preserved review copies and preceding commits.
+`tree_03_snow_base.png` remains the exact prior evergreen atlas for historical
+evidence. No Outdoors source file is changed by that Winter reconciliation.
 
 
 ## 9. Emissive textures and masks

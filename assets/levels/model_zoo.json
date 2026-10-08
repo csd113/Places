@@ -9196,6 +9196,223 @@
       ],
       "scale": 0.6,
       "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-stone_wall_snow:floor",
+      "display_name": "Stone Wall Snow",
+      "model": "winter:stone_wall_snow",
+      "x": 2.0,
+      "z": 141.9,
+      "size": [
+        2.4,
+        1.1,
+        0.5
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-masonry_pier_snow:floor",
+      "display_name": "Masonry Pier Snow",
+      "model": "winter:masonry_pier_snow",
+      "x": 3.65,
+      "z": 141.9,
+      "size": [
+        0.65,
+        1.25,
+        0.65
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-timber_lantern:floor",
+      "display_name": "Timber Lantern",
+      "model": "winter:timber_lantern",
+      "x": 5.3,
+      "z": 141.9,
+      "size": [
+        0.65,
+        3.2,
+        0.6
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-entrance_frame:floor",
+      "display_name": "Entrance Frame",
+      "model": "winter:entrance_frame",
+      "x": 6.95,
+      "z": 141.9,
+      "size": [
+        1.74,
+        2.42,
+        0.34
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-door_hood_snow:floor",
+      "display_name": "Door Hood Snow",
+      "model": "winter:door_hood_snow",
+      "x": 8.6,
+      "z": 141.9,
+      "size": [
+        1.94,
+        0.55,
+        0.9
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-window_frame:floor",
+      "display_name": "Window Frame",
+      "model": "winter:window_frame",
+      "x": 10.25,
+      "z": 141.9,
+      "size": [
+        1.26,
+        1.16,
+        0.21
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:winter-ice_fragment:floor",
+      "display_name": "Ice Fragment",
+      "model": "winter:ice_fragment",
+      "x": 11.9,
+      "z": 141.9,
+      "size": [
+        1.1,
+        0.075,
+        0.8
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.5,
+      "rotation_degrees": 0.0
     }
   ],
   "decals": [

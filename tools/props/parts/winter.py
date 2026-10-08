@@ -80,7 +80,7 @@ def surface_height(triangles, x, z):
 
 def _canonical(p, name):
     model = glb.read_glb((OUTDOOR / (name + '.glb')).read_bytes())
-    source = 'showcase_surface' if name.startswith('showcase_') else name
+    source = name if (OUTDOOR / (name + '.png')).is_file() else 'showcase_surface'
     load_atlas_from(p, OUTDOOR / (source + '.png'), (), keep_alpha=True)
     p.ao_strength = 0
     p.begin_mesh('canonical_base')
@@ -141,55 +141,87 @@ def _shell(p, base, top, color=SNOW):
 def build_tree(p, heavy=False):
     model = _canonical(p, 'tree_03')
     foliage = list(_triangles(model, 1))
-    rng = random.Random(9917 if heavy else 9911)
-    for triangle in foliage:
-        normal = _normal(*triangle)
-        length = math.sqrt(sum(v*v for v in normal))
-        if normal[1] < length*.25 or rng.random() > (.48 if heavy else .34):
+    # The canonical builder emits independent closed six-sided bough lobes.
+    # Discover their connectivity from welded positions, so no triangle count
+    # or vertex order is assumed. Coat their connected upper surfaces once.
+    from collections import defaultdict
+    adjacent = defaultdict(set)
+    for i, triangle in enumerate(foliage):
+        for point in triangle:
+            adjacent[point].add(i)
+    seen = set()
+    groups = []
+    for start in range(len(foliage)):
+        if start in seen:
             continue
-        # The broad lower shoulder bears the snow; leave the narrow upper
-        # slope dark. Clip to a horizontal band before insetting the clump.
-        low_y, high_y = min(v[1] for v in triangle), max(v[1] for v in triangle)
-        limit = low_y + (high_y-low_y)*(.65 if heavy else .53)
-        polygon = []
-        for a, b in zip(triangle, triangle[1:] + triangle[:1]):
-            if a[1] <= limit:
-                polygon.append(a)
-            if (a[1] < limit < b[1]) or (b[1] < limit < a[1]):
-                t = (limit-a[1])/(b[1]-a[1])
-                polygon.append(tuple(a[i]+t*(b[i]-a[i]) for i in range(3)))
-        if len(polygon) < 3:
+        group, pending = set(), [start]
+        while pending:
+            face = pending.pop()
+            if face in group:
+                continue
+            group.add(face)
+            for point in foliage[face]:
+                pending.extend(adjacent[point] - group)
+        seen.update(group)
+        groups.append([foliage[i] for i in sorted(group)])
+    for i, group in enumerate(groups):
+        if (heavy and i % 4 == 2) or (not heavy and (i % 3 == 1 or i == 3)):
             continue
-        # Inset every patch; visible green gaps separate irregular branch loads.
-        centroid = tuple(sum(v[i] for v in polygon)/len(polygon) for i in range(3))
-        shrink = rng.uniform(.74, .94) if heavy else rng.uniform(.56, .84)
-        support = [tuple(centroid[i] + (v[i]-centroid[i])*shrink for i in range(3))
-                   for v in polygon]
-        top_y = surface_height(foliage, centroid[0], centroid[2])
-        if top_y is None or top_y > centroid[1] + .035:
-            continue  # A higher branch tier shelters this surface.
-        base = [(x, y-.009, z) for x, y, z in support]
-        depth = rng.uniform(.085, .145) if heavy else rng.uniform(.055, .10)
-        top = [(x, min(6.8, y + depth * rng.uniform(.75, 1.15)), z) for x, y, z in support]
-        _shell(p, base, top)
-    p.add_note('unaltered canonical 770-triangle evergreen; separate closed supported snow mesh')
+        upper = [t for t in group if _normal(*t)[1] > 1e-7]
+        edges = defaultdict(list)
+        thickness = .125 if heavy else .080
+        def bottom(q):
+            return (q[0], q[1]-.008, q[2])
+        def top(q):
+            return (q[0], min(p.height, q[1]+thickness*(.86+.12*math.sin(q[0]*4+q[2]*3+i)**2)), q[2])
+        def snow_uv(q):
+            return (max(0, min(1, q[0]/p.width+.5)), max(0, min(1, q[2]/p.depth+.5)))
+        for a, b, c in upper:
+            uv = [snow_uv(q) for q in (a, b, c)]
+            p.mesh.triangle(top(a), top(b), top(c), uvs=uv, color=SNOW)
+            p.mesh.triangle(bottom(c), bottom(b), bottom(a), uvs=list(reversed(uv)), color=SNOW)
+            for a, b in ((a, b), (b, c), (c, a)):
+                edges[tuple(sorted((a, b)))].append((a, b))
+        for uses in edges.values():
+            if len(uses) == 1:
+                a, b = uses[0]
+                uv = [snow_uv(q) for q in (a, a, b, b)]
+                p.mesh.quad(bottom(a), bottom(b), top(b), top(a), uv=uv, color=SNOW)
+    p.add_note('current canonical 708-triangle evergreen; connected supported upper-bough loads, dark undersides and sealed snow rims')
 
 
 def build_rock(p, cliff=False):
     model = _canonical(p, 'showcase_rock_face' if cliff else 'showcase_boulder')
-    # The canonical rock has one triangulated convex top disc. Cover its whole
-    # top with one cap; the sides, silhouette and original collision stay bare.
-    triangles = [t for t in _triangles(model) if _normal(*t)[1] > 0]
-    upper = max(v[1] for t in triangles for v in t)
-    ring = list({v for t in triangles for v in t if v[1] > upper - (.4 if cliff else .08)})
-    # Remove the fan centre, retaining the actual supported boundary ring.
-    ring = [v for v in ring if math.hypot(v[0], v[2]) > (.2 if cliff else .1)]
-    ring.sort(key=lambda v: math.atan2(v[2], v[0]))
-    base = [(x*.985, y-.009, z*.985) for x, y, z in ring]
-    top = [(x*.985, y + (.16 if cliff else .12)*(.8 + .2*math.sin(i*2.7)**2), z*.985)
-           for i, (x, y, z) in enumerate(ring)]
-    _shell(p, base, top)
-    p.add_note('canonical dark rock retained; snow cap follows the upward-facing disc only')
+    triangles = list(_triangles(model))
+    height = max(v[1] for t in triangles for v in t)
+    # Convex X/Z hull of the upper shoulder, rather than joining vertices from
+    # several different rings into a self-intersecting cap.
+    points = sorted({(x, z) for x, y, z in model.positions if y >= height*.52})
+    def turn(a, b, c):
+        return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+    lower, upper = [], []
+    for seq, hull in ((points, lower), (reversed(points), upper)):
+        for q in seq:
+            while len(hull) >= 2 and turn(hull[-2], hull[-1], q) <= 0:
+                hull.pop()
+            hull.append(q)
+    hull = lower[:-1]+upper[:-1]
+    cx, cz = (sum(q[k] for q in hull)/len(hull) for k in (0, 1))
+    ring = [(cx+(x-cx)*.985, cz+(z-cz)*.985) for x, z in hull]
+    base = [(x, surface_height(triangles, x, z)-.009, z) for x, z in ring]
+    cap = .16 if cliff else .12
+    top = [(x, y+.009+cap*(.63+.14*math.sin(i*2.7)**2), z) for i, (x, y, z) in enumerate(base)]
+    if _normal(*base[:3])[1] < 0:
+        base, top = list(reversed(base)), list(reversed(top))
+    foot = (cx, surface_height(triangles, cx, cz)-.009, cz)
+    crown = (cx, height+cap, cz)
+    for i in range(len(base)):
+        j = (i+1) % len(base)
+        uv = [(q[0]/p.width+.5, q[2]/p.depth+.5) for q in (base[i], base[j], top[j], top[i])]
+        p.mesh.quad(base[i], base[j], top[j], top[i], uv=uv, color=SNOW)
+        p.mesh.triangle(foot, base[j], base[i], uvs=[(.5,.5),uv[1],uv[0]], color=SNOW)
+        p.mesh.triangle(crown, top[i], top[j], uvs=[(.5,.5),uv[3],uv[2]], color=SNOW)
+    p.add_note('current canonical dark rock retained; closed continuous snow shoulder/crown with exposed lower mineral faces')
 
 
 def _fit(p):
@@ -202,17 +234,18 @@ def _fit(p):
 
 def build_drift(p, wall=False):
     _snow(p)
-    count = 12
+    count = 10
+    seed = sum(ord(c) for c in p.id)*.031
     rings = []
     for radial, height in ((1, 0), (.72, .38), (.34, .83)):
         ring = []
         for i in range(count):
             angle = math.tau*i/count
-            ripple = 1 + .10*math.sin(i*2.3 + height*3)
+            ripple = 1 + .16*math.sin(i*2.3 + height*3 + seed)
             x, z = math.cos(angle)*radial*ripple, math.sin(angle)*radial*ripple
             if wall:
                 z = max(z, -.45)  # Flatten the back against a wall/fence.
-            ring.append((x, height*(.9 + .1*math.sin(i*1.8)), z))
+            ring.append((x, height*(.82 + .18*math.sin(i*1.8+seed)**2), z))
         rings.append(ring)
     center = (.08, .4, .02)
     for lower, upper in zip(rings, rings[1:]):
@@ -222,11 +255,11 @@ def build_drift(p, wall=False):
     for i in range(count):
         j = (i + 1) % count
         _face(p, [(0, 0, 0), rings[0][j], rings[0][i]], center)
-        _face(p, [(.12, 1, -.07), rings[-1][i], rings[-1][j]], center)
+        _face(p, [(.18*math.sin(seed), 1, -.12*math.cos(seed)), rings[-1][i], rings[-1][j]], center)
     _fit(p)
     # Recompute UVs after fitting so every neighbouring top facet agrees.
     p.mesh.uvs = [(x/p.width+.5, z/p.depth+.5) for x, _, z in p.mesh.positions]
-    p.add_note('72 triangles; closed faceted drift, sink base 8 mm into ground')
+    p.add_note('60 triangles; unequal wind-shaped shoulders per family, closed grounded drift; sink base 8 mm')
 
 
 def _strip(p, width, height, depth, *, x=0, y=0, z=0, slope=0, seed=33):

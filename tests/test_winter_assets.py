@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / 'tools/props'))
 import glb
 import geometry
 from mesh import PropBuilder
-from parts import winter
+from parts import winter, winter_village
 
 
 def load(name, theme='winter'):
@@ -98,14 +98,29 @@ class WinterAssetTests(unittest.TestCase):
                 self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
                                               nodes=p.nodes, animations=p.clips),
                                  (winter.WINTER / (name+'.glb')).read_bytes())
+        for name, size in winter_village.SIZES.items():
+            with self.subTest(village_asset=name):
+                p = PropBuilder('winter:'+name, name, size)
+                winter_village.PROPS[p.id](p)
+                p.mesh.validate(size)
+                self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
+                                              nodes=p.nodes, animations=p.clips),
+                                 (winter_village.ROOT / (name+'.glb')).read_bytes())
 
     def test_exposed_snow_classes_preserve_collision_and_sheltered_deck_stays_dry(self):
         level = json.loads((ROOT / 'assets/levels/winter.json').read_text())
         props = level['props']
         models = {p['model'] for p in props}
         for name in winter.SIZES:
-            if not name.startswith('railing_snow') and name not in ('fence_post_snow', 'snow_porch_edge'):
+            if not name.startswith('railing_snow') and name not in ('fence_post_snow', 'snow_porch_edge', 'snow_door_overhang'):
                 self.assertIn('winter:'+name, models)
+        # The original simple hood overlay stays in the library/Zoo. Both
+        # exposed cottage entrances now require the braced construction with
+        # its own supported snow nose, rather than stacking the old cap on it.
+        self.assertEqual(sum(p['model']=='winter:door_hood_snow' for p in props), 2)
+        self.assertNotIn('winter:snow_door_overhang', models)
+        for name in winter_village.SIZES:
+            self.assertIn('winter:'+name, models)
         # The covered porch must not be populated solely to exhibit this cap.
         # Library/Model Zoo coverage still checks all reusable asset classes.
         self.assertNotIn('winter:snow_porch_edge', models)
@@ -118,12 +133,45 @@ class WinterAssetTests(unittest.TestCase):
                                    'snow under the sealed lodge awning')
         for p in props:
             if p['model'].startswith('winter:') and p.get('solid'):
-                expected = [1.4, .85, 1.3] if 'boulder' in p['model'] else [4, 5, 2.2] if 'rock_face' in p['model'] else [.6, 6.8, .6]
+                expected = {'winter:stone_wall_snow':[.5,.98,2.4],
+                            'winter:masonry_pier_snow':[.65,1.16,.65],
+                            'winter:timber_lantern':[.155,2.6,.155]}.get(p['model'])
+                if expected is None:
+                    expected = [1.4, .85, 1.3] if 'boulder' in p['model'] else [4, 5, 2.2] if 'rock_face' in p['model'] else [.6, 6.8, .6]
                 self.assertEqual(p['size'], expected, p)
         self.assertEqual(len(level['guardrails']), 3)
         self.assertEqual(level['stairs'][0]['rise'], .6)
         self.assertEqual(level['stairs'][0]['steps'], 3)
         self.assertFalse(level.get('water'))
+
+    def test_raised_lodge_frames_align_with_the_real_openings(self):
+        level = json.loads((ROOT / 'assets/levels/winter.json').read_text())
+        props = {p['id']:p for p in level['props']}
+        # These anchors lie on the 0.6 m raised deck. Floor-relative prop Y
+        # must not add that rise again: the window's real sill is world 1.6 m.
+        for j in range(2):
+            base = .6 + props[f'home_0_window_{j}'].get('y',0)
+            self.assertLessEqual(base,1.6)
+            self.assertGreaterEqual(base+1.16,2.6)
+        self.assertEqual(props['home_0_doorway'].get('y',0),0)
+
+    def test_village_construction_is_closed_grounded_and_emission_stays_on_glass(self):
+        for name,size in winter_village.SIZES.items():
+            with self.subTest(asset=name):
+                model=load(name)
+                report=geometry.inspect(model.positions, model.indices)
+                for field in ('degenerate','boundary_edges','nonmanifold_edges','inconsistent_edges',
+                              'flipped_triangles','contradictory_components'):
+                    self.assertEqual(report[field],0,(name,report))
+                self.assertLess(model.triangle_count,800)
+                self.assertTrue(all(math.isfinite(v) and 0 <= v <= 1 for uv in model.uvs for v in uv))
+                low,high=model.bounds()
+                self.assertAlmostEqual(low[1],0,places=5)
+                for axis in range(3):
+                    self.assertAlmostEqual(high[axis]-low[axis],size[axis],places=4)
+                for material in model.json['materials']:
+                    if material['name']!='lantern_amber':
+                        self.assertNotIn('emissiveFactor',material)
 
 
 if __name__ == '__main__':

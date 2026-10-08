@@ -23,3 +23,7 @@ levels/*.placesmap
 
 # Retained local native Outdoors review payload; journal images are tracked.
 /debug-maps/outdoors-style-20261007/evidence/
+
+# Retained Winter before/after playable payloads; journal evidence is tracked.
+/debug-maps/winter-style-20261007/evidence/
+/generated_images/

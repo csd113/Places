@@ -1,0 +1,8 @@
+Command: RUSTC_WRAPPER= sh tools/check-rust.sh
+Formatting, locked all-target/all-feature check, strict debug/release Clippy all completed before the full library test began.
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 14.53s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 9.23s
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 26.76s

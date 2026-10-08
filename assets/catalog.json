@@ -5275,6 +5275,197 @@
       "category": "Lighting",
       "solid": false,
       "description": "Static stone ring, charred logs and five emissive flame meshes in their bind pose. No animation/character ownership; add a local point light to illuminate surroundings."
+    },
+    {
+      "id": "winter:stone_wall_snow",
+      "display_name": "Stone Wall Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/stone_wall_snow.glb",
+      "size": [
+        2.4,
+        1.1,
+        0.5
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:masonry_pier_snow",
+      "display_name": "Masonry Pier Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/masonry_pier_snow.glb",
+      "size": [
+        0.65,
+        1.25,
+        0.65
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:timber_lantern",
+      "display_name": "Timber Lantern",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/timber_lantern.glb",
+      "size": [
+        0.65,
+        3.2,
+        0.6
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:entrance_frame",
+      "display_name": "Entrance Frame",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/entrance_frame.glb",
+      "size": [
+        1.74,
+        2.42,
+        0.34
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:door_hood_snow",
+      "display_name": "Door Hood Snow",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/door_hood_snow.glb",
+      "size": [
+        1.94,
+        0.55,
+        0.9
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:window_frame",
+      "display_name": "Window Frame",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/window_frame.glb",
+      "size": [
+        1.26,
+        1.16,
+        0.21
+      ],
+      "color": "#afb9ca",
+      "category": "Architectural",
+      "solid": false
+    },
+    {
+      "id": "winter:ice_fragment",
+      "display_name": "Ice Fragment",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/winter/props/models/ice_fragment.glb",
+      "size": [
+        1.1,
+        0.075,
+        0.8
+      ],
+      "color": "#afb9ca",
+      "category": "Landscape",
+      "solid": false
+    },
+    {
+      "id": "winter:tex_stone_masonry_01",
+      "display_name": "stone_masonry_01",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/winter/textures/walls/stone_masonry_01.png"
+    },
+    {
+      "id": "winter:stone_masonry_01",
+      "display_name": "stone_masonry_01",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "winter:tex_stone_masonry_01",
+      "tile_metres": 2.4,
+      "specular": 0,
+      "shine": 0
+    },
+    {
+      "id": "winter:tex_timber_01",
+      "display_name": "timber_01",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/winter/textures/walls/timber_01.png"
+    },
+    {
+      "id": "winter:timber_01",
+      "display_name": "timber_01",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "winter:tex_timber_01",
+      "tile_metres": 1.2,
+      "specular": 0,
+      "shine": 0
+    },
+    {
+      "id": "winter:window_amber_01",
+      "display_name": "Amber village glazing",
+      "asset_class": "environment",
+      "theme": "winter",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_clear_01",
+      "tile_metres": 1,
+      "tint": [
+        1,
+        0.83,
+        0.52
+      ],
+      "emissive": [
+        1,
+        0.58,
+        0.2
+      ],
+      "emissive_intensity": 0.3,
+      "alpha_mode": "blend",
+      "opacity": 0.82,
+      "specular": 0.2,
+      "shine": 0.2
     }
   ]
 }

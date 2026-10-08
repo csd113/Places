@@ -45,11 +45,29 @@ The level generator remains deterministic (`tools/levels/build_winter.py`).
 | `icicle_cluster_mixed`, `icicle_cluster_sparse` | `[1.2,.65,.13]`, `[1.2,.36,.10]`; seven/three separated spikes |
 
 The evergreen is exactly `outdoor:tree_03`: no trunk, branch, fringe, UV,
-colour, atlas or MASK changes. The separate snow mesh has closed chunky
-clumps on exposed upward surfaces, clipped toward broad lower shoulders and
-inset to leave green visible. Both variants fit the original bounds. The
-1238/1442-triangle review exception retains the canonical 770 triangles;
+colour or atlas changes. Its current opaque needle lobes carry separate closed
+snow coats on connected upward surfaces; bare undersides and selected whole
+boughs remain visible. Both variants fit the original bounds. The
+1284/1380-triangle review exception retains the canonical 708 triangles;
 every other winter model is below 500. No original outdoor asset is replaced.
+
+### Concept village construction (October 8)
+
+`tools/props/parts/winter_village.py` adds seven static families, all placed in
+Winter and the Model Zoo: coursed snow-capped stone walls and piers, a timber
+lantern post, an open masonry entrance frame, a braced snowy door hood, deep
+timber window frames and thin angular ice fragments. The entrance frame and
+hood replace the old primitive front framing; operable leaves, doorway
+clearances, steps and building footprints retain their completed behavior.
+The old `snow_door_overhang` remains a reusable Zoo/library attachment.
+
+The stone/wood/metal/amber fitted atlas has a committed 1024² master and 256²
+native derivative. Four generated 1024² surface masters provide faceted snow,
+fractured ice, slate masonry and weathered timber; deterministic periodic-edge
+repair precedes model downsampling. `tools/props/build_winter_textures.py`
+reproduces these derivatives from artwork files, without painting imagery.
+The journal at `docs/style-upgrade-20261007/winter/` records the immutable
+reference, individual audit, matching native cameras and review payloads.
 
 All added snow and icicles are non-solid. Trees keep `[.6,6.8,.6]` trunk
 colliders; boulders keep `[1.4,.85,1.3]`; perimeter rocks keep `[4,5,2.2]`.

@@ -572,6 +572,10 @@ OUTDOOR_APRON_DISPLAYS = tuple('outdoor:' + name for name in (
     'bush_round', 'bush_low', 'fence_two_rail', 'masonry_pier',
     'porch_canopy', 'road_barrier', 'boundary_ridge', 'campfire_static',
 ))
+WINTER_APRON_DISPLAYS = tuple('winter:' + name for name in (
+    'stone_wall_snow', 'masonry_pier_snow', 'timber_lantern', 'entrance_frame',
+    'door_hood_snow', 'window_frame', 'ice_fragment',
+))
 
 
 def ordered_displays(catalog: Dict) -> List[Dict]:
@@ -582,7 +586,8 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
     """
     displays: List[Dict] = []
     for entry in placeables(catalog):
-        if entry["id"] in POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS + OUTDOOR_APRON_DISPLAYS:
+        if entry["id"] in (POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS
+                           + OUTDOOR_APRON_DISPLAYS + WINTER_APRON_DISPLAYS):
             continue
         klass = display_class(entry)
         role = klass
@@ -1297,6 +1302,13 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
                             depth - 4.2 + (index // 4) * 2.0,
                             scale=.15 if asset_id == "outdoor:boundary_ridge" else .6,
                             rotation_degrees=0.0)
+    # Compact Winter construction sits against the south-west display wall,
+    # behind the Outdoors apron. Existing bays, hall and routes stay fixed.
+    for index, asset_id in enumerate(WINTER_APRON_DISPLAYS):
+        entry = by_id.get(asset_id)
+        if entry is not None:
+            layout.add_prop(entry, "floor", 2.0 + index * 1.65, depth - .8,
+                            scale=.5, rotation_degrees=0.0)
     thickness = 0.4
     walls = [
         {

@@ -1,0 +1,4 @@
+geometry check: winter (assets/levels/winter.json)
+  missing-wall: 159 suppressed by geometry_intent
+  room-leak: 24 suppressed by geometry_intent
+summary: 0 error(s), 0 warning(s), some warnings suppressed by intent annotations
