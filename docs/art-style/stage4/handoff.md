@@ -213,3 +213,60 @@ bundles with preserved SDL, not cross-platform executables.
 outside target; tracked previews remove only repeated final LF bytes. No numeric
 output, assertion or native PNG is edited. The final reviewed index contains only
 task-owned source/control/docs and genuine immutable evidence.
+
+## Solver-15 final publication
+
+The [final-audit correction](zero-source-repair.md) fixes zero-selected-source
+spatial presence and switch-only live entity accounting.
+[Repair implementation 7d80433](https://github.com/csd113/Places/commit/7d80433ccb77d828a8c519ffa8da935fcbcac4c4)
+adds focused authored-solver/label/codec/package/runtime regressions. Final local
+checks are [recorded separately](repair-validation-v4/summary.json): strict
+debug/release Clippy and format pass; 2,102 library tests pass, zero fail, 23 are
+ignored. Workspace exit 101 remains only the three inherited Stage 7 package
+discovery failures. The remaining macOS integration passes.
+Intermediate exact-SHA [c6 CI](https://github.com/csd113/Places/actions/runs/37799238665)
+passed, but the final repaired seal requires its own exact-SHA gate.
+
+All five refreshed packages pass `verify --require-current`; all prepared render
+payloads are byte-identical to their accepted predecessors. Only cache identities
+and lightmap metadata descriptors change. New immutable local bundles are:
+
+| Snapshot under `debug-maps/art-style-hero/milestones/` | Receipt | Verified native replay |
+| --- | --- | --- |
+| `stage4-v2` | [41 files](stage4-v2-snapshot.json) | Six original views, all byte-identical |
+| `stage4-entities-v2` | [42 files](stage4-entities-v2-snapshot.json) | Actor view accepted; seven animated-body pixels differ |
+| `stage4-switchable-v2` | [42 files](stage4-switchable-v2-snapshot.json) | Actor view accepted; five animated-body pixels differ |
+| `stage4-movement-v2` | [45 files](stage4-movement-v2-snapshot.json) | Closed door view byte-identical |
+| `stage4-comparison-v2` | [42 files](stage4-comparison-v2-snapshot.json) | Broad view accepted; six animated-body pixels differ |
+
+[Bundle verification](repair-snapshot-verification.json) checks all 14 old/new
+milestones and 215 source inputs. [Control launch commands](repair-control-replay-execution.json)
+and replay manifests retain exact native provenance. Original Stage 1 baseline,
+all preceding stages, original Stage 4 gallery and its measured GPU traces remain
+immutable. No additional visual improvement or new runtime timing is claimed.
+
+From the repository root, launch the final hero with preserved assets/settings:
+
+```sh
+DYLD_LIBRARY_PATH=/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2 \
+python3 tools/bench/capture_art_style_hero.py \
+  --asset-root debug-maps/art-style-hero/milestones/stage4-v2 \
+  --manifest debug-maps/art-style-hero/milestones/stage4-v2/hero-manifest.json \
+  --binary debug-maps/art-style-hero/milestones/stage4-v2/places --play --views entities
+```
+
+For a reproducible six-view replay, replace `--play --views entities` with
+`--out NEW_OUTPUT_DIRECTORY`. The other receipt launch/replay commands select
+their compatible package and real dependencies. Binaries and SDL are macOS native.
+
+No essential supported hero or live-quality acceptance failure remains after the
+repair. Previously disclosed bounds/contact/skinned/static-atlas/switch-bounce and
+loading-transient limits remain. The measured conservative caster invalidation
+cost is a documented Stage 6 profiling lead. Stage 5 and nonhero migration are not
+started; `target/` is retained for the unfinished serial queue.
+
+The final publication SHA, remote verification, exact-SHA CI and explicit owner
+release are in `/tmp/places-art-style-stage4-completion.json` and durable
+`debug-maps/art-style-hero/evidence/stage4-completion.json`, written only after
+the gate. The queue's existing `caffeinate -di` PID 88945 remains alive for transfer
+to the coordinator; no duplicate or persistent setting change is introduced.

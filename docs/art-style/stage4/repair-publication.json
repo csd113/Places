@@ -1,0 +1,23 @@
+{
+  "original_implementation_sha": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+  "repair_implementation_sha": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+  "solver_revision": 15,
+  "branch": "Art-style",
+  "remote": "https://github.com/csd113/Places",
+  "exact_final_ci_pending": true,
+  "final_receipt_locations": [
+    "/tmp/places-art-style-stage4-completion.json",
+    "debug-maps/art-style-hero/evidence/stage4-completion.json"
+  ],
+  "snapshots": [
+    "stage4-v2",
+    "stage4-entities-v2",
+    "stage4-switchable-v2",
+    "stage4-movement-v2",
+    "stage4-comparison-v2"
+  ],
+  "source_and_bundle_verification": "repair-snapshot-verification.json",
+  "native_main_byte_identical_views": 6,
+  "native_control_launch_views": 4,
+  "earlier_bundles_preserved": true
+}

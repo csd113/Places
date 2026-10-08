@@ -303,3 +303,11 @@ New solver identities and compatible runnable bundles are appended, preserving
 every earlier milestone. This correction establishes the missing contract; it
 claims no additional visible gain or new GPU measurement. Final repair publication
 and exact-SHA CI/custody receipts are recorded in the Stage 4 handoff.
+
+[Solver-15 repair 7d80433](https://github.com/csd113/Places/commit/7d80433ccb77d828a8c519ffa8da935fcbcac4c4)
+preserves the zero-source contract. Five [final v2 runnable bundles](../art-style/stage4/handoff.md#solver-15-final-publication)
+retain compatible binaries, SDL, packages, settings and all real dependencies.
+Six original views and the closed door replay byte for byte; tiny control-view
+differences remain inside animated cat bounds. All 14 milestone bundles and all
+seven original concepts hash-verify. The final completion receipt records the
+exact seal/push/CI identity and explicit custody release after that gate.

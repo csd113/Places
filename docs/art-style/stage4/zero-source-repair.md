@@ -78,3 +78,25 @@ atlas textures, collision/navigation and reflection cubemaps. Only solver/compil
 fingerprints, lightmap `content_key`, and their content-addressed metadata entries
 change. Original hero package size is 5,189,440 bytes, one byte above the prior
 package due to metadata compression. This is not a runtime or bake-speed claim.
+
+## Published source and runnable verification
+
+[Repair implementation 7d80433](https://github.com/csd113/Places/commit/7d80433ccb77d828a8c519ffa8da935fcbcac4c4)
+is the frozen source for five new `stage4-*-v2` bundles, with
+[creation commands](repair-snapshot-execution.json) and
+[source/bundle verification](repair-snapshot-verification.json).
+All 215 inputs match that commit. All 14 old/new bundles hash-verify, including the
+original Stage 1 baseline; [all seven concepts](repair-concept-preservation.json)
+remain byte-identical to Stage 1. The old Stage 4 bundles retain their exact files.
+
+The ordinary new [six-view hero replay](repair-snapshot-replay-main/equality.json)
+is byte-identical to accepted final PNGs. Each control's ordinary native launch
+view succeeds. The closed door is exact; actor, switchable and comparison replay
+differences are 7/5/6 pixels, maximum channel change 1/1/2, entirely inside the
+animated cat bounds. All four raw views are visually inspected and accepted.
+This is runnable-bundle verification, with no movement, quality or GPU campaign.
+
+The final push/seal SHA, exact-SHA CI result and explicit custody release are
+recorded after that gate in both `/tmp/places-art-style-stage4-completion.json`
+and the durable `debug-maps/art-style-hero/evidence/stage4-completion.json`.
+No stage starts from an intermediate CI result.

@@ -1,0 +1,90 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2",
+      "--manifest",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2/hero-manifest.json",
+      "--binary",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2/places",
+      "--out",
+      "docs/art-style/stage4/repair-snapshot-replay-entities",
+      "--views",
+      "actors"
+    ],
+    "environment": {
+      "DYLD_LIBRARY_PATH": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2"
+    },
+    "exit": 0,
+    "stdout": "OK high/actors\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+      "--manifest",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2/hero-manifest.json",
+      "--binary",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2/places",
+      "--out",
+      "docs/art-style/stage4/repair-snapshot-replay-switchable",
+      "--views",
+      "actors"
+    ],
+    "environment": {
+      "DYLD_LIBRARY_PATH": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2"
+    },
+    "exit": 0,
+    "stdout": "OK high/actors\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2",
+      "--manifest",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2/hero-manifest.json",
+      "--binary",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2/places",
+      "--out",
+      "docs/art-style/stage4/repair-snapshot-replay-movement",
+      "--views",
+      "door"
+    ],
+    "environment": {
+      "DYLD_LIBRARY_PATH": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2"
+    },
+    "exit": 0,
+    "stdout": "OK high/door\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/capture_art_style_hero.py",
+      "--asset-root",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+      "--manifest",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2/hero-manifest.json",
+      "--binary",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2/places",
+      "--out",
+      "docs/art-style/stage4/repair-snapshot-replay-comparison",
+      "--views",
+      "broad"
+    ],
+    "environment": {
+      "DYLD_LIBRARY_PATH": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2"
+    },
+    "exit": 0,
+    "stdout": "OK high/broad\n",
+    "stderr": ""
+  }
+]

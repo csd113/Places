@@ -1,0 +1,169 @@
+{
+  "implementation_sha": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+  "frozen_inputs": 215,
+  "all_inputs_match_git_blobs": true,
+  "snapshots": [
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage1",
+      "revision": "94d22f04a83156a3fe8ad9d16ef6d22732dc9818",
+      "files": 41,
+      "bytes": 191757388,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage2",
+      "revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+      "files": 41,
+      "bytes": 192471565,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage3",
+      "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+      "files": 41,
+      "bytes": 193253012,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage3-controls",
+      "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+      "files": 49,
+      "bytes": 198576087,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4",
+      "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "files": 41,
+      "bytes": 193587814,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-entities",
+      "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "files": 42,
+      "bytes": 194828647,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-switchable",
+      "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "files": 42,
+      "bytes": 198172450,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-movement",
+      "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "files": 45,
+      "bytes": 195384094,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-comparison",
+      "revision": "2615b9bc787a116bca1d9bc9d9deb855ed87724d",
+      "files": 42,
+      "bytes": 198509154,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-v2",
+      "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+      "files": 41,
+      "bytes": 193587821,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-entities-v2",
+      "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+      "files": 42,
+      "bytes": 194828659,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+      "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+      "files": 42,
+      "bytes": 198172460,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-movement-v2",
+      "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+      "files": 45,
+      "bytes": 195384107,
+      "all_file_hashes_match": true
+    },
+    {
+      "snapshot": "debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+      "revision": "7d80433ccb77d828a8c519ffa8da935fcbcac4c4",
+      "files": 42,
+      "bytes": 198509164,
+      "all_file_hashes_match": true
+    }
+  ],
+  "main_views_byte_identical": 6,
+  "control_launch_views_succeeded": 4,
+  "control_image_comparisons": [
+    {
+      "control": "entities",
+      "view": "actors",
+      "old": "docs/art-style/stage4/snapshot-verification-entities/actors.png",
+      "new": "docs/art-style/stage4/repair-snapshot-replay-entities/actors.png",
+      "byte_identical": false,
+      "differing_pixels": 7,
+      "max_channel_delta": 1,
+      "bounds": [
+        501,
+        533,
+        530,
+        562
+      ],
+      "visual_inspection": "Accepted same material/light response; any differences confined to the animated character pose. Closed door remains lit."
+    },
+    {
+      "control": "switchable",
+      "view": "actors",
+      "old": "docs/art-style/stage4/snapshot-verification-switchable/actors.png",
+      "new": "docs/art-style/stage4/repair-snapshot-replay-switchable/actors.png",
+      "byte_identical": false,
+      "differing_pixels": 5,
+      "max_channel_delta": 1,
+      "bounds": [
+        501,
+        530,
+        507,
+        547
+      ],
+      "visual_inspection": "Accepted same material/light response; any differences confined to the animated character pose. Closed door remains lit."
+    },
+    {
+      "control": "movement",
+      "view": "door",
+      "old": "docs/art-style/stage4/snapshot-verification-movement/door.png",
+      "new": "docs/art-style/stage4/repair-snapshot-replay-movement/door.png",
+      "byte_identical": true,
+      "differing_pixels": 0,
+      "max_channel_delta": 0,
+      "bounds": null,
+      "visual_inspection": "Accepted same material/light response; any differences confined to the animated character pose. Closed door remains lit."
+    },
+    {
+      "control": "comparison",
+      "view": "broad",
+      "old": "docs/art-style/stage4/snapshot-verification-comparison/broad.png",
+      "new": "docs/art-style/stage4/repair-snapshot-replay-comparison/broad.png",
+      "byte_identical": false,
+      "differing_pixels": 6,
+      "max_channel_delta": 2,
+      "bounds": [
+        362,
+        582,
+        443,
+        719
+      ],
+      "visual_inspection": "Accepted same material/light response; any differences confined to the animated character pose. Closed door remains lit."
+    }
+  ],
+  "no_new_movement_quality_or_gpu_campaign": true
+}

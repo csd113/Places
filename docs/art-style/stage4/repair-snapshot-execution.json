@@ -1,0 +1,152 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/libSDL3.0.dylib",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage4-hero-v2/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/hero-manifest.json",
+      "--revision",
+      "7d80433ccb77d828a8c519ffa8da935fcbcac4c4"
+    ],
+    "exit": 0,
+    "stdout": {
+      "snapshot": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-v2",
+      "files": 41,
+      "bytes": 193587821
+    },
+    "files_verified": true,
+    "receipt": "docs/art-style/stage4/stage4-v2-snapshot.json"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/libSDL3.0.dylib",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage4-actors-v2/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage4/entity-manifest.json",
+      "--revision",
+      "7d80433ccb77d828a8c519ffa8da935fcbcac4c4"
+    ],
+    "exit": 0,
+    "stdout": {
+      "snapshot": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-entities-v2",
+      "files": 42,
+      "bytes": 194828659
+    },
+    "files_verified": true,
+    "receipt": "docs/art-style/stage4/stage4-entities-v2-snapshot.json"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/libSDL3.0.dylib",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage4-switchable-v2/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage4/switchable-manifest.json",
+      "--revision",
+      "7d80433ccb77d828a8c519ffa8da935fcbcac4c4"
+    ],
+    "exit": 0,
+    "stdout": {
+      "snapshot": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-switchable-v2",
+      "files": 42,
+      "bytes": 198172460
+    },
+    "files_verified": true,
+    "receipt": "docs/art-style/stage4/stage4-switchable-v2-snapshot.json"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/libSDL3.0.dylib",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage4-movement-v2/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage4/movement-manifest-v3.json",
+      "--revision",
+      "7d80433ccb77d828a8c519ffa8da935fcbcac4c4"
+    ],
+    "exit": 0,
+    "stdout": {
+      "snapshot": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-movement-v2",
+      "files": 45,
+      "bytes": 195384107
+    },
+    "files_verified": true,
+    "receipt": "docs/art-style/stage4/stage4-movement-v2-snapshot.json"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/bench/snapshot_art_style_hero.py",
+      "--out",
+      "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+      "--binary",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places",
+      "--diagnostics",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-diagnostics",
+      "--compiler",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/places-compile",
+      "--runtime-library",
+      "debug-maps/art-style-hero/evidence/stage4-runtime-v2/libSDL3.0.dylib",
+      "--package",
+      "debug-maps/art-style-hero/evidence/stage4-comparison-v2/art_style_hero.placesmap",
+      "--manifest",
+      "docs/art-style/stage4/comparison-manifest.json",
+      "--revision",
+      "7d80433ccb77d828a8c519ffa8da935fcbcac4c4"
+    ],
+    "exit": 0,
+    "stdout": {
+      "snapshot": "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/milestones/stage4-comparison-v2",
+      "files": 42,
+      "bytes": 198509164
+    },
+    "files_verified": true,
+    "receipt": "docs/art-style/stage4/stage4-comparison-v2-snapshot.json"
+  }
+]

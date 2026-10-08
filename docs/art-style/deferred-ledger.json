@@ -252,8 +252,11 @@
     {
       "id": "moving-caster-global-invalidation-cost",
       "affected_files": [
+        "src/render/common/dynamic_visibility.rs",
         "src/render/common/light_transport.rs",
-        "src/renderer/scene.rs",
+        "src/render/common/dynamic.rs",
+        "src/render/common/character.rs",
+        "src/render/wgpu/dynamic.rs",
         "docs/art-style/stage4/performance.md"
       ],
       "symbol_or_format": "global caster revision / entity payload cache invalidation",
