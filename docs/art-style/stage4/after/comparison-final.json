@@ -1,0 +1,53 @@
+{
+  "room": {
+    "different_pixels": 26494,
+    "maximum_channel_difference": 17,
+    "bbox": [
+      1020,
+      401,
+      1280,
+      663
+    ],
+    "mean_absolute_channel_difference": 0.07724356192129629
+  },
+  "window": {
+    "different_pixels": 1,
+    "maximum_channel_difference": 1,
+    "bbox": [
+      1176,
+      704,
+      1177,
+      705
+    ],
+    "mean_absolute_channel_difference": 3.616898148148148e-07
+  },
+  "hall": {
+    "different_pixels": 0,
+    "maximum_channel_difference": 0,
+    "bbox": null,
+    "mean_absolute_channel_difference": 0.0
+  },
+  "contact": {
+    "different_pixels": 0,
+    "maximum_channel_difference": 0,
+    "bbox": null,
+    "mean_absolute_channel_difference": 0.0
+  },
+  "entities": {
+    "different_pixels": 41210,
+    "maximum_channel_difference": 17,
+    "bbox": [
+      591,
+      371,
+      1025,
+      712
+    ],
+    "mean_absolute_channel_difference": 0.09679904513888889
+  },
+  "corner": {
+    "different_pixels": 0,
+    "maximum_channel_difference": 0,
+    "bbox": null,
+    "mean_absolute_channel_difference": 0.0
+  }
+}

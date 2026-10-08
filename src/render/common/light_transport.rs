@@ -95,6 +95,8 @@ pub fn build_transport_scene(
 
     let mut emitters: Vec<TransportEmitter> = Vec::new();
     let switchable = switchable_lights(level, lighting);
+    let selected = super::dynamic_lights::select_baked_direct_lights(lighting, &switchable);
+    let mut runtime_direct = Vec::new();
     for (index, light) in lighting.lights().iter().enumerate() {
         let tag = switchable
             .iter()
@@ -106,6 +108,11 @@ pub fn build_transport_scene(
         if !light.is_active() && tag.is_none() {
             continue;
         }
+        if let Ok(source) = u32::try_from(index)
+            && selected.contains(&source)
+        {
+            runtime_direct.push((emitters.len(), source));
+        }
         emitters.push(TransportEmitter::from_baked(light, tag));
         if tag.is_some() {
             stats.switchable_emitters = stats.switchable_emitters.saturating_add(1);
@@ -114,6 +121,7 @@ pub fn build_transport_scene(
     stats.triangles = triangles.len();
     stats.emitters = emitters.len();
     let scene = TransportScene::new(triangles, emitters)?
+        .with_runtime_direct_lights(runtime_direct)
         .with_surface_alpha(surface_alpha)?
         .with_water(
             water
@@ -156,6 +164,447 @@ pub enum EntityLightingSource {
     Roomless,
     Unresolved,
     InvalidPosition,
+}
+
+/// Eight support points inside the model-space bounds; shader interpolation
+/// uses the same X-fastest binary corner order after the model transform.
+pub const ENTITY_LIGHTING_ANCHORS: usize = 8;
+
+// Bounds extrema can lie inside adjoining geometry at normal assembly joints.
+// Keep support inside the receiver, by at most 1 cm or 2% of each local axis.
+// This relocates visibility queries; it does not add illumination or skip solids.
+const ENTITY_ANCHOR_MAX_INSET_M: f32 = 0.01;
+const ENTITY_ANCHOR_INSET_FRACTION: f32 = 0.02;
+
+/// One bounded source and its deterministic finite-emitter taps. Stored
+/// strength has the compiler's calibration but no receiver cosine/falloff.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct EntityDirectLight {
+    pub position_range: [f32; 4],
+    pub color_strength: [f32; 4],
+    /// Horizontal half extents, falloff selector, directional flag.
+    pub extent_falloff: [f32; 4],
+    /// World positions; w is each tap's normalized integration weight.
+    pub taps: [[f32; 4]; 4],
+}
+
+impl EntityDirectLight {
+    pub const ZERO: Self = Self {
+        position_range: [0.0; 4],
+        color_strength: [0.0; 4],
+        extent_falloff: [0.0; 4],
+        taps: [[0.0; 4]; 4],
+    };
+
+    fn from_baked(light: &crate::lighting::BakedLight) -> Self {
+        let emitter = TransportEmitter::from_baked(light, None);
+        let [x, y, z] = emitter.position;
+        let [red, green, blue] = emitter.color;
+        let (half_x, half_z) = light.source.half_extents();
+        let offsets = emitter.shape.samples(2);
+        let count = u16::try_from(offsets.len()).unwrap_or(1).max(1);
+        let mut taps = [[0.0; 4]; 4];
+        for (tap, offset) in taps.iter_mut().zip(offsets) {
+            let [dx, dy, dz] = offset;
+            *tap = [x + dx, y + dy, z + dz, 1.0 / f32::from(count)];
+        }
+        Self {
+            position_range: [x, y, z, emitter.range],
+            color_strength: [
+                red,
+                green,
+                blue,
+                crate::lighting::LOCAL_LIGHT_STRENGTH * emitter.intensity * emitter.height_factor,
+            ],
+            extent_falloff: [
+                half_x,
+                half_z,
+                match emitter.falloff {
+                    crate::lighting::LightFalloff::Smooth => 0.0,
+                    crate::lighting::LightFalloff::Linear => 1.0,
+                    crate::lighting::LightFalloff::Constant => 2.0,
+                },
+                if emitter.directional { 1.0 } else { 0.0 },
+            ],
+            taps,
+        }
+    }
+}
+
+/// Residual field coefficients and important-source visibility at one anchor.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct EntityLightingAnchor {
+    pub irradiance: [f32; 4],
+    pub moment: [f32; 4],
+    pub visibility: [[f32; 4]; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    pub attenuation: [f32; 4],
+}
+
+impl EntityLightingAnchor {
+    pub const ZERO: Self = Self {
+        irradiance: [0.0; 4],
+        moment: [0.0; 4],
+        visibility: [[0.0; 4]; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+        attenuation: [1.0, 1.0, 1.0, 0.0],
+    };
+}
+
+/// A spatial lighting payload independent of pose-vertex uploads. The combined
+/// centre sample remains available separately for diagnostics/legacy callers.
+#[derive(Debug, PartialEq)]
+pub struct EntitySpatialLighting {
+    pub bounds_min: [f32; 4],
+    pub bounds_extent: [f32; 4],
+    pub anchors: [EntityLightingAnchor; ENTITY_LIGHTING_ANCHORS],
+    pub direct: [EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+}
+
+struct EntityAnchorPositions {
+    world: [[f32; 3]; ENTITY_LIGHTING_ANCHORS],
+    centre: [f32; 3],
+    minimum: glam::Vec3,
+    extent: glam::Vec3,
+}
+
+fn entity_anchor_positions(
+    bounds: crate::spatial::Aabb,
+    model: glam::Mat4,
+) -> Option<EntityAnchorPositions> {
+    let mut minimum = glam::Vec3::from_array(bounds.min);
+    let mut maximum = glam::Vec3::from_array(bounds.max);
+    if !minimum.is_finite() || !maximum.is_finite() || !model.is_finite() {
+        return None;
+    }
+    let original_extent = glam::Vec3::new(
+        maximum.x - minimum.x,
+        maximum.y - minimum.y,
+        maximum.z - minimum.z,
+    );
+    if !original_extent.is_finite() || original_extent.min_element() < 0.0 {
+        return None;
+    }
+    let [inset_x, inset_y, inset_z] = original_extent
+        .to_array()
+        .map(|axis| (axis * ENTITY_ANCHOR_INSET_FRACTION).min(ENTITY_ANCHOR_MAX_INSET_M));
+    minimum = glam::Vec3::new(
+        minimum.x + inset_x,
+        minimum.y + inset_y,
+        minimum.z + inset_z,
+    );
+    maximum = glam::Vec3::new(
+        maximum.x - inset_x,
+        maximum.y - inset_y,
+        maximum.z - inset_z,
+    );
+    let extent = glam::Vec3::new(
+        maximum.x - minimum.x,
+        maximum.y - minimum.y,
+        maximum.z - minimum.z,
+    )
+    .max(glam::Vec3::splat(1.0e-6));
+    let centre = model
+        .transform_point3(minimum.lerp(maximum, 0.5))
+        .to_array();
+    let world: [[f32; 3]; ENTITY_LIGHTING_ANCHORS] = std::array::from_fn(|corner| {
+        let local = glam::Vec3::new(
+            if corner & 1 == 0 {
+                minimum.x
+            } else {
+                maximum.x
+            },
+            if corner & 2 == 0 {
+                minimum.y
+            } else {
+                maximum.y
+            },
+            if corner & 4 == 0 {
+                minimum.z
+            } else {
+                maximum.z
+            },
+        );
+        model.transform_point3(local).to_array()
+    });
+    if !centre
+        .iter()
+        .chain(world.iter().flatten())
+        .all(|value| value.is_finite())
+    {
+        return None;
+    }
+    Some(EntityAnchorPositions {
+        world,
+        centre,
+        minimum,
+        extent,
+    })
+}
+
+/// Input identity of the immutable field, model transform and active sources.
+/// A stationary entity does not repeat probe or visibility work each frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EntitySpatialKey {
+    field: usize,
+    scene: usize,
+    model: [[u32; 4]; 4],
+    enabled: u64,
+    dynamic: usize,
+    dynamic_revision: u64,
+    receiver: Option<super::dynamic::DynamicId>,
+}
+
+/// Optional current movable geometry and the rigid receiver's self identity.
+#[derive(Clone, Copy, Default)]
+pub struct EntityVisibility<'a> {
+    pub dynamic: Option<&'a super::dynamic_visibility::DynamicVisibility>,
+    pub receiver: Option<super::dynamic::DynamicId>,
+}
+
+impl EntityVisibility<'_> {
+    fn transmittance(self, from: [f32; 3], to: [f32; 3]) -> f32 {
+        self.dynamic
+            .map_or(1.0, |scene| scene.transmittance(from, to, self.receiver))
+    }
+}
+
+/// Combined-field subtraction concerns only selected always-on IDs. A
+/// switchable emitter already lives outside the base solve and joins the
+/// reserved live slots directly, retaining its identity while disabled.
+fn runtime_entity_light_ids(
+    field: &crate::lighting::probes::ProbeField,
+    scene: Option<&TransportScene>,
+) -> [Option<usize>; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS] {
+    let mut ids = [None; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
+    let mut count = 0_usize;
+    for index in field
+        .runtime_direct_lights()
+        .iter()
+        .filter_map(|id| usize::try_from(*id).ok())
+    {
+        if let Some(slot) = ids.get_mut(count) {
+            *slot = Some(index);
+            count = count.saturating_add(1);
+        }
+    }
+    if let Some(transport) = scene {
+        for index in transport
+            .emitters()
+            .iter()
+            .filter_map(|source| source.switchable)
+            .take(crate::package::MAX_SWITCHABLE_LIGHTS)
+        {
+            if ids.contains(&Some(index)) {
+                continue;
+            }
+            if let Some(slot) = ids.get_mut(count) {
+                *slot = Some(index);
+                count = count.saturating_add(1);
+            }
+        }
+    }
+    ids
+}
+
+#[cfg(test)]
+#[must_use]
+pub fn entity_spatial_key(
+    lighting: &LevelLighting,
+    field: Option<&crate::lighting::probes::ProbeField>,
+    model: glam::Mat4,
+    scene: Option<&TransportScene>,
+) -> Option<EntitySpatialKey> {
+    entity_spatial_key_with_visibility(lighting, field, model, scene, EntityVisibility::default())
+}
+
+#[must_use]
+pub fn entity_spatial_key_with_visibility(
+    lighting: &LevelLighting,
+    field: Option<&crate::lighting::probes::ProbeField>,
+    model: glam::Mat4,
+    scene: Option<&TransportScene>,
+    visibility: EntityVisibility<'_>,
+) -> Option<EntitySpatialKey> {
+    let prepared = field?;
+    let _selected_direct = prepared.local_direct.as_ref()?;
+    let mut enabled = 0_u64;
+    for (slot, index) in runtime_entity_light_ids(prepared, scene).iter().enumerate() {
+        let active = index
+            .and_then(|id| lighting.lights().get(id))
+            .is_some_and(crate::lighting::BakedLight::is_active);
+        if active {
+            enabled |= 1_u64.checked_shl(u32::try_from(slot).ok()?).unwrap_or(0);
+        }
+    }
+    Some(EntitySpatialKey {
+        field: std::ptr::from_ref(prepared).addr(),
+        scene: scene.map_or(0, |value| std::ptr::from_ref(value).addr()),
+        model: model
+            .to_cols_array_2d()
+            .map(|column| column.map(f32::to_bits)),
+        enabled,
+        dynamic: visibility
+            .dynamic
+            .map_or(0, |value| std::ptr::from_ref(value).addr()),
+        dynamic_revision: visibility
+            .dynamic
+            .map_or(0, super::dynamic_visibility::DynamicVisibility::revision),
+        receiver: visibility.receiver,
+    })
+}
+
+/// Resolve spatial coefficients at transformed interior support points.
+/// Missing support uses a visibly connected centre field; the fallback does
+/// not inject an ambient floor into valid dark samples. Without a prepared
+/// field the legacy authored environment remains the existing per-object path.
+#[cfg(test)]
+#[must_use]
+pub fn entity_spatial_lighting(
+    lighting: &LevelLighting,
+    field: Option<&crate::lighting::probes::ProbeField>,
+    bounds: crate::spatial::Aabb,
+    model: glam::Mat4,
+    scene: Option<&TransportScene>,
+) -> Option<Box<EntitySpatialLighting>> {
+    entity_spatial_lighting_with_visibility(
+        lighting,
+        field,
+        bounds,
+        model,
+        scene,
+        EntityVisibility::default(),
+    )
+}
+
+#[must_use]
+pub fn entity_spatial_lighting_with_visibility(
+    lighting: &LevelLighting,
+    field: Option<&crate::lighting::probes::ProbeField>,
+    bounds: crate::spatial::Aabb,
+    model: glam::Mat4,
+    scene: Option<&TransportScene>,
+    visibility: EntityVisibility<'_>,
+) -> Option<Box<EntitySpatialLighting>> {
+    let prepared = field?;
+    let _selected_direct = prepared.local_direct.as_ref()?;
+    let positions = entity_anchor_positions(bounds, model)?;
+    let sample = |point| {
+        prepared.sample_nonlocal_filtered_with_rooms(point, None, |probe, label| {
+            lighting.labelled_probe_visible_from(point, probe, label)
+                && visibility.transmittance(point, probe) > 0.0
+        })
+    };
+    let samples = positions.world.map(sample);
+    let centre_sample = sample(positions.centre);
+    if centre_sample.is_none() && samples.iter().all(Option::is_none) {
+        let has_static_support = |point| {
+            prepared
+                .sample_nonlocal_filtered_with_rooms(point, None, |probe, label| {
+                    lighting.labelled_probe_visible_from(point, probe, label)
+                })
+                .is_some()
+        };
+        if visibility.dynamic.is_none()
+            || !(has_static_support(positions.centre)
+                || positions.world.into_iter().any(has_static_support))
+        {
+            return None;
+        }
+        // A current opaque caster blocking all otherwise-valid support must
+        // not recover the stale authored ambient/direct fallback.
+    }
+    let connected = |from, to| {
+        scene.map_or_else(
+            || lighting.runtime_probe_segment_visible(from, to),
+            |transport| transport.transmittance(from, to) > 0.0,
+        ) && visibility.transmittance(from, to) > 0.0
+    };
+    let mut direct = [EntityDirectLight::ZERO; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
+    let source_ids = runtime_entity_light_ids(prepared, scene);
+    for (slot, index) in direct.iter_mut().zip(source_ids) {
+        let Some(light) = index.and_then(|id| lighting.lights().get(id)) else {
+            continue;
+        };
+        if light.is_active() {
+            *slot = EntityDirectLight::from_baked(light);
+        }
+    }
+    let anchors = positions.world.map(|world| {
+        let exact_sample = sample(world);
+        let texel = exact_sample
+            .or_else(|| centre_sample.filter(|_| connected(world, positions.centre)))
+            .or_else(|| {
+                positions
+                    .world
+                    .iter()
+                    .zip(samples)
+                    .find_map(|(position, value)| value.filter(|_| connected(world, *position)))
+            })
+            .unwrap_or(crate::lighting::lightmap::LightmapTexel {
+                irradiance: [0.0; 3],
+                direction: [0.0; 3],
+                axis: [0.5; 2],
+            });
+        let [red, green, blue] = texel.irradiance;
+        let [x, y, z] = texel.direction;
+        let throughput =
+            spatial_anchor_visibility(lighting, &source_ids, scene, &direct, world, visibility);
+        let [ar, ag, ab] = scene.map_or([1.0; 3], |transport| transport.attenuation_at(world));
+        EntityLightingAnchor {
+            irradiance: [
+                red,
+                green,
+                blue,
+                if exact_sample.is_some() { 1.0 } else { 0.0 },
+            ],
+            moment: [x, y, z, 0.0],
+            visibility: throughput,
+            attenuation: [ar, ag, ab, 0.0],
+        }
+    });
+    let [x, y, z] = positions.minimum.to_array();
+    let [dx, dy, dz] = positions.extent.to_array();
+    Some(Box::new(EntitySpatialLighting {
+        bounds_min: [x, y, z, 1.0],
+        bounds_extent: [dx, dy, dz, 0.0],
+        anchors,
+        direct,
+    }))
+}
+
+fn spatial_anchor_visibility(
+    lighting: &LevelLighting,
+    source_ids: &[Option<usize>; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    scene: Option<&TransportScene>,
+    sources: &[EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    world: [f32; 3],
+    visibility: EntityVisibility<'_>,
+) -> [[f32; 4]; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS] {
+    std::array::from_fn(|slot| {
+        let Some(index) = source_ids.get(slot).copied().flatten() else {
+            return [0.0; 4];
+        };
+        let Some(source) = sources.get(slot) else {
+            return [0.0; 4];
+        };
+        source.taps.map(|[x, y, z, weight]| {
+            if weight > 0.0 {
+                scene.map_or_else(
+                    || {
+                        f32::from(u8::from(lighting.runtime_light_visible(
+                            index,
+                            [x, y, z],
+                            world,
+                        )))
+                    },
+                    |transport| transport.transmittance(world, [x, y, z]),
+                ) * visibility.transmittance(world, [x, y, z])
+            } else {
+                0.0
+            }
+        })
+    })
 }
 
 /// Sample at the transformed model-bounds centre, in metres, Y up.
@@ -323,6 +772,9 @@ fn append_prop_triangles(
     owners: &mut Vec<crate::lighting::transport::diagnostics::CasterRange>,
 ) {
     for batch in batches {
+        if !batch.casts_static_lighting {
+            continue;
+        }
         let first = triangles.len();
         for submesh in &batch.submeshes {
             let start = usize::try_from(submesh.first_index).unwrap_or(usize::MAX);
@@ -376,6 +828,44 @@ fn append_prop_triangles(
             });
         }
     }
+}
+
+/// The same triangle/material/coverage preparation, in a movable mesh's local
+/// space. The resulting ray resource has no light sources or bake work.
+#[must_use]
+pub(super) fn dynamic_mesh_visibility_scene(
+    mesh: &super::dynamic::DynamicMesh,
+) -> Option<TransportScene> {
+    let batch = PropMeshBatch {
+        model: mesh.model_path.clone(),
+        casts_static_lighting: true,
+        textures: mesh.textures.clone(),
+        submeshes: mesh
+            .submeshes
+            .iter()
+            .map(|submesh| crate::render::PropSubmeshBatch {
+                response: submesh.response,
+                texture: submesh.texture,
+                emission: submesh.emission,
+                alpha: submesh.alpha,
+                first_index: submesh.first_index,
+                index_count: submesh.index_count,
+            })
+            .collect(),
+        vertices: mesh.vertices.clone(),
+        indices: mesh.indices.clone(),
+        bounds: mesh.bounds,
+    };
+    let mut triangles = Vec::new();
+    let mut alpha = Vec::new();
+    append_prop_triangles(
+        &[batch],
+        &mut triangles,
+        &mut alpha,
+        &mut TransportSceneStats::default(),
+        &mut Vec::new(),
+    );
+    TransportScene::new(triangles, Vec::new())?.with_surface_alpha(alpha)
 }
 
 /// The level material id one surface key resolves to, or `None` when the key
@@ -616,11 +1106,580 @@ mod tests {
 
     use super::*;
 
+    fn spatial_fixture() -> (LevelLighting, crate::lighting::probes::ProbeField) {
+        let level = LevelDef::from_json(
+            r#"{
+            "format_version":3,"id":"spatial_entity","name":"Spatial entity",
+            "spawn":{"x":0,"z":0},
+            "rooms":[{"x":-4,"z":-4,"width":8,"depth":8,"height":3}],
+            "ceiling_lights":[{"fixture":"core:fluorescent_panel_01","x":0,"z":0,"align":"none"}]
+        }"#,
+        )
+        .expect("spatial fixture");
+        let lighting = LevelLighting::bake(&level);
+        let field = crate::lighting::probes::ProbeField {
+            min: [-2.0, 0.0, -2.0],
+            cell_m: 4.0,
+            dims: [1; 3],
+            probes: vec![crate::lighting::probes::ProbeSample {
+                irradiance: [0.7; 3],
+                direction: [0.0, 0.3, 0.0],
+                axis: [0.5; 2],
+                room: 0,
+            }],
+            local_direct: Some(crate::lighting::probes::ProbeDirectField {
+                light_indices: vec![0],
+                probes: vec![crate::lighting::lightmap::LightmapTexel {
+                    irradiance: [0.2; 3],
+                    direction: [0.0, 0.15, 0.0],
+                    axis: [0.5; 2],
+                }],
+            }),
+        };
+        (lighting, field)
+    }
+
+    fn framed_receiver() -> (
+        super::super::dynamic::DynamicScene,
+        super::super::dynamic::DynamicId,
+        LevelLighting,
+        crate::lighting::probes::ProbeField,
+    ) {
+        let level = LevelDef::from_json(
+            r#"{"format_version":3,"id":"framed_receiver","name":"Framed receiver",
+            "spawn":{"x":0,"z":1},
+            "rooms":[{"x":-3,"z":-3,"width":6,"depth":6,"height":3}],
+            "doors":[{"id":"assembly","x":0,"z":0,"width":1.48,"height":2.3}],
+            "ceiling_lights":[{"fixture":"core:fluorescent_panel_01","x":0.74,"z":1.5,"align":"none"}]}"#,
+        )
+        .expect("assembly fixture");
+        let catalog = crate::assets::AssetCatalog::load_default();
+        let root = crate::assets::resolve_asset_root().expect("asset root");
+        let materials = crate::materials::resolve_materials(
+            &level,
+            &catalog,
+            None,
+            Some(&root),
+            &mut crate::materials::TextureCache::new(),
+        );
+        let models = super::super::doors::build_door_models(
+            level.doors.first().expect("assembly"),
+            &materials,
+            crate::level::DoorFrame {
+                depth: 0.3,
+                center: 0.0,
+            },
+        )
+        .expect("actual frame and receiver geometry");
+        let mut dynamic = super::super::dynamic::DynamicScene::new();
+        let frame_mesh = dynamic
+            .register_model(
+                "frame",
+                &models.frame,
+                models.textures.clone(),
+                &models.frame_alphas,
+            )
+            .expect("frame mesh");
+        let leaf_mesh = dynamic
+            .register_model(
+                "receiver",
+                &models.leaf,
+                models.textures,
+                &models.leaf_alphas,
+            )
+            .expect("receiver mesh");
+        let _frame = dynamic
+            .spawn_registered(
+                frame_mesh,
+                [0.0; 3],
+                super::super::dynamic::SpawnOrientation::YAW_ONLY,
+                0.0,
+                1.0,
+            )
+            .expect("frame");
+        let leaf = dynamic
+            .spawn_registered(
+                leaf_mesh,
+                [0.0; 3],
+                super::super::dynamic::SpawnOrientation::YAW_ONLY,
+                0.0,
+                1.0,
+            )
+            .expect("receiver");
+        (
+            dynamic,
+            leaf,
+            LevelLighting::bake(&level),
+            framed_receiver_field(),
+        )
+    }
+
+    fn framed_receiver_field() -> crate::lighting::probes::ProbeField {
+        crate::lighting::probes::ProbeField {
+            min: [-0.01, 0.85, -1.5],
+            cell_m: 1.5,
+            dims: [1, 1, 2],
+            probes: vec![
+                crate::lighting::probes::ProbeSample {
+                    irradiance: [0.6; 3],
+                    direction: [0.0; 3],
+                    axis: [0.5; 2],
+                    room: 0,
+                };
+                2
+            ],
+            local_direct: Some(crate::lighting::probes::ProbeDirectField {
+                light_indices: vec![0],
+                probes: vec![
+                    crate::lighting::lightmap::LightmapTexel {
+                        irradiance: [0.1; 3],
+                        direction: [0.0; 3],
+                        axis: [0.5; 2],
+                    };
+                    2
+                ],
+            }),
+        }
+    }
+
+    #[test]
+    fn enclosed_bounds_edges_do_not_blacken_a_supported_receiver() {
+        let (dynamic, leaf, lighting, field) = framed_receiver();
+        let mut visibility = super::super::dynamic_visibility::DynamicVisibility::new();
+        assert!(visibility.sync(&dynamic).expect("current geometry"));
+        let receiver = dynamic.get(leaf).expect("receiver");
+        let bounds = receiver.mesh().bounds;
+        let source = lighting
+            .lights()
+            .first()
+            .expect("practical source")
+            .source
+            .position;
+        let extrema = [bounds.min[0], bounds.max[0]].into_iter().flat_map(|x| {
+            [bounds.min[1], bounds.max[1]]
+                .into_iter()
+                .flat_map(move |y| [bounds.min[2], bounds.max[2]].map(|z| [x, y, z]))
+        });
+        assert!(
+            extrema
+                .into_iter()
+                .all(|corner| visibility.transmittance(corner, source, Some(leaf)) == 0.0),
+            "outer corners start inside the physically surrounding frame"
+        );
+        let spatial = entity_spatial_lighting_with_visibility(
+            &lighting,
+            Some(&field),
+            bounds,
+            receiver.transform(),
+            None,
+            EntityVisibility {
+                dynamic: Some(&visibility),
+                receiver: Some(leaf),
+            },
+        )
+        .expect("interior support lattice");
+        assert!(
+            spatial.anchors.iter().all(|anchor| anchor
+                .irradiance
+                .iter()
+                .take(3)
+                .all(|energy| (*energy - 0.5).abs() < 1.0e-6)),
+            "valid residual energy survives without an ambient addition"
+        );
+        assert!(
+            spatial.anchors.iter().any(|anchor| anchor
+                .visibility
+                .first()
+                .expect("selected source")
+                .iter()
+                .all(|tap| *tap == 1.0)),
+            "the actual source has clear interior support"
+        );
+        assert!(
+            spatial.anchors.iter().any(|anchor| anchor
+                .visibility
+                .first()
+                .expect("selected source")
+                .iter()
+                .all(|tap| *tap == 0.0)),
+            "the real header still shades upper source taps"
+        );
+        assert_eq!(
+            visibility.transmittance([-0.1, 1.0, 0.0], [0.1, 1.0, 0.0], Some(leaf)),
+            0.0,
+            "neighboring frame geometry still blocks real crossing rays"
+        );
+    }
+
+    #[test]
+    fn interior_anchor_lattice_handles_thin_axes_and_nonuniform_transforms() {
+        let bounds = crate::spatial::Aabb {
+            min: [0.0; 3],
+            max: [1.48, 2.3, 1.0e-8],
+        };
+        let model = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(0.75, 3.0, 2.0),
+            glam::Quat::from_rotation_y(0.7),
+            glam::Vec3::new(8.0, 0.0, 4.0),
+        );
+        let lattice = entity_anchor_positions(bounds, model).expect("finite thin lattice");
+        assert!(lattice.minimum.x > 0.0 && lattice.minimum.y > 0.0);
+        assert!(lattice.minimum.z > 0.0 && lattice.minimum.z < 0.5e-8);
+        assert!(lattice.extent.is_finite() && lattice.extent.min_element() > 0.0);
+        assert!(
+            lattice
+                .world
+                .iter()
+                .flatten()
+                .all(|value| value.is_finite())
+        );
+        let first = model.transform_point3(lattice.minimum).to_array();
+        assert_eq!(
+            lattice.world.first(),
+            Some(&first),
+            "GPU interpolation min is the same sampled point"
+        );
+        assert!(
+            entity_anchor_positions(bounds, glam::Mat4::from_scale(glam::Vec3::splat(f32::MAX)))
+                .is_none(),
+            "overflowing transformed support never reaches GPU payloads"
+        );
+    }
+
+    #[test]
+    fn spatial_samples_remove_only_selected_coefficients_and_follow_transforms() {
+        let (mut lighting, field) = spatial_fixture();
+        let scene = TransportScene::new(Vec::new(), Vec::new()).expect("empty visibility scene");
+        let model = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(2.0, 0.75, 0.5),
+            glam::Quat::from_rotation_y(0.7),
+            glam::Vec3::new(0.1, 0.0, 0.1),
+        );
+        let spatial = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            crate::spatial::Aabb {
+                min: [-0.5, 0.1, -0.5],
+                max: [0.5, 1.1, 0.5],
+            },
+            model,
+            Some(&scene),
+        )
+        .expect("transformed bounds resolve");
+        for anchor in &spatial.anchors {
+            for channel in anchor.irradiance.into_iter().take(3) {
+                assert!(
+                    (channel - 0.5).abs() < 1.0e-6,
+                    "only selected direct is removed"
+                );
+            }
+            assert_eq!(anchor.moment, [0.0, 0.15, 0.0, 0.0]);
+            assert_eq!(
+                anchor.visibility.first().expect("visibility row").first(),
+                Some(&1.0)
+            );
+        }
+        let source = spatial.direct.first().expect("direct source");
+        assert!(
+            source
+                .color_strength
+                .last()
+                .is_some_and(|strength| *strength > 0.0),
+            "compiler calibration remains active"
+        );
+        assert_eq!(
+            source
+                .taps
+                .iter()
+                .map(|tap| tap.last().copied().unwrap_or(0.0))
+                .sum::<f32>(),
+            1.0
+        );
+        let key = entity_spatial_key(&lighting, Some(&field), model, Some(&scene));
+        assert_eq!(
+            key,
+            entity_spatial_key(&lighting, Some(&field), model, Some(&scene))
+        );
+        assert!(lighting.set_light_enabled(0, false), "source toggles");
+        assert_ne!(
+            key,
+            entity_spatial_key(&lighting, Some(&field), model, Some(&scene))
+        );
+    }
+
+    #[test]
+    fn entity_visibility_keeps_blend_throughput_and_water_depth() {
+        let (lighting, field) = spatial_fixture();
+        let triangles = vec![
+            TransportTriangle::new(
+                [-4.0, 1.5, -4.0],
+                [4.0, 1.5, -4.0],
+                [4.0, 1.5, 4.0],
+                [0.5; 3],
+            )
+            .expect("pane first"),
+            TransportTriangle::new(
+                [-4.0, 1.5, -4.0],
+                [4.0, 1.5, 4.0],
+                [-4.0, 1.5, 4.0],
+                [0.5; 3],
+            )
+            .expect("pane second"),
+        ];
+        let alpha = TransportAlphaSurface {
+            alpha: crate::materials::MaterialAlpha {
+                mode: AlphaMode::Blend,
+                opacity: 0.5,
+                ..crate::materials::MaterialAlpha::OPAQUE
+            },
+            image: None,
+            uv: [[0.0; 2]; 3],
+            vertex_alpha: [1.0; 3],
+            address: TransportTextureAddress::Clamp,
+        };
+        let scene = TransportScene::new(triangles, Vec::new())
+            .expect("pane scene")
+            .with_surface_alpha(vec![Some(alpha.clone()), Some(alpha)])
+            .expect("alpha aligned")
+            .with_water(vec![TransportWaterBody {
+                x0: -4.0,
+                x1: 4.0,
+                z0: -4.0,
+                z1: 4.0,
+                surface_y: 1.0,
+                bottom_y: 0.0,
+                extinction: [1.0, 0.5, 0.25],
+            }]);
+        assert!(
+            (scene.transmittance([0.0, 0.5, 0.0], [0.0, 2.5, 0.0]) - 0.5).abs() < 1.0e-6,
+            "pane fixture retains authored blend coverage"
+        );
+        let spatial = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            crate::spatial::Aabb {
+                min: [-0.2, 0.2, -0.2],
+                max: [0.2, 0.8, 0.2],
+            },
+            glam::Mat4::IDENTITY,
+            Some(&scene),
+        )
+        .expect("under pane");
+        for anchor in &spatial.anchors {
+            let visibility = anchor
+                .visibility
+                .first()
+                .expect("row")
+                .first()
+                .copied()
+                .expect("source");
+            assert!(
+                (visibility - 0.5).abs() < 1.0e-6,
+                "straight blend crossing remains partial"
+            );
+            let [red, green, blue, _reserved] = anchor.attenuation;
+            assert!(
+                red < green && green < blue && blue < 1.0,
+                "receiver-depth colour extinction remains independent of alpha"
+            );
+        }
+    }
+
+    #[test]
+    fn valid_dark_spatial_samples_stay_dark_without_a_brightness_floor() {
+        let (lighting, mut field) = spatial_fixture();
+        field.local_direct = Some(crate::lighting::probes::ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
+        });
+        for probe in &mut field.probes {
+            probe.irradiance = [0.0; 3];
+            probe.direction = [0.0; 3];
+        }
+        let centre = entity_lighting(&lighting, Some(&field), [0.0, 1.0, 0.0]);
+        assert_eq!(centre.source, EntityLightingSource::Prepared);
+        assert_eq!(centre.display, [0.0; 3]);
+        let spatial = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            crate::spatial::Aabb {
+                min: [-0.2, 0.8, -0.2],
+                max: [0.2, 1.2, 0.2],
+            },
+            glam::Mat4::IDENTITY,
+            None,
+        )
+        .expect("dark valid field");
+        for anchor in &spatial.anchors {
+            assert_eq!(anchor.irradiance, [0.0, 0.0, 0.0, 1.0]);
+            assert_eq!(anchor.moment, [0.0; 4]);
+        }
+        assert!(
+            spatial
+                .direct
+                .iter()
+                .all(|source| *source == EntityDirectLight::ZERO),
+            "an empty selected set adds no direct"
+        );
+    }
+
+    #[test]
+    fn rotated_nonuniform_bounds_sample_the_world_field_in_the_right_axes() {
+        let (lighting, mut field) = spatial_fixture();
+        field.min = [-2.0, 0.0, -2.0];
+        field.cell_m = 2.0;
+        field.dims = [2, 1, 2];
+        field.probes = [0.1, 0.9, 0.1, 0.9]
+            .map(|energy| crate::lighting::probes::ProbeSample {
+                irradiance: [energy; 3],
+                direction: [0.0; 3],
+                axis: [0.5; 2],
+                room: 0,
+            })
+            .to_vec();
+        field.local_direct = Some(crate::lighting::probes::ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO; field.probes.len()],
+        });
+        let model = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(2.0, 0.75, 0.5),
+            glam::Quat::from_rotation_y(std::f32::consts::FRAC_PI_2),
+            glam::Vec3::ZERO,
+        );
+        let spatial = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            crate::spatial::Aabb {
+                min: [-0.5, 0.8, -0.5],
+                max: [0.5, 1.2, 0.5],
+            },
+            model,
+            None,
+        )
+        .expect("rotated bounds");
+        let energy = |corner: usize| {
+            spatial
+                .anchors
+                .get(corner)
+                .expect("corner")
+                .irradiance
+                .first()
+                .copied()
+                .expect("red")
+        };
+        assert!(
+            (energy(0) - energy(1)).abs() < 1.0e-6,
+            "local X rotates to symmetric world Z"
+        );
+        assert!(
+            energy(4) > energy(0),
+            "local Z rotates toward the brighter world X samples"
+        );
+    }
+
+    #[test]
+    fn legacy_combined_probe_fields_keep_the_existing_entity_path() {
+        let (lighting, mut field) = spatial_fixture();
+        field.local_direct = None;
+        assert!(entity_spatial_key(&lighting, Some(&field), glam::Mat4::IDENTITY, None).is_none());
+        assert!(
+            entity_spatial_lighting(
+                &lighting,
+                Some(&field),
+                crate::spatial::Aabb {
+                    min: [-0.2, 0.8, -0.2],
+                    max: [0.2, 1.2, 0.2],
+                },
+                glam::Mat4::IDENTITY,
+                None,
+            )
+            .is_none()
+        );
+        let centre = entity_lighting(&lighting, Some(&field), [0.0, 1.0, 0.0]);
+        assert_eq!(centre.source, EntityLightingSource::Prepared);
+        assert_eq!(centre.prepared.expect("combined").irradiance, [0.7; 3]);
+    }
+
+    #[test]
+    fn switchable_direct_joins_the_reserved_slot_without_subtracting_base_energy() {
+        let (mut lighting, mut field) = spatial_fixture();
+        field.local_direct = Some(crate::lighting::probes::ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![crate::lighting::lightmap::LightmapTexel::ZERO],
+        });
+        let emitter =
+            TransportEmitter::from_baked(lighting.lights().first().expect("source"), Some(0));
+        let scene = TransportScene::new(Vec::new(), vec![emitter]).expect("switchable scene");
+        let bounds = crate::spatial::Aabb {
+            min: [-0.2, 0.8, -0.2],
+            max: [0.2, 1.2, 0.2],
+        };
+        assert_eq!(
+            runtime_entity_light_ids(&field, Some(&scene)),
+            [Some(0), None, None, None, None, None, None, None]
+        );
+        let on_key =
+            entity_spatial_key(&lighting, Some(&field), glam::Mat4::IDENTITY, Some(&scene));
+        let on = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            bounds,
+            glam::Mat4::IDENTITY,
+            Some(&scene),
+        )
+        .expect("on");
+        assert!(on.direct.first().expect("live source").color_strength[3] > 0.0);
+        assert_eq!(
+            on.anchors.first().expect("base").irradiance,
+            [0.7, 0.7, 0.7, 1.0]
+        );
+        assert!(lighting.set_light_enabled(0, false));
+        let off_key =
+            entity_spatial_key(&lighting, Some(&field), glam::Mat4::IDENTITY, Some(&scene));
+        assert_ne!(
+            on_key, off_key,
+            "a switch invalidates a stationary entity payload"
+        );
+        let off = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            bounds,
+            glam::Mat4::IDENTITY,
+            Some(&scene),
+        )
+        .expect("off");
+        assert_eq!(
+            off.direct.first().expect("reserved source"),
+            &EntityDirectLight::ZERO
+        );
+        assert_eq!(
+            off.anchors,
+            on.anchors.map(|mut anchor| {
+                anchor.visibility = [[0.0; 4]; 8];
+                anchor
+            })
+        );
+        assert!(lighting.set_light_enabled(0, true));
+        let restored = entity_spatial_lighting(
+            &lighting,
+            Some(&field),
+            bounds,
+            glam::Mat4::IDENTITY,
+            Some(&scene),
+        )
+        .expect("restored");
+        assert_eq!(
+            *restored, *on,
+            "restoration needs neither reload nor rebake"
+        );
+    }
+
     #[test]
     fn alpha_prop_cards_preserve_covered_pixels_and_opaque_fallbacks() {
         for mode in [AlphaMode::Opaque, AlphaMode::Cutout, AlphaMode::Blend] {
             let batch = PropMeshBatch {
                 model: "alpha-contract".to_owned(),
+                casts_static_lighting: true,
                 textures: Vec::new(),
                 submeshes: vec![crate::render::PropSubmeshBatch {
                     response: crate::materials::MaterialResponse::NONE,
@@ -644,6 +1703,17 @@ mod tests {
             };
             let mut triangles = Vec::new();
             let mut alpha = Vec::new();
+            let mut animated = batch.clone();
+            animated.casts_static_lighting = false;
+            append_prop_triangles(
+                &[animated],
+                &mut triangles,
+                &mut alpha,
+                &mut TransportSceneStats::default(),
+                &mut Vec::new(),
+            );
+            assert_eq!(triangles, []);
+            assert_eq!(alpha, []);
             append_prop_triangles(
                 &[batch],
                 &mut triangles,

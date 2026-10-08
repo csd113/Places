@@ -1,0 +1,211 @@
+[
+  {
+    "view": {
+      "name": "exterior",
+      "spawn": [
+        3.3,
+        -5.1,
+        0
+      ],
+      "camera": [
+        180,
+        -8
+      ],
+      "purpose": "Placed and runtime actor under exterior night lighting"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "4eab76bfd999ccbe7cb2dcd7d3904158f7a5f82ff9023907a3c9c99e9c1b81fe",
+      "package_sha256": "dad94ca4f812f0fc2a938e08d81ad4d741df98c69f58927160276f0827dbb534",
+      "source_sha256": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+      "camera_manifest_sha256": "b5ddd74d11e9d85269a516dc55a51123e4044ff3009acc805a0e722df2d7b9d6",
+      "capture_tool_sha256": "e253447f64ed8a1b3b7bfb799abeab1803553cc20bc6c66238883fb315dd062e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "4e23430c83f8a17fc64ec3b00a60c774010e328d95e4770eacdaab996fad34bc"
+    },
+    "diagnostic": "final",
+    "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+    "entity_light_trace": true,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": [
+      {
+        "frame": 1,
+        "actions": [
+          {
+            "action": "spawn",
+            "key": 900,
+            "model": "spooner-man",
+            "character": true,
+            "position": [
+              3.9,
+              0,
+              -2.4
+            ],
+            "yaw": 180,
+            "scale": 1
+          }
+        ]
+      },
+      {
+        "frame": 120,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/initial-high.png"
+      },
+      {
+        "frame": 300,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-high-to-low.png"
+      },
+      {
+        "frame": 480,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-low-to-medium.png"
+      },
+      {
+        "frame": 660,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-medium-to-high.png"
+      },
+      {
+        "frame": 840,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-high-to-medium.png"
+      },
+      {
+        "frame": 1020,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-medium-to-low.png"
+      },
+      {
+        "frame": 1200,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-low-to-high.png"
+      },
+      {
+        "frame": 1380,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-high-to-low.png"
+      },
+      {
+        "frame": 1560,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-low-to-medium.png"
+      },
+      {
+        "frame": 1740,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-medium-to-high.png"
+      },
+      {
+        "frame": 1920,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-high-to-medium.png"
+      },
+      {
+        "frame": 2100,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-medium-to-low.png"
+      },
+      {
+        "frame": 2280,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-low-to-high.png"
+      }
+    ],
+    "sequence_captures": [
+      {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/initial-high.png",
+        "sha256": "5d2ddd7ef6ac70763d965ce1163532afa45d61301d6ee0b8415da0eb9b12017a"
+      },
+      {
+        "frame": 300,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-high-to-low.png",
+        "sha256": "bc7f5e801ad9a431509591ddfa952a28f457fdb595ea00a38c84ec4d509d632c"
+      },
+      {
+        "frame": 480,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-low-to-medium.png",
+        "sha256": "5837f2df568a231a8a366fd899a12522838bbe976f9b5279e9d8b4f1883a0cb6"
+      },
+      {
+        "frame": 660,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-medium-to-high.png",
+        "sha256": "36904446bd5915b57673bb3e60208191a4d77a2c152a94ef9f499e1602230fc6"
+      },
+      {
+        "frame": 840,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-high-to-medium.png",
+        "sha256": "dd179ca9e97e77741eca5528d6ba839792e6e61a980889ca37b17e2932cc9f41"
+      },
+      {
+        "frame": 1020,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-medium-to-low.png",
+        "sha256": "345e3b5913d82726da50537b4f42868103a814c9d8e8f58f1ededc18b96a81af"
+      },
+      {
+        "frame": 1200,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop1-low-to-high.png",
+        "sha256": "48b60a9fd6d3d991fa9dae30f6c740972f2174d7c518d03b67e6db5d9edaf846"
+      },
+      {
+        "frame": 1380,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-high-to-low.png",
+        "sha256": "aa477b4b7fde3c9a3350042cc84cb9dbd15b6682ffe0ead94a01df74ca772918"
+      },
+      {
+        "frame": 1560,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-low-to-medium.png",
+        "sha256": "5361e1cee61d832dce8f7ac1e3a15f3af3387015215d338cc673031543a99657"
+      },
+      {
+        "frame": 1740,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-medium-to-high.png",
+        "sha256": "0a8bfa5ccb9b66d4d4e560e2f3372fd25b2da33d9f157960f1aabf42554e7ac7"
+      },
+      {
+        "frame": 1920,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-high-to-medium.png",
+        "sha256": "62f304186b6df1dd9b41f0f639ad2024cd06f6913726ef1e967f2bc03fc6c639"
+      },
+      {
+        "frame": 2100,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-medium-to-low.png",
+        "sha256": "ec6bb5174887e950f1e3d8f8cffa9a647f6c480f64a96d865ff696ee27e4b10a"
+      },
+      {
+        "frame": 2280,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/quality/exterior/live/loop2-low-to-high.png",
+        "sha256": "fdd0b9cae8cc637858a075735db73ba5341e62a4e66aed2d3b4ae1518fbfd3c6"
+      }
+    ],
+    "diagnostic_receipt": null,
+    "ready_world_seconds": null,
+    "measured_frames": 2420,
+    "elapsed_seconds": 14.177290708059445,
+    "exit_code": 0,
+    "image_sha256": null,
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

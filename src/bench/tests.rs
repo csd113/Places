@@ -155,6 +155,7 @@ fn a_huge_warmup_counter_never_overflows_or_records() {
         quality_cycle: Vec::new(),
         graphics_cycle: Vec::new(),
         window_cycle: Vec::new(),
+        lighting_sequence: lighting_sequence::LightingSequence::default(),
     };
     let now = Instant::now();
     for _ in 0_i32..3_i32 {
@@ -182,6 +183,7 @@ fn frame_limits_and_completion_are_exact() {
         quality_cycle: Vec::new(),
         graphics_cycle: Vec::new(),
         window_cycle: Vec::new(),
+        lighting_sequence: lighting_sequence::LightingSequence::default(),
     };
     let now = Instant::now();
     for _ in 0_i32..5_i32 {
@@ -212,6 +214,7 @@ fn excluded_loading_intervals_do_not_become_one_long_cadence_sample() {
         quality_cycle: Vec::new(),
         graphics_cycle: Vec::new(),
         window_cycle: Vec::new(),
+        lighting_sequence: lighting_sequence::LightingSequence::default(),
     };
     let t0 = Instant::now();
     let ms = std::time::Duration::from_millis;

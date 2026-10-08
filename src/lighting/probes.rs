@@ -44,7 +44,12 @@ pub const PROBE_FIELD_MAGIC: [u8; 4] = *b"PLPF";
 /// * `2` — the linear moment representation: `direction` is the vector sum of
 ///   the per-channel first moments and the axis pair is reserved. A version-1
 ///   field is rejected.
-pub const PROBE_FIELD_RECORD_VERSION: u16 = 2;
+/// * `3` — optional separately accumulated local direct coefficients and
+///   stable compiled light indices. Version 2 remains a combined-only field.
+pub const PROBE_FIELD_RECORD_VERSION: u16 = 3;
+
+/// Maximum globally stable local sources evaluated live for prepared entities.
+pub const MAX_RUNTIME_PROBE_LIGHTS: usize = 8;
 
 /// Preferred probe spacing, in metres.
 pub const PROBE_SPACING_M: f32 = 1.5;
@@ -105,6 +110,16 @@ pub struct ProbeContribution {
     pub probe: ProbeSample,
 }
 
+/// Direct energy already present in the combined field, from the selected
+/// static lamps the runtime evaluates at the moving receiver instead.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbeDirectField {
+    /// Original indices in `LevelLighting::lights`, in increasing order.
+    pub light_indices: Vec<u32>,
+    /// Mean and signed moment for every combined probe, with identical order.
+    pub probes: Vec<LightmapTexel>,
+}
+
 /// One prepared probe field: a uniform grid over the mapped world.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeField {
@@ -117,9 +132,45 @@ pub struct ProbeField {
     pub dims: [u32; 3],
     /// Probes, `x` fastest then `y` then `z`.
     pub probes: Vec<ProbeSample>,
+    /// Absent in legacy combined-only fields. Never includes switchable lights.
+    pub local_direct: Option<ProbeDirectField>,
 }
 
 impl ProbeField {
+    /// The stable source IDs whose baked direct energy is replaced at runtime.
+    #[must_use]
+    pub fn runtime_direct_lights(&self) -> &[u32] {
+        self.local_direct
+            .as_ref()
+            .map_or(&[], |direct| direct.light_indices.as_slice())
+    }
+
+    /// The actual world-space centre of one serialized lattice slot.
+    #[must_use]
+    pub fn probe_position(&self, id: usize) -> Option<[f32; 3]> {
+        if !self.is_consistent() || id >= self.probes.len() {
+            return None;
+        }
+        let [nx, ny, _] = self.dims_usize();
+        let coordinates = [
+            id.checked_rem(nx)?,
+            id.checked_div(nx)?.checked_rem(ny)?,
+            id.checked_div(nx)?.checked_div(ny)?,
+        ];
+        let mut indices = [0.0_f32; 3];
+        for (index, coordinate) in indices.iter_mut().zip(coordinates) {
+            *index = f32::from(u16::try_from(coordinate).ok()?);
+        }
+        let position = std::array::from_fn(|axis| {
+            self.min.get(axis).copied().unwrap_or(0.0)
+                + (indices.get(axis).copied().unwrap_or(0.0) + 0.5) * self.cell_m
+        });
+        position
+            .iter()
+            .all(|value| value.is_finite())
+            .then_some(position)
+    }
+
     /// Probes per axis as `usize`.
     #[must_use]
     pub fn dims_usize(&self) -> [usize; 3] {
@@ -268,6 +319,58 @@ impl ProbeField {
         let texel = LightmapTexel {
             irradiance: energy.map(|v| (v / sum) as f32),
             direction: moment.map(|v| (v / sum) as f32),
+            axis: [0.5; 2],
+        };
+        Some(texel)
+    }
+
+    /// Same visibility and weights as the combined field, with selected local
+    /// direct coefficients removed before the nonlinear normal reconstruction.
+    /// Global light, indirect transport, supported fill and unselected sources
+    /// remain prepared. Legacy fields retain their complete combined lighting.
+    #[must_use]
+    pub fn sample_nonlocal_filtered_with_rooms<F>(
+        &self,
+        position: [f32; 3],
+        room: Option<usize>,
+        accept: F,
+    ) -> Option<LightmapTexel>
+    where
+        F: Fn([f32; 3], i32) -> bool,
+    {
+        let Some(direct) = &self.local_direct else {
+            return self.sample_filtered_with_rooms(position, room, accept);
+        };
+        if direct.probes.len() != self.probes.len() {
+            return None;
+        }
+        let mut energy = [0.0_f64; 3];
+        let mut moment = [0.0_f64; 3];
+        let sum = self.visit_candidates(position, room, accept, |id, _, probe, weight| {
+            if let Some(local) = direct.probes.get(id) {
+                for channel in 0..3 {
+                    energy[channel] += weight
+                        * (f64::from(probe.irradiance[channel])
+                            - f64::from(local.irradiance[channel]));
+                    moment[channel] += weight
+                        * (f64::from(probe.direction[channel])
+                            - f64::from(local.direction[channel]));
+                }
+            }
+        })?;
+        if sum <= 0.0_f64 {
+            return None;
+        }
+        // Both stored fields are validated; f64 subtraction preserves their
+        // residual and only f32 rounding at an exactly zero tail can be negative.
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "Validated HDR coefficients form a bounded convex residual; convert once after f64 accumulation."
+        )]
+        let texel = LightmapTexel {
+            irradiance: energy.map(|value| (value / sum).max(0.0) as f32),
+            direction: moment.map(|value| (value / sum) as f32),
             axis: [0.5; 2],
         };
         Some(texel)
@@ -546,6 +649,7 @@ impl ProbeField {
                 .validate()
                 .map_err(|error| format!("probe {index}: {error}"))?;
         }
+        self.validate_local_direct()?;
         let count = self.probes.len();
         if count > MAX_PROBES {
             return Err(format!(
@@ -558,7 +662,15 @@ impl ProbeField {
             .saturating_add(4)
             .saturating_add(12)
             .saturating_add(4)
-            .saturating_add(count.saturating_mul(36));
+            .saturating_add(count.saturating_mul(36))
+            .saturating_add(self.local_direct.as_ref().map_or(0, |direct| {
+                direct
+                    .light_indices
+                    .len()
+                    .saturating_mul(4)
+                    .saturating_add(count.saturating_mul(24))
+                    .saturating_add(4)
+            }));
         if u64::try_from(bytes).unwrap_or(u64::MAX) > MAX_PROBE_FIELD_BYTES {
             return Err(format!(
                 "probe field is {bytes} bytes (limit {MAX_PROBE_FIELD_BYTES})"
@@ -566,7 +678,12 @@ impl ProbeField {
         }
         let mut out = Vec::with_capacity(bytes);
         out.extend_from_slice(&PROBE_FIELD_MAGIC);
-        out.extend_from_slice(&PROBE_FIELD_RECORD_VERSION.to_le_bytes());
+        let version = if self.local_direct.is_some() {
+            PROBE_FIELD_RECORD_VERSION
+        } else {
+            2_u16
+        };
+        out.extend_from_slice(&version.to_le_bytes());
         for value in self.min {
             out.extend_from_slice(&value.to_le_bytes());
         }
@@ -591,6 +708,19 @@ impl ProbeField {
             }
             out.extend_from_slice(&probe.room.to_le_bytes());
         }
+        if let Some(direct) = &self.local_direct {
+            let light_count = u32::try_from(direct.light_indices.len())
+                .map_err(|error| format!("runtime direct light count is too large: {error}"))?;
+            out.extend_from_slice(&light_count.to_le_bytes());
+            for index in &direct.light_indices {
+                out.extend_from_slice(&index.to_le_bytes());
+            }
+            for probe in &direct.probes {
+                for value in probe.irradiance.into_iter().chain(probe.direction) {
+                    out.extend_from_slice(&value.to_le_bytes());
+                }
+            }
+        }
         Ok(out)
     }
 
@@ -612,7 +742,7 @@ impl ProbeField {
             return Err("probe field is not a PLPF record".to_string());
         }
         let version = cursor.u16()?;
-        if version != PROBE_FIELD_RECORD_VERSION {
+        if version != 2 && version != PROBE_FIELD_RECORD_VERSION {
             return Err(format!(
                 "probe field version {version} is not supported (this build reads {PROBE_FIELD_RECORD_VERSION})"
             ));
@@ -645,7 +775,9 @@ impl ProbeField {
         let payload_bytes = count
             .checked_mul(36)
             .ok_or_else(|| "probe field size overflows".to_string())?;
-        if cursor.remaining() != payload_bytes {
+        if cursor.remaining() < payload_bytes
+            || (version == 2 && cursor.remaining() != payload_bytes)
+        {
             return Err("probe field length does not match its probe count".to_string());
         }
         let mut probes = Vec::with_capacity(count);
@@ -663,6 +795,35 @@ impl ProbeField {
             probe.validate()?;
             probes.push(probe);
         }
+        let local_direct = if version == 2 {
+            None
+        } else {
+            let light_count = usize::try_from(cursor.u32()?)
+                .map_err(|error| format!("runtime direct light count is too large: {error}"))?;
+            if light_count > MAX_RUNTIME_PROBE_LIGHTS {
+                return Err("probe field runtime direct light count is out of range".to_string());
+            }
+            if light_count == 0 {
+                None
+            } else {
+                let mut light_indices = Vec::with_capacity(light_count);
+                for _ in 0..light_count {
+                    light_indices.push(cursor.u32()?);
+                }
+                let mut direct_probes = Vec::with_capacity(count);
+                for _ in 0..count {
+                    direct_probes.push(LightmapTexel {
+                        irradiance: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                        direction: [cursor.f32()?, cursor.f32()?, cursor.f32()?],
+                        axis: [0.5; 2],
+                    });
+                }
+                Some(ProbeDirectField {
+                    light_indices,
+                    probes: direct_probes,
+                })
+            }
+        };
         if !cursor.is_at_end() {
             return Err(format!(
                 "probe field has {} trailing byte(s)",
@@ -674,12 +835,73 @@ impl ProbeField {
                 return Err("probe field world extent is not finite".to_string());
             }
         }
-        Ok(Self {
+        let field = Self {
             min,
             cell_m,
             dims,
             probes,
-        })
+            local_direct,
+        };
+        field.validate_local_direct()?;
+        Ok(field)
+    }
+
+    pub(crate) fn validate_local_direct(&self) -> Result<(), String> {
+        let Some(direct) = &self.local_direct else {
+            return Ok(());
+        };
+        if direct.light_indices.is_empty()
+            || direct.light_indices.len() > MAX_RUNTIME_PROBE_LIGHTS
+            || direct
+                .light_indices
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+            || direct.probes.len() != self.probes.len()
+        {
+            return Err(
+                "probe field has invalid runtime direct source indices or count".to_string(),
+            );
+        }
+        for (index, (combined, local)) in self.probes.iter().zip(&direct.probes).enumerate() {
+            if local.axis.map(f32::to_bits) != [0.5_f32.to_bits(); 2] {
+                return Err(format!(
+                    "probe {index} local direct reserved axis must be 0.5"
+                ));
+            }
+            ProbeSample {
+                irradiance: local.irradiance,
+                direction: local.direction,
+                axis: local.axis,
+                room: combined.room,
+            }
+            .validate()
+            .map_err(|error| format!("probe {index} local direct: {error}"))?;
+            let combined_mean: f64 = combined.irradiance.iter().map(|v| f64::from(*v)).sum();
+            let tolerance = combined_mean * 32.0_f64 * f64::from(f32::EPSILON);
+            let mut residual_mean = 0.0_f64;
+            for (total, selected) in combined.irradiance.iter().zip(local.irradiance) {
+                let residual = f64::from(*total) - f64::from(selected);
+                if residual < -tolerance {
+                    return Err(format!(
+                        "probe {index} local direct exceeds combined energy"
+                    ));
+                }
+                residual_mean += residual.max(0.0);
+            }
+            let residual_moment = combined
+                .direction
+                .iter()
+                .zip(local.direction)
+                .map(|(total, selected)| (f64::from(*total) - f64::from(selected)).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            if residual_moment > residual_mean + tolerance {
+                return Err(format!(
+                    "probe {index} nonlocal moment exceeds residual energy"
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -843,6 +1065,7 @@ mod tests {
 
     fn field() -> ProbeField {
         ProbeField {
+            local_direct: None,
             min: [0.0, 0.0, 0.0],
             cell_m: 1.0,
             dims: [2, 1, 1],
@@ -1157,5 +1380,87 @@ mod tests {
         assert_eq!(bytes.len(), 38 + 36 * value.probes.len());
         assert_eq!(ProbeField::read(&bytes).expect("linear HDR read"), value);
         assert_eq!(value.write().expect("repeated write"), bytes);
+    }
+
+    fn split_field() -> ProbeField {
+        let mut value = field();
+        value.local_direct = Some(ProbeDirectField {
+            light_indices: vec![3, 17],
+            probes: value
+                .probes
+                .iter()
+                .map(|probe| LightmapTexel {
+                    irradiance: probe.irradiance.map(|channel| channel * 0.5),
+                    direction: probe.direction.map(|channel| channel * 0.5),
+                    axis: [0.5; 2],
+                })
+                .collect(),
+        });
+        value
+    }
+
+    #[test]
+    fn version_three_preserves_selected_source_ids_and_direct_coefficients() {
+        let value = split_field();
+        let bytes = value.write().expect("split HDR write");
+        assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 3);
+        assert_eq!(bytes.len(), 38 + 36 * 2 + 4 + 4 * 2 + 24 * 2);
+        assert_eq!(ProbeField::read(&bytes).expect("split read"), value);
+        assert_eq!(value.write().expect("repeat write"), bytes);
+        assert!(ProbeField::read(&bytes[..bytes.len() - 1]).is_err());
+        let legacy = field();
+        let old = legacy.write().expect("combined field");
+        assert_eq!(u16::from_le_bytes([old[4], old[5]]), 2);
+        let decoded = ProbeField::read(&old).expect("legacy read");
+        assert_eq!(decoded.runtime_direct_lights(), &[0_u32; 0]);
+        assert_eq!(decoded.write().expect("legacy exact replay"), old);
+    }
+
+    #[test]
+    fn selected_direct_is_subtracted_with_identical_visible_interpolation_weights() {
+        let split = split_field();
+        let mut expected = field();
+        for probe in &mut expected.probes {
+            probe.irradiance = probe.irradiance.map(|channel| channel * 0.5);
+            probe.direction = probe.direction.map(|channel| channel * 0.5);
+        }
+        for position in [[0.5; 3], [0.9, 0.5, 0.5], [1.5, 0.5, 0.5]] {
+            for right_only in [false, true] {
+                let accept = |point: [f32; 3], _: i32| !right_only || point[0] > 1.0;
+                let actual = split.sample_nonlocal_filtered_with_rooms(position, Some(3), accept);
+                assert_eq!(
+                    actual,
+                    expected.sample_filtered_with_rooms(position, Some(3), accept)
+                );
+            }
+        }
+        let legacy = field();
+        assert_eq!(
+            legacy.sample_nonlocal_filtered_with_rooms([0.9, 0.5, 0.5], Some(3), |_, _| true),
+            legacy.sample([0.9, 0.5, 0.5], Some(3))
+        );
+    }
+
+    #[test]
+    fn malformed_selected_direct_or_source_identity_is_rejected() {
+        let mut value = split_field();
+        value.local_direct.as_mut().expect("direct").light_indices = vec![3, 3];
+        assert!(value.write().is_err());
+        value = split_field();
+        let _removed = value.local_direct.as_mut().expect("direct").probes.pop();
+        assert!(value.write().is_err());
+        value = split_field();
+        value.local_direct.as_mut().expect("direct").probes[0].irradiance = [2.0; 3];
+        assert!(value.write().is_err());
+        value = split_field();
+        value.local_direct.as_mut().expect("direct").probes[0].direction = [-0.3, 0.0, 0.0];
+        assert!(
+            value.write().is_err(),
+            "remaining moment must also have valid energy"
+        );
+        let mut corrupt = split_field().write().expect("valid split");
+        let direct_offset = 38 + 36 * 2 + 4 + 4 * 2;
+        corrupt[direct_offset..direct_offset + 4].copy_from_slice(&f32::NAN.to_le_bytes());
+        assert!(ProbeField::read(&corrupt).is_err());
     }
 }

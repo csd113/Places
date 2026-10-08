@@ -97,6 +97,7 @@ def main() -> int:
     parser.add_argument("--entity-light-trace", action="store_true", help="Existing actual entity payload/anchor trace")
     parser.add_argument("--quality-cycle", help="Existing live settings script, e.g. 60:low,180:high")
     parser.add_argument("--graphics-cycle", help="Existing Advanced settings script, e.g. 60:lightmaps=off")
+    parser.add_argument("--lighting-sequence", type=Path, help="Bounded native model movement and multi-capture JSON; requires --frames and one view")
     parser.add_argument("--capture-frame", type=int, help="Ready frame to capture instead of the fixed half-second")
     parser.add_argument("--frames", type=int, default=0, help="Measure frames after 120 warmup frames")
     parser.add_argument("--play", action="store_true")
@@ -106,6 +107,18 @@ def main() -> int:
         views = select_views(manifest, args.views)
     except ValueError as error:
         parser.error(str(error))
+    sequence = None
+    if args.lighting_sequence:
+        if not args.frames or len(views) != 1 or args.play:
+            parser.error("Lighting sequences require --frames and exactly one view")
+        sequence = json.loads(args.lighting_sequence.read_text())
+        for step in sequence:
+            if step.get("capture"):
+                captured = (ROOT / step["capture"]).resolve()
+                step["capture"] = str(captured)
+                if captured.exists():
+                    parser.error("Sequence captures must be new; preserve previous evidence")
+                captured.parent.mkdir(parents=True, exist_ok=True)
     if (args.frames < 0 or (args.play and args.frames) or (not args.play and not args.out)
             or (args.capture_frame is not None and args.capture_frame < 1)):
         parser.error("Use --out for evidence, nonnegative --frames, or --play")
@@ -134,6 +147,9 @@ def main() -> int:
     receipts = []
     with tempfile.TemporaryDirectory(prefix="places-art-style-hero-") as staging:
         root = Path(staging)
+        if sequence is not None:
+            staged_sequence = root / "lighting-sequence.json"
+            staged_sequence.write_text(json.dumps(sequence, indent=2) + "\n")
         payload = root / "assets"
         payload.mkdir()
         for item in (asset_root / "assets").iterdir():
@@ -169,6 +185,8 @@ def main() -> int:
                 env["PLACES_BENCH_QUALITY_CYCLE"] = args.quality_cycle
             if args.graphics_cycle:
                 env["PLACES_BENCH_GRAPHICS_CYCLE"] = args.graphics_cycle
+            if args.lighting_sequence:
+                env["PLACES_BENCH_LIGHTING_SEQUENCE"] = str(staged_sequence)
             if args.play:
                 return subprocess.run([str(binary)], env=env, cwd=ROOT, check=False).returncode
             name = view["name"]
@@ -195,6 +213,12 @@ def main() -> int:
             if result.returncode:
                 raise RuntimeError(f"{name}: native exit {result.returncode}; inspect log")
             validate_native(log, manifest["level"], image, manifest["capture"]["expected_drawable"], settings)
+            sequence_captures = []
+            for step in sequence or []:
+                if step.get("capture"):
+                    captured = Path(step["capture"])
+                    validate_native(log, manifest["level"], captured, manifest["capture"]["expected_drawable"])
+                    sequence_captures.append(dict(frame=step["frame"], path=str(captured), sha256=digest(captured)))
             diagnostic_receipt = visual_receipt(log, args.diagnostic) if image else None
             if digest(package) != identity["package_sha256"] or digest(binary) != identity["binary_sha256"]:
                 raise RuntimeError("Binary/package changed during capture")
@@ -202,6 +226,8 @@ def main() -> int:
                                  diagnostic=args.diagnostic, quality_cycle=args.quality_cycle,
                                  entity_light_trace=args.entity_light_trace,
                                  graphics_cycle=args.graphics_cycle, capture_frame=args.capture_frame,
+                                 lighting_sequence=sequence, sequence_captures=sequence_captures,
+                                 lighting_sequence_input=str(args.lighting_sequence.resolve()) if args.lighting_sequence else None,
                                  diagnostic_receipt=diagnostic_receipt,
                                  ready_world_seconds=None if args.frames or args.capture_frame is not None
                                  else manifest["capture"]["ready_world_seconds"],

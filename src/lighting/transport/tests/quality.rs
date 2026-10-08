@@ -1240,7 +1240,7 @@ fn an_opaque_backface_blocks_light_without_emitting_front_light() {
         })
         .collect::<Vec<_>>();
     let cache = RadianceCache::build(&receivers);
-    let (probe, _, _) = bake_probe(
+    let (probe, _, _, _) = bake_probe(
         &scene,
         &receivers,
         &values,

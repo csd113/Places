@@ -1,0 +1,7 @@
+{
+  "graphics_cycle": "180:low-lighting=on,360:low-lighting=off,540:filtering=low,720:low-lighting=on,900:low-lighting=off,1080:filtering=medium,1260:lightmaps=medium,1440:lightmaps=off,1620:lightmaps=full,1800:filtering=high",
+  "frames": 2050,
+  "view": "entities",
+  "manifest": "docs/art-style/hero-manifest.json",
+  "initial": "High textures, High filtering, Full lightmaps/reflections; original hero stationary chair"
+}

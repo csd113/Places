@@ -1,0 +1,12 @@
+{
+  "quality_cycle": "180:low,360:medium,540:high,720:medium,900:low,1080:high,1260:low,1440:medium,1620:high,1800:medium,1980:low,2160:high",
+  "measured_frames": 2420,
+  "warmup_frames": 120,
+  "views": [
+    "actors",
+    "dim",
+    "exterior"
+  ],
+  "expected_all_six_directed_pairs_repeated": true,
+  "method": "One uninterrupted player per view; each endpoint captured120readyframesafter request; normal settings setters, regular package install/cache; no restarts within pairloops"
+}

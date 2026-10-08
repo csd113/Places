@@ -1,0 +1,34 @@
+[
+  {
+    "frame": 120,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/after/switchable/on.png"
+  },
+  {
+    "frame": 180,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 0,
+        "enabled": false
+      }
+    ]
+  },
+  {
+    "frame": 300,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/after/switchable/off.png"
+  },
+  {
+    "frame": 360,
+    "actions": [
+      {
+        "action": "toggle_fixture",
+        "fixture": 0,
+        "enabled": true
+      }
+    ]
+  },
+  {
+    "frame": 480,
+    "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/after/switchable/restored.png"
+  }
+]

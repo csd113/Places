@@ -1,0 +1,91 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 1000,
+        "model": "home:dining_chair",
+        "position": [
+          1.7,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1001,
+        "model": "home:dining_chair",
+        "position": [
+          2.35,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1002,
+        "model": "home:dining_chair",
+        "position": [
+          3.0,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1003,
+        "model": "home:dining_chair",
+        "position": [
+          3.6500000000000004,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1004,
+        "model": "home:dining_chair",
+        "position": [
+          4.3,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1005,
+        "model": "home:dining_chair",
+        "position": [
+          4.95,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1006,
+        "model": "home:dining_chair",
+        "position": [
+          5.6000000000000005,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  }
+]

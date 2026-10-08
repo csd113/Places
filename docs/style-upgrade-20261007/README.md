@@ -236,3 +236,47 @@ retain41/49 verified files outside target and repeat the final room/annex pixels
 Original Stage1/2 bundles still hash-verify. The final completion receipt supplies
 the exact journal seal SHA, clean-source CI result and explicit ownership/custody
 release; Stage4 waits for that gate.
+
+## 2026-10-08 — Art-style Stage 4: light that follows objects
+
+[Matched native gallery](../art-style/stage4/README.md) ·
+[Spatial/direct contracts](../art-style/stage4/contracts.md) ·
+[Measured CPU/GPU costs](../art-style/stage4/performance.md) ·
+[Validation and publication](../art-style/stage4/handoff.md)
+
+| Stage 3 before, same camera | Stage 4 final |
+| --- | --- |
+| ![Static and movable chairs before](../art-style/stage4/before/high/entities.png) | ![Spatial direct response and floor grounding](../art-style/stage4/after/support-final/high/entities.png) |
+| ![Hero room before](../art-style/stage4/before/high/room.png) | ![Hero room with revised movable lighting](../art-style/stage4/after/support-final/high/room.png) |
+| ![Placed actor before](../art-style/stage4/before/actors-v2/actors.png) | ![Placed actor under the same broad light](../art-style/stage4/after/support-final/actors/actors.png) |
+
+The movable chair gains spatial direct response and a restrained floor footprint
+while the accepted static room stays intact. Real actor materials remain visible
+under broad, dim and exterior light; authored black coat stays black. Selected
+practical sources are removed from the combined probe coefficient before being
+evaluated once at the actual entity fragment. Current rigid geometry and PNG alpha
+occlude light without leaving a moving actor's fixed bind pose behind.
+
+The additive door control caught a real black closed-leaf regression. Its bounds
+lighting corners sat inside adjacent stops. A generic support inset clears those
+stops without changing the mesh or collision; real frame crossing still blocks rays.
+Opening and closing restores both the leaf and stationary chair payloads exactly.
+Bidirectional aperture motion, rotation, uniform-scale controls and same-mesh
+static/World/runtime comparisons retain raw native evidence in the stage gallery.
+
+All six live preset pairs run twice in three environments, plus a final actor
+repeat: 48 transitions without restarting. Independent lighting/filter/atlas
+controls retain High texture storage and restore stationary pixels exactly. The
+original Low→High failure was not reproduced here; the audited premature resident
+state mutation is corrected. Ready-only endpoints do not claim every loading frame.
+
+Native GPU execution is now measured with owned-PID Metal traces. The original
+view costs about 0.306 ms more active GPU work. Conservative moving-caster cache
+invalidation costs 7.56 ms whole-engine update for 32 receivers versus 0.70 ms
+stationary; this limit is visible in the performance report. Floor bounds proxies,
+clamped pose support and static indirect that remains baked when doors move are
+disclosed approximations. No artwork, concept, exposure or limit is changed.
+
+Original Stage 1/2/3 captures and runnable bundles remain immutable and hash-verified.
+The [Stage 4 handoff](../art-style/stage4/handoff.md) records implementation/CI links,
+new compatible runnable snapshots and explicit custody release after publication.

@@ -18,6 +18,7 @@ pub mod decals;
 pub mod doors;
 pub mod dynamic;
 pub mod dynamic_lights;
+pub mod dynamic_visibility;
 pub mod effects;
 pub mod fixtures;
 pub mod framebuffer;

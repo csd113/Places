@@ -1032,6 +1032,7 @@ impl FrameLoop<'_> {
         // applied before this frame draws, so a spawn requested by a trigger
         // or interaction is visible on the frame it happened.
         self.apply_world_commands();
+        self.apply_bench_lighting_actions();
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
@@ -1498,7 +1499,104 @@ impl FrameLoop<'_> {
             bench::GraphicsChange::Bloom(enabled) => {
                 let _ = self.settings.set_bloom(enabled);
             }
+            bench::GraphicsChange::LowLighting(enabled) => {
+                let _ = self.settings.set_use_low_quality_lighting(enabled);
+            }
         }
+    }
+
+    fn apply_bench_lighting_actions(&mut self) {
+        if self.load_intent.is_some() || self.current_level.is_none() {
+            return;
+        }
+        for action in self
+            .bench
+            .lighting_actions_at(self.ready_frames.saturating_add(1))
+        {
+            let applied = match &action {
+                bench::lighting_sequence::LightingAction::Spawn {
+                    key,
+                    model,
+                    character,
+                    position,
+                    yaw,
+                    scale,
+                } => {
+                    if *character {
+                        self.renderer
+                            .spawn_runtime_character(
+                                &format!("bench#{key}"),
+                                model,
+                                *position,
+                                *yaw,
+                                *scale,
+                            )
+                            .is_ok()
+                    } else {
+                        self.renderer
+                            .spawn_runtime_model(*key, model, *position, *yaw, *scale)
+                    }
+                }
+                bench::lighting_sequence::LightingAction::Move { key, position, yaw } => {
+                    self.renderer.set_runtime_transform(*key, *position, *yaw)
+                        || self.renderer.set_runtime_character_transform(
+                            &format!("bench#{key}"),
+                            *position,
+                            *yaw,
+                        )
+                }
+                bench::lighting_sequence::LightingAction::Despawn { key } => {
+                    self.renderer.despawn_runtime_model(*key)
+                        || self
+                            .renderer
+                            .despawn_runtime_character(&format!("bench#{key}"))
+                }
+                bench::lighting_sequence::LightingAction::ToggleFixture { fixture, enabled } => {
+                    self.apply_bench_fixture(*fixture, *enabled)
+                }
+                bench::lighting_sequence::LightingAction::Door { id, open } => {
+                    let target = Some(id.clone());
+                    let door_action = if *open {
+                        level::ActionDef::Open { target }
+                    } else {
+                        level::ActionDef::Close { target }
+                    };
+                    let report = self.game.dispatch_actions(&[door_action], None);
+                    report.unsupported == 0
+                        && report.missing_targets == 0
+                        && report.doors_acted == 1
+                }
+            };
+            crate::logging::info(format!(
+                "[lighting-sequence] frame={} action={action:?} applied={applied}",
+                self.ready_frames.saturating_add(1)
+            ));
+            if !applied {
+                self.fatal_error = Some("Native lighting sequence action failed".to_string());
+                self.game.stop();
+            }
+        }
+    }
+
+    fn apply_bench_fixture(&mut self, fixture: usize, enabled: bool) -> bool {
+        let Some(id) = self
+            .current_level
+            .as_ref()
+            .and_then(|loaded| loaded.level.ceiling_lights.get(fixture))
+            .and_then(|light| light.id.clone())
+        else {
+            return false;
+        };
+        let report = self.game.dispatch_actions(
+            &[level::ActionDef::SetLight {
+                target: Some(id),
+                on: enabled,
+            }],
+            None,
+        );
+        let toggles = self.game.take_light_toggles();
+        self.renderer.apply_light_toggles(&toggles);
+        report.unsupported == 0 && report.missing_targets == 0 && report.lights_toggled == 1
     }
 
     /// Performs one scripted window action from `PLACES_BENCH_WINDOW_CYCLE`.
@@ -2770,6 +2868,20 @@ impl FrameLoop<'_> {
     /// `PLACES_CAPTURE_FRAME` or the ready-world second named by
     /// `PLACES_CAPTURE_TIME` (the first frame at or after it).
     fn capture_if_due(&mut self, ready: bool) {
+        if ready && let Some(path) = self.bench.lighting_capture_at(self.ready_frames) {
+            if path.exists() {
+                self.fatal_error =
+                    Some("Native lighting sequence refuses an existing capture".to_string());
+                self.game.stop();
+                return;
+            }
+            write_capture(self.renderer, &path);
+            crate::logging::info(format!(
+                "[lighting-sequence] capture_attempt ready_frame={} path={}",
+                self.ready_frames,
+                path.display()
+            ));
+        }
         if !ready
             || !self
                 .actions

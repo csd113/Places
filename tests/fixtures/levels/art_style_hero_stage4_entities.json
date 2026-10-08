@@ -1,0 +1,416 @@
+{
+  "format_version": 3,
+  "id": "art_style_hero",
+  "name": "Art Style Hero \u2014 room, hall and garden",
+  "author": "Places",
+  "spawn": {
+    "x": 7.1,
+    "z": 5.25,
+    "yaw_degrees": -46
+  },
+  "defaults": {
+    "wall": "home:wall_paint_warm_01",
+    "floor": "home:carpet_cream_01",
+    "ceiling": "home:ceiling_warm_01"
+  },
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 1,
+    "ambient": 0.22
+  },
+  "global_illuminators": [
+    {
+      "id": "hero_moon",
+      "kind": "directional",
+      "direction": [
+        -0.36,
+        -0.8,
+        0.48
+      ],
+      "color": [
+        0.7,
+        0.8,
+        1
+      ],
+      "intensity": 0.15,
+      "cast_shadows": true,
+      "bake": true,
+      "angular_size_degrees": 0.5
+    }
+  ],
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 8.15,
+      "depth": 6,
+      "height": 2.8
+    },
+    {
+      "x": 8.15,
+      "z": 0,
+      "width": 2.35,
+      "depth": 9,
+      "height": 2.8,
+      "material": "home:tile_home_01"
+    },
+    {
+      "x": -1,
+      "z": -7,
+      "width": 12.5,
+      "depth": 7,
+      "height": 8,
+      "material": "outdoor:grass_ground_01",
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 11.1,
+      "depth": 0.3,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "window",
+          "offset": 2.1,
+          "width": 3.2,
+          "height": 1.25,
+          "sill": 0.95,
+          "glass": "core:glass_window_clear_01",
+          "solid": true
+        }
+      ]
+    },
+    {
+      "x": -0.3,
+      "z": 0,
+      "width": 0.3,
+      "depth": 6,
+      "height": 2.8
+    },
+    {
+      "x": -0.3,
+      "z": 6,
+      "width": 8.6,
+      "depth": 0.3,
+      "height": 2.8
+    },
+    {
+      "x": 8,
+      "z": 0,
+      "width": 0.3,
+      "depth": 6,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 3.45,
+          "width": 1.5,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 8,
+      "z": 6,
+      "width": 0.3,
+      "depth": 3,
+      "height": 2.8
+    },
+    {
+      "x": 10.5,
+      "z": 0,
+      "width": 0.3,
+      "depth": 9,
+      "height": 2.8,
+      "faces": {
+        "west": "core:plastic_panel_01"
+      }
+    },
+    {
+      "x": 8,
+      "z": 9,
+      "width": 2.8,
+      "depth": 0.3,
+      "height": 2.8,
+      "material": "core:metal_brushed_01"
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 2.2,
+      "depth": 6,
+      "material": "home:hardwood_oak_warm_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "hero_panel",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.2,
+      "z": 3.2,
+      "brightness": 0.65,
+      "color": [
+        0.94,
+        0.97,
+        1
+      ],
+      "align": "none",
+      "range": 6
+    },
+    {
+      "id": "hall_panel",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9.3,
+      "z": 6.7,
+      "brightness": 0.4,
+      "color": [
+        0.94,
+        0.97,
+        1
+      ],
+      "align": "none",
+      "range": 5
+    }
+  ],
+  "props": [
+    {
+      "id": "sofa",
+      "model": "home:sofa",
+      "x": 3.5,
+      "z": 1.1,
+      "solid": true
+    },
+    {
+      "id": "coffee_table",
+      "model": "home:coffee_table",
+      "x": 3.5,
+      "z": 2.6,
+      "solid": true
+    },
+    {
+      "id": "mug",
+      "model": "home:mug",
+      "x": 3.25,
+      "z": 2.6,
+      "y": 0.46
+    },
+    {
+      "id": "books",
+      "model": "home:book_stack",
+      "x": 3.75,
+      "z": 2.6,
+      "y": 0.46
+    },
+    {
+      "id": "armchair",
+      "model": "home:armchair",
+      "x": 1,
+      "z": 3.1,
+      "rotation_degrees": 90,
+      "solid": true
+    },
+    {
+      "id": "warm_practical",
+      "model": "home:floor_lamp",
+      "x": 1.1,
+      "z": 1.1,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "intensity": 0.6,
+          "range": 4.4,
+          "color": [
+            1,
+            0.88,
+            0.68
+          ],
+          "falloff": "smooth"
+        }
+      ]
+    },
+    {
+      "id": "console",
+      "model": "home:tv_console",
+      "x": 3.5,
+      "z": 5.55,
+      "rotation_degrees": 180,
+      "solid": true
+    },
+    {
+      "id": "television",
+      "model": "home:crt_tv",
+      "x": 3.5,
+      "z": 5.55,
+      "rotation_degrees": 180,
+      "y": 0.55
+    },
+    {
+      "id": "shelf",
+      "model": "home:bookshelf",
+      "x": 0.2,
+      "z": 5.1,
+      "rotation_degrees": 90,
+      "solid": true
+    },
+    {
+      "id": "comparison_static_chair",
+      "model": "home:dining_chair",
+      "x": 5.8,
+      "z": 1.3,
+      "solid": true
+    },
+    {
+      "id": "plastic_table",
+      "model": "core:pool_table",
+      "x": 9.45,
+      "z": 1.2,
+      "solid": true
+    },
+    {
+      "id": "table_plant",
+      "model": "home:plant_table",
+      "x": 9.45,
+      "z": 1.2,
+      "y": 0.73
+    },
+    {
+      "id": "garden_tree",
+      "model": "outdoor:tree_02",
+      "x": 5.6,
+      "z": -4.8,
+      "solid": true,
+      "size": [
+        0.3,
+        6.2,
+        0.3
+      ]
+    },
+    {
+      "id": "garden_shrub",
+      "model": "outdoor:bush_low",
+      "x": 1.5,
+      "z": -3.7
+    },
+    {
+      "id": "garden_fence",
+      "model": "outdoor:fence_two_rail",
+      "x": 3.1,
+      "z": -5.7
+    },
+    {
+      "id": "garden_lamp",
+      "model": "outdoor:lamp_stand",
+      "x": 2.1,
+      "z": -2.2,
+      "occludes": false,
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0,
+            0.86,
+            0
+          ],
+          "color": [
+            1,
+            0.86,
+            0.64
+          ],
+          "intensity": 0.55,
+          "range": 4
+        }
+      ]
+    },
+    {
+      "id": "room_actor",
+      "model": "spooner-man",
+      "x": 5.6,
+      "y": 0,
+      "z": 2.3,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": false
+    },
+    {
+      "id": "hall_actor",
+      "model": "spooner-man",
+      "x": 9.2,
+      "y": 0,
+      "z": 5.7,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": false
+    },
+    {
+      "id": "garden_actor",
+      "model": "spooner-man",
+      "x": 3.3,
+      "y": 0,
+      "z": -2.4,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": false
+    }
+  ],
+  "timers": [
+    {
+      "id": "comparison_spawn",
+      "seconds": 0.1,
+      "repeat": false,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "once": true,
+          "actions": [
+            {
+              "action": "spawn_entity",
+              "point": "chair_point",
+              "name": "comparison_dynamic_chair"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "comparison_chair",
+      "model": "home:dining_chair",
+      "scale": 1,
+      "components": []
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "chair_point",
+      "x": 6.7,
+      "z": 1.3,
+      "yaw_degrees": 0,
+      "template": "comparison_chair"
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": -1,
+      "z": -7,
+      "width": 12.5,
+      "depth": 7,
+      "note": "Intentionally open garden, viewed through the sealed window; sky owns the background."
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+[
+  {
+    "view": {
+      "name": "entities",
+      "spawn": [
+        4.1,
+        5.7,
+        0
+      ],
+      "camera": [
+        0,
+        -18
+      ],
+      "purpose": "fixed hero performance camera covering all 32 admitted rigid objects; submitted counts verified separately"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "15bf22f2a0c2af0dee775879f677d77035b397374bccd553880bdeabffd6caf5",
+      "package_sha256": "a04c08a54651ce6fce794ccf41f2dac8c909ac3ed704d6ba6efea7cf6c72caae",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "287de4d511338bf8f32411a0dec89808b40a142c6a82b8533ec9114cfd619f96",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "1f977b93015325806613bba532cd261b4e6e9b378d3815fd0f93d15e7feb224a"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": [
+      {
+        "frame": 1,
+        "actions": [
+          {
+            "action": "spawn",
+            "key": 1000,
+            "model": "home:dining_chair",
+            "position": [
+              1.7,
+              0,
+              1.1
+            ],
+            "yaw": 0,
+            "scale": 1
+          },
+          {
+            "action": "spawn",
+            "key": 1001,
+            "model": "home:dining_chair",
+            "position": [
+              2.35,
+              0,
+              1.1
+            ],
+            "yaw": 0,
+            "scale": 1
+          },
+          {
+            "action": "spawn",
+            "key": 1002,
+            "model": "home:dining_chair",
+            "position": [
+              3.0,
+              0,
+              1.1
+            ],
+            "yaw": 0,
+            "scale": 1
+          }
+        ]
+      }
+    ],
+    "sequence_captures": [],
+    "lighting_sequence_input": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/sequences/cost-visible-4.json",
+    "diagnostic_receipt": null,
+    "ready_world_seconds": null,
+    "measured_frames": 1000,
+    "elapsed_seconds": 6.542760167038068,
+    "exit_code": 0,
+    "image_sha256": null,
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

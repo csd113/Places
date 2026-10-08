@@ -117,7 +117,7 @@
         "assets/levels/winter.json"
       ],
       "symbol_or_format": "source/packages/benchmark reference ledger",
-      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked. Stage3 advances geometry revision to5 and solver revision to13, with resolved architectural PNG reflectance/alpha, inclusive endpoint charts and physical footprints. Non-hero packages are still deliberately not rebaked.",
+      "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid. Stage2 advances geometry revision to4, solver revision to12, props record to4 and probe positions to3/HDR. Legacy props v3 and probe v2 readers remain supported. Shipped non-hero packages are deliberately not rebaked. Stage3 advances geometry revision to5 and solver revision to13, with resolved architectural PNG reflectance/alpha, inclusive endpoint charts and physical footprints. Non-hero packages are still deliberately not rebaked. Stage4 advances solver revision to14, PLPF selected-direct sidecar to3 and PLMP caster claim flags to5; legacy PLPF v2 and PLMP v3/v4 remain readable. Only original/additive hero controls are compiled. Stage7 must inventory final format/fingerprint and claim metadata across supported maps.",
       "reason_for_deferral": "Stages1\u20136 compile/bake and visually accept only the hero. Stage7 owns supported-map compatibility/regression, not broad concept refinement.",
       "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
       "final_verification": "Normal compiler currency/integrity, targeted supported-map native compatibility checks, assets and final desktop gate; detailed visual acceptance remains the hero.",
@@ -138,7 +138,8 @@
       "required_resolution": "Retain the valid submitted-frame baseline; repeat after meaningful renderer changes under identical settings. Obtain GPU time with a supported profiler before selecting GPU budgets.",
       "final_verification": "Nonzero scene counters and bounded CSV plus actual applied/present state; distinguish CPU submission/event loop from GPU execution/display cadence.",
       "stage": 2,
-      "status": "CPU/counter baseline and repeat resolved in Stage2; GPU profiling remains open"
+      "status": "CPU/counter baseline resolved Stage2; actual hero GPU profiling resolved Stage4; physical display cadence unmeasured",
+      "resolution": "Stage4 performance.md and performance/gpu contain verified owned-PID Metal System Trace active GPU unions, scene encoder spans and Metal allocation summaries; normal CPU visible entity counts are separate. No inferred GPU-time claim."
     },
     {
       "id": "hero-open-garden-warning",
@@ -166,7 +167,8 @@
       "required_resolution": "If a transient symptom is reported, retain a bounded actual presented-frame sequence with pending/applied resource state within the hero; do not claim ready-only controls cover it.",
       "final_verification": "Fixed-camera same-process cycle, presented-frame evidence plus requested/applied/resource identities; no unrelated map capture.",
       "stage": 4,
-      "status": "open"
+      "status": "Stage4 supported settled resource transitions accepted; transient presented loading frames unmeasured",
+      "resolution": "Stage4 validates all six directed preset pairs twice in actor/dim/exterior environments plus a final actor repeat (48 transitions) and ten independent advanced-setting changes. Resident gates install captured staging requests; restored stationary high/filter result is pixel-identical. Existing ready-only capture intentionally supplies no loading-transient proof; no transient symptom reproduced."
     },
     {
       "id": "model-scalar-adoption",

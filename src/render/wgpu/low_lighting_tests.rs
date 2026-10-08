@@ -70,12 +70,22 @@ fn fixture() -> LoadedLevel {
 
 fn install(renderer: &mut WgpuRenderer, loaded: &LoadedLevel, settings: &Settings, preserve: bool) {
     let spec = settings.graphics_spec();
+    let resident_quality = renderer.quality;
+    let resident_lighting = renderer.lighting_quality;
     renderer.set_quality(spec.quality);
     renderer.set_lighting_quality(spec.lighting);
     renderer.set_lightmap_quality(spec.lightmaps);
     renderer.set_reflection_quality(spec.reflections);
     renderer.set_texture_filtering(spec.filtering);
     renderer.set_bloom_enabled(spec.bloom);
+    assert_eq!(
+        renderer.quality, resident_quality,
+        "requested texture quality cannot change the resident frame gate"
+    );
+    assert_eq!(
+        renderer.lighting_quality, resident_lighting,
+        "requested lighting cannot change resident materials before commit"
+    );
     assert_eq!(
         renderer.graphics_requested(),
         spec,
@@ -105,6 +115,14 @@ fn install(renderer: &mut WgpuRenderer, loaded: &LoadedLevel, settings: &Setting
         if renderer.advance_prepared_install() {
             break;
         }
+        assert_eq!(
+            renderer.quality, resident_quality,
+            "staged texture upload leaves the resident scene valid"
+        );
+        assert_eq!(
+            renderer.lighting_quality, resident_lighting,
+            "staged lighting upload leaves the resident response valid"
+        );
     }
     assert!(
         renderer.prepared_install.is_none(),
@@ -116,7 +134,14 @@ fn install(renderer: &mut WgpuRenderer, loaded: &LoadedLevel, settings: &Setting
         "resident state matches request"
     );
     assert_eq!(renderer.installed_quality, spec.quality);
+    assert_eq!(renderer.quality, spec.quality);
+    assert_eq!(renderer.lighting_quality, spec.lighting);
     assert_eq!(renderer.installed_lightmaps, spec.lightmaps);
+    assert_material_resources(renderer, settings);
+}
+
+fn assert_material_resources(renderer: &WgpuRenderer, settings: &Settings) {
+    let spec = settings.graphics_spec();
     let textures = renderer.world_textures.as_ref().expect("world textures");
     let mut found_surface = false;
     for slot in 0..textures.stats().unique {
@@ -195,6 +220,25 @@ fn high_on_medium_off_high_and_repeated_toggles_install_real_resources() {
         install(&mut renderer, &loaded, &settings, true);
         let _use_low_quality_lighting_changed_5 = settings.set_use_low_quality_lighting(false);
         install(&mut renderer, &loaded, &settings, true);
+    }
+    for filtering in ["Low", "Medium", "High"] {
+        settings.texture_filtering = filtering.to_owned();
+        for (from, to) in [
+            (QualityLevel::Low, QualityLevel::Medium),
+            (QualityLevel::Medium, QualityLevel::Low),
+            (QualityLevel::Medium, QualityLevel::High),
+            (QualityLevel::High, QualityLevel::Medium),
+            (QualityLevel::High, QualityLevel::Low),
+            (QualityLevel::Low, QualityLevel::High),
+        ] {
+            let _reset_override = settings.set_use_low_quality_lighting(false);
+            let _from_changed = settings.set_quality(from);
+            settings.texture_filtering = filtering.to_owned();
+            install(&mut renderer, &loaded, &settings, true);
+            let _to_changed = settings.set_quality(to);
+            settings.texture_filtering = filtering.to_owned();
+            install(&mut renderer, &loaded, &settings, true);
+        }
     }
 }
 

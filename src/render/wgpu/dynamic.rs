@@ -211,7 +211,8 @@ impl WgpuDynamic {
                 ctx.planar_fallback,
                 &ctx.environment
                     .with_model(object.transform())
-                    .with_entity_lighting(object.entity_lighting()),
+                    .with_entity_lighting(object.entity_lighting())
+                    .with_spatial_lighting(object.spatial_lighting()),
             );
             let Some(mesh) = value.meshes.get(mesh_index) else {
                 continue;
@@ -340,7 +341,8 @@ impl WgpuDynamic {
             };
             let uniform = environment
                 .with_model(live.transform())
-                .with_entity_lighting(live.entity_lighting());
+                .with_entity_lighting(live.entity_lighting())
+                .with_spatial_lighting(live.spatial_lighting());
             let _update_stats = object.environment.update(queue, &uniform);
             object.world_bounds = live.world_bounds();
         }

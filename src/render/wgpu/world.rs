@@ -443,7 +443,14 @@ impl FogRegionUniform {
 /// offset 1248 entity_irradiance   [f32; 4]     16 bytes
 /// offset 1264 entity_moment       [f32; 4]     16 bytes
 /// offset 1280 storm               Storm       1568 bytes
-/// ------------------------------------------------------ 2848 bytes, align 16
+/// offset 2848 normal_model        [vec4; 3]       48 bytes
+/// offset 2896 entity_bounds_min   vec4            16 bytes
+/// offset 2912 entity_bounds_extent vec4           16 bytes
+/// offset 2928 entity_anchors      [Anchor; 8]   1408 bytes
+/// offset 4336 entity_direct       [Source; 8]    896 bytes
+/// offset 5232 contact_shadows     [Shadow; 8]    384 bytes
+/// offset 5616 contact_shadow_count vec4<u32>      16 bytes
+/// ------------------------------------------------------ 5632 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -455,7 +462,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 2848 bytes on the wire and in Rust
+/// live count word. The struct is 5632 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -517,6 +524,13 @@ pub struct EnvironmentUniform {
     pub storm: crate::render::common::storm::StormUniform,
     /// Padded columns of the inverse-transpose model matrix.
     pub normal_model: [[f32; 4]; 3],
+    /// Model-space interpolation bounds; minimum.w enables spatial lighting.
+    pub entity_bounds_min: [f32; 4],
+    pub entity_bounds_extent: [f32; 4],
+    pub entity_anchors: [crate::render::common::light_transport::EntityLightingAnchor; 8],
+    pub entity_direct: [crate::render::common::light_transport::EntityDirectLight; 8],
+    pub contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform; 8],
+    pub contact_shadow_count: [u32; 4],
 }
 
 impl EnvironmentUniform {
@@ -555,6 +569,12 @@ impl EnvironmentUniform {
             fog_regions: [FogRegionUniform::ZERO; crate::level::MAX_FOG_REGIONS],
             entity_irradiance: [0.0; 4],
             entity_moment: [0.0; 4],
+            entity_bounds_min: [0.0; 4],
+            entity_bounds_extent: [0.0; 4],
+            entity_anchors: [crate::render::common::light_transport::EntityLightingAnchor::ZERO; 8],
+            entity_direct: [crate::render::common::light_transport::EntityDirectLight::ZERO; 8],
+            contact_shadows: [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
+            contact_shadow_count: [0; 4],
             storm: crate::render::common::storm::StormUniform {
                 color_density: [0.0; 4],
                 count: [0; 4],
@@ -582,6 +602,43 @@ impl EnvironmentUniform {
             let [x, y, z] = texel.direction;
             self.entity_irradiance = [red, green, blue, 1.0];
             self.entity_moment = [x, y, z, 0.0];
+        }
+        self
+    }
+
+    /// Installs residual probes and selected practical lights together. A
+    /// legacy/Low entity explicitly clears the previous spatial payload.
+    #[must_use]
+    pub const fn with_spatial_lighting(
+        mut self,
+        spatial: Option<&crate::render::common::light_transport::EntitySpatialLighting>,
+    ) -> Self {
+        self.entity_bounds_min = [0.0; 4];
+        self.entity_bounds_extent = [0.0; 4];
+        self.entity_anchors =
+            [crate::render::common::light_transport::EntityLightingAnchor::ZERO; 8];
+        self.entity_direct = [crate::render::common::light_transport::EntityDirectLight::ZERO; 8];
+        if let Some(value) = spatial {
+            self.entity_bounds_min = value.bounds_min;
+            self.entity_bounds_extent = value.bounds_extent;
+            self.entity_anchors = value.anchors;
+            self.entity_direct = value.direct;
+        }
+        self
+    }
+
+    /// Installs the frame's bounded opaque movable grounding subjects.
+    #[must_use]
+    pub fn with_contact_shadows(
+        mut self,
+        shadows: &[crate::render::common::dynamic_lights::ContactShadowUniform],
+    ) -> Self {
+        self.contact_shadows =
+            [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8];
+        let count = shadows.len().min(self.contact_shadows.len());
+        self.contact_shadow_count = [u32::try_from(count).unwrap_or(0), 0, 0, 0];
+        for (slot, shadow) in self.contact_shadows.iter_mut().zip(shadows) {
+            *slot = *shadow;
         }
         self
     }
@@ -2772,6 +2829,26 @@ mod tests {
                 > 0.5
         );
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, normal_model), 2848);
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_bounds_min),
+            2896
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_anchors),
+            2928
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, entity_direct),
+            4336
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, contact_shadows),
+            5232
+        );
+        assert_eq!(
+            std::mem::offset_of!(EnvironmentUniform, contact_shadow_count),
+            5616
+        );
     }
 
     #[test]
@@ -4132,9 +4209,9 @@ mod tests {
 
     #[test]
     fn the_environment_uniform_matches_the_wgsl_layout() {
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2896);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
         assert_eq!(std::mem::align_of::<EnvironmentUniform>(), 16);
-        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 2896);
+        assert_eq!(ENVIRONMENT_UNIFORM_SIZE, 5632);
         assert_eq!(std::mem::offset_of!(EnvironmentUniform, light_scale), 0);
         assert_eq!(
             std::mem::offset_of!(EnvironmentUniform, lightmap_enabled),
@@ -4281,7 +4358,7 @@ mod tests {
             std::mem::offset_of!(EnvironmentUniform, entity_moment),
             1264
         );
-        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 2896);
+        assert_eq!(std::mem::size_of::<EnvironmentUniform>(), 5632);
         // The static environment carries no regions and a zeroed array: the
         // historical uniform without a level authoring any.
         let default = EnvironmentUniform::new(

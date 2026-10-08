@@ -57,6 +57,10 @@ pub struct PropSubmeshBatch {
 pub struct PropMeshBatch {
     /// Catalogue model path, e.g. `models/chair.glb`.
     pub model: String,
+    /// False when every instance of this model is claimed by the animated
+    /// character path. The retained bind pose then supplies budgets/fallback,
+    /// while immutable lighting casters follow the geometry actually drawn.
+    pub casts_static_lighting: bool,
     /// Every texture the model uses, indexed by [`PropSubmeshBatch::texture`]
     /// and by [`MaterialEmission::mask`]. Shared with every other batch of the
     /// same model.
@@ -88,6 +92,7 @@ pub struct PropMeshBatch {
 /// one call: instance order never leaks into the draw calls.
 struct BatchBuilder {
     model: String,
+    casts_static_lighting: bool,
     textures: Vec<Arc<crate::loader::RawImage>>,
     primitives: Vec<PrimitiveBuilder>,
     vertices: Vec<Vertex>,
@@ -116,6 +121,7 @@ impl BatchBuilder {
     ) -> Self {
         Self {
             model: model_path.to_string(),
+            casts_static_lighting: true,
             textures,
             primitives: model
                 .submeshes
@@ -321,6 +327,7 @@ impl BatchBuilder {
         }
         PropMeshBatch {
             model: self.model,
+            casts_static_lighting: self.casts_static_lighting,
             textures: self.textures,
             submeshes,
             vertices: self.vertices,
@@ -394,6 +401,7 @@ fn resolve_prop_instances_inner<'a>(
     use std::collections::{HashMap, HashSet};
 
     let grid = spatial_cell_grid(level);
+    let claimed = super::character::claimed_character_models(level, catalog, assets);
     let mut builders: Vec<BatchBuilder> = Vec::new();
     // Keyed by (model, cell): one drawable range per model per spatial cell.
     let mut index_by_batch: HashMap<(String, crate::spatial::CellKey), usize> = HashMap::new();
@@ -475,7 +483,8 @@ fn resolve_prop_instances_inner<'a>(
                     .entry(model_path.clone())
                     .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
                     .clone();
-                let builder = BatchBuilder::new(&model_path, &asset.model, textures);
+                let mut builder = BatchBuilder::new(&model_path, &asset.model, textures);
+                builder.casts_static_lighting = !claimed.contains(&model_path);
                 if !builder.has_room_for(&asset.model, lightmapped) {
                     fallbacks.push(prop);
                     continue;

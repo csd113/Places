@@ -1,0 +1,79 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: function `entity_spatial_key` is never used
+   --> src/render/common/light_transport.rs:380:8
+    |
+380 | pub fn entity_spatial_key(
+    |        ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: function `entity_spatial_lighting` is never used
+   --> src/render/common/light_transport.rs:430:8
+    |
+430 | pub fn entity_spatial_lighting(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: docs for function returning `Result` missing `# Errors` section
+    --> src/render/common/dynamic.rs:1171:5
+     |
+1171 | /     pub fn update_with_visibility(
+1172 | |         &mut self,
+1173 | |         delta_seconds: f32,
+1174 | |         lighting: Option<&LevelLighting>,
+...    |
+1177 | |         visibility: Option<&mut super::dynamic_visibility::DynamicVisibility>,
+1178 | |     ) -> Result<DynamicUpdate, String> {
+     | |______________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#missing_errors_doc
+     = note: `-D clippy::missing-errors-doc` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::missing_errors_doc)]`
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_visibility.rs:120:74
+    |
+120 |             self.preparation_millis += started.elapsed().as_secs_f64() * 1000.0;
+    |                                                                          ^^^^^^ help: consider adding suffix: `1_000.0_f64`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+    = note: requested on the command line with `-D clippy::default-numeric-fallback`
+
+error: multiply and add expressions may be calculated more efficiently and accurately
+   --> src/render/common/dynamic_visibility.rs:120:13
+    |
+120 |             self.preparation_millis += started.elapsed().as_secs_f64() * 1000.0;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `self.preparation_millis = started.elapsed().as_secs_f64().mul_add(1000.0, self.preparation_millis)`
+    |
+    = note: the performance gain from `mul_add` may vary depending on the target architecture
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+    = note: `-D clippy::suboptimal-flops` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::suboptimal_flops)]`
+
+error: use of `eprintln!`
+    --> src/render/wgpu/renderer.rs:1144:17
+     |
+1144 |                 eprintln!("[entity-lighting] movable visibility unavailable: {error}");
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#print_stderr
+     = note: `-D clippy::print-stderr` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::print_stderr)]`
+
+error: `action` shadows a previous, unrelated binding
+    --> src/lib.rs:1560:25
+     |
+1560 |                     let action = if *open {
+     |                         ^^^^^^
+     |
+note: previous binding is here
+    --> src/lib.rs:1512:13
+     |
+1512 |         for action in self
+     |             ^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_unrelated
+     = note: requested on the command line with `-D clippy::shadow-unrelated`
+
+error: could not compile `places` (lib) due to 7 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `places` (lib test) due to 5 previous errors

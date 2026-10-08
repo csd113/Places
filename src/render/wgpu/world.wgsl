@@ -130,6 +130,32 @@ struct Environment {
     entity_moment: vec4<f32>,
     storm: Storm,
     normal_model: array<vec4<f32>, 3>,
+    entity_bounds_min: vec4<f32>,
+    entity_bounds_extent: vec4<f32>,
+    entity_anchors: array<EntityLightingAnchor, 8>,
+    entity_direct: array<EntityDirectLight, 8>,
+    contact_shadows: array<ContactShadow, 8>,
+    contact_shadow_count: vec4<u32>,
+};
+
+struct EntityLightingAnchor {
+    irradiance: vec4<f32>,
+    moment: vec4<f32>,
+    visibility: array<vec4<f32>, 8>,
+    attenuation: vec4<f32>,
+};
+
+struct EntityDirectLight {
+    position_range: vec4<f32>,
+    color_strength: vec4<f32>,
+    extent_falloff: vec4<f32>,
+    taps: array<vec4<f32>, 4>,
+};
+
+struct ContactShadow {
+    position_floor: vec4<f32>,
+    half_height: vec4<f32>,
+    incoming: vec4<f32>,
 };
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
@@ -274,6 +300,7 @@ struct VsOut {
     @location(5) world_position: vec3<f32>,
     @location(6) lightmap_uv: vec2<f32>,
     @location(7) lightmap_page: f32,
+    @location(8) local_position: vec3<f32>,
 };
 
 @vertex
@@ -291,6 +318,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     let determinant = dot(cross(environment.model[0].xyz, environment.model[1].xyz), environment.model[2].xyz);
     out.handedness = vertex.handedness * select(1.0, -1.0, determinant < 0.0);
     out.world_position = world.xyz;
+    out.local_position = vertex.position;
     out.lightmap_uv = vertex.lightmap_uv;
     out.lightmap_page = vertex.lightmap_page;
     return out;
@@ -330,6 +358,98 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
     return max(vec3<f32>(0.0), irradiance + select(vec3<f32>(0.0), directional, k > 1.0e-6));
 }
 
+fn reconstruct_irradiance(energy: vec3<f32>, moment: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
+    let k = energy.r + energy.g + energy.b;
+    let lobe = 2.0 * max(0.0, dot(moment, normal)) - length(moment);
+    return max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), energy / max(k, 1.0e-6) * lobe, k > 1.0e-6));
+}
+
+fn anchor_weight(local_position: vec3<f32>, corner: u32) -> f32 {
+    let coordinate = clamp((local_position - environment.entity_bounds_min.xyz) / max(environment.entity_bounds_extent.xyz, vec3<f32>(1.0e-6)), vec3<f32>(0.0), vec3<f32>(1.0));
+    let x = select(1.0 - coordinate.x, coordinate.x, (corner & 1u) != 0u);
+    let y = select(1.0 - coordinate.y, coordinate.y, (corner & 2u) != 0u);
+    let z = select(1.0 - coordinate.z, coordinate.z, (corner & 4u) != 0u);
+    return x * y * z;
+}
+
+fn source_visibility(local_position: vec3<f32>, source: u32, tap: u32) -> f32 {
+    var visibility = 0.0;
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        let anchor = environment.entity_anchors[corner];
+        visibility += anchor_weight(local_position, corner) * anchor.visibility[source][tap];
+    }
+    return clamp(visibility, 0.0, 1.0);
+}
+
+// The same source-wide authored distance calibration and finite tap pattern as
+// TransportEmitter. Visibility is spatially interpolated at bounds anchors;
+// receiver cosines and falloff use the actual transformed fragment position.
+fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    var result = vec3<f32>(0.0);
+    var attenuation = vec3<f32>(0.0);
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        attenuation += environment.entity_anchors[corner].attenuation.rgb * anchor_weight(in.local_position, corner);
+    }
+    for (var index = 0u; index < 8u; index = index + 1u) {
+        let source = environment.entity_direct[index];
+        if (source.color_strength.w <= 0.0) { continue; }
+        let delta = source.position_range.xyz - in.world_position;
+        let horizontal = max(abs(delta.xz) - source.extent_falloff.xy, vec2<f32>(0.0));
+        let distance = select(length(delta), length(horizontal), source.extent_falloff.w > 0.5);
+        let relative = distance / max(source.position_range.w, 1.0e-6);
+        if (relative >= 1.0) { continue; }
+        let u = 1.0 - max(relative, 0.0);
+        var falloff = u * u * (1.0 + 2.0 * max(relative, 0.0));
+        if (source.extent_falloff.z > 1.5) { falloff = 1.0; }
+        else if (source.extent_falloff.z > 0.5) { falloff = u; }
+        var cosine = 0.0;
+        for (var tap = 0u; tap < 4u; tap = tap + 1u) {
+            let sample = source.taps[tap];
+            if (sample.w <= 0.0) { continue; }
+            let incoming = sample.xyz - in.world_position;
+            let distance_to_tap = length(incoming);
+            if (distance_to_tap > 1.0e-6) {
+                cosine += sample.w * source_visibility(in.local_position, index, tap) * max(dot(normal, incoming / distance_to_tap), 0.0);
+            }
+        }
+        result += source.color_strength.rgb * source.color_strength.w * falloff * cosine;
+    }
+    return result * attenuation;
+}
+
+fn spatial_entity_indirect(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    var energy = vec3<f32>(0.0);
+    var moment = vec3<f32>(0.0);
+    for (var corner = 0u; corner < 8u; corner = corner + 1u) {
+        let weight = anchor_weight(in.local_position, corner);
+        energy += environment.entity_anchors[corner].irradiance.rgb * weight;
+        moment += environment.entity_anchors[corner].moment.rgb * weight;
+    }
+    return reconstruct_irradiance(energy, moment, normal);
+}
+
+fn spatial_entity_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    return spatial_entity_indirect(in, normal) + entity_direct_term(in, normal);
+}
+
+fn movable_contact_visibility(in: VsOut, normal: vec3<f32>) -> f32 {
+    // Entity bodies cannot receive their own projected contact footprint.
+    if (environment.entity_irradiance.w != 0.0 || normal.y <= 0.5) { return 1.0; }
+    var loss = 0.0;
+    for (var index = 0u; index < min(environment.contact_shadow_count.x, 8u); index = index + 1u) {
+        let shadow = environment.contact_shadows[index];
+        if (abs(in.world_position.y - shadow.position_floor.w) > 0.03) { continue; }
+        let height = max(shadow.position_floor.y - shadow.position_floor.w, 0.0);
+        let projection = -shadow.incoming.xz * height / max(shadow.incoming.y, 0.35);
+        let offset = in.world_position.xz - shadow.position_floor.xz - projection;
+        let radius = max(shadow.half_height.xy, vec2<f32>(0.05)) + vec2<f32>(0.08 + height * 0.15);
+        let elliptical = offset / radius;
+        let footprint = exp(-2.0 * dot(elliptical, elliptical));
+        loss += 0.22 * footprint * shadow.incoming.w;
+    }
+    return 1.0 - min(loss, 0.22);
+}
+
 // The reference's `light` term for one fragment, per channel.
 //
 // The OpenGL world fragment stage contains exactly one light expression:
@@ -353,6 +473,9 @@ fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
 // The dynamic path's factor is additionally multiplied by the object's neutral
 // probe (`u_light_scale`), which is why the environment uniform carries it.
 fn surface_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    if (environment.entity_bounds_min.w > 0.5) {
+        return spatial_entity_light(in, normal);
+    }
     if (environment.entity_irradiance.w > 0.5) {
         let energy = environment.entity_irradiance.rgb;
         let moment = environment.entity_moment.xyz;
@@ -588,7 +711,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     // is additive and never modifies `surface_light`, so every lightmap and
     // baked-occlusion result survives; with no attached lights it is exactly
     // zero. No baked energy is clipped before material evaluation.
-    let light = surface_light(in, normal) + dynamic_light_term(normal, in.world_position);
+    let light = surface_light(in, normal) * movable_contact_visibility(in, normal) + dynamic_light_term(normal, in.world_position);
     let view = normalize(camera.position - in.world_position);
     let sheen = surface_sheen(in, normal, view, light);
     let reflection = surface_reflection(in, normal, view);

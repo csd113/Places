@@ -1,0 +1,20 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 900,
+        "model": "spooner-man",
+        "character": true,
+        "position": [
+          6.6,
+          0,
+          2.3
+        ],
+        "yaw": 180,
+        "scale": 1
+      }
+    ]
+  }
+]

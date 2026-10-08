@@ -2818,10 +2818,11 @@ embedded in the GLB; they are not separate catalog assets.
 * UVs must be finite and inside `-0.01..=1.01` — props use **non-tiling** UVs.
 * **Skins** (at most one per model, on one mesh node): `JOINTS_0` (8/16-bit),
   `WEIGHTS_0` (float32 or normalised 8/16-bit), a retained node hierarchy,
-  `joints` and `inverseBindMatrices`. The static prop path bakes the bind pose,
-  so a skinned model still draws, occludes light and passes the shipped-asset
-  checks like any other prop; a **placed** skinned model is re-posed by the
-  character path. The engine ceiling is 128 joints per model.
+  `joints` and `inverseBindMatrices`. A **placed** skinned model is re-posed by the
+  character path. Fully claimed models are excluded from immutable bind-pose
+  lighting casters and receive live entity grounding; partial or over-budget
+  groups retain the visible static fallback's caster. Collision is unchanged.
+  The engine ceiling is 128 joints per model.
 * **Animations** (optional): LINEAR and STEP samplers driving node translation,
   rotation or scale; up to 64 clips and 4096 channels per model. CUBICSPLINE
   samplers and morph-target weight channels are rejected by name. A clip whose
@@ -3121,6 +3122,14 @@ and reports rooms with no valid coverage. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
 per source/build. See [Probe baker audit](PROBE_BAKER_AUDIT.md) and
 [the PLPF contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
+
+Current PLPF v3 keeps combined light and a selected local-direct sidecar. Entities
+subtract that selected energy before reconstructing indirect response and evaluate
+the corresponding finite sources at their actual transformed surfaces. Eight
+bounds anchors retain spatial response and tested visibility; they do not replace
+the static atlas. Legacy v2 keeps its combined centre sample. Texture resolution
+and filtering remain independent of live lighting quality. The current controls,
+limits and capture workflow are in [Stage 4](art-style/stage4/contracts.md).
 
 Use `PLACES_VERBOSE=1` with the compiler to log area-weighted direct, bounced,
 filtered and filled measurements by room and surface family. `shoulder_fraction`

@@ -1,0 +1,39 @@
+{
+  "scope": "static prepared, movable DynamicScene, placed and runtime CharacterScene",
+  "observed_before": {
+    "preset_low_high_original_hero": "not reproduced; exact byte equality of restored High to Stage3 before",
+    "actor_gray_boxes": "discarded as insufficient snapshot asset-root input; corrected Stage3 control renders real cat",
+    "fullbright_dark/black_bright/nearblack_outdoors": "Broad well-lit/dim switched controls and shaded/exterior same-mesh controls accepted. No generalized fullbright/black failure reproduced in the original hero or genuine cat control. Black coat is source albedo; white paws and diagnostic unit-light response remain visible. Closed-leaf regression in first Stage4 candidate fixed at physical support coordinates."
+  },
+  "causes_from_code": [
+    "one centre coefficient cannot retain spatial response across a model or source-specific direct movement",
+    "normal/cosine evaluation needs fragment world position and separate finite source contribution; combined selected direct must be subtracted before reconstruction",
+    "shared animator claim must exclude actual moving actors from immutable bind-pose casters while preserving partial static fallback",
+    "same connected air area does not prove straight-line probe visibility around low dividers",
+    "switchable sources absent from base probes need reserved stable live direct slots",
+    "stationary receivers must invalidate when neighboring dynamic geometry moves",
+    "requested quality must not mutate resident shader/material/reflection gates before captured resource commit",
+    "bounds extrema of a closed assembled receiver lie inside neighboring stop liners; all eight lighting corners and their safe fallback rays can be blocked even while the leaf surface is lit"
+  ],
+  "mesh_material_audit": {
+    "normals": "supplied normals use world inverse-transpose; missing imported normals use geometric derivatives, skinned normals retain established skin path",
+    "transforms": "world positions and local bounds coordinates kept distinct; deterministic non-uniform matrix coverage, public native object/character scale API is uniform only",
+    "material": "real PNG sRGB decoded once, base factors applied once, straight alpha kept; no per-model brightness or exposure override",
+    "final": "existing linear HDR composition and tone mapping retained"
+  },
+  "visibility": "existing prepared triangle/PNG alpha scene plus cached model-local dynamic ray resources; actual current transforms, self exclusion, conservative support validity",
+  "remaining_approximations": [
+    "eight slightly inset bind-bounds support anchors and clamped animation support; preserves actual geometry bounds",
+    "64 regular rigid casters; skinned bodies provide floor-bound contact proxies rather than posed body rays",
+    "eight soft floor footprints, 22% aggregate cap; static atlas indirect does not rebake with doors",
+    "global caster revision invalidates every receiver conservatively; final visible32 update median0.699ms stationary,7.559ms moving; includes command dispatch/logging",
+    "switchable entity direct is live; switched diffuse bounce absent from base field"
+  ],
+  "door_regression": {
+    "observed": "Stage3 native closed leaf grey; first Stage4 candidate black, opened candidate lit",
+    "cause": "lighting sampling coordinates started inside physically separate frame stops",
+    "repair": "generic min(1cm,2% axis) local support inset and matching shader interpolation coordinates; finite world support checked",
+    "focused_test": "15 light_transport tests passed, including real frame/leaf, thin and nonuniform support",
+    "native_final": "PASS final closed/open/restored: 8 valid residual anchors, detailed grey leaf, neighbor receiver source visibility changes, exact original leaf/receiver payload restored"
+  }
+}

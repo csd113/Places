@@ -421,3 +421,87 @@ fn neutral_probe_diffuse_illumination_is_comparable_to_nearby_static_surface() {
         "neutral normal consistency: probe {entity}, static {surface}"
     );
 }
+
+#[test]
+fn selected_runtime_source_sidecar_preserves_combined_energy_and_unselected_lights() {
+    let lights = vec![point([1.5, 2.5, 3.0], 2.0), point([4.5, 2.5, 3.0], 1.0)];
+    let ordinary = TransportScene::new(room_shell(), lights.clone()).expect("scene");
+    let selected = TransportScene::new(room_shell(), lights)
+        .expect("scene")
+        .with_runtime_direct_lights(vec![(0, 77)]);
+    let baseline = bake(&ordinary, 2, 1).probes.expect("combined");
+    let mut split = bake(&selected, 2, 1).probes.expect("split");
+    assert_eq!(
+        baseline.probes, split.probes,
+        "the bake must preserve its total coefficients"
+    );
+    assert_eq!(
+        split,
+        bake(&selected, 2, 12).probes.expect("parallel split")
+    );
+    assert_eq!(
+        split.runtime_direct_lights(),
+        &[77],
+        "scene slot is not the source ID"
+    );
+    split.assign_rooms(|_| Some(0));
+    let local = split.local_direct.as_ref().expect("selected direct");
+    for (id, (probe, selected_direct)) in split.probes.iter().zip(&local.probes).enumerate() {
+        let coords = <[usize; 3]>::from(lattice_from_index(id, split.dims_usize()))
+            .map(crate::test_support::exact_f32);
+        let position =
+            std::array::from_fn(|axis| split.min[axis] + (coords[axis] + 0.5) * split.cell_m);
+        let (weight, direction) = selected.emitters[0].direct(&selected, position, 3);
+        for channel in 0..3 {
+            assert!((selected_direct.irradiance[channel] - 0.5 * weight[channel]).abs() < 1.0e-6);
+        }
+        let expected_moment = scale(direction, 0.5 * weight.iter().sum::<f32>());
+        for (actual, expected) in selected_direct.direction.iter().zip(expected_moment) {
+            assert!((*actual - expected).abs() < 1.0e-6);
+        }
+        let residual = split
+            .sample_nonlocal_filtered_with_rooms(position, Some(0), |_, _| true)
+            .expect("residual");
+        for channel in 0..3 {
+            assert!(
+                (residual.irradiance[channel] + selected_direct.irradiance[channel]
+                    - probe.irradiance[channel])
+                    .abs()
+                    < 1.0e-6
+            );
+            assert!(
+                (residual.direction[channel] + selected_direct.direction[channel]
+                    - probe.direction[channel])
+                    .abs()
+                    < 1.0e-6
+            );
+        }
+        assert!(
+            residual.irradiance.iter().any(|value| *value > 0.0),
+            "unselected source and diffuse transport remain prepared"
+        );
+    }
+    assert_eq!(
+        ProbeField::read(&split.write().expect("serialize")).expect("read"),
+        split
+    );
+}
+
+#[test]
+fn invalid_runtime_source_mapping_and_switchable_selection_fail_the_solve() {
+    let mut switched = point([3.0, 2.5, 3.0], 1.0);
+    switched.switchable = Some(0);
+    for (lights, map) in [
+        (vec![point([3.0, 2.5, 3.0], 1.0)], vec![(1, 0)]),
+        (vec![switched], vec![(0, 0)]),
+        (vec![point([3.0, 2.5, 3.0], 1.0); 2], vec![(0, 3), (1, 3)]),
+    ] {
+        let scene = TransportScene::new(room_shell(), lights)
+            .expect("scene")
+            .with_runtime_direct_lights(map);
+        assert_eq!(
+            scene.solve_with_probes(&probe_charts(), options(2, 3), None, true),
+            Err(LightmapFailure::FillNonFinite)
+        );
+    }
+}

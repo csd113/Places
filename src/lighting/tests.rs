@@ -3029,6 +3029,35 @@ fn a_narrow_corridor_keeps_one_baseline_across_the_zone_grid() {
 
 /// Guards the developer zone view against a uniform and a partitioned room.
 #[test]
+fn probe_visibility_checks_short_walls_inside_one_air_region() {
+    let definition = LevelDef::from_json(
+        r#"{
+        "format_version":3,"id":"probe_short_partition","name":"Probe partition",
+        "spawn":{"x":1.0,"z":1.0},
+        "rooms":[{"x":0.0,"z":0.0,"width":6.0,"depth":6.0,"height":3.0}],
+        "walls":[{"x":2.9,"z":1.0,"width":0.2,"depth":4.0,"height":1.8}]
+    }"#,
+    )
+    .expect("partition parses");
+    let lighting = LevelLighting::bake(&definition);
+    let left = [2.0, 1.0, 3.0];
+    let right = [4.0, 1.0, 3.0];
+    assert!(
+        lighting.same_probe_region(0, left, right),
+        "air connects over the short wall"
+    );
+    assert!(
+        !lighting.probe_visible_from(left, right),
+        "connected air does not allow a probe ray through an opaque wall"
+    );
+    assert!(
+        lighting.probe_visible_from([2.0, 2.0, 3.0], [4.0, 2.0, 3.0]),
+        "clear rays over the wall remain valid"
+    );
+}
+
+/// Guards the developer zone view against a uniform and a partitioned room.
+#[test]
 fn zones_in_room_describes_uniform_and_partitioned_rooms() {
     let uniform = LevelLighting::bake(&level_with_room(10.0, 10.0, 3.0, &[0.5]));
     let zones = uniform.zones_in_room(0);

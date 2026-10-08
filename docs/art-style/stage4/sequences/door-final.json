@@ -1,0 +1,51 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 901,
+        "model": "home:dining_chair",
+        "position": [
+          8.65,
+          0,
+          4.2
+        ],
+        "yaw": 90,
+        "scale": 1
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "docs/art-style/stage4/movement/door/final/closed.png"
+  },
+  {
+    "frame": 180,
+    "actions": [
+      {
+        "action": "door",
+        "id": "stage4_hall_door",
+        "open": true
+      }
+    ]
+  },
+  {
+    "frame": 360,
+    "capture": "docs/art-style/stage4/movement/door/final/open.png"
+  },
+  {
+    "frame": 420,
+    "actions": [
+      {
+        "action": "door",
+        "id": "stage4_hall_door",
+        "open": false
+      }
+    ]
+  },
+  {
+    "frame": 600,
+    "capture": "docs/art-style/stage4/movement/door/final/closed-restored.png"
+  }
+]

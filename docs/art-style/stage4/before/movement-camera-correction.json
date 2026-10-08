@@ -1,0 +1,6 @@
+{
+  "discarded_door_view": "movement/door.png",
+  "reason": "Camera yaw100 points toward the exterior wall; not usable door evidence. Raw view retained.",
+  "corrected_manifest": "../movement-manifest-v2.json",
+  "crossing": "original crossing view remains valid and unchanged"
+}

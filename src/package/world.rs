@@ -366,7 +366,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         Some(entry) => {
             let bytes = reader.read_blob(entry, MAX_ENTRY_BYTES)?;
             let field = crate::lighting::probes::ProbeField::read(&bytes)?;
-            validate_probe_rooms(&field, lighting.rooms().len())?;
+            validate_probe_references(&field, lighting.rooms().len(), lighting.lights().len())?;
             Some(Arc::new(field))
         }
         None => None,
@@ -385,15 +385,23 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     })
 }
 
-fn validate_probe_rooms(
+fn validate_probe_references(
     field: &crate::lighting::probes::ProbeField,
     rooms: usize,
+    lights: usize,
 ) -> Result<(), String> {
     for probe in &field.probes {
         if probe.room >= 0_i32 && usize::try_from(probe.room).map_or(true, |room| room >= rooms) {
             return Err(format!(
                 "irradiance probe references missing room {}",
                 probe.room
+            ));
+        }
+    }
+    for source in field.runtime_direct_lights() {
+        if usize::try_from(*source).map_or(true, |index| index >= lights) {
+            return Err(format!(
+                "irradiance probe references missing direct source {source}"
             ));
         }
     }
@@ -669,6 +677,7 @@ mod tests {
     fn irradiance_labels_must_reference_a_packaged_room() {
         use crate::lighting::probes::{ProbeField, ProbeSample};
         let mut field = ProbeField {
+            local_direct: None,
             min: [0.0; 3],
             cell_m: 1.0,
             dims: [1; 3],
@@ -677,12 +686,33 @@ mod tests {
                 ..ProbeSample::default()
             }],
         };
-        assert!(validate_probe_rooms(&field, 0).is_ok());
+        assert!(validate_probe_references(&field, 0, 0).is_ok());
         field.probes[0].room = 0_i32;
-        assert!(validate_probe_rooms(&field, 1).is_ok());
-        assert!(validate_probe_rooms(&field, 0).is_err());
+        assert!(validate_probe_references(&field, 1, 0).is_ok());
+        assert!(validate_probe_references(&field, 0, 0).is_err());
         field.probes[0].room = 1_i32;
-        assert!(validate_probe_rooms(&field, 1).is_err());
+        assert!(validate_probe_references(&field, 1, 0).is_err());
+    }
+
+    #[test]
+    fn selected_probe_source_ids_must_reference_packaged_lighting() {
+        use crate::lighting::lightmap::LightmapTexel;
+        use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+        let field = ProbeField {
+            min: [0.0; 3],
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![ProbeSample {
+                room: 0,
+                ..ProbeSample::default()
+            }],
+            local_direct: Some(ProbeDirectField {
+                light_indices: vec![3],
+                probes: vec![LightmapTexel::ZERO],
+            }),
+        };
+        assert!(validate_probe_references(&field, 1, 4).is_ok());
+        assert!(validate_probe_references(&field, 1, 3).is_err());
     }
 
     /// A cube of solid `edge`-texel faces.

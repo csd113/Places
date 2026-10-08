@@ -55,6 +55,8 @@ pub mod environment;
 pub mod lightmap;
 pub mod material;
 pub mod postprocess;
+#[cfg(feature = "visual-diagnostics")]
+mod probe_visualization;
 pub mod props;
 pub mod reflections;
 pub mod renderer;

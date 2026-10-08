@@ -1,0 +1,430 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error: struct destructuring with rest (`..`)
+  --> src/bench/lighting_sequence.rs:32:13
+   |
+32 | /             Self::Spawn {
+33 | |                 model,
+34 | |                 position,
+35 | |                 yaw,
+36 | |                 scale,
+37 | |                 ..
+38 | |             } => {
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#rest_pattern_accessible_field
+   = note: requested on the command line with `-D clippy::rest-pattern-accessible-field`
+help: consider explicitly ignoring remaining fields with wildcard patterns (`x: _`)
+   |
+37 -                 ..
+37 +                 key: _
+   |
+
+error: struct destructuring with rest (`..`)
+  --> src/bench/lighting_sequence.rs:45:13
+   |
+45 |             Self::Move { position, yaw, .. } => {
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#rest_pattern_accessible_field
+help: consider explicitly ignoring remaining fields with wildcard patterns (`x: _`)
+   |
+45 -             Self::Move { position, yaw, .. } => {
+45 +             Self::Move { position, yaw, key: _ } => {
+   |
+
+error: struct destructuring with rest (`..`)
+  --> src/bench/lighting_sequence.rs:48:13
+   |
+48 |             Self::Despawn { .. } => true,
+   |             ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#rest_pattern_accessible_field
+help: consider explicitly ignoring fields with wildcard patterns (`x: _`)
+   |
+48 -             Self::Despawn { .. } => true,
+48 +             Self::Despawn { key: _ } => true,
+   |
+
+error: pub(crate) function inside private module
+  --> src/lighting/transport/probe_audit.rs:12:1
+   |
+12 | pub(crate) fn enabled() -> bool {
+   | ----------^^^^^^^^^^^
+   | |
+   | help: consider using: `pub`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#redundant_pub_crate
+   = note: `-D clippy::redundant-pub-crate` implied by `-D clippy::nursery`
+   = help: to override `-D clippy::nursery` add `#[allow(clippy::redundant_pub_crate)]`
+
+error: pub(crate) function inside private module
+  --> src/lighting/transport/probe_audit.rs:18:1
+   |
+18 | pub(crate) fn dump_validity(quality: &str, placements: &impl Serialize) -> Result<(), String> {
+   | ----------^^^^^^^^^^^^^^^^^
+   | |
+   | help: consider using: `pub`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#redundant_pub_crate
+
+error: this function has too many lines (113/100)
+    --> src/lighting/transport.rs:3352:1
+     |
+3352 | / fn bake_probe(
+3353 | |     scene: &TransportScene,
+3354 | |     receivers: &[TransportReceiver],
+3355 | |     values: &[Accumulator],
+...    |
+3365 | |     Option<probe_audit::ProbeAudit>,
+3366 | | ) {
+     | |_^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+     = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+     = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/common/dynamic_lights.rs:83:16
+   |
+83 |     let half = (maximum - minimum) * 0.5;
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+   = note: requested on the command line with `-D clippy::arithmetic-side-effects`
+
+error: `field` is shadowed
+   --> src/render/common/light_transport.rs:275:9
+    |
+275 |     let field = field?;
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/render/common/light_transport.rs:271:5
+    |
+271 |     field: Option<&crate::lighting::probes::ProbeField>,
+    |     ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+    = note: requested on the command line with `-D clippy::shadow-reuse`
+
+error: this function has too many lines (125/100)
+   --> src/render/common/light_transport.rs:301:1
+    |
+301 | / pub fn entity_spatial_lighting(
+302 | |     lighting: &LevelLighting,
+303 | |     field: Option<&crate::lighting::probes::ProbeField>,
+304 | |     bounds: crate::spatial::Aabb,
+305 | |     model: glam::Mat4,
+306 | |     scene: Option<&TransportScene>,
+307 | | ) -> Option<Box<EntitySpatialLighting>> {
+    | |_______________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+
+error: `field` is shadowed
+   --> src/render/common/light_transport.rs:308:9
+    |
+308 |     let field = field?;
+    |         ^^^^^
+    |
+note: previous binding is here
+   --> src/render/common/light_transport.rs:303:5
+    |
+303 |     field: Option<&crate::lighting::probes::ProbeField>,
+    |     ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/render/common/light_transport.rs:314:18
+    |
+314 |     let extent = (maximum - minimum).max(glam::Vec3::splat(1.0e-6));
+    |                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: `weight` is shadowed
+  --> src/render/wgpu/probe_visualization.rs:37:33
+   |
+37 |         let color = if let Some(weight) = weight {
+   |                                 ^^^^^^
+   |
+note: previous binding is here
+  --> src/render/wgpu/probe_visualization.rs:33:13
+   |
+33 |         let weight = candidates
+   |             ^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: multiply and add expressions may be calculated more efficiently and accurately
+  --> src/render/wgpu/probe_visualization.rs:44:19
+   |
+44 |             [0.1, 0.4 + normalized * 0.6, 1.0]
+   |                   ^^^^^^^^^^^^^^^^^^^^^^ help: consider using: `normalized.mul_add(0.6, 0.4)`
+   |
+   = note: the performance gain from `mul_add` may vary depending on the target architecture
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#suboptimal_flops
+   = note: `-D clippy::suboptimal-flops` implied by `-D clippy::nursery`
+   = help: to override `-D clippy::nursery` add `#[allow(clippy::suboptimal_flops)]`
+
+error: unnecessary boolean `not` operation
+  --> src/render/wgpu/probe_visualization.rs:51:13
+   |
+51 | /             if !lighting.labelled_probe_visible_from(query, position, sample.room) {
+52 | |                 [1.0, 0.3, 0.1]
+53 | |             } else {
+54 | |                 [0.25; 3]
+55 | |             }
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#if_not_else
+   = note: `-D clippy::if-not-else` implied by `-D clippy::pedantic`
+   = help: to override `-D clippy::pedantic` add `#[allow(clippy::if_not_else)]`
+help: try
+   |
+51 ~             if lighting.labelled_probe_visible_from(query, position, sample.room) {
+52 +                 [0.25; 3]
+53 +             } else {
+54 +                 [1.0, 0.3, 0.1]
+55 +             }
+   |
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:66:27
+   |
+66 |             let segment = target - origin;
+   |                           ^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:67:24
+   |
+67 |             let side = segment.cross(Vec3::Y).normalize_or_zero() * 0.012;
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:70:18
+   |
+70 |                 [origin - side, origin + side, target],
+   |                  ^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:70:33
+   |
+70 |                 [origin - side, origin + side, target],
+   |                                 ^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:75:26
+   |
+75 |                 [target, origin + side, origin - side],
+   |                          ^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:75:41
+   |
+75 |                 [target, origin + side, origin - side],
+   |                                         ^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/render/wgpu/probe_visualization.rs:99:21
+   |
+99 |                     center + up * radius,
+   |                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/render/wgpu/probe_visualization.rs:100:21
+    |
+100 |                     center + a * radius,
+    |                     ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/render/wgpu/probe_visualization.rs:101:21
+    |
+101 |                     center + b * radius,
+    |                     ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#arithmetic_side_effects
+
+error: `offset` is shadowed
+   --> src/render/wgpu/probe_visualization.rs:118:16
+    |
+118 |         let Ok(offset) = u16::try_from(offset) else {
+    |                ^^^^^^
+    |
+note: previous binding is here
+   --> src/render/wgpu/probe_visualization.rs:117:10
+    |
+117 |     for (offset, point) in points.into_iter().enumerate() {
+    |          ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: `sample` is shadowed
+    --> src/render/wgpu/renderer.rs:2711:53
+     |
+2711 |                     sample.map_or([0.0, 1.0, 0.0], |sample| sample.direction),
+     |                                                     ^^^^^^
+     |
+note: previous binding is here
+    --> src/render/wgpu/renderer.rs:2705:35
+     |
+2705 |             .filter_map(|(bounds, sample)| {
+     |                                   ^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#shadow_reuse
+
+error: this function has too many lines (106/100)
+    --> src/render/wgpu/renderer.rs:3561:5
+     |
+3561 | /     fn encode_direct(
+3562 | |         &self,
+3563 | |         encoder: &mut wgpu::CommandEncoder,
+3564 | |         target: &wgpu::TextureView,
+3565 | |         frame: &super::world::WorldFrame,
+3566 | |     ) -> WorldDrawTotals {
+     | |________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+
+error: this could be a `const fn`
+   --> src/render/wgpu/world.rs:612:5
+    |
+612 | /     pub fn with_spatial_lighting(
+613 | |         mut self,
+614 | |         spatial: Option<&crate::render::common::light_transport::EntitySpatialLighting>,
+615 | |     ) -> Self {
+...   |
+627 | |         self
+628 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#missing_const_for_fn
+    = note: `-D clippy::missing-const-for-fn` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+    |
+612 |     pub const fn with_spatial_lighting(
+    |         +++++
+
+error: could not compile `places` (lib) due to 27 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: used `assert!` to check that a value is empty
+    --> src/lighting/probes.rs:1415:9
+     |
+1415 |         assert!(decoded.runtime_direct_lights().is_empty());
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#assert_is_empty
+     = note: `-D clippy::assert-is-empty` implied by `-D clippy::pedantic`
+     = help: to override `-D clippy::pedantic` add `#[allow(clippy::assert_is_empty)]`
+help: use `assert_eq!` to show the value on failure
+     |
+1415 -         assert!(decoded.runtime_direct_lights().is_empty());
+1415 +         assert_eq!(decoded.runtime_direct_lights(), []);
+     |
+
+error: it looks like you're trying to convert a tuple to an array
+   --> src/lighting/transport/tests/probes.rs:451:22
+    |
+451 |         let coords = [x, y, z].map(crate::test_support::exact_f32);
+    |                      ^^^^^^^^^
+    |
+    = help: use `.into()` instead, or `<[T; N]>::from` if type annotations are needed
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#tuple_array_conversions
+    = note: `-D clippy::tuple-array-conversions` implied by `-D clippy::nursery`
+    = help: to override `-D clippy::nursery` add `#[allow(clippy::tuple_array_conversions)]`
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:271:34
+    |
+271 |                 "format_version":3,"id":"practical_selection","name":"Practical selection",
+    |                                  ^ help: consider adding suffix: `3_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+    = note: requested on the command line with `-D clippy::default-numeric-fallback`
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:30
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                              ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:36
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                    ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:55
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                                       ^ help: consider adding suffix: `1_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:62
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                                              ^ help: consider adding suffix: `1_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:72
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                                                        ^^ help: consider adding suffix: `12_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:83
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                                                                   ^ help: consider adding suffix: `3_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:272:94
+    |
+272 |                 "spawn":{"x":0,"z":0}, "rooms":[{"x":-1,"z":-1,"width":12,"depth":3,"height":3}],
+    |                                                                                              ^ help: consider adding suffix: `3_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: default numeric fallback might occur
+   --> src/render/common/dynamic_lights.rs:264:86
+    |
+264 |                     "fixture":"core:fluorescent_panel_01", "x":f32::from(index), "z":0,
+    |                                                                                      ^ help: consider adding suffix: `0_i32`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#default_numeric_fallback
+
+error: this function has too many lines (115/100)
+  --> src/render/wgpu/low_lighting_tests.rs:71:1
+   |
+71 | fn install(renderer: &mut WgpuRenderer, loaded: &LoadedLevel, settings: &Settings, preserve: bool) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_lines
+
+error: could not compile `places` (lib test) due to 39 previous errors

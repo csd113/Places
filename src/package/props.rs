@@ -16,6 +16,7 @@
 //! ```text
 //! batch:
 //!   model       u32 length + UTF-8 bytes
+//!   casts_static_lighting u8 (0 = fully claimed character model, 1 = static caster)
 //!   bounds_min  f32 x 3
 //!   bounds_max  f32 x 3
 //!   submesh_count u32
@@ -51,9 +52,11 @@ use super::{MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PROP_SUBMESHES};
 ///
 /// Version 2 added the per-submesh alpha contract (glTF `MASK` foliage draws
 /// through the cutout pass); version 3 adds the blended mode (a model
-/// authoring `alphaMode: "BLEND"`); version 4 adds scalar material response.
-/// Version 3 is read with the explicit matte legacy default; older records are refused.
-pub const PROPS_RECORD_VERSION: u16 = 4;
+/// authoring `alphaMode: "BLEND"`); version 4 adds scalar material response;
+/// version 5 preserves whether a model's retained bind pose is a static caster.
+/// Versions 3 and 4 retain the conservative static-caster default, and version 3
+/// also retains the explicit matte material default. Older records are refused.
+pub const PROPS_RECORD_VERSION: u16 = 5;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -77,6 +80,7 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
     writer.u32(count);
     for batch in batches {
         writer.str(&batch.model)?;
+        writer.u8(u8::from(batch.casts_static_lighting));
         writer.f32_3(batch.bounds.min);
         writer.f32_3(batch.bounds.max);
         let submeshes = u32::try_from(batch.submeshes.len())
@@ -119,7 +123,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
         return Err("props record has the wrong magic".to_string());
     }
     let version = reader.u16()?;
-    if version != PROPS_RECORD_VERSION && version != 3 {
+    if !matches!(version, 3 | 4 | PROPS_RECORD_VERSION) {
         return Err(format!(
             "props record version {version} is not supported (this build reads {PROPS_RECORD_VERSION})"
         ));
@@ -151,6 +155,7 @@ fn read_batch(reader: &mut Reader<'_>, version: u16) -> Result<PropMeshBatch, St
             "prop model path '{model}' is not a safe relative path"
         ));
     }
+    let casts_static_lighting = read_static_caster(reader, version)?;
     let bounds_min = reader.f32_3()?;
     let bounds_max = reader.f32_3()?;
     if !finite3(bounds_min) || !finite3(bounds_max) {
@@ -207,6 +212,7 @@ fn read_batch(reader: &mut Reader<'_>, version: u16) -> Result<PropMeshBatch, St
     }
     Ok(PropMeshBatch {
         model,
+        casts_static_lighting,
         textures: Vec::<Arc<crate::loader::RawImage>>::new(),
         submeshes,
         vertices,
@@ -216,6 +222,19 @@ fn read_batch(reader: &mut Reader<'_>, version: u16) -> Result<PropMeshBatch, St
             max: bounds_max,
         },
     })
+}
+
+fn read_static_caster(reader: &mut Reader<'_>, version: u16) -> Result<bool, String> {
+    if version < 5 {
+        return Ok(true);
+    }
+    match reader.u8()? {
+        0 => Ok(false),
+        1 => Ok(true),
+        other => Err(format!(
+            "prop batch has invalid static-caster marker {other}"
+        )),
+    }
 }
 
 fn read_submesh(reader: &mut Reader<'_>, version: u16) -> Result<PropSubmeshBatch, String> {
@@ -321,6 +340,102 @@ fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
 #[cfg(test)]
 mod legacy_tests {
     use super::*;
+
+    fn caster_batch(casts_static_lighting: bool) -> PropMeshBatch {
+        PropMeshBatch {
+            model: "models/caster.glb".to_string(),
+            casts_static_lighting,
+            textures: Vec::new(),
+            submeshes: vec![PropSubmeshBatch {
+                texture: None,
+                alpha: MaterialAlpha::OPAQUE,
+                emission: MaterialEmission::NONE,
+                response: crate::materials::MaterialResponse::NONE,
+                first_index: 0,
+                index_count: 3,
+            }],
+            vertices: vec![
+                crate::render::Vertex::new([0.0, 0.0, 0.0], [1.0; 4], [0.0, 0.0]),
+                crate::render::Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [1.0, 0.0]),
+                crate::render::Vertex::new([0.0, 1.0, 0.0], [1.0; 4], [0.0, 1.0]),
+            ],
+            indices: vec![0, 1, 2],
+            bounds: Aabb {
+                min: [0.0; 3],
+                max: [1.0, 1.0, 0.0],
+            },
+        }
+    }
+
+    #[test]
+    fn static_caster_metadata_round_trips_and_rejects_invalid_markers() -> Result<(), String> {
+        for casts_static_lighting in [false, true] {
+            let batch = caster_batch(casts_static_lighting);
+            let mut bytes = write_props(std::slice::from_ref(&batch))?;
+            let decoded = read_props(&bytes)?;
+            assert_eq!(decoded.len(), 1);
+            let decoded_batch = decoded
+                .first()
+                .ok_or_else(|| "caster roundtrip omitted its batch".to_string())?;
+            assert_eq!(decoded_batch.casts_static_lighting, casts_static_lighting);
+            assert_eq!(decoded_batch.vertices, batch.vertices);
+            assert_eq!(decoded_batch.indices, batch.indices);
+            assert_eq!(write_props(&decoded)?, bytes);
+            let marker_offset = 10 + 4 + batch.model.len();
+            *bytes
+                .get_mut(marker_offset)
+                .ok_or_else(|| "caster roundtrip omitted its marker".to_string())? = 2;
+            let Err(error) = read_props(&bytes) else {
+                return Err("invalid caster marker was accepted".to_string());
+            };
+            assert!(error.contains("invalid static-caster marker 2"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_prop_records_default_to_static_casters() -> Result<(), String> {
+        let batch = caster_batch(false);
+        let bytes = write_props(std::slice::from_ref(&batch))?;
+        let marker_offset = 10 + 4 + batch.model.len();
+        let mut legacy_v4 = bytes;
+        let removed = legacy_v4.remove(marker_offset);
+        assert_eq!(removed, 0);
+        legacy_v4
+            .get_mut(4..6)
+            .ok_or_else(|| "legacy v4 record omitted its version".to_string())?
+            .copy_from_slice(&4_u16.to_le_bytes());
+        let decoded_v4 = read_props(&legacy_v4)?;
+        let decoded_v4_batch = decoded_v4
+            .first()
+            .ok_or_else(|| "legacy v4 record omitted its batch".to_string())?;
+        assert!(decoded_v4_batch.casts_static_lighting);
+        assert_eq!(decoded_v4_batch.vertices, batch.vertices);
+        assert_eq!(decoded_v4_batch.indices, batch.indices);
+
+        // The v3 submesh omits the 16-byte scalar response after emission.
+        let response_offset = marker_offset + 24 + 4 + 1 + 1 + 4 + 16 + 1;
+        let mut legacy_v3 = legacy_v4;
+        drop(legacy_v3.drain(response_offset..response_offset + 16));
+        legacy_v3
+            .get_mut(4..6)
+            .ok_or_else(|| "legacy v3 record omitted its version".to_string())?
+            .copy_from_slice(&3_u16.to_le_bytes());
+        let decoded_v3 = read_props(&legacy_v3)?;
+        let decoded_v3_batch = decoded_v3
+            .first()
+            .ok_or_else(|| "legacy v3 record omitted its batch".to_string())?;
+        assert!(decoded_v3_batch.casts_static_lighting);
+        assert_eq!(decoded_v3_batch.vertices, batch.vertices);
+        assert_eq!(decoded_v3_batch.indices, batch.indices);
+        let submesh = decoded_v3_batch
+            .submeshes
+            .first()
+            .ok_or_else(|| "legacy v3 record omitted its submesh".to_string())?;
+        assert_eq!(submesh.response.specular, [0.0; 3]);
+        assert_eq!(submesh.response.roughness.to_bits(), 1.0_f32.to_bits());
+        Ok(())
+    }
 
     #[test]
     fn legacy_v3_submesh_keeps_alpha_emission_and_explicit_matte_response() -> Result<(), String> {

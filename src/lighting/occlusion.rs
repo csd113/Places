@@ -107,12 +107,14 @@ pub(super) struct ModelOcclusion {
     pub loaded: bool,
 }
 
-/// True when a placed prop is static geometry for the baked lighting.
+/// True when a placed prop may contribute immutable lighting geometry.
 ///
-/// Every level `props` entry is static except a floating prop: a float is
+/// A floating prop is
 /// drawn by the dynamic scene at the water surface, and the dynamic path is
 /// documented invisible to the baker, so baking it at its dry authored
 /// position would make the bake disagree with what is drawn.
+/// Fully claimed characters are subsequently excluded using the resolved
+/// character claim plan; model/vertex budgets retain their original charge.
 #[must_use]
 pub(super) const fn prop_is_static(prop: &PropDef) -> bool {
     prop.float.is_none()
@@ -639,6 +641,8 @@ impl PropOcclusionCache {
             return out;
         }
         let grid_cell_m = sanitized_cell(cell_m);
+        let claimed =
+            crate::render::claimed_character_models(level, &self.catalog, &mut self.assets);
         let mut seen_models: Vec<String> = Vec::new();
         let mut busy_vertices = 0usize;
         for prop in &level.props {
@@ -680,10 +684,14 @@ impl PropOcclusionCache {
                 push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
                 continue;
             }
+            let casts_static_lighting = !claimed.contains(&model_path);
             if !known {
                 seen_models.push(model_path);
             }
             busy_vertices = busy_vertices.saturating_add(model.vertex_count);
+            if !casts_static_lighting {
+                continue;
+            }
             if model.boxes.is_empty() {
                 // A real model that resolves with no usable triangle: the draw
                 // path draws it and it occludes nothing.
@@ -909,6 +917,31 @@ mod tests {
     use super::*;
     use crate::gltf::{PropSubmesh, PropVertex};
     use std::fmt::Write as _;
+
+    #[test]
+    fn fully_claimed_actors_leave_no_immutable_voxel_caster() {
+        let mut level = crate::level::LevelDef::from_json(
+            r#"{"format_version":3,"id":"actor_caster","name":"Actor caster", "spawn":{"x":0,"z":0}, "rooms":[{"x":-3,"z":-3,"width":6,"depth":6,"height":3}], "props":[{"model":"rat","x":0,"z":0,"solid":true}]}"#,
+        )
+        .expect("actor placement");
+        let mut cache = PropOcclusionCache::with_root("assets");
+        let surfaces = LevelSurfaces::new(&level);
+        let boxes = cache.level_occluders_with_cell(&level, &surfaces, PROP_OCCLUSION_CELL_M);
+        assert_eq!(boxes, []);
+        assert!(level.props.first().expect("authored collision").solid);
+
+        let actor = level.props.first().expect("actor").clone();
+        level.props = vec![actor; crate::render::MAX_CHARACTERS.saturating_add(1)];
+        let overflow = cache.level_occluders_with_cell(
+            &level,
+            &LevelSurfaces::new(&level),
+            PROP_OCCLUSION_CELL_M,
+        );
+        assert!(
+            !overflow.is_empty(),
+            "an overflow model keeps its visible static bind-pose caster"
+        );
+    }
 
     /// Boxes at the historical default cell, the shorthand the tests below read.
     fn default_boxes(model: &PropModel) -> Vec<LocalBox> {

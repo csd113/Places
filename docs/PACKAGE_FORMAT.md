@@ -197,14 +197,16 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 3 | batch_count u32
+magic "PLMP" | version u16 = 5 | batch_count u32
 batch {
   model u32 length + UTF-8
+  casts_static_lighting u8 (strict 0 or 1)
   bounds_min f32 x 3 | bounds_max f32 x 3
   submesh_count u32
   submeshes { texture optional u16 | alpha_mode u8 (0 opaque, 1 cutout, 2 blend)
               | alpha_cutoff f32
               | emission colour f32 x 3, intensity f32, mask optional u16
+              | specular f32 x 3 (linear), roughness f32
               | first_index u32 | index_count u32 }
   vertices u32 count + 69-byte vertices | indices u32 count + u16
 }
@@ -220,6 +222,15 @@ character/dynamic routes can consume it.
 
 Submesh ranges must lie inside the batch's index list and every index must be
 inside the batch's vertex list.
+
+Version 4 adds scalar material response. Version 5 records whether the retained
+bind-pose batch casts static lighting. The same finite-placement, animator and
+128-character claim plan drives character spawning and this flag: a fully claimed
+model has flag 0, so its moving actors do not leave fixed bind-pose casters or
+reject their own probe rays. Partial/overflow model groups retain their visible
+static fallback and flag 1. Collision and model/vertex budget charges are unchanged.
+Readers accept versions 3 and 4 with conservative caster flag 1; version 3 has the
+explicit matte material default. Current records add one byte per batch.
 
 ### 4.3 Baked lighting — `blobs/<sha>.lighting`
 
@@ -396,18 +407,22 @@ materials ask for.
 characters sample every frame instead of re-baking light:
 
 ```text
-magic "PLPF" | version u16 = 2
+magic "PLPF" | version u16 = 3 (version 2 remains supported)
 origin f32 x 3 | cell_m f32 | dims u32 x 3 | count u32
 probes count x {
   irradiance f32 x 3 | direction f32 x 3 | axis f32 x 2 | room i32
 }
+selected_source_count u32 | selected_source_indices u32 x selected_source_count
+selected_local_direct count x { irradiance f32 x 3 | direction f32 x 3 }
 ```
 
 The field is a bounded uniform 3D grid baked from the same physical surface
 transport solve as the lightmap atlas: visible non-switchable emitters, reflected
 surface radiance, and authored sky radiance on escaping rays. Switchable fixtures
-are excluded in every state; only their atlas layers contain their light. Material
-emission without an authored light source is appearance, not transport emission.
+are excluded in every state; static surfaces use their atlas layers and v3 entity
+lighting uses reserved runtime direct slots. Their diffuse bounce is not stored
+in the base entity field. Material emission without an authored light source is
+appearance, not transport emission.
 
 All integers/floats are little-endian, without alignment padding: the header is
 38 bytes and each sample is 36 bytes. `origin` is the **lower grid boundary**,
@@ -446,20 +461,43 @@ data. Unresolvable sampling returns `None`; fallback policy belongs to runtime.
 Runtime uses normalized compact Shepard weights within two grid cells:
 `(1 - distance_cells / 2)^2 / distance_cells^2`, with an exact-center path.
 Energy and signed moments accumulate in f64 and convert once to f32. The anchor
-is the transformed bind-pose model-bounds center, shared by rigid and animated
-models. Actual air-volume checks reject below-floor and above-ceiling samples.
-Within a connected area, interpolation preserves the compiler's local field;
-across room/area boundaries, spatially indexed compiled-solid visibility permits
-blending through real openings while rejecting sealed walls and floors.
+is the transformed bind-pose model-bounds center for the legacy v2 path and
+combined diagnostic trace. The v3 spatial path uses eight transformed bind-bounds
+corners, with compatible visible centre/corner rescue for missing support.
+Actual air-volume checks reject below-floor and above-ceiling samples. Every
+contributor segment is checked, including within a connected area: short
+dividers and furniture can block a ray without disconnecting room air.
+Compiled-solid and current movable-mesh visibility permit blending through
+real openings while rejecting blocked segments.
 The runtime preserves valid darkness and raw HDR shader input. Missing fields,
 roomless/invalid positions and unresolved support have explicit diagnostic reasons
 and use the existing authored environment sample, bounded to finite display RGB.
 No white/black constant or extra brightness floor is introduced.
 
-The payload remains PLPF v2. Solver revision 8 changes the bake identity and
-invalidates package/lightmap fingerprints; rebuild existing packages. See
+Version 3 retains the original combined coefficients and adds selected always-on
+local direct means/moments aligned to every slot. Source IDs are strictly ascending,
+unique and valid indices into packaged lighting; their bounded count is at most
+eight. The sidecar has no independent probe count: its length uses the shared field
+`count`, and it adds `4 + 4*selected_source_count + 24*count` bytes. It contains
+incident energy, with no material albedo or gamma conversion. Readers validate
+nonnegative combined-minus-selected energy and the residual moment bound. Version
+2 has no sidecar, keeps the combined centre-sample runtime path and re-encodes as
+version 2. Unsupported/malformed records are rejected without repairing energy.
+
+Current spatial entity sampling interpolates eight transformed model-bounds
+anchors. It subtracts the selected means and moments before nonlinear directional
+reconstruction, then adds those finite direct sources at actual shader fragments
+once. Global direct, diffuse/sky, authored fill and unselected local direct remain
+in the residual. Every probe segment requires visibility, including samples in
+one connected air region; a short divider must not leak light merely because air
+connects above it. Invalid corner support can reuse a compatible visible centre
+or corner; unreachable support remains zero. Valid dark samples remain dark.
+
+Solver revision 14 changes the bake identity and invalidates package/lightmap
+fingerprints; rebuild current outputs. See
 [Probe baker audit](PROBE_BAKER_AUDIT.md) for diagnostics, regression evidence and
-remaining compiler/runtime limitations.
+remaining compiler/runtime limitations, and [Stage 4 contracts](art-style/stage4/contracts.md)
+for current entity direct/visibility/resource behavior.
 
 ## 7. Limits
 

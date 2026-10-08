@@ -219,3 +219,11 @@ Stage 2 was not started. The stage's writer/index/target ownership and healthy
 inherited `caffeinate -di` PID 88945 return to the coordinating parent at handoff.
 The untracked custody record is `/tmp/places-art-style-queue-custody.json`.
 Build artifacts stay available for the unfinished serial queue; no `cargo clean`.
+
+## Later milestones
+
+- [2026-10-08 — Stage 3: light across construction seams](stage3/README.md)
+- [2026-10-08 — Stage 4: light that follows objects](stage4/README.md)
+
+Each stage retains its original raw captures, settings and runnable snapshot
+receipts. The Stage 4 handoff supplies publication identities after its seal.

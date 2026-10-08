@@ -1,0 +1,230 @@
+{
+  "before-1": {
+    "update_ms": {
+      "median": 0.05,
+      "mean": 0.1105266,
+      "p95": 0.328,
+      "p99": 0.376,
+      "max": 1.201
+    },
+    "render_ms": {
+      "median": 2.4939999999999998,
+      "mean": 4.6759216,
+      "p95": 13.686,
+      "p99": 16.405,
+      "max": 21.552
+    },
+    "frame_ms": {
+      "median": 2.599,
+      "mean": 4.8186042,
+      "p95": 13.813,
+      "p99": 16.516,
+      "max": 21.668
+    },
+    "loop_ms": {
+      "median": 2.904,
+      "mean": 5.1738064,
+      "p95": 14.246,
+      "p99": 17.01,
+      "max": 22.262
+    },
+    "frames": 5000,
+    "submitted_frames": 5000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 452034560,
+    "source": "docs/art-style/stage4/performance/gpu/before-1/native",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  },
+  "1": {
+    "update_ms": {
+      "median": 0.069,
+      "mean": 0.120905,
+      "p95": 0.335,
+      "p99": 0.388,
+      "max": 1.302
+    },
+    "render_ms": {
+      "median": 2.2065,
+      "mean": 4.41373,
+      "p95": 12.461,
+      "p99": 15.744,
+      "max": 23.23
+    },
+    "frame_ms": {
+      "median": 2.2889999999999997,
+      "mean": 4.566525,
+      "p95": 12.738,
+      "p99": 15.869,
+      "max": 23.421
+    },
+    "loop_ms": {
+      "median": 2.553,
+      "mean": 4.913402,
+      "p95": 13.24,
+      "p99": 16.376,
+      "max": 23.923
+    },
+    "frames": 1000,
+    "submitted_frames": 1000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 453115904,
+    "source": "docs/art-style/stage4/performance/native/count-1-final",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  },
+  "4": {
+    "update_ms": {
+      "median": 0.167,
+      "mean": 0.219261,
+      "p95": 0.439,
+      "p99": 0.493,
+      "max": 1.255
+    },
+    "render_ms": {
+      "median": 1.6335,
+      "mean": 4.197522,
+      "p95": 12.811,
+      "p99": 15.42,
+      "max": 18.037
+    },
+    "frame_ms": {
+      "median": 1.843,
+      "mean": 4.448447,
+      "p95": 13.004,
+      "p99": 15.671,
+      "max": 18.225
+    },
+    "loop_ms": {
+      "median": 2.183,
+      "mean": 4.793402,
+      "p95": 13.393,
+      "p99": 16.067,
+      "max": 18.508
+    },
+    "frames": 1000,
+    "submitted_frames": 1000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 451608576,
+    "source": "docs/art-style/stage4/performance/native/count-4-final",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  },
+  "8": {
+    "update_ms": {
+      "median": 0.282,
+      "mean": 0.319229,
+      "p95": 0.569,
+      "p99": 0.632,
+      "max": 0.961
+    },
+    "render_ms": {
+      "median": 1.798,
+      "mean": 4.178514,
+      "p95": 12.837,
+      "p99": 15.029,
+      "max": 17.752
+    },
+    "frame_ms": {
+      "median": 2.1075,
+      "mean": 4.526948,
+      "p95": 13.223,
+      "p99": 15.274,
+      "max": 18.084
+    },
+    "loop_ms": {
+      "median": 2.3895,
+      "mean": 4.832683,
+      "p95": 13.651,
+      "p99": 15.819,
+      "max": 18.506
+    },
+    "frames": 1000,
+    "submitted_frames": 1000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 454098944,
+    "source": "docs/art-style/stage4/performance/native/count-8-final",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  },
+  "32": {
+    "update_ms": {
+      "median": 0.712,
+      "mean": 0.744371,
+      "p95": 0.9,
+      "p99": 1.125,
+      "max": 1.297
+    },
+    "render_ms": {
+      "median": 1.1715,
+      "mean": 3.830578,
+      "p95": 12.466,
+      "p99": 13.986,
+      "max": 16.239
+    },
+    "frame_ms": {
+      "median": 1.9344999999999999,
+      "mean": 4.594454,
+      "p95": 13.208,
+      "p99": 14.656,
+      "max": 17.124
+    },
+    "loop_ms": {
+      "median": 2.1885,
+      "mean": 4.832153,
+      "p95": 13.386,
+      "p99": 14.97,
+      "max": 17.609
+    },
+    "frames": 1000,
+    "submitted_frames": 1000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 454574080,
+    "source": "docs/art-style/stage4/performance/native/count-32-final",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  },
+  "32-moving": {
+    "update_ms": {
+      "median": 7.983,
+      "mean": 7.933586,
+      "p95": 8.087,
+      "p99": 8.333,
+      "max": 13.978
+    },
+    "render_ms": {
+      "median": 0.236,
+      "mean": 0.281208,
+      "p95": 0.322,
+      "p99": 0.627,
+      "max": 17.317
+    },
+    "frame_ms": {
+      "median": 8.241,
+      "mean": 8.222959,
+      "p95": 8.369,
+      "p99": 8.961,
+      "max": 17.879
+    },
+    "loop_ms": {
+      "median": 8.337,
+      "mean": 8.317068,
+      "p95": 8.474,
+      "p99": 9.065,
+      "max": 18.115
+    },
+    "frames": 1000,
+    "submitted_frames": 1000,
+    "draw_calls": [
+      17
+    ],
+    "peak_rss_bytes": 454721536,
+    "source": "docs/art-style/stage4/performance/native/count-32-moving-final",
+    "method": "whole-engine CPU/submission/event loop; no screenshot readback, moving includes benchmark dispatch/logging; not GPU execution"
+  }
+}

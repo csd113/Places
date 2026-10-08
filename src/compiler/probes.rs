@@ -14,9 +14,50 @@ pub(super) fn label(
     lighting: &LevelLighting,
     scene: &TransportScene,
     walls: &[WallAabb],
+    quality: &str,
 ) {
     let surfaces = LevelSurfaces::new(level);
     field.assign_rooms(|position| room_at(position, &surfaces, lighting, scene, walls));
+    if crate::lighting::transport::probe_audit::enabled() {
+        let placements = placements(field, &surfaces, lighting, scene, walls);
+        if let Err(error) =
+            crate::lighting::transport::probe_audit::dump_validity(quality, &placements)
+        {
+            crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct Placement {
+    id: usize,
+    position: [f32; 3],
+    room: Option<usize>,
+    status: &'static str,
+}
+
+fn placements(
+    field: &ProbeField,
+    surfaces: &LevelSurfaces<'_>,
+    lighting: &LevelLighting,
+    scene: &TransportScene,
+    walls: &[WallAabb],
+) -> Vec<Placement> {
+    field
+        .probes
+        .iter()
+        .enumerate()
+        .filter_map(|(id, _)| {
+            let position = field.probe_position(id)?;
+            let (room, status) = placement_at(position, surfaces, lighting, scene, walls);
+            Some(Placement {
+                id,
+                position,
+                room,
+                status,
+            })
+        })
+        .collect()
 }
 
 fn room_at(
@@ -26,33 +67,51 @@ fn room_at(
     scene: &TransportScene,
     walls: &[WallAabb],
 ) -> Option<usize> {
+    placement_at([x, y, z], surfaces, lighting, scene, walls).0
+}
+
+fn placement_at(
+    [x, y, z]: [f32; 3],
+    surfaces: &LevelSurfaces<'_>,
+    lighting: &LevelLighting,
+    scene: &TransportScene,
+    walls: &[WallAabb],
+) -> (Option<usize>, &'static str) {
     if ![x, y, z].iter().all(|value| value.is_finite()) {
-        return None;
+        return (None, "nonfinite-position");
     }
-    let room = lighting.room_index_at_height(x, y, z)?;
-    let volume = lighting.rooms().get(room)?;
+    let Some(room) = lighting.room_index_at_height(x, y, z) else {
+        return (None, "outside-room-footprints");
+    };
+    let Some(volume) = lighting.rooms().get(room) else {
+        return (None, "missing-room-volume");
+    };
     let floor = volume.floor_y + surfaces.walkable_offset_at(x, z);
     let ceiling = volume.ceiling_y_at(x, z);
     let clearance = PROBE_CLEARANCE_M;
-    if x < volume.x0
-        || x > volume.x1
-        || z < volume.z0
-        || z > volume.z1
-        || y < floor + clearance
-        || y > ceiling - clearance
-        || walls.iter().any(|wall| {
-            x >= wall.min_x - clearance
-                && x <= wall.max_x + clearance
-                && y >= wall.min_y - clearance
-                && y <= wall.max_y + clearance
-                && z >= wall.min_z - clearance
-                && z <= wall.max_z + clearance
-        })
-        || !scene.probe_is_clear([x, y, z])
-    {
-        return None;
+    if x < volume.x0 || x > volume.x1 || z < volume.z0 || z > volume.z1 {
+        return (None, "outside-room-footprint");
     }
-    Some(room)
+    if y < floor + clearance {
+        return (None, "below-floor-clearance");
+    }
+    if y > ceiling - clearance {
+        return (None, "above-ceiling-clearance");
+    }
+    if walls.iter().any(|wall| {
+        x >= wall.min_x - clearance
+            && x <= wall.max_x + clearance
+            && y >= wall.min_y - clearance
+            && y <= wall.max_y + clearance
+            && z >= wall.min_z - clearance
+            && z <= wall.max_z + clearance
+    }) {
+        return (None, "authored-wall-clearance");
+    }
+    if !scene.probe_is_clear([x, y, z]) {
+        return (None, "opaque-surface-clearance-or-closed-solid");
+    }
+    (Some(room), "valid-air")
 }
 
 #[cfg(test)]
@@ -132,7 +191,7 @@ mod tests {
             .map_err(|error| format!("{error:?}"))?
             .probes
             .ok_or("no field")?;
-        label(&mut field, &level, &lighting, &scene, &[]);
+        label(&mut field, &level, &lighting, &scene, &[], "test");
         let bytes = field.write()?;
         let decoded = ProbeField::read(&bytes)?;
         assert_eq!(
@@ -193,6 +252,46 @@ mod tests {
             Some(0),
             "an open passage has no wall solid"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn validity_reasons_identify_real_air_constraints_independently_of_energy() -> Result<(), String>
+    {
+        let level = level()?;
+        let lighting = LevelLighting::bake(&level);
+        let surfaces = LevelSurfaces::new(&level);
+        let scene = TransportScene::new(Vec::new(), Vec::new()).ok_or("scene")?;
+        let walls = [WallAabb::with_y(12.0, 10.0, 20.0, 0.2, 1.0, 6.0)];
+        for (position, status) in [
+            ([f32::NAN, 11.5, 23.0], "nonfinite-position"),
+            ([0.0, 11.5, 0.0], "outside-room-footprints"),
+            ([13.0, 9.0, 23.0], "below-floor-clearance"),
+            ([13.0, 14.0, 23.0], "above-ceiling-clearance"),
+            ([12.1, 10.75, 23.0], "authored-wall-clearance"),
+            ([13.0, 11.5, 23.0], "valid-air"),
+        ] {
+            assert_eq!(
+                placement_at(position, &surfaces, &lighting, &scene, &walls).1,
+                status
+            );
+        }
+        let field = ProbeField {
+            min: [12.5, 11.0, 22.5],
+            cell_m: 1.0,
+            dims: [1; 3],
+            probes: vec![crate::lighting::probes::ProbeSample {
+                room: 0,
+                ..crate::lighting::probes::ProbeSample::default()
+            }],
+            local_direct: None,
+        };
+        let diagnostic = placements(&field, &surfaces, &lighting, &scene, &walls);
+        assert_eq!(diagnostic.len(), 1);
+        let placement = diagnostic.first().ok_or("placement missing")?;
+        assert_eq!(placement.position, [13.0, 11.5, 23.0]);
+        assert_eq!(placement.room, Some(0));
+        assert_eq!(placement.status, "valid-air", "black is valid darkness");
         Ok(())
     }
 }

@@ -622,6 +622,12 @@ pub struct WgpuRenderer {
     dynamic_lighting: Option<crate::lighting::LevelLighting>,
     /// The prepared irradiance field moving objects and characters sample.
     dynamic_field: Option<std::sync::Arc<crate::lighting::probes::ProbeField>>,
+    /// Exact prepared triangles and alpha for moving-source visibility; no solve.
+    dynamic_transport: Option<std::sync::Arc<crate::lighting::transport::TransportScene>>,
+    dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility,
+    dynamic_visibility_error: Option<String>,
+    #[cfg(feature = "visual-diagnostics")]
+    probe_visualization: Option<WgpuWorldGeometry>,
     /// The frame state of the last submitted `render_scene`, so the one-shot
     /// capture can re-encode the same view. `None` until a frame has been
     /// rendered, and after a level or size change that invalidated the state.
@@ -919,6 +925,11 @@ impl WgpuRenderer {
             character_runtime_generation: 0,
             dynamic_lighting: None,
             dynamic_field: None,
+            dynamic_transport: None,
+            dynamic_visibility: crate::render::common::dynamic_visibility::DynamicVisibility::new(),
+            dynamic_visibility_error: None,
+            #[cfg(feature = "visual-diagnostics")]
+            probe_visualization: None,
             last_frame: None,
             adapter_info,
         };
@@ -1101,16 +1112,48 @@ impl WgpuRenderer {
         // emitters advanced. Their billboards are synced in `render_scene`,
         // where the frame's camera exists.
         let _update_stats_2 = self.effects.update(self.animation_seconds);
-        let update = self.dynamic.update_with_field(
-            delta_seconds,
-            self.dynamic_lighting.as_ref(),
-            self.dynamic_field.as_deref(),
-        );
+        let update = self.refresh_dynamic_lighting(delta_seconds);
         let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
             dynamic.sync(&self.queue, &self.dynamic, &environment);
         }
+        #[cfg(feature = "visual-diagnostics")]
+        if self.visual_diagnostic == super::diagnostics::VisualDiagnosticMode::ProbeNeighborhood {
+            self.refresh_probe_visualization();
+        }
         update
+    }
+
+    fn refresh_dynamic_lighting(&mut self, delta_seconds: f32) -> DynamicUpdate {
+        let visibility = self
+            .dynamic_transport
+            .as_ref()
+            .map(|_| &mut self.dynamic_visibility);
+        match self.dynamic.update_with_visibility(
+            delta_seconds,
+            self.dynamic_lighting.as_ref(),
+            self.dynamic_field.as_deref(),
+            self.dynamic_transport.as_deref(),
+            visibility,
+        ) {
+            Ok(update) => {
+                self.dynamic_visibility_error = None;
+                update
+            }
+            Err(error) => {
+                logging::warn_once(
+                    "movable-visibility",
+                    format!("[entity-lighting] movable visibility unavailable: {error}"),
+                );
+                self.dynamic_visibility_error = Some(error);
+                self.dynamic.update_with_field_and_scene(
+                    0.0,
+                    self.dynamic_lighting.as_ref(),
+                    self.dynamic_field.as_deref(),
+                    self.dynamic_transport.as_deref(),
+                )
+            }
+        }
     }
 
     /// Spawns one runtime entity's model as a dynamic object.
@@ -1650,8 +1693,15 @@ impl WgpuRenderer {
     ) -> crate::render::CharacterUpdate {
         let update = self.characters.update(delta_seconds, locomotion, frames);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
-            self.characters
-                .refresh_lighting(lighting, self.dynamic_field.as_deref());
+            self.characters.refresh_lighting_with_visibility(
+                lighting,
+                self.dynamic_field.as_deref(),
+                self.dynamic_transport.as_deref(),
+                self.dynamic_transport
+                    .as_ref()
+                    .filter(|_| self.dynamic_visibility_error.is_none())
+                    .map(|_| &self.dynamic_visibility),
+            );
         }
         let generation = self.characters.runtime_generation();
         if generation != self.character_runtime_generation {
@@ -1961,7 +2011,7 @@ impl WgpuRenderer {
         preserve_playback: bool,
     ) {
         let mut textures = self.textures.clone();
-        if self.quality == self.installed_quality {
+        if self.graphics_requested.quality == self.installed_quality {
             textures.begin_level();
         } else {
             textures.release_profile_textures();
@@ -2179,6 +2229,7 @@ impl WgpuRenderer {
             &loaded,
             build,
             graphics.lightmaps,
+            graphics.reflections,
             true,
             std::time::Instant::now(),
             Some((characters, uploaded)),
@@ -2206,6 +2257,7 @@ impl WgpuRenderer {
         loaded: &LoadedLevel,
         mut build: Arc<LevelBuild>,
         lightmaps_quality: LightmapQuality,
+        reflections_quality: ReflectionQuality,
         upload_atlas: bool,
         started: std::time::Instant,
         prepared: Option<(CharacterScene, UploadedLevel)>,
@@ -2307,7 +2359,7 @@ impl WgpuRenderer {
         // overall quality level: a lightmap-only rebuild keeps the probe
         // cubemaps it already baked, and Off retires them. This is idempotent,
         // so an install may call it even when the setting itself did not change.
-        self.apply_reflection_targets(self.graphics_requested.reflections);
+        self.apply_reflection_targets(reflections_quality);
         self.active_plane = None;
         let world_materials = uploaded_materials.unwrap_or_else(|| {
             WorldMaterials::resolve(
@@ -2402,6 +2454,18 @@ impl WgpuRenderer {
         }
         self.dynamic_lighting = Some(build.lighting.clone());
         self.dynamic_field.clone_from(&build.probes);
+        self.dynamic_transport = build.probes.as_ref().and_then(|field| {
+            let _selected_direct = field.local_direct.as_ref()?;
+            crate::render::common::light_transport::build_transport_scene(
+                &loaded.level,
+                &build.mesh,
+                &build.batches,
+                &loaded.materials,
+                &build.lighting,
+                &[],
+            )
+            .map(|(scene, _)| std::sync::Arc::new(scene))
+        });
         // The GPU side of the previous level's dynamic scene dies with it. The
         // neutral scene is level content too: a quality rebuild of the same
         // level keeps its objects, but a
@@ -2409,6 +2473,9 @@ impl WgpuRenderer {
         // neutral scene and it is re-uploaded against the new resources.
         if self.level_id.as_deref() != Some(loaded.level.id.as_str()) {
             self.dynamic.clear_all();
+            self.dynamic_visibility =
+                crate::render::common::dynamic_visibility::DynamicVisibility::new();
+            self.dynamic_visibility_error = None;
             // A key spawned against the previous level must never resolve to
             // an object of the new one.
             self.runtime_objects.clear();
@@ -2430,14 +2497,17 @@ impl WgpuRenderer {
             self.effects = EffectScene::build(&loaded.level, &loaded.materials);
         }
         self.spawn_doors();
-        let _update_stats = self.dynamic.update_with_field(
-            0.0,
-            self.dynamic_lighting.as_ref(),
-            self.dynamic_field.as_deref(),
-        );
+        let _update_stats = self.refresh_dynamic_lighting(0.0);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
-            self.characters
-                .refresh_lighting(lighting, self.dynamic_field.as_deref());
+            self.characters.refresh_lighting_with_visibility(
+                lighting,
+                self.dynamic_field.as_deref(),
+                self.dynamic_transport.as_deref(),
+                self.dynamic_transport
+                    .as_ref()
+                    .filter(|_| self.dynamic_visibility_error.is_none())
+                    .map(|_| &self.dynamic_visibility),
+            );
         }
         self.world_dynamic = None;
         // The previous level's (or previous quality's) character GPU state is
@@ -2506,6 +2576,8 @@ impl WgpuRenderer {
         // neutral emitters survive a quality rebuild of the same level.
         self.upload_effects();
         self.installed_quality = self.quality;
+        #[cfg(feature = "visual-diagnostics")]
+        self.refresh_probe_visualization();
         build
     }
 
@@ -2613,7 +2685,76 @@ impl WgpuRenderer {
             .effects
             .snow()
             .map_or_else(Default::default, |snow| snow.storm);
+        let (shadows, count) = self.contact_shadow_subjects();
+        result = result.with_contact_shadows(shadows.get(..count).unwrap_or(&[]));
         result
+    }
+
+    fn contact_shadow_subjects(
+        &self,
+    ) -> (
+        [crate::render::common::dynamic_lights::ContactShadowUniform; 8],
+        usize,
+    ) {
+        let mut shadows = [crate::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8];
+        let Some(level) = self.installed_level.as_ref() else {
+            return (shadows, 0);
+        };
+        let surfaces = crate::level::LevelSurfaces::new(level);
+        let dynamic = self
+            .dynamic
+            .objects()
+            .iter()
+            .filter(|object| {
+                object
+                    .mesh()
+                    .submeshes
+                    .iter()
+                    .any(|submesh| submesh.alpha.mode != crate::materials::AlphaMode::Blend)
+            })
+            .map(|object| {
+                (
+                    object.world_bounds(),
+                    object.entity_lighting().and_then(|sample| sample.prepared),
+                )
+            });
+        let characters = self
+            .characters
+            .characters()
+            .iter()
+            .chain(self.characters.runtime_characters())
+            .filter(|character| {
+                character
+                    .asset()
+                    .model
+                    .submeshes
+                    .iter()
+                    .any(|submesh| submesh.alpha.mode != crate::materials::AlphaMode::Blend)
+            })
+            .map(|character| {
+                (
+                    character.contact_bounds(),
+                    character.entity_lighting().prepared,
+                )
+            });
+        let subjects = dynamic
+            .chain(characters)
+            .filter_map(|(bounds, sample)| {
+                let [x, _, z] = bounds.centre();
+                let floor = surfaces.floor_y_at(x, z)?;
+                crate::render::common::dynamic_lights::contact_shadow(
+                    bounds,
+                    floor,
+                    sample.map_or([0.0, 1.0, 0.0], |texel| texel.direction),
+                )
+            })
+            .take(8);
+        let mut count: usize = 0;
+        for (slot, subject) in shadows.iter_mut().zip(subjects) {
+            *slot = subject;
+            count = count.saturating_add(1);
+        }
+        (shadows, count)
     }
 
     /// Creates the group-3 environment bindings from the current atlas, probe
@@ -2811,7 +2952,83 @@ impl WgpuRenderer {
     #[cfg(feature = "visual-diagnostics")]
     pub fn set_visual_diagnostic(&mut self, mode: super::diagnostics::VisualDiagnosticMode) {
         self.visual_diagnostic = mode;
+        self.refresh_probe_visualization();
         self.trace_visual_diagnostic("select", None);
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    fn refresh_probe_visualization(&mut self) {
+        use super::diagnostics::VisualDiagnosticMode;
+        self.probe_visualization = None;
+        if !matches!(
+            self.visual_diagnostic,
+            VisualDiagnosticMode::ProbeField | VisualDiagnosticMode::ProbeNeighborhood
+        ) {
+            return;
+        }
+        let (Some(field), Some(lighting)) = (
+            self.dynamic_field.as_deref(),
+            self.dynamic_lighting.as_ref(),
+        ) else {
+            return;
+        };
+        let anchor = (self.visual_diagnostic == VisualDiagnosticMode::ProbeNeighborhood)
+            .then(|| {
+                self.dynamic
+                    .objects()
+                    .first()
+                    .map(|object| object.centre().to_array())
+            })
+            .flatten();
+        let mesh = super::probe_visualization::mesh(
+            field,
+            lighting,
+            anchor,
+            self.dynamic_transport
+                .as_ref()
+                .filter(|_| self.dynamic_visibility_error.is_none())
+                .map(|_| &self.dynamic_visibility),
+            self.dynamic
+                .objects()
+                .first()
+                .map(crate::render::DynamicObject::id),
+        );
+        self.probe_visualization = Some(WgpuWorldGeometry::upload(
+            &self.device,
+            &self.queue,
+            &mesh,
+            &MaterialRenderState::default(),
+        ));
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    fn encode_probe_visualization<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: &'a WorldPipeline,
+        textures: &'a WorldTextures,
+        materials: &'a WorldMaterials,
+        environment: &'a EnvironmentBindings,
+        frame: &'a super::world::WorldFrame,
+    ) {
+        if let Some(geometry) = self.probe_visualization.as_ref() {
+            let _diagnostic_draws = pipeline.encode(
+                pass,
+                super::world::WorldEncodeInputs {
+                    geometry,
+                    textures,
+                    materials,
+                    environment: environment.bind_group_for_probe(self.active_probe),
+                    props: None,
+                    dynamic: None,
+                    characters: None,
+                    capture_plane: None,
+                    filtering: self.filtering,
+                    frame,
+                    cull: self.culling,
+                },
+            );
+        }
     }
 
     /// The currently selected development view.
@@ -2838,11 +3055,10 @@ impl WgpuRenderer {
     /// Recording changes no GPU state; the work (re-fitting the retained
     /// build's textures, or rebuilding it when the lightmaps changed too) runs
     /// in the prepared installation. The level is also recorded in the live
-    /// `quality` field because the per-frame scene target reads it directly.
+    /// `quality` field only when those resources commit together.
     /// It also selects matching lighting until the independent setter overrides
     /// that baseline.
     pub const fn set_quality(&mut self, quality: QualityLevel) {
-        self.quality = quality;
         self.graphics_requested.quality = quality;
         // Preserve normal Low/Medium/High callers; settings may then apply
         // the independent Low lighting override through the explicit setter.
@@ -2851,7 +3067,6 @@ impl WgpuRenderer {
 
     /// Selects lighting response without changing texture or scene budgets.
     pub const fn set_lighting_quality(&mut self, quality: QualityLevel) {
-        self.lighting_quality = quality;
         self.graphics_requested.lighting_quality = quality;
     }
 
@@ -3324,6 +3539,8 @@ impl WgpuRenderer {
                 cull: self.culling,
             },
         );
+        #[cfg(feature = "visual-diagnostics")]
+        self.encode_probe_visualization(pass, pipeline, textures, materials, environment, frame);
         if !self.visual_diagnostic_active()
             && let (Some(decals), Some(decal_pipeline)) =
                 (self.decals.as_ref(), self.decal_scene_pipeline.as_ref())
@@ -3415,18 +3632,7 @@ impl WgpuRenderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(
-                        if super::surface::target_is_raw_display(self.config.format) {
-                            wgpu::Color {
-                                r: 0.08,
-                                g: 0.08,
-                                b: 0.09,
-                                a: 1.0,
-                            }
-                        } else {
-                            CLEAR_COLOR_SRGB
-                        },
-                    ),
+                    load: wgpu::LoadOp::Clear(self.direct_clear_color()),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -3468,6 +3674,15 @@ impl WgpuRenderer {
                     cull: self.culling,
                 },
             );
+            #[cfg(feature = "visual-diagnostics")]
+            self.encode_probe_visualization(
+                &mut pass,
+                pipeline,
+                textures,
+                materials,
+                environment,
+                frame,
+            );
             if !self.visual_diagnostic_active()
                 && let (Some(decals), Some(decal_pipeline)) =
                     (self.decals.as_ref(), self.decal_pipeline.as_ref())
@@ -3495,6 +3710,19 @@ impl WgpuRenderer {
             self.encode_effects(&mut pass, self.effects_pipeline.as_ref(), &mut totals);
         }
         totals
+    }
+
+    const fn direct_clear_color(&self) -> wgpu::Color {
+        if super::surface::target_is_raw_display(self.config.format) {
+            wgpu::Color {
+                r: 0.08,
+                g: 0.08,
+                b: 0.09,
+                a: 1.0,
+            }
+        } else {
+            CLEAR_COLOR_SRGB
+        }
     }
 
     /// Builds the world pipeline for the configured surface format.
@@ -4183,6 +4411,19 @@ impl WgpuRenderer {
                     "page_count": value.lightmap_page_count, "switchable_word": value.lightmap_switchable,
                     "fog_density": value.fog_density, "fog_region_count": value.fog_region_count})),
                 "world": world, "props": props, "dynamic": dynamic, "characters": characters,
+                "irradiance_field": self.dynamic_field.as_ref().map(|field| serde_json::json!({
+                    "slots": field.probes.len(), "valid": field.probes.iter().filter(|p| p.is_valid()).count(),
+                    "cell_m": field.cell_m, "dims": field.dims,
+                    "selected_source_indices": field.runtime_direct_lights(),
+                    "selected_direct_sidecar": field.local_direct.is_some(),
+                    "serialized_bytes": field.write().ok().map(|bytes| bytes.len()),
+                    "native_marker_stride": field.probes.len().div_ceil(2048).max(1),
+                })),
+                "runtime_visibility_scene": self.dynamic_transport.is_some(),
+                "movable_visibility": self.dynamic_visibility.stats(),
+                "movable_visibility_error": self.dynamic_visibility_error,
+                "contact_subjects": self.contact_shadow_subjects().1,
+                "entity_uniform_bytes": std::mem::size_of::<EnvironmentUniform>(),
             },
             "frame": {"drawable": [self.drawable_size.width, self.drawable_size.height],
                 "scene_size": self.post.as_ref().and_then(PostProcess::diagnostic_scene_size)
@@ -4197,7 +4438,7 @@ impl WgpuRenderer {
             "unavailable": {"decomposition": "direct/indirect/filter/fill remain offline solver exports",
                 "shadow_ao": "no standalone payload", "metallic": "no material shader input",
                 "charts": "atlas grid has no true chart ID/boundary/seam metadata",
-                "probe_field": super::diagnostics::VisualDiagnosticMode::probe_visualization_unavailable()},
+                "probe_field": "native prepared-position provider; bounded markers and actual accepted contributor links"},
         });
         logging::info(format!("[visual-diagnostic] {receipt}"));
     }
@@ -4290,6 +4531,18 @@ impl WgpuRenderer {
         });
         let region = room.and_then(|r| lighting.probe_region_at(r, position));
         let uploaded = uniform.map(|u| (u.entity_irradiance, u.entity_moment, u.light_scale));
+        let spatial = uniform.map(|u| serde_json::json!({
+            "enabled": u.entity_bounds_min[3] > 0.5,
+            "bounds_min": u.entity_bounds_min, "bounds_extent": u.entity_bounds_extent,
+            "anchors": u.entity_anchors.iter().map(|anchor| serde_json::json!({
+                "residual_irradiance_validity": anchor.irradiance, "residual_moment": anchor.moment,
+                "tap_visibility": anchor.visibility, "attenuation": anchor.attenuation,
+            })).collect::<Vec<_>>(),
+            "sources": u.entity_direct.iter().map(|source| serde_json::json!({
+                "position_range": source.position_range, "color_strength": source.color_strength,
+                "extent_falloff": source.extent_falloff, "taps": source.taps,
+            })).collect::<Vec<_>>(),
+        }));
         let normals = [
             [1.0, 0.0, 0.0],
             [-1.0, 0.0, 0.0],
@@ -4303,6 +4556,17 @@ impl WgpuRenderer {
             "[entity-light] name={name} path={path} map={:?} graphics={:?} transform={transform:?} sample_position={position:?} cell={cell:?} room={room:?} region={region:?} sample={sample:?} candidates={candidates:?} uploaded_energy_moment_scale={uploaded:?} pre_tonemap_normal_samples={directional:?}",
             self.level_id,
             self.graphics_applied.spec()
+        ));
+        logging::info(format!(
+            "[entity-spatial] {}",
+            serde_json::json!({
+                "name": name, "path": path, "position": position,
+                "centre_trace_meaning": "combined legacy probe at bounds centre; not final spatial shader response",
+                "always_on_source_indices": self.dynamic_field.as_ref().map(|f| f.runtime_direct_lights()),
+                "source_order_meaning": "always-on selected IDs, then unique prepared switchable IDs; disabled slots retain identity with zero descriptor",
+                "uniform_bytes": std::mem::size_of::<EnvironmentUniform>(),
+                "spatial": spatial,
+            })
         ));
     }
 

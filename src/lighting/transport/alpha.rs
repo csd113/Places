@@ -214,7 +214,7 @@ impl TransportScene {
 
     /// Straight scalar transmission, including authored MASK/BLEND coverage.
     /// Cache-connectivity queries retain their opaque/MASK obstruction meaning.
-    pub(super) fn transmittance(&self, a: [f32; 3], b: [f32; 3]) -> f32 {
+    pub(crate) fn transmittance(&self, a: [f32; 3], b: [f32; 3]) -> f32 {
         if self.occluded(a, b) {
             return 0.0;
         }

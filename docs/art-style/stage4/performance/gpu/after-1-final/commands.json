@@ -1,0 +1,36 @@
+{
+  "native": [
+    "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+    "/Users/connordawkins/Documents/GitHub/Places/tools/bench/capture_art_style_hero.py",
+    "--out",
+    "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/performance/gpu/after-1-final/native",
+    "--binary",
+    "debug-maps/art-style-hero/evidence/stage4-runtime-support-final/places",
+    "--asset-root",
+    ".",
+    "--package",
+    "debug-maps/art-style-hero/evidence/stage4-hero-v1/art_style_hero.placesmap",
+    "--views",
+    "entities",
+    "--frames",
+    "12000",
+    "--lighting-sequence",
+    "docs/art-style/stage4/sequences/cost-1.json"
+  ],
+  "trace": [
+    "xcrun",
+    "xctrace",
+    "record",
+    "--template",
+    "Metal System Trace",
+    "--time-limit",
+    "8s",
+    "--output",
+    "/Users/connordawkins/Documents/GitHub/Places/debug-maps/art-style-hero/evidence/stage4-after-1-final.trace",
+    "--attach",
+    "20778"
+  ],
+  "verified_owned_pid": 20778,
+  "native_wrapper_pid": 20763,
+  "method": "sequential native process; tracing is a separate instrumented GPU sample"
+}

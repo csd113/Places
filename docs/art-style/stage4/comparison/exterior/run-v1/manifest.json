@@ -1,0 +1,103 @@
+[
+  {
+    "view": {
+      "name": "exterior",
+      "spawn": [
+        4.15,
+        -5.5,
+        0
+      ],
+      "camera": [
+        180,
+        -19
+      ],
+      "purpose": "Same chair outdoors under authored night sky and garden practical"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "fc3602fc7ef2822468382adb5c90612e6a1f44663dcfcaace4ffa1b964c9d709",
+      "package_sha256": "95d1c51d9647792c10312ebc47f7bb8561b341924228c60ff5f34138b16a4556",
+      "source_sha256": "4008225fe5bcab967e4b75c76695049bcc483f3a14b3018c5601d9682ed755b0",
+      "camera_manifest_sha256": "e2d9fda141e108a1231b4c1b713ac36cd01c814a20987276c5248d7368cdf012",
+      "capture_tool_sha256": "a382242567519ee3609bc4b1c015151360e4e71686e3ba7ebd385cfac165f73c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "9d7a4b8df84f76b0f0b2ea7d71a4eb64e9475294631e608af4d8d576daab3ae2"
+    },
+    "diagnostic": "final",
+    "quality_cycle": null,
+    "entity_light_trace": true,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": [
+      {
+        "frame": 1,
+        "actions": [
+          {
+            "action": "spawn",
+            "key": 904,
+            "model": "home:dining_chair",
+            "position": [
+              4.8,
+              0,
+              -2.8
+            ],
+            "yaw": 0,
+            "scale": 1
+          }
+        ]
+      },
+      {
+        "frame": 120,
+        "capture": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/comparison/exterior/live/on.png"
+      }
+    ],
+    "sequence_captures": [
+      {
+        "frame": 120,
+        "path": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/comparison/exterior/live/on.png",
+        "sha256": "3e5722091fd97ba290981b565cab22b232c22c7eb709e40b681a5752fd8e767d"
+      }
+    ],
+    "lighting_sequence_input": "/Users/connordawkins/Documents/GitHub/Places/docs/art-style/stage4/sequences/comparison-exterior.json",
+    "diagnostic_receipt": null,
+    "ready_world_seconds": null,
+    "measured_frames": 250,
+    "elapsed_seconds": 2.6566946250386536,
+    "exit_code": 0,
+    "image_sha256": null,
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

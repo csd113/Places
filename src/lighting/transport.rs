@@ -87,7 +87,7 @@ pub(crate) mod probe_audit;
 pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 
 use crate::lighting::lightmap::{Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind};
-use crate::lighting::probes::{ProbeField, ProbeSample};
+use crate::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
 use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
 /// Minimum normal offset, equal to four single-precision rounding steps at
@@ -254,7 +254,7 @@ pub fn solver_fingerprint() -> u64 {
 /// - 13: MASK rays evaluate authored coverage, BLEND rays attenuate straight
 ///   paths, finite sources integrate per-tap cosines and moments, and physical
 ///   chart sample pitch is retained independently of atlas rounding.
-pub const SOLVER_REVISION: u64 = 13;
+pub const SOLVER_REVISION: u64 = 14;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1003,6 +1003,9 @@ pub struct TransportScene {
     /// Per-probe authored baseline target and room in flat probe order (see
     /// [`probe_targets`]); empty when no probe lattice was supplied.
     probe_target: Vec<ProbeTarget>,
+    /// (Scene emitter slot, stable compiled source ID) for direct energy
+    /// replaced by runtime receiver evaluation. Unselected sources stay baked.
+    runtime_direct_lights: Vec<(usize, u32)>,
     /// Radiance an escaping bounce ray sees, per linear channel. Zero unless
     /// the level authored a sky with a nonzero `ambient`.
     sky_radiance: [f32; 3],
@@ -1432,6 +1435,7 @@ impl TransportScene {
             water: Vec::new(),
             receiver_target: Vec::new(),
             probe_target: Vec::new(),
+            runtime_direct_lights: Vec::new(),
             sky_radiance: [0.0; 3],
         })
     }
@@ -1587,6 +1591,15 @@ impl TransportScene {
     #[must_use]
     pub fn with_probe_target(mut self, target: Vec<ProbeTarget>) -> Self {
         self.probe_target = target;
+        self
+    }
+
+    /// Selects a bounded, globally stable set of always-on source coefficients.
+    /// Entries reference this scene's filtered emitter order and the original
+    /// compiled lighting source order respectively. Invalid maps fail the solve.
+    #[must_use]
+    pub fn with_runtime_direct_lights(mut self, sources: Vec<(usize, u32)>) -> Self {
+        self.runtime_direct_lights = sources;
         self
     }
 
@@ -2113,6 +2126,16 @@ impl TransportScene {
                 .all(|value| value.is_finite() && *value >= 0.0)
         };
         nonnegative(&self.sky_radiance)
+            && self.runtime_direct_lights.len() <= crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS
+            && self.runtime_direct_lights.iter().all(|(slot, _)| {
+                self.emitters
+                    .get(*slot)
+                    .is_some_and(|emitter| emitter.switchable.is_none() && emitter.intensity > 0.0)
+            })
+            && self
+                .runtime_direct_lights
+                .windows(2)
+                .all(|pair| pair[0].0 < pair[1].0 && pair[0].1 < pair[1].1)
             && self.global_lights.len() <= crate::level::MAX_GLOBAL_ILLUMINATORS
             && self
                 .global_lights
@@ -3235,10 +3258,11 @@ fn bake_probe_field(
             scene, receivers, values, &cache, position, index, taps, audit,
         )
     })?;
-    let (mut baked_charts, diagnostics): (Vec<_>, Vec<_>) = baked
+    let (mut baked_charts, remainder): (Vec<_>, Vec<_>) = baked
         .into_iter()
-        .map(|(probe, attenuation, diagnostic)| ((probe, attenuation), diagnostic))
+        .map(|(probe, attenuation, local, diagnostic)| ((probe, attenuation), (local, diagnostic)))
         .unzip();
+    let (local_probes, diagnostics): (Vec<_>, Vec<_>) = remainder.into_iter().unzip();
     // Use the same local support field and continuous response as the atlas.
     scene.apply_probe_fill(&mut baked_charts);
     if baked_charts
@@ -3257,7 +3281,18 @@ fn bake_probe_field(
             u32::try_from(dims[2]).unwrap_or(u32::MAX),
         ],
         probes,
+        local_direct: (!scene.runtime_direct_lights.is_empty()).then(|| ProbeDirectField {
+            light_indices: scene
+                .runtime_direct_lights
+                .iter()
+                .map(|(_, source)| *source)
+                .collect(),
+            probes: local_probes,
+        }),
     };
+    if field.validate_local_direct().is_err() {
+        return Err(LightmapFailure::FillNonFinite);
+    }
     if let Err(error) = probe_audit::dump_bake(&field, &diagnostics, rays, bounces) {
         crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
     }
@@ -3314,6 +3349,29 @@ fn accumulate_probe_emitters(
     visible_emitters
 }
 
+fn selected_probe_direct(
+    scene: &TransportScene,
+    position: [f32; 3],
+    attenuation: [f32; 3],
+    taps: u8,
+) -> LightmapTexel {
+    let mut local = Accumulator::default();
+    for (slot, _) in &scene.runtime_direct_lights {
+        if let Some(emitter) = scene.emitters.get(*slot) {
+            let _sample = emitter.accumulate_direct(
+                scene,
+                &mut local,
+                position,
+                position,
+                None,
+                attenuation,
+                taps,
+            );
+        }
+    }
+    compress(&local)
+}
+
 fn bake_probe(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -3323,7 +3381,12 @@ fn bake_probe(
     index: usize,
     taps: u8,
     audit: bool,
-) -> (ProbeSample, [f32; 3], Option<probe_audit::ProbeAudit>) {
+) -> (
+    ProbeSample,
+    [f32; 3],
+    LightmapTexel,
+    Option<probe_audit::ProbeAudit>,
+) {
     let rays = PROBE_BAKE_RAYS;
     let inverse_rays = 1.0 / f32::from(u16::try_from(rays).unwrap_or(u16::MAX));
     let attenuation = scene.attenuation_at(position);
@@ -3341,6 +3404,7 @@ fn bake_probe(
                 ..ProbeSample::default()
             },
             attenuation,
+            LightmapTexel::ZERO,
             audit.then(|| {
                 probe_audit::ProbeAudit::new(position, target_room, &Accumulator::default())
             }),
@@ -3351,10 +3415,13 @@ fn bake_probe(
         scene.accumulate_global(&mut accumulator, position, None, attenuation, taps);
     let visible_emitters =
         accumulate_probe_emitters(scene, &mut accumulator, position, attenuation, taps, audit);
+    let local_direct = selected_probe_direct(scene, position, attenuation, taps);
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(chart_diagnostic) = &mut diagnostic {
         chart_diagnostic.visible_emitters = visible_emitters;
+        chart_diagnostic.selected_direct = local_direct.irradiance;
+        chart_diagnostic.selected_direct_moment = local_direct.direction;
     }
     let mut indirect = Accumulator::default();
     for ray in 0..rays {
@@ -3418,6 +3485,7 @@ fn bake_probe(
             room: -1,
         },
         attenuation,
+        local_direct,
         diagnostic,
     )
 }

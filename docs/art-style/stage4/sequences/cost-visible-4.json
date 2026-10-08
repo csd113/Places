@@ -1,0 +1,43 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 1000,
+        "model": "home:dining_chair",
+        "position": [
+          1.7,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1001,
+        "model": "home:dining_chair",
+        "position": [
+          2.35,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      },
+      {
+        "action": "spawn",
+        "key": 1002,
+        "model": "home:dining_chair",
+        "position": [
+          3.0,
+          0,
+          1.1
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  }
+]

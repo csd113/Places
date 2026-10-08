@@ -1,0 +1,218 @@
+[
+  {
+    "view": {
+      "name": "actors",
+      "spawn": [
+        6.25,
+        5.35,
+        0
+      ],
+      "camera": [
+        0,
+        -8
+      ],
+      "purpose": "Placed and runtime spawned identical character under broad and warm practical light"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "f8c50a832caec965cf9800a8a994685849124374acc0848c905c419d5b1a033d",
+      "package_sha256": "2027069b44d896df14fd1a298e494cb4f9f7e343810b1a5302b1644c8d3aa2dc",
+      "source_sha256": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+      "camera_manifest_sha256": "392dd9d4595cb24d5f88f7011a3726778a961d653e3eb2dd5f1a5be12a2a1ba5",
+      "capture_tool_sha256": "18943dc9475ca4f60fcf80c7dc52c5089922a3a2c1a410546861df6ccc91e50c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "c2d218f06ed7c8615aa4f40e4c8f3f2c8f616f2684d2c97f8db221d521dcaf72"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": true,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.462485000025481,
+    "exit_code": 0,
+    "image_sha256": "dc655623c3fc9eb5db8180e9d216cdcdc623afc3b95694078714ebb50b7bbff4",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "dim",
+      "spawn": [
+        9.2,
+        2.7,
+        0
+      ],
+      "camera": [
+        180,
+        -8
+      ],
+      "purpose": "Placed actor in dim far hall and doorway lighting"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "f8c50a832caec965cf9800a8a994685849124374acc0848c905c419d5b1a033d",
+      "package_sha256": "2027069b44d896df14fd1a298e494cb4f9f7e343810b1a5302b1644c8d3aa2dc",
+      "source_sha256": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+      "camera_manifest_sha256": "392dd9d4595cb24d5f88f7011a3726778a961d653e3eb2dd5f1a5be12a2a1ba5",
+      "capture_tool_sha256": "18943dc9475ca4f60fcf80c7dc52c5089922a3a2c1a410546861df6ccc91e50c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "c2d218f06ed7c8615aa4f40e4c8f3f2c8f616f2684d2c97f8db221d521dcaf72"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": true,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1548119160579517,
+    "exit_code": 0,
+    "image_sha256": "270e6242500bf161f24279de2c8cc1859e83d6f645977972489ad999a3c7cfd6",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  },
+  {
+    "view": {
+      "name": "exterior",
+      "spawn": [
+        3.3,
+        -5.1,
+        0
+      ],
+      "camera": [
+        180,
+        -8
+      ],
+      "purpose": "Placed and runtime actor under exterior night lighting"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "high",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "f8c50a832caec965cf9800a8a994685849124374acc0848c905c419d5b1a033d",
+      "package_sha256": "2027069b44d896df14fd1a298e494cb4f9f7e343810b1a5302b1644c8d3aa2dc",
+      "source_sha256": "f4cce152146015a67d75d5e5b4612a386be326c9b87c53406bda76b473e6044c",
+      "camera_manifest_sha256": "392dd9d4595cb24d5f88f7011a3726778a961d653e3eb2dd5f1a5be12a2a1ba5",
+      "capture_tool_sha256": "18943dc9475ca4f60fcf80c7dc52c5089922a3a2c1a410546861df6ccc91e50c",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "asset_root": "/Users/connordawkins/Documents/GitHub/Places",
+      "git_revision": "05c2e131c67f7d4d899ff181dc0958f83672a3c3",
+      "git_diff_sha256": "c2d218f06ed7c8615aa4f40e4c8f3f2c8f616f2684d2c97f8db221d521dcaf72"
+    },
+    "diagnostic": null,
+    "quality_cycle": null,
+    "entity_light_trace": true,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "lighting_sequence": null,
+    "sequence_captures": [],
+    "diagnostic_receipt": null,
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.0956800000276417,
+    "exit_code": 0,
+    "image_sha256": "bf83ace39ee77819944f6add9dbe33fdf9683dd3176f97b97b9c608d3e4d063d",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

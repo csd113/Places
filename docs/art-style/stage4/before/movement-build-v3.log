@@ -1,0 +1,19 @@
+places-compile: could not create debug-maps/art-style-hero/evidence/stage4-before-movement-v3/art_style_hero.placesmap.partial: No such file or directory (os error 2)
+        7.85 real        63.09 user         0.32 sys
+           704118784  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               51813  page reclaims
+                 238  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   5  voluntary context switches
+               24101  involuntary context switches
+        836284109452  instructions retired
+        191742703572  cycles elapsed
+           819872944  peak memory footprint

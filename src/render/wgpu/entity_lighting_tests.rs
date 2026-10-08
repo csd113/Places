@@ -50,6 +50,7 @@ fn prepared(loaded: &LoadedLevel, quality: QualityLevel) -> Arc<LevelBuild> {
     mesh.index_count = 0;
     let probes = (quality != QualityLevel::Low).then(|| {
         Arc::new(ProbeField {
+            local_direct: None,
             min: [-1.0, 0.0, -1.0],
             cell_m: 2.0,
             dims: [1; 3],

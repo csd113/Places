@@ -1,0 +1,44 @@
+{
+  "date_utc": "2026-10-08",
+  "checks": [
+    {
+      "command": "RUSTC_WRAPPER= cargo fmt --all -- --check",
+      "exit": 0,
+      "log": "fmt-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "RUSTC_WRAPPER= cargo clippy --workspace --all-targets --all-features -- -D warnings",
+      "exit": 0,
+      "log": "clippy-debug-final.log",
+      "sha256": "a6b26e7897e4b159908285fc316a50b822c35fa0cc538dc7861d6b1a7ea931a4"
+    },
+    {
+      "command": "RUSTC_WRAPPER= cargo clippy --release --workspace --all-targets --all-features -- -D warnings",
+      "exit": 0,
+      "log": "clippy-release-support-final.log",
+      "sha256": "b03b1a8c7845c49dfb89171f83d98aaa2d1c62cea8107f73d6fbfe50c70088bd"
+    },
+    {
+      "command": "RUSTC_WRAPPER= cargo test --workspace",
+      "exit": 101,
+      "log": "tests-workspace-final.log",
+      "sha256": "bfc93e247888fbcaafbfb4406cc1c0608dada7fc8c6ca4c363a4caa810804c70"
+    },
+    {
+      "command": "RUSTC_WRAPPER= cargo test --workspace --test macos_cpu_port",
+      "exit": 0,
+      "log": "tests-macos-cpu-port-final.log",
+      "sha256": "7efe269b8ab616e25e5623a7aeeef9338b69694ba3f0ca0156d04c20503ea601"
+    }
+  ],
+  "library": {
+    "passed": 2097,
+    "failed": 0,
+    "ignored": 23,
+    "seconds": 485.24
+  },
+  "inherited_local_discovery_failures": 3,
+  "full_local_workspace_passed": false,
+  "remaining_integration_scoped_pass": true
+}

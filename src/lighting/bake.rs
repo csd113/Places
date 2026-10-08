@@ -1930,19 +1930,37 @@ impl LevelLighting {
     }
 
     /// Whether a prepared probe may contribute at an entity position.
-    /// Within an existing connected area the baked field already represents
-    /// local occlusion. Across areas, indexed compiled solids require a clear
-    /// segment, allowing an open doorway to blend both room populations.
+    /// Indexed compiled solids require a clear segment even within one area:
+    /// a short divider or furniture can block light without splitting a room.
+    /// An open doorway permits both visible room populations to contribute.
     #[must_use]
     pub fn probe_visible_from(&self, position: [f32; 3], probe: [f32; 3]) -> bool {
         let area = |point: [f32; 3]| {
             self.indexed_room(point[0], Some(point[1]), point[2], false)
                 .and_then(|room| self.probe_region_at(room, point).map(|zone| (room, zone)))
         };
-        let (Some(source), Some(target)) = (area(position), area(probe)) else {
+        let (Some(_source), Some(_target)) = (area(position), area(probe)) else {
             return false;
         };
-        source == target || !self.visibility.occludes_anywhere(position, probe)
+        self.runtime_probe_segment_visible(position, probe)
+    }
+
+    /// Tests one finite source tap against its compiled, owner-aware solids.
+    #[must_use]
+    pub fn runtime_light_visible(&self, light_index: usize, from: [f32; 3], to: [f32; 3]) -> bool {
+        self.lights
+            .get(light_index)
+            .is_some_and(BakedLight::is_active)
+            && from.iter().chain(&to).all(|value| value.is_finite())
+            && u32::try_from(light_index)
+                .is_ok_and(|site| !self.visibility.occludes(site, from, to))
+    }
+
+    /// Tests an entity/probe segment against the prepared world without a site.
+    #[must_use]
+    pub fn runtime_probe_segment_visible(&self, from: [f32; 3], to: [f32; 3]) -> bool {
+        from.iter().chain(&to).all(|value| value.is_finite())
+            && !self.visibility.occludes_anywhere(from, to)
     }
 
     /// Baked baseline illumination of the area containing `(x, z)` in `room`.

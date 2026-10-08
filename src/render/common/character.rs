@@ -11,14 +11,12 @@
 //! baked into PropMeshBatch at load     CPU-skinned every frame
 //! bind pose only                       pose follows LocomotionSnapshot
 //! one draw per model and cell          one draw per character per primitive
-//! part of the lightmap bake            environment sampled at bounds centre
+//! part of the lightmap bake            spatial irradiance and direct lights
 //! ```
 //!
-//! The bind pose is *also* baked into the static prop batch, so a skinned
-//! model still contributes real geometry, occludes light and passes the
-//! shipped-asset tests exactly like any other prop; the renderer suppresses
-//! only the GPU draw of a claimed model and draws the animated character
-//! instead.
+//! The bind pose remains in the neutral prop batch for resource budgets and
+//! static fallback. A fully claimed model is excluded from immutable lighting
+//! casters and its GPU batch is suppressed while the animated character draws.
 //!
 //! # Pose model
 //!
@@ -94,6 +92,99 @@ pub use crate::entity::{EntityFrame, PoseCue};
 /// the extras in the static prop batch in their bind pose and reports the
 /// budget, exactly as before.
 pub const MAX_CHARACTERS: usize = 128;
+
+struct PlacedCharacter {
+    prop_index: usize,
+    asset: Arc<LoadedPropAsset>,
+    animator: CharacterAnimator,
+}
+
+struct CharacterClaimPlan {
+    placements: Vec<PlacedCharacter>,
+    models: Vec<String>,
+}
+
+/// Models whose every placed instance follows the character path. The same
+/// plan drives native spawning and immutable caster eligibility; partial or
+/// overflowing model groups keep their visible static fallback geometry.
+#[must_use]
+pub fn claimed_character_models(
+    level: &crate::level::LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut PropAssets,
+) -> Vec<String> {
+    character_claim_plan(level, catalog, assets).models
+}
+
+fn character_claim_plan(
+    level: &crate::level::LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut PropAssets,
+) -> CharacterClaimPlan {
+    let mut placements = Vec::new();
+    let mut order = Vec::new();
+    let mut counts: HashMap<String, (usize, usize)> = HashMap::new();
+    let mut overflow_reported = false;
+    for (prop_index, prop) in level.props.iter().enumerate() {
+        if prop.float.is_some() {
+            continue;
+        }
+        let Some(model_path) = catalog.get(&prop.model).model else {
+            continue;
+        };
+        let count = counts.entry(model_path.clone()).or_insert((0, 0));
+        if count.0 == 0 {
+            order.push(model_path.clone());
+        }
+        count.0 = count.0.saturating_add(1);
+        if !placement_is_finite(prop) {
+            continue;
+        }
+        if placements.len() >= MAX_CHARACTERS {
+            if !overflow_reported {
+                overflow_reported = true;
+                crate::logging::warn_once(
+                    "character-budget",
+                    format!(
+                        "[characters] the level places more than {MAX_CHARACTERS} skinned \
+                         characters; the rest stay in their static bind pose"
+                    ),
+                );
+            }
+            continue;
+        }
+        let asset = match assets.resolve(&model_path) {
+            Ok(asset) => asset,
+            Err(error) => {
+                assets.report_failure(&model_path, &error);
+                continue;
+            }
+        };
+        if !asset.model.is_animatable() {
+            continue;
+        }
+        let Some(animator) = CharacterAnimator::new(&asset.model) else {
+            continue;
+        };
+        placements.push(PlacedCharacter {
+            prop_index,
+            asset,
+            animator,
+        });
+        if let Some(updated) = counts.get_mut(&model_path) {
+            updated.1 = updated.1.saturating_add(1);
+        }
+    }
+    let models = order
+        .into_iter()
+        .filter(|path| {
+            counts
+                .get(path)
+                .is_some_and(|(placed, claimed)| claimed > &0 && claimed == placed)
+        })
+        .collect();
+    CharacterClaimPlan { placements, models }
+}
 
 /// Time constant of the exponential state-weight approach, in seconds.
 ///
@@ -912,6 +1003,8 @@ pub struct Character {
     /// to the model's `vertices`.
     albedo: Vec<[f32; 4]>,
     entity_lighting: super::light_transport::EntityLighting,
+    spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
+    spatial_key: Option<super::light_transport::EntitySpatialKey>,
     lighting_local_centre: Vec3,
     world_bounds: Aabb,
     /// Placed-instance id, so a route or an interaction can address this
@@ -961,6 +1054,15 @@ impl Character {
         self.transform
     }
 
+    /// Transformed mesh bind bounds for the lightweight projected shadow.
+    /// Culling padding is excluded; animation silhouette remains approximate.
+    #[must_use]
+    pub fn contact_bounds(&self) -> Aabb {
+        self.asset.model.bounds().map_or(Aabb::EMPTY, |(min, max)| {
+            transform_bounds(&Aabb { min, max }, &self.transform)
+        })
+    }
+
     /// The placed-instance id this character is keyed by, if any.
     #[must_use]
     pub fn instance_id(&self) -> Option<&str> {
@@ -1008,6 +1110,12 @@ impl Character {
     #[must_use]
     pub const fn entity_lighting(&self) -> super::light_transport::EntityLighting {
         self.entity_lighting
+    }
+
+    /// Stable bind-pose spatial samples, independent of animation phase.
+    #[must_use]
+    pub fn spatial_lighting(&self) -> Option<&super::light_transport::EntitySpatialLighting> {
+        self.spatial_lighting.as_deref()
     }
 
     /// World-space culling bounds, conservative for every pose.
@@ -1171,53 +1279,14 @@ impl CharacterScene {
         let surfaces = LevelSurfaces::new(level);
         let instance_ids = level.prop_instance_ids();
         let mut characters: Vec<Character> = Vec::new();
-        // Insertion-ordered placement counts per model path, so
-        // `claimed_models` is deterministic.
-        let mut order: Vec<String> = Vec::new();
-        let mut placements: HashMap<String, (usize, usize)> = HashMap::new();
-        let mut overflow_reported = false;
-        for (prop_index, prop) in level.props.iter().enumerate() {
-            // A floating prop is drawn and moved by the dynamic float path;
-            // even a skinned model must never ride both lanes.
-            if prop.float.is_some() {
-                continue;
-            }
-            let entry = catalog.get(&prop.model);
-            let Some(model_path) = entry.model.clone() else {
-                continue;
-            };
-            let counts = placements.entry(model_path.clone()).or_insert((0, 0));
-            if counts.0 == 0 {
-                order.push(model_path.clone());
-            }
-            counts.0 = counts.0.saturating_add(1);
-            if !placement_is_finite(prop) {
-                continue;
-            }
-            if characters.len() >= MAX_CHARACTERS {
-                if !overflow_reported {
-                    overflow_reported = true;
-                    crate::logging::warn_once(
-                        "character-budget",
-                        format!(
-                            "[characters] the level places more than {MAX_CHARACTERS} skinned \
-                             characters; the rest stay in their static bind pose"
-                        ),
-                    );
-                }
-                continue;
-            }
-            let asset = match assets.resolve(&model_path) {
-                Ok(asset) => asset,
-                Err(error) => {
-                    assets.report_failure(&model_path, &error);
-                    continue;
-                }
-            };
-            if !asset.model.is_animatable() {
-                continue;
-            }
-            let Some(animator) = CharacterAnimator::new(&asset.model) else {
+        let plan = character_claim_plan(level, catalog, assets);
+        for placement in plan.placements {
+            let PlacedCharacter {
+                prop_index,
+                asset,
+                animator,
+            } = placement;
+            let Some(prop) = level.props.get(prop_index) else {
                 continue;
             };
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
@@ -1237,24 +1306,16 @@ impl CharacterScene {
                 animator,
                 albedo,
                 entity_lighting,
+                spatial_lighting: None,
+                spatial_key: None,
                 lighting_local_centre,
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
                 opacity: 1.0,
             });
-            if let Some(placement_counts) = placements.get_mut(&model_path) {
-                placement_counts.1 = placement_counts.1.saturating_add(1);
-            }
         }
-        let claimed_models = order
-            .into_iter()
-            .filter(|path| {
-                placements
-                    .get(path)
-                    .is_some_and(|(placed, claimed)| claimed > &0 && claimed == placed)
-            })
-            .collect();
+        let claimed_models = plan.models;
         Self {
             characters,
             runtime: Vec::new(),
@@ -1357,6 +1418,8 @@ impl CharacterScene {
             animator,
             albedo,
             entity_lighting,
+            spatial_lighting: None,
+            spatial_key: None,
             lighting_local_centre,
             world_bounds,
             instance_id: Some(trimmed_id.to_string()),
@@ -1458,12 +1521,56 @@ impl CharacterScene {
         lighting: &LevelLighting,
         irradiance: Option<&crate::lighting::probes::ProbeField>,
     ) {
+        self.refresh_lighting_with_scene(lighting, irradiance, None);
+    }
+
+    /// Use the same immutable triangle/alpha resource as rigid objects.
+    pub fn refresh_lighting_with_scene(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+    ) {
+        self.refresh_lighting_with_visibility(lighting, irradiance, scene, None);
+    }
+
+    /// Rigid movable occluders use their current transforms; the animated
+    /// subject itself continues to use spatial bind-bounds lighting anchors.
+    pub fn refresh_lighting_with_visibility(
+        &mut self,
+        lighting: &LevelLighting,
+        irradiance: Option<&crate::lighting::probes::ProbeField>,
+        scene: Option<&crate::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+    ) {
+        let context = super::light_transport::EntityVisibility {
+            dynamic: visibility,
+            receiver: None,
+        };
         for character in self.characters.iter_mut().chain(self.runtime.iter_mut()) {
             character.entity_lighting = super::light_transport::entity_lighting(
                 lighting,
                 irradiance,
                 character.lighting_sample_position(),
             );
+            let transform = character.transform();
+            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
+                lighting, irradiance, transform, scene, context,
+            );
+            if character.spatial_key != spatial_key {
+                character.spatial_lighting =
+                    character.asset.model.bounds().and_then(|(min, max)| {
+                        super::light_transport::entity_spatial_lighting_with_visibility(
+                            lighting,
+                            irradiance,
+                            Aabb { min, max },
+                            transform,
+                            scene,
+                            context,
+                        )
+                    });
+                character.spatial_key = spatial_key;
+            }
         }
     }
 
@@ -4132,6 +4239,7 @@ mod tests {
         let asset = Arc::clone(actor.asset());
         let centre = actor.lighting_sample_position();
         let mut field = ProbeField {
+            local_direct: None,
             min: centre.map(|v| v - 0.5),
             cell_m: 1.0,
             dims: [2, 1, 1],

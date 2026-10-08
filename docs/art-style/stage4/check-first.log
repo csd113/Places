@@ -1,0 +1,98 @@
+    Checking places v0.8.0 (/Users/connordawkins/Documents/GitHub/Places)
+error[E0063]: missing field `lighting_sequence` in initializer of `bench::Bench`
+   --> src/bench/tests.rs:142:21
+    |
+142 |     let mut bench = Bench {
+    |                     ^^^^^ missing `lighting_sequence`
+
+error[E0063]: missing field `lighting_sequence` in initializer of `bench::Bench`
+   --> src/bench/tests.rs:169:21
+    |
+169 |     let mut bench = Bench {
+    |                     ^^^^^ missing `lighting_sequence`
+
+error[E0063]: missing field `lighting_sequence` in initializer of `bench::Bench`
+   --> src/bench/tests.rs:199:21
+    |
+199 |     let mut bench = Bench {
+    |                     ^^^^^ missing `lighting_sequence`
+
+error[E0624]: method `transmittance` is private
+   --> src/render/common/light_transport.rs:384:55
+    |
+384 | ...                   |transport| transport.transmittance(world, [tx, ty, tz]),
+    |                                             ^^^^^^^^^^^^^ private method
+    |
+   ::: src/lighting/transport/alpha.rs:217:5
+    |
+217 |     pub(super) fn transmittance(&self, a: [f32; 3], b: [f32; 3]) -> f32 {
+    |     ------------------------------------------------------------------- private method defined here
+
+error[E0599]: no associated function or constant named `lit` found for struct `render::common::mesh::Vertex` in the current scope
+   --> src/render/wgpu/probe_visualization.rs:123:37
+    |
+123 |         range.vertices.push(Vertex::lit(
+    |                                     ^^^ associated function or constant not found in `render::common::mesh::Vertex`
+    |
+   ::: src/render/common/mesh.rs:19:1
+    |
+ 19 | pub struct Vertex {
+    | ----------------- associated function or constant `lit` not found for this struct
+    |
+note: if you're trying to build a new `render::common::mesh::Vertex` consider using one of the following associated functions:
+      render::common::mesh::Vertex::new
+      render::common::mesh::Vertex::lightmapped
+   --> src/render/common/mesh.rs:90:5
+    |
+ 90 |       pub const fn new(pos: [f32; 3], color: [f32; 4], uv: [f32; 2]) -> Self {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+102 | /     pub const fn lightmapped(
+103 | |         pos: [f32; 3],
+104 | |         color: [f32; 4],
+105 | |         uv: [f32; 2],
+106 | |         lightmap: [u16; 2],
+107 | |         page: u8,
+108 | |     ) -> Self {
+    | |_____________^
+
+error[E0308]: mismatched types
+    --> src/lighting/transport/tests/quality.rs:1243:9
+     |
+1243 |       let (probe, _, _) = bake_probe(
+     |  _________^^^^^^^^^^^^^___-
+     | |         |
+     | |         expected a tuple with 4 elements, found one with 3 elements
+1244 | |         &scene,
+1245 | |         &receivers,
+1246 | |         &values,
+...    |
+1251 | |         false,
+1252 | |     );
+     | |_____- this expression has type `(ProbeSample, [f32; 3], LightmapTexel, Option<ProbeAudit>)`
+     |
+     = note: expected tuple `(lighting::probes::ProbeSample, [f32; 3], lighting::lightmap::LightmapTexel, std::option::Option<ProbeAudit>)`
+                found tuple `(_, _, _)`
+     = note: the full name for the type has been written to '/Users/connordawkins/Documents/GitHub/Places/target/debug/deps/places-b3bbe54b3278bb6f.long-type-7596930267491026915.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+Some errors have detailed explanations: E0599, E0624.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `places` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error[E0308]: mismatched types
+   --> src/render/common/light_transport.rs:997:38
+    |
+997 |             .with_surface_alpha(vec![alpha.clone(), alpha])
+    |                                      ^^^^^^^^^^^^^ expected `Option<TransportAlphaSurface>`, found `TransportAlphaSurface`
+    |
+    = note: expected enum `std::option::Option<TransportAlphaSurface>`
+             found struct `TransportAlphaSurface`
+help: try wrapping the expression in `Some`
+    |
+997 |             .with_surface_alpha(vec![Some(alpha.clone()), alpha])
+    |                                      +++++             +
+
+Some errors have detailed explanations: E0063, E0308, E0599, E0624.
+For more information about an error, try `rustc --explain E0063`.
+error: could not compile `places` (lib test) due to 7 previous errors

@@ -18,6 +18,99 @@
 
 use glam::Vec3;
 
+/// Practical sources re-evaluated for movable receivers. The identities are
+/// chosen once per compiled field, so movement cannot reorder the live set.
+pub const MAX_ENTITY_DIRECT_LIGHTS: usize = crate::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS;
+
+/// Select the strongest always-on sources without discarding weaker baked
+/// sources. Switchable prepared groups reserve live slots because their direct
+/// contribution is absent from the base field. Ties retain source order.
+#[must_use]
+pub fn select_baked_direct_lights(
+    lighting: &crate::lighting::LevelLighting,
+    switchable: &[usize],
+) -> Vec<u32> {
+    let mut candidates = lighting
+        .lights()
+        .iter()
+        .enumerate()
+        .filter(|(index, light)| light.is_active() && !switchable.contains(index))
+        .filter_map(|(index, light)| {
+            let color = light.color();
+            let strength = light.intensity() * light.height_factor * (color.r + color.g + color.b);
+            Some((u32::try_from(index).ok()?, strength))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    let reserved = switchable
+        .iter()
+        .enumerate()
+        .filter(|(slot, index)| {
+            lighting.lights().get(**index).is_some()
+                && !switchable.iter().take(*slot).any(|other| other == *index)
+        })
+        .take(crate::package::MAX_SWITCHABLE_LIGHTS)
+        .count();
+    candidates.truncate(MAX_ENTITY_DIRECT_LIGHTS.saturating_sub(reserved));
+    candidates.sort_unstable_by_key(|candidate| candidate.0);
+    candidates
+        .into_iter()
+        .map(|candidate| candidate.0)
+        .collect()
+}
+
+/// A soft projected bounds shadow for a movable opaque subject. This is a
+/// floor receiver approximation, not a mesh silhouette or shadow map.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ContactShadowUniform {
+    pub position_floor: [f32; 4],
+    pub half_height: [f32; 4],
+    pub incoming: [f32; 4],
+}
+
+impl ContactShadowUniform {
+    pub const ZERO: Self = Self {
+        position_floor: [0.0; 4],
+        half_height: [0.0; 4],
+        incoming: [0.0; 4],
+    };
+}
+
+/// Resolve actual transformed bounds against the authored walkable floor.
+/// Suspended objects fade their contact term rather than grounding in mid-air.
+#[must_use]
+pub fn contact_shadow(
+    bounds: crate::spatial::Aabb,
+    floor_y: f32,
+    incoming: [f32; 3],
+) -> Option<ContactShadowUniform> {
+    let minimum = Vec3::from_array(bounds.min);
+    let maximum = Vec3::from_array(bounds.max);
+    if !minimum.is_finite() || !maximum.is_finite() || !floor_y.is_finite() {
+        return None;
+    }
+    let half = Vec3::new(
+        (maximum.x - minimum.x) * 0.5,
+        (maximum.y - minimum.y) * 0.5,
+        (maximum.z - minimum.z) * 0.5,
+    );
+    if !half.is_finite() || half.min_element() <= 0.0 {
+        return None;
+    }
+    let centre = minimum.lerp(maximum, 0.5);
+    let direction = Vec3::from_array(incoming).normalize_or(Vec3::Y);
+    let grounded = (1.0 - (minimum.y - floor_y).max(0.0) / 0.5).clamp(0.0, 1.0);
+    if grounded <= 0.0 {
+        return None;
+    }
+    Some(ContactShadowUniform {
+        position_floor: [centre.x, centre.y, centre.z, floor_y],
+        half_height: [half.x, half.z, minimum.y, maximum.y],
+        incoming: [direction.x, direction.y, direction.z, grounded],
+    })
+}
+
 /// Most attached lights one frame draws.
 ///
 /// The GPU side is a fixed `array<DynamicLight, 8>`; a ninth key is refused so
@@ -25,7 +118,7 @@ use glam::Vec3;
 /// (the earlier keys keep their slots).
 pub const MAX_DYNAMIC_LIGHTS: usize = 8;
 
-/// Largest accepted intensity, in the shader's additive display units.
+/// Largest accepted intensity, in the shader's additive linear light units.
 ///
 /// The authoring schema caps an authored glow at 8; the renderer's own bound
 /// leaves headroom for a future range without letting a typo produce an
@@ -43,7 +136,7 @@ pub struct DynamicLight {
     pub key: String,
     /// World-space position, in metres.
     pub position: Vec3,
-    /// Display-space colour, each channel `0..=1`.
+    /// Linear colour factor, each channel `0..=1`.
     pub color: [f32; 3],
     /// Additive intensity; a light effectively off is removed, not stored.
     pub intensity: f32,
@@ -176,6 +269,70 @@ mod tests {
     )]
 
     use super::*;
+
+    #[test]
+    fn practical_selection_is_stable_bounded_and_excludes_switchable_sources() {
+        let fixtures = (0_u16..10)
+            .map(|index| {
+                serde_json::json!({
+                    "fixture":"core:fluorescent_panel_01", "x":f32::from(index), "z":0.0_f32,
+                    "align":"none", "brightness":0.5_f32 * f32::from(index + 1),
+                })
+            })
+            .collect::<Vec<_>>();
+        let level = crate::level::LevelDef::from_json(
+            &serde_json::json!({
+                "format_version":3_u16,"id":"practical_selection","name":"Practical selection",
+                "spawn":{"x":0.0_f32,"z":0.0_f32},
+                "rooms":[{"x":-1.0_f32,"z":-1.0_f32,"width":12.0_f32,"depth":3.0_f32,"height":3.0_f32}],
+                "ceiling_lights":fixtures,
+            })
+            .to_string(),
+        )
+        .expect("selection fixture");
+        let lighting = crate::lighting::LevelLighting::bake(&level);
+        assert_eq!(
+            lighting.lights().first().expect("first source").intensity(),
+            0.5
+        );
+        assert_eq!(
+            lighting.lights().last().expect("last source").intensity(),
+            5.0
+        );
+        assert_eq!(
+            select_baked_direct_lights(&lighting, &[]),
+            (2_u32..10).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            select_baked_direct_lights(&lighting, &[9]),
+            (2_u32..9).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            select_baked_direct_lights(&lighting, &[9, 9, usize::MAX]),
+            (2_u32..9).collect::<Vec<_>>(),
+            "duplicate or missing IDs cannot consume extra reserved slots"
+        );
+    }
+
+    #[test]
+    fn grounding_follows_actual_bounds_floor_and_source_direction() {
+        let bounds = crate::spatial::Aabb {
+            min: [1.0, 0.0, 2.0],
+            max: [3.0, 2.0, 4.0],
+        };
+        let shadow = contact_shadow(bounds, 0.0, [1.0, 2.0, 0.0]).expect("grounded subject");
+        assert_eq!(shadow.position_floor, [2.0, 1.0, 3.0, 0.0]);
+        assert_eq!(shadow.half_height, [1.0, 1.0, 0.0, 2.0]);
+        assert!(shadow.incoming[0] > 0.0 && shadow.incoming[1] > shadow.incoming[0]);
+        assert!(
+            contact_shadow(bounds, -1.0, [0.0, 1.0, 0.0]).is_none(),
+            "suspended object cannot ground on a distant floor"
+        );
+        assert!(
+            contact_shadow(bounds, f32::NAN, [0.0; 3]).is_none(),
+            "invalid floors are refused"
+        );
+    }
 
     fn light(key: &str, intensity: f32) -> DynamicLight {
         DynamicLight {

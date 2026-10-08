@@ -24,6 +24,7 @@
 #[cfg(test)]
 mod boundary_tests;
 mod common;
+pub(crate) use common::character::claimed_character_models;
 mod facade;
 #[cfg(test)]
 mod tests;

@@ -784,6 +784,7 @@ fn prepared_blend_decals_read_the_probe_field_and_cutout_decals_do_not() {
     let (mut mesh, _) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
     let lighting = LevelLighting::bake(&level);
     let field = crate::lighting::probes::ProbeField {
+        local_direct: None,
         min: [-10.0, -10.0, -10.0],
         cell_m: 40.0,
         dims: [1, 1, 1],
@@ -9629,6 +9630,7 @@ fn single_probe(
     room: i32,
 ) -> crate::lighting::probes::ProbeField {
     crate::lighting::probes::ProbeField {
+        local_direct: None,
         min: [position[0] - 1.0, position[1] - 1.0, position[2] - 1.0],
         cell_m: 2.0,
         dims: [1, 1, 1],
@@ -9955,6 +9957,7 @@ fn entity_probes_reject_room_labels_below_floors_and_above_ceilings() {
     use crate::render::common::light_transport::entity_lighting;
     let lighting = LevelLighting::bake(&one_fixture_room());
     let field = ProbeField {
+        local_direct: None,
         min: [0.0, -2.0, 0.0],
         cell_m: 2.0,
         dims: [1, 3, 1],
@@ -10012,6 +10015,7 @@ fn entity_probe_blending_crosses_open_doorways_but_not_solid_walls() {
         .expect("doorway level")
     };
     let field = ProbeField {
+        local_direct: None,
         min: [0.0; 3],
         cell_m: 2.0,
         dims: [4, 1, 2],

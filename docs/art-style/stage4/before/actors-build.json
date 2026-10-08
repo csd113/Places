@@ -1,0 +1,122 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_stage4_entities.json",
+  "out": "debug-maps/art-style-hero/evidence/stage4-before-actors/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 5203131,
+  "millis": 7385.028625,
+  "warnings": [
+    "dependency 'entities/spooner-man/model/spooner-man.glb' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'entities/spooner-man/model/spooner-man.glb' could not be read (No such file or directory (os error 2)); not recorded",
+    "dependency 'entities/spooner-man/model/spooner-man.glb' could not be read (No such file or directory (os error 2)); not recorded"
+  ],
+  "fingerprint": "7f9de1be2a2ba2b3f61d0333cc779a36d2579753b5999a9ef2b54493183f5bee",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 16,
+      "mesh_vertices": 490,
+      "prop_batches": 16,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 16,
+      "mesh_vertices": 384,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5354,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 16,
+      "mesh_vertices": 384,
+      "prop_batches": 16,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5354,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 23,
+      "navigation_cells": 3194,
+      "navigation_regions": 2
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 55.592625
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.41516699999999995
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.000084
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.06533399999999999
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 1.2853750000000002
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000084
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 60.397290999999996
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 25.780167
+    },
+    {
+      "phase": "capture_off",
+      "millis": 169.809458
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1374.732542
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 101.590375
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 5161.333375
+    },
+    {
+      "phase": "capture_full",
+      "millis": 100.038
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 194.57037499999998
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 136.568125
+    }
+  ]
+}

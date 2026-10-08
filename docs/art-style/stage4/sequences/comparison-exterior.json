@@ -1,0 +1,23 @@
+[
+  {
+    "frame": 1,
+    "actions": [
+      {
+        "action": "spawn",
+        "key": 904,
+        "model": "home:dining_chair",
+        "position": [
+          4.8,
+          0,
+          -2.8
+        ],
+        "yaw": 0,
+        "scale": 1
+      }
+    ]
+  },
+  {
+    "frame": 120,
+    "capture": "docs/art-style/stage4/comparison/exterior/live/on.png"
+  }
+]

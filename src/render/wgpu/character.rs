@@ -255,6 +255,7 @@ impl WgpuCharacters {
                 &ctx.environment
                     .with_model(character.transform())
                     .with_entity_lighting(Some(character.entity_lighting()))
+                    .with_spatial_lighting(character.spatial_lighting())
                     .with_opacity(character.opacity()),
             );
             Self::fill_vertices(character, &mut value.scratch);
@@ -479,6 +480,7 @@ impl WgpuCharacters {
                 &environment
                     .with_model(scene_character.transform())
                     .with_entity_lighting(Some(scene_character.entity_lighting()))
+                    .with_spatial_lighting(scene_character.spatial_lighting())
                     .with_opacity(scene_character.opacity()),
             );
             gpu.uploaded_transform = scene_character.transform();

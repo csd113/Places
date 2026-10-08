@@ -1,0 +1,26 @@
+{
+  "stage1": {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage1/snapshot.json",
+    "files_verified": 41,
+    "revision": "94d22f04a83156a3fe8ad9d16ef6d22732dc9818",
+    "all_snapshot_hashes_match": true
+  },
+  "stage2": {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage2/snapshot.json",
+    "files_verified": 41,
+    "revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+    "all_snapshot_hashes_match": true
+  },
+  "stage3": {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage3/snapshot.json",
+    "files_verified": 41,
+    "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+    "all_snapshot_hashes_match": true
+  },
+  "stage3-controls": {
+    "snapshot": "debug-maps/art-style-hero/milestones/stage3-controls/snapshot.json",
+    "files_verified": 49,
+    "revision": "b9377244249fa21fa12975ae8d93297e41111ebd",
+    "all_snapshot_hashes_match": true
+  }
+}

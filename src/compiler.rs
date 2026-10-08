@@ -1090,6 +1090,7 @@ fn build_variant(
                         &build.lighting,
                         &fill.transport,
                         &collision.walls,
+                        quality.name(),
                     );
                     let mut covered = vec![false; build.lighting.rooms().len()];
                     for probe in &field.probes {

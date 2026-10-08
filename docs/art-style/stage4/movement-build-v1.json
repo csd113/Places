@@ -1,0 +1,118 @@
+{
+  "source": "tests/fixtures/levels/art_style_hero_stage4_movement.json",
+  "out": "debug-maps/art-style-hero/evidence/stage4-movement-v1/art_style_hero.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 5742924,
+  "millis": 7543.920291,
+  "warnings": [],
+  "fingerprint": "0c4265403def06c6bb0592950ae38a34a923e25660fba8f4f10193d3e6b9e4c3",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 14,
+      "mesh_vertices": 442,
+      "prop_batches": 18,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 1,
+      "wall_boxes": 25,
+      "navigation_cells": 3207,
+      "navigation_regions": 1
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 14,
+      "mesh_vertices": 348,
+      "prop_batches": 18,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5363,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 25,
+      "navigation_cells": 3207,
+      "navigation_regions": 1
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 14,
+      "mesh_vertices": 348,
+      "prop_batches": 18,
+      "lightmap_pages": 2,
+      "lightmap_charts": 5363,
+      "irradiance_probes": 495,
+      "probe_points": 1,
+      "wall_boxes": 25,
+      "navigation_cells": 3207,
+      "navigation_regions": 1
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 47.594291
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 0.203833
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.000042
+    },
+    {
+      "phase": "semantics",
+      "millis": 0.06849999999999999
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 1.008417
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.000042
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 55.214833
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 37.0895
+    },
+    {
+      "phase": "capture_off",
+      "millis": 186.400708
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 1413.992042
+    },
+    {
+      "phase": "capture_medium",
+      "millis": 104.81174999999999
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 5239.529292
+    },
+    {
+      "phase": "capture_full",
+      "millis": 104.566041
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 200.679042
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 149.034459
+    }
+  ]
+}

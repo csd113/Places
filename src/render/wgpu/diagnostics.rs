@@ -21,11 +21,15 @@ pub enum VisualDiagnosticMode {
     Depth,
     Distance,
     LightingState,
+    ProbeField,
+    ProbeNeighborhood,
+    EntityDirect,
+    EntityIndirect,
 }
 
 impl VisualDiagnosticMode {
     /// F8's stable order; mode codes and capture names are part of the contract.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 15] = [
         Self::Final,
         Self::Albedo,
         Self::VertexNormal,
@@ -37,6 +41,10 @@ impl VisualDiagnosticMode {
         Self::Depth,
         Self::Distance,
         Self::LightingState,
+        Self::ProbeField,
+        Self::ProbeNeighborhood,
+        Self::EntityDirect,
+        Self::EntityIndirect,
     ];
 
     /// Parses a supported view, reporting unavailable data separately from typos.
@@ -59,13 +67,6 @@ impl VisualDiagnosticMode {
             })
     }
 
-    /// Explicit Stage 4 extension seam: availability changes only when a real
-    /// probe visualization provider is implemented, never by reusing lightmaps.
-    #[must_use]
-    pub const fn probe_visualization_unavailable() -> &'static str {
-        "probe positions, validity and visibility labels have no runtime visualization provider"
-    }
-
     /// Data absent from the resident GPU payload must not get a substitute view.
     #[must_use]
     pub fn unsupported_reason(name: &str) -> Option<&'static str> {
@@ -78,7 +79,6 @@ impl VisualDiagnosticMode {
             "chart-boundaries" | "seams" => Some(
                 "true chart IDs and bounds are not resident; chart-uv shows atlas UVs and a grid only",
             ),
-            "probe-field" => Some(Self::probe_visualization_unavailable()),
             _ => None,
         }
     }
@@ -97,6 +97,10 @@ impl VisualDiagnosticMode {
             Self::Depth => "depth",
             Self::Distance => "distance",
             Self::LightingState => "lighting-state",
+            Self::ProbeField => "probe-field",
+            Self::ProbeNeighborhood => "probe-neighborhood",
+            Self::EntityDirect => "entity-direct",
+            Self::EntityIndirect => "entity-indirect",
         }
     }
 
@@ -115,6 +119,10 @@ impl VisualDiagnosticMode {
             Self::Depth => 8,
             Self::Distance => 9,
             Self::LightingState => 10,
+            Self::ProbeField => 11,
+            Self::ProbeNeighborhood => 12,
+            Self::EntityDirect => 13,
+            Self::EntityIndirect => 14,
         }
     }
 
@@ -168,6 +176,18 @@ impl VisualDiagnosticMode {
             }
             Self::LightingState => {
                 "cyan=resident atlas, green=prepared entity probe, red=entity fallback, amber=static vertex fallback; state color is not illumination energy"
+            }
+            Self::ProbeField => {
+                "native markers at prepared lattice positions: green=valid air-labelled coefficient, red=invalid slot; grayscale background is actual baked response; markers depth-test against real scene"
+            }
+            Self::ProbeNeighborhood => {
+                "first movable object's bounds centre; cyan markers/links are accepted static+moving visibility contributors, brightness shows normalized weight; orange=rejected valid slot within support, red=invalid slot, yellow=query; grayscale background is actual baked response"
+            }
+            Self::EntityDirect => {
+                "selected local direct sources evaluated at the actual entity fragment, with finite taps, visibility and cosine; HDR/(1+HDR); static and legacy data unavailable"
+            }
+            Self::EntityIndirect => {
+                "entity residual probe response after selected local direct coefficients are subtracted before reconstruction; HDR/(1+HDR); static and legacy data unavailable"
             }
         }
     }
@@ -312,7 +332,6 @@ mod tests {
             "metallic",
             "chart-boundaries",
             "seams",
-            "probe-field",
         ] {
             let result = VisualDiagnosticMode::parse(name);
             assert!(result.is_err(), "{name} must not select fabricated data");

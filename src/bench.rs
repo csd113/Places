@@ -39,6 +39,8 @@ use std::time::Instant;
 use crate::quality::{LightmapQuality, ReflectionQuality};
 use crate::render::RenderStats;
 
+pub mod lighting_sequence;
+
 /// Environment switch that turns every other `PLACES_BENCH_*` option on.
 const BENCH_ENV: &str = "PLACES_BENCH";
 /// Optional CSV path; one row per recorded frame.
@@ -64,6 +66,7 @@ const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
 /// * `lightmaps=off|medium|full`
 /// * `reflections=off|medium|full`
 /// * `bloom=on|off` (`1`/`0`/`true`/`false` are accepted too)
+/// * `low-lighting=on|off` (independent of texture quality/filtering)
 ///
 /// For example: `3:filtering=low,6:lightmaps=full,9:reflections=off,12:bloom=off`.
 /// Each entry runs through the same `Settings` setter the menu uses when
@@ -261,6 +264,8 @@ pub enum GraphicsChange {
     Reflections(ReflectionQuality),
     /// `bloom=<on|off>`.
     Bloom(bool),
+    /// Independent Low lighting override, preserving texture quality.
+    LowLighting(bool),
 }
 
 /// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
@@ -281,6 +286,7 @@ pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
         "lightmaps" => LightmapQuality::parse(setting_value).map(GraphicsChange::Lightmaps),
         "reflections" => ReflectionQuality::parse(setting_value).map(GraphicsChange::Reflections),
         "bloom" => parse_on_off(setting_value).map(GraphicsChange::Bloom),
+        "low-lighting" => parse_on_off(setting_value).map(GraphicsChange::LowLighting),
         _ => None,
     }
 }
@@ -422,6 +428,7 @@ pub struct Bench {
     graphics_cycle: Vec<(u64, GraphicsChange)>,
     /// Scripted live window actions, in ascending frame order.
     window_cycle: Vec<(u64, WindowAction)>,
+    lighting_sequence: lighting_sequence::LightingSequence,
 }
 
 impl Bench {
@@ -505,6 +512,7 @@ impl Bench {
             })
             .unwrap_or_default();
         window_cycle.sort_by_key(|(frame, _)| *frame);
+        let lighting_sequence = lighting_sequence::LightingSequence::from_env(config.enabled);
         Self {
             warmup_remaining: config.warmup_frames,
             limit_remaining: config.limit_frames,
@@ -518,7 +526,18 @@ impl Bench {
             quality_cycle,
             graphics_cycle,
             window_cycle,
+            lighting_sequence,
         }
+    }
+
+    /// Developer-only model actions due at this ready frame, consumed once.
+    pub fn lighting_actions_at(&mut self, frame: u64) -> Vec<lighting_sequence::LightingAction> {
+        self.lighting_sequence.actions_at(frame)
+    }
+
+    /// A new native capture path due at this ready frame, consumed once.
+    pub fn lighting_capture_at(&mut self, frame: u64) -> Option<PathBuf> {
+        self.lighting_sequence.capture_at(frame)
     }
 
     /// The window action a scripted lifecycle selects at `frame`, if any.

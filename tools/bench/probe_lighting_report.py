@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only PLPF v2 / atlas audit, using neutral (unit-albedo) illumination.
+"""Read-only PLPF v2/v3 / atlas audit, using neutral (unit-albedo) illumination.
 
 Usage: probe_lighting_report.py PACKAGE --locations locations.json [--variant full]
 Locations: [{"name": "pool", "position": [x,y,z], "room": 3}, ...].
@@ -23,17 +23,21 @@ def luminance(rgb):
 
 
 def read_field(data):
-    if len(data) < 38 or data[:4] != b"PLPF" or struct.unpack_from("<H", data, 4)[0] != 2:
-        raise ValueError("expected PLPF v2")
+    if len(data) < 38 or data[:4] != b"PLPF":
+        raise ValueError("expected PLPF v2/v3")
+    version = struct.unpack_from("<H", data, 4)[0]
+    if version not in (2, 3):
+        raise ValueError("expected PLPF v2/v3")
     x, y, z, cell, nx, ny, nz, count = struct.unpack_from("<4f4I", data, 6)
     if not all(math.isfinite(value) for value in (x, y, z, cell)) or cell <= 0:
         raise ValueError("invalid probe lattice")
     if any(value < 1 or value > 64 for value in (nx, ny, nz)) or count != nx * ny * nz:
         raise ValueError("invalid probe count")
-    if len(data) != 38 + 36 * count:
+    base_end = 38 + 36 * count
+    if len(data) < base_end or (version == 2 and len(data) != base_end):
         raise ValueError("invalid PLPF length")
     probes = []
-    for index, values in enumerate(struct.iter_unpack("<8fi", data[38:])):
+    for index, values in enumerate(struct.iter_unpack("<8fi", data[38:base_end])):
         if not all(math.isfinite(value) for value in values[:8]) or min(values[:3]) < 0 or max(values[:3]) > 65504:
             raise ValueError("invalid probe energy")
         if not -1 <= values[8] <= 32767:
@@ -47,7 +51,36 @@ def read_field(data):
                     z + (index // nx // ny + 0.5) * cell)
         probes.append({"index": index, "position": position, "irradiance": values[:3],
                        "moment": values[3:6], "room": values[8]})
-    return {"origin": (x, y, z), "cell_m": cell, "dims": (nx, ny, nz), "probes": probes}
+    selected = ()
+    if version == 3:
+        if len(data) < base_end + 4:
+            raise ValueError("missing PLPF selected direct extension")
+        light_count, = struct.unpack_from("<I", data, base_end)
+        direct_start = base_end + 4 + light_count * 4
+        expected_end = direct_start + (count * 24 if light_count else 0)
+        if light_count > 8 or len(data) != expected_end:
+            raise ValueError("invalid PLPF selected direct length")
+        selected = struct.unpack_from(f"<{light_count}I", data, base_end + 4)
+        if any(a >= b for a, b in zip(selected, selected[1:])):
+            raise ValueError("invalid PLPF selected source order")
+        if light_count:
+            for probe, direct in zip(probes, struct.iter_unpack("<6f", data[direct_start:])):
+                means, moment = direct[:3], direct[3:]
+                if not all(math.isfinite(value) for value in direct) or min(means) < 0 or max(means) > 65504:
+                    raise ValueError("invalid selected direct energy")
+                tolerance = sum(probe["irradiance"]) * 32 * 2**-23
+                if math.sqrt(sum(value * value for value in moment)) > sum(means) * (1 + 32 * 2**-23):
+                    raise ValueError("selected direct moment exceeds energy")
+                residual = tuple(total - local for total, local in zip(probe["irradiance"], means))
+                remaining_moment = tuple(total - local for total, local in zip(probe["moment"], moment))
+                if min(residual) < -tolerance or math.sqrt(sum(value * value for value in remaining_moment)) > sum(max(0, value) for value in residual) + tolerance:
+                    raise ValueError("invalid selected direct residual")
+                probe["selected_direct"] = means
+                probe["selected_direct_moment"] = moment
+                probe["nonlocal_irradiance"] = tuple(max(0, value) for value in residual)
+                probe["nonlocal_moment"] = remaining_moment
+    return {"origin": (x, y, z), "cell_m": cell, "dims": (nx, ny, nz), "probes": probes,
+            "record_version": version, "selected_light_indices": selected}
 
 
 def reconstruct(irradiance, moment, normal):
@@ -201,6 +234,8 @@ def report(package, locations, variant="full"):
                          "static_beneath_probe_luminance":luminance(beneath_probe["light"]) if beneath_probe else None,
                          "candidate_flags":flags})
     return {"variant":variant,"origin":field["origin"],"dims":field["dims"],"cell_m":field["cell_m"],
+            "record_version":field["record_version"],"selected_light_indices":field["selected_light_indices"],
+            "serialized_probe_bytes":len(raw),
             "probe_count":len(field["probes"]),"valid_count":len(valid),
             "irradiance_sha256":hashlib.sha256(raw).hexdigest(),
             "valid_luminance_range":(min(map(lambda p:luminance(p["irradiance"]),valid), default=0),
