@@ -1,0 +1,8 @@
+{
+  "byte_identical": {
+    "room": true,
+    "window": true,
+    "entities": true
+  },
+  "meaning": "Normal release after diagnostics implementation versus original High native baseline; unchanged fixed cameras and package."
+}

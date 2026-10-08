@@ -296,7 +296,7 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
 /// ```text
 /// offset  0  view_projection  mat4x4<f32>  64 bytes
 /// offset 64  position         vec3<f32>    12 bytes
-/// offset 76  _padding         f32
+/// offset 76  diagnostic_selector f32 (WGSL `_padding`)
 /// ------------------------------------------------ 80 bytes, align 16
 /// ```
 ///
@@ -312,8 +312,9 @@ pub struct CameraUniform {
     pub view_projection: [[f32; 4]; 4],
     /// World-space eye position, the reference's `u_camera_pos`.
     pub position: [f32; 3],
-    /// Explicit padding to the 16-byte uniform alignment.
-    pub _padding: f32,
+    /// Reserved alignment lane; the development shader consumes it as a
+    /// selector. Production WGSL retains the `_padding` spelling and zero.
+    pub diagnostic_selector: f32,
 }
 
 impl CameraUniform {
@@ -323,8 +324,16 @@ impl CameraUniform {
         Self {
             view_projection: matrix.to_cols_array_2d(),
             position: [eye.x, eye.y, eye.z],
-            _padding: 0.0,
+            diagnostic_selector: 0.0,
         }
+    }
+
+    /// Uses the otherwise unread padding lane for the development selector.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    fn with_visual_diagnostic(mut self, mode: super::diagnostics::VisualDiagnosticMode) -> Self {
+        self.diagnostic_selector = f32::from(mode.code());
+        self
     }
 }
 
@@ -335,20 +344,28 @@ pub const CAMERA_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<CameraUniform
 /// reads.
 ///
 /// Bit comparison rather than `==` keeps the predicate exact (a one-ULP camera
-/// change still updates the buffer) and keeps the padding field out of the
-/// decision: the two floats the shader consumes are compared, nothing else.
+/// change still updates the buffer). The development shader additionally reads
+/// the selector in the padding lane; the production shader never reads it.
 fn camera_uniform_same_bits(left: &CameraUniform, right: &CameraUniform) -> bool {
     let bits = |matrix: [[f32; 4]; 4]| matrix.map(|column| column.map(f32::to_bits));
-    bits(left.view_projection) == bits(right.view_projection)
-        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits)
+    let camera_matches = bits(left.view_projection) == bits(right.view_projection)
+        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits);
+    #[cfg(feature = "visual-diagnostics")]
+    {
+        camera_matches && left.diagnostic_selector.to_bits() == right.diagnostic_selector.to_bits()
+    }
+    #[cfg(not(feature = "visual-diagnostics"))]
+    {
+        camera_matches
+    }
 }
 
 /// True when `next` must be written over `previous`.
 ///
 /// The predicate compares the *value* the shader reads — the view-projection
-/// and the eye — not the whole struct, so the padding byte can never cause a
-/// write. A still camera must not touch the buffer, and any change to either
-/// field must reach the shader (the sheen is view-dependent, so an eye that
+/// and the eye — and the feature-only diagnostic selector. A still camera must
+/// not touch the buffer, and any change to a consumed field must reach the shader
+/// (the sheen is view-dependent, so an eye that
 /// moved while the matrix rounding stayed equal still has to be uploaded).
 #[must_use]
 pub fn camera_uniform_changed(previous: Option<CameraUniform>, next: CameraUniform) -> bool {
@@ -1675,6 +1692,8 @@ pub struct WorldPipeline {
     format: wgpu::TextureFormat,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<CameraUniform>,
+    #[cfg(feature = "visual-diagnostics")]
+    visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
 }
 
 impl WorldPipeline {
@@ -1728,9 +1747,13 @@ impl WorldPipeline {
         cull_opaque: bool,
         raw_target: bool,
     ) -> Self {
+        #[cfg(feature = "visual-diagnostics")]
+        let shader_source = super::diagnostics::world_shader_source(WORLD_SHADER_SRC);
+        #[cfg(not(feature = "visual-diagnostics"))]
+        let shader_source = WORLD_SHADER_SRC.into();
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-wgpu-world-shader"),
-            source: wgpu::ShaderSource::Wgsl(WORLD_SHADER_SRC.into()),
+            source: wgpu::ShaderSource::Wgsl(shader_source),
         });
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("places-wgpu-world-camera-layout"),
@@ -1827,6 +1850,8 @@ impl WorldPipeline {
             lights_bind_group,
             format,
             uploaded: None,
+            #[cfg(feature = "visual-diagnostics")]
+            visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
         }
     }
 
@@ -1861,12 +1886,29 @@ impl WorldPipeline {
     /// from touching the buffer at all. See [`camera_uniform_changed`], which
     /// the test below exercises directly.
     pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, eye: glam::Vec3) {
+        #[cfg(feature = "visual-diagnostics")]
+        let uniform =
+            CameraUniform::new(view_projection, eye).with_visual_diagnostic(self.visual_diagnostic);
+        #[cfg(not(feature = "visual-diagnostics"))]
         let uniform = CameraUniform::new(view_projection, eye);
         if !camera_uniform_changed(self.uploaded, uniform) {
             return;
         }
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
         self.uploaded = Some(uniform);
+    }
+
+    /// Selects a development view for this pipeline's next camera upload.
+    #[cfg(feature = "visual-diagnostics")]
+    pub const fn set_visual_diagnostic(&mut self, mode: super::diagnostics::VisualDiagnosticMode) {
+        self.visual_diagnostic = mode;
+    }
+
+    /// The exact selector last uploaded to this pipeline's camera binding.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn uploaded_visual_selector(&self) -> Option<f32> {
+        self.uploaded.map(|uniform| uniform.diagnostic_selector)
     }
 
     /// Uploads one frame's attached lights.
@@ -2758,7 +2800,7 @@ mod tests {
         // The eye is at the WGSL `vec3<f32>` offset (64) with explicit padding
         // behind it, so the struct's Rust layout is the shader's uniform layout.
         assert_eq!(std::mem::offset_of!(CameraUniform, position), 64);
-        assert_eq!(std::mem::offset_of!(CameraUniform, _padding), 76);
+        assert_eq!(std::mem::offset_of!(CameraUniform, diagnostic_selector), 76);
         // The shader declares exactly one camera binding: a matrix and the eye.
         assert!(WORLD_SHADER_SRC.contains("mat4x4<f32>"));
         assert!(WORLD_SHADER_SRC.contains("position: vec3<f32>"));
@@ -2786,6 +2828,31 @@ mod tests {
         let moved_matrix =
             CameraUniform::new(Mat4::from_translation(glam::Vec3::new(0.25, 0.0, 0.0)), eye);
         assert!(camera_uniform_changed(Some(uniform), moved_matrix));
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    #[test]
+    fn a_diagnostic_change_uploads_even_when_the_camera_is_still() {
+        use super::super::diagnostics::VisualDiagnosticMode;
+        let final_view = CameraUniform::new(Mat4::IDENTITY, glam::Vec3::ZERO);
+        let normals = final_view.with_visual_diagnostic(VisualDiagnosticMode::WorldNormal);
+        assert!(
+            camera_uniform_changed(Some(final_view), normals),
+            "live selector must reach a still camera"
+        );
+        assert!(
+            !camera_uniform_changed(Some(normals), normals),
+            "unchanged selector must skip writes"
+        );
+        assert!(
+            camera_uniform_changed(Some(normals), final_view),
+            "returning to final must reach the shader"
+        );
+        assert_eq!(
+            final_view.diagnostic_selector.to_bits(),
+            0.0_f32.to_bits(),
+            "final retains production padding bits"
+        );
     }
 
     // -------------------------------------------------------- coordinates

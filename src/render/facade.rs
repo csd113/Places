@@ -46,6 +46,24 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Selects an opt-in development view independently of authored content.
+    ///
+    /// # Errors
+    /// Returns a supported-name list or an explicit unavailable-data reason.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn set_visual_diagnostic(&mut self, selector: &str) -> Result<(), String> {
+        let mode = super::wgpu::diagnostics::VisualDiagnosticMode::parse(selector)?;
+        self.renderer.set_visual_diagnostic(mode);
+        Ok(())
+    }
+
+    /// Cycles the stable development-view order without reloading resources.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn cycle_visual_diagnostic(&mut self) {
+        let mode = self.renderer.visual_diagnostic().next();
+        self.renderer.set_visual_diagnostic(mode);
+    }
+
     /// Builds a window-free renderer for the offline probe capture.
     ///
     /// Used only by `places-compile`: the player always owns a window. The

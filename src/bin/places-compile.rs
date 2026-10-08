@@ -30,6 +30,8 @@ USAGE:
                        [--asset-root <dir>] [--workers N] [--force] [--json]
   places-compile validate <package> [--json]
   places-compile inspect <package> [--json]
+  places-compile export-lighting <package> --out <new-directory>
+                       [--variants off,medium,full] [--json]
   places-compile verify <source.json> --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
   places-compile --help | --version
@@ -45,7 +47,8 @@ OPTIONS:
                       Also read from PLACES_TOOL_WORKERS; the flag wins.
   --variants <list>   Comma-separated lightmap qualities to prepare
                       (default: off,medium,full).
-  --out <package>     Output path (default: the source's sibling .placesmap).
+  --out <path>        Build output package, or new export-lighting directory.
+                      Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
 ";
@@ -381,6 +384,36 @@ fn run(args: &[String]) -> Result<(), CliError> {
                     println!(
                         "dependency {:?} {} ({} bytes)",
                         dependency.kind, dependency.path, dependency.bytes
+                    );
+                }
+            }
+            Ok(())
+        }
+        "export-lighting" => {
+            if positional.len() != 1 {
+                return Err(CliError::Usage(
+                    "export-lighting needs exactly one package path".to_string(),
+                ));
+            }
+            let package = positional.first().ok_or_else(|| {
+                CliError::Usage("export-lighting needs a package path".to_string())
+            })?;
+            let output = option_value(&option_args, "--out").ok_or_else(|| {
+                CliError::Usage("export-lighting needs --out <new-directory>".to_string())
+            })?;
+            let report = compiler::diagnostics::export_lighting(
+                &PathBuf::from(package.as_str()),
+                &PathBuf::from(output),
+                &options.variants,
+            )?;
+            if options.json {
+                print_json(&report)?;
+            } else {
+                println!("exported lighting {} to {}", report.package, report.out);
+                for variant in &report.variants {
+                    println!(
+                        "  {}: {} charts, {} probes",
+                        variant.quality, variant.charts, variant.probes
                     );
                 }
             }

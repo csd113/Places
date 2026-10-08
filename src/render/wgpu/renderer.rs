@@ -244,6 +244,15 @@ impl Default for GraphicsConfig {
 }
 
 impl GraphicsConfig {
+    #[cfg(feature = "visual-diagnostics")]
+    fn diagnostic_state(self) -> serde_json::Value {
+        serde_json::json!({
+            "quality": self.quality.name(), "lighting": self.lighting_quality.name(),
+            "filtering": self.filtering.name(), "bloom": self.bloom,
+            "lightmaps": self.lightmaps.name(), "reflections": self.reflections.name(),
+        })
+    }
+
     /// What changed between the applied configuration and `next`.
     fn delta_from(self, next: Self) -> GraphicsDelta {
         GraphicsDelta {
@@ -494,6 +503,8 @@ pub struct WgpuRenderer {
     /// Whether the player asked for bloom. The emissive/bloom pass gates on it;
     /// recorded here so `set_bloom_enabled` can be applied without a rebuild.
     bloom_requested: bool,
+    #[cfg(feature = "visual-diagnostics")]
+    visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
     /// Whether the player asked for reflections. The probe and planar
     /// resources live in `render::wgpu::reflections`; the flag is recorded
     /// here and gates the environment's reflection sampling.
@@ -868,6 +879,8 @@ impl WgpuRenderer {
             animation_seconds: 0.0,
             fog: LevelFog::global_only(),
             bloom_requested: true,
+            #[cfg(feature = "visual-diagnostics")]
+            visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
             reflections_enabled: true,
             reflections: Reflections::default(),
             reflection_targets: ReflectionTargets::default(),
@@ -2800,6 +2813,32 @@ impl WgpuRenderer {
         self.culling = enabled;
     }
 
+    /// Selects a development view without touching authored or prepared data.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn set_visual_diagnostic(&mut self, mode: super::diagnostics::VisualDiagnosticMode) {
+        self.visual_diagnostic = mode;
+        self.trace_visual_diagnostic("select", None);
+    }
+
+    /// The currently selected development view.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub const fn visual_diagnostic(&self) -> super::diagnostics::VisualDiagnosticMode {
+        self.visual_diagnostic
+    }
+
+    /// Constant false in ordinary builds, so normal frame paths pay no branch.
+    const fn visual_diagnostic_active(&self) -> bool {
+        #[cfg(feature = "visual-diagnostics")]
+        {
+            !self.visual_diagnostic.is_final()
+        }
+        #[cfg(not(feature = "visual-diagnostics"))]
+        {
+            false
+        }
+    }
+
     /// Records the requested quality level.
     ///
     /// Recording changes no GPU state; the work (re-fitting the retained
@@ -3021,6 +3060,8 @@ impl WgpuRenderer {
             let _update_stats = environment.update(&self.queue, &view_uniform);
         }
         if let Some(pipeline) = self.world_pipeline.as_mut() {
+            #[cfg(feature = "visual-diagnostics")]
+            pipeline.set_visual_diagnostic(self.visual_diagnostic);
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
         if let Some(pipeline) = self.decal_pipeline.as_mut() {
@@ -3032,6 +3073,8 @@ impl WgpuRenderer {
             );
         }
         if let Some(pipeline) = self.scene_pipeline.as_mut() {
+            #[cfg(feature = "visual-diagnostics")]
+            pipeline.set_visual_diagnostic(self.visual_diagnostic);
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
         if let Some(pipeline) = self.emissive_pipeline.as_mut() {
@@ -3159,7 +3202,11 @@ impl WgpuRenderer {
         let Some(post) = self.post.as_ref().filter(|post| post.is_ready()) else {
             return self.encode_direct(encoder, target, frame);
         };
-        let settings = PostSettings::for_level(self.quality).with_bloom(self.bloom_requested);
+        let settings = if self.visual_diagnostic_active() {
+            PostSettings::for_level(QualityLevel::Low)
+        } else {
+            PostSettings::for_level(self.quality).with_bloom(self.bloom_requested)
+        };
         let mut totals = WorldDrawTotals::default();
         {
             let Some(scene_view) = post.scene_view() else {
@@ -3262,7 +3309,9 @@ impl WgpuRenderer {
         };
         // The night sky paints the cleared background first; the world body
         // draws over it with depth testing, so a solid ceiling always hides it.
-        if let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref()) {
+        if !self.visual_diagnostic_active()
+            && let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
+        {
             sky_pipeline.encode_scene(pass, sky, self.filtering);
         }
         totals = pipeline.encode(
@@ -3281,8 +3330,9 @@ impl WgpuRenderer {
                 cull: self.culling,
             },
         );
-        if let (Some(decals), Some(decal_pipeline)) =
-            (self.decals.as_ref(), self.decal_scene_pipeline.as_ref())
+        if !self.visual_diagnostic_active()
+            && let (Some(decals), Some(decal_pipeline)) =
+                (self.decals.as_ref(), self.decal_scene_pipeline.as_ref())
         {
             let decal_totals = decals.encode(
                 pass,
@@ -3326,6 +3376,9 @@ impl WgpuRenderer {
         pipeline: Option<&'a EffectsPipeline>,
         totals: &mut WorldDrawTotals,
     ) {
+        if self.visual_diagnostic_active() {
+            return;
+        }
         let (Some(effects), Some(effects_pipeline)) = (self.world_effects.as_ref(), pipeline)
         else {
             return;
@@ -3388,7 +3441,9 @@ impl WgpuRenderer {
         {
             // The sky background, drawn before the world exactly like the
             // offscreen scene body.
-            if let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
+            if !self.visual_diagnostic_active()
+                && let (Some(sky), Some(sky_pipeline)) =
+                    (self.sky.as_ref(), self.sky_pipeline.as_ref())
             {
                 sky_pipeline.encode_surface(&mut pass, sky, self.filtering);
             }
@@ -3408,8 +3463,9 @@ impl WgpuRenderer {
                     cull: self.culling,
                 },
             );
-            if let (Some(decals), Some(decal_pipeline)) =
-                (self.decals.as_ref(), self.decal_pipeline.as_ref())
+            if !self.visual_diagnostic_active()
+                && let (Some(decals), Some(decal_pipeline)) =
+                    (self.decals.as_ref(), self.decal_pipeline.as_ref())
             {
                 let decal_totals = decals.encode(
                     &mut pass,
@@ -4057,6 +4113,90 @@ impl WgpuRenderer {
         }
     }
 
+    /// Receipts describe actual bindings at capture time, after live settings
+    /// actions and resource commits, rather than treating startup as applied.
+    #[cfg(feature = "visual-diagnostics")]
+    fn trace_visual_diagnostic(&self, event: &str, capture_totals: Option<&WorldDrawTotals>) {
+        let atlas = self.lightmaps.stats();
+        let uniform = self
+            .environment
+            .as_ref()
+            .map(EnvironmentBindings::uploaded_uniform);
+        let world = self.world.as_ref().map(|geometry| {
+            let stats = geometry.stats();
+            serde_json::json!({
+                "vertices": stats.uploaded_vertices, "indices": stats.uploaded_indices,
+                "draws": stats.draws, "chunks": stats.chunks,
+                "vertex_bytes": stats.vertex_bytes, "index_bytes": stats.index_bytes,
+            })
+        });
+        let props = self.world_props.as_ref().map(|geometry| {
+            let stats = geometry.stats();
+            serde_json::json!({"vertices": stats.vertices, "indices": stats.indices,
+                "draws": stats.draws, "chunks": stats.chunks, "texture_bytes": stats.resident_bytes})
+        });
+        let dynamic = self.world_dynamic.as_ref().map(|geometry| {
+            let stats = geometry.stats();
+            serde_json::json!({"objects": stats.objects, "meshes": stats.meshes,
+                "draws": stats.draws, "vertices": stats.vertices})
+        });
+        let characters = self.world_characters.as_ref().map(|geometry| {
+            let stats = geometry.stats();
+            serde_json::json!({"characters": stats.characters, "meshes": stats.meshes,
+                "draws": stats.draws, "vertices": stats.vertices})
+        });
+        let probes = self
+            .reflection_targets
+            .probes()
+            .iter()
+            .map(|probe| {
+                serde_json::json!({"position": probe.position, "face_size": probe.face_size,
+                "mip_levels": probe.mip_levels})
+            })
+            .collect::<Vec<_>>();
+        let receipt = serde_json::json!({
+            "event": event, "mode": self.visual_diagnostic.name(),
+            "meaning": self.visual_diagnostic.meaning(), "level": self.level_id,
+            "requested": self.graphics_requested.diagnostic_state(),
+            "applied": self.graphics_applied.diagnostic_state(),
+            "capture_submission": capture_totals.map(super::diagnostics::capture_submission),
+            "surface_submission": {"source": "last surface RenderStats; may remain zero or stale when acquisition is skipped",
+                "draw_calls": self.render_stats.draw_calls, "visible_batches": self.render_stats.visible_batches,
+                "visible_vertices": self.render_stats.visible_vertices, "texture_binds": self.render_stats.texture_binds,
+                "material_changes": self.render_stats.material_changes},
+            "resident": {
+                "quality": self.installed_quality.name(), "lightmaps": self.installed_lightmaps.name(),
+                "filtering": self.filtering.name(), "reflection_enabled": self.reflections_enabled,
+                "lightmaps_resident": self.lightmaps_resident,
+                "atlas": {"pages": atlas.pages, "page_edge": atlas.page_edge,
+                    "charts": atlas.charts, "chart_texels": atlas.chart_texels,
+                    "bytes": atlas.resident_bytes, "format": "Rgba16Float irradiance+signed moment"},
+                "reflection_probes": probes, "active_probe": self.active_probe,
+                "active_plane": self.active_plane, "planar_resident": self.reflection_targets.planar().is_some(),
+                "lighting_uniform": uniform.map(|value| serde_json::json!({
+                    "light_scale": value.light_scale, "lightmap_enabled": value.lightmap_enabled,
+                    "page_count": value.lightmap_page_count, "switchable_word": value.lightmap_switchable,
+                    "fog_density": value.fog_density, "fog_region_count": value.fog_region_count})),
+                "world": world, "props": props, "dynamic": dynamic, "characters": characters,
+            },
+            "frame": {"drawable": [self.drawable_size.width, self.drawable_size.height],
+                "scene_size": self.post.as_ref().and_then(PostProcess::diagnostic_scene_size)
+                    .map(|size| [size.width, size.height]),
+                "scene_format": "Rgba8Unorm raw display", "base_color_format": "Rgba8Unorm raw authored display",
+                "world_uploaded_selector": self.world_pipeline.as_ref().and_then(WorldPipeline::uploaded_visual_selector),
+                "scene_uploaded_selector": self.scene_pipeline.as_ref().and_then(WorldPipeline::uploaded_visual_selector),
+                "culling": self.culling, "bloom_requested": self.bloom_requested,
+                "bloom_allowed": self.bloom_requested && !self.visual_diagnostic_active(),
+                "diagnostic_identity_post": self.visual_diagnostic_active(),
+                "sky_decals_effects_suppressed": self.visual_diagnostic_active()},
+            "unavailable": {"decomposition": "direct/indirect/filter/fill remain offline solver exports",
+                "shadow_ao": "no standalone payload", "metallic": "no material shader input",
+                "charts": "atlas grid has no true chart ID/boundary/seam metadata",
+                "probe_field": super::diagnostics::VisualDiagnosticMode::probe_visualization_unavailable()},
+        });
+        logging::info(format!("[visual-diagnostic] {receipt}"));
+    }
+
     /// Reports a selected entity only on the explicit capture path:
     /// `PLACES_ENTITY_LIGHT_TRACE=all`, an instance id, or a model path.
     fn trace_entity_lighting(&self, selector: &str) {
@@ -4234,13 +4374,7 @@ impl WgpuRenderer {
         // so the post-path capture is its raw copy: display-space bytes
         // with no sRGB round trip. The
         // direct fallback re-renders the body and replays the last UI list.
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("places-wgpu-capture"),
-            });
-        let _ = self.encode_frame_into(&mut encoder, &view, &frame);
-        let _submission = self.queue.submit([encoder.finish()]);
+        self.submit_capture_scene(&view, &frame);
         if post_presented {
             // The capture re-renders the resolved scene into the presented
             // target, replays the HUD there, then copies the presented image into
@@ -4293,6 +4427,22 @@ impl WgpuRenderer {
             }
         }
         read_back_rgba(&self.device, &self.queue, &texture, width, height, format)
+    }
+
+    /// Submits the capture's scene and then receipts the exact encoded totals.
+    fn submit_capture_scene(&self, view: &wgpu::TextureView, frame: &super::world::WorldFrame) {
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("places-wgpu-capture"),
+            });
+        #[cfg(feature = "visual-diagnostics")]
+        let capture_totals = self.encode_frame_into(&mut encoder, view, frame);
+        #[cfg(not(feature = "visual-diagnostics"))]
+        let _ = self.encode_frame_into(&mut encoder, view, frame);
+        let _submission = self.queue.submit([encoder.finish()]);
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_visual_diagnostic("capture", Some(&capture_totals));
     }
 
     /// Recreates the probe targets for `quality` and re-captures them.

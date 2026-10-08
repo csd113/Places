@@ -40,7 +40,7 @@ Medium uses its 48 px variant. This scene has no active planar surface. There
 are no missing textures or failed static models. [Package inspect](package-inspect.json)
 preserves exact record/dependency storage.
 
-## Timing evidence that cannot be treated as scene performance
+## Initial timing attempt that cannot be treated as scene performance
 
 Five bounded native samples use 120 warmup + 360 recorded frames: High
 room/hall/entities, Medium room and Low room. Raw CSVs/logs/manifests are under
@@ -60,8 +60,8 @@ encoding, so the saved PNGs are genuine native scene renders despite this surfac
 limitation. Capture startup/wall latency is available in each capture manifest
 (roughly two seconds per process here); it includes discovery, GPU initialization,
 world load, the deliberate half-second wait and readback. It is not steady-frame
-performance either. A foreground successfully presenting campaign remains an
-explicit ledger item for Stage 2/final acceptance.
+performance either. A later successfully submitting normal-build campaign now supplies the baseline
+below; the original invalid rows remain preserved and excluded.
 
 An initial timing attempt overlapped the active library test run and is retained
 only under `/tmp/places-stage1-performance-shared-load`. It is excluded here.
@@ -69,6 +69,58 @@ The first wrongly labeled control attempt omitted `--quality low`; it actually
 ran High, was moved to `/tmp/places-stage1-control-request-high`, and was replaced
 with the genuine Low receipts. Neither discarded attempt is represented as a
 quality/performance comparison.
+
+## Submitted normal-engine baseline after integrated diagnostics
+
+The initial unavailable-surface condition no longer occurred in the expanded
+campaign. The preserved **normal release**, with diagnostics omitted, ran six
+bounded samples: 120 warmup + 360 recorded frames each, sequentially without
+builds/tests/bakes/native workers. **Every sample has 360/360 nonzero scene-draw
+frames**. [Exact commands](diagnostics/performance-execution.json),
+[raw CSV/log/manifest files](diagnostics/performance/) and
+[parsed distributions](diagnostics/performance-summary.json) retain provenance.
+VSync is requested Off; the initial adapter receipt says Fifo, followed by the
+actual settings application log `[wgpu] present mode Immediate (immediate)`.
+
+| Normal quality / fixed view | Median render CPU ms | Median / p95 frame CPU ms | Median / p95 event loop ms | Accounted scene draws / distinct range vertices | Process peak RSS |
+| --- | --- | --- | --- | --- | --- |
+| High / entities | 7.130 | 7.387 / 13.712 | 7.771 / 14.294 | 17 / 11100 | 431.5 MiB |
+| High / hall | 7.140 | 7.358 / 14.645 | 7.758 / 15.009 | 8 / 212 | 432.4 MiB |
+| High / room | 7.098 | 7.315 / 14.149 | 7.676 / 14.655 | 31 / 21440 | 433.3 MiB |
+| High / window | 6.925 | 7.202 / 14.406 | 7.579 / 14.915 | 18 / 9960 | 431.3 MiB |
+| Low / room | 7.354 | 7.586 / 14.003 | 7.963 / 14.473 | 31 / 16568 | 175.9 MiB |
+| Medium / room | 7.289 | 7.569 / 13.894 | 7.936 / 14.438 | 31 / 21440 | 365.9 MiB |
+
+These timings measure CPU work/submission and event-loop pacing, **not GPU
+execution or physical display refresh**. `frame_ms` adds measured update/render/
+swap work; `loop_ms` also includes scheduler/event time. No GPU timestamps,
+latency tracing, moving-camera run, long thermal test or other target hardware
+was measured. Low/Medium being no faster here is a reason to profile bottlenecks,
+not evidence that resolution has no GPU cost. This is an honest local baseline,
+not an invented minimum FPS or justification to raise limits.
+
+The original High RSS sample was 447.3 MiB; the new room run is 433.3 MiB. There
+was no lighting/render improvement or controlled before/after cost experiment;
+host/cache/window conditions differ. Treat this variation as a measurement limit.
+The normal build excludes the diagnostic shader branch/selector. Feature-final
+image equality verifies composition, but no enabled-feature overhead budget is
+claimed from mixed runs.
+
+Capture-time instrumentation also now gives genuine **offscreen base-scene**
+counts: room/contact/entities/window/hall are 31/23/17/18/8 accounted draws in
+the fixed scene, respectively. Counts exclude uncounted sky/reflections, emission
+duplicates, post and UI. Frustum-accepted distinct indexed range/object vertices
+are not triangle or occlusion-visible counts. [Native state summary](diagnostics/native-state-summary.json)
+records these counts plus world/prop/dynamic geometry storage, two atlas pages,
+reflection faces, actual scene resolution and process RSS for each control.
+Static upload remains 5,300 model triangles; a triangle count cannot be inferred
+by dividing the submitted distinct vertices by three.
+
+The one provenance-enabled hero bake takes 5.952 s wall versus the earlier
+uninstrumented 4.89 s. This includes raw arrays, metadata and diagnostic image
+I/O, so it is **not** a physical-solver performance regression measurement.
+The package is byte-identical. Raw evidence stays outside `target/`; no caps,
+transport settings, formats or map content were changed to improve numbers.
 
 ## Existing safety limits and practical budgets
 

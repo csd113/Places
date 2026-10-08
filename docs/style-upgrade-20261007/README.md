@@ -112,6 +112,40 @@ The audit preserves working openings, warm light pools, real static shadows and
 the four asset passes, while separating chart/fill policy, entity probes, color
 headroom, material support, reflection sky and atmosphere problems. Dark exterior
 readability remains; Low is supporting evidence, not acceptance. The exact stale
-local-package ledger and unavailable background scene-FPS measurement are stated
-openly. Verified implementation and push/CI links are recorded in
+local-package ledger and the initially unavailable surface measurement are stated
+openly; the diagnostic extension below adds a valid submitted-frame baseline. Verified implementation and push/CI links are recorded in
 [the Stage 1 handoff](../art-style/handoff.md).
+
+## 2026-10-08 — Art-style Stage 1: seeing the pipeline
+
+[Selectable native diagnostics and provenance](../art-style/diagnostics.md) ·
+[Expanded costs](../art-style/performance.md) ·
+[Exact checks and limitations](../art-style/validation.md)
+
+| Original normal baseline | Normal build after diagnostic infrastructure |
+| --- | --- |
+| ![Original hero window](../art-style/baseline/high/window.png) | ![Unchanged normal hero window](../art-style/diagnostics/normal-preservation/window.png) |
+
+**These matched native PNGs are byte-identical; this is a diagnostic foundation,
+not an achieved visual improvement.** Eleven opt-in views now expose actual PNG
+albedo, normals, combined light, atlas values/addressing, roughness, geometric
+depth and lighting routes without an authored edit or rebake for selection.
+One instrumented hero solve exports true stages/charts/receiver/caster provenance
+and produces the same package. The normal release omits the selector extension.
+
+| Existing final | Native texture albedo | Native combined illumination |
+| --- | --- | --- |
+| ![Contact final](../art-style/baseline/high/contact.png) | ![Contact albedo](../art-style/diagnostics/native/view-albedo/contact.png) | ![Contact light](../art-style/diagnostics/native/view-baked-light/contact.png) |
+
+The sofa's diagonal tones live in stored lighting rather than its cream artwork;
+the prepared entity field is present; the close resin-table region is severely
+underlit. Independent High atlas/filtering controls separate causes that overall
+Low changes together. Settled live Low/Medium/returned High and returned atlas/
+filtering match direct launches exactly; loading transients remain qualified.
+No new opening leak or full-white nonemissive model is demonstrated.
+
+A fresh normal sample submits all measured scene frames and establishes CPU/event
+loop and draw/resource costs. GPU execution time is still unmeasured. Strict
+Clippy and focused tests pass; the three inherited stale-package discovery failures
+remain exact Stage 7 ledger items. Verified baseline/diagnostic implementation
+commits and CI links live in [the handoff receipt](../art-style/handoff.md).

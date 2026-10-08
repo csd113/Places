@@ -56,7 +56,7 @@ pub(super) fn dump_receivers(
         physical: [f32; 3],
         filled: [f32; 3],
     }
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     let stride = receivers.len().div_ceil(65_536).max(1);
@@ -105,7 +105,7 @@ pub(super) fn dump_bake(
         combined: Vec<[f32; 3]>,
         moments: Vec<[f32; 3]>,
     }
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     write_dump(
@@ -127,7 +127,7 @@ pub(super) fn dump_bake(
 /// # Errors
 /// Returns a named error when the requested diagnostic cannot be written.
 pub fn dump_labels(field: &ProbeField, quality: &str) -> Result<(), String> {
-    if std::env::var_os(DUMP_ENV).is_none() {
+    if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
     write_dump(
@@ -141,13 +141,15 @@ pub fn dump_labels(field: &ProbeField, quality: &str) -> Result<(), String> {
 }
 
 fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
-    let Some(directory) = std::env::var_os(DUMP_ENV) else {
+    let Some(dump_path) = super::diagnostics::directory(DUMP_ENV) else {
         return Ok(());
     };
-    let dump_path = std::path::PathBuf::from(directory);
     std::fs::create_dir_all(&dump_path)
         .map_err(|error| format!("probe dump directory: {error}"))?;
     let path = dump_path.join(name);
+    if path.exists() {
+        return Err(format!("probe dump refuses existing {}", path.display()));
+    }
     // A failed serialization must not publish a partial diagnostic. Creation
     // is exclusive so a pre-existing temporary file/symlink is never followed.
     let temporary = dump_path.join(format!(".{name}.{}.tmp", std::process::id()));
@@ -163,7 +165,9 @@ fn write_dump(name: &str, value: &impl Serialize) -> Result<(), String> {
         writer
             .flush()
             .map_err(|error| format!("probe dump flush: {error}"))?;
-        std::fs::rename(&temporary, &path).map_err(|error| format!("probe dump publish: {error}"))
+        std::fs::hard_link(&temporary, &path)
+            .map_err(|error| format!("probe dump publish: {error}"))?;
+        std::fs::remove_file(&temporary).map_err(|error| format!("probe dump cleanup: {error}"))
     })();
     if let Err(error) = result {
         if let Err(cleanup_error) = std::fs::remove_file(&temporary)

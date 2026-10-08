@@ -33,6 +33,7 @@
 //! package with the captured cubemaps. A package without captures is refused by
 //! the player rather than silently rendered without reflections.
 
+pub mod diagnostics;
 mod probes;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -372,6 +373,19 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 quality.name()
             ));
             let variant_started = Instant::now();
+            let diagnostic_scope = diagnostics::begin_variant(
+                &diagnostics::BuildIdentity {
+                    request,
+                    source_sha256: &source_hash,
+                    semantics: &semantics,
+                    catalog_sha256: &catalog_hash,
+                    compiler_fingerprint: &fingerprint,
+                    lighting_fingerprint: &lighting_fingerprint,
+                    dependencies: &dependencies,
+                    materials: &materials,
+                },
+                *quality,
+            );
             let (mut variant, stats, build) = build_variant(
                 &level,
                 &catalog,
@@ -385,6 +399,9 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
                 &navigation_name,
                 &navigation_report,
             )?;
+            if let Some(scope) = &diagnostic_scope {
+                scope.finish(&variant, &stats);
+            }
             record_phase(
                 &mut phases,
                 format!("prepare_encode_{}", quality.name()),
@@ -1081,7 +1098,11 @@ fn build_variant(
                             ));
                         }
                     }
-                    crate::lighting::transport::probe_audit::dump_labels(&field, quality.name())?;
+                    if let Err(error) =
+                        crate::lighting::transport::probe_audit::dump_labels(&field, quality.name())
+                    {
+                        crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
+                    }
                     let (total, valid) = field.summary();
                     crate::logging::info(format_args!(
                         "[lightmaps] irradiance field probes={total} valid={valid}"

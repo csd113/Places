@@ -1,0 +1,13 @@
+{
+  "concepts_checked": 7,
+  "all_concept_hashes_unchanged": true,
+  "compiled_source_files_checked": 207,
+  "compiled_source_hashes_match": true,
+  "preserved_contracts": [
+    "production world WGSL",
+    "original hero JSON",
+    "original six-camera manifest",
+    "all prior assets and concepts"
+  ],
+  "evidence": "git diff HEAD -- assets tests/fixtures/levels/art_style_hero.json docs/art-style/hero-manifest.json src/render/wgpu/world.wgsl is empty"
+}

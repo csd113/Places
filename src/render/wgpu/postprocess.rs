@@ -825,6 +825,13 @@ impl PostProcess {
         self.targets.as_ref().map(|targets| targets.presented_size)
     }
 
+    /// Actual resident scene dimensions for the opt-in capture receipt.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn diagnostic_scene_size(&self) -> Option<DrawableSize> {
+        self.targets.as_ref().map(|targets| targets.scene_size)
+    }
+
     /// True when the scene target exists at the size the last [`Self::ensure`]
     /// computed (the expected size), and therefore when the scene and
     /// emissive passes can run.

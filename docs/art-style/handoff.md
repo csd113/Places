@@ -1,59 +1,110 @@
 # Stage 1 handoff — 2026-10-08 UTC
 
-Stage 1 establishes a native visual benchmark and dependency audit. It does not
-implement or claim a renderer/lighting improvement. Stage 2 has not started.
+Stage 1 establishes a native hero benchmark, grounded gap audit and development
+diagnostics. It does not implement or claim a lighting/color/material improvement.
+Stage 2 has not started. This receipt is active until the final pushed revision
+and custody checks below are recorded.
 
 ## Delivered
 
-- [Hero source](../../tests/fixtures/levels/art_style_hero.json): compact furnished
-  room, connected hallway, glazed garden, broad fluorescent/warm practical,
-  existing material families, static props and an ordinary spawned chair.
-- [Fixed camera/settings manifest](hero-manifest.json) and
-  [native capture launcher](../../tools/bench/capture_art_style_hero.py).
-  Launch interactively with `python3 tools/bench/capture_art_style_hero.py --play`
-  after the explicit normal compile documented in [the report](README.md).
-- Six raw High views, two genuine Low controls and three matched native repeats.
-  The repeated room/window/entities views are byte-identical to the baseline;
-  this demonstrates repeatability, not a visual gain.
-- [Audit and working strengths](README.md), [Stages 2–7 dependency plan](gap-plan.md),
-  [costs](performance.md), [exact deferred ledger](deferred-ledger.json),
-  [validation commands/results](validation.md), and the dated entry in the
+- [Hero source](../../tests/fixtures/levels/art_style_hero.json): furnished room,
+  connected hallway, glazed exterior, broad fluorescent/warm practical, completed
+  material families, static props and an ordinary spawned comparison chair.
+- [Original six-camera/settings manifest](hero-manifest.json),
+  [additional table camera](hero-diagnostics-manifest.json) and
+  [native launcher](../../tools/bench/capture_art_style_hero.py).
+- Six original High views, two Low controls, three matched repeats and three
+  normal after-build captures. The normal after-build and feature-final comparisons
+  are byte-identical. This is preservation/repeatability, not a visible gain.
+- [Eleven selectable native diagnostic modes](diagnostics.md), capture-time
+  requested/applied/resident state and real offscreen scene counts. Normal release
+  excludes the shader selector. No authored edits/rebakes are required to select.
+- Saved-package export and one scoped live diagnostic hero solve: real direct,
+  diffuse indirect, filtered/final, receiver positions/normals/material inputs,
+  true charts and exact caster ownership/rays. Package bytes remain identical.
+  Missing runtime direct/indirect/shadow/AO/metallic/probe views are labeled
+  unavailable. Stage 4 has the probe-view extension seam.
+- [25-case/37-image raw native campaign](diagnostics/campaign-execution.json),
+  [state checks](diagnostics/native-state-summary.json) and
+  [six byte-identical feature/live control pairs](diagnostics/control-comparisons.json).
+  Independent atlas/filtering/Low-lighting controls and genuine live endpoint
+  transitions preserve the chair. Loading transients remain qualified.
+- [Audit and strengths](README.md), [Stages 2–7 dependencies](gap-plan.md),
+  [costs](performance.md), [exact ledger](deferred-ledger.json),
+  [validation](validation.md) and the dated entries in the
   [existing chronological journal](../style-upgrade-20261007/README.md).
 
-## Acceptance and limitations
+Normal interactive launch, from repository root after the documented explicit
+hero compile:
 
-Normal release build, strict Clippy, all-variant hero compile, integrity/currency,
-native capture, reference hash checks, asset validation, five capture contract
-tests and scoped Rust checks passed. Geometry has zero errors and one retained
-open-garden warning. No Rust renderer/compiler behavior or existing asset changed.
+```sh
+python3 tools/bench/capture_art_style_hero.py --play \
+  --binary debug-maps/art-style-hero/evidence/places-normal --views room
+```
 
-`cargo test --workspace` exits 101: 2,022 library tests pass, 23 are ignored;
-three level-discovery tests fail on inherited stale local packages. Their exact
-dependencies, current checks and Stage 7 resolution are in the ledger. They were
-not deleted, hidden, repaired speculatively or relabeled as passing.
+The final normal release is also restored in `target/release/`. Verified normal,
+diagnostic and original baseline executables, package and raw lighting exports
+are preserved in ignored `debug-maps/art-style-hero/evidence/` outside `target/`.
+A fresh checkout reproduces them via [normal](README.md) and
+[diagnostic](diagnostics.md) commands; output destinations must be new.
 
-Forced all-variant compile is 4.872 s / 659.1 MiB peak RSS; package is 3,873,651 B.
-High native room process peaks at 447.3 MiB; two Full atlas pages occupy 32 MiB.
-There is no pre-hero cost comparison or claimed performance delta. Background
-surface frames have zero scene counters, so a reliable foreground FPS/GPU-time
-baseline remains open. Genuine native scene readback images succeeded.
+## Acceptance, costs and limitations
 
-The task exposes workspace-write with reviewed escalation; a persistent Full
-Access setting and the lead's requested reasoning configuration are not
-verifiable/settable here. Read-only reviewers were explicitly GPT-6.1-sol/xhigh.
-No callable `/goal` interface was available; the delegated workflow was used.
-These restrictions were reported before authoring and remain prerequisites for
-the coordinator to resolve/verify at the next launch.
+Normal/feature release builds, strict Clippy, hero integrity/currency, all-variant
+bake, native capture/receipt checks, chart audit, source/reference hashes,
+asset contracts, seven Python tests and thirteen focused Rust diagnostic tests
+pass. Geometry has zero errors and one retained decorative open-garden warning.
+Physical normal composition/package bytes, concepts, prior assets, original hero
+and production world WGSL remain unchanged. Final built-source hashes agree.
+
+`RUSTC_WRAPPER= cargo test --workspace` exits 101: **2,029 library tests pass,
+23 ignored; the same three level-discovery tests fail** on inherited stale local
+packages. Exact dependencies/current checks and Stage 7 resolution are in the
+ledger. They were not removed, hidden or repaired outside hero scope. No new
+source-test failure was observed. Clean-source baseline CI passed; new diagnostic
+commit CI must still be verified below before release.
+
+Forced uninstrumented hero preparation is 4.872 s compiler / 4.89 s wall,
+659.1 MiB peak RSS; package 3,873,651 B, two Full pages/32 MiB, 5,347 charts,
+167,960 receivers, 495 probe slots/260 valid. The diagnostic bake takes 5.952 s
+including evidence I/O and reproduces the package; this is not a measured solver
+regression. Fresh normal samples have **360/360 nonzero scene-draw frames** each.
+High room median CPU frame/event loop is 7.315/7.676 ms, p95 values retained,
+31 accounted scene draws and 433.3 MiB peak RSS. No GPU execution time, physical
+display cadence, other hardware result or quality/performance improvement is
+claimed. Initial zero-counter measurements remain preserved and excluded.
+
+The expanded evidence places sofa triangular tones in stored illumination and
+physical direct transport; light-colored resin is severely underlit; the entity
+field is genuinely prepared. Window opening/jamb queries remain coherent.
+No full-white nonemissive model, new physical leak or settled quality-switch
+failure is demonstrated. A ready-gated capture cannot exclude loading transients.
+Stages 1–6 remain hero-only; Stage 7 is supported-map compatibility/reference
+migration, not theme-by-theme concept polishing.
+
+The exposed controls are workspace-write plus reviewed per-command escalation;
+persistent Full Access and lead Extra High reasoning cannot be verified/set here.
+The configured model is GPT-6.1-sol; the global reasoning setting is medium.
+The three bounded specialists were explicitly GPT-6.1-sol/xhigh. The runtime and
+compiler roles owned disjoint diagnostic code; visual evaluation stayed read-only.
+The lead alone integrated/captured/tested/reported/staged/committed/pushed.
+No callable `/goal` interface or installed goal skill was exposed; the supported
+delegated workflow was used. These restrictions were reported before authoring.
 
 ## Revision and custody receipt
 
-Implementation and final journal commits will be linked here after their push
-and applicable CI outcomes are verified. This initial receipt is still active
-Stage 1 work, not a release of ownership.
+- Prerequisite: `22a78fc43822900cd866869f93c55d7796e2c812`, `Art-style`,
+  with exact-SHA prerequisite main/branch CI verified successful.
+- [Baseline implementation](https://github.com/csd113/Places/commit/d24d278c8b5a248c5ee66efd8aaca063f0e16d13)
+  pushed to `origin/Art-style`; [baseline CI](https://github.com/csd113/Places/actions/runs/37723638291)
+  passed in 21m14s.
+- Integrated diagnostics, final reports/journal and exact remote/CI verification:
+  pending final commit/push below. Native evidence retains its actual precommit
+  Git/source/binary identities; it is not relabeled as a later-commit capture.
 
 The inherited `/usr/bin/caffeinate -di` PID **88945**, started 2026-10-07,
-remains healthy with both idle assertions. No duplicate inhibitor was created.
-Custody record: `/tmp/places-art-style-queue-custody.json`. Build artifacts and
-the reproducible hero package remain outside tracked deliverables and are kept
-for the unfinished queue. Final job/process checks and parent custody transfer
-will occur after push verification. No `cargo clean` or Stage 2 work.
+remains active with both idle assertions. No duplicate inhibitor was created.
+Custody record: `/tmp/places-art-style-queue-custody.json`. Final worker/job/process
+checks and parent custody transfer follow push verification. Build artifacts stay
+for the unfinished serial queue; no `cargo clean`, branch/worktree/tag/release or
+Stage 2 work.

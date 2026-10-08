@@ -1,0 +1,59 @@
+[package] /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-qcl8o5nh (assets: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-qcl8o5nh/assets/levels)
+[package] asset root: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-qcl8o5nh/assets
+[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering high | window Windowed 640 x 360
+[assets] 204 placeable asset(s) of 352 catalog entries; themes: office, pool, home, outdoor, winter
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[visual-diagnostic] {"applied":{"bloom":true,"filtering":"high","lighting":"high","lightmaps":"full","quality":"high","reflections":"full"},"capture_submission":null,"event":"select","frame":{"base_color_format":"Rgba8Unorm raw authored display","bloom_allowed":false,"bloom_requested":true,"culling":true,"diagnostic_identity_post":true,"drawable":[1280,720],"scene_format":"Rgba8Unorm raw display","scene_size":null,"scene_uploaded_selector":null,"sky_decals_effects_suppressed":true,"world_uploaded_selector":null},"level":null,"meaning":"combined baked diffuse reconstructed at actual shading normal before soft clipping, material and dynamic lights; RGB=max(value,0)/(1+max(value,0)); entity fallback uses a display light factor rather than HDR; static vertex-lit coefficients unavailable","mode":"baked-light","requested":{"bloom":true,"filtering":"high","lighting":"high","lightmaps":"full","quality":"high","reflections":"full"},"resident":{"active_plane":null,"active_probe":0,"atlas":{"bytes":0,"chart_texels":0,"charts":0,"format":"Rgba16Float irradiance+signed moment","page_edge":0,"pages":0},"characters":null,"dynamic":null,"filtering":"high","lighting_uniform":null,"lightmaps":"full","lightmaps_resident":false,"planar_resident":false,"props":null,"quality":"high","reflection_enabled":true,"reflection_probes":[],"world":null},"surface_submission":{"draw_calls":0,"material_changes":0,"source":"last surface RenderStats; may remain zero or stale when acquisition is skipped","texture_binds":0,"visible_batches":0,"visible_vertices":0},"unavailable":{"charts":"atlas grid has no true chart ID/boundary/seam metadata","decomposition":"direct/indirect/filter/fill remain offline solver exports","metallic":"no material shader input","probe_field":"probe positions, validity and visibility labels have no runtime visualization provider","shadow_ao":"no standalone payload"}}
+[wgpu] present mode Immediate (immediate)
+[window] logical 640x360 | drawable 1280x720 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 1280x720, bloom 320x180, presented 1280x720
+[startup] total 286.8 ms
+[startup]   package root: +0.2 ms (0.2 ms)
+[startup]   settings: +0.2 ms (0.4 ms)
+[startup]   window: +130.5 ms (130.9 ms)
+[startup]   asset catalog: +1.5 ms (132.4 ms)
+[startup]   renderer device: +9.8 ms (142.3 ms)
+[startup]   input responsive: +73.7 ms (216.0 ms)
+[startup]   first scene attempted: +25.3 ms (241.2 ms)
+[startup]   first UI attempted: +0.0 ms (241.3 ms)
+[startup]   first presented: +45.5 ms (286.8 ms)
+[loading] package identity level=art_style_hero variant=full sha256=37d9d3c66ae70e3b14335a930d18daa29d6395dd8a21df4b6ae473c5ebdf0097 source=/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-art-style-hero-qcl8o5nh/assets/levels/art_style_hero.placesmap
+[loading] compiled-cache miss level=art_style_hero variant=full
+[lightmaps] atlas array: 2 page(s) in 4 layer(s), 1024-texel edge, 33554432 bytes resident
+[wgpu] world upload: 284 vertices, 438 indices, 14 draws in 1 chunk(s) (neutral mesh: 284 vertices, 438 indices, 14 ranges)
+[wgpu] textures: 10 unique, 9 uploaded, 3 cache hits, 1 fallbacks, 0 missing of 14 draws (53127840 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 11 resolved (6 response, 1 reflection-eligible), 2 normal maps (2 uploaded, 0 cache hits), 13 opaque / 0 cutout / 1 translucent of 14 draws (enabled response, high level)
+[wgpu] decals: 0 draw(s), 0 chunk(s), 1 sheet(s) (0 external, 0 diagnostic)
+[wgpu] sky `outdoor:tex_sky_stars_01`: 1024x512 uploaded
+[wgpu] uploaded 1 packaged reflection probe(s) at 64 texels, 7 mip level(s)
+[loading] committed art_style_hero
+[props] 16 models cached (0 failed), 5300 triangles, 3856 KiB of textures, 21 draw call(s)
+[level] 284 static vertices, 15900 prop vertices, 21 prop draw call(s), built in 0.2 ms (lighting 0.0 + props 0.0 + surfaces 0.0)
+[spatial] 14 static batch(es) (floor 4 / ceiling 1 / wall 7 / light 2 / prop box 0 / decal 0), 21 prop batch(es)
+[lighting] baked 3 room(s) / 3 baseline area(s) from 4 fixture(s): 12 wall + 36 slab + 222 prop blocker(s), baselines 0.31..0.41 (avg 0.37)
+[lightmaps] 2 page(s), 5347 chart(s), 167960 chart texels, 2097152 page texels (32768 KiB), filled in 0.0 ms
+[dynamic] 0 object(s): 0 draw call(s), 0 vertices (the demonstration path; never part of the static bake); doors: 0/0
+[characters] `home:dining_chair` spawns through the dynamic path: the runtime model `environment/home/props/models/dining_chair.glb` carries no skin or animation; it cannot be posed
+[visual-diagnostic] {"applied":{"bloom":true,"filtering":"high","lighting":"high","lightmaps":"full","quality":"high","reflections":"full"},"capture_submission":{"draw_calls":23,"frustum_visible_batches":23,"frustum_visible_distinct_vertices":14340,"material_binds":19,"scope":"base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI","texture_binds":17,"vertices":"sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate","visibility":"CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"},"event":"capture","frame":{"base_color_format":"Rgba8Unorm raw authored display","bloom_allowed":false,"bloom_requested":true,"culling":true,"diagnostic_identity_post":true,"drawable":[1280,720],"scene_format":"Rgba8Unorm raw display","scene_size":[1280,720],"scene_uploaded_selector":4.0,"sky_decals_effects_suppressed":true,"world_uploaded_selector":4.0},"level":"art_style_hero","meaning":"combined baked diffuse reconstructed at actual shading normal before soft clipping, material and dynamic lights; RGB=max(value,0)/(1+max(value,0)); entity fallback uses a display light factor rather than HDR; static vertex-lit coefficients unavailable","mode":"baked-light","requested":{"bloom":true,"filtering":"high","lighting":"high","lightmaps":"full","quality":"high","reflections":"full"},"resident":{"active_plane":null,"active_probe":0,"atlas":{"bytes":33554432,"chart_texels":167960,"charts":5347,"format":"Rgba16Float irradiance+signed moment","page_edge":1024,"pages":2},"characters":null,"dynamic":{"draws":1,"meshes":1,"objects":1,"vertices":432},"filtering":"high","lighting_uniform":{"fog_density":0.009499999694526196,"fog_region_count":0,"light_scale":[1.0,1.0,1.0],"lightmap_enabled":1.0,"page_count":2,"switchable_word":393216},"lightmaps":"full","lightmaps_resident":true,"planar_resident":false,"props":{"chunks":16,"draws":21,"indices":15900,"texture_bytes":5264704,"vertices":15900},"quality":"high","reflection_enabled":true,"reflection_probes":[{"face_size":64,"mip_levels":7,"position":[9.399998664855957,2.5999999046325684,9.149999618530273]}],"world":{"chunks":1,"draws":14,"index_bytes":876,"indices":438,"vertex_bytes":18176,"vertices":284}},"surface_submission":{"draw_calls":23,"material_changes":19,"source":"last surface RenderStats; may remain zero or stale when acquisition is skipped","texture_binds":17,"visible_batches":23,"visible_vertices":14340},"unavailable":{"charts":"atlas grid has no true chart ID/boundary/seam metadata","decomposition":"direct/indirect/filter/fill remain offline solver exports","metallic":"no material shader input","probe_field":"probe positions, validity and visibility labels have no runtime visualization provider","shadow_ao":"no standalone payload"}}
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/docs/art-style/diagnostics/native/view-baked-light/contact.png
+BENCH_SUMMARY {"level":"art_style_hero","frames":48,"swap_interval":0,"update_mean_ms":0.114,"render_mean_ms":8.011,"swap_mean_ms":1.283,"frame_mean_ms":9.408,"loop_mean_ms":8.336,"frame_median_ms":8.219,"loop_median_ms":8.422,"frame_p95_ms":9.697,"frame_p99_ms":70.676,"loop_p95_ms":9.690,"loop_p99_ms":11.542,"frame_min_ms":3.409,"frame_max_ms":70.676,"loop_min_ms":3.636,"loop_max_ms":11.542,"fps_median":118.74,"fps_p95":103.20,"fps_p99":86.64,"fps_1pct_low":86.64,"fps_mean":119.96,"measured_fps_mean":106.29,"worst_fps":86.64,"total_vertices":16616,"visible_vertices":14340,"culled_vertices":2276,"total_batches":36,"visible_batches":23,"draw_calls":23,"vbo_bytes":1063424,"index_bytes":33900,"texture_binds":17,"material_changes":19,"reflection_passes":0}
+        1.05 real         0.57 user         0.19 sys
+           453591040  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               30917  page reclaims
+                   6  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+                5385  involuntary context switches
+          6246369049  instructions retired
+          2279086222  cycles elapsed
+           512198000  peak memory footprint

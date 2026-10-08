@@ -47,6 +47,8 @@
 
 pub mod character;
 pub mod decals;
+#[cfg(feature = "visual-diagnostics")]
+pub mod diagnostics;
 pub mod dynamic;
 pub mod effects;
 pub mod environment;

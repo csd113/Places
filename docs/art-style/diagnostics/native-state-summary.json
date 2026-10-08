@@ -1,0 +1,3746 @@
+{
+  "cases": 25,
+  "native_images": 37,
+  "all_assertions_passed": true,
+  "checks": [
+    "uploaded selectors",
+    "requested/applied/resident graphics",
+    "nonzero capture encoding",
+    "one comparison entity preserved"
+  ],
+  "observations": [
+    {
+      "case": "view-final",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/view-final/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453378048,
+      "transition_events": []
+    },
+    {
+      "case": "view-albedo",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-albedo/contact.png",
+      "mode": "albedo",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 455016448,
+      "transition_events": []
+    },
+    {
+      "case": "view-albedo",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/view-albedo/entities.png",
+      "mode": "albedo",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453459968,
+      "transition_events": []
+    },
+    {
+      "case": "view-vertex-normal",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-vertex-normal/contact.png",
+      "mode": "vertex-normal",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453378048,
+      "transition_events": []
+    },
+    {
+      "case": "view-world-normal",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-world-normal/contact.png",
+      "mode": "world-normal",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 454033408,
+      "transition_events": []
+    },
+    {
+      "case": "view-baked-light",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-baked-light/contact.png",
+      "mode": "baked-light",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453591040,
+      "transition_events": []
+    },
+    {
+      "case": "view-baked-light",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/view-baked-light/entities.png",
+      "mode": "baked-light",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 455606272,
+      "transition_events": []
+    },
+    {
+      "case": "view-baked-light",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/view-baked-light/window.png",
+      "mode": "baked-light",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 452837376,
+      "transition_events": []
+    },
+    {
+      "case": "view-lightmap-values",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-lightmap-values/contact.png",
+      "mode": "lightmap-values",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 455917568,
+      "transition_events": []
+    },
+    {
+      "case": "view-lightmap-values",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/view-lightmap-values/window.png",
+      "mode": "lightmap-values",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 452837376,
+      "transition_events": []
+    },
+    {
+      "case": "view-chart-uv",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/view-chart-uv/contact.png",
+      "mode": "chart-uv",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453312512,
+      "transition_events": []
+    },
+    {
+      "case": "view-roughness",
+      "view": "hall",
+      "image": "docs/art-style/diagnostics/native/view-roughness/hall.png",
+      "mode": "roughness",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 8,
+        "frustum_visible_batches": 8,
+        "frustum_visible_distinct_vertices": 212,
+        "material_binds": 8,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 8,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 452935680,
+      "transition_events": []
+    },
+    {
+      "case": "view-roughness",
+      "view": "plastic",
+      "image": "docs/art-style/diagnostics/native/view-roughness/plastic.png",
+      "mode": "roughness",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 11,
+        "frustum_visible_batches": 11,
+        "frustum_visible_distinct_vertices": 6840,
+        "material_binds": 9,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 9,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 452755456,
+      "transition_events": []
+    },
+    {
+      "case": "view-depth",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/view-depth/window.png",
+      "mode": "depth",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 452755456,
+      "transition_events": []
+    },
+    {
+      "case": "view-distance",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/view-distance/window.png",
+      "mode": "distance",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 454836224,
+      "transition_events": []
+    },
+    {
+      "case": "view-lighting-state",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/view-lighting-state/entities.png",
+      "mode": "lighting-state",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453689344,
+      "transition_events": []
+    },
+    {
+      "case": "view-lighting-state",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/view-lighting-state/window.png",
+      "mode": "lighting-state",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453885952,
+      "transition_events": []
+    },
+    {
+      "case": "overall-medium",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/overall-medium/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "medium",
+        "lightmaps": "medium",
+        "quality": "medium",
+        "reflections": "medium"
+      },
+      "scene_size": [
+        640,
+        360
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 98067,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 385859584,
+      "transition_events": []
+    },
+    {
+      "case": "overall-medium",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/overall-medium/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "medium",
+        "lightmaps": "medium",
+        "quality": "medium",
+        "reflections": "medium"
+      },
+      "scene_size": [
+        640,
+        360
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 98067,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 382877696,
+      "transition_events": []
+    },
+    {
+      "case": "overall-medium",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/overall-medium/window.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "medium",
+        "lightmaps": "medium",
+        "quality": "medium",
+        "reflections": "medium"
+      },
+      "scene_size": [
+        640,
+        360
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 98067,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 9960,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 384319488,
+      "transition_events": []
+    },
+    {
+      "case": "atlas-off",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/atlas-off/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "off",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 11042,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 279674880,
+      "transition_events": []
+    },
+    {
+      "case": "atlas-off",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/atlas-off/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "off",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 9016,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 277790720,
+      "transition_events": []
+    },
+    {
+      "case": "atlas-off",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/atlas-off/window.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "off",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 7924,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 280739840,
+      "transition_events": []
+    },
+    {
+      "case": "atlas-medium",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/atlas-medium/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "medium",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 98067,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 454688768,
+      "transition_events": []
+    },
+    {
+      "case": "filter-low",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/filter-low/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "low",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 456048640,
+      "transition_events": []
+    },
+    {
+      "case": "filter-low",
+      "view": "hall",
+      "image": "docs/art-style/diagnostics/native/filter-low/hall.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "low",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 8,
+        "frustum_visible_batches": 8,
+        "frustum_visible_distinct_vertices": 212,
+        "material_binds": 8,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 8,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453836800,
+      "transition_events": []
+    },
+    {
+      "case": "filter-medium",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/filter-medium/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453001216,
+      "transition_events": []
+    },
+    {
+      "case": "low-lighting",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/low-lighting/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "low",
+        "lightmaps": "off",
+        "quality": "high",
+        "reflections": "off"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 9016,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 268877824,
+      "transition_events": []
+    },
+    {
+      "case": "low-lighting",
+      "view": "window",
+      "image": "docs/art-style/diagnostics/native/low-lighting/window.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "low",
+        "lightmaps": "off",
+        "quality": "high",
+        "reflections": "off"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 18,
+        "frustum_visible_batches": 18,
+        "frustum_visible_distinct_vertices": 7924,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 267059200,
+      "transition_events": []
+    },
+    {
+      "case": "plastic-final",
+      "view": "plastic",
+      "image": "docs/art-style/diagnostics/native/plastic-final/plastic.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 11,
+        "frustum_visible_batches": 11,
+        "frustum_visible_distinct_vertices": 6840,
+        "material_binds": 9,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 9,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453525504,
+      "transition_events": []
+    },
+    {
+      "case": "live-low",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/live-low/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "low",
+        "lighting": "low",
+        "lightmaps": "off",
+        "quality": "low",
+        "reflections": "off"
+      },
+      "scene_size": [
+        480,
+        270
+      ],
+      "atlas": {
+        "bytes": 0,
+        "chart_texels": 0,
+        "charts": 0,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 0,
+        "pages": 0
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 9016,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453181440,
+      "transition_events": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003291,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 127.036708,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 128.272833,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 186.309708,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 188.123166,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 214.116041,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 233.270083,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 251.31579100000002,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 286.242416,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":149.59062500000002}",
+          "elapsed_ms": 286.26566599999995,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 286.291458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 315.717083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.138,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.230666,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.824,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 331.463625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 331.962208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 340.025083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 340.969416,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 345.249416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 345.80304099999995,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 350.030458,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 355.71879099999995,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 369.118708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 369.121166,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":0,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 369.196041,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 369.20187500000003,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 369.91325,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"low\",\"lighting\":\"low\",\"lightmaps\":\"off\",\"quality\":\"low\",\"reflections\":\"off\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 855.621791,
+          "event": "settings_change",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 855.647125,
+          "event": "request",
+          "request": 2
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 855.653208,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 863.603458,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 872.760125,
+          "event": "cpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":4900704,\"surfaces_ms\":0.0,\"wall_ms\":9.412791}",
+          "elapsed_ms": 872.8004579999999,
+          "event": "preparation_result",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 872.8405,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 872.9201250000001,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 878.457333,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 878.536208,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 888.457458,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 898.9195,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 899.8770000000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 900.1317909999999,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 903.632791,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 907.782375,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 912.316625,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 916.5911249999999,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 919.9354159999999,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 927.8582909999999,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 927.86,
+          "event": "gpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"low\",\"lightmaps\":\"off\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"low\",\"reflections\":\"off\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"low\",\"renderer_lightmaps\":\"off\",\"renderer_quality\":\"low\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 927.945375,
+          "event": "world_committed",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 927.952958,
+          "event": "ready",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 963.8858329999999,
+          "event": "shutdown_requested",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 986.8455,
+          "event": "shutdown_complete",
+          "request": 2
+        }
+      ]
+    },
+    {
+      "case": "live-medium",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/live-medium/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "medium",
+        "lightmaps": "medium",
+        "quality": "medium",
+        "reflections": "medium"
+      },
+      "scene_size": [
+        640,
+        360
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 98067,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 504168448,
+      "transition_events": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003292,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 123.062667,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 124.343417,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 182.69512500000002,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 182.779833,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 208.90479200000001,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 224.954208,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 242.99275,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 281.858458,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":148.69858299999999}",
+          "elapsed_ms": 281.896208,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 281.93249999999995,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 311.362125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 311.891708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 311.98749999999995,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 312.61850000000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 325.419042,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 325.902417,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 333.09133299999996,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 333.9835,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 338.125917,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 338.52858299999997,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 342.766792,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 343.32020800000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 355.93125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 355.933583,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":0,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 356.010917,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 356.016542,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 356.73729199999997,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"low\",\"lighting\":\"low\",\"lightmaps\":\"off\",\"quality\":\"low\",\"reflections\":\"off\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 835.985667,
+          "event": "settings_change",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 836.0220830000001,
+          "event": "request",
+          "request": 2
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 836.0303329999999,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 846.73675,
+          "event": "cpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":4900704,\"surfaces_ms\":0.0,\"wall_ms\":10.314208}",
+          "elapsed_ms": 846.8072920000001,
+          "event": "preparation_result",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 846.8469170000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 846.92875,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 848.454917,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 848.5599579999999,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 860.204875,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 870.676875,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 871.472542,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 871.76325,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 878.2965,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 882.71125,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 884.5045,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 889.128958,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 893.0717500000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 903.751167,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 903.753292,
+          "event": "gpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"low\",\"lightmaps\":\"off\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"low\",\"reflections\":\"off\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"low\",\"renderer_lightmaps\":\"off\",\"renderer_quality\":\"low\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 903.868583,
+          "event": "world_committed",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 903.8797079999999,
+          "event": "ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"medium\",\"lighting\":\"medium\",\"lightmaps\":\"medium\",\"quality\":\"medium\",\"reflections\":\"medium\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1316.06025,
+          "event": "settings_change",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1316.1065,
+          "event": "request",
+          "request": 3
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 1316.118125,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 1321.3607920000002,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1475.927417,
+          "event": "cpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73086340,\"surfaces_ms\":0.0,\"wall_ms\":157.06033399999998}",
+          "elapsed_ms": 1475.9900830000001,
+          "event": "preparation_result",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1476.0154169999998,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1503.739667,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1504.334417,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1504.4021669999997,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1505.558333,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1515.4972500000001,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1516.055958,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1524.869375,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1525.5375419999998,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1529.983458,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1530.4609999999998,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1534.553208,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1535.0380420000001,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1544.729625,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1544.731708,
+          "event": "gpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"medium\",\"lightmaps\":\"medium\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"medium\",\"reflections\":\"medium\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"medium\",\"renderer_lightmaps\":\"medium\",\"renderer_quality\":\"medium\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 1544.777125,
+          "event": "world_committed",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1544.7822919999999,
+          "event": "ready",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1585.0475419999998,
+          "event": "shutdown_requested",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1605.1150830000001,
+          "event": "shutdown_complete",
+          "request": 3
+        }
+      ]
+    },
+    {
+      "case": "live-returned-high",
+      "view": "entities",
+      "image": "docs/art-style/diagnostics/native/live-returned-high/entities.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 17,
+        "frustum_visible_batches": 17,
+        "frustum_visible_distinct_vertices": 11100,
+        "material_binds": 15,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 13,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 545636352,
+      "transition_events": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.00325,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 118.870417,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 120.173458,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 179.5,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 182.33866700000002,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 208.59391699999998,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 232.444167,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 250.48912499999997,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 269.768708,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":149.069375}",
+          "elapsed_ms": 269.78725,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 269.81212500000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 299.503583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 300.162292,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 300.248875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 302.55129200000005,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 315.960333,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.68104200000005,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 324.27162500000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 324.974083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 329.2315,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 329.728042,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 333.830417,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 335.332625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 346.057333,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 346.060083,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":0,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 346.128125,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 346.151958,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 346.84125,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"low\",\"lighting\":\"low\",\"lightmaps\":\"off\",\"quality\":\"low\",\"reflections\":\"off\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 788.571625,
+          "event": "settings_change",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 788.591292,
+          "event": "request",
+          "request": 2
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 788.597333,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 790.8445419999999,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 802.389417,
+          "event": "cpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":4900704,\"surfaces_ms\":0.0,\"wall_ms\":6.963125}",
+          "elapsed_ms": 802.415875,
+          "event": "preparation_result",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 802.44675,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 802.5019169999999,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 811.631542,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 811.724042,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 818.939292,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 827.469417,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 828.594292,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 828.805083,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 836.955875,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 841.158167,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 844.0737499999999,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 848.201458,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 853.849417,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 863.699708,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 863.702,
+          "event": "gpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"low\",\"lightmaps\":\"off\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"low\",\"reflections\":\"off\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"low\",\"renderer_lightmaps\":\"off\",\"renderer_quality\":\"low\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 863.807333,
+          "event": "world_committed",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 863.815667,
+          "event": "ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"medium\",\"lighting\":\"medium\",\"lightmaps\":\"medium\",\"quality\":\"medium\",\"reflections\":\"medium\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1364.041667,
+          "event": "settings_change",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1364.1392919999998,
+          "event": "request",
+          "request": 3
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 1364.158375,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 1380.128917,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1527.794458,
+          "event": "cpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73086340,\"surfaces_ms\":0.0,\"wall_ms\":155.00720900000002}",
+          "elapsed_ms": 1527.858917,
+          "event": "preparation_result",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1527.888583,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1555.7721249999997,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1556.3822499999999,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1556.449417,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1557.581375,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1567.965375,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1568.508833,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1577.321542,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1577.8942499999998,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1582.340208,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1582.787292,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1587.2377920000001,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1587.938125,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1595.410833,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1595.413167,
+          "event": "gpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"medium\",\"lightmaps\":\"medium\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"medium\",\"reflections\":\"medium\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"medium\",\"renderer_lightmaps\":\"medium\",\"renderer_quality\":\"medium\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 1595.4704579999998,
+          "event": "world_committed",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1595.4855420000001,
+          "event": "ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"high\",\"lighting\":\"high\",\"lightmaps\":\"full\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 2088.076792,
+          "event": "settings_change",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 2088.1885,
+          "event": "request",
+          "request": 4
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 2088.212958,
+          "event": "phase",
+          "request": 4
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 2092.178542,
+          "event": "cpu_ready",
+          "request": 4
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":true,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":1.034416}",
+          "elapsed_ms": 2092.228625,
+          "event": "preparation_result",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2092.278708,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2138.946833,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2141.494917,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2141.695458,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2142.55,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2164.1529579999997,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2164.9427499999997,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2173.233,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2174.3641669999997,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2178.818083,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2179.658125,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2184.117958,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2186.044042,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2203.901583,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 2203.9055,
+          "event": "gpu_ready",
+          "request": 4
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[6.25,1.600000023841858,3.5],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 2204.050708,
+          "event": "world_committed",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2204.088958,
+          "event": "ready",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2808.5978750000004,
+          "event": "shutdown_requested",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2827.862833,
+          "event": "shutdown_complete",
+          "request": 4
+        }
+      ]
+    },
+    {
+      "case": "live-atlas-return",
+      "view": "contact",
+      "image": "docs/art-style/diagnostics/native/live-atlas-return/contact.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 524304384,
+      "transition_events": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 130.53799999999998,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 131.7565,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 189.409458,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 189.48108299999998,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 215.568083,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 233.68775,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 251.73266700000002,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 285.1615,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":149.651792}",
+          "elapsed_ms": 285.186917,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 285.2115,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 314.332125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 314.806667,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 314.89041699999996,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.060667,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 329.01925,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 329.72762500000005,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 337.236625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 337.9855,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 342.204958,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 346.302125,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 350.46812500000004,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 351.842917,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 362.68316699999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 362.685917,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":0,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[5.300000190734863,1.600000023841858,4.099999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 362.737417,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 362.76212499999997,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 363.477792,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"high\",\"lighting\":\"high\",\"lightmaps\":\"off\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 840.927,
+          "event": "settings_change",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 840.9606670000001,
+          "event": "request",
+          "request": 2
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 840.970875,
+          "event": "phase",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 855.0193750000001,
+          "event": "cpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":4900704,\"surfaces_ms\":0.0,\"wall_ms\":11.116083}",
+          "elapsed_ms": 855.048083,
+          "event": "preparation_result",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 855.092042,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 855.196042,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 863.418667,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 863.575833,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 870.5629580000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 870.6253750000001,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 877.031542,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 877.311875,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 885.2983330000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 889.873,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 893.8239580000001,
+          "event": "upload_step_begin",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 901.232292,
+          "event": "upload_step_end",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 901.234333,
+          "event": "gpu_ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"off\",\"player_position\":[5.300000190734863,1.600000023841858,4.099999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"off\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 901.321542,
+          "event": "world_committed",
+          "request": 2
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 901.355083,
+          "event": "ready",
+          "request": 2
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"high\",\"lighting\":\"high\",\"lightmaps\":\"medium\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1288.908042,
+          "event": "settings_change",
+          "request": 2
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1288.983875,
+          "event": "request",
+          "request": 3
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 1289.0044999999998,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "Assembling compiled world",
+          "elapsed_ms": 1296.51475,
+          "event": "phase",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1452.785875,
+          "event": "cpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73086340,\"surfaces_ms\":0.0,\"wall_ms\":158.478709}",
+          "elapsed_ms": 1452.870667,
+          "event": "preparation_result",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1452.9029170000001,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1480.886417,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1481.479083,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1481.558167,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1482.692417,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1482.7342919999999,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1494.69775,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1494.875125,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1502.466583,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1506.634875,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1510.3059170000001,
+          "event": "upload_step_begin",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1517.081583,
+          "event": "upload_step_end",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1517.083042,
+          "event": "gpu_ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"medium\",\"player_position\":[5.300000190734863,1.600000023841858,4.099999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"medium\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 1517.151125,
+          "event": "world_committed",
+          "request": 3
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1517.157333,
+          "event": "ready",
+          "request": 3
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"high\",\"lighting\":\"high\",\"lightmaps\":\"full\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1964.219667,
+          "event": "settings_change",
+          "request": 3
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1964.2952500000001,
+          "event": "request",
+          "request": 4
+        },
+        {
+          "detail": "Waiting for previous preparation",
+          "elapsed_ms": 1964.309708,
+          "event": "phase",
+          "request": 4
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 1973.990583,
+          "event": "cpu_ready",
+          "request": 4
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":true,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":0.975}",
+          "elapsed_ms": 1974.021917,
+          "event": "preparation_result",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1974.058375,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2014.4276250000003,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2016.3830420000002,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2016.570208,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2017.117625,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2017.1668750000001,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2027.6722079999997,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2027.9368749999999,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2035.239792,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2039.293292,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2043.679917,
+          "event": "upload_step_begin",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2059.380833,
+          "event": "upload_step_end",
+          "request": 4
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 2059.38275,
+          "event": "gpu_ready",
+          "request": 4
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":1,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[5.300000190734863,1.600000023841858,4.099999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 2059.466,
+          "event": "world_committed",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2059.472042,
+          "event": "ready",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2675.970083,
+          "event": "shutdown_requested",
+          "request": 4
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2695.0058329999997,
+          "event": "shutdown_complete",
+          "request": 4
+        }
+      ]
+    },
+    {
+      "case": "live-filter-return",
+      "view": "hall",
+      "image": "docs/art-style/diagnostics/native/live-filter-return/hall.png",
+      "mode": "final",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 8,
+        "frustum_visible_batches": 8,
+        "frustum_visible_distinct_vertices": 212,
+        "material_binds": 8,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 8,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 454606848,
+      "transition_events": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003166,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 120.11975,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 121.37349999999999,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 182.1285,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 183.222125,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 208.80625,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 225.66454099999999,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "loading",
+          "elapsed_ms": 243.711458,
+          "event": "surface_not_presented",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 278.932083,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"art_style_hero\",\"lighting_ms\":0.0,\"props_ms\":0.0,\"retained_bytes\":73087664,\"surfaces_ms\":0.0,\"wall_ms\":151.456542}",
+          "elapsed_ms": 279.008625,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 279.035666,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 308.968291,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 309.43683300000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 309.532041,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 310.34925000000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 324.970916,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 325.534583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 333.054458,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 333.87537499999996,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 338.14683299999996,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 339.514125,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 343.58216600000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 350.436541,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 359.06008299999996,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 359.062458,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"art_style_hero\",\"dynamic_objects\":0,\"interactables\":0,\"lighting\":\"high\",\"lightmaps\":\"full\",\"player_position\":[9.100000381469727,1.600000023841858,1.899999976158142],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"art_style_hero\",\"renderer_lighting\":\"high\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":0,\"use_low_quality_lighting\":false,\"walls\":21,\"window_focused\":true}",
+          "elapsed_ms": 359.147166,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 359.152875,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "art_style_hero",
+          "elapsed_ms": 359.866875,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"low\",\"lighting\":\"high\",\"lightmaps\":\"full\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 840.665708,
+          "event": "settings_applied",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"medium\",\"lighting\":\"high\",\"lightmaps\":\"full\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1243.1762079999999,
+          "event": "settings_applied",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"filtering\":\"high\",\"lighting\":\"high\",\"lightmaps\":\"full\",\"quality\":\"high\",\"reflections\":\"full\",\"use_low_quality_lighting\":false}",
+          "elapsed_ms": 1683.660958,
+          "event": "settings_applied",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2245.282833,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 2262.277375,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "case": "plastic-albedo",
+      "view": "plastic",
+      "image": "docs/art-style/diagnostics/native/plastic-albedo/plastic.png",
+      "mode": "albedo",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 11,
+        "frustum_visible_batches": 11,
+        "frustum_visible_distinct_vertices": 6840,
+        "material_binds": 9,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 9,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 463077376,
+      "transition_events": []
+    },
+    {
+      "case": "plastic-baked-light",
+      "view": "plastic",
+      "image": "docs/art-style/diagnostics/native/plastic-baked-light/plastic.png",
+      "mode": "baked-light",
+      "applied": {
+        "bloom": true,
+        "filtering": "high",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "scene_size": [
+        1280,
+        720
+      ],
+      "atlas": {
+        "bytes": 33554432,
+        "chart_texels": 167960,
+        "charts": 5347,
+        "format": "Rgba16Float irradiance+signed moment",
+        "page_edge": 1024,
+        "pages": 2
+      },
+      "dynamic": {
+        "draws": 1,
+        "meshes": 1,
+        "objects": 1,
+        "vertices": 432
+      },
+      "capture_submission": {
+        "draw_calls": 11,
+        "frustum_visible_batches": 11,
+        "frustum_visible_distinct_vertices": 6840,
+        "material_binds": 9,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 9,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "max_rss_bytes": 453345280,
+      "transition_events": []
+    }
+  ]
+}

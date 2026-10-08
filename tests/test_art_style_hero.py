@@ -59,6 +59,14 @@ class HeroCaptureContract(unittest.TestCase):
         self.assertFalse(source.get("weather"))
         self.assertFalse(source.get("animated_emissions"))
 
+    def test_diagnostic_requires_capture_time_feature_receipt(self):
+        self.assertIsNone(HERO.visual_receipt("", None))
+        valid = '[visual-diagnostic] {"event":"capture","mode":"albedo"}\n'
+        self.assertEqual(HERO.visual_receipt(valid, "albedo")["mode"], "albedo")
+        for invalid in ("", valid.replace("capture", "select"), valid.replace("albedo", "final")):
+            with self.assertRaises(ValueError):
+                HERO.visual_receipt(invalid, "albedo")
+
 
 if __name__ == "__main__":
     unittest.main()

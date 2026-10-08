@@ -1,0 +1,199 @@
+[
+  {
+    "view": {
+      "name": "contact",
+      "spawn": [
+        5.3,
+        4.1,
+        0
+      ],
+      "camera": [
+        -48,
+        -28
+      ],
+      "purpose": "sofa/table feet, mug/books, static shadow and carpet/wood grounding"
+    },
+    "settings": {
+      "bindings": {
+        "forward": "W",
+        "backward": "S",
+        "strafe_left": "A",
+        "strafe_right": "D",
+        "look_up": "UP",
+        "look_down": "DOWN",
+        "look_left": "LEFT",
+        "look_right": "RIGHT",
+        "jump": "SPACE",
+        "crouch": "C",
+        "interact": "E"
+      },
+      "look_speed_h": 90,
+      "look_speed_v": 60,
+      "walk_speed": 3,
+      "invert_look": false,
+      "mouse_sensitivity": 0.12,
+      "quality": "high",
+      "texture_filtering": "medium",
+      "lightmaps": "full",
+      "reflections": "full",
+      "bloom": true,
+      "use_low_quality_lighting": false,
+      "vsync": false,
+      "fov_degrees": 60,
+      "window_mode": "windowed",
+      "window_width": 640,
+      "window_height": 360
+    },
+    "identity": {
+      "binary_sha256": "5c657e6d6953b70eeac504c57e5a06b9bfcbd266c8dea71e36d7e8c30d2bc5b6",
+      "package_sha256": "ef687d32cc7e4ccb7a160a239db4541ebaec479eb974edd9698784a4c24ceace",
+      "source_sha256": "743c1cf3a900570cc163c9d2f1636118e0f8f36989ee82fcbeabd78560675bc0",
+      "camera_manifest_sha256": "0323d517ab3a4dd234c5be0b4b6aa9f50bb64cacb266fc053582959e66861069",
+      "capture_tool_sha256": "c2fa5c3be5713f67e547008f4daec0144b6bbe1c317b62cc6a173cb9f056f18e",
+      "catalog_sha256": "85b0489a2d01ee1ffd0bcabb34ca64fabc24c4a45d5340ba6d79b7660ecf7d0a",
+      "git_revision": "d24d278c8b5a248c5ee66efd8aaca063f0e16d13",
+      "git_diff_sha256": "a22323de611e5ca350baa36bee5ab2c0309ccdaff14ebdfaaf34fb0d0e95f18b"
+    },
+    "diagnostic": "final",
+    "quality_cycle": null,
+    "entity_light_trace": false,
+    "graphics_cycle": null,
+    "capture_frame": null,
+    "diagnostic_receipt": {
+      "applied": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "capture_submission": {
+        "draw_calls": 23,
+        "frustum_visible_batches": 23,
+        "frustum_visible_distinct_vertices": 14340,
+        "material_binds": 19,
+        "scope": "base-scene accounted world/props/dynamics/actors plus decals/effects; excludes sky, reflections, emissive duplicates, post and UI",
+        "texture_binds": 17,
+        "vertices": "sum of distinct indexed vertices per submitted range/object, not a globally deduplicated count or triangle estimate",
+        "visibility": "CPU frustum acceptance and encoded draws, not GPU occlusion visibility or FPS"
+      },
+      "event": "capture",
+      "frame": {
+        "base_color_format": "Rgba8Unorm raw authored display",
+        "bloom_allowed": true,
+        "bloom_requested": true,
+        "culling": true,
+        "diagnostic_identity_post": false,
+        "drawable": [
+          1280,
+          720
+        ],
+        "scene_format": "Rgba8Unorm raw display",
+        "scene_size": [
+          1280,
+          720
+        ],
+        "scene_uploaded_selector": 0.0,
+        "sky_decals_effects_suppressed": false,
+        "world_uploaded_selector": 0.0
+      },
+      "level": "art_style_hero",
+      "meaning": "ordinary final composition including sky, fog, response, emission, reflections and post",
+      "mode": "final",
+      "requested": {
+        "bloom": true,
+        "filtering": "medium",
+        "lighting": "high",
+        "lightmaps": "full",
+        "quality": "high",
+        "reflections": "full"
+      },
+      "resident": {
+        "active_plane": null,
+        "active_probe": 0,
+        "atlas": {
+          "bytes": 33554432,
+          "chart_texels": 167960,
+          "charts": 5347,
+          "format": "Rgba16Float irradiance+signed moment",
+          "page_edge": 1024,
+          "pages": 2
+        },
+        "characters": null,
+        "dynamic": {
+          "draws": 1,
+          "meshes": 1,
+          "objects": 1,
+          "vertices": 432
+        },
+        "filtering": "medium",
+        "lighting_uniform": {
+          "fog_density": 0.009499999694526196,
+          "fog_region_count": 0,
+          "light_scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "lightmap_enabled": 1.0,
+          "page_count": 2,
+          "switchable_word": 393216
+        },
+        "lightmaps": "full",
+        "lightmaps_resident": true,
+        "planar_resident": false,
+        "props": {
+          "chunks": 16,
+          "draws": 21,
+          "indices": 15900,
+          "texture_bytes": 5264704,
+          "vertices": 15900
+        },
+        "quality": "high",
+        "reflection_enabled": true,
+        "reflection_probes": [
+          {
+            "face_size": 64,
+            "mip_levels": 7,
+            "position": [
+              9.399998664855957,
+              2.5999999046325684,
+              9.149999618530273
+            ]
+          }
+        ],
+        "world": {
+          "chunks": 1,
+          "draws": 14,
+          "index_bytes": 876,
+          "indices": 438,
+          "vertex_bytes": 18176,
+          "vertices": 284
+        }
+      },
+      "surface_submission": {
+        "draw_calls": 23,
+        "material_changes": 19,
+        "source": "last surface RenderStats; may remain zero or stale when acquisition is skipped",
+        "texture_binds": 17,
+        "visible_batches": 23,
+        "visible_vertices": 14340
+      },
+      "unavailable": {
+        "charts": "atlas grid has no true chart ID/boundary/seam metadata",
+        "decomposition": "direct/indirect/filter/fill remain offline solver exports",
+        "metallic": "no material shader input",
+        "probe_field": "probe positions, validity and visibility labels have no runtime visualization provider",
+        "shadow_ao": "no standalone payload"
+      }
+    },
+    "ready_world_seconds": 0.5,
+    "measured_frames": 0,
+    "elapsed_seconds": 1.1124659579945728,
+    "exit_code": 0,
+    "image_sha256": "1a0f19f9d02a422ef153f2894d90224dacd36f74d46417fd3a7fb72c62a6b2df",
+    "settings_receipt": "[settings] quality high (saved high) [startup override] | lighting high | bloom on | reflections full | lightmaps full | vsync off | filtering medium | window Windowed 640 x 360",
+    "renderer": "[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720"
+  }
+]

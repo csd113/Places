@@ -2928,12 +2928,10 @@ fn bake_probe_field(
     }
     let cache = RadianceCache::build(receivers);
     let rays = PROBE_BAKE_RAYS;
-    let audit = std::env::var_os(probe_audit::DUMP_ENV).is_some();
-    if audit {
-        probe_audit::dump_receivers(scene, receivers, values, bounces).map_err(|error| {
-            crate::logging::warn(error);
-            LightmapFailure::FillSize
-        })?;
+    let audit = diagnostics::directory(probe_audit::DUMP_ENV).is_some();
+    // Optional inspection I/O cannot invalidate an otherwise physical solve.
+    if audit && let Err(error) = probe_audit::dump_receivers(scene, receivers, values, bounces) {
+        crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
     }
     let baked = parallel_map(count, workers, cancel, |index| {
         let (x, y, z) = lattice_from_index(index, dims);
@@ -2969,10 +2967,9 @@ fn bake_probe_field(
         ],
         probes,
     };
-    probe_audit::dump_bake(&field, &diagnostics, rays, bounces).map_err(|error| {
-        crate::logging::warn(error);
-        LightmapFailure::FillSize
-    })?;
+    if let Err(error) = probe_audit::dump_bake(&field, &diagnostics, rays, bounces) {
+        crate::logging::warn(format_args!("[probe-diagnostics] {error}"));
+    }
     Ok(field)
 }
 

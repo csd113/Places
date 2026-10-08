@@ -500,6 +500,10 @@ fn create_renderer(
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_texture_filtering(settings.texture_filtering_preset());
     renderer.set_culling(!bench.no_cull());
+    #[cfg(feature = "visual-diagnostics")]
+    if let Ok(selector) = std::env::var("PLACES_VISUAL_DIAGNOSTIC") {
+        renderer.set_visual_diagnostic(&selector)?;
+    }
     Ok(renderer)
 }
 
@@ -1867,6 +1871,13 @@ impl FrameLoop<'_> {
             return true;
         }
 
+        // Development diagnostics share the normal native capture path and
+        // never request a level rebuild or alter the player's settings.
+        #[cfg(feature = "visual-diagnostics")]
+        if self.handle_visual_diagnostic_event(event) {
+            return true;
+        }
+
         // Performance overlay toggle with '-' key (hidden by default, reserved
         // so it can never also be a gameplay binding)
         if let Event::KeyDown {
@@ -1908,6 +1919,27 @@ impl FrameLoop<'_> {
             self.handle_menu_nav(nav);
         }
         true
+    }
+
+    /// Consumes the reserved development selector key after rebinding.
+    #[cfg(feature = "visual-diagnostics")]
+    fn handle_visual_diagnostic_event(&mut self, event: &Event) -> bool {
+        if let Event::KeyDown {
+            keycode: Some(Keycode::F8),
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            self.renderer.cycle_visual_diagnostic();
+            true
+        } else {
+            false
+        }
     }
 
     /// Handles a key while the Controls screen is waiting for a binding.

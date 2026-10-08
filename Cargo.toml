@@ -8,6 +8,11 @@ license = "MIT"
 repository = "https://github.com/csd113/Places"
 publish = false
 
+[features]
+# Development-only native diagnostic views; the normal build retains the exact
+# production WGSL and does not carry the selector or diagnostic shader branch.
+visual-diagnostics = []
+
 [dependencies]
 # Safe zero-copy bytes for the small plain-data GPU structs (world vertex,
 # camera uniform). Already a transitive wgpu dependency; the derive feature

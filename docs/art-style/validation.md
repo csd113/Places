@@ -1,9 +1,12 @@
 # Stage 1 validation — 2026-10-08 UTC
 
-No Rust renderer/compiler behavior, existing asset, concept PNG, shipped map,
-platform backend, quality limit or validation rule changed. Changes are the
-ordinary hero fixture, camera manifest, small native capture wrapper/contracts,
-audit/ledger, raw evidence and journal entry.
+The original baseline changes were the hero fixture, camera/native capture
+wrapper, audit/evidence and journal. The strengthened request adds an opt-in
+renderer diagnostic selector, compiler diagnostic provenance/export, and a fix
+to the offline indirect inspector. Physical rendering/baking in the normal
+build, package format, assets/concepts, shipped maps, platform backends, quality
+limits and validation rules are preserved; native/package byte equality verifies
+the relevant behavior. This is inspection infrastructure, not a lighting overhaul.
 
 | Command actually run | Result / evidence |
 | --- | --- |
@@ -27,6 +30,56 @@ nonblocking historical map/reference migration to Stage 7. No file was moved out
 of discovery, stale package deleted/replaced, test altered/skipped with a new
 filter, assertion weakened, or existing warning suppressed. Scoped targets supplement
 the recorded failed whole-workspace run; they do not relabel it green.
+
+## Integrated diagnostic validation
+
+These are the final implementation checks, after the original baseline checks
+above. Every recorded command actually ran; earlier discovery/sccache limitations
+are preserved, not relabeled as successful.
+
+| Command | Result / retained evidence |
+| --- | --- |
+| `RUSTC_WRAPPER= cargo build --release` | Exit 0, 98.655 s; normal binaries copied outside `target/`. |
+| `RUSTC_WRAPPER= cargo build --release --features visual-diagnostics` | Exit 0, 97.420 s; feature binaries preserved separately. [Exact source/binary identities](diagnostics/build-provenance.json). |
+| `RUSTC_WRAPPER= cargo clippy --workspace --all-targets --all-features -- -D warnings` | Exit 0; [final log](checks/diagnostics-clippy.log), [command/exit receipt](checks/diagnostics-rust-checks.json). Initial integration lints were fixed at their causes without suppressions. |
+| `RUSTC_WRAPPER= cargo test --workspace` | Exit 101; **2,029 library tests pass, 23 ignored**, CLI/CPU-discovery targets pass; the same three inherited `list_levels` tests fail on the same stale dependencies. [Full final log](checks/diagnostics-cargo-test-workspace.log). No new failure appeared. |
+| `RUSTC_WRAPPER= cargo test --workspace compiler::diagnostics::tests` | Exit 0, 3 focused coefficient/probe/export-preservation tests; [log](checks/diagnostic-compiler-tests.log). |
+| `RUSTC_WRAPPER= cargo test --workspace lighting::transport::diagnostics::tests` | Exit 0, 4 focused cardinality/provenance/scope/nonoverwrite tests; [log](checks/diagnostic-transport-tests.log). |
+| `RUSTC_WRAPPER= cargo test --workspace --features visual-diagnostics render::wgpu::diagnostics::tests` | Final exit 0, 5 tests including composed WGSL validation; [log](checks/diagnostic-runtime-tests.log). First run found WGSL reserved identifier `diagnostic`; it was renamed before release builds/captures. |
+| `RUSTC_WRAPPER= cargo test --workspace --features visual-diagnostics a_diagnostic_change_uploads_even_when_the_camera_is_still` | Exit 0, 1 test; [log](checks/diagnostic-camera-test.log). Still-camera selection and return-to-final update the existing uniform. |
+| `cargo fmt --all --check` | Exit 0. |
+| `/tmp/places-art-style-analysis/bin/python -m unittest tests.test_art_style_hero tests.test_lighting_dump` | Exit 0, 7 tests. Optional analysis venv supplies NumPy 2.5.3/Pillow; no game/repository dependency was added. |
+| Assets/texture/prop checks | Exit 0 for the same source validation and existing asset contracts; [final scoped commands/outputs](checks/diagnostics-scoped-checks.json). |
+
+[Normal after-build preservation](diagnostics/normal-preservation-comparison.json)
+is byte-identical in room/window/entities. Feature-final entities also matches.
+Saved-package export exits 0 without a bake. One opt-in forced hero bake exits 0
+and reproduces the original package bytes across Off/Medium/Full. Its outputs
+include complete stage sidecars, real receivers, source/material/settings/caster
+provenance and saved-coefficient identities. [Offline execution](diagnostics/offline-execution.json),
+[package equality](diagnostics/diagnostic-package-comparison.json) and
+[zero-error chart audit](diagnostics/offline/chart-audit.json) retain the results.
+
+The expanded [native campaign](diagnostics/campaign-execution.json) passes 25
+cases / 37 raw views. [Capture-time checks](diagnostics/native-state-summary.json)
+verify selector upload, requested/applied/resident state, nonzero capture draw
+encoding and entity preservation. [Six exact PNG control pairs](diagnostics/control-comparisons.json)
+cover feature-final and live endpoints. Six normal submitted-frame performance
+samples each have 360/360 nonzero draw frames; timing scope/limits are in
+[performance](performance.md). The initial zero-counter timing attempt stays
+excluded. No non-hero map was compiled, baked or newly rendered for visual
+acceptance. Existing deterministic system tests remain intact.
+
+An incomplete earlier diagnostic-suite attempt, duplicate metadata and preliminary
+offline selectors remain preserved under `/tmp/places-stage1-diagnostic-drafts`,
+with hashed inventory; they are excluded from final check/visual claims. The final
+complete suite and six labeled offline selectors are the tracked evidence.
+
+No runtime shadow/AO/metallic/probe visualization data is fabricated. Native
+unavailable-data parsing and capture-time receipt rejection are tested; physical
+bake exports are used for real direct/indirect/chart/caster information. The
+close table is nearly dark, not literally all-black. Loading-transient absence
+cannot be inferred from ready-only captures.
 
 ## Hero preparation and native checks
 
@@ -94,5 +147,7 @@ SHA/CI receipts are in [handoff](handoff.md).
 Review includes the full task-owned diff, whitespace checks, native image review,
 reference identity preservation, source/package correspondence, prior-asset diff
 checks and absence of stage-specific Rust branches. Only the lead stages files,
-commits and pushes. The three read-only reviewers finished without jobs or edits.
+commits and pushes. The original reviewers were read-only; the later runtime/compiler specialists
+owned disjoint diagnostic code. The lead remained sole integrator/report/Git
+owner. Final evidence reviews are read-only and workers have no build/native jobs.
 Final native/build/test process and inhibitor checks occur before custody release.

@@ -8,7 +8,8 @@ High views with byte-identical PNGs. The completed asset passes remain intact.
 [Chronological visual journal](../style-upgrade-20261007/README.md) ·
 [Dependency plan and visual criteria](gap-plan.md) ·
 [Costs and measurement limits](performance.md) ·
-[Exact deferred ledger](deferred-ledger.json) · [Validation](validation.md)
+[Exact deferred ledger](deferred-ledger.json) · [Validation](validation.md) ·
+[Development diagnostics and expanded evidence](diagnostics.md)
 
 ## Matched native evidence
 
@@ -72,7 +73,8 @@ and blended clear glass use existing catalog definitions. Two ordinary broad
 fluorescent fixtures, a warm practical point source and garden light use normal
 authoring paths. The garden has the existing star sky, ambient 0.22 and a baked
 cool directional source; it is decorative and inaccessible from the playable
-interior. No new texture, material class or runtime renderer path was introduced.
+interior. No new texture or material class was introduced. The opt-in diagnostic selector
+inspects existing routes; the normal release composition remains unchanged.
 
 ## What the current evidence establishes
 
@@ -110,14 +112,51 @@ this baseline. No new crack, atlas corruption or physical opening leak is proven
 by this six-view campaign. Historical prop seams and thin-shadow limits require
 the focused controls in the plan rather than a universal brightness patch.
 
+## Expanded diagnostic foundation
+
+The strengthened Stage 1 contract adds an opt-in `visual-diagnostics` build with
+11 selectable existing-data modes, F8 cycling, capture-time resident-state
+receipts and actual offscreen encoding counts. It adds saved-package lighting
+export and scoped live solver provenance, while preserving the physical bake,
+package format and normal release. [Three normal after-build captures](diagnostics/normal-preservation-comparison.json)
+and the feature's final entity view match the original baseline byte for byte.
+The single dump-enabled forced hero bake produces the **same package bytes**.
+
+[Twenty-five cases / 37 raw native diagnostic and control images](diagnostics/campaign-execution.json)
+cover all modes, ordinary Low/Medium/High, independent atlas/filtering, the Low
+lighting override and settled live transitions. All receipts agree on requested,
+applied and resident settings, uploaded mode and the one spawned chair.
+[Six control pairs](diagnostics/control-comparisons.json) are byte-identical,
+including returned High/Full/filtering. The ready-only gate cannot prove absence
+of transient blank/stale frames during graphics loading; that limit stays in
+[the ledger](deferred-ledger.json).
+
+The new evidence locates the sofa's diagonal shading in combined atlas mean and
+physical direct transport, rather than its PNG or post alone. True offline charts
+show separate triangle grids on coplanar cushions. The additional resin-table
+view is severely underlit despite light-colored artwork; it retains faint detail
+and is not a literally all-black model. Its combined baked-light view is also
+dark. This warrants Stage 3 investigation of source placement, receiver support
+and reconstruction, rather than a replacement asset or guessed brightness patch.
+No nonemissive full-white model or new physical opening leak is demonstrated.
+
+[Diagnostic contracts, native galleries and labeled offline projections](diagnostics.md)
+explain unavailable data honestly. Direct/indirect are real offline components;
+chart-UV is only atlas addressing; shadow queries identify actual triangles;
+no standalone AO, metallic shader input or runtime probe overlay is invented.
+Stage 4 has an explicit extension seam for a real probe visualization provider.
+
 ## Reference and pipeline audit
 
-Three independent reviewers used GPT-6.1-sol with `xhigh` reasoning and read-only
-ownership: rendering/color, baker/geometry, and concepts/assets/constraints.
+Three independent reviewers used GPT-6.1-sol with `xhigh` reasoning for the
+rendering/color, baker/geometry, and concepts/assets/constraints audits.
 The integrator checked the claims against current source, manifests and the new
 native views. A preliminary reviewer statement that the demo lacked a sky was
-corrected: its actual sky is present with zero ambient. No reviewer wrote files
-or ran builds, tests, bakes or captures.
+corrected: its actual sky is present with zero ambient. The original audit was read-only. After the strengthened Stage 1 request, the
+runtime specialist owned the feature selector/native receipts and the compiler
+specialist owned diagnostic provenance/export code in disjoint files. The lead
+integrated, built, tested, captured and remained the sole report/Git writer; the
+visual reviewer stayed read-only. All three reviewed the resulting real evidence.
 
 All seven immutable concept PNGs across Office, Pool, Home, Outdoors, Winter
 and the entity atlas were visually read; [reference inventory](reference-inventory.json)
@@ -152,10 +191,12 @@ Build, all-variant hero bake, package integrity/currency, six native High views,
 matched repeatability, controls, audit, costs and the migration ledger are
 established. The local whole-workspace test command is **not green** because of
 the explicitly inherited packages in the ledger; no source regression appeared
-in 2,022 passing library tests or the remaining scoped integration checks.
-Reliable live scene FPS/GPU timing is also unavailable in this background window
-session; resource and bake costs remain valid. Neither limitation is concealed
-as an achieved quality or performance improvement.
+in 2,029 passing library tests or the remaining scoped integration checks.
+The initial background timing attempt had zero scene draws and remains invalid
+for scene performance. A later bounded normal-build campaign submitted every
+measured frame: High room median CPU/event loop 7.676 ms, 31 accounted base-scene
+draws, with 433.3 MiB process RSS. This is a local submission baseline, not GPU
+time or a cross-platform frame budget. No quality/performance improvement is claimed.
 
 The selected task exposes workspace-write sandboxing and reviewed per-command
 escalation, not a verifiable persistent Full Access switch. Its global config

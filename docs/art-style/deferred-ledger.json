@@ -116,9 +116,9 @@
       ],
       "symbol_or_format": "source/packages/benchmark reference ledger",
       "observed_failure": "These packages are unchanged at Stage1. Later renderer/compiler changes can invalidate their prepared identities even when source JSON remains valid.",
-      "reason_for_deferral": "Avoid repeated broad bake/polish in stages1\u20136; hero is the intermediate benchmark.",
+      "reason_for_deferral": "Stages1\u20136 compile/bake and visually accept only the hero. Stage7 owns supported-map compatibility/regression, not broad concept refinement.",
       "required_resolution": "At Stage7 inventory changed fingerprints/dependencies and rebuild only affected packages, preserve old matched evidence, verify all final packages.",
-      "final_verification": "Normal compiler currency/integrity, native theme galleries, assets and final desktop gate.",
+      "final_verification": "Normal compiler currency/integrity, targeted supported-map native compatibility checks, assets and final desktop gate; detailed visual acceptance remains the hero.",
       "stage": 7,
       "status": "open"
     },
@@ -127,15 +127,16 @@
       "affected_files": [
         "docs/art-style/performance-baseline.json",
         "src/lib.rs",
-        "src/render/wgpu/renderer.rs"
+        "src/render/wgpu/renderer.rs",
+        "docs/art-style/diagnostics/performance-summary.json"
       ],
       "symbol_or_format": "present_frame / acquire_frame / record_render_stats",
-      "observed_failure": "Background native loops record zero vertices/draws and contain the surface-availability yield; their18ms loop is not scene FPS. Genuine native readback images and resource allocations succeeded.",
+      "observed_failure": "Initial background sample has zero draws and cannot establish FPS. Later normal-build sample successfully submits all 360/360 frames in six fixed quality/view runs; CPU/event-loop timings and counters are retained. No GPU timestamps or physical display cadence measured.",
       "reason_for_deferral": "No engine rewrite is justified to turn unavailable surface submissions into apparently fast frames.",
-      "required_resolution": "Run the fixed hero performance views with a successfully presenting foreground native window; retain hardware/settings and require nonzero scene counters. Measure GPU timing with a supported profiler if available.",
-      "final_verification": "Nonzero scene draws/vertices, confirmed present state, bounded frame CSV and repeat samples. No FPS acceptance from zero counters.",
+      "required_resolution": "Retain the valid submitted-frame baseline; repeat after meaningful renderer changes under identical settings. Obtain GPU time with a supported profiler before selecting GPU budgets.",
+      "final_verification": "Nonzero scene counters and bounded CSV plus actual applied/present state; distinguish CPU submission/event loop from GPU execution/display cadence.",
       "stage": 2,
-      "status": "open"
+      "status": "partially resolved in Stage1; GPU profiling remains open"
     },
     {
       "id": "hero-open-garden-warning",
@@ -144,11 +145,25 @@
         "docs/art-style/geometry.json"
       ],
       "symbol_or_format": "geometry-check room-leak / decorative exterior",
-      "observed_failure": "0 errors,1 warning: garden walkable space reaches void at(-2.875,0,-6.875),1.88m outside its footprint. Open garden is behind a sealed raised glazed window; interior room/hall are enclosed.",
+      "observed_failure": "0 errors,1 warning: garden walkable space reaches void at(-2.875,0,-6.875),1.88m outside its footprint. Open garden is behind a sealed raised glazed window; interior room/hall are enclosed. Ordinary missing-wall geometry_intent matches five genuinely open garden findings; the leak warning remains unsuppressed.",
       "reason_for_deferral": "Warning is kept visible. Decorative exterior is intentionally open and inaccessible; no validation/check is disabled to hide it.",
       "required_resolution": "If Stage7 makes garden playable, add normal authored containment and verify route. Otherwise retain explicit nonplayable status and the warning.",
       "final_verification": "Current geometry checker and native interior traversal/window collision; if topology changes, rerun navigation/collision and geometry checks.",
       "stage": 7,
+      "status": "open"
+    },
+    {
+      "id": "live-transition-transient-coverage",
+      "affected_files": [
+        "src/lib.rs",
+        "docs/art-style/diagnostic-campaign.json"
+      ],
+      "symbol_or_format": "capture_if_due / ready_frames / graphics load state",
+      "observed_failure": "All settled live Low/Medium/returned High and returned atlas/filter endpoints byte-match direct launches, preserve camera/entity and agree on requested/applied/resident state. Ready-gated capture pauses during Graphics preparation, so no transient blank/stale-frame claim is proven.",
+      "reason_for_deferral": "Stage1 exercises settled live endpoints with existing controls; a transient presented-frame sequence requires additional in-scope instrumentation only if symptoms warrant it.",
+      "required_resolution": "If a transient symptom is reported, retain a bounded actual presented-frame sequence with pending/applied resource state within the hero; do not claim ready-only controls cover it.",
+      "final_verification": "Fixed-camera same-process cycle, presented-frame evidence plus requested/applied/resource identities; no unrelated map capture.",
+      "stage": 4,
       "status": "open"
     }
   ]
