@@ -44,3 +44,25 @@ vault/loft remains; the reference's external balcony is documented as a gap.
 
 Commit subject: `rebuild home assets toward concept art`; the task handoff
 records the exact pushed SHA and CI. Outdoors and Winter follow this entry.
+
+## 2026-10-07 — Outdoors
+
+[Detailed comparison, coverage and validation](outdoors/README.md) ·
+[Approved concept](../../assets/environment/outdoor/Quiet%20Night%20Places%20Concept%20Sheet.png)
+
+| Before | After |
+| --- | --- |
+| ![Outdoors before, native Low](outdoors/before-low/path.png) | ![Outdoors after, native Low](outdoors/after-low/path.png) |
+
+The original night route had wispy tree cards, a nearly continuous grass fringe,
+plain glowing fixtures and pillar-like rocks. Rebuilt branching/foliage, lantern
+construction and broken natural forms now accompany fitted olive ground,
+aggregate paths and pale facade stock. Eight new static families supply shrubs,
+capped fences, masonry piers, a porch cover, striped barrier, distant geology and
+a campfire without animation or character ownership.
+The comparison shown is native Low; Full lightmaps retain the inherited dark-yard
+limitation. Coarse fixture self-occlusion and porch coplanarity are fixed; the existing sky,
+traversal, encounters and completed Pool/Home work remain intact.
+
+Commit subject: `rebuild outdoors assets toward concept art`; the task handoff
+records the exact pushed SHA and CI. Winter follows this entry.

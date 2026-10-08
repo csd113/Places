@@ -729,12 +729,10 @@ def _panel_cap(p: PropBuilder, *, depth: float, uv, color) -> None:
 
 
 def _panel_texture(p: PropBuilder, seed: int) -> Texture:
-    tex = p.set_texture(256, seed=seed)
-    tex.auto("siding", "trim", "glass", "jamb")
-    _paint_siding(tex, "siding", SIDING, seed=seed + 2)
-    _paint_trim(tex, "trim", TRIM, seed=seed + 7)
-    _paint_glass(tex, "glass", seed=seed + 13)
-    _paint_wood(tex, "jamb", palette.shade(POST_WOOD, 0.94), seed=seed + 17)
+    from parts.refreshed import load_atlas_from
+    from pathlib import Path
+    source=Path(__file__).resolve().parents[3]/'assets/environment/outdoor/props/models/house_base.png'
+    tex=load_atlas_from(p, source, ('siding','trim','glass','jamb'))
     return tex
 
 
@@ -746,8 +744,8 @@ def build_house_wall_solid(p: PropBuilder) -> None:
     slot = p.material("house_siding")
     p.begin_material(slot)
 
-    siding = _tint(SIDING, 0.62)
-    trim = _tint(TRIM, 0.52)
+    siding = (255,255,255)
+    trim = (255,255,255)
     solid_box(p, (0.0, 1.332, 0.0), (2.57, 2.664, 0.22),
               uv={"+z": siding_uv, "-z": siding_uv, "+x": siding_uv, "-x": siding_uv,
                   "+y": trim_uv, "-y": trim_uv},
@@ -772,8 +770,8 @@ def build_house_wall_window(p: PropBuilder) -> None:
     slot = p.material("house_siding")
     p.begin_material(slot)
 
-    siding = _tint(SIDING, 0.62)
-    trim = _tint(TRIM, 0.52)
+    siding = (255,255,255)
+    trim = (255,255,255)
     # Core in four boxes around the 0.80 x 0.94 m centred opening (x +/-0.40,
     # y 0.88..1.82); the inner boxes sink 5 mm into the columns so no visible
     # faces are coplanar.
@@ -792,10 +790,12 @@ def build_house_wall_window(p: PropBuilder) -> None:
               color=siding)
     # Glazing: opaque, set 7 cm behind the front face. A thin closed slab, so
     # the dark glass reads from inside the panel as well as from outside.
+    p.begin_material(p.material("warm_window", emissive=(1.0,.78,.46), strength=.7))
     solid_box(p, (0.0, 1.35, 0.03), (0.84, 0.98, 0.03),
               uv={"+z": glass_uv, "-z": glass_uv, "+x": trim_uv, "-x": trim_uv,
                   "+y": trim_uv, "-y": trim_uv},
               color=(238, 242, 248))
+    p.begin_material(slot)
     # Frame, sill and head trim, all within the panel's 0.24 m depth.
     for side in (-1.0, 1.0):
         solid_box(p, (side * 0.4375, 1.35, 0.11), (0.075, 1.09, 0.02),
@@ -826,8 +826,8 @@ def build_house_wall_doorway(p: PropBuilder) -> None:
     slot = p.material("house_siding")
     p.begin_material(slot)
 
-    siding = _tint(SIDING, 0.62)
-    trim = _tint(TRIM, 0.52)
+    siding = (255,255,255)
+    trim = (255,255,255)
     # Core in three boxes around the 1.10 x 2.15 m opening (x +/-0.55, floor
     # to 2.15); the head box sinks into the columns to avoid coplanar faces.
     for side in (-1.0, 1.0):
@@ -1054,3 +1054,8 @@ PROPS = {
     "outdoor:house_corner_trim": build_house_corner_trim,
     "outdoor:concrete_step": build_concrete_step,
 }
+
+
+# The concept reconstruction owns only these Outdoors ids.
+from parts.outdoor_remade import REBUILDS
+PROPS.update({key: build for key, build in REBUILDS.items() if key in PROPS})

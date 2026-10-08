@@ -8,6 +8,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Level format version documented | `3` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
 | Verification | Sky panorama limits and quality uploads re-verified against `src/assets.rs`, `src/materials/image.rs`, `src/quality.rs` and `src/render/wgpu/sky.rs` (October 2026 working tree). Movement support and rim backing in §10 re-verified against `src/game.rs`, `src/level.rs` and the permanent movement-map tests (October 2026 working tree). Verified against the working tree at version 0.7.0. Section 33 was checked against `src/nav/`, `src/ai/`, `src/package/navigation.rs`, `src/loader.rs`, `src/compiler.rs`, `assets/levels/places_demo.json` and the fixed-step tests `nav::tests`, `ai::tests` and `game::tests::demo_home_encounter_*`. The v3 contract (components, event bindings, trigger volumes, timers, sequences and spawns) was checked against `src/level.rs`, `src/loader.rs`, `src/entities/`, `assets/levels/places_demo.json`, `assets/levels/model_zoo.json`, `levels/*.json` and the generator/converter tools. The `fade`/`glow` components in §29 were checked against `src/level.rs` (`FadeDef`/`GlowDef`), `src/loader.rs` (`validate_component_value`), `src/entities/components.rs` (`Fade`/`Glow`), `src/entity.rs` (`EntityFrame`) and `tools/assets/validate.py`. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Outdoors reconstruction verification | Section 34 checked against the October 7 Outdoors catalog, fitted PNGs, closed model builders, source placements, native wgpu captures and asset integrity audit. Engine format and lighting model are unchanged. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -6265,8 +6266,10 @@ prop geometry, not a new floor element.
 
 ### 34.5 Tree
 
-`outdoor:tree_01` is a substantial stylized tree: a tapered trunk, four
-branches and a broad alpha-cutout leaf canopy, about 4.6 m wide and 6.4 m tall.
+`outdoor:tree_01` is a substantial stylized tree: tapered branching and
+asymmetric closed faceted foliage masses, about 4.6 m wide and 6.4 m tall.
+The bare trees use opaque foliage; grass remains alpha-cutout. See asset
+specification §8.10 and the Outdoors journal for the October reconstruction.
 The **canopy** is the catalog box; collision is the level `size`, so place it
 solid with a trunk-sized box:
 
@@ -6288,11 +6291,13 @@ solid with a trunk-sized box:
 ### 34.6 Exterior lamps
 
 One housing family, three mounts, plus the fence post that supports the middle
-one. Every lamp's pane is an emissive material group; **emission is bloom
+one. Each reconstructed lantern has four tapered panes, corner bars, a
+pyramidal hood and a finial. Every pane is an emissive material group; **emission is bloom
 only**. The real illumination is a `props[].lights` point the level authors at
 the documented offset, because no material ever lights anything (§18). The
-housing leaves the pane's outward hemisphere open, and the offsets sit clear of
-the housing, so a lamp never blocks its own light.
+closed fixture surrounds its published emitter anchor. Set `occludes: false`
+on the lamp placement: coarse fixture occlusion otherwise blocks its own
+light. This does not remove authored collision or alter the light profile.
 
 | Asset id | Size `[w,h,d]` m | Mount / origin | Documented light profile |
 | --- | --- | --- | --- |
@@ -6303,7 +6308,7 @@ the housing, so a lamp never blocks its own light.
 
 ```json
 { "id": "path_lamp_1", "model": "outdoor:lamp_stand", "x": 4.0, "z": 7.2,
-  "size": [0.34, 1.05, 0.34],
+  "size": [0.34, 1.05, 0.34], "occludes": false,
   "lights": [ { "shape": "point", "offset": [0.0, 0.86, 0.0],
                 "color": [1.0, 0.86, 0.68], "intensity": 0.7,
                 "range": 7.0, "falloff": "smooth" } ] }
@@ -6375,9 +6380,9 @@ catalog entry; the assembled reference is
 
 | Asset id | Size `[w,h,d]` m | Notes |
 | --- | --- | --- |
-| `outdoor:tree_02` | `[3.6, 6.2, 3.6]` | pale-barked **birch**: slender trunk, dark flecks, airy canopy; trunk collider `[0.6, 6.2, 0.6]` |
-| `outdoor:tree_03` | `[3.2, 6.8, 3.2]` | **evergreen/conifer**: tapered trunk under six ragged tiers plus needle-fringe cards; trunk collider `[0.6, 6.8, 0.6]` |
-| `outdoor:streetlight` | `[0.5, 6.4, 1.2]` | 6 m post, swan-neck arm reaching +Z, open-bottomed head with a **downward** emissive pane. Author its light at offset `[0, 6.05, 0.43]` (under the hood, inside the model's own 1.2 m bounding depth); the hood shadows upward, so the pool lands on the ground |
+| `outdoor:tree_02` | `[2.0, 6.2, 2.0]` | slender deciduous tree: tapered branching, narrow grouped foliage; trunk collider `[0.6, 6.2, 0.6]` |
+| `outdoor:tree_03` | `[3.2, 6.8, 3.2]` | **evergreen/conifer**: tapered trunk under six staggered whorls of closed needle masses; trunk collider `[0.6, 6.8, 0.6]` |
+| `outdoor:streetlight` | `[0.5, 6.4, 1.2]` | 6 m tapered post, swan-neck arm reaching +Z, tapered four-pane lantern with a pyramidal hood. Retains light offset `[0, 6.05, 0.43]`; set `occludes: false` so its coarse fixture bounds do not block the emitter |
 | `outdoor:porch_railing_straight` | `[1.8, 1.05, 0.12]` | rail runs edge to edge; top rail 0.95–1.05, bottom rail 0.14–0.21, metal balusters |
 | `outdoor:porch_railing_corner` | `[0.3, 1.05, 0.3]` | two rail stubs cross on the module point; pair it with a `porch_post` on the same point |
 | `outdoor:porch_railing_end` | `[0.3, 1.05, 0.12]` | closed by a capped 0.12 m newel |
@@ -6398,7 +6403,7 @@ flat top at 2.30 m).
 | family | cladding | trim | window | roof | porch |
 | --- | --- | --- | --- | --- | --- |
 | `01` | faded cream clapboard | dark green | two-pane vertical | grey shingle | simple stoop |
-| `02` | pale blue-grey clapboard | oxblood | four-pane 2×2 | brown shingle | covered porch |
+| `02` | pale blue-grey clapboard | cream | warm four-pane 2×2 | charcoal-blue shingle | covered porch |
 | `03` | ochre clapboard | white | tall narrow | dark slate | porch railings |
 | `04` | dark green board-and-batten | cream | wide three-lite | near-black | small porch |
 | `05` | weathered white shiplap | navy | two small squares | green-grey | deep deck |
@@ -6407,6 +6412,18 @@ Mix and match any family's pieces: the grid, pivots and mounting points are
 identical, so a shell assembled from one family has no gaps (the fixture
 assembles all five). Houses are visual depth on real `walls`; the level owns
 structure and collision.
+
+The October Outdoors reconstruction adds `outdoor:bush_round` and
+`outdoor:bush_low` (closed asymmetric foliage), `outdoor:fence_two_rail`
+(2 m capped timber module), `outdoor:masonry_pier` (1.2 m cap height,
+supporting a fence lamp), `outdoor:porch_canopy` (high edge at local -Z),
+`outdoor:road_barrier` (striped decorative rail) and `outdoor:boundary_ridge`
+(20 × 10 × 4 m distant closed geology), and `outdoor:campfire_static`
+(the existing fire construction baked into a genuinely static asset). They use ordinary prop placement;
+no new engine fields exist. Shrubs/ridges opt out of coarse bake occlusion,
+and ridges remain outside the established playable containment. See
+[asset specification §8.10](ASSET_SPECIFICATION.md#810-outdoors-concept-reconstruction)
+and the [Outdoors journal](style-upgrade-20261007/outdoors/README.md).
 
 ### 34.8 Night sky
 

@@ -518,3 +518,10 @@ ART = {
         "kind": "decal",
     },
 }
+
+
+# Committed concept finishes are authoritative; sky remains its original PNG.
+from home_art import load_sheet
+for _entry in ART.values():
+    _model=_entry['model']
+    _entry['build']=lambda model=_model: load_sheet(model)

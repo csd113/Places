@@ -20,3 +20,6 @@ levels/*.zip
 levels/*.placesmap
 
 .pytest_cache/
+
+# Retained local native Outdoors review payload; journal images are tracked.
+/debug-maps/outdoors-style-20261007/evidence/

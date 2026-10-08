@@ -1,0 +1,106 @@
+{
+  "source": "assets/levels/lantern_hollow.json",
+  "out": "assets/levels/lantern_hollow.placesmap",
+  "rebuilt": true,
+  "reuse_reason": "",
+  "variants": [
+    "off",
+    "medium",
+    "full"
+  ],
+  "bytes": 110288475,
+  "millis": 649828.965042,
+  "warnings": [],
+  "fingerprint": "fc743236f3089d367c5b8c415694cf115aede072cae33498ded0ac3ff7ec1c03",
+  "variant_stats": [
+    {
+      "lightmap_quality": "off",
+      "mesh_ranges": 183,
+      "mesh_vertices": 21789,
+      "prop_batches": 380,
+      "lightmap_pages": 0,
+      "lightmap_charts": 0,
+      "irradiance_probes": 0,
+      "probe_points": 0,
+      "wall_boxes": 528,
+      "navigation_cells": 129390,
+      "navigation_regions": 8
+    },
+    {
+      "lightmap_quality": "medium",
+      "mesh_ranges": 158,
+      "mesh_vertices": 9869,
+      "prop_batches": 380,
+      "lightmap_pages": 6,
+      "lightmap_charts": 245447,
+      "irradiance_probes": 18408,
+      "probe_points": 0,
+      "wall_boxes": 528,
+      "navigation_cells": 129390,
+      "navigation_regions": 8
+    },
+    {
+      "lightmap_quality": "full",
+      "mesh_ranges": 158,
+      "mesh_vertices": 9869,
+      "prop_batches": 380,
+      "lightmap_pages": 8,
+      "lightmap_charts": 245447,
+      "irradiance_probes": 18408,
+      "probe_points": 0,
+      "wall_boxes": 528,
+      "navigation_cells": 129390,
+      "navigation_regions": 8
+    }
+  ],
+  "phases": [
+    {
+      "phase": "load_validate_prepare_dependencies",
+      "millis": 102.250292
+    },
+    {
+      "phase": "fingerprints",
+      "millis": 3.206416
+    },
+    {
+      "phase": "current_package_integrity",
+      "millis": 0.224
+    },
+    {
+      "phase": "semantics",
+      "millis": 1.580042
+    },
+    {
+      "phase": "navigation_collision_inputs",
+      "millis": 84.09675
+    },
+    {
+      "phase": "prepared_package_integrity",
+      "millis": 0.23691700000000002
+    },
+    {
+      "phase": "capture_device_materials",
+      "millis": 63.6435
+    },
+    {
+      "phase": "prepare_encode_off",
+      "millis": 20423.974583
+    },
+    {
+      "phase": "prepare_encode_medium",
+      "millis": 109476.18570900001
+    },
+    {
+      "phase": "prepare_encode_full",
+      "millis": 514865.761542
+    },
+    {
+      "phase": "record_hashes_manifest",
+      "millis": 1517.382541
+    },
+    {
+      "phase": "archive_compress_publish",
+      "millis": 3283.199958
+    }
+  ]
+}

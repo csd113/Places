@@ -568,6 +568,11 @@ HOME_APRON_DISPLAYS = (
     "home:door_casing",
 )
 
+OUTDOOR_APRON_DISPLAYS = tuple('outdoor:' + name for name in (
+    'bush_round', 'bush_low', 'fence_two_rail', 'masonry_pier',
+    'porch_canopy', 'road_barrier', 'boundary_ridge', 'campfire_static',
+))
+
 
 def ordered_displays(catalog: Dict) -> List[Dict]:
     """Every display the zoo must contain, in a deterministic order.
@@ -577,7 +582,7 @@ def ordered_displays(catalog: Dict) -> List[Dict]:
     """
     displays: List[Dict] = []
     for entry in placeables(catalog):
-        if entry["id"] in POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS:
+        if entry["id"] in POOL_APRON_DISPLAYS + HOME_APRON_DISPLAYS + OUTDOOR_APRON_DISPLAYS:
             continue
         klass = display_class(entry)
         role = klass
@@ -1284,6 +1289,14 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
                 fields["size"] = [.6, .9, .6]
             layout.add_prop(entry, "floor", 13.4 + (index % 8) * 2.85,
                             depth - 5.2 + (index // 8) * 1.65, **fields)
+    # Outdoors fills the previously unused south-west apron without reflow.
+    for index, asset_id in enumerate(OUTDOOR_APRON_DISPLAYS):
+        entry = by_id.get(asset_id)
+        if entry is not None:
+            layout.add_prop(entry, "floor", 2.4 + (index % 4) * 3.0,
+                            depth - 4.2 + (index // 4) * 2.0,
+                            scale=.15 if asset_id == "outdoor:boundary_ridge" else .6,
+                            rotation_degrees=0.0)
     thickness = 0.4
     walls = [
         {

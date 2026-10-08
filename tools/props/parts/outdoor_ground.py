@@ -145,16 +145,12 @@ def _paint_blade_group(tex: Texture, rect, blade_count: int) -> None:
 
 
 def _blade_atlas(p: PropBuilder) -> Texture:
-    """Paints the cutout atlas and registers both blade regions."""
-    tex = p.set_texture(ATLAS_SIZE, alpha=True)
-    # RGB veil behind the zero alpha: keeps filtered blade edges green.
-    for index in range(0, len(tex.pixels), 4):
-        tex.pixels[index] = VEIL_RGB[0]
-        tex.pixels[index + 1] = VEIL_RGB[1]
-        tex.pixels[index + 2] = VEIL_RGB[2]
-    for name, rect in BLADE_REGIONS.items():
-        tex.region(name, rect)
-        _paint_blade_group(tex, rect, BLADE_COUNT)
+    """Loads the committed cutout atlas and registers its two blade regions."""
+    from pathlib import Path
+    from parts.refreshed import load_atlas_from
+    source=Path(__file__).resolve().parents[3]/'assets/environment/outdoor/props/models/grass_patch_small.png'
+    tex=load_atlas_from(p,source,(),keep_alpha=True)
+    for name,rect in BLADE_REGIONS.items():tex.region(name,rect)
     return tex
 
 

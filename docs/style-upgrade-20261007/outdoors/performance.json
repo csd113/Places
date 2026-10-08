@@ -1,0 +1,38 @@
+{
+  "high": {
+    "before": {
+      "loop_median_ms": 2.3979999999999997,
+      "draw_calls": 113.0,
+      "material_changes": 67.0,
+      "total_vertices": 517285.0,
+      "vbo_bytes": 33106240.0
+    },
+    "after": {
+      "loop_median_ms": 2.7795,
+      "draw_calls": 123.0,
+      "material_changes": 87.5,
+      "total_vertices": 393481.0,
+      "vbo_bytes": 25182784.0
+    }
+  },
+  "low": {
+    "before": {
+      "loop_median_ms": 2.497,
+      "draw_calls": 115.0,
+      "material_changes": 67.0,
+      "total_vertices": 375862.0,
+      "vbo_bytes": 24055168.0
+    },
+    "after": {
+      "loop_median_ms": 2.9425,
+      "draw_calls": 122.5,
+      "material_changes": 87.0,
+      "total_vertices": 305745.0,
+      "vbo_bytes": 19567680.0
+    }
+  },
+  "demo_package_bytes": {
+    "before": 100086061,
+    "after": 74520351
+  }
+}

@@ -5864,9 +5864,9 @@
       "x": 12.6,
       "z": 108.1,
       "size": [
-        3.6,
+        2.0,
         6.2,
-        3.6
+        2.0
       ],
       "solid": false,
       "components": [
@@ -8947,6 +8947,254 @@
           ]
         }
       ],
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-bush_round:floor",
+      "display_name": "Bush Round",
+      "model": "outdoor:bush_round",
+      "x": 2.4,
+      "z": 138.5,
+      "size": [
+        1.55,
+        1.05,
+        1.35
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-bush_low:floor",
+      "display_name": "Bush Low",
+      "model": "outdoor:bush_low",
+      "x": 5.4,
+      "z": 138.5,
+      "size": [
+        1.7,
+        0.65,
+        1.45
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-fence_two_rail:floor",
+      "display_name": "Fence Two Rail",
+      "model": "outdoor:fence_two_rail",
+      "x": 8.4,
+      "z": 138.5,
+      "size": [
+        2.0,
+        1.05,
+        0.16
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-masonry_pier:floor",
+      "display_name": "Masonry Pier",
+      "model": "outdoor:masonry_pier",
+      "x": 11.4,
+      "z": 138.5,
+      "size": [
+        0.58,
+        1.2,
+        0.58
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-porch_canopy:floor",
+      "display_name": "Porch Canopy",
+      "model": "outdoor:porch_canopy",
+      "x": 2.4,
+      "z": 140.5,
+      "size": [
+        3.4,
+        0.72,
+        1.9
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-road_barrier:floor",
+      "display_name": "Road Barrier",
+      "model": "outdoor:road_barrier",
+      "x": 5.4,
+      "z": 140.5,
+      "size": [
+        3.4,
+        1.1,
+        0.42
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-boundary_ridge:floor",
+      "display_name": "Boundary Ridge",
+      "model": "outdoor:boundary_ridge",
+      "x": 8.4,
+      "z": 140.5,
+      "size": [
+        20.0,
+        10.0,
+        4.0
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.15,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:outdoor-campfire_static:floor",
+      "display_name": "Static Seating Campfire",
+      "model": "outdoor:campfire_static",
+      "x": 11.4,
+      "z": 140.5,
+      "size": [
+        1.3,
+        1.25,
+        1.3
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Show name"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_label"
+            }
+          ]
+        }
+      ],
+      "scale": 0.6,
       "rotation_degrees": 0.0
     }
   ],

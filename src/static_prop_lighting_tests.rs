@@ -364,10 +364,29 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
     let (meta, pixels) = crate::package::lightmaps::write_lightmaps(atlas).unwrap();
     let decoded_atlas = crate::package::lightmaps::read_lightmaps(&meta, &pixels).unwrap();
     assert_eq!(atlas.charts, decoded_atlas.charts);
+    // Direct wgpu uploads also use RGBA16F. Compare the actual shader input,
+    // not the higher-precision solve: grazing rock faces amplify cancellation.
+    // This independent arithmetic oracle does not call the package converter.
+    let mut shader_atlas = atlas.as_ref().clone();
+    for page in &mut shader_atlas.pages {
+        for texel in &mut page.texels {
+            texel.irradiance = texel.irradiance.map(shader_half_precision);
+            texel.direction = texel.direction.map(shader_half_precision);
+        }
+    }
+    assert_eq!(shader_atlas.pages.len(), decoded_atlas.pages.len());
+    for (before, after) in shader_atlas.pages.iter().zip(&decoded_atlas.pages) {
+        assert_eq!(before.texels, after.texels, "every shader texel is exact");
+    }
+    let (_, roundtrip_pixels) = crate::package::lightmaps::write_lightmaps(&decoded_atlas).unwrap();
+    assert_eq!(
+        pixels, roundtrip_pixels,
+        "half-float upload planes are exact"
+    );
     let batch = receiver_batch(&built, "showcase_boulder.glb");
     for indices in batch.indices.as_chunks::<3>().0 {
         let triangle = indices.map_indices(&batch.vertices);
-        for (before, after) in sample(atlas, triangle)
+        for (before, after) in sample(&shader_atlas, triangle)
             .into_iter()
             .zip(sample(&decoded_atlas, triangle))
         {
@@ -377,6 +396,17 @@ fn model_lightmap_coordinates_normals_and_shading_survive_package_roundtrip() {
             );
         }
     }
+}
+
+fn shader_half_precision(value: f32) -> f32 {
+    assert!(value.is_finite() && value.abs() <= 65_504.0);
+    if value == 0.0 {
+        return value;
+    }
+    // Binary16 has ten fraction bits; subnormal spacing stays at 2^-24.
+    let exponent = value.abs().log2().floor().max(-14.0);
+    let spacing = (exponent - 10.0).exp2();
+    (value / spacing).round_ties_even() * spacing
 }
 
 #[test]

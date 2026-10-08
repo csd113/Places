@@ -1,0 +1,4684 @@
+[
+  {
+    "id": "outdoor:boundary_ridge",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 68,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_boundary_ridge_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 68
+    },
+    "demo_placements": 5,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "184b59a85cb81a215e3d84a048e4798809489fdbfdb64fb55b8f6a9b21c3d372",
+    "dimensions": [
+      20.0,
+      10.0,
+      4.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:bush_low",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 144,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 59187,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/bush_low.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_bush_low_diffuse",
+        "pixel_sha256": "6b4018fc5e9dd31fc45301f54dec55dc3ef49327802a732ad22afdf76b3a04e9",
+        "sha256": "01880966e741af59268867336eef33e4e5f2d4e72203fb88ed0cf3fe57e70763",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 144
+    },
+    "demo_placements": 14,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "00b4bec4b73ff2ceeda576adb7f90e4d9b42030aedcfeddb9f8178f5808df4c9",
+    "dimensions": [
+      1.7000000476837158,
+      0.6499999761581421,
+      1.4500000476837158
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:bush_round",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 144,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 59162,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/bush_round.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_bush_round_diffuse",
+        "pixel_sha256": "a7effe5be7daf4039e47e74ca3b672cacb663eb0343ec5fa660c21203baa59cc",
+        "sha256": "70d43b9913ec089a07821f90c671e10d880c7c276cefeec5c6fe44369b7ae017",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 144
+    },
+    "demo_placements": 28,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "d026ba9526205735ac9566599f23297ad3df7518d8ea6d296015d99e424c06d4",
+    "dimensions": [
+      1.5499999523162842,
+      1.0499999523162842,
+      1.350000023841858
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:campfire_static",
+    "classification": "new",
+    "reason": "New genuine static fire version preserves the reference seating object without animation/character ownership.",
+    "triangles_before": null,
+    "triangles_after": 744,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_campfire_static_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 22,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 744
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "7387a352438c08fc2cf4535e97431bf0556d3827ca55c6d1f134f10cd3fb0f77",
+    "dimensions": [
+      1.2999999523162842,
+      1.25,
+      1.2999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:collision_peg",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 12,
+    "triangles_after": 12,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 834,
+        "decoded_bytes": 4096,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/collision_peg.png"
+        ],
+        "height": 32,
+        "index": 0,
+        "name": "outdoor_collision_peg_diffuse",
+        "pixel_sha256": "670a2156fb06727aa0c8fd499dd3b815db2e1f12a136243608b7d3d8396f2da6",
+        "sha256": "690b5a65998eb1e21a2aef53fd617463b589cb04655e8f17f9b7ef6900f79e44",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/collision_peg.png"
+        ],
+        "used": true,
+        "width": 32
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 12
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "19a546d0c550ec9d055414d1d8b3bbcfa31e77f7fe5db63b134839a894dadc92",
+    "dimensions": [
+      0.05999999865889549,
+      0.05999999865889549,
+      0.05999999865889549
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:concrete_step",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 20,
+    "triangles_after": 20,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_concrete_step_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 20
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "0c383f896568ab166c7e847e27b26f397e748600a5fb7ab563093504bb0a7c6c",
+    "dimensions": [
+      1.399999976158142,
+      0.18000000715255737,
+      0.699999988079071
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:fence_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 28,
+    "triangles_after": 28,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 23651,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/fence_post.png",
+          "assets/environment/outdoor/props/models/showcase_wood.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_fence_post_diffuse",
+        "pixel_sha256": "76959ca3bc4c330f4c8f643d8799aa8d05211de11f06df24526106ba3eabcdc9",
+        "sha256": "e98bd470262a8fb1b5914b01b5e6f06258ec28bfd0898a288095d57ebd3f0474",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 28
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "357617b8b218178c921e2190bde005d22099501ef3ef56f487253536c80d5a44",
+    "dimensions": [
+      0.11999999731779099,
+      1.0499999523162842,
+      0.11999999731779099
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:fence_two_rail",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 96,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_fence_two_rail_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 8,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 96
+    },
+    "demo_placements": 11,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "855df209a6259cec57af96692f4990a8002e735c21fe6f02b14d9f9e2054d879",
+    "dimensions": [
+      2.0,
+      1.0499999523162842,
+      0.1599999964237213
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:grass_patch_large",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 42,
+    "triangles_after": 42,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          0,
+          255
+        ],
+        "bytes": 71836,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/grass_patch_large.png",
+          "assets/environment/outdoor/props/models/grass_patch_small.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_grass_patch_large_diffuse",
+        "pixel_sha256": "1bf6f2662ad8dbb18de182403497553ab37967ea142eefa6adffd9bf30243b77",
+        "sha256": "2aa999607fb65b425a72de247503a995376da9a9a75e0059611f2aeb44f7ac16",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 56,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 24,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 42
+    },
+    "demo_placements": 554,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/halloween_entities.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "f42b3c78aa8ffbd4e95fa7ff170b91df21b0d821e2e9c52b588832ecea4c559a",
+    "dimensions": [
+      0.949999988079071,
+      0.6200000047683716,
+      0.949999988079071
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:grass_patch_small",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          0,
+          255
+        ],
+        "bytes": 71836,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/grass_patch_large.png",
+          "assets/environment/outdoor/props/models/grass_patch_small.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_grass_patch_small_diffuse",
+        "pixel_sha256": "1bf6f2662ad8dbb18de182403497553ab37967ea142eefa6adffd9bf30243b77",
+        "sha256": "2aa999607fb65b425a72de247503a995376da9a9a75e0059611f2aeb44f7ac16",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 32,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 12,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 731,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/halloween_entities.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "66b64d9856023596e8ad1b12cc483fa2baf59320e8f6278489e0a28705656b9e",
+    "dimensions": [
+      0.550000011920929,
+      0.30000001192092896,
+      0.550000011920929
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_corner_trim",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11348,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_01_corner_trim_diffuse",
+        "pixel_sha256": "e9d025887179c721e54ba01b1334ecccf14cfb71eef856d0394f3d2ded02ac2b",
+        "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "92bda4eaa4537403b18f2ae3649c472dc92193be81c39092d97530cf0affaa8b",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_gable",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 32,
+    "triangles_after": 32,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_gable_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 32
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "46d0d51d7ece53834e61c256ca537c88736252fb266219192e863450b4c7a132",
+    "dimensions": [
+      3.0,
+      1.0199999809265137,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_porch_deck",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 92,
+    "triangles_after": 92,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_porch_deck_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 51,
+      "components": 9,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 9,
+      "triangles": 92
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "b5a358f0a599ad00c9c1e5aa0fc1e4ef7c93281dc775995700618fe58743b8c2",
+    "dimensions": [
+      3.0,
+      0.23999999463558197,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_porch_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 28,
+    "triangles_after": 28,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11348,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_01_porch_post_diffuse",
+        "pixel_sha256": "e9d025887179c721e54ba01b1334ecccf14cfb71eef856d0394f3d2ded02ac2b",
+        "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 28
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "0f352fcd7c71ec81f02711f6afe69bcf8a19e1e6695d11c9af908dd77e0adb6a",
+    "dimensions": [
+      0.14000000059604645,
+      2.299999952316284,
+      0.14000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_roof_ridge",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11348,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_01_roof_ridge_diffuse",
+        "pixel_sha256": "e9d025887179c721e54ba01b1334ecccf14cfb71eef856d0394f3d2ded02ac2b",
+        "sha256": "23b8b718264595c5201047f0cf2930ca9405bc38fa1b67fc4ef5bcb1a71b2374",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "3f4632cb71fdfe4d20e6f43f0cc276d62c47b5559b1a4d8084ff9b47410302c7",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_roof_slope",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_roof_slope_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 1,
+      "triangles": 36
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "46627e5d44f3d1bb324ebbfbe243549e66157c6122e5dbcb4c4cf869176fa37f",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_wall_doorway",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 138,
+    "triangles_after": 138,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_wall_doorway_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 88,
+      "components": 10,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 50,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 12,
+      "triangles": 138
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "f2ce7480152438bb7ad9e122f05581f0fdcd7f20c54a01c860c420ac292174a7",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.4000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_wall_solid",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_wall_solid_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "907863a25bf0237d4a077ce029c21d891754fdc214a5bfe6e036721db0503519",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_01_wall_window",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 180,
+    "triangles_after": 180,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 46810,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_01_wall_window_diffuse",
+        "pixel_sha256": "b03c4c482eb2d9177e086695373873903e9d30af8b10fa44eb1c989daa15b7ca",
+        "sha256": "5d7c3c760c2405b8d9d159563b99049878dbf02be890df7d8c14b6b9ef2c6cfe",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_01_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 15,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 10,
+      "triangles": 180
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "faa6a1eaa5fe56daa77c76043932da0c0eae6c9b6fb44b7050fe29df73a6662c",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_corner_trim",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_corner_trim_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 36
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "31372acf63a9e6d7b284c8da60808a0e52e36cd867bf40ea9fd994c2a8581f49",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_gable",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 56,
+    "triangles_after": 56,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_gable_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 5,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 56
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "081fb996d201c03c9ad6e16812fc391aad8e778c7312dd84e6c07e3c7ac1cba7",
+    "dimensions": [
+      3.0,
+      1.0199999809265137,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_porch_deck",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 132,
+    "triangles_after": 96,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_porch_deck_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 8,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 4,
+      "triangles": 96
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "b66c3632ed0aac70b09d7fd75ca427d5c6ef848d861f5bb54f37db3f384fc2c0",
+    "dimensions": [
+      3.0,
+      0.23999999463558197,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_porch_post",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 40,
+    "triangles_after": 40,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_porch_post_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 40
+    },
+    "demo_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "530160d349bbf4c82e0335422f5d8f1c78c3bb4a94bb4963b8ab33433b191601",
+    "dimensions": [
+      0.14000000059604645,
+      2.299999952316284,
+      0.14000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_roof_ridge",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 20,
+    "triangles_after": 20,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 21163,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_02_roof_ridge_diffuse",
+        "pixel_sha256": "04b1a93bdf5efc0d87a8d62e49ba03df32a5a401a2c4286387d93c98dd0752e9",
+        "sha256": "6f0e51e82cc942d43e76a29b441f59b86dacaa68cda80331ecfe145f871a8c25",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 20
+    },
+    "demo_placements": 3,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "763d974bec94ee58f5145a59548907bb77f95330a881b3d4b9bc159d1ee7a834",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_roof_slope",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 72,
+    "triangles_after": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_roof_slope_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 6,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 72
+    },
+    "demo_placements": 6,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/lighting_quality.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "00e936bddfa88a2c2686dde4b94277e8055ebc8eff89ce21bf5d086e29273846",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_wall_doorway",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 150,
+    "triangles_after": 132,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_wall_doorway_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 11,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 4,
+      "triangles": 132
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "777d4b79dfe8b031624be43d7c3d673563a250f2bdd6fe5740caa67276abcec0",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.4000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_wall_solid",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_wall_solid_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "6b2c509c6eef3c56280e975c0b3f4ba490c93511255b01e3f1b83903b43dd56d",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_02_wall_window",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 204,
+    "triangles_after": 204,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 65432,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_02_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_02_wall_window_diffuse",
+        "pixel_sha256": "6da96c34164130c74f20feb6a5d6e1c61a19b957ad1f85625cec6f90dcbcd3e5",
+        "sha256": "1e14aa572f25c8fd3c37076e7dae73e77e91b0c23ed4eaa91baf11a28a5f5450",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 17,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 10,
+      "triangles": 204
+    },
+    "demo_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "fd645a8177c5820af0f080ae5654d3372af743f68158c7be228096263d719157",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_corner_trim",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11787,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_03_corner_trim_diffuse",
+        "pixel_sha256": "40b3cc8d2294d47c2e07ad58ae8b5869baaad90963bf6356764b1f4daa3405ef",
+        "sha256": "d8dd91454a830b4878b651db1a3609d5fc24ec4f5a3da62a25f5ba2ef9988621",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "e055d6c6bd914da467f63301eab3234b70ec85285b3228f8ad50d8a6b4b3b8ea",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_gable",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 56,
+    "triangles_after": 56,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_gable_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 5,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 56
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "9f3f64f9391a11830a69e0e9c31ea24f9cc0c67b3bc265c186ea54ea990a6665",
+    "dimensions": [
+      3.0,
+      1.0199999809265137,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_porch_deck",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 132,
+    "triangles_after": 132,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_porch_deck_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 89,
+      "components": 19,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 15,
+      "triangles": 132
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "4424da329205e3c36ce59a3078342f0451db505b97d6069c310ee25b776683a8",
+    "dimensions": [
+      3.0,
+      0.23999999463558197,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_porch_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 44,
+    "triangles_after": 44,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11787,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_03_porch_post_diffuse",
+        "pixel_sha256": "40b3cc8d2294d47c2e07ad58ae8b5869baaad90963bf6356764b1f4daa3405ef",
+        "sha256": "d8dd91454a830b4878b651db1a3609d5fc24ec4f5a3da62a25f5ba2ef9988621",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 44
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "6ffbc9d11be2751121d113b69f396e922815744145aa170f78a7f3f478f105b4",
+    "dimensions": [
+      0.14000000059604645,
+      2.299999952316284,
+      0.14000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_roof_ridge",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 11787,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_03_roof_ridge_diffuse",
+        "pixel_sha256": "40b3cc8d2294d47c2e07ad58ae8b5869baaad90963bf6356764b1f4daa3405ef",
+        "sha256": "d8dd91454a830b4878b651db1a3609d5fc24ec4f5a3da62a25f5ba2ef9988621",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "01a773a2ef93460c48cea4b25f7c3b0c809cff3dd59a43257fd5532d4645f179",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_roof_slope",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_roof_slope_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 36
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "f9a64971b42da6731f0466e00006a21a9d2d464f341ae14d7d740845813c20ac",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_wall_doorway",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 138,
+    "triangles_after": 138,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_wall_doorway_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 88,
+      "components": 10,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 50,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 12,
+      "triangles": 138
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "ba701dd1496bb3d00fde5aa85b0e45bff55a4fd1237b77ac0686f4b489a1edc4",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.4000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_wall_solid",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_wall_solid_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "c0027988636bb2ff2ab344ed52f500b8b9fca5acc65bd0c2711fb714cecbb4c6",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_03_wall_window",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 192,
+    "triangles_after": 192,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 48497,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_03_wall_window_diffuse",
+        "pixel_sha256": "95552b437ad6014e8072c59903c6ef72cb5843ca93898ce4127b899c988839e5",
+        "sha256": "a59959635134b5e52538933698a6a8596619926a8aa16e017f32f6c1ec0ed5ae",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_03_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 16,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 10,
+      "triangles": 192
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "da160bf97dd80a5429bdaa6ba9ecd2c3a01018b03dd262e59830c1ede493541e",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_corner_trim",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13925,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_04_corner_trim_diffuse",
+        "pixel_sha256": "bffeb74ba49fbb7aeb6c2905820341354e69443339c106bf1494267cce56d8e6",
+        "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 36
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "b66aeca95611874e432dc70f973cb4106d39b4128bf5de86d043ba5606934507",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_gable",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 44,
+    "triangles_after": 44,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_gable_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 44
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "56d9694b01407a3dd75dc7ed0949bcbe21ce2068f3b0324de4dbaca8924bfbcc",
+    "dimensions": [
+      3.0,
+      1.0199999809265137,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_porch_deck",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 92,
+    "triangles_after": 92,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_porch_deck_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 51,
+      "components": 9,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 9,
+      "triangles": 92
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "56cee07b1b2c1fd8b72c928d559d8f67fe918b11bd48b7998bddb07d208f2df9",
+    "dimensions": [
+      3.0,
+      0.23999999463558197,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_porch_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13925,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_04_porch_post_diffuse",
+        "pixel_sha256": "bffeb74ba49fbb7aeb6c2905820341354e69443339c106bf1494267cce56d8e6",
+        "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "ec211cff758549a17a61e8cb8b808f37afbd02a5f91dd4ec5d6b386ae4c90603",
+    "dimensions": [
+      0.14000000059604645,
+      2.299999952316284,
+      0.14000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_roof_ridge",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13925,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_04_roof_ridge_diffuse",
+        "pixel_sha256": "bffeb74ba49fbb7aeb6c2905820341354e69443339c106bf1494267cce56d8e6",
+        "sha256": "919e6f632f8c2986db35777853829e8d4be1aa267e706bb995e10d4bc527a9d7",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "4efc49dafcb9dbf7fdd157d857665a4b39aafc9930b28d5f70bfb8e535aa7c54",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_roof_slope",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 72,
+    "triangles_after": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_roof_slope_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 6,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 1,
+      "triangles": 72
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "cca80829c29481a84d675aee0a728a688ddef22c8f31807ffb97a906e92ad38a",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_wall_doorway",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 138,
+    "triangles_after": 138,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_wall_doorway_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 88,
+      "components": 10,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 50,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 12,
+      "triangles": 138
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "83772a889fade3326a29816a335d119581669bf1bae14ebf1a549348c4cc3250",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.4000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_wall_solid",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_wall_solid_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "1119f043a49603ac64faa88543c8b9e9ab39bb6b28cf62d8f7e4f6a778746783",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_04_wall_window",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 192,
+    "triangles_after": 192,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 56438,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_04_wall_window_diffuse",
+        "pixel_sha256": "f4df7251d51a5f5adb544d1d002cc758ee17b1fda2d58c14e669314ef926f987",
+        "sha256": "2ea733942b7e4acf5ac58b34229a7f519b25545a4d20ccc23b08df3419838864",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_04_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 16,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 10,
+      "triangles": 192
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "3c285161ae6057be61da65369da1bbb879c727c41979509079b5fb1623d5b7a8",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_corner_trim",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13162,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_05_corner_trim_diffuse",
+        "pixel_sha256": "fe8f929e8d13f58a07017d5585cd5add7ac2586e28dc3aeb021a4093bbc218bb",
+        "sha256": "975803bcb08fd3d40f3d2f3a111548a06971a45e6438c022f0b7a5bc3678109d",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 36
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "04f6845f79d2df06a6fe03df8103cf8687bc4406e2f6f70f25d50c9385e8a013",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_gable",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 44,
+    "triangles_after": 44,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_gable_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 44
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "d2a75fa427497c658f789488e37bcb7e2e5bee03512184cfdbb0d1eb516c4b32",
+    "dimensions": [
+      3.0,
+      1.0199999809265137,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_porch_deck",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 140,
+    "triangles_after": 140,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_porch_deck_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 93,
+      "components": 19,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 15,
+      "triangles": 140
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "afe029f6c23e3d9e2d118dc72b18cb1d9b63d718cca6419af908d3c32945788d",
+    "dimensions": [
+      3.0,
+      0.23999999463558197,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_porch_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13162,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_05_porch_post_diffuse",
+        "pixel_sha256": "fe8f929e8d13f58a07017d5585cd5add7ac2586e28dc3aeb021a4093bbc218bb",
+        "sha256": "975803bcb08fd3d40f3d2f3a111548a06971a45e6438c022f0b7a5bc3678109d",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "215173ee39d222657b25e990e0e35ac076f10ae5f2151124ad0ac03179126386",
+    "dimensions": [
+      0.14000000059604645,
+      2.299999952316284,
+      0.14000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_roof_ridge",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 20,
+    "triangles_after": 20,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 13162,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_05_roof_ridge_diffuse",
+        "pixel_sha256": "fe8f929e8d13f58a07017d5585cd5add7ac2586e28dc3aeb021a4093bbc218bb",
+        "sha256": "975803bcb08fd3d40f3d2f3a111548a06971a45e6438c022f0b7a5bc3678109d",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_128.png"
+        ],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 20
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "23e150625fcd0dee26767d82209b8783d5ff2ae5456ecc9a5aac1406432adb4a",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_roof_slope",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 84,
+    "triangles_after": 84,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_roof_slope_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 84
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "85e05c52e46a4e07de0e9df3f712e74866b40670a2d2c76284e4c5fc1b386d48",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_wall_doorway",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 162,
+    "triangles_after": 162,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_wall_doorway_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 100,
+      "components": 10,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 50,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 12,
+      "triangles": 162
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "3bcc6c9a2ca543b230b6085a1da9d70f9118adc2d4a8058c33ce982aad6f33c1",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.4000000059604645
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_wall_solid",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_wall_solid_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "d0cb1e0a67a19c738d1362f5d88af73629a880e5584beb1ea228317663d9a4cd",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_05_wall_window",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 336,
+    "triangles_after": 336,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 54528,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_05_wall_window_diffuse",
+        "pixel_sha256": "6525a54d45d7bc8f10ccac40bdd13700448473a78fbe25d29a034a9df57486d7",
+        "sha256": "d2764f3603796c4fb3da80c4916523ff41ecd15190b36b0a88fa3c343c9b6c85",
+        "source_pngs": [
+          "assets/environment/outdoor/props/models/house_05_native_256.png"
+        ],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 28,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 18,
+      "triangles": 336
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "84e5014119c6c38441a7e992ea3cdbe3b70265b2b138de2ba709690c246f5897",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_corner_trim",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 15045,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_corner_trim.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_corner_trim_diffuse",
+        "pixel_sha256": "91520d80f8ec1394bbf351e733aeaef068066dbe2da9961a0e4c54dbda2f45f2",
+        "sha256": "f5ccd9c0e1d00a4305325bc669397f05dfcfb11cee79f6f86a2cb160ae3366b9",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 2,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 1,
+      "triangles": 24
+    },
+    "demo_placements": 2,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "319f790219701ec584fd338ace110a2e0fce5430bf86c586b4d9195ff68631f5",
+    "dimensions": [
+      0.18000000715255737,
+      2.700000047683716,
+      0.18000000715255737
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_roof_ridge",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 8,
+    "triangles_after": 8,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26323,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_roof_ridge.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_house_roof_ridge_diffuse",
+        "pixel_sha256": "ffc421db35631ae2caacae619cc57dc63f1fce02e91e358ca24aeb2a40bc683b",
+        "sha256": "b0b21816eae7a7c7567083e15206203d36231150d0948839df16e52774c1ac37",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 8
+    },
+    "demo_placements": 8,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "5b3fd4da15c6b0a2272268ce8be956e78455ec5c50e69c5cc85d4c70c9e65842",
+    "dimensions": [
+      3.4000000953674316,
+      0.2199999988079071,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_roof_slope",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 36,
+    "triangles_after": 36,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 117467,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_roof_slope.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_roof_slope_diffuse",
+        "pixel_sha256": "c5df2862783b8abe6d60835cc2853b7d2895017a82c60ea4c391d02c544c2d5d",
+        "sha256": "1c0d365a860191c2c78f25848899d1e1f5dd810d8c4c836c258a3c79a6bef5bd",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 1,
+      "triangles": 36
+    },
+    "demo_placements": 8,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "1c8ee6574a514002b33122b4100764496e0277827512c08677f6ff78279fe76b",
+    "dimensions": [
+      3.4000000953674316,
+      1.75,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_wall_doorway",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 84,
+    "triangles_after": 84,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 37510,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_base.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_wall_doorway_diffuse",
+        "pixel_sha256": "13aa3faeb079172da34c8967d4a69c7f8ac181a559797942a7461128e4f68da9",
+        "sha256": "987f07a7f7ee58b1329e0337d7d0568eed918bb09b6f9f508d48fa25c5d63aa5",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 84
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "4ed7fe70f6cefcb9ead174219c1582b577cd5b0f95a75b89b50a8cd1ee7f10d5",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.40799999237060547
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_wall_solid",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 37510,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_base.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_wall_solid_diffuse",
+        "pixel_sha256": "13aa3faeb079172da34c8967d4a69c7f8ac181a559797942a7461128e4f68da9",
+        "sha256": "987f07a7f7ee58b1329e0337d7d0568eed918bb09b6f9f508d48fa25c5d63aa5",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 2,
+      "triangles": 48
+    },
+    "demo_placements": 3,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "612d26b79e856c605e3c2d4d25f822a8b0b8d3f66b69ec4aa3f652d6ef44ba29",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:house_wall_window",
+    "classification": "refined",
+    "reason": "Sound modular construction retained; fitted pale siding/trim/roof artwork and warm glazing refined.",
+    "triangles_before": 168,
+    "triangles_after": 168,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 37510,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/house_base.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_house_wall_window_diffuse",
+        "pixel_sha256": "13aa3faeb079172da34c8967d4a69c7f8ac181a559797942a7461128e4f68da9",
+        "sha256": "987f07a7f7ee58b1329e0337d7d0568eed918bb09b6f9f508d48fa25c5d63aa5",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 14,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 6,
+      "triangles": 168
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "96d8fd6e8b64e5b6596a076d95b3cea00e46556fb001f36c2170c7d55b634bc4",
+    "dimensions": [
+      3.0,
+      2.700000047683716,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:lamp_fence",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 172,
+    "triangles_after": 176,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_fence_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 9,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 176
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/halloween_entities.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "9cc99dc811ed7f43bdae83925990a8808561d15504b3086e86bdc5fe667c226a",
+    "dimensions": [
+      0.3199999928474426,
+      0.41999998688697815,
+      0.36000001430511475
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:lamp_stand",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 192,
+    "triangles_after": 208,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_stand_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 10,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 208
+    },
+    "demo_placements": 12,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/halloween_entities.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "3f09ba4a8af59e688657f7cb30af9d6d985b4a93897cfc7f4fe969add8b32d39",
+    "dimensions": [
+      0.3400000035762787,
+      1.0499999523162842,
+      0.3400000035762787
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:lamp_wall",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 231,
+    "triangles_after": 212,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_lamp_wall_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 11,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 212
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "d4f393ccfc284b81ca6ffbe1efc928d216869c22bf968e97ebbef529ce75156b",
+    "dimensions": [
+      0.30000001192092896,
+      0.5199999809265137,
+      0.3400000035762787
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:masonry_pier",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 144,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_masonry_pier_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 12,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 144
+    },
+    "demo_placements": 4,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "f72d8c58c4cc3d6622aa7257ffd7b1447be9ec3fe3499158804263d6d83237b8",
+    "dimensions": [
+      0.5799999833106995,
+      1.2000000476837158,
+      0.5799999833106995
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:porch_canopy",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 76,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_porch_canopy_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 76
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "5c6b9ca4a1781094fa04c826d79f9ec4ab1b1b3bac46b5d9f007f8abd1308158",
+    "dimensions": [
+      3.4000000953674316,
+      0.7200000286102295,
+      1.899999976158142
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:porch_post",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 76,
+    "triangles_after": 76,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 18162,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_post.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_porch_post_diffuse",
+        "pixel_sha256": "1e97ca2fbcb1a680bf729216ffb60012b6343016e84860bb5802c9b794658988",
+        "sha256": "5850a0c9716ba0b8d6ffd6520e2b6b8480d932416395aad8614d57b17a00d1a9",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 76
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "491d6e53c951100d192d7cc1b2fea0c966d151e325d3cfeb772092991fa76b09",
+    "dimensions": [
+      0.11999999731779099,
+      1.0499999523162842,
+      0.11999999731779099
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:porch_railing_corner",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 112,
+    "triangles_after": 112,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_porch_railing_corner_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 4,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 112
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "020b600f3514e71e211d855b4c7c6a2fe7a81ce8cf85d5a1743f539d220774b2",
+    "dimensions": [
+      0.30000001192092896,
+      1.0499999523162842,
+      0.30000001192092896
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:porch_railing_end",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 252,
+    "triangles_after": 252,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_porch_railing_end_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 8,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 4,
+      "triangles": 252
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "4d97c9950665576750a8fd2fb9616065c066c888a1ce51b27a1c1f4593bef66b",
+    "dimensions": [
+      0.30000001192092896,
+      1.0499999523162842,
+      0.11999999731779099
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:porch_railing_straight",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 204,
+    "triangles_after": 204,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 20285,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/porch_railing_corner.png",
+          "assets/environment/outdoor/props/models/porch_railing_end.png",
+          "assets/environment/outdoor/props/models/porch_railing_straight.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_porch_railing_straight_diffuse",
+        "pixel_sha256": "797cffe4ab6693184a48fb74a09415a327003edc642a804e04e0a3501cb811d7",
+        "sha256": "720d966de1da7ed7662c4b08f3f183d8fd9031fa394d577f00237533e1967f19",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 11,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 204
+    },
+    "demo_placements": 2,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "61797305298248c61232b68be89d64ffe6aecaa0d596c5923b0bd3a68afebe24",
+    "dimensions": [
+      1.7999999523162842,
+      1.0499999523162842,
+      0.11999999731779099
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:road_barrier",
+    "classification": "new",
+    "reason": "Missing concept layer: built and placed in the Outdoors route.",
+    "triangles_before": null,
+    "triangles_after": 84,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 33061,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/road_barrier.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_road_barrier_diffuse",
+        "pixel_sha256": "387c655bd55a2a2ae5ed18a7d7c2d407fe16900bc8627bb11eff4cc702701db4",
+        "sha256": "38225df01ce6cccdae35c45552c20d589014f3c415f74fc41e41b3c77690af74",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 7,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 84
+    },
+    "demo_placements": 1,
+    "used_by": [
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json"
+    ],
+    "model_sha256": "e7a5ad3aef11c4de6da985e52afc574fb28516873841b9308d856aaab1bd5e0a",
+    "dimensions": [
+      3.4000000953674316,
+      1.100000023841858,
+      0.41999998688697815
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_boulder",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 72,
+    "triangles_after": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_showcase_boulder_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 72
+    },
+    "demo_placements": 14,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "ed7b065ec5e668839e3a43b71610c5a8b9514994dd23583d66b786dcc977efdd",
+    "dimensions": [
+      1.399999976158142,
+      0.8500000238418579,
+      1.2999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_campfire",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 744,
+    "triangles_after": 744,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_campfire_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 22,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 744
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "d437a983f17a89b16e6f6c6bd56fe659e30d43ca484ae876a20f42226aa17390",
+    "dimensions": [
+      1.2999999523162842,
+      1.25,
+      1.2999999523162842
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_curb",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_curb_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "eb5d8309e691df84db368db0b4f7dbec172918f4680b600edc9b7a55abf518f9",
+    "dimensions": [
+      0.23999999463558197,
+      0.14000000059604645,
+      6.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_curb_ramp",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 16,
+    "triangles_after": 16,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_curb_ramp_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 16
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "0aa050eee8f4f704219ad8421456bc46d4df056a18593fdfbe3d2d178b07d1d2",
+    "dimensions": [
+      1.2000000476837158,
+      0.14000000059604645,
+      2.4000000953674316
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_road_dash",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 12,
+    "triangles_after": 12,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_road_dash_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 12
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "9b2e4c6ca5e796b6690aa1a44dceec8d8ffc23cc271790e91451b9d9c3b4c22d",
+    "dimensions": [
+      0.11999999731779099,
+      0.006000000052154064,
+      1.5
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_road_gate",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 600,
+    "triangles_after": 600,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 23651,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/fence_post.png",
+          "assets/environment/outdoor/props/models/showcase_wood.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_road_gate_diffuse",
+        "pixel_sha256": "76959ca3bc4c330f4c8f643d8799aa8d05211de11f06df24526106ba3eabcdc9",
+        "sha256": "e98bd470262a8fb1b5914b01b5e6f06258ec28bfd0898a288095d57ebd3f0474",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 50,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 600
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "f745cfdc81e05098403a53ba832e65349f4f0c2c5c9b6cf56d19d7576be58638",
+    "dimensions": [
+      8.0,
+      3.5999999046325684,
+      0.23999999463558197
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_road_straight",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 48,
+    "triangles_after": 48,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_road_straight_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 3,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 48
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "fb258508329662c5073d505fa4f772fa9fbfe31bf824a86ae193d62ce120f801",
+    "dimensions": [
+      8.0,
+      0.07000000029802322,
+      6.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_road_unmarked",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_road_unmarked_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "57ba2ec1e3e793525a38317d7061b7a2541de9661956ccc5bef03855f0ca7bd5",
+    "dimensions": [
+      8.0,
+      0.06400000303983688,
+      6.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_rock_face",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 48,
+    "triangles_after": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_showcase_rock_face_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 72
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/winter.json"
+    ],
+    "model_sha256": "8829b47e771b20654a618c1093f658b3b7b8624dcad83dff4a6d000986faf8f5",
+    "dimensions": [
+      4.0,
+      5.0,
+      2.200000047683716
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_rock_face_variant",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 48,
+    "triangles_after": 72,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 39479,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/boundary_ridge.png",
+          "assets/environment/outdoor/props/models/fence_two_rail.png",
+          "assets/environment/outdoor/props/models/masonry_pier.png",
+          "assets/environment/outdoor/props/models/porch_canopy.png",
+          "assets/environment/outdoor/props/models/showcase_boulder.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face.png",
+          "assets/environment/outdoor/props/models/showcase_rock_face_variant.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_showcase_rock_face_variant_diffuse",
+        "pixel_sha256": "661d2cc807c05f5cb17cbc3059869ac49f9512071f170b22b36bde6b1d12209e",
+        "sha256": "537bc760766a72fd929d7081c6a411b220ee246476cf2bb9c1c73f41ad54fb69",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 72
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "3bcd6c9805348d03ad962d8d593a53cb3e541277ec5b2ab17ce3448966ae831d",
+    "dimensions": [
+      3.4000000953674316,
+      4.800000190734863,
+      2.5999999046325684
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_sidewalk",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_sidewalk_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "635936e15ca3a42d5b5a77772c0635356e9b815f243af7a9ef8cbe356d71e7b9",
+    "dimensions": [
+      2.4000000953674316,
+      0.14000000059604645,
+      6.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_sidewalk_corner",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_sidewalk_corner_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "450e65be84f617ae2d89fab389b9b469aec00e2ba7f56667387b6d3fcf62456c",
+    "dimensions": [
+      2.4000000953674316,
+      0.14000000059604645,
+      2.4000000953674316
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_sidewalk_transition",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 24,
+    "triangles_after": 24,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 27272,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/concrete_step.png",
+          "assets/environment/outdoor/props/models/showcase_surface.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_sidewalk_transition_diffuse",
+        "pixel_sha256": "a6cfca294140f4ee308243e4e0289779c04f2fd5c785bf19d149634089f5b6db",
+        "sha256": "d5d5bfe4f348bf52c9020f05eca45ed7f1475561d79e66cbbbe2634458c821ac",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 24
+    },
+    "demo_placements": 0,
+    "used_by": [
+      "assets/levels/model_zoo.json"
+    ],
+    "model_sha256": "c12e06c929a0b7e44cee30311354614deea4d64e8fa242bde14dc2d50d5f04b7",
+    "dimensions": [
+      2.4000000953674316,
+      0.14000000059604645,
+      1.2000000476837158
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:showcase_stump_seat",
+    "classification": "retained",
+    "reason": "Existing low-poly construction is appropriate, or a compatible alternate facade/utility part outside the primary concept palette.",
+    "triangles_before": 96,
+    "triangles_after": 96,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 23651,
+        "decoded_bytes": 65536,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/fence_post.png",
+          "assets/environment/outdoor/props/models/showcase_wood.png"
+        ],
+        "height": 128,
+        "index": 0,
+        "name": "outdoor_showcase_stump_seat_diffuse",
+        "pixel_sha256": "76959ca3bc4c330f4c8f643d8799aa8d05211de11f06df24526106ba3eabcdc9",
+        "sha256": "e98bd470262a8fb1b5914b01b5e6f06258ec28bfd0898a288095d57ebd3f0474",
+        "source_pngs": [],
+        "used": true,
+        "width": 128
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 1,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 96
+    },
+    "demo_placements": 3,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/lighting_quality.json"
+    ],
+    "model_sha256": "c944405b1b4f9e51a5cf3513d91bb7c9c7a3f71173013ad3fde360cb8e7ebddf",
+    "dimensions": [
+      0.699999988079071,
+      0.44999998807907104,
+      0.6000000238418579
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:streetlight",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 380,
+    "triangles_after": 256,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 26290,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/lamp_fence.png",
+          "assets/environment/outdoor/props/models/lamp_stand.png",
+          "assets/environment/outdoor/props/models/lamp_wall.png",
+          "assets/environment/outdoor/props/models/streetlight.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_streetlight_diffuse",
+        "pixel_sha256": "e6d7bbe43522402fcc6293462ee59858769e3637085e77d54a9b269b56d815ec",
+        "sha256": "6c46da030206e27e7be34bbce4ee1ef9ae7f750969e1116f3096757a068ff042",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 11,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 256
+    },
+    "demo_placements": 7,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "assets/levels/winter.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "6661025d1a940135fb62ee7ffe4dcd158b3cb776646da7904b6290cf26e627ba",
+    "dimensions": [
+      0.5,
+      6.400000095367432,
+      1.2000000476837158
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:tree_01",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 628,
+    "triangles_after": 768,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 59150,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/tree_01.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_tree_01_diffuse",
+        "pixel_sha256": "09ab1f414ac8579eb0556b8f2565a57b103c7526e92be7dd892516c4a51f9c30",
+        "sha256": "4037ea072e52c42294478fdbd6007782be91c86b061841320a38336fd9f049dd",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 28,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 768
+    },
+    "demo_placements": 26,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/halloween_entities.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "68b4996a0631432027d41ce5cacaf177cd25c4ad549c605e161ccddac5716665",
+    "dimensions": [
+      4.599999904632568,
+      6.400000095367432,
+      4.599999904632568
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:tree_02",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 520,
+    "triangles_after": 720,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 58857,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/tree_02.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_tree_02_diffuse",
+        "pixel_sha256": "3a0a29b57c2c2a85d2ff1ff859d4e99e3327882886821abe88400055e6548335",
+        "sha256": "ea8faed63e0e2fe60c3c3379509240d6e771fa5ce6c25c04e3098b2354d27223",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 26,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 720
+    },
+    "demo_placements": 6,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "e34552825e5724db460974b323524faa640c1c8e5cf0156c79fad03d658604b5",
+    "dimensions": [
+      2.0,
+      6.199999809265137,
+      2.0
+    ],
+    "errors": []
+  },
+  {
+    "id": "outdoor:tree_03",
+    "classification": "rebuilt",
+    "reason": "Weak silhouette or primitive construction replaced with closed shaped geometry.",
+    "triangles_before": 770,
+    "triangles_after": 708,
+    "runtime_pngs": [
+      {
+        "alpha_range": [
+          255,
+          255
+        ],
+        "bytes": 58803,
+        "decoded_bytes": 262144,
+        "equivalent_pixel_sources": [
+          "assets/environment/outdoor/props/models/tree_03.png"
+        ],
+        "height": 256,
+        "index": 0,
+        "name": "outdoor_tree_03_diffuse",
+        "pixel_sha256": "79f25214a7a46124be24adaa8a7da5e9ef32a201db15fa32245a0a5a170e80fa",
+        "sha256": "ae2dff36aa7c7f5ea17ddabfa38e1947e7291d17b6da3b7968f0d1f3b95cf045",
+        "source_pngs": [],
+        "used": true,
+        "width": 256
+      }
+    ],
+    "topology": {
+      "boundary_edges": 0,
+      "components": 20,
+      "contradictory_components": 0,
+      "degenerate": 0,
+      "flipped_triangles": 0,
+      "inconsistent_edges": 0,
+      "nonmanifold_edges": 0,
+      "triangles": 708
+    },
+    "demo_placements": 6,
+    "used_by": [
+      "assets/levels/lantern_hollow.json",
+      "assets/levels/model_zoo.json",
+      "assets/levels/places_demo.json",
+      "tests/fixtures/levels/outdoor_kit_showcase.json"
+    ],
+    "model_sha256": "29dd017d049fbcf28a483527d37d4dedc16aab0ad1ba862239061e1be289ddc5",
+    "dimensions": [
+      3.200000047683716,
+      6.800000190734863,
+      3.200000047683716
+    ],
+    "errors": []
+  }
+]

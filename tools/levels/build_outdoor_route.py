@@ -49,6 +49,7 @@ APP_ROOT = Path(__file__).resolve().parent.parent.parent
 LEVEL_PATH = APP_ROOT / "assets" / "levels" / "places_demo.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import outdoors_dressing
 import scatter_grass  # noqa: E402  (the directory is on sys.path above)
 
 # --------------------------------------------------------------------------
@@ -269,11 +270,11 @@ TREE_SIZES = {
 
 #: Grass bands: (x, z, width, depth, profile, id suffix, seed).
 GRASS_BANDS = [
-    (1.0, -91.0, 2.2, 90.6, "dense", "west_dense", 4104),
-    (5.8, -91.0, 2.2, 90.6, "dense", "east_dense", 4105),
-    (8.0, -91.0, 4.5, 90.6, "medium", "middle_medium", 4106),
+    (1.0, -91.0, 2.2, 90.6, "medium", "west_dense", 4104),
+    (5.8, -91.0, 2.2, 90.6, "medium", "east_dense", 4105),
+    (8.0, -91.0, 4.5, 90.6, "low", "middle_medium", 4106),
     (0.0, -91.0, 1.0, 90.6, "medium", "west_medium", 4107),
-    (14.5, -91.0, 9.5, 90.6, "medium", "east_medium", 4108),
+    (14.5, -91.0, 9.5, 90.6, "low", "east_medium", 4108),
 ]
 
 #: The Halloween encounters.
@@ -791,8 +792,8 @@ def build_slice(level: dict) -> dict:
             HOUSE_CX,
             HOUSE_Z1 + 0.75,
             prop_id=f"{ID_PREFIX}house_porch",
-            y=-STOOP_RISE,
-            comment="Porch deck dressing the doorway stoop: its top meets the raised region's surface, and the 0.24 m step itself is real floor so it walks.",
+            y=-STOOP_RISE - 0.025,
+            comment="Porch deck sunk 25 mm below the walkable stoop to avoid coplanar top faces; the 0.24 m step itself is real floor so it walks.",
         )
     )
     for side in (-1, 1):
@@ -881,6 +882,7 @@ def build_slice(level: dict) -> dict:
                 prop_id=f"{ID_PREFIX}house_lamp_{'w' if side < 0 else 'e'}",
                 y=round(DOOR_LAMP_MOUNT_Y - 0.52 - STOOP_RISE, 4),
                 lights=[copy.deepcopy(DOOR_LAMP_LIGHT)],
+                occludes=False,
                 comment="Hangs from the eave on the doorway mount the kit documents.",
             )
         )
@@ -990,6 +992,7 @@ def build_slice(level: dict) -> dict:
                 rotation=180.0,
                 y=round(DOOR_LAMP_MOUNT_Y - 0.52, 4),
                 lights=[copy.deepcopy(DOOR_LAMP_LIGHT)],
+                occludes=False,
             )
         )
 
@@ -1136,6 +1139,7 @@ def build_slice(level: dict) -> dict:
                 size=[0.34, 1.05, 0.34],
                 solid=True,
                 lights=[copy.deepcopy(LAMP_LIGHT)],
+                occludes=False,
                 comment=(
                     "Path lamp: the environmental light along the route is these "
                     "lamps, not any ambient or sky term."
@@ -1175,6 +1179,7 @@ def build_slice(level: dict) -> dict:
                 prop_id=f"{ID_PREFIX}streetlight_{index:02d}",
                 rotation=rotation,
                 lights=[copy.deepcopy(STREETLIGHT_LIGHT)],
+                occludes=False,
                 comment=(
                     "Canopy-height streetlight: warm, bounded, downward light "
                     "from the real fixture under the hood."
@@ -1210,6 +1215,8 @@ def build_slice(level: dict) -> dict:
             id_prefix=f"grass_night_{suffix}_",
         )
         props.extend(band)
+
+    props.extend(outdoors_dressing.props())
 
     # ---- invisible containment ------------------------------------------
     for index, (x, z, width, depth) in enumerate(BOUNDARY_BOXES):
@@ -1671,12 +1678,22 @@ def _assert_slice_has_no_overlapping_walls(level: dict) -> None:
 
 
 def apply_slice(level: dict) -> None:
-    """Strips any previous slice and appends the current one, in place."""
+    """Replaces the slice in place, preserving later generators' ordering."""
+    previous = build_slice(level)
+    insertion_points = {}
+    for field, generated in previous.items():
+        retained = 0
+        for entry in level.get(field, []):
+            if _is_ours(entry, generated, field):
+                insertion_points[field] = retained
+                break
+            retained += 1
     strip_slice(level)
     slice_data = build_slice(level)
     for field, generated in slice_data.items():
         target = level.setdefault(field, [])
-        target.extend(copy.deepcopy(generated))
+        index = insertion_points.get(field, len(target))
+        target[index:index] = copy.deepcopy(generated)
     level.setdefault("walls", [])
     level["walls"][SOURCE_WALL_INDEX].setdefault("openings", []).append(copy.deepcopy(SOURCE_OPENING))
     level["sky"] = copy.deepcopy(SKY)

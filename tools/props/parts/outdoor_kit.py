@@ -619,30 +619,13 @@ def _paint_post_timber(tex: Texture, name: str, base, seed: int) -> None:
 
 
 def _family_atlas(p: PropBuilder, family: dict, size: int, names) -> Texture:
-    """Paints one family's shared sheet; only the requested regions are painted."""
-    tex = p.set_texture(size, seed=4701)
-    for region in names:
-        tex.region(region, _region_rect(region, size))
-    if "siding" in names:
-        painter = {
-            "clapboard": _paint_clapboard,
-            "shiplap": _paint_shiplap,
-            "battens": _paint_battens,
-        }[family["cladding"]]
-        painter(tex, "siding", family, seed=4601)
-    if "trim" in names:
-        _paint_trim_wood(tex, "trim", family["trim"], seed=4611)
-    if "glass" in names:
-        _paint_glazing(tex, "glass", family["glass"], seed=4621)
-    if "jamb" in names:
-        _paint_jamb_wood(tex, "jamb", family["jamb"], seed=4631)
-    if "shingle" in names:
-        rows, cols = (8, 7) if family["cladding"] != "battens" else (9, 5)
-        _paint_shingles(tex, "shingle", family["shingle"], seed=4641, rows=rows, cols=cols)
-    if "deck" in names:
-        _paint_deck_boards(tex, "deck", family["deck"], seed=4651, boards=9)
-    if "post" in names:
-        _paint_post_timber(tex, "post", family["post"], seed=4661)
+    """Loads a fitted family derivative and registers the requested UV regions."""
+    from pathlib import Path
+    from parts.refreshed import load_atlas_from
+    number=next(number for number, candidate in HOUSE_FAMILIES.items() if candidate is family)
+    source=Path(__file__).resolve().parents[3]/f'assets/environment/outdoor/props/models/house_{number}_native_{size}.png'
+    tex=load_atlas_from(p,source,())
+    for region in names:tex.region(region,_region_rect(region,size))
     return tex
 
 
@@ -1259,9 +1242,12 @@ def _window_dress(p: PropBuilder, family: dict, rect, uv_glass, uv_trim, trim, c
     """One framed window: recessed glazing, trim frame, mullions, sill and head."""
     cx, cy, w, h = rect
     glass = (238, 242, 248)
+    if family is HOUSE_FAMILIES['02']:
+        p.begin_material(p.material('warm_window',emissive=(1,.78,.46),strength=.7))
     solid_box(p, (cx, cy, 0.02), (w + 0.04, h + 0.04, 0.03),
               uv={"+z": uv_glass, "-z": uv_glass, "+x": uv_trim, "-x": uv_trim,
                   "+y": uv_trim, "-y": uv_trim}, color=glass)
+    if family is HOUSE_FAMILIES['02']:p.begin_material(p.material('house_stock'))
     dress = family["window_dress"]
     jamb = 0.075 if dress != "narrow" else 0.055
     # Every dress board lies inside the panel's 0.24 m depth: z = 0.11 with a
@@ -1699,7 +1685,12 @@ def _make_house_builder(piece: str, family: dict):
 
     def builder(p: PropBuilder) -> None:
         tex = _family_atlas(p, family, _PIECE_TEXTURE[piece], _PIECE_REGIONS[piece])
+        if family is HOUSE_FAMILIES['02']:
+            # Register opaque slot zero before any faces are recorded.
+            p.begin_material(p.material('house_stock'))
         build(p, family, tex)
+        if family is HOUSE_FAMILIES['02']:
+            p.mesh.colors=[(255,255,255) for _ in p.mesh.colors]
 
     builder.__name__ = f"build_house_{family['name'].split()[0].lower()}_{piece}"
     return builder
@@ -1720,3 +1711,8 @@ PROPS = {
 for _number, _family in HOUSE_FAMILIES.items():
     for _piece in HOUSE_PIECES:
         PROPS[f"outdoor:house_{_number}_{_piece}"] = _make_house_builder(_piece, _family)
+
+
+# The concept reconstruction owns only these Outdoors ids.
+from parts.outdoor_remade import REBUILDS
+PROPS.update({key: build for key, build in REBUILDS.items() if key in PROPS})

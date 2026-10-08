@@ -48,6 +48,15 @@ class OutdoorPlacementTests(unittest.TestCase):
         route.apply_slice(self.level)
         self.assertEqual(once, route._render(self.level))
 
+    def test_regeneration_keeps_later_decal_sheets_after_the_slice(self):
+        # Pool/Home generators append their content after the established route.
+        before = list(self.level["decals"])
+        later = {"texture": "fixture:later_generator", "x": 100, "z": 100,
+                 "width": 1, "height": 1}
+        self.level["decals"].append(later)
+        route.apply_slice(self.level)
+        self.assertEqual(self.level["decals"], before + [later])
+
 
 if __name__ == "__main__":
     unittest.main()

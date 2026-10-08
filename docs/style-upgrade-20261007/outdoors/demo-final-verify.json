@@ -1,0 +1,10 @@
+{
+  "source": "assets/levels/places_demo.json",
+  "package": "assets/levels/places_demo.placesmap",
+  "package_fingerprint": "8427e3abf0d44ef3527b1f4c2e78c6e6427a01944928ff2a08c600188d322a71",
+  "current_fingerprint": "8427e3abf0d44ef3527b1f4c2e78c6e6427a01944928ff2a08c600188d322a71",
+  "current": true,
+  "differences": [],
+  "bytes": 74520351,
+  "sha256": "01595d413f58f298d178d0b97be2e2dde8513a9537b10ce2006ba14b2615047a"
+}

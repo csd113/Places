@@ -975,6 +975,57 @@ Shared cedar, door-paint, timber-trim and flush-fixture
 sources remain intact. Validation uses the standard catalog, source/embedded
 pixel match, prop bounds/UV/topology, surface seam and native-render checks.
 
+### 8.10 Outdoors concept reconstruction
+
+The bare Outdoors kit uses the existing static-prop contract, with no new
+asset class. Three trees are closed opaque faceted foliage/branch meshes;
+they keep floor-contact origins, +Z forward and trunk-only map colliders.
+`tree_02` now has a 2.0 × 6.2 × 2.0 m slender envelope. Tree artwork and all
+new static fittings use four fitted quadrants: top-left bark/metal/mineral
+body, top-right stock/pane, bottom-left foliage/roof, bottom-right alternate
+foliage/stone. These are complete geometry/UV rebuilds; the old cutout-tree
+UVs are not combined with the replacement sheets. No alpha blending is
+introduced. The retained grass cards keep their original two cells and MASK
+alpha, loaded from their committed PNG.
+
+Masters are 1024² and native model derivatives 256² through Lanczos.
+The original wall-module sheet `house_base` retains siding/trim/glass/jamb
+quadrants. Family 02 keeps its seven-region normalized layout exactly, with
+1024² `house_02_materials` and 128²/256² derivatives. Warm window panes use
+only their own emissive primitive; framing remains opaque unlit stock.
+The other four house families retain their original source/GLB artwork.
+Normal house builders load the actual fitted family PNGs.
+
+The lantern family has tapered four-pane heads, separate corner bars,
+pyramidal hoods and finials. Existing placement envelopes and light offsets
+remain. Pane emission does not add environmental illumination. Lamp
+placements with an owned light must set `occludes: false` on the fixture,
+because the coarse closed head otherwise encloses the emitter anchor. Eight new
+static families are `bush_round`, `bush_low`, `fence_two_rail`,
+`masonry_pier`, `porch_canopy`, `road_barrier`, `boundary_ridge` and
+`campfire_static`. The static fire retains the original campfire's geometry,
+materials and committed `showcase_surface.png`, with no animation clips or
+character ownership; its animated source remains unchanged.
+The canopy high edge faces local −Z; the pier's cap at 1.2 m supports the
+existing fence lantern; ridge geometry is a visual boundary, not collision.
+
+Grass, gravel and concrete keep 2.0/1.6/2.0 m repeats and opaque square
+512² production sheets, now derived from retained 1024² masters. Concrete
+joints form 1 m slabs. Dirt contains 2–6 cm chips; broad lawn clusters carry
+variation into mips. Path feathers retain 2:1 edge and square end/corner
+roles, blended alpha, original direction and 256×128/128² native sheets;
+masters are 1024×512/512². Normal texture builds load committed images.
+
+Winter's currently shipped snow variants retain the previous canonical
+bare evergreen/rock geometry and textures. They are intentionally unchanged
+in the serial Outdoors pass. Its follow-up must reconcile the new bare kit
+with the snow-support/canonical-identity checks before regenerating snow
+models; the original complete bases remain in the preserved before review
+copy and preceding commit. `tree_03_snow_base.png` preserves the exact prior
+evergreen atlas used by the shipped snow GLBs, keeping their embedded images
+backed by an actual PNG. This pass does not rebuild Winter content.
+
+
 ## 9. Emissive textures and masks
 
 Places does **not** use dedicated emissive colour textures. Emission is

@@ -1,0 +1,202 @@
+prop                      tris  verts       tex      glb  notes
+---------------------------------------------------------------
+carved-pumpkin            1498   4494   256x256   332.2k (review)
+core:armchair              476    923   256x256   181.1k
+core:bed                   750   1337   256x256   125.4k (over target)
+core:bookshelf             612    697   256x256   116.2k (over target)
+core:cabinet               212    432   256x256   101.9k
+core:cardboard_box          12     24   256x256   116.2k
+core:chair                 704   1329   256x256   131.2k (over target)
+core:couch                 544   1232   256x256   178.0k (over target)
+core:crate                  80     91   256x256    96.9k
+core:desk                  356    720   256x256   106.8k
+core:exit_sign             396    778   256x256    66.3k
+core:fridge                108    216   256x256   151.9k
+core:hot_tub               384    768   128x128    36.3k
+core:lamp                  448   1024   256x256   271.9k
+core:painting_frame_landscape_01    48     96   256x256   124.1k
+core:plant                 512   1168   256x256   174.2k (over target)
+core:pool_chair            360    796   256x256    24.5k
+core:pool_curtain_corner   564   1144   256x256    49.4k (over target)
+core:pool_curtain_end      324    664   256x256    36.8k
+core:pool_curtain_straight   612   1256   256x256    52.4k (over target)
+core:pool_guardrail_corner   244    568   256x256    36.7k
+core:pool_guardrail_end    152    352   256x256    31.1k
+core:pool_guardrail_straight   212    488   256x256    34.6k
+core:pool_ladder           608   1312   256x256    55.4k (over target)
+core:pool_table            320    752   256x256    23.2k
+core:rubber_duck           560   1248   256x256    73.3k (over target)
+core:rug                    12     24   256x256   260.0k
+core:sink                  242    447   256x256    80.2k
+core:stop_sign              88    208   256x256    54.2k
+core:stove                 142    282   256x256    98.9k
+core:table                 340    480   256x256   120.9k
+core:tv                     94    165   256x256    78.4k
+core:vending_machine       252    504   256x256   114.6k
+core:washer_drum           154    289   256x256   103.1k
+core:washing_machine       164    294   256x256    56.6k
+core:water_cooler          556   1144   256x256   108.9k (over target)
+home:armchair              360    816   256x256    81.7k
+home:ball_light            320    720   256x256    55.8k
+home:book_stack            112    240   256x256    44.5k
+home:bookshelf             384    768   256x256    78.9k
+home:bowl                  480   1000     64x64    30.8k
+home:cabinet_base          396    864   256x256    57.8k
+home:cabinet_strip          24     48   256x256    36.7k
+home:cabinet_wall          252    552   256x256    50.0k
+home:coffee_table          184    384   256x256    75.8k
+home:crt_tv                516   1160   256x256    89.2k (over target)
+home:cushion                44     96   256x256    57.2k
+home:dining_chair          204    432   256x256    77.3k
+home:dining_table          140    288   256x256    73.7k
+home:door_casing            72    144   256x256    38.5k
+home:floor_lamp            224    488   256x256    49.3k
+home:fork                  320    736     64x64    25.1k
+home:kettle                308    696   256x256    53.8k
+home:knife                 188    416     64x64    16.7k
+home:landscape_frame        84    168   256x256    51.8k
+home:mug                   420    928   256x256    59.7k
+home:outlet                252    552   256x256    50.1k
+home:plant_table           376    775     64x64    27.2k
+home:plate                 400    840     64x64    26.5k
+home:rug                    56    120   256x256    98.6k
+home:sink                  668   1496   256x256    74.5k (over target)
+home:sofa                  536   1200   256x256    91.7k (over target)
+home:spoon                 336    736     64x64    25.2k
+home:stove                 704   1680   256x256    79.2k (over target)
+home:toaster               112    248   256x256    42.2k
+home:tv_console            496   1056   256x256    86.4k
+home:wall_switch           232    520   128x128    26.5k
+mannequin                 1376   2969   256x256   347.7k (review)
+outdoor:boundary_ridge      68    184   256x256    44.7k
+outdoor:bush_low           144    336   256x256    67.9k
+outdoor:bush_round         144    336   256x256    67.9k
+outdoor:campfire_static    744   1810   128x128    80.8k (over target)
+outdoor:collision_peg       12     24     32x32     2.9k
+outdoor:concrete_step       20     40   128x128    29.8k
+outdoor:fence_post          28     64   128x128    27.1k
+outdoor:fence_two_rail      96    192   256x256    45.0k
+outdoor:grass_patch_large    42     84   256x256    75.0k
+outdoor:grass_patch_small    24     48   256x256    73.7k
+outdoor:house_01_corner_trim    24     48   128x128    14.6k
+outdoor:house_01_gable      32     66   256x256    50.0k
+outdoor:house_01_porch_deck    92    184   256x256    54.5k
+outdoor:house_01_porch_post    28     64   128x128    15.2k
+outdoor:house_01_roof_ridge     8     18   128x128    13.5k
+outdoor:house_01_roof_slope    36     72   256x256    50.2k
+outdoor:house_01_wall_doorway   138    276   256x256    58.0k
+outdoor:house_01_wall_solid    48     96   256x256    51.1k
+outdoor:house_01_wall_window   180    360   256x256    61.1k
+outdoor:house_02_corner_trim    36     72   128x128    24.0k
+outdoor:house_02_gable      56    114   256x256    68.3k
+outdoor:house_02_porch_deck    96    192   256x256    70.4k
+outdoor:house_02_porch_post    40     88   128x128    24.4k
+outdoor:house_02_roof_ridge    20     42   128x128    23.2k
+outdoor:house_02_roof_slope    72    144   256x256    69.1k
+outdoor:house_02_wall_doorway   132    264   256x256    72.3k
+outdoor:house_02_wall_solid    48     96   256x256    67.9k
+outdoor:house_02_wall_window   204    408   256x256    77.7k
+outdoor:house_03_corner_trim    24     48   128x128    15.1k
+outdoor:house_03_gable      56    114   256x256    53.4k
+outdoor:house_03_porch_deck   132    264   256x256    59.2k
+outdoor:house_03_porch_post    44    104   128x128    17.2k
+outdoor:house_03_roof_ridge     8     18   128x128    14.0k
+outdoor:house_03_roof_slope    36     72   256x256    51.8k
+outdoor:house_03_wall_doorway   138    276   256x256    59.7k
+outdoor:house_03_wall_solid    48     96   256x256    52.7k
+outdoor:house_03_wall_window   192    384   256x256    63.7k
+outdoor:house_04_corner_trim    36     72   128x128    18.1k
+outdoor:house_04_gable      44     90   256x256    60.2k
+outdoor:house_04_porch_deck    92    184   256x256    63.9k
+outdoor:house_04_porch_post    48    104   128x128    20.1k
+outdoor:house_04_roof_ridge     8     18   128x128    16.1k
+outdoor:house_04_roof_slope    72    144   256x256    62.3k
+outdoor:house_04_wall_doorway   138    276   256x256    67.4k
+outdoor:house_04_wall_solid    48     96   256x256    60.5k
+outdoor:house_04_wall_window   192    384   256x256    71.5k
+outdoor:house_05_corner_trim    36     72   128x128    17.3k
+outdoor:house_05_gable      44     90   256x256    58.4k
+outdoor:house_05_porch_deck   140    280   256x256    65.7k
+outdoor:house_05_porch_post    48    104   128x128    18.8k
+outdoor:house_05_roof_ridge    20     42   128x128    16.2k
+outdoor:house_05_roof_slope    84    168   256x256    61.4k
+outdoor:house_05_wall_doorway   162    324   256x256    67.4k
+outdoor:house_05_wall_solid    48     96   256x256    58.6k
+outdoor:house_05_wall_window   336    672   256x256    80.6k
+outdoor:house_corner_trim    24     48   128x128    18.2k
+outdoor:house_roof_ridge     8     18   128x128    28.0k
+outdoor:house_roof_slope    36     72   256x256   120.1k
+outdoor:house_wall_doorway    84    168   256x256    43.9k
+outdoor:house_wall_solid    48     96   256x256    42.0k
+outdoor:house_wall_window   168    336   256x256    49.9k
+outdoor:lamp_fence         176    428   256x256    39.8k
+outdoor:lamp_stand         208    508   256x256    41.9k
+outdoor:lamp_wall          212    512   256x256    42.0k
+outdoor:masonry_pier       144    288   256x256    47.5k
+outdoor:porch_canopy        76    184   256x256    44.7k
+outdoor:porch_post          76    176   128x128    26.0k
+outdoor:porch_railing_corner   112    248   128x128    31.9k
+outdoor:porch_railing_end   252    584   128x128    44.5k
+outdoor:porch_railing_straight   204    440   128x128    39.2k
+outdoor:road_barrier        84    168   256x256    38.1k
+outdoor:showcase_boulder    72    162   256x256    44.2k
+outdoor:showcase_campfire   744   1810   128x128    83.1k (over target)
+outdoor:showcase_curb       24     56   128x128    29.5k
+outdoor:showcase_curb_ramp    16     40   128x128    29.1k
+outdoor:showcase_road_dash    12     24   128x128    28.7k
+outdoor:showcase_road_gate   600   1200   128x128    56.2k (over target)
+outdoor:showcase_road_straight    48    104   128x128    30.8k
+outdoor:showcase_road_unmarked    24     56   128x128    29.5k
+outdoor:showcase_rock_face    72    162   256x256    44.2k
+outdoor:showcase_rock_face_variant    72    162   256x256    44.2k
+outdoor:showcase_sidewalk    24     56   128x128    29.5k
+outdoor:showcase_sidewalk_corner    24     56   128x128    29.5k
+outdoor:showcase_sidewalk_transition    24     56   128x128    29.5k
+outdoor:showcase_stump_seat    96    216   128x128    30.1k
+outdoor:streetlight        256    616   256x256    44.7k
+outdoor:tree_01            768   1872   256x256   108.4k (over target)
+outdoor:tree_02            720   1752   256x256   105.0k (over target)
+outdoor:tree_03            708   1656   256x256   102.6k (over target)
+pool:pool_bench            296    624   256x256    20.3k
+pool:pool_drain            240    480   256x256    35.0k
+pool:pool_service_door     236    492   256x256    17.4k
+pumpkin-skeleton          2278   5698   256x256   555.6k (review)
+rat                       1428   1846   256x256   288.4k (review)
+sheet-ghost               1270   3810   256x256   297.3k (review)
+sheet-ghost-cat            902   2706   256x256   237.4k (review)
+skeleton                  1492   3214   256x256   238.5k (review)
+spooner-man               1374   3019   256x256   692.0k (review)
+winter:boulder_snow        116    276   128x128    36.1k
+winter:drift_fence          72    168   256x256    69.2k
+winter:drift_large          72    168   256x256    69.1k
+winter:drift_medium         72    168   256x256    69.2k
+winter:drift_small          72    168   256x256    69.1k
+winter:drift_wall           72    168   256x256    69.1k
+winter:fence_post_snow      94    202   128x128    30.6k
+winter:icicle_cluster_mixed    56    168   256x256    69.2k
+winter:icicle_cluster_sparse    24     72   256x256    66.8k
+winter:icicle_long           8     24   256x256    65.5k
+winter:icicle_medium         8     24   256x256    65.5k
+winter:icicle_short          8     24   256x256    65.5k
+winter:mound_irregular      72    168   256x256    69.2k
+winter:railing_snow_corner   244    524   128x128    36.6k
+winter:railing_snow_end    318    722   128x128    41.7k
+winter:railing_snow_straight   336    716   128x128    41.6k
+winter:rock_face_snow       76    180   128x128    33.6k
+winter:snow_awning          66    138   256x256    68.4k
+winter:snow_door_overhang    66    138   256x256    68.4k
+winter:snow_ledge           66    138   256x256    68.4k
+winter:snow_porch_edge      66    138   256x256    68.4k
+winter:snow_post_cap        66    138   256x256    68.4k
+winter:snow_rail_top        66    138   256x256    68.4k
+winter:snow_roof_edge       66    138   256x256    68.4k
+winter:snow_roof_slope      66    138   256x256    68.4k
+winter:snow_stair_edge      66    138   256x256    68.4k
+winter:string_lights_long   760   1752   128x128    58.5k (over target)
+winter:string_lights_medium   552   1272   128x128    46.0k (over target)
+winter:string_lights_short   344    792   128x128    33.5k
+winter:tree_snow_01       1238   2648   256x256   198.4k (review)
+winter:tree_snow_02       1442   3124   256x256   210.8k (review)
+---------------------------------------------------------------
+total                    50984                  14644.1k  (197 props, 39908.0 KiB decoded RGBA)
+budget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB

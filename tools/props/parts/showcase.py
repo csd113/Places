@@ -264,3 +264,8 @@ PROPS = {
     'outdoor:showcase_road_gate': build_road_gate,
     'outdoor:showcase_stump_seat': build_stump_seat,
 }
+
+
+# The concept reconstruction owns only these Outdoors ids.
+from parts.outdoor_remade import REBUILDS
+PROPS.update({key: build for key, build in REBUILDS.items() if key in PROPS})

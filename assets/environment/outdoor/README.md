@@ -54,3 +54,15 @@ See [`../README.md`](../README.md) for theme organization,
 [`../../../docs/MAP_AUTHORING_GUIDE.md`](../../../docs/MAP_AUTHORING_GUIDE.md)
 and [`../../../docs/ASSET_SPECIFICATION.md`](../../../docs/ASSET_SPECIFICATION.md)
 for authoring requirements.
+
+## October 2026 concept reconstruction
+
+The [Outdoors visual journal](../../../docs/style-upgrade-20261007/outdoors/README.md)
+records immutable reference analysis, static-object coverage, native matched
+views and validation. Trees, lanterns and rocks have closed deliberate shapes;
+the base/family-02 facade stock has fitted warm artwork and emissive windows.
+Eight new static families fill the reference's missing shrub/fence/porch/geology
+layers and provide a seating fire without animation or character ownership.
+Masters stay beside 256px native prop and 512px ground derivatives. Normal
+builders load committed PNGs; `author_outdoors.py` is an explicit offline
+authoring tool. Existing sky, encounters and all Winter assets remain intact.
