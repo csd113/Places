@@ -100,11 +100,42 @@ clean-source exact-commit CI is a separate publication gate.
 
 ## Publication and custody
 
-Verified implementation/remote/CI links will be added once commits exist.
-No repository release is claimed until those final gates and snapshot receipts
-are complete. Inherited task-owned `/usr/bin/caffeinate -di` PID88945 remains
+[Implementation b34e1dd6d8dcdf43280a35c9644bcb567905e492](https://github.com/csd113/Places/commit/b34e1dd6d8dcdf43280a35c9644bcb567905e492)
+is committed and pushed to `https://github.com/csd113/Places`, `origin/Art-style`.
+`git ls-remote origin refs/heads/Art-style` returned that exact implementation SHA.
+The follow-up journal/snapshot seal changes documentation and evidence only.
+[Branch verification runs](https://github.com/csd113/Places/actions/workflows/rust.yml?query=branch%3AArt-style)
+run format, locked all-target/all-feature check, strict debug/release Clippy,
+full all-feature workspace tests and whitespace against the clean CI checkout.
+The exact final remote SHA, CI run URL/result and release receipt are supplied in
+the coordinator completion message after that gate succeeds; a committed report
+cannot contain its own final hash. No repository release is claimed before that
+exact-commit CI gate. The initial implementation run can be superseded by the
+final documentation push through the existing workflow concurrency policy.
+
+[Stage 1](stage1-snapshot.json) and [Stage 2](stage2-snapshot.json) snapshots each
+preserve41 verified, read-only files outside target. Stage 2 pins the implementation
+revision above; both native room replays match their respective galleries exactly.
+Stage 2 bundle size192,471,565 bytes. `milestone.json` indexes every original and
+intermediate six-view gallery for the eventual seven-stage comparison. Inherited task-owned `/usr/bin/caffeinate -di` PID88945 remains
 active with indefinite `PreventUserIdleSystemSleep` and
 `PreventUserIdleDisplaySleep` assertions. Its custody is recorded outside tracked
 deliverables in `/tmp/places-art-style-queue-custody.json`; it must remain alive
-through the queue. Final release transfers checkout/index/target and inhibitor
-custody back to the coordinator, without starting Stage 3 or cleaning target.
+through the queue. On successful final CI, the completion handoff explicitly releases checkout/index/
+target and transfers inhibitor custody back to coordinator thread
+`01a0fe65-4379-7018-adc6-f90754d9b0ca`, without starting Stage 3 or cleaning target.
+All native players, builds, bakes and tests are joined before release; there were
+no subagents. Target's most recent player build has the optional diagnostic
+feature; the preserved normal player/compiler are the ordinary launch artifacts.
+
+```sh
+DYLD_LIBRARY_PATH="$PWD/debug-maps/art-style-hero/milestones/stage2" \
+python3 tools/bench/capture_art_style_hero.py \
+  --asset-root debug-maps/art-style-hero/milestones/stage2 \
+  --manifest debug-maps/art-style-hero/milestones/stage2/hero-manifest.json \
+  --binary debug-maps/art-style-hero/milestones/stage2/places --play --views room
+```
+
+The parent checkpoint connector returned `thread not found`; ordinary task
+progress and this final completion receipt are the available communication path.
+That connection issue does not stop independent authorized Stage 2 work.

@@ -27,5 +27,6 @@
     "entities": true,
     "corner": true
   },
-  "sealed_diagnostic_final_equals_normal": true
+  "sealed_diagnostic_final_equals_normal": true,
+  "preserved_stage2_snapshot_room_matches_final": true
 }

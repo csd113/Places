@@ -189,3 +189,9 @@ SDL outside target; Stage 1 replay reproduces its original room. This entry join
 the existing chronological story for the eventual seven-stage comparison, without
 creating a video or replacing the initial pixels. Verified implementation, remote
 commit and CI links are recorded in [the Stage 2 handoff](../art-style/stage2/handoff.md).
+
+[Stage 2 implementation b34e1dd](https://github.com/csd113/Places/commit/b34e1dd6d8dcdf43280a35c9644bcb567905e492)
+is pushed and its exact remote identity is verified. Both local milestone bundles
+hash-verify and replay their matched room pixels; [snapshot receipts](../art-style/stage2/stage2-snapshot.json)
+pin binaries, assets and settings. CI and final ownership release are recorded
+in [the publication handoff](../art-style/stage2/handoff.md).

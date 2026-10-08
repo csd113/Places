@@ -1129,5 +1129,8 @@
     "debug-maps/art-style-hero/milestones/stage1",
     "debug-maps/art-style-hero/milestones/stage2"
   ],
-  "replay_revision_mapping": "Verified implementation link and snapshot receipt will be sealed after the implementation commit."
+  "replay_revision_mapping": "stage1=94d22f04a83156a3fe8ad9d16ef6d22732dc9818; stage2=b34e1dd6d8dcdf43280a35c9644bcb567905e492. Both snapshot receipts and native room equality are retained. All snapshot files hash-verified and made read-only.",
+  "implementation_revision": "b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+  "implementation_url": "https://github.com/csd113/Places/commit/b34e1dd6d8dcdf43280a35c9644bcb567905e492",
+  "implementation_remote_verified": true
 }

@@ -134,13 +134,15 @@ Local runnable snapshots live outside target at
 `debug-maps/art-style-hero/milestones/stage1` and `.../stage2`.
 They preserve exact player/diagnostic/compiler binaries, hero source/package,
 camera manifests, catalog, hash-verified asset dependencies and native SDL runtime.
-[Stage 1 receipt](stage1-snapshot.json) and Stage 2 receipt record their identities.
-The Stage 1 snapshot's room replay byte-matches the original baseline. These
+[Stage 1 receipt](stage1-snapshot.json) and [Stage 2 receipt](stage2-snapshot.json)
+record all41 files in each local bundle. The Stage 2 bundle contains192,471,565
+bytes. Both bundles are hash-verified and their files made read-only.
+Both snapshots' room replays byte-match their original/final native gallery. These
 native macOS bundles are local, ignored artifacts, not cross-platform distribution
 or fabricated replay/video. Preserve them throughout the seven-stage queue.
 
 Use `snapshot_art_style_hero.py` to create a **new** milestone; it refuses an
 existing destination. Use the canonical capture tool with `--asset-root`, the
-snapshot's replay manifest/player and a new output path. Snapshot paths and
-revision associations will be finalized with verified publication links in the
-handoff. No `cargo clean` is run while later stages need these artifacts.
+snapshot's replay manifest/player and a new output path. [Implementation b34e1dd](https://github.com/csd113/Places/commit/b34e1dd6d8dcdf43280a35c9644bcb567905e492)
+is pushed and verified on origin/Art-style; the snapshot receipt pins that code
+and exact package/assets. [Publication validation](handoff.md) records CI. No `cargo clean` is run while later stages need these artifacts.
