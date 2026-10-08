@@ -121,8 +121,8 @@ match the normal player in [the parity receipt](diagnostics/final-parity/equalit
 Eight inset bind-bounds anchors and clamped pose support are approximations.
 Characters provide floor bounds proxies, not full posed body ray shadows; rigid
 objects use actual triangle/PNG-alpha casters. Eight soft footprints add no draw
-or texture and cap total diffuse removal at 22%. Doors do not rebake static atlas
-indirect. Legacy v2/no-selected-source fields retain the prior center path.
+or texture and cap total diffuse removal at 22%. Doors do not recompute static atlas direct or indirect; moving ray occlusion
+applies to entity receivers and floor footprints provide approximate static grounding. Legacy v2/no-selected-source fields retain the prior center path.
 The conservative global caster revision costs 7.56 ms whole-engine update for
 32 receivers while one caster moves, versus 0.70 ms stationary. The measured
 original-view GPU increase is 0.306 ms. [Performance](performance.md) reports

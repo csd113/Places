@@ -90,7 +90,9 @@ Supported hero cases meet the scoped acceptance criteria. No known essential
 hero lighting or live-quality failure remains. This does not turn bounded
 approximations into general simulation: eight support corners/clamped bind bounds,
 64 admitted rigid casters, eight floor proxies and skinned bounds rather than posed
-body rays remain. Static atlas indirect does not respond to door movement; entity
+body rays remain. Static atlas direct and indirect remain baked during door movement; current ray
+occlusion applies to entity receivers, while static floor grounding uses the
+bounded footprint approximation. Entity
 switchable diffuse bounce is absent from base probes. Legacy v2 and newly compiled
 fields with no selected always-on source retain center sampling. These are disclosed
 input/feature limits, not brightness compensation or hidden Stage 7 failures.

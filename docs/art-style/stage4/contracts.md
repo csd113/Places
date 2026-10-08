@@ -74,7 +74,9 @@ Suspended subjects fade, entity bodies do not receive their own footprint, and
 aggregate diffuse removal is capped at 22%. This is approximate grounding, not
 mesh-silhouette shadow maps or general animated occlusion. It adds no shadow draw
 or texture. Skinned bodies use these bounds footprints rather than full posed ray casters.
-Static prepared atlases do not recompute their indirect field when a door moves.
+Static prepared atlases do not recompute their direct or indirect field when a
+door moves; current ray occlusion applies to entity receivers, while static floor
+grounding uses the bounded footprint approximation.
 Any remaining acceptance failures belong in this stage report, never in the
 unrelated Stage 7 map ledger.
 

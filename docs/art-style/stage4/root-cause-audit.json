@@ -25,7 +25,7 @@
   "remaining_approximations": [
     "eight slightly inset bind-bounds support anchors and clamped animation support; preserves actual geometry bounds",
     "64 regular rigid casters; skinned bodies provide floor-bound contact proxies rather than posed body rays",
-    "eight soft floor footprints, 22% aggregate cap; static atlas indirect does not rebake with doors",
+    "eight soft floor footprints, 22% aggregate cap; static atlas direct and indirect remain baked with doors; moving ray occlusion applies to entity receivers, static grounding uses floor proxies",
     "global caster revision invalidates every receiver conservatively; final visible32 update median0.699ms stationary,7.559ms moving; includes command dispatch/logging",
     "switchable entity direct is live; switched diffuse bounce absent from base field"
   ],
